@@ -180,6 +180,10 @@ public class GraphQLEngineFactory {
   private ViewService viewService;
 
   @Autowired
+  @Qualifier("columnViewService")
+  private com.linkedin.metadata.service.ColumnViewService columnViewService;
+
+  @Autowired
   @Qualifier("ownerShipTypeService")
   private OwnershipTypeService ownershipTypeService;
 
@@ -299,6 +303,8 @@ public class GraphQLEngineFactory {
     args.setTestsConfiguration(configProvider.getMetadataTests());
     args.setDatahubConfiguration(configProvider.getDatahub());
     args.setViewsConfiguration(configProvider.getViews());
+    args.setColumnViewsConfiguration(configProvider.getColumnViews());
+    args.setGraphService(graphService);
     args.setSearchBarConfiguration(configProvider.getSearchBar());
     args.setSearchCardConfiguration(configProvider.getSearchCard());
     args.setSearchFlagsConfiguration(configProvider.getSearchFlags());
@@ -309,6 +315,7 @@ public class GraphQLEngineFactory {
     args.setInviteTokenService(inviteTokenService);
     args.setPostService(postService);
     args.setViewService(viewService);
+    args.setColumnViewService(columnViewService);
     args.setOwnershipTypeService(ownershipTypeService);
     args.setSettingsService(settingsService);
     args.setLineageService(lineageService);

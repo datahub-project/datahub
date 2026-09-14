@@ -1,0 +1,28 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.common.Urn
+import com.linkedin.view.DataHubColumnViewTarget
+
+/**
+ * Settings for the DataHub Column Views feature.
+ */
+record GlobalColumnViewsSettings {
+  /**
+   * The default Column View for the instance, or organization, per target table.
+   */
+  defaults: array[record GlobalColumnViewDefault {
+    /**
+     * The table this default applies to.
+     */
+    target: DataHubColumnViewTarget
+
+    /**
+     * The default Column View for that table.
+     */
+    @Relationship = {
+      "name": "columnViewedWith",
+      "entityTypes": [ "dataHubColumnView" ]
+    }
+    view: Urn
+  }] = [ ]
+}

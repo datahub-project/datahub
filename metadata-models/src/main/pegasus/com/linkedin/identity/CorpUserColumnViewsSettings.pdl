@@ -1,0 +1,24 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Urn
+import com.linkedin.view.DataHubColumnViewTarget
+
+/**
+ * Settings related to the 'Column Views' feature.
+ */
+record CorpUserColumnViewsSettings {
+  /**
+   * The default Column View selected by the user, per target table.
+   */
+  defaults: array[record CorpUserColumnViewDefault {
+    /**
+     * The table this default applies to.
+     */
+    target: DataHubColumnViewTarget
+
+    /**
+     * The default Column View for that table.
+     */
+    view: Urn
+  }] = [ ]
+}

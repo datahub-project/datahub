@@ -81,6 +81,8 @@ public class GmsGraphQLEngineArgs {
   TestsConfiguration testsConfiguration;
   DataHubConfiguration datahubConfiguration;
   ViewsConfiguration viewsConfiguration;
+  ColumnViewsConfiguration columnViewsConfiguration;
+  com.linkedin.metadata.graph.GraphService graphService;
   SearchBarConfiguration searchBarConfiguration;
   SearchCardConfiguration searchCardConfiguration;
   SearchFlagsConfiguration searchFlagsConfiguration;
@@ -91,6 +93,7 @@ public class GmsGraphQLEngineArgs {
   InviteTokenService inviteTokenService;
   PostService postService;
   ViewService viewService;
+  com.linkedin.metadata.service.ColumnViewService columnViewService;
   OwnershipTypeService ownershipTypeService;
   SettingsService settingsService;
   LineageService lineageService;

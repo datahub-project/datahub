@@ -7,7 +7,7 @@ import com.linkedin.event.notification.settings.NotificationSettings
  */
 @Aspect = {
   "name": "corpUserSettings",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record CorpUserSettings {
   /**
@@ -19,6 +19,11 @@ record CorpUserSettings {
    * User preferences for the Views feature.
    */
   views: optional CorpUserViewsSettings
+
+  /**
+   * User preferences for the Column Views feature.
+   */
+  columnViews: optional CorpUserColumnViewsSettings
 
   /**
    * Notification settings for a user

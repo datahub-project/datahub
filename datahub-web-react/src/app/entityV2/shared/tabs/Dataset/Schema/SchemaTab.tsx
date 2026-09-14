@@ -6,6 +6,7 @@ import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { ColumnViewProvider } from '@app/entityV2/columnView/ColumnViewContext';
 import SchemaHeader from '@app/entityV2/dataset/profile/schema/components/SchemaHeader';
 import SchemaRawView from '@app/entityV2/dataset/profile/schema/components/SchemaRawView';
 import { SEMANTIC_VERSION_PARAM } from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
@@ -60,7 +61,16 @@ const DEFAULT_SCHEMA_FILTER_TYPES = [
     SchemaFilterType.Terms,
 ];
 
-export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderType; properties?: any }) => {
+type SchemaTabProps = { renderType: TabRenderType; properties?: any };
+
+/** Column Views: the provider must sit above both SchemaHeader (Columns control) and SchemaTable. */
+export const SchemaTab = (props: SchemaTabProps) => (
+    <ColumnViewProvider>
+        <SchemaTabInner {...props} />
+    </ColumnViewProvider>
+);
+
+const SchemaTabInner = ({ renderType, properties }: SchemaTabProps) => {
     const entityRegistry = useEntityRegistry();
     const { urn, entityType, entityData } = useEntityData();
     const { logicalModelsEnabled } = useAppConfig().config.featureFlags;

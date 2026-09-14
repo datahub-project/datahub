@@ -1,0 +1,113 @@
+namespace com.linkedin.view
+
+import com.linkedin.common.Urn
+
+/**
+ * A single column in a Column View. `type` is a flat enum that drives all dispatch; the optional
+ * `*Params` records carry the per-kind parameters and are opaque to dispatch. `display` is
+ * presentation only and is NOT part of the column's identity.
+ */
+record DataHubColumnViewColumn {
+  /**
+   * The kind of column. Which values are valid depends on the Column View's target.
+   */
+  type: DataHubColumnViewColumnType
+
+  /**
+   * Details for a STRUCTURED_PROPERTY column. Must be present if and only if type is STRUCTURED_PROPERTY.
+   */
+  structuredPropertyParams: optional record DataHubColumnViewStructuredPropertyParams {
+    /**
+     * The Structured Property whose values this column displays.
+     */
+    @Searchable = {
+      "fieldType": "URN",
+      "fieldName": "structuredPropertyUrns"
+    }
+    urn: Urn
+  }
+
+  /**
+   * Details for a LABEL column. Must be present if and only if type is LABEL.
+   */
+  labelParams: optional record DataHubColumnViewLabelParams {
+    /**
+     * The tag (urn:li:tag:...) or glossary term (urn:li:glossaryTerm:...) whose presence this column shows.
+     */
+    @Searchable = {
+      "fieldType": "URN",
+      "fieldName": "labelUrns"
+    }
+    urn: Urn
+  }
+
+  /**
+   * Presentation hints for the column. Not part of the column's identity; any kind may carry it.
+   */
+  display: optional record DataHubColumnViewColumnDisplay {
+    /**
+     * Column width in pixels.
+     */
+    width: optional int
+
+    /**
+     * How related fields are labelled in relationship columns.
+     */
+    labelStyle: optional enum DataHubColumnViewLabelStyle {
+      /**
+       * The field name only, disambiguated with the dataset name when two items collide.
+       */
+      FIELD_NAME
+
+      /**
+       * `<dataset>.<field>`.
+       */
+      DATASET_AND_FIELD
+
+      /**
+       * The full dataset path and field path.
+       */
+      FULL_PATH
+    }
+
+    /**
+     * How a list that does not fit is shortened.
+     */
+    overflow: optional enum DataHubColumnViewOverflow {
+      /**
+       * Show what fits, then `+N`.
+       */
+      COUNT
+
+      /**
+       * Show what fits, then an ellipsis.
+       */
+      ELLIPSIS
+    }
+
+    /**
+     * How the hidden remainder of a list is revealed.
+     */
+    expand: optional enum DataHubColumnViewExpand {
+      /**
+       * In a popover.
+       */
+      POPOVER
+
+      /**
+       * Expanded inline within the cell.
+       */
+      INLINE
+    }
+
+    /**
+     * Maximum number of items to fetch and show per cell before shortening.
+     */
+    maxItems: optional int
+
+    /**
+     * Free-form renderer hints (e.g. "renderer": "CHECK"). Never validated server-side.
+     */
+    custom: optional map[string, string]
+  }
+}

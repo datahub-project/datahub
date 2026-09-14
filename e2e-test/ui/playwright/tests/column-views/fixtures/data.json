@@ -1,0 +1,108 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:PlaywrightColumnViews",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "PlaywrightColumnViews",
+              "description": "Tag applied to schema fields used by the Column Views e2e suite"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SamplePlaywrightColumnViewsDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Hive dataset with a small schema for the Column Views e2e suite",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SamplePlaywrightColumnViewsSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SamplePlaywrightColumnViewsSchema\",\"namespace\":\"com.linkedin.dataset\",\"fields\":[{\"name\":\"user_id\",\"type\":[\"string\"]},{\"name\":\"email\",\"type\":[\"string\"]},{\"name\":\"created_at\",\"type\":[\"long\"]},{\"name\":\"is_active\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "user_id",
+                  "nullable": false,
+                  "description": "Primary key of the user",
+                  "type": { "type": { "com.linkedin.pegasus2avro.schema.StringType": {} } },
+                  "nativeDataType": "varchar(64)",
+                  "recursive": false,
+                  "isPartOfKey": true
+                },
+                {
+                  "fieldPath": "email",
+                  "nullable": true,
+                  "description": "Contact email; tagged so the Tags column has content",
+                  "type": { "type": { "com.linkedin.pegasus2avro.schema.StringType": {} } },
+                  "nativeDataType": "varchar(255)",
+                  "recursive": false,
+                  "globalTags": {
+                    "tags": [{ "tag": "urn:li:tag:PlaywrightColumnViews" }]
+                  }
+                },
+                {
+                  "fieldPath": "created_at",
+                  "nullable": false,
+                  "description": "Creation timestamp (epoch millis)",
+                  "type": { "type": { "com.linkedin.pegasus2avro.schema.NumberType": {} } },
+                  "nativeDataType": "bigint",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "is_active",
+                  "nullable": false,
+                  "description": "Whether the user is active",
+                  "type": { "type": { "com.linkedin.pegasus2avro.schema.BooleanType": {} } },
+                  "nativeDataType": "boolean",
+                  "recursive": false,
+                  "globalTags": {
+                    "tags": [{ "tag": "urn:li:tag:PlaywrightColumnViews" }]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]

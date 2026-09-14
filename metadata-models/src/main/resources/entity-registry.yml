@@ -675,6 +675,11 @@ entities:
     keyAspect: dataHubViewKey
     aspects:
       - dataHubViewInfo
+  - name: dataHubColumnView
+    category: core
+    keyAspect: dataHubColumnViewKey
+    aspects:
+      - dataHubColumnViewInfo
   - name: erModelRelationship
     doc: ER Model Relationship of  Dataset Fields
     keyAspect: erModelRelationshipKey

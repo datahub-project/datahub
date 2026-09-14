@@ -1739,6 +1739,10 @@ entityChangeEvents:
 views:
   enabled: ${VIEWS_ENABLED:true}
 
+columnViews:
+  # Max related items per schema field in a Column View relationship preview (and the ceiling for display.maxItems)
+  relationshipPreviewLimit: ${COLUMN_VIEWS_RELATIONSHIP_PREVIEW_LIMIT:5}
+
 searchBar:
   apiVariant: ${SEARCH_BAR_API_VARIANT:SEARCH_ACROSS_ENTITIES}
 

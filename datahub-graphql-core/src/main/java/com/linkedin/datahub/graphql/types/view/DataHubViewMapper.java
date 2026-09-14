@@ -57,6 +57,19 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
     view.setName(viewInfo.getName());
     view.setDescription(viewInfo.getDescription());
     view.setDefinition(mapViewDefinition(viewInfo.getDefinition()));
+    // SavedView interface fields shared with DataHubColumnView.
+    view.setCreated(mapAuditStamp(viewInfo.getCreated()));
+    view.setLastModified(mapAuditStamp(viewInfo.getLastModified()));
+  }
+
+  @Nonnull
+  private static com.linkedin.datahub.graphql.generated.AuditStamp mapAuditStamp(
+      @Nonnull final com.linkedin.common.AuditStamp stamp) {
+    final com.linkedin.datahub.graphql.generated.AuditStamp result =
+        new com.linkedin.datahub.graphql.generated.AuditStamp();
+    result.setTime(stamp.getTime());
+    result.setActor(stamp.getActor().toString());
+    return result;
   }
 
   @Nonnull
@@ -72,7 +85,7 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
   }
 
   @Nullable
-  private DataHubViewFilter mapFilter(
+  public static DataHubViewFilter mapFilter(
       @Nonnull final com.linkedin.metadata.query.filter.Filter filter) {
     // This assumes that people DO NOT emit Views on their own, since we expect that the Filter
     // structure is within
@@ -95,13 +108,13 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
 
   /** This simply converts a List of leaf criterion into the FacetFiler equivalent. */
   @Nonnull
-  private List<FacetFilter> mapAndFilters(@Nullable final List<Criterion> ands) {
+  private static List<FacetFilter> mapAndFilters(@Nullable final List<Criterion> ands) {
     // If the array is missing, return empty array.
     if (ands == null) {
       log.warn("Found a View without any AND filter criteria. Returning empty filter list.");
       return Collections.emptyList();
     }
-    return ands.stream().map(this::mapCriterion).collect(Collectors.toList());
+    return ands.stream().map(DataHubViewMapper::mapCriterion).collect(Collectors.toList());
   }
 
   /**
@@ -110,7 +123,7 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
    * criterion contains at maximum one nested condition.
    */
   @Nonnull
-  private List<FacetFilter> mapOrFilters(@Nullable final List<ConjunctiveCriterion> ors) {
+  private static List<FacetFilter> mapOrFilters(@Nullable final List<ConjunctiveCriterion> ors) {
     if (ors == null) {
       log.warn("Found a View without any OR filter criteria. Returning empty filter list.");
       return Collections.emptyList();
@@ -127,12 +140,12 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
     return ors.stream()
         .filter(or -> or.hasAnd() && or.getAnd().size() == 1)
         .map(or -> or.getAnd().get(0))
-        .map(this::mapCriterion)
+        .map(DataHubViewMapper::mapCriterion)
         .collect(Collectors.toList());
   }
 
   @Nonnull
-  private FacetFilter mapCriterion(@Nonnull final Criterion andFilter) {
+  private static FacetFilter mapCriterion(@Nonnull final Criterion andFilter) {
     final FacetFilter result = new FacetFilter();
     result.setField(stripKeyword(andFilter.getField()));
     result.setValues(andFilter.getValues());
@@ -145,7 +158,7 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
     return result;
   }
 
-  private String stripKeyword(final String fieldName) {
+  private static String stripKeyword(final String fieldName) {
     // When the Filter is persisted, it may include a .keyword suffix.
     if (fieldName.endsWith(KEYWORD_FILTER_SUFFIX)) {
       return fieldName.substring(0, fieldName.length() - KEYWORD_FILTER_SUFFIX.length());

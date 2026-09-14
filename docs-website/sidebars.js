@@ -484,6 +484,11 @@ module.exports = {
           id: "docs/features/feature-guides/custom-home-page",
         },
         {
+          label: "Column Views",
+          type: "doc",
+          id: "docs/features/feature-guides/column-views/overview",
+        },
+        {
           label: "Data Contract",
           type: "doc",
           id: "docs/managed-datahub/observe/data-contract",

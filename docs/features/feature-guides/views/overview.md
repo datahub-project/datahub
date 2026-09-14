@@ -16,6 +16,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 - **Onboard new users faster** — set an organization-wide default so new users land on a curated, relevant slice of the catalog.
 - **Scope AI agents** — assign a View to a [service account](/docs/features/feature-guides/service-accounts.md) so that [MCP server](/docs/features/feature-guides/mcp.md) searches stay within a defined boundary.
 
+:::note Looking to customize a dataset's schema table?
+Views filter which assets you see. To choose which columns appear in a dataset's schema table, see [Column Views](/docs/features/feature-guides/column-views/overview.md).
+:::
+
 ## Public vs. Personal Views
 
 | Type                   | Visible to       | Who can create | Can be set as                         |

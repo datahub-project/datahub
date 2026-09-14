@@ -127,6 +127,11 @@ public class CorpUserMapper {
       result.setViews(mapCorpUserViewsSettings(corpUserSettings.getViews()));
     }
 
+    // Map Column Views Settings.
+    if (corpUserSettings.hasColumnViews()) {
+      result.setColumnViews(mapCorpUserColumnViewsSettings(corpUserSettings.getColumnViews()));
+    }
+
     // Map Home page Settings.
     if (corpUserSettings.hasHomePage()) {
       result.setHomePage(mapCorpUserHomePageSettings(corpUserSettings.getHomePage()));
@@ -171,6 +176,32 @@ public class CorpUserMapper {
     }
 
     return viewsResult;
+  }
+
+  @Nonnull
+  private com.linkedin.datahub.graphql.generated.CorpUserColumnViewsSettings
+      mapCorpUserColumnViewsSettings(
+          @Nonnull final com.linkedin.identity.CorpUserColumnViewsSettings settings) {
+    final com.linkedin.datahub.graphql.generated.CorpUserColumnViewsSettings result =
+        new com.linkedin.datahub.graphql.generated.CorpUserColumnViewsSettings();
+    result.setDefaults(
+        settings.getDefaults().stream()
+            .map(
+                d -> {
+                  final com.linkedin.datahub.graphql.generated.DataHubColumnView unresolved =
+                      new com.linkedin.datahub.graphql.generated.DataHubColumnView();
+                  unresolved.setUrn(d.getView().toString());
+                  unresolved.setType(EntityType.DATAHUB_COLUMN_VIEW);
+                  final com.linkedin.datahub.graphql.generated.CorpUserColumnViewDefault out =
+                      new com.linkedin.datahub.graphql.generated.CorpUserColumnViewDefault();
+                  out.setTarget(
+                      com.linkedin.datahub.graphql.generated.DataHubColumnViewTarget.valueOf(
+                          d.getTarget().toString()));
+                  out.setView(unresolved);
+                  return out;
+                })
+            .collect(java.util.stream.Collectors.toList()));
+    return result;
   }
 
   @Nonnull

@@ -63,6 +63,9 @@ public class EntityTypeUrnMapper {
           .put(Constants.POST_ENTITY_NAME, "urn:li:entityType:datahub.post")
           .put(Constants.SCHEMA_FIELD_ENTITY_NAME, "urn:li:entityType:datahub.schemaField")
           .put(Constants.DATAHUB_VIEW_ENTITY_NAME, "urn:li:entityType:datahub.dataHubView")
+          .put(
+              Constants.DATAHUB_COLUMN_VIEW_ENTITY_NAME,
+              "urn:li:entityType:datahub.dataHubColumnView")
           .put(Constants.QUERY_ENTITY_NAME, "urn:li:entityType:datahub.query")
           .put(Constants.DATA_PRODUCT_ENTITY_NAME, "urn:li:entityType:datahub.dataProduct")
           .put(Constants.OWNERSHIP_TYPE_ENTITY_NAME, "urn:li:entityType:datahub.ownershipType")

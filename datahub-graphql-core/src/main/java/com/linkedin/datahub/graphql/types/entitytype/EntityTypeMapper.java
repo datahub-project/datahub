@@ -47,6 +47,7 @@ public class EntityTypeMapper {
           .put(EntityType.POST, Constants.POST_ENTITY_NAME)
           .put(EntityType.SCHEMA_FIELD, Constants.SCHEMA_FIELD_ENTITY_NAME)
           .put(EntityType.DATAHUB_VIEW, Constants.DATAHUB_VIEW_ENTITY_NAME)
+          .put(EntityType.DATAHUB_COLUMN_VIEW, Constants.DATAHUB_COLUMN_VIEW_ENTITY_NAME)
           .put(EntityType.QUERY, Constants.QUERY_ENTITY_NAME)
           .put(EntityType.DATA_PRODUCT, Constants.DATA_PRODUCT_ENTITY_NAME)
           .put(EntityType.CUSTOM_OWNERSHIP_TYPE, Constants.OWNERSHIP_TYPE_ENTITY_NAME)

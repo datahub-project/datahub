@@ -36,6 +36,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final TestsConfiguration _testsConfiguration;
   private final DataHubConfiguration _datahubConfiguration;
   private final ViewsConfiguration _viewsConfiguration;
+  private final ColumnViewsConfiguration _columnViewsConfiguration;
   private final SearchBarConfiguration _searchBarConfig;
   private final SearchCardConfiguration _searchCardConfig;
   private final SearchFlagsConfiguration _searchFlagsConfig;
@@ -58,6 +59,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final TestsConfiguration testsConfiguration,
       final DataHubConfiguration datahubConfiguration,
       final ViewsConfiguration viewsConfiguration,
+      final ColumnViewsConfiguration columnViewsConfiguration,
       final SearchBarConfiguration searchBarConfig,
       final SearchCardConfiguration searchCardConfig,
       final SearchFlagsConfiguration searchFlagsConfig,
@@ -78,6 +80,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _testsConfiguration = testsConfiguration;
     _datahubConfiguration = datahubConfiguration;
     _viewsConfiguration = viewsConfiguration;
+    _columnViewsConfiguration = columnViewsConfiguration;
     _searchBarConfig = searchBarConfig;
     _searchCardConfig = searchCardConfig;
     _searchFlagsConfig = searchFlagsConfig;
@@ -215,6 +218,13 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final ViewsConfig viewsConfig = new ViewsConfig();
     viewsConfig.setEnabled(_viewsConfiguration.isEnabled());
     appConfig.setViewsConfig(viewsConfig);
+
+    final ColumnViewsConfig columnViewsConfig = new ColumnViewsConfig();
+    columnViewsConfig.setRelationshipPreviewLimit(
+        _columnViewsConfiguration != null
+            ? _columnViewsConfiguration.getRelationshipPreviewLimit()
+            : 5);
+    appConfig.setColumnViewsConfig(columnViewsConfig);
 
     final SearchBarConfig searchBarConfig = new SearchBarConfig();
     try {

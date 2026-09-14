@@ -1320,6 +1320,11 @@ enum EntityType {
   DATAHUB_VIEW
 
   """
+  A DataHub Column View
+  """
+  DATAHUB_COLUMN_VIEW
+
+  """
   A dataset query
   """
   QUERY
@@ -4622,6 +4627,11 @@ type CorpUserSettings {
   Settings related to the DataHub Views feature
   """
   views: CorpUserViewsSettings
+
+  """
+  Settings related to the DataHub Column Views feature
+  """
+  columnViews: CorpUserColumnViewsSettings
 
   """
   Settings related to the home page for a user
@@ -13100,7 +13110,7 @@ enum DataHubViewType {
 """
 An DataHub View - Filters that are applied across the application automatically.
 """
-type DataHubView implements Entity {
+type DataHubView implements Entity & SavedView {
   """
   The primary key of the View
   """
@@ -13131,6 +13141,16 @@ type DataHubView implements Entity {
   """
   definition: DataHubViewDefinition!
     @aspectMapping(aspects: ["dataHubViewInfo"])
+
+  """
+  When and by whom the View was created (SavedView)
+  """
+  created: AuditStamp @aspectMapping(aspects: ["dataHubViewInfo"])
+
+  """
+  When and by whom the View was last modified (SavedView)
+  """
+  lastModified: AuditStamp @aspectMapping(aspects: ["dataHubViewInfo"])
 
   """
   Granular API for querying edges extending from the View

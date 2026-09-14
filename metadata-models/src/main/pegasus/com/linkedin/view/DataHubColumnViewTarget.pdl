@@ -1,0 +1,11 @@
+namespace com.linkedin.view
+
+/**
+ * The table that a Column View configures.
+ */
+enum DataHubColumnViewTarget {
+  /**
+   * The Columns table on a dataset's Schema tab.
+   */
+  DATASET_SCHEMA_FIELDS
+}

@@ -1,0 +1,146 @@
+fragment columnViewColumn on DataHubColumnViewColumn {
+    type
+    structuredPropertyParams {
+        structuredProperty {
+            urn
+            type
+            ...structuredPropertyFields
+        }
+    }
+    labelParams {
+        label {
+            urn
+            type
+            ... on Tag {
+                name
+                properties {
+                    name
+                    colorHex
+                }
+            }
+            ... on GlossaryTerm {
+                name
+                hierarchicalName
+                properties {
+                    name
+                }
+            }
+        }
+    }
+    display {
+        width
+        labelStyle
+        overflow
+        expand
+        maxItems
+        custom {
+            key
+            value
+        }
+    }
+}
+
+fragment columnView on DataHubColumnView {
+    urn
+    type
+    viewType
+    target
+    name
+    description
+    definition {
+        columns {
+            ...columnViewColumn
+        }
+        sort {
+            column {
+                ...columnViewColumn
+            }
+            order
+        }
+        filter {
+            operator
+            filters {
+                field
+                condition
+                values
+                negated
+            }
+        }
+    }
+    created {
+        time
+        actor
+    }
+    lastModified {
+        time
+        actor
+    }
+}
+
+fragment listColumnViewResults on ListColumnViewsResult {
+    start
+    count
+    total
+    columnViews {
+        ...columnView
+    }
+}
+
+query listMyColumnViews(
+    $viewType: DataHubViewType
+    $target: DataHubColumnViewTarget
+    $start: Int!
+    $count: Int!
+    $query: String
+) {
+    listMyColumnViews(
+        input: { viewType: $viewType, target: $target, start: $start, count: $count, query: $query }
+    ) {
+        ...listColumnViewResults
+    }
+}
+
+query listGlobalColumnViews($target: DataHubColumnViewTarget, $start: Int!, $count: Int!, $query: String) {
+    listGlobalColumnViews(input: { target: $target, start: $start, count: $count, query: $query }) {
+        ...listColumnViewResults
+    }
+}
+
+query getColumnView($urn: String!) {
+    columnView(urn: $urn) {
+        ...columnView
+    }
+}
+
+query getGlobalColumnViewsSettings {
+    globalColumnViewsSettings {
+        defaults {
+            target
+            view
+        }
+    }
+}
+
+mutation createColumnView($input: CreateColumnViewInput!) {
+    createColumnView(input: $input) {
+        ...columnView
+    }
+}
+
+mutation updateColumnView($urn: String!, $input: UpdateColumnViewInput!) {
+    updateColumnView(urn: $urn, input: $input) {
+        ...columnView
+    }
+}
+
+mutation deleteColumnView($urn: String!) {
+    deleteColumnView(urn: $urn)
+}
+
+mutation updateCorpUserColumnViewsSettings($input: UpdateCorpUserColumnViewsSettingsInput!) {
+    updateCorpUserColumnViewsSettings(input: $input)
+}
+
+mutation updateGlobalColumnViewsSettings($input: UpdateGlobalColumnViewsSettingsInput!) {
+    updateGlobalColumnViewsSettings(input: $input)
+}

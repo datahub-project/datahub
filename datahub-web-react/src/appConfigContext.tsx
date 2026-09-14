@@ -46,6 +46,9 @@ export const DEFAULT_APP_CONFIG = {
     viewsConfig: {
         enabled: false,
     },
+    columnViewsConfig: {
+        relationshipPreviewLimit: 5,
+    },
     searchBarConfig: {
         apiVariant: SearchBarApi.AutocompleteForMultiple,
     },

@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
@@ -68,6 +69,9 @@ import org.opensearch.script.Script;
 import org.opensearch.script.ScriptType;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
+import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.metrics.TopHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
@@ -210,6 +214,84 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
     return new RelatedEntitiesResult(offset, relationships.size(), totalCount, relationships);
+  }
+
+  private static final String PER_SOURCE_AGG = "perSource";
+  private static final String TOP_HITS_AGG = "topHits";
+
+  /**
+   * Single request: {@code terms} on the source-side urn field (size = number of sources) with a
+   * {@code top_hits} sub-aggregation of size k; bucket doc_count is the per-source total.
+   *
+   * <pre>
+   * { "size": 0,
+   *   "query": { "bool": { "filter": [
+   *       { "terms": { "source.urn": [...] } },            // destination.urn for INCOMING
+   *       { "term":  { "relationshipType": "DownstreamOf" } } ] } },
+   *   "aggs": { "perSource": { "terms": { "field": "source.urn", "size": N },
+   *             "aggs": { "topHits": { "top_hits": { "size": k } } } } } }
+   * </pre>
+   */
+  @Override
+  @Nonnull
+  public Map<Urn, RelatedEntitiesResult> getRelatedEntitiesTopKPerSource(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Urn> sourceUrns,
+      @Nonnull final String relationshipType,
+      @Nonnull final RelationshipDirection direction,
+      final int k) {
+    if (sourceUrns.isEmpty()) {
+      return Collections.emptyMap();
+    }
+    final String sourceField =
+        direction == RelationshipDirection.OUTGOING
+            ? com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.SOURCE_URN
+            : com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.DESTINATION_URN;
+    final List<String> urnStrings =
+        sourceUrns.stream().map(Urn::toString).collect(Collectors.toList());
+    final BoolQueryBuilder query =
+        QueryBuilders.boolQuery()
+            .filter(QueryBuilders.termsQuery(sourceField, urnStrings))
+            .filter(
+                QueryBuilders.termQuery(
+                    com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.RELATIONSHIP_TYPE,
+                    relationshipType));
+    final SearchSourceBuilder source =
+        new SearchSourceBuilder()
+            .query(query)
+            .size(0)
+            .aggregation(
+                AggregationBuilders.terms(PER_SOURCE_AGG)
+                    .field(sourceField)
+                    .size(sourceUrns.size())
+                    .subAggregation(AggregationBuilders.topHits(TOP_HITS_AGG).size(k)));
+    final SearchRequest request =
+        new SearchRequest()
+            .source(source)
+            .indices(
+                opContext
+                    .getSearchContext()
+                    .getIndexConvention()
+                    .getIndexName(opContext, INDEX_NAME));
+
+    final SearchResponse response = graphReadDAO.executeSearch(opContext, request);
+    final Map<Urn, RelatedEntitiesResult> result = new HashMap<>();
+    if (response == null || response.getAggregations() == null) {
+      return result;
+    }
+    final Terms perSource = response.getAggregations().get(PER_SOURCE_AGG);
+    for (Terms.Bucket bucket : perSource.getBuckets()) {
+      final TopHits topHits = bucket.getAggregations().get(TOP_HITS_AGG);
+      final List<RelatedEntity> related =
+          searchHitsToRelatedEntities(topHits.getHits().getHits(), direction).stream()
+              .map(RelatedEntities::asRelatedEntity)
+              .filter(Objects::nonNull)
+              .collect(Collectors.toList());
+      result.put(
+          UrnUtils.getUrn(bucket.getKeyAsString()),
+          new RelatedEntitiesResult(0, related.size(), (int) bucket.getDocCount(), related));
+    }
+    return result;
   }
 
   @Nonnull

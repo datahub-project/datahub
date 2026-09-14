@@ -1045,6 +1045,57 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  public AspectPayloadValidator columnViewInfoValidator() {
+    return new com.linkedin.metadata.columnview.validation.ColumnViewInfoValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(
+                    com.linkedin.metadata.columnview.validation.ColumnViewInfoValidator.class
+                        .getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATAHUB_COLUMN_VIEW_ENTITY_NAME)
+                            .aspectName(DATAHUB_COLUMN_VIEW_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  /**
+   * Column Views: when a structured property, tag or glossary term is hard-deleted, remove the
+   * referencing columns / sort / filter criteria from every dataHubColumnView (never deletes the
+   * view). Hard deletes surface as key-aspect DELETE MCLs, hence the key aspects below.
+   */
+  @Bean
+  public MCPSideEffect columnViewReferenceDeleteSideEffect() {
+    return new com.linkedin.metadata.columnview.hooks.ColumnViewReferenceDeleteSideEffect()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(
+                    com.linkedin.metadata.columnview.hooks.ColumnViewReferenceDeleteSideEffect.class
+                        .getName())
+                .enabled(true)
+                .supportedOperations(List.of(DELETE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                            .aspectName(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(TAG_ENTITY_NAME)
+                            .aspectName(TAG_KEY_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(GLOSSARY_TERM_ENTITY_NAME)
+                            .aspectName(GLOSSARY_TERM_KEY_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
   public AspectPayloadValidator logicalParentFieldPathValidator() {
     return new LogicalParentFieldPathValidator()
         .setConfig(

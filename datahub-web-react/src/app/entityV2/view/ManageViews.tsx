@@ -2,11 +2,12 @@ import { Button, PageTitle, Tabs } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { Tab } from '@components/components/Tabs/Tabs';
 
+import ManageColumnViews from '@app/entityV2/columnView/ManageColumnViews';
 import { ViewsList } from '@app/entityV2/view/ViewsList';
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
@@ -81,14 +82,23 @@ const tabUrlMap = {
     [TabType.Global]: '/settings/views/public',
 };
 
+type OuterTab = 'assets' | 'columns';
+const COLUMNS_PATH = '/settings/views/columns';
+
 /**
  * Component used for displaying the 'Manage Views' experience.
  */
 export const ManageViews = () => {
     const { t } = useTranslation('entity.views');
     const location = useLocation();
+    const history = useHistory();
     const [showViewBuilder, setShowViewBuilder] = useState(false);
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
+    // Tabs navigates with replaceState, which react-router never observes, so the outer tab must
+    // be local state seeded from the path rather than derived from useLocation on every render.
+    const [outerTab, setOuterTab] = useState<OuterTab>(
+        location.pathname.startsWith(COLUMNS_PATH) ? 'columns' : 'assets',
+    );
 
     const onCloseModal = () => {
         setShowViewBuilder(false);
@@ -140,12 +150,33 @@ export const ManageViews = () => {
                 </HeaderActionsContainer>
             </PageHeaderContainer>
             <ListContainer>
+                {/* Column Views: top-level Assets | Columns split; Assets keeps the personal/public tabs. */}
                 <Tabs
-                    tabs={tabs}
-                    selectedTab={selectedTab as string}
-                    onChange={(tab) => setSelectedTab(tab as TabType)}
-                    urlMap={tabUrlMap}
-                    defaultTab={TabType.Personal}
+                    tabs={[
+                        {
+                            key: 'assets',
+                            name: t('columnViews.settingsAssets'),
+                            component: (
+                                <Tabs
+                                    tabs={tabs}
+                                    selectedTab={selectedTab as string}
+                                    onChange={(tab) => setSelectedTab(tab as TabType)}
+                                    urlMap={tabUrlMap}
+                                    defaultTab={TabType.Personal}
+                                />
+                            ),
+                        },
+                        {
+                            key: 'columns',
+                            name: t('columnViews.settingsColumns'),
+                            component: <ManageColumnViews />,
+                        },
+                    ]}
+                    selectedTab={outerTab}
+                    onChange={(tab) => setOuterTab(tab as OuterTab)}
+                    onUrlChange={(url) => history.replace(url)}
+                    urlMap={{ assets: '/settings/views/personal', columns: COLUMNS_PATH }}
+                    defaultTab="assets"
                 />
             </ListContainer>
             {showViewBuilder && (

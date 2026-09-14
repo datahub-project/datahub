@@ -999,7 +999,39 @@ fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
     }
 }
 
-fragment entitySchemaFieldFields on SchemaField {
+# Schema-tab (Column Views) variant of entitySchemaFieldEntityFields: identical selections, with the
+# per-field entity aspects gated on what the active Column View needs. Only getDatasetSchema
+# declares these variables (defaulting to true = legacy behavior), so the shared fragment above and
+# every other operation spreading it are untouched.
+fragment schemaTabSchemaFieldEntityFields on SchemaFieldEntity {
+    deprecation {
+        ...deprecationFields
+    }
+    urn
+    fieldPath
+    type
+    structuredProperties @include(if: $includeStructuredProperties) {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    businessAttributes @include(if: $includeBusinessAttribute) {
+        businessAttribute {
+            ...businessAttribute
+        }
+    }
+    documentation {
+        ...documentationFields
+    }
+    tags @include(if: $includeFieldLabels) {
+        ...globalTagsFields
+    }
+    glossaryTerms @include(if: $includeFieldLabels) {
+        ...glossaryTerms
+    }
+}
+
+fragment schemaFieldFieldsBase on SchemaField {
     fieldPath
     label
     jsonPath
@@ -1016,12 +1048,23 @@ fragment entitySchemaFieldFields on SchemaField {
     glossaryTerms {
         ...glossaryTerms
     }
+}
+
+fragment entitySchemaFieldFields on SchemaField {
+    ...schemaFieldFieldsBase
     schemaFieldEntity {
         ...entitySchemaFieldEntityFields
     }
 }
 
-fragment schemaMetadataFields on SchemaMetadata {
+fragment schemaTabSchemaFieldFields on SchemaField {
+    ...schemaFieldFieldsBase
+    schemaFieldEntity {
+        ...schemaTabSchemaFieldEntityFields
+    }
+}
+
+fragment schemaMetadataFieldsBase on SchemaMetadata {
     aspectVersion
     createdAt
     datasetUrn
@@ -1038,9 +1081,6 @@ fragment schemaMetadataFields on SchemaMetadata {
             keySchema
             valueSchema
         }
-    }
-    fields {
-        ...entitySchemaFieldFields
     }
     primaryKeys
     foreignKeys {
@@ -1074,6 +1114,20 @@ fragment schemaMetadataFields on SchemaMetadata {
                 ...glossaryTerms
             }
         }
+    }
+}
+
+fragment schemaMetadataFields on SchemaMetadata {
+    ...schemaMetadataFieldsBase
+    fields {
+        ...entitySchemaFieldFields
+    }
+}
+
+fragment schemaTabSchemaMetadataFields on SchemaMetadata {
+    ...schemaMetadataFieldsBase
+    fields {
+        ...schemaTabSchemaFieldFields
     }
 }
 

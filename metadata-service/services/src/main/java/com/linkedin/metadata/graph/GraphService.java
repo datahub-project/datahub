@@ -134,6 +134,43 @@ public interface GraphService {
       @Nullable Integer count);
 
   /**
+   * The first {@code k} entities related to EACH of {@code sourceUrns} over one relationship type
+   * and direction, plus the per-source total, in one call. Used by Column View relationship
+   * previews, where a page of schema fields needs a small sample per field.
+   *
+   * <p>This default loops {@link #findRelatedEntities} per source (the Neo4j path); the
+   * Elasticsearch implementation overrides it with a single terms + top_hits aggregation. Sources
+   * with no related entities are omitted from the result.
+   */
+  @Nonnull
+  default Map<Urn, RelatedEntitiesResult> getRelatedEntitiesTopKPerSource(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Urn> sourceUrns,
+      @Nonnull final String relationshipType,
+      @Nonnull final RelationshipDirection direction,
+      final int k) {
+    final Map<Urn, RelatedEntitiesResult> result = new java.util.LinkedHashMap<>();
+    for (Urn source : sourceUrns) {
+      final RelatedEntitiesResult page =
+          findRelatedEntities(
+              opContext,
+              null,
+              com.linkedin.metadata.search.utils.QueryUtils.newFilter("urn", source.toString()),
+              null,
+              com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER,
+              Set.of(relationshipType),
+              com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter(
+                  com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER, direction),
+              0,
+              k);
+      if (page.getTotal() > 0) {
+        result.put(source, page);
+      }
+    }
+    return result;
+  }
+
+  /**
    * Traverse from the entityUrn towards the input direction up to maxHops number of hops Abstracts
    * away the concept of relationship types
    *

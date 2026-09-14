@@ -1,0 +1,35 @@
+namespace com.linkedin.view
+
+import com.linkedin.metadata.query.filter.Filter
+import com.linkedin.metadata.query.filter.SortOrder
+
+/**
+ * A Column View definition.
+ */
+record DataHubColumnViewDefinition {
+  /**
+   * The columns to display, in display order. The row identity column (e.g. field Name) is
+   * implicit and always shown first.
+   */
+  columns: array[DataHubColumnViewColumn]
+
+  /**
+   * The default sort applied when the view is active.
+   */
+  sort: optional record DataHubColumnViewSort {
+    /**
+     * The column to sort by.
+     */
+    column: DataHubColumnViewColumn
+
+    /**
+     * The sort direction.
+     */
+    order: SortOrder
+  }
+
+  /**
+   * The row filter applied when the view is active.
+   */
+  filter: optional Filter
+}

@@ -1,0 +1,426 @@
+extend type Query {
+  """
+  Fetch a Column View by primary key (urn)
+  """
+  columnView(urn: String!): DataHubColumnView
+
+  """
+  List Column Views created by the authenticated user
+  """
+  listMyColumnViews(input: ListMyColumnViewsInput!): ListColumnViewsResult
+
+  """
+  List GLOBAL (public) Column Views
+  """
+  listGlobalColumnViews(input: ListGlobalColumnViewsInput!): ListColumnViewsResult
+
+  """
+  Organization-wide Column View defaults, per target table
+  """
+  globalColumnViewsSettings: GlobalColumnViewsSettings
+
+  """
+  Preview the related fields for a relationship column, for a page of schema fields. Server-capped;
+  results are built from urns only (no entity hydration).
+  """
+  columnViewRelationships(input: ColumnViewRelationshipsInput!): [FieldRelationshipPreview!]!
+}
+
+extend type Mutation {
+  """
+  Create a new Column View. PERSONAL requires no privilege; GLOBAL requires Manage Public Views.
+  """
+  createColumnView(input: CreateColumnViewInput!): DataHubColumnView
+
+  """
+  Update an existing Column View. Only the creator (PERSONAL) or a Manage Public Views holder (GLOBAL).
+  """
+  updateColumnView(urn: String!, input: UpdateColumnViewInput!): DataHubColumnView
+
+  """
+  Delete a Column View
+  """
+  deleteColumnView("The urn of the Column View to delete" urn: String!): Boolean
+
+  """
+  Set or clear the authenticated user's default Column View for one target table
+  """
+  updateCorpUserColumnViewsSettings(input: UpdateCorpUserColumnViewsSettingsInput!): Boolean
+
+  """
+  Set or clear the organization default Column View for one target table
+  """
+  updateGlobalColumnViewsSettings(input: UpdateGlobalColumnViewsSettingsInput!): Boolean!
+}
+
+"""
+Fields shared by every saved, named, PERSONAL/GLOBAL view-like entity (Views, Column Views).
+"""
+interface SavedView {
+  urn: String!
+  name: String!
+  description: String
+  viewType: DataHubViewType!
+  created: AuditStamp
+  lastModified: AuditStamp
+}
+
+"""
+The table that a Column View configures
+"""
+enum DataHubColumnViewTarget {
+  """
+  The Columns table on a dataset's Schema tab
+  """
+  DATASET_SCHEMA_FIELDS
+}
+
+"""
+The kind of a Column View column. Which kinds are valid depends on the target.
+"""
+enum DataHubColumnViewColumnType {
+  TYPE
+  """
+  The field's data type exactly as the source system reports it (nativeDataType).
+  """
+  NATIVE_TYPE
+  """
+  Declared length, derived from the native type where it carries one (e.g. VARCHAR(255)).
+  """
+  LENGTH
+  """
+  Declared precision and scale, derived from the native type where it carries them (e.g. DECIMAL(18,2)).
+  """
+  PRECISION_SCALE
+  """
+  Whether the field is nullable.
+  """
+  NULLABLE
+  """
+  Whether the field is part of the primary key.
+  """
+  PRIMARY_KEY
+  """
+  Whether the field is a partitioning key.
+  """
+  PARTITION_KEY
+  DESCRIPTION
+  TAGS
+  GLOSSARY_TERMS
+  BUSINESS_ATTRIBUTE
+  STATS
+  """
+  The logical field this physical field is an instance of (PhysicalInstanceOf, outgoing)
+  """
+  LOGICAL_PARENT
+  """
+  Physical fields that are instances of this logical field (PhysicalInstanceOf, incoming)
+  """
+  PHYSICAL_CHILDREN
+  """
+  Fields this field is directly downstream of (DownstreamOf, outgoing)
+  """
+  UPSTREAM_COLUMNS
+  """
+  Fields directly downstream of this field (DownstreamOf, incoming)
+  """
+  DOWNSTREAM_COLUMNS
+  """
+  The field this field is a foreign key to (ForeignKeyTo, outgoing)
+  """
+  FOREIGN_KEY_TO
+  """
+  Fields holding a foreign key to this field (ForeignKeyTo, incoming)
+  """
+  REFERENCED_BY
+  """
+  One column per Structured Property. Requires structuredPropertyParams.
+  """
+  STRUCTURED_PROPERTY
+  """
+  Read-only presence of one specific tag or glossary term on the field. Requires labelParams.
+  """
+  LABEL
+}
+
+"""
+How related fields are labelled in relationship columns
+"""
+enum DataHubColumnViewLabelStyle {
+  FIELD_NAME
+  DATASET_AND_FIELD
+  FULL_PATH
+}
+
+"""
+How a list that does not fit is shortened
+"""
+enum DataHubColumnViewOverflow {
+  COUNT
+  ELLIPSIS
+}
+
+"""
+How the hidden remainder of a list is revealed
+"""
+enum DataHubColumnViewExpand {
+  POPOVER
+  INLINE
+}
+
+"""
+Presentation hints for a column. Not part of the column's identity.
+"""
+type DataHubColumnViewColumnDisplay {
+  width: Int
+  labelStyle: DataHubColumnViewLabelStyle
+  overflow: DataHubColumnViewOverflow
+  expand: DataHubColumnViewExpand
+  maxItems: Int
+  """
+  Free-form renderer hints, e.g. renderer=CHECK. Never validated.
+  """
+  custom: [StringMapEntry!]
+}
+
+input DataHubColumnViewColumnDisplayInput {
+  """
+  40..2000
+  """
+  width: Int
+  labelStyle: DataHubColumnViewLabelStyle
+  overflow: DataHubColumnViewOverflow
+  expand: DataHubColumnViewExpand
+  """
+  1..20
+  """
+  maxItems: Int
+  custom: [StringMapEntryInput!]
+}
+
+input ColumnViewRelationshipsInput {
+  """
+  Schema field urns to preview; at most 100 per call
+  """
+  fieldUrns: [String!]!
+  """
+  A relationship column kind (LOGICAL_PARENT, UPSTREAM_COLUMNS, ...)
+  """
+  column: DataHubColumnViewColumnType!
+  """
+  Related items per field; clamped to the server limit (appConfig.columnViewsConfig.relationshipPreviewLimit)
+  """
+  count: Int
+  """
+  When set, the column must be in this view's definition and its display.maxItems is used as the count
+  """
+  columnViewUrn: String
+}
+
+"""
+The related fields of one schema field for one relationship column
+"""
+type FieldRelationshipPreview {
+  fieldUrn: String!
+  """
+  Total related items; capped at 1000 (see totalIsCapped)
+  """
+  total: Long!
+  totalIsCapped: Boolean!
+  related: [RelatedFieldPreview!]!
+}
+
+"""
+A related field or asset, described from its urn only
+"""
+type RelatedFieldPreview {
+  urn: String!
+  entityType: EntityType!
+  fieldPath: String
+  datasetUrn: String
+  datasetName: String
+  platformUrn: String
+}
+
+"""
+A saved configuration of a table's columns: which are shown, their order, a default sort, a row filter.
+"""
+type DataHubColumnView implements Entity & SavedView {
+  urn: String! @noAspects
+  type: EntityType! @noAspects
+  viewType: DataHubViewType! @aspectMapping(aspects: ["dataHubColumnViewInfo"])
+  target: DataHubColumnViewTarget! @aspectMapping(aspects: ["dataHubColumnViewInfo"])
+  name: String! @aspectMapping(aspects: ["dataHubColumnViewInfo"])
+  description: String @aspectMapping(aspects: ["dataHubColumnViewInfo"])
+  definition: DataHubColumnViewDefinition! @aspectMapping(aspects: ["dataHubColumnViewInfo"])
+  created: AuditStamp @aspectMapping(aspects: ["dataHubColumnViewInfo"])
+  lastModified: AuditStamp @aspectMapping(aspects: ["dataHubColumnViewInfo"])
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult @noAspects
+}
+
+type DataHubColumnViewDefinition {
+  """
+  Columns in display order. The row identity column (field Name) is implicit and always first.
+  """
+  columns: [DataHubColumnViewColumn!]!
+  sort: DataHubColumnViewSort
+  """
+  Row filter, reusing the Views filter shape (AND/OR of facet filters over schema-field attributes).
+  """
+  filter: DataHubViewFilter
+}
+
+type DataHubColumnViewColumn {
+  type: DataHubColumnViewColumnType!
+  """
+  Present iff type is STRUCTURED_PROPERTY
+  """
+  structuredPropertyParams: DataHubColumnViewStructuredPropertyParams
+  """
+  Present iff type is LABEL
+  """
+  labelParams: DataHubColumnViewLabelParams
+  """
+  Presentation hints; any kind may carry them
+  """
+  display: DataHubColumnViewColumnDisplay
+}
+
+type DataHubColumnViewStructuredPropertyParams {
+  """
+  The Structured Property whose values the column displays. Resolved lazily via the entity batch loader.
+  """
+  structuredProperty: StructuredPropertyEntity!
+}
+
+type DataHubColumnViewLabelParams {
+  """
+  The Tag or GlossaryTerm whose presence the column shows. Resolved lazily via the entity batch loader.
+  """
+  label: Entity!
+}
+
+type DataHubColumnViewSort {
+  column: DataHubColumnViewColumn!
+  order: SortOrder!
+}
+
+input DataHubColumnViewColumnInput {
+  type: DataHubColumnViewColumnType!
+  """
+  Required iff type is STRUCTURED_PROPERTY
+  """
+  structuredPropertyParams: DataHubColumnViewStructuredPropertyParamsInput
+  """
+  Required iff type is LABEL
+  """
+  labelParams: DataHubColumnViewLabelParamsInput
+  """
+  Presentation hints; any kind may carry them
+  """
+  display: DataHubColumnViewColumnDisplayInput
+}
+
+input DataHubColumnViewStructuredPropertyParamsInput {
+  urn: String!
+}
+
+input DataHubColumnViewLabelParamsInput {
+  """
+  A tag (urn:li:tag:...) or glossary term (urn:li:glossaryTerm:...) urn
+  """
+  urn: String!
+}
+
+input DataHubColumnViewSortInput {
+  column: DataHubColumnViewColumnInput!
+  order: SortOrder!
+}
+
+input DataHubColumnViewDefinitionInput {
+  columns: [DataHubColumnViewColumnInput!]!
+  sort: DataHubColumnViewSortInput
+  filter: DataHubViewFilterInput
+}
+
+input CreateColumnViewInput {
+  viewType: DataHubViewType!
+  """
+  Defaults to DATASET_SCHEMA_FIELDS
+  """
+  target: DataHubColumnViewTarget
+  name: String!
+  description: String
+  definition: DataHubColumnViewDefinitionInput!
+}
+
+input UpdateColumnViewInput {
+  name: String
+  description: String
+  definition: DataHubColumnViewDefinitionInput
+}
+
+input ListMyColumnViewsInput {
+  start: Int
+  count: Int
+  query: String
+  viewType: DataHubViewType
+  target: DataHubColumnViewTarget
+}
+
+input ListGlobalColumnViewsInput {
+  start: Int
+  count: Int
+  query: String
+  target: DataHubColumnViewTarget
+}
+
+type ListColumnViewsResult {
+  start: Int!
+  count: Int!
+  total: Int!
+  columnViews: [DataHubColumnView!]!
+}
+
+"""
+A user's default Column View for one target table
+"""
+type CorpUserColumnViewDefault {
+  target: DataHubColumnViewTarget!
+  view: DataHubColumnView!
+}
+
+"""
+Settings related to the Column Views feature, per user
+"""
+type CorpUserColumnViewsSettings {
+  defaults: [CorpUserColumnViewDefault!]!
+}
+
+input UpdateCorpUserColumnViewsSettingsInput {
+  target: DataHubColumnViewTarget!
+  """
+  The urn of the Column View to make this user's default for the target. Omit to clear.
+  """
+  defaultView: String
+}
+
+type GlobalColumnViewDefault {
+  target: DataHubColumnViewTarget!
+  view: String!
+}
+
+"""
+Global (platform-level) settings related to the Column Views feature
+"""
+type GlobalColumnViewsSettings {
+  defaults: [GlobalColumnViewDefault!]!
+}
+
+input UpdateGlobalColumnViewsSettingsInput {
+  target: DataHubColumnViewTarget!
+  """
+  The urn of the Column View to make the organization default for the target. Omit to clear.
+  """
+  defaultView: String
+}

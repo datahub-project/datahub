@@ -1,0 +1,68 @@
+namespace com.linkedin.view
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about a DataHub Column View: a saved set of columns, ordering, sort, and row filter
+ * for a table in the UI.
+ */
+@Aspect = {
+  "name": "dataHubColumnViewInfo"
+}
+record DataHubColumnViewInfo {
+  /**
+   * The name of the Column View
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  name: string
+
+  /**
+   * Description of the Column View
+   */
+  description: optional string
+
+  /**
+   * The type of Column View: PERSONAL or GLOBAL
+   */
+  @Searchable = {}
+  type: DataHubViewType
+
+  /**
+   * The table this Column View configures
+   */
+  @Searchable = {}
+  target: DataHubColumnViewTarget = "DATASET_SCHEMA_FIELDS"
+
+  /**
+   * The Column View itself
+   */
+  definition: DataHubColumnViewDefinition
+
+  /**
+   * Audit stamp capturing the time and actor who created the Column View.
+   */
+  @Searchable = {
+    "/time": {
+       "fieldType": "DATETIME",
+       "fieldName": "createdAt"
+    },
+    "/actor": {
+      "fieldType": "URN",
+      "fieldName": "createdBy"
+    }
+  }
+  created: AuditStamp
+
+  /**
+   * Audit stamp capturing the time and actor who last modified the Column View.
+   */
+  @Searchable = {
+    "/time": {
+       "fieldType": "DATETIME",
+       "fieldName": "lastModifiedAt"
+    }
+  }
+  lastModified: AuditStamp
+}

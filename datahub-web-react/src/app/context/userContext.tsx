@@ -9,6 +9,11 @@ import { CorpUser, PlatformPrivileges } from '@types';
  */
 export type LocalState = {
     selectedViewUrn?: string | null;
+    /**
+     * Column View selection per target table (same tri-state as selectedViewUrn):
+     * undefined = apply the personal/org default once, null = user chose Default, urn = sticky.
+     */
+    selectedColumnViewUrns?: { [target: string]: string | null | undefined };
     selectedPath?: string | null;
     selectedSearch?: string | null;
     showBrowseV2Sidebar?: boolean;

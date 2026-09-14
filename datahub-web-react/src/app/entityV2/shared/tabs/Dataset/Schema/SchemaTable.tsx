@@ -1,3 +1,4 @@
+import { Typography } from 'antd';
 import { ColumnsType } from 'antd/es/table';
 import { SorterResult } from 'antd/lib/table/interface';
 import ResizeObserver from 'rc-resize-observer';
@@ -9,6 +10,27 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 import { useVT } from 'virtualizedtableforantd4';
 
+import { useColumnViewContext } from '@app/entityV2/columnView/ColumnViewContext';
+import ResizableHeaderCell from '@app/entityV2/columnView/ResizableHeaderCell';
+import {
+    ColumnLike,
+    columnIdentity,
+    isLabelColumn,
+    isRelationshipColumn,
+    isStructuredPropertyColumn,
+    structuredPropertyUrnOf,
+    withDisplay,
+} from '@app/entityV2/columnView/columnKinds';
+import { filterSchemaRowsByView } from '@app/entityV2/columnView/filterSchemaRowsByView';
+import {
+    defaultSortForView,
+    legacyDefaultColumns,
+    resolveSchemaTableColumns,
+} from '@app/entityV2/columnView/resolveSchemaTableColumns';
+import { useRelationshipColumns } from '@app/entityV2/columnView/useRelationshipColumns';
+import { useVisibleRowUrns } from '@app/entityV2/columnView/useVisibleRowUrns';
+import { useFieldAttributeColumns } from '@app/entityV2/columnView/useFieldAttributeColumns';
+import { useLabelColumns } from '@app/entityV2/columnView/useLabelColumns';
 import SchemaRow from '@app/entityV2/dataset/profile/schema/components/SchemaRow';
 import useSchemaTitleRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTitleRenderer';
 import useSchemaTypeRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTypeRenderer';
@@ -29,9 +51,16 @@ import { useGetTableColumnProperties } from '@app/entityV2/shared/tabs/Dataset/S
 import useTagsAndTermsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
 import { useBusinessAttributesFlag } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
 import { EditableSchemaMetadata, SchemaField, SchemaMetadata, UsageQueryResult } from '@types';
+
+const ViewFilterSummary = styled.div`
+    padding: 4px 16px;
+    font-size: 12px;
+    color: ${(p) => p.theme.colors.textSecondary};
+`;
 
 const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: boolean }>`
     overflow: inherit;
@@ -231,8 +260,47 @@ export default function SchemaTable({
     const schemaTypeRenderer = useSchemaTypeRenderer();
     const businessAttributesFlag = useBusinessAttributesFlag();
 
+    // Column Views: with an active view, structured-property columns come from the view's own
+    // (caller-context-resolved) properties; otherwise from the platform-flagged legacy source.
+    const { activeDefinition, setAdHocDefinition, selectedColumnView, isAdHocModified } = useColumnViewContext();
     const tableColumnStructuredProps = useGetTableColumnProperties(entityData?.platform?.urn);
-    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
+    const viewStructuredProps = useMemo(
+        () =>
+            activeDefinition?.columns.filter(isStructuredPropertyColumn).flatMap((c) => {
+                const resolved = c.structuredPropertyParams?.structuredProperty;
+                if (resolved) return [{ entity: resolved } as any];
+                // Synthesized from the built-in layout (legacyDefaultColumns) — only the urn is known,
+                // so the entity comes from the platform-flagged source it was synthesized from.
+                const urn = structuredPropertyUrnOf(c);
+                const flagged = tableColumnStructuredProps?.find((r) => r.entity.urn === urn);
+                return flagged ? [flagged] : [];
+            }),
+        [activeDefinition, tableColumnStructuredProps],
+    );
+    const structuredPropColumns = useGetStructuredPropColumns(
+        activeDefinition ? viewStructuredProps : tableColumnStructuredProps,
+    );
+    // Row filter from the active definition: client-side over already-fetched rows (pure projection).
+    // editableSchemaMetadata is passed so tags / glossaryTerms clauses see user-added labels too.
+    const viewFilter = useMemo(
+        () => filterSchemaRowsByView(rows, activeDefinition?.filter, editableSchemaMetadata),
+        [rows, activeDefinition, editableSchemaMetadata],
+    );
+    const isViewFilterActive = viewFilter.shown !== viewFilter.total;
+    const clearViewFilter = () =>
+        activeDefinition && setAdHocDefinition({ ...activeDefinition, filter: null } as any);
+    // Relationship (GRAPH) columns: fetched for VISIBLE rows only, outside the main schema query.
+    // A saved, unmodified view is passed so the server applies that column's own display.maxItems.
+    const visibleRows = useVisibleRowUrns();
+    const relationshipColumns = useRelationshipColumns(
+        activeDefinition?.columns.filter(isRelationshipColumn) || [],
+        visibleRows,
+        { columnViewUrn: !isAdHocModified ? selectedColumnView?.urn : undefined },
+    );
+    // LABEL columns: read-only presence of one tag/term, from the same sources as the Tags/Terms columns.
+    const labelColumns = useLabelColumns(activeDefinition?.columns.filter(isLabelColumn) || [], editableSchemaMetadata);
+    const { t: tv } = useTranslation('entity.views');
+    const entityRegistry = useEntityRegistry();
 
     const fieldColumn = useMemo(
         () => ({
@@ -243,12 +311,16 @@ export default function SchemaTable({
             key: 'fieldPath',
             render: schemaTitleRenderer,
             filtered: true,
-            onCell: () => ({ style: { whiteSpace: 'pre' } }),
+            onCell: () => ({ style: { whiteSpace: 'pre' as const } }),
             sorter: (sourceA, sourceB) =>
                 translateFieldPath(sourceA.fieldPath).localeCompare(translateFieldPath(sourceB.fieldPath)),
         }),
         [schemaTitleRenderer, tc],
     );
+
+    // Column Views: attribute columns the legacy table never had (native type, length,
+    // precision/scale, nullable, primary key, partition key); shown only when a view selects them.
+    const fieldAttributeColumns = useFieldAttributeColumns<ExtendedSchemaFields>();
 
     const typeColumn = useMemo(
         () => ({
@@ -340,39 +412,91 @@ export default function SchemaTable({
         [usageStatsRenderer, getCount, t],
     );
 
-    const allColumns = useMemo(() => {
-        let columns: ColumnsType<ExtendedSchemaFields> = [
+    const columnSources = useMemo(
+        () => ({
+            fieldColumn,
+            byKind: {
+                TYPE: typeColumn,
+                DESCRIPTION: descriptionColumn,
+                TAGS: tagColumn,
+                GLOSSARY_TERMS: termColumn,
+                STATS: usageColumn,
+                BUSINESS_ATTRIBUTE: businessAttributesFlag ? businessAttributeColumn : undefined,
+                // Native type, length, precision/scale, nullable, primary key, partition key.
+                ...fieldAttributeColumns,
+            },
+            structuredPropColumns,
+            labelColumns,
+            relationshipColumns,
+            // Column Views: lets a view render Tags / Glossary Terms as CHECK / COUNT (renderer registry).
+            cellCounters: {
+                TAGS: (record) => extractFieldTagsInfo(record).numberOfTags,
+                GLOSSARY_TERMS: (record) => extractFieldGlossaryTermsInfo(record).numberOfTerms,
+            },
+            rendererContext: {
+                t: (key, opts) => tv(key, opts) as string,
+                entityUrl: (type, urn) => entityRegistry.getEntityUrl(type, urn),
+                limit: 0,
+            },
+        }),
+        [
             fieldColumn,
             typeColumn,
+            fieldAttributeColumns,
+            businessAttributeColumn,
             descriptionColumn,
             tagColumn,
             termColumn,
             usageColumn,
-        ];
+            structuredPropColumns,
+            labelColumns,
+            relationshipColumns,
+            businessAttributesFlag,
+            extractFieldTagsInfo,
+            extractFieldGlossaryTermsInfo,
+            tv,
+            entityRegistry,
+        ],
+    );
 
-        if (businessAttributesFlag) {
-            columns = [...columns, businessAttributeColumn];
-        }
+    // A header drag writes display.width into the ad hoc definition (synthesizing the built-in
+    // layout first when no view is active); Save / Update on the Columns control persists it.
+    const patchColumnDisplay = useCallback(
+        (columnId: string, patch: { width?: number | null }) => {
+            const base = (activeDefinition?.columns as ColumnLike[] | undefined) ?? legacyDefaultColumns(columnSources);
+            const columns = base.map((c) => (columnIdentity(c) === columnId ? withDisplay(c, patch) : c));
+            setAdHocDefinition({
+                ...(activeDefinition || { sort: null, filter: null }),
+                columns,
+            } as NonNullable<Parameters<typeof setAdHocDefinition>[0]>);
+        },
+        [activeDefinition, columnSources, setAdHocDefinition],
+    );
+    const headerResize = useMemo(
+        () => ({
+            onResizeEnd: (columnId: string, width: number) => patchColumnDisplay(columnId, { width }),
+            onReset: (columnId: string) => patchColumnDisplay(columnId, { width: null }),
+            hint: tv('columnViews.resizeHint'),
+        }),
+        [patchColumnDisplay, tv],
+    );
 
-        if (structuredPropColumns) columns.splice(columns?.length - 1, 0, ...structuredPropColumns);
-        return columns;
-    }, [
-        fieldColumn,
-        typeColumn,
-        businessAttributeColumn,
-        descriptionColumn,
-        tagColumn,
-        termColumn,
-        usageColumn,
-        structuredPropColumns,
-        businessAttributesFlag,
-    ]);
-
+    const allColumns = useMemo(
+        () => resolveSchemaTableColumns(columnSources, activeDefinition, headerResize),
+        [columnSources, activeDefinition, headerResize],
+    );
+    // `sortOrder` mirrors schemaSorter so a programmatic (view default) sort is applied by antd and
+    // shown by the header arrow. With no sort every column carries `null`, which renders as before.
     const finalColumns = useMemo(() => {
-        if (!visibleColumns) return allColumns;
-
-        return allColumns.filter((column) => column.key && visibleColumns?.includes(column.key.toString()));
-    }, [allColumns, visibleColumns]);
+        const columns = visibleColumns
+            ? allColumns.filter((column) => column.key && visibleColumns?.includes(column.key.toString()))
+            : allColumns;
+        return columns.map((column) =>
+            column.sorter
+                ? { ...column, sortOrder: column.key === schemaSorter?.columnKey ? schemaSorter?.order ?? null : null }
+                : column,
+        );
+    }, [allColumns, visibleColumns, schemaSorter]);
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -395,6 +519,12 @@ export default function SchemaTable({
     const tableRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => setVT({ body: { row: SchemaRow } }), [setVT]);
+
+    // Keep useVT's virtualized body; add the resizable header cell on top of it.
+    const tableComponents = useMemo(
+        () => ({ ...VT, header: { ...((VT as { header?: object }).header || {}), cell: ResizableHeaderCell } }),
+        [VT],
+    );
 
     useDebounce(
         () => {
@@ -464,7 +594,8 @@ export default function SchemaTable({
         expandedDrawerFieldPath,
     ]);
 
-    const dataSource = rows;
+    // Column View row filter applied; identical to `rows` when no filter is active.
+    const dataSource = viewFilter.rows;
     const [sortedDataSource, setSortedDataSource] = useState(dataSource);
 
     const [displayedRows, setDisplayedRows] = useState(dataSource);
@@ -525,8 +656,29 @@ export default function SchemaTable({
         setSortedDisplayedRows(sortedrows);
     };
 
+    // The view's default sort becomes the sorter when its content changes or another view is picked.
+    // Keyed on content, not object identity, so an ad hoc change (a resize, a filter clear) does not
+    // re-apply it over the user's manual sort; a switch to a view with no sort clears the sorter.
+    const viewDefaultSort = useMemo(() => defaultSortForView(activeDefinition), [activeDefinition]);
+    const viewDefaultSortKey = viewDefaultSort ? `${viewDefaultSort.columnKey}:${viewDefaultSort.order}` : undefined;
+    const selectedColumnViewUrn = selectedColumnView?.urn;
+    useEffect(() => {
+        setSchemaSorter(viewDefaultSort ? (viewDefaultSort as any) : undefined);
+        // antd only reports sorted rows through onChange; mirror it for keyboard navigation.
+        if (viewDefaultSort) {
+            setSortedDataSource(sortData(dataSource, { field: viewDefaultSort.columnKey, order: viewDefaultSort.order }));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [viewDefaultSortKey, selectedColumnViewUrn]);
+
     return (
         <>
+            {isViewFilterActive && (
+                <ViewFilterSummary data-testid="column-view-filter-summary">
+                    {tv('columnViews.showingOf', { shown: viewFilter.shown, total: viewFilter.total })} ·{' '}
+                    <Typography.Link onClick={clearViewFilter}>{tv('columnViews.clear')}</Typography.Link>
+                </ViewFilterSummary>
+            )}
             <TableContainer
                 ref={tableRef}
                 isSearchActive={isSearchActive}
@@ -542,7 +694,7 @@ export default function SchemaTable({
                         dataSource={dataSource}
                         rowKey="fieldPath"
                         scroll={{ x: SCROLL_X, y: tableHeight }}
-                        components={VT}
+                        components={tableComponents}
                         expandable={{
                             expandedRowKeys: [...Array.from(expandedRows)],
                             defaultExpandAllRows: false,

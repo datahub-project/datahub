@@ -1,0 +1,108 @@
+namespace com.linkedin.view
+
+/**
+ * The kind of a Column View column. A flat enum drives all dispatch; relationship columns are
+ * leaf values (one per edge + direction) rather than a parameterized kind.
+ */
+enum DataHubColumnViewColumnType {
+  /**
+   * The field's data type (normalized).
+   */
+  TYPE
+
+  /**
+   * The field's data type exactly as the source system reports it (nativeDataType).
+   */
+  NATIVE_TYPE
+
+  /**
+   * Declared length, derived from the native type where it carries one (e.g. VARCHAR(255)).
+   */
+  LENGTH
+
+  /**
+   * Declared precision and scale, derived from the native type where it carries them
+   * (e.g. DECIMAL(18,2)).
+   */
+  PRECISION_SCALE
+
+  /**
+   * Whether the field is nullable.
+   */
+  NULLABLE
+
+  /**
+   * Whether the field is part of the primary key.
+   */
+  PRIMARY_KEY
+
+  /**
+   * Whether the field is a partitioning key.
+   */
+  PARTITION_KEY
+
+  /**
+   * The field's description.
+   */
+  DESCRIPTION
+
+  /**
+   * Tags applied to the field.
+   */
+  TAGS
+
+  /**
+   * Glossary terms applied to the field.
+   */
+  GLOSSARY_TERMS
+
+  /**
+   * The Business Attribute linked to the field.
+   */
+  BUSINESS_ATTRIBUTE
+
+  /**
+   * Column profiling and usage statistics.
+   */
+  STATS
+
+  /**
+   * The logical field this physical field is an instance of (PhysicalInstanceOf, outgoing).
+   */
+  LOGICAL_PARENT
+
+  /**
+   * Physical fields that are instances of this logical field (PhysicalInstanceOf, incoming).
+   */
+  PHYSICAL_CHILDREN
+
+  /**
+   * Fields this field is downstream of, i.e. its direct lineage sources (DownstreamOf, outgoing).
+   */
+  UPSTREAM_COLUMNS
+
+  /**
+   * Fields directly downstream of this field (DownstreamOf, incoming).
+   */
+  DOWNSTREAM_COLUMNS
+
+  /**
+   * The field this field is a foreign key to (ForeignKeyTo, outgoing).
+   */
+  FOREIGN_KEY_TO
+
+  /**
+   * Fields that hold a foreign key to this field (ForeignKeyTo, incoming).
+   */
+  REFERENCED_BY
+
+  /**
+   * The values of one Structured Property. Requires structuredPropertyParams.
+   */
+  STRUCTURED_PROPERTY
+
+  /**
+   * Read-only presence of one specific tag or glossary term on the field. Requires labelParams.
+   */
+  LABEL
+}

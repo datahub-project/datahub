@@ -120,7 +120,7 @@ public class ViewUtils {
    * which cannot be rendered in full by the UI. We account for this on the read path by logging a
    * warning and returning an empty View in such cases.
    */
-  private static Filter mapFilter(
+  public static Filter mapFilter(
       @Nonnull DataHubViewFilterInput input, @Nullable AspectRetriever aspectRetriever) {
     if (LogicalOperator.AND.equals(input.getOperator())) {
       // AND

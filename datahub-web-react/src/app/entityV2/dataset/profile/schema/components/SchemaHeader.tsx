@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
+import ColumnViewSelect from '@app/entityV2/columnView/select/ColumnViewSelect';
 import SchemaSearchInput from '@app/entityV2/dataset/profile/schema/components/SchemaSearchInput';
 import VersionSelector from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
@@ -181,6 +182,7 @@ export default function SchemaHeader({
                     {showAddLogicalModelColumnButton && <AddLogicalModelColumnButton />}
                 </LeftButtonsGroup>
                 <RightButtonsGroup>
+                    {!showRaw && <ColumnViewSelect />}
                     {versionList.length > 1 && (
                         <VersionSelector
                             versionList={versionList}

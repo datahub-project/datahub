@@ -388,6 +388,21 @@ type AppConfig {
   Configuration related to the home page
   """
   homePageConfig: HomePageConfig!
+
+  """
+  Configuration related to Column Views
+  """
+  columnViewsConfig: ColumnViewsConfig!
+}
+
+"""
+Configurations related to the Column Views feature
+"""
+type ColumnViewsConfig {
+  """
+  Maximum related items per schema field returned by columnViewRelationships
+  """
+  relationshipPreviewLimit: Int!
 }
 
 """

@@ -66,6 +66,12 @@ import com.linkedin.datahub.graphql.resolvers.businessattribute.RemoveBusinessAt
 import com.linkedin.datahub.graphql.resolvers.businessattribute.UpdateBusinessAttributeResolver;
 import com.linkedin.datahub.graphql.resolvers.chart.BrowseV2Resolver;
 import com.linkedin.datahub.graphql.resolvers.chart.ChartStatsSummaryResolver;
+import com.linkedin.datahub.graphql.resolvers.columnview.ColumnViewRelationshipsResolver;
+import com.linkedin.datahub.graphql.resolvers.columnview.CreateColumnViewResolver;
+import com.linkedin.datahub.graphql.resolvers.columnview.DeleteColumnViewResolver;
+import com.linkedin.datahub.graphql.resolvers.columnview.ListGlobalColumnViewsResolver;
+import com.linkedin.datahub.graphql.resolvers.columnview.ListMyColumnViewsResolver;
+import com.linkedin.datahub.graphql.resolvers.columnview.UpdateColumnViewResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.config.ProductUpdateResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
@@ -258,10 +264,13 @@ import com.linkedin.datahub.graphql.resolvers.settings.asset.UpdateAssetSettings
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.homePage.GlobalHomePageSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserColumnViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserLocaleSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserHomePageSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalColumnViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalColumnViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.siblings.SiblingsSearchResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
@@ -314,6 +323,7 @@ import com.linkedin.datahub.graphql.types.assertion.AssertionType;
 import com.linkedin.datahub.graphql.types.auth.AccessTokenMetadataType;
 import com.linkedin.datahub.graphql.types.businessattribute.BusinessAttributeType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
+import com.linkedin.datahub.graphql.types.columnview.DataHubColumnViewType;
 import com.linkedin.datahub.graphql.types.common.mappers.OperationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.connection.DataHubConnectionType;
@@ -389,6 +399,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.ColumnViewService;
 import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.DocumentService;
@@ -475,6 +486,7 @@ public class GmsGraphQLEngine {
   private final SettingsService settingsService;
   private final ProductUpdateService productUpdateService;
   private final ViewService viewService;
+  private final ColumnViewService columnViewService;
   private final OwnershipTypeService ownershipTypeService;
   private final LineageService lineageService;
   private final QueryService queryService;
@@ -505,6 +517,8 @@ public class GmsGraphQLEngine {
   private final TestsConfiguration testsConfiguration;
   private final DataHubConfiguration datahubConfiguration;
   private final ViewsConfiguration viewsConfiguration;
+  private final ColumnViewsConfiguration columnViewsConfiguration;
+  private final com.linkedin.metadata.graph.GraphService graphService;
   private final SearchBarConfiguration searchBarConfiguration;
   private final SearchCardConfiguration searchCardConfiguration;
   private final SearchFlagsConfiguration searchFlagsConfiguration;
@@ -549,6 +563,7 @@ public class GmsGraphQLEngine {
   private final SchemaFieldType schemaFieldType;
   private final ERModelRelationshipType erModelRelationshipType;
   private final DataHubViewType dataHubViewType;
+  private final DataHubColumnViewType dataHubColumnViewType;
   private final QueryType queryType;
   private final DataProductType dataProductType;
   private final ApplicationType applicationType;
@@ -623,6 +638,7 @@ public class GmsGraphQLEngine {
     this.inviteTokenService = args.inviteTokenService;
     this.postService = args.postService;
     this.viewService = args.viewService;
+    this.columnViewService = args.columnViewService;
     this.ownershipTypeService = args.ownershipTypeService;
     this.settingsService = args.settingsService;
     this.productUpdateService =
@@ -656,6 +672,8 @@ public class GmsGraphQLEngine {
     this.testsConfiguration = args.testsConfiguration;
     this.datahubConfiguration = args.datahubConfiguration;
     this.viewsConfiguration = args.viewsConfiguration;
+    this.columnViewsConfiguration = args.columnViewsConfiguration;
+    this.graphService = args.graphService;
     this.searchBarConfiguration = args.searchBarConfiguration;
     this.searchCardConfiguration = args.searchCardConfiguration;
     this.searchFlagsConfiguration = args.searchFlagsConfiguration;
@@ -699,6 +717,7 @@ public class GmsGraphQLEngine {
     this.schemaFieldType = new SchemaFieldType(entityClient, featureFlags);
     this.erModelRelationshipType = new ERModelRelationshipType(entityClient, featureFlags);
     this.dataHubViewType = new DataHubViewType(entityClient);
+    this.dataHubColumnViewType = new DataHubColumnViewType(entityClient);
     this.queryType = new QueryType(entityClient);
     this.dataProductType = new DataProductType(entityClient);
     this.applicationType = new ApplicationType(entityClient);
@@ -760,6 +779,7 @@ public class GmsGraphQLEngine {
                 schemaFieldType,
                 erModelRelationshipType,
                 dataHubViewType,
+                dataHubColumnViewType,
                 queryType,
                 dataProductType,
                 ownershipType,
@@ -870,6 +890,7 @@ public class GmsGraphQLEngine {
     configureEntityPathResolvers(builder);
     configureResolvedAuditStampResolvers(builder);
     configureViewResolvers(builder);
+    configureColumnViewResolvers(builder);
     configureQueryEntityResolvers(builder);
     configureOwnershipTypeResolver(builder);
     configurePluginResolvers(builder);
@@ -943,6 +964,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LOGICAL_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(COLUMN_VIEW_SCHEMA_FILE))
         .addSchema(fileBasedSchema(CONNECTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(ASSERTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE))
@@ -1146,6 +1168,7 @@ public class GmsGraphQLEngine {
                         this.testsConfiguration,
                         this.datahubConfiguration,
                         this.viewsConfiguration,
+                        this.columnViewsConfiguration,
                         this.searchBarConfiguration,
                         this.searchCardConfiguration,
                         this.searchFlagsConfiguration,
@@ -1289,6 +1312,17 @@ public class GmsGraphQLEngine {
                 .dataFetcher("listGlobalViews", new ListGlobalViewsResolver(this.entityClient))
                 .dataFetcher(
                     "globalViewsSettings", new GlobalViewsSettingsResolver(this.settingsService))
+                .dataFetcher("columnView", getResolver(dataHubColumnViewType))
+                .dataFetcher("listMyColumnViews", new ListMyColumnViewsResolver(this.entityClient))
+                .dataFetcher(
+                    "listGlobalColumnViews", new ListGlobalColumnViewsResolver(this.entityClient))
+                .dataFetcher(
+                    "globalColumnViewsSettings",
+                    new GlobalColumnViewsSettingsResolver(this.settingsService))
+                .dataFetcher(
+                    "columnViewRelationships",
+                    new ColumnViewRelationshipsResolver(
+                        this.graphService, this.columnViewService, this.columnViewsConfiguration))
                 .dataFetcher("listQueries", new ListQueriesResolver(this.entityClient))
                 .dataFetcher(
                     "getQuickFilters",
@@ -1605,6 +1639,17 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateCorpUserViewsSettings",
                   new UpdateCorpUserViewsSettingsResolver(this.settingsService))
+              .dataFetcher("createColumnView", new CreateColumnViewResolver(this.columnViewService))
+              .dataFetcher("updateColumnView", new UpdateColumnViewResolver(this.columnViewService))
+              .dataFetcher("deleteColumnView", new DeleteColumnViewResolver(this.columnViewService))
+              .dataFetcher(
+                  "updateGlobalColumnViewsSettings",
+                  new UpdateGlobalColumnViewsSettingsResolver(
+                      this.settingsService, this.columnViewService))
+              .dataFetcher(
+                  "updateCorpUserColumnViewsSettings",
+                  new UpdateCorpUserColumnViewsSettingsResolver(
+                      this.settingsService, this.columnViewService))
               .dataFetcher(
                   "updateUserHomePageSettings",
                   new UpdateUserHomePageSettingsResolver(this.settingsService))
@@ -2800,6 +2845,17 @@ public class GmsGraphQLEngine {
                             .filter(graphType -> graphType instanceof EntityType)
                             .map(graphType -> (EntityType<?, ?>) graphType)
                             .collect(Collectors.toList()))))
+        // SavedView is implemented by DataHubView and DataHubColumnView; both are entities, so
+        // the generic entity-type resolver disambiguates them.
+        .type(
+            "SavedView",
+            typeWiring ->
+                typeWiring.typeResolver(
+                    new EntityInterfaceTypeResolver(
+                        loadableTypes.stream()
+                            .filter(graphType -> graphType instanceof EntityType)
+                            .map(graphType -> (EntityType<?, ?>) graphType)
+                            .collect(Collectors.toList()))))
         .type(
             "BrowsableEntity",
             typeWiring ->
@@ -3652,6 +3708,69 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring.dataFetcher(
                 "relationships", new EntityRelationshipsResultResolver(graphClient)));
+  }
+
+  private void configureColumnViewResolvers(final RuntimeWiring.Builder builder) {
+    builder
+        .type(
+            "DataHubColumnView",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "relationships", new EntityRelationshipsResultResolver(graphClient)))
+        .type(
+            "ListColumnViewsResult",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "columnViews",
+                    new LoadableTypeBatchResolver<>(
+                        dataHubColumnViewType,
+                        (env) ->
+                            ((com.linkedin.datahub.graphql.generated.ListColumnViewsResult)
+                                    env.getSource())
+                                .getColumnViews().stream()
+                                    .map(
+                                        com.linkedin.datahub.graphql.generated.DataHubColumnView
+                                            ::getUrn)
+                                    .collect(Collectors.toList()))))
+        .type(
+            "CorpUserColumnViewDefault",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "view",
+                    new LoadableTypeResolver<>(
+                        dataHubColumnViewType,
+                        (env) ->
+                            ((com.linkedin.datahub.graphql.generated.CorpUserColumnViewDefault)
+                                    env.getSource())
+                                .getView()
+                                .getUrn())))
+        // Params records carry entity stubs; resolve them under the caller's context (pure
+        // projection: a Column View never reads anything the caller could not read directly).
+        .type(
+            "DataHubColumnViewStructuredPropertyParams",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "structuredProperty",
+                    new LoadableTypeResolver<>(
+                        structuredPropertyType,
+                        (env) ->
+                            ((com.linkedin.datahub.graphql.generated
+                                        .DataHubColumnViewStructuredPropertyParams)
+                                    env.getSource())
+                                .getStructuredProperty()
+                                .getUrn())))
+        .type(
+            "DataHubColumnViewLabelParams",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "label",
+                    // Tag or GlossaryTerm: dispatch on the stub's type via the generic resolver.
+                    new EntityTypeResolver(
+                        entityTypes,
+                        (env) ->
+                            ((com.linkedin.datahub.graphql.generated.DataHubColumnViewLabelParams)
+                                    env.getSource())
+                                .getLabel())));
   }
 
   private void configureViewResolvers(final RuntimeWiring.Builder builder) {

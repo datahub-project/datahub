@@ -68,6 +68,9 @@ query appConfig {
         viewsConfig {
             enabled
         }
+        columnViewsConfig {
+            relationshipPreviewLimit
+        }
         searchBarConfig {
             apiVariant
         }

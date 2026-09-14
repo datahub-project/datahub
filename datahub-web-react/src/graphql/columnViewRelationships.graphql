@@ -1,0 +1,18 @@
+# Relationship columns of a Column View are fetched OUTSIDE the main schema query: one call per
+# relationship column, for the currently VISIBLE rows only (see useRelationshipColumnData).
+# The server builds previews from urns alone (no entity hydration) and caps everything.
+query getColumnViewRelationships($input: ColumnViewRelationshipsInput!) {
+    columnViewRelationships(input: $input) {
+        fieldUrn
+        total
+        totalIsCapped
+        related {
+            urn
+            entityType
+            fieldPath
+            datasetUrn
+            datasetName
+            platformUrn
+        }
+    }
+}

@@ -408,7 +408,8 @@ query getDatasetRuns($urn: String!, $start: Int!, $count: Int!, $direction: Rela
 
 fragment datasetSchema on Dataset {
     schemaMetadata(version: 0) {
-        ...schemaMetadataFields
+        # Schema-tab variant: per-field entity aspects gated by getDatasetSchema's $include* variables.
+        ...schemaTabSchemaMetadataFields
     }
     editableSchemaMetadata {
         editableSchemaFieldInfo {
@@ -424,7 +425,13 @@ fragment datasetSchema on Dataset {
     }
 }
 
-query getDatasetSchema($urn: String!, $skipSiblingsSearch: Boolean = false) {
+query getDatasetSchema(
+    $urn: String!
+    $skipSiblingsSearch: Boolean = false
+    $includeStructuredProperties: Boolean = true
+    $includeFieldLabels: Boolean = true
+    $includeBusinessAttribute: Boolean = true
+) {
     dataset(urn: $urn) {
         urn
         ...datasetSchema

@@ -34,6 +34,9 @@ public class DataHubAppConfiguration {
   /** Views feature related configs */
   private ViewsConfiguration views;
 
+  /** Column Views feature related configs */
+  private ColumnViewsConfiguration columnViews;
+
   /** Search bar related configs */
   private SearchBarConfiguration searchBar;
 
