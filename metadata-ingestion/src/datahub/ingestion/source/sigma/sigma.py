@@ -1961,7 +1961,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     kind = (
                         "another_element_in_this_workbook"
                         if source_id in element_ids_in_graph
-                        else "unknown_node"
+                        else self._classify_dropped_lineage_node(source_id, entry)
                     )
                     if kind == "another_element_in_this_workbook":
                         # Sigma STATED this dependency. Keeping it is not a
@@ -7227,6 +7227,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Page dashboard URN -> the first workbook that claimed it. Page ids are
         # workbook-scoped like element ids, so a copy collides here too.
         self._page_dashboard_workbook: Dict[str, str] = {}
+        # Sigma Dataset URN -> the column names Sigma attributed to it via a
+        # chart columnId. The ONLY source of a Dataset's columns: Sigma
+        # publishes none through the API (verified by probe, 2026-09-14).
+        self._sigma_dataset_observed_columns: Dict[str, Set[str]] = {}
         # Global: element Dataset URN -> {lowercased column name: canonical
         # column name}. Same dedup logic as the per-element urn_to_cols in the
         # FGL builder, so column validation uses the winner set rather than raw
@@ -7781,6 +7785,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             sigma_dataset_urn = self.sigma_dataset_urn_by_url_id.get(url_id)
             if sigma_dataset_urn is not None:
                 self.reporter.chart_input_fields_sigma_dataset_by_column_id += 1
+                # Remember the column so the dataset can be given a schema at
+                # the end of the run. Sigma publishes NO columns for a Dataset
+                # -- /datasets/{id}/columns 404s, the detail payload has no
+                # columns key, and the dataModels routes reject the id -- so
+                # the only record that this dataset HAS this column is the
+                # columnId Sigma just handed us. Without it the edge points at
+                # a field of a schemaless entity and renders as nothing.
+                self._sigma_dataset_observed_columns.setdefault(
+                    sigma_dataset_urn, set()
+                ).add(native)
                 return builder.make_schema_field_urn(sigma_dataset_urn, native)
             warehouse_urn = self._warehouse_urn_via_files_lookup(
                 url_id, warehouse_urn_by_url_id
@@ -8058,9 +8072,32 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     r.edge_audit_verified += 1
                 else:
                     r.edge_audit_field_absent_from_upstream += 1
+                    # WHY it is absent, because the reasons need opposite
+                    # responses and the bare count cannot tell them apart. A
+                    # case-only difference is a normalisation bug worth fixing
+                    # outright; a field the upstream has no spelling of at all
+                    # means the ref resolved to the WRONG element, which is a
+                    # resolver problem. Sampling 10 of 511 could not settle it.
+                    lowered = {k.lower(): k for k in known}
+                    stripped = {
+                        k.lower().replace(" ", "").replace("_", ""): k for k in known
+                    }
+                    probe = field.lower()
+                    if probe in lowered:
+                        reason = "case_differs_only"
+                    elif probe.replace(" ", "").replace("_", "") in stripped:
+                        reason = "separator_or_spacing_differs"
+                    elif field.startswith("inode-"):
+                        reason = "field_path_is_a_column_id"
+                    else:
+                        reason = "upstream_has_no_such_column"
+                    r.edge_audit_absent_reasons[reason] = (
+                        r.edge_audit_absent_reasons.get(reason, 0) + 1
+                    )
                     r.edge_audit_absent_samples.append(
                         f"emitted_by={self._edge_source_chart.get((upstream, field))} "
-                        f"-> upstream={upstream} field={field!r} "
+                        f"-> upstream={upstream} field={field!r} reason={reason} "
+                        f"upstream_field_count={len(known)} "
                         f"upstream_has={sorted(known)[:6]}"
                     )
 
@@ -8138,6 +8175,116 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=chart_urn,
             aspect=InputFieldsClass(fields=fields),
         ).as_workunit()
+
+    def _classify_dropped_lineage_node(
+        self, source_id: str, entry: Dict[str, Any]
+    ) -> str:
+        """What IS a dropped /lineage sourceId, and do we already have it?
+
+        ``unknown_node`` was a single bucket of 1,208 on one tenant (2026-09),
+        and sampling it showed the ids are not unknown at all: they carry the
+        ``<dmUrlId>/<elementId>`` shape the /schema dm_element head uses, or the
+        ``inode-<urlId>`` shape of a warehouse table. Both are things this
+        connector resolves everywhere else, which makes "we are discarding
+        stated lineage" the obvious reading.
+
+        It is probably the WRONG reading, and this exists to settle that rather
+        than to act on it. The same fact usually reaches the resolver through
+        the element's own declared sources, so the drop would be redundant
+        rather than lossy -- and building a consumer for lineage we already
+        hold is the expensive mistake this project has made before.
+
+        The half that IS computable here is whether the run resolved the node
+        at all. A head this run never walked cannot be consumed no matter what
+        we build, so it bounds the opportunity from above; only the
+        ``_run_knows_it`` rows are even candidates.
+        """
+        head = source_id.split("/", 1)[0]
+        if source_id.startswith("inode-"):
+            shape = "warehouse_inode_shape"
+            # The global /files index is the run's record of every warehouse
+            # table it can name; built lazily, so an empty one means the chart
+            # path never needed it rather than that the table is unknown.
+            known = head[len("inode-") :] in self._global_warehouse_file_entries
+        elif "/" in source_id:
+            shape = "data_model_element_shape"
+            known = (
+                head in self._dm_id_by_url_id
+                or head in self.sigma_dataset_urn_by_url_id
+            )
+        else:
+            shape = "unrecognised_shape"
+            known = False
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "WORKBOOK LINEAGE DROPPED element=%s source_id=%r shape=%s "
+                "run_knows_the_head=%s. Sigma states this as an upstream of the "
+                "element; we keep only customSQL and same-workbook elements.",
+                entry.get("elementId"),
+                source_id,
+                shape,
+                known,
+            )
+        return f"{shape}_{'run_knows_it' if known else 'run_never_saw_it'}"
+
+    def _gen_sigma_dataset_observed_schema_workunits(
+        self,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Give a Sigma Dataset a schema built from the columns Sigma referenced.
+
+        **This schema is PARTIAL by construction and that is not fixable here.**
+        Sigma publishes no columns for a Dataset by any route -- probed on the
+        dev tenant: ``/datasets/{id}/columns`` 404s, the detail payload has no
+        columns key, and every ``/dataModels/{id}/...`` route rejects the id as
+        not a data model. So the only evidence that a Dataset has a given
+        column is Sigma handing us ``inode-<urlId>/<NAME>`` as a chart's
+        columnId, and we see that only for columns some chart actually uses.
+
+        Why emit it anyway: without a schema the entity has no fields, so the
+        2,692 chart -> Dataset column edges the columnId resolver produces point
+        at fields that do not exist and render as nothing. A schema containing
+        the referenced columns makes exactly those edges resolve. It cannot
+        invent a column we never saw, so the failure mode is a dataset looking
+        narrower than it is -- visibly incomplete, rather than lineage silently
+        missing.
+
+        Emitted after the workbook pass because that pass is what discovers the
+        columns; datasets themselves are emitted much earlier. Counted so the
+        partiality is legible in the report rather than implied by this comment.
+        """
+        for dataset_urn, columns in sorted(
+            self._sigma_dataset_observed_columns.items()
+        ):
+            if not columns:
+                continue
+            fields = [
+                SchemaFieldClass(
+                    fieldPath=name,
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    nativeDataType=SIGMA_DM_UNKNOWN_COLUMN_NATIVE_TYPE,
+                )
+                for name in sorted(columns)
+            ]
+            self.reporter.sigma_datasets_given_observed_schema += 1
+            self.reporter.sigma_dataset_observed_schema_fields += len(fields)
+            logger.debug(
+                "sigma dataset %s: emitting an OBSERVED schema of %d column(s). "
+                "Sigma publishes no column list for a Dataset, so this covers "
+                "only columns a chart referenced and is a lower bound.",
+                dataset_urn,
+                len(fields),
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SchemaMetadataClass(
+                    schemaName=dataset_urn,
+                    platform=builder.make_data_platform_urn(self.platform),
+                    version=0,
+                    hash="",
+                    platformSchema=OtherSchemaClass(rawSchema=""),
+                    fields=fields,
+                ),
+            ).as_workunit()
 
     def _note_workbook_shape(self, workbook: Workbook) -> None:
         """An anonymised structural fingerprint, for rebuilding this on dev.
@@ -9181,6 +9328,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             }
         for workbook in self.sigma_api.get_sigma_workbooks():
             yield from self._gen_workbook_workunit(workbook)
+
+        # After the workbooks, because that pass is what discovers the columns.
+        yield from self._gen_sigma_dataset_observed_schema_workunits()
 
         for workspace in self._get_allowed_workspaces():
             self.reporter.workspaces.processed(

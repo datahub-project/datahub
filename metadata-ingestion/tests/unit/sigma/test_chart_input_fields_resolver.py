@@ -3725,6 +3725,81 @@ class TestNameMatchingIsOptInAndOffByDefault:
         assert src.reporter.chart_ref_resolved_by_element_name_guess == 1
 
 
+class TestASigmaDatasetGetsTheSchemaSigmaRefusesToPublish:
+    """Sigma publishes NO column list for a Dataset, by any route.
+
+    Probed on the dev tenant (2026-09-14): /datasets/{id}/columns 404s, the
+    detail payload has no columns key, and every /dataModels/{id}/... route
+    rejects the id. So a Dataset had no schemaMetadata at all, and the chart ->
+    Dataset column edges the columnId resolver produces pointed at fields of a
+    schemaless entity -- correct edges that render as nothing.
+    """
+
+    _DS = "urn:li:dataset:(urn:li:dataPlatform:sigma,someUrlId,PROD)"
+
+    def _emit(self, observed):
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src._init_diagnostic_state()
+        src._sigma_dataset_observed_columns = observed
+        return list(src._gen_sigma_dataset_observed_schema_workunits()), src
+
+    def test_the_referenced_columns_become_a_schema(self) -> None:
+        wus, src = self._emit({self._DS: {"Amount", "Signup Date"}})
+
+        assert len(wus) == 1
+        aspect = wus[0].metadata.aspect
+        assert [f.fieldPath for f in aspect.fields] == ["Amount", "Signup Date"]
+        assert src.reporter.sigma_datasets_given_observed_schema == 1
+        assert src.reporter.sigma_dataset_observed_schema_fields == 2
+
+    def test_a_dataset_no_chart_referenced_gets_no_schema(self) -> None:
+        """It cannot invent a column it never saw, so the failure mode is a
+        dataset looking narrower than it is -- never wider."""
+        wus, src = self._emit({self._DS: set()})
+
+        assert wus == []
+        assert src.reporter.sigma_datasets_given_observed_schema == 0
+
+
+class TestWhyAnEmittedEdgeNamesAFieldTheUpstreamLacks:
+    """511 dangling edges on one tenant, with no way to tell the causes apart.
+
+    A case-only difference is a normalisation bug and cheap to fix; a field the
+    upstream has no spelling of means the ref resolved to the WRONG element,
+    which is a resolver problem. Opposite responses, one counter.
+    """
+
+    def _audit(self, upstream_fields, referenced):
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src._init_diagnostic_state()
+        up = "urn:li:chart:(sigma,upEl)"
+        src._known_field_paths = {up: set(upstream_fields)}
+        src._referenced_fields_by_upstream = {up: set(referenced)}
+        src._audit_emitted_edges()
+        return src.reporter
+
+    def test_a_case_only_difference_is_named_as_such(self) -> None:
+        r = self._audit(["Amount"], ["amount"])
+        assert r.edge_audit_absent_reasons == {"case_differs_only": 1}
+
+    def test_a_spacing_difference_is_told_apart_from_a_wrong_element(self) -> None:
+        r = self._audit(["Signup Date"], ["Signup_Date"])
+        assert r.edge_audit_absent_reasons == {"separator_or_spacing_differs": 1}
+
+    def test_a_field_the_upstream_has_no_spelling_of_is_a_resolver_problem(
+        self,
+    ) -> None:
+        r = self._audit(["Amount"], ["Nothing Like It"])
+        assert r.edge_audit_absent_reasons == {"upstream_has_no_such_column": 1}
+
+    def test_an_exact_match_is_still_just_verified(self) -> None:
+        r = self._audit(["Amount"], ["Amount"])
+        assert r.edge_audit_verified == 1
+        assert r.edge_audit_absent_reasons == {}
+
+
 class TestTheEdgeAuditAnswersIsItTheRightEdge:
     """Counters measure PRODUCTION, never correctness.
 

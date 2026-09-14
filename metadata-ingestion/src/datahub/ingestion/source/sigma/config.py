@@ -640,6 +640,22 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # get a fixture: Sigma has no workbook-content authoring API, so every
     # chart-side resolver is currently exercised only by a 6-hour customer run.
     workbook_shape_fingerprints: LossyList[str] = field(default_factory=LossyList)
+    # Sigma publishes NO column list for a Dataset -- /datasets/{id}/columns
+    # 404s, the detail payload has no columns key, and the dataModels routes
+    # reject the id (probed 2026-09-14). So a Dataset had no schemaMetadata at
+    # all, and the chart -> Dataset column edges the columnId resolver produces
+    # pointed at fields of a schemaless entity. These count the schema built
+    # from the columns Sigma itself named via columnIds: a LOWER BOUND, covering
+    # only columns some chart referenced, which is why it is counted rather
+    # than assumed complete.
+    sigma_datasets_given_observed_schema: int = 0
+    sigma_dataset_observed_schema_fields: int = 0
+    # WHY an emitted edge names a field its upstream lacks (511 on one tenant).
+    # case_differs_only and separator_or_spacing_differs are normalisation bugs
+    # and cheap to fix; upstream_has_no_such_column means the ref resolved to
+    # the WRONG element, which is a resolver problem. A single count could not
+    # tell them apart and a 10-row sample could not settle it.
+    edge_audit_absent_reasons: Dict[str, int] = field(default_factory=dict)
     # Derived columns that took their upstreams from the sibling columns they
     # are computed from (Sum([Amount (1)]), DateLookback([Amount], ...)).
     # Largest chart-side gap measured on a real tenant: 27,037 columns, with

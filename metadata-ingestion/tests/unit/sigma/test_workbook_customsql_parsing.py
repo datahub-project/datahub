@@ -505,7 +505,45 @@ class TestDroppedElementSourceIdsAreCounted:
             [{"type": "element", "elementId": "el-a", "sourceIds": ["node-xyz"]}]
         )
         assert source.reporter.workbook_lineage_dropped_source_id_kinds == {
-            "unknown_node": 1
+            "unrecognised_shape_run_never_saw_it": 1
+        }
+
+    def test_a_dropped_id_is_classified_by_shape_and_by_whether_we_saw_it(
+        self,
+    ) -> None:
+        """``unknown_node`` was one bucket of 1,208, and the ids in it are not
+        unknown: they carry the DM-element and warehouse-inode shapes this
+        connector resolves everywhere else. Whether the run WALKED the head is
+        the half that bounds the opportunity -- a head we never saw cannot be
+        consumed however much we build."""
+        source = _make_source()
+        source.reporter = SigmaSourceReport()
+        source._init_diagnostic_state()
+        source._dm_id_by_url_id = {"knownDm": "dm-1"}
+        source._global_warehouse_file_entries = {"knownTable": {}}
+        with patch.object(
+            source.sigma_api,
+            "get_workbook_lineage_entries",
+            return_value=[
+                {
+                    "type": "element",
+                    "elementId": "el-a",
+                    "sourceIds": [
+                        "knownDm/someElement",
+                        "unseenDm/someElement",
+                        "inode-knownTable",
+                        "inode-unseenTable",
+                    ],
+                }
+            ],
+        ):
+            source._build_workbook_customsql_registry(_make_workbook())
+
+        assert source.reporter.workbook_lineage_dropped_source_id_kinds == {
+            "data_model_element_shape_run_knows_it": 1,
+            "data_model_element_shape_run_never_saw_it": 1,
+            "warehouse_inode_shape_run_knows_it": 1,
+            "warehouse_inode_shape_run_never_saw_it": 1,
         }
 
     def test_a_matched_customsql_source_id_is_not_counted_as_dropped(self) -> None:
