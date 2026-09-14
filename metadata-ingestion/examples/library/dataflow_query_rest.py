@@ -20,15 +20,17 @@ info = graph.get_aspect(entity_urn=str(flow_urn), aspect_type=DataFlowInfoClass)
 if info is None:
     raise SystemExit(f"DataFlow not found: {flow_urn}")
 
-# The SDK writes description to the editable overlay, while ingestion sources write it
-# to dataFlowInfo. Prefer the overlay and fall back, which is what DataFlow.description does.
+# Description lives in two places: dataFlowInfo is what ingestion writes, and the
+# editable overlay is what UI and SDK edits write. Show both rather than reimplement
+# the precedence -- DataFlow.description already resolves it (see dataflow_read.py).
 editable = graph.get_aspect(
     entity_urn=str(flow_urn), aspect_type=EditableDataFlowPropertiesClass
 )
-description = (editable.description if editable else None) or info.description
 
 print(f"\nFlow Name: {info.name}")
-print(f"Description: {description}")
+print(f"Description (dataFlowInfo): {info.description}")
+if editable is not None:
+    print(f"Description (editable overlay): {editable.description}")
 print(f"Project: {info.project}")
 
 ownership = graph.get_aspect(entity_urn=str(flow_urn), aspect_type=OwnershipClass)

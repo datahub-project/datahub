@@ -22,15 +22,17 @@ job_info = graph.get_aspect(entity_urn=str(datajob_urn), aspect_type=DataJobInfo
 if job_info is None:
     raise SystemExit(f"DataJob not found: {datajob_urn}")
 
-# The SDK writes description to the editable overlay, while ingestion sources write it
-# to dataJobInfo. Prefer the overlay and fall back, which is what DataJob.description does.
+# Description lives in two places: dataJobInfo is what ingestion writes, and the
+# editable overlay is what UI and SDK edits write. Show both rather than reimplement
+# the precedence -- DataJob.description already resolves it (see datajob_read.py).
 editable = graph.get_aspect(
     entity_urn=str(datajob_urn), aspect_type=EditableDataJobPropertiesClass
 )
-description = (editable.description if editable else None) or job_info.description
 
 print(f"Job Name: {job_info.name}")
-print(f"Description: {description}")
+print(f"Description (dataJobInfo): {job_info.description}")
+if editable is not None:
+    print(f"Description (editable overlay): {editable.description}")
 
 lineage = graph.get_aspect(
     entity_urn=str(datajob_urn), aspect_type=DataJobInputOutputClass
@@ -38,12 +40,20 @@ lineage = graph.get_aspect(
 if lineage is not None:
     # Lineage comes back either as plain urn lists or as edges carrying audit stamps,
     # depending on which writer produced it -- the SDK writes the former. Read both.
-    inputs = [*(lineage.inputDatasets or [])] + [
-        edge.destinationUrn for edge in (lineage.inputDatasetEdges or [])
-    ]
-    outputs = [*(lineage.outputDatasets or [])] + [
-        edge.destinationUrn for edge in (lineage.outputDatasetEdges or [])
-    ]
+    # The two forms can coexist on one entity, so dedupe the union rather than
+    # concatenating it. dict.fromkeys keeps first-seen order.
+    inputs = list(
+        dict.fromkeys(
+            [*(lineage.inputDatasets or [])]
+            + [edge.destinationUrn for edge in (lineage.inputDatasetEdges or [])]
+        )
+    )
+    outputs = list(
+        dict.fromkeys(
+            [*(lineage.outputDatasets or [])]
+            + [edge.destinationUrn for edge in (lineage.outputDatasetEdges or [])]
+        )
+    )
 
     print(f"\nInput Datasets: {len(inputs)}")
     for dataset_urn in inputs:
