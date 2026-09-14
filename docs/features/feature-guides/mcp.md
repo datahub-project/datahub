@@ -191,6 +191,10 @@ For on-premises DataHub Cloud, use your DataHub FQDN, e.g. `https://datahub.exam
 
 ### Configure Your Client
 
+:::note Using a scoped MCP server?
+If you have created a [scoped MCP server](./scoped-mcp-servers.md), substitute its **Connection URL** wherever these instructions use `https://mcp.datahub.com/mcp`. Scoped servers live under your tenant (for example, `https://<tenant>.acryl.io/mcp/finance`) — the shared `https://mcp.datahub.com/mcp` entry point always resolves to your tenant's **default** server and cannot be pointed at a scoped one. See [Connect a client to a scoped server](./scoped-mcp-servers.md#connect-a-client-to-a-scoped-server).
+:::
+
 <details>
   <summary>Claude (web, desktop, mobile)</summary>
 
