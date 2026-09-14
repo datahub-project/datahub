@@ -133,6 +133,7 @@ def _accumulate(words: list[list[int]], dims: int) -> list[int]:
         return acc
     for feature, tf in _features(words).items():
         digest = hashlib.sha256(feature).digest()
+        # Digest layout (shared with Java): bytes 0-3 big-endian bucket, byte 4 bit 0 sign.
         sign = 1 if (digest[4] & 1) == 0 else -1
         acc[_bucket(digest, dims)] += sign * _ceil_sqrt(tf)
     if not any(acc):
@@ -148,7 +149,13 @@ def _float32(value: int) -> float:
 
 
 class ClassicalEmbeddingProvider(EmbeddingProvider):
-    """Deterministic hashed-feature embeddings; parity twin of the GMS Java provider."""
+    """Deterministic hashed-feature embeddings; parity twin of the GMS Java provider.
+
+    Known parity caveat: a string holding an adjacent high+low surrogate pair as two
+    code units (only reachable via surrogatepass/surrogateescape decoding in Python)
+    hashes as two U+FFFD here but as one supplementary code point in Java; JSON
+    ingress on both sides cannot produce it.
+    """
 
     def __init__(self, model: str):
         self.dimensions = _parse_dimensions(model)

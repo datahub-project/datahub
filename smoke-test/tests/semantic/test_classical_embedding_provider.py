@@ -67,13 +67,44 @@ CLASSICAL_EMBEDDING_MODEL = os.environ.get("CLASSICAL_EMBEDDING_MODEL", "hash-v1
 EXPECTED_EMBEDDING_KEY = CLASSICAL_EMBEDDING_MODEL.replace("-", "_").replace(".", "_")
 EXPECTED_DIMENSIONS = int(CLASSICAL_EMBEDDING_MODEL.rsplit("-", 1)[1])
 
-# Seconds to wait for ES semantic index refresh after embedding generation
+# Deadline for the ES semantic index to surface freshly embedded documents
 INDEXING_WAIT_SECONDS = int(os.environ.get("EMBEDDING_WAIT_SECONDS", "20"))
+INDEXING_POLL_INTERVAL_SECONDS = 2
 
 
 # ---------------------------------------------------------------------------
 # Test helpers
 # ---------------------------------------------------------------------------
+
+
+def _wait_for_semantic_index(
+    auth_session, query: str, expected_urns: list[str]
+) -> dict:
+    """Poll semantic search until every expected URN is returned, or the deadline passes.
+
+    The semantic index refreshes asynchronously after the semanticContent write, so
+    a single query after a fixed sleep races it. Returns the last response either
+    way; callers assert on it.
+    """
+    deadline = time.monotonic() + INDEXING_WAIT_SECONDS
+    while True:
+        result = search_documents_semantic(auth_session, query)
+        search_data = (result.get("data") or {}).get(
+            "semanticSearchAcrossEntities"
+        ) or {}
+        found = {
+            (item.get("entity") or {}).get("urn")
+            for item in search_data.get("searchResults", [])
+        }
+        if "errors" not in result and set(expected_urns) <= found:
+            return result
+        if time.monotonic() >= deadline:
+            logger.warning(
+                f"Semantic index did not surface {set(expected_urns) - found} for "
+                f"'{query}' within {INDEXING_WAIT_SECONDS}s"
+            )
+            return result
+        time.sleep(INDEXING_POLL_INTERVAL_SECONDS)
 
 
 def _verify_classical_embedding(auth_session, urn: str) -> None:
@@ -215,8 +246,8 @@ class TestClassicalEmbeddingProvider:
         run_ingestion(auth_session, recipe_path)
         wait_for_writes_to_sync(mcp_only=True)
 
-        logger.info(f"Waiting {INDEXING_WAIT_SECONDS}s for semantic index refresh...")
-        time.sleep(INDEXING_WAIT_SECONDS)
+        # The title is a lexical query the classical provider must match.
+        _wait_for_semantic_index(auth_session, SAMPLE_DOCUMENTS[0]["title"], urns)
 
         for urn in urns:
             _verify_classical_embedding(auth_session, urn)
@@ -259,10 +290,12 @@ class TestClassicalEmbeddingProvider:
         run_ingestion(auth_session, recipe_path)
         wait_for_writes_to_sync(mcp_only=True)
 
-        logger.info(f"Waiting {INDEXING_WAIT_SECONDS}s for semantic index refresh...")
-        time.sleep(INDEXING_WAIT_SECONDS)
+        # Step 3: Poll the semantic index with the lexical query used below until all
+        # three documents are visible (or the deadline passes), then verify aspects.
+        test_query = "data access request process"
+        result = _wait_for_semantic_index(auth_session, test_query, urns)
 
-        # Step 3: Verify semanticContent exists for each document
+        # Step 3b: Verify semanticContent exists for each document
         logger.info("Verifying semanticContent aspects...")
         for urn in urns:
             try:
@@ -271,11 +304,8 @@ class TestClassicalEmbeddingProvider:
             except Exception as e:
                 pytest.fail(f"semanticContent verification failed for {urn}: {e}")
 
-        # Step 4: Lexical query built from the target document's title words
-        test_query = "data access request process"
-        logger.info(f"Executing semantic search: '{test_query}'")
-
-        result = search_documents_semantic(auth_session, test_query)
+        # Step 4: Assert on the lexical query built from the target document's title words
+        logger.info(f"Checking semantic search results for: '{test_query}'")
 
         if "errors" in result:
             pytest.fail(

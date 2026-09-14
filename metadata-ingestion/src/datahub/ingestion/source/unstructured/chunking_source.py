@@ -957,30 +957,38 @@ class DocumentChunkingSource(Source):
         )
         assert model_version is not None
 
-        # Only embeddable chunks were sent to the provider, so pair vectors with
-        # that same subset; zipping against every chunk would shift each vector
-        # after a blank chunk onto the wrong text.
-        chunks = [chunk for chunk in chunks if _has_embeddable_text(chunk)]
+        # characterOffset counts every chunk, blank ones included, so offsets keep
+        # mapping onto the original document text. Only embeddable chunks were sent
+        # to the provider, so pair vectors with that same subset; zipping against
+        # every chunk would shift each vector after a blank chunk onto the wrong text.
+        offsets: list[int] = []
+        current_offset = 0
+        for chunk in chunks:
+            offsets.append(current_offset)
+            current_offset += len(chunk.get("text", ""))
+        embeddable = [
+            (chunk, offset)
+            for chunk, offset in zip(chunks, offsets, strict=True)
+            if _has_embeddable_text(chunk)
+        ]
 
         # Build embedding chunks
         embedding_chunks = []
-        current_offset = 0
 
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=False)):
+        for i, ((chunk, offset), embedding) in enumerate(
+            zip(embeddable, embeddings, strict=False)
+        ):
             chunk_text = chunk.get("text", "")
-            chunk_length = len(chunk_text)
 
             embedding_chunk = EmbeddingChunkClass(
                 position=i,
                 vector=embedding,
-                characterOffset=current_offset,
-                characterLength=chunk_length,
+                characterOffset=offset,
+                characterLength=len(chunk_text),
                 tokenCount=None,
                 text=chunk_text,
             )
             embedding_chunks.append(embedding_chunk)
-
-            current_offset += chunk_length
 
         # totalTokens is intentionally omitted: provider responses report token
         # usage at the batch level (OpenAI usage.prompt_tokens,
@@ -992,7 +1000,7 @@ class DocumentChunkingSource(Source):
             generatedAt=int(datetime.utcnow().timestamp() * 1000),
             sourceTextSha256=source_text_sha256,
             chunkingStrategy=self.config.chunking.strategy,
-            totalChunks=len(chunks),
+            totalChunks=len(embeddable),
             chunks=embedding_chunks,
         )
 

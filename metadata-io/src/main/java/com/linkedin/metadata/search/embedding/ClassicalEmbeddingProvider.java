@@ -26,6 +26,10 @@ import javax.annotation.Nullable;
  * corpus weighting, and no synonym or paraphrase matching. Vectors are unnormalized integer counts,
  * so the index must use a cosine space type.
  *
+ * <p>Known parity caveat: a string holding an adjacent high+low surrogate pair as two code units
+ * (only reachable via surrogatepass/surrogateescape decoding in Python) hashes as two U+FFFD in
+ * Python but as one supplementary code point in Java; JSON ingress on both sides cannot produce it.
+ *
  * <p>Model name format: {@code hash-v1-<dims>} with dims in 1..{@value #MAX_DIMENSIONS}. Safe for
  * concurrent use: each call owns its own state.
  */
@@ -78,15 +82,18 @@ public class ClassicalEmbeddingProvider implements EmbeddingProvider {
   @Nonnull
   @Override
   public float[] embed(@Nonnull String text, @Nullable String model) {
-    int[] cps = text.codePoints().toArray();
-    if (cps.length > MAX_CODE_POINTS) {
+    // Reject before materializing the code points so oversized input cannot force a large
+    // temporary allocation.
+    int codePointCount = text.codePointCount(0, text.length());
+    if (codePointCount > MAX_CODE_POINTS) {
       throw new IllegalArgumentException(
           "Text has "
-              + cps.length
+              + codePointCount
               + " code points; the classical embedding provider accepts at most "
               + MAX_CODE_POINTS
               + ".");
     }
+    int[] cps = text.codePoints().toArray();
     for (int i = 0; i < cps.length; i++) {
       int cp = cps[i];
       if (cp >= 0xD800 && cp <= 0xDFFF) {

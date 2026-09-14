@@ -369,12 +369,14 @@ public class EmbeddingProviderFactory {
               provider.getDimensions()));
     }
     String spaceType = modelConfig.getSpaceType();
-    if (!"cosinesimil".equalsIgnoreCase(spaceType) && !"cosine".equalsIgnoreCase(spaceType)) {
+    // Exact match: the index mapping translator does not normalize case, so a value that only
+    // passes case-insensitively would fail later at semantic index creation.
+    if (!"cosinesimil".equals(spaceType) && !"cosine".equals(spaceType)) {
       throw new IllegalStateException(
           String.format(
               "Classical embedding vectors are unnormalized and require a cosine space type, but "
-                  + "semanticSearch.models.%s.spaceType is '%s'. Set it to cosinesimil (OpenSearch) "
-                  + "or cosine (Elasticsearch).",
+                  + "semanticSearch.models.%s.spaceType is '%s'. Set it to exactly cosinesimil "
+                  + "(OpenSearch) or cosine (Elasticsearch).",
               modelKey, spaceType));
     }
 

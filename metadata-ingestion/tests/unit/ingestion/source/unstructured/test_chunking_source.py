@@ -1335,6 +1335,12 @@ class TestSkipMarkersAndEmbedAccounting:
         ]
         assert [c.position for c in model_data.chunks] == [0, 1]
         assert model_data.totalChunks == 2
+        # Offsets still count the skipped blank chunk ("   ", 3 chars) so they map
+        # onto the original document text.
+        assert [(c.characterOffset, c.characterLength) for c in model_data.chunks] == [
+            (0, 5),
+            (8, 5),
+        ]
 
     def test_provider_returning_no_vectors_is_failure_not_success(
         self, pipeline_context, chunking_config
