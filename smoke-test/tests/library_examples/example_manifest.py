@@ -56,6 +56,7 @@ EXAMPLE_MANIFEST = [
     "datajob_read.py",
     # Data Product examples
     "dataproduct_create.py",
+    "dataproduct_query_rest.py",
     # Domain examples
     "domain_create.py",
     "domain_create_nested.py",

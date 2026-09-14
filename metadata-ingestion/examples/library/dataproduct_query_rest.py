@@ -1,57 +1,54 @@
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-
-gms_endpoint = "http://localhost:8080"
-graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
-
-data_product_urn = "urn:li:dataProduct:customer_360"
-
-data_product = graph.get_entity_raw(
-    entity_urn=data_product_urn,
-    aspects=[
-        "dataProductKey",
-        "dataProductProperties",
-        "ownership",
-        "domains",
-        "globalTags",
-        "glossaryTerms",
-    ],
+from datahub.ingestion.graph.client import get_default_graph
+from datahub.metadata.schema_classes import (
+    DataProductPropertiesClass,
+    DomainsClass,
+    GlobalTagsClass,
+    GlossaryTermsClass,
+    OwnershipClass,
 )
+from datahub.metadata.urns import DataProductUrn
 
-if not data_product:
+graph = get_default_graph()
+
+data_product_urn = DataProductUrn("pet_of_the_week")
+
+# get_entity_raw() cannot be used to test existence -- entitiesV2 synthesizes the key
+# aspect for an entity that was never created, so it always returns a non-empty payload.
+if not graph.exists(str(data_product_urn)):
     raise SystemExit(f"Data Product not found: {data_product_urn}")
 
 print(f"Successfully retrieved Data Product: {data_product_urn}")
 
-properties = data_product.get("dataProductProperties")
-if properties:
-    print(f"Name: {properties.get('name')}")
-    print(f"Description: {properties.get('description')}")
+properties = graph.get_aspect(
+    entity_urn=str(data_product_urn), aspect_type=DataProductPropertiesClass
+)
+if properties is not None:
+    print(f"Name: {properties.name}")
+    print(f"Description: {properties.description}")
 
-    assets = properties.get("assets", [])
+    assets = properties.assets or []
     print(f"Number of assets: {len(assets)}")
     for asset in assets:
-        asset_urn = asset.get("destinationUrn")
-        is_output_port = asset.get("outputPort", False)
-        print(f"  - Asset: {asset_urn} (Output Port: {is_output_port})")
+        print(f"  - Asset: {asset.destinationUrn} (Output Port: {asset.outputPort})")
 
-domains = data_product.get("domains")
-if domains:
-    domain_urns = domains.get("domains", [])
-    print(f"Domain: {domain_urns}")
+domains = graph.get_aspect(entity_urn=str(data_product_urn), aspect_type=DomainsClass)
+if domains is not None:
+    print(f"Domain: {domains.domains}")
 
-ownership = data_product.get("ownership")
-if ownership:
-    owners = ownership.get("owners", [])
-    print(f"Number of owners: {len(owners)}")
-    for owner in owners:
-        print(f"  - Owner: {owner.get('owner')} (Type: {owner.get('type')})")
+ownership = graph.get_aspect(
+    entity_urn=str(data_product_urn), aspect_type=OwnershipClass
+)
+if ownership is not None:
+    print(f"Number of owners: {len(ownership.owners)}")
+    for owner in ownership.owners:
+        print(f"  - Owner: {owner.owner} (Type: {owner.type})")
 
-tags = data_product.get("globalTags")
-if tags:
-    tag_list = tags.get("tags", [])
-    print(f"Tags: {[t.get('tag') for t in tag_list]}")
+tags = graph.get_aspect(entity_urn=str(data_product_urn), aspect_type=GlobalTagsClass)
+if tags is not None:
+    print(f"Tags: {[t.tag for t in tags.tags]}")
 
-terms = data_product.get("glossaryTerms")
-if terms:
-    term_list = terms.get("terms", [])
-    print(f"Glossary Terms: {[t.get('urn') for t in term_list]}")
+terms = graph.get_aspect(
+    entity_urn=str(data_product_urn), aspect_type=GlossaryTermsClass
+)
+if terms is not None:
+    print(f"Glossary Terms: {[t.urn for t in terms.terms]}")
