@@ -1644,6 +1644,18 @@ def _terminate_process(process: Optional[subprocess.Popen[Any]]) -> None:
         process.wait()
 
 
+def _recommended_gms_gradle_workers() -> int:
+    """Scale host GMS compilation without overriding the laptop-safe global default."""
+    cpu_limit = max(2, (os.cpu_count() or 2) // 2)
+    memory_limit = 2
+    try:
+        physical_memory = os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")
+        memory_limit = max(2, physical_memory // (4 * 1024**3))
+    except (AttributeError, OSError, ValueError):
+        pass
+    return min(6, cpu_limit, memory_limit)
+
+
 def cmd_play(args: argparse.Namespace) -> int:
     """Replace the Docker Play frontend with Play's host development server."""
     container = _find_running_container(["frontend-debug"])
@@ -1719,7 +1731,13 @@ def cmd_gms(args: argparse.Namespace) -> int:
         _log("ERROR: Could not read the GMS container environment.")
         return 1
 
-    common_gradle_args = ["-x", "generateGitPropertiesGlobal"]
+    max_workers = args.max_workers or _recommended_gms_gradle_workers()
+    common_gradle_args = [
+        f"--max-workers={max_workers}",
+        "-x",
+        "generateGitPropertiesGlobal",
+    ]
+    _log(f"Using up to {max_workers} Gradle workers for host GMS.")
     _log("Compiling GMS before switching the running service...")
     prepare = _run(
         ["./gradlew", ":metadata-service:war:classes", *common_gradle_args],
@@ -2362,8 +2380,15 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser(
         "play", help="Replace Docker frontend with the host Play development server"
     )
-    subparsers.add_parser(
+    gms_p = subparsers.add_parser(
         "gms", help="Replace Docker GMS with host bootRun and continuous compilation"
+    )
+    gms_p.add_argument(
+        "--max-workers",
+        type=int,
+        choices=range(1, 65),
+        metavar="N",
+        help="Maximum Gradle workers (default: CPU/memory-aware, capped at 6)",
     )
 
     # docs
