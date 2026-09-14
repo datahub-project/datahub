@@ -15,7 +15,13 @@ from datahub.ingestion.source.kafka.confluent_catalog import (
 )
 from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
-from datahub.metadata.schema_classes import DatasetPropertiesClass, GlobalTagsClass
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    GlobalTagsClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+)
+from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 
 CONFLUENT_SCHEMA_REGISTRY_URL = "https://psrc-abc123.us-east-1.aws.confluent.cloud"
 SCHEMA_REGISTRY_URL = "http://localhost:8081"
@@ -34,6 +40,7 @@ def make_source_config(
     catalog: Optional[Dict[str, object]] = None,
     schema_registry_config: Optional[Dict[str, str]] = None,
     schema_registry_url: str = CONFLUENT_SCHEMA_REGISTRY_URL,
+    **extra: object,
 ) -> KafkaSourceConfig:
     return KafkaSourceConfig.model_validate(
         {
@@ -43,6 +50,7 @@ def make_source_config(
                 "schema_registry_config": schema_registry_config or {},
             },
             "confluent_catalog": catalog or {},
+            **extra,
         }
     )
 
@@ -472,3 +480,229 @@ class TestCatalogMetadataOnTopics:
             "Confluent Cloud only" in warning.message
             for warning in source.report.warnings
         )
+
+
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+class TestCatalogOwnersAndDescriptions:
+    def build_source(
+        self,
+        mock_kafka: Mock,
+        topics: List[CatalogKafkaTopic],
+        **catalog_overrides: object,
+    ) -> KafkaSource:
+        cluster_metadata = MagicMock()
+        cluster_metadata.topics = {TOPIC: None}
+        mock_kafka.return_value.list_topics.return_value = cluster_metadata
+
+        source = KafkaSource(
+            make_source_config(
+                catalog=enabled_catalog_config(**catalog_overrides),
+                schema_registry_url=SCHEMA_REGISTRY_URL,
+            ),
+            PipelineContext(run_id="test"),
+        )
+        attach_catalog(source, topics, complete=True)
+        return source
+
+    def test_owner_email_becomes_a_technical_owner(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [
+                CatalogKafkaTopic(
+                    name=TOPIC,
+                    owner="Ada Lovelace",
+                    ownerEmail="ada@example.com",
+                )
+            ],
+        )
+
+        workunits = list(source.get_workunits())
+
+        ownership = aspects_of(workunits, "ownership")
+        assert any(
+            isinstance(aspect, OwnershipClass)
+            and [(owner.owner, owner.type) for owner in aspect.owners]
+            == [
+                (
+                    "urn:li:corpuser:ada@example.com",
+                    OwnershipTypeClass.TECHNICAL_OWNER,
+                )
+            ]
+            for aspect in ownership
+        )
+        assert source.report.catalog_topics_with_owners == 1
+
+    def test_owner_without_an_email_is_counted_not_guessed(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        # A display name cannot be resolved to a user, so no owner is emitted.
+        source = self.build_source(
+            mock_kafka, [CatalogKafkaTopic(name=TOPIC, owner="Ada Lovelace")]
+        )
+
+        workunits = list(source.get_workunits())
+
+        assert not aspects_of(workunits, "ownership")
+        assert source.report.catalog_owners_without_email == 1
+        assert source.report.catalog_topics_with_owners == 0
+
+    def test_strip_user_ids_from_email_is_honoured(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        cluster_metadata = MagicMock()
+        cluster_metadata.topics = {TOPIC: None}
+        mock_kafka.return_value.list_topics.return_value = cluster_metadata
+        source = KafkaSource(
+            make_source_config(
+                catalog=enabled_catalog_config(),
+                schema_registry_url=SCHEMA_REGISTRY_URL,
+                strip_user_ids_from_email=True,
+            ),
+            PipelineContext(run_id="test"),
+        )
+        attach_catalog(
+            source,
+            [CatalogKafkaTopic(name=TOPIC, ownerEmail="ada@example.com")],
+            complete=True,
+        )
+
+        workunits = list(source.get_workunits())
+
+        ownership = aspects_of(workunits, "ownership")
+        assert any(
+            isinstance(aspect, OwnershipClass)
+            and [owner.owner for owner in aspect.owners] == ["urn:li:corpuser:ada"]
+            for aspect in ownership
+        )
+
+    def test_catalog_description_fills_an_empty_description(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [CatalogKafkaTopic(name=TOPIC, description="Curated in Confluent")],
+        )
+
+        with change_default_attribution(KnownAttribution.INGESTION):
+            workunits = list(source.get_workunits())
+
+        properties = aspects_of(workunits, "datasetProperties")
+        assert any(
+            isinstance(aspect, DatasetPropertiesClass)
+            and aspect.description == "Curated in Confluent"
+            for aspect in properties
+        )
+        assert source.report.catalog_topics_with_descriptions == 1
+
+    def test_toggles_suppress_owners_and_descriptions(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [
+                CatalogKafkaTopic(
+                    name=TOPIC,
+                    ownerEmail="ada@example.com",
+                    description="Curated in Confluent",
+                )
+            ],
+            include_owners=False,
+            include_descriptions=False,
+        )
+
+        with change_default_attribution(KnownAttribution.INGESTION):
+            workunits = list(source.get_workunits())
+
+        assert not aspects_of(workunits, "ownership")
+        properties = aspects_of(workunits, "datasetProperties")
+        assert all(
+            not isinstance(aspect, DatasetPropertiesClass) or aspect.description is None
+            for aspect in properties
+        )
+        assert source.report.catalog_topics_with_owners == 0
+        assert source.report.catalog_topics_with_descriptions == 0
+
+    def test_catalog_timestamps_become_source_platform_times(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [
+                CatalogKafkaTopic(
+                    name=TOPIC,
+                    createTime="2024-12-05T12:28:00Z",
+                    updateTime="2025-08-21T16:22:00Z",
+                )
+            ],
+        )
+
+        with change_default_attribution(KnownAttribution.INGESTION):
+            workunits = list(source.get_workunits())
+
+        properties = aspects_of(workunits, "datasetProperties")
+        assert any(
+            isinstance(aspect, DatasetPropertiesClass)
+            and aspect.created is not None
+            and aspect.created.time == 1733401680000
+            and aspect.lastModified is not None
+            and aspect.lastModified.time == 1755793320000
+            for aspect in properties
+        )
+        assert source.report.catalog_topics_with_timestamps == 1
+
+    def test_include_timestamps_toggle_suppresses_them(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [CatalogKafkaTopic(name=TOPIC, createTime="2024-12-05T12:28:00Z")],
+            include_timestamps=False,
+        )
+
+        with change_default_attribution(KnownAttribution.INGESTION):
+            workunits = list(source.get_workunits())
+
+        properties = aspects_of(workunits, "datasetProperties")
+        assert all(
+            not isinstance(aspect, DatasetPropertiesClass) or aspect.created is None
+            for aspect in properties
+        )
+        assert source.report.catalog_topics_with_timestamps == 0
+
+
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+class TestNonConfluentKafkaIsUnaffected:
+    """Plain Kafka - self-managed, MSK, Redpanda - has no Stream Catalog.
+
+    `confluent_catalog` is off by default, so these sources must emit exactly what
+    they emitted before the catalog fields existed: no ownership aspect, and no
+    catalog-derived description or timestamps.
+    """
+
+    def test_catalog_disabled_emits_no_catalog_derived_aspects(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        cluster_metadata = MagicMock()
+        cluster_metadata.topics = {TOPIC: None}
+        mock_kafka.return_value.list_topics.return_value = cluster_metadata
+
+        source = KafkaSource(
+            make_source_config(schema_registry_url=SCHEMA_REGISTRY_URL),
+            PipelineContext(run_id="test"),
+        )
+        assert source.topic_catalog is None
+
+        with change_default_attribution(KnownAttribution.INGESTION):
+            workunits = list(source.get_workunits())
+
+        assert not aspects_of(workunits, "ownership")
+        for aspect in aspects_of(workunits, "datasetProperties"):
+            assert isinstance(aspect, DatasetPropertiesClass)
+            assert aspect.created is None
+            assert aspect.lastModified is None
+        assert source.report.catalog_topics_with_owners == 0
+        assert source.report.catalog_topics_with_descriptions == 0
+        assert source.report.catalog_topics_with_timestamps == 0
+        assert source.report.catalog_owners_without_email == 0
