@@ -16,6 +16,8 @@ import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -23,6 +25,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.HashMap;
@@ -58,18 +61,22 @@ public class AnalyticsServiceTest {
   @BeforeMethod
   public void setup() {
     mockClient = mock(SearchClientShim.class);
-    // A real context, matching ESSearchDAOIncidentStatsTest - the primitives run inside
-    // opContext.withSpan, which a bare mock would swallow without invoking.
-    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
-
     mockIndexConvention = mock(IndexConvention.class);
     when(mockIndexConvention.getEntityIndexName(any(OperationFingerprint.class), any()))
         .thenAnswer(invocation -> invocation.getArgument(1).toString().toLowerCase() + "index_v2");
+    when(mockIndexConvention.getEntityIndexNameV3(any(OperationFingerprint.class), any()))
+        .thenAnswer(invocation -> invocation.getArgument(1).toString().toLowerCase() + "index_v3");
+    when(mockIndexConvention.getV3EntityIndexPatterns(any())).thenReturn(List.of("*index_v3"));
     when(mockIndexConvention.getIndexName(
             any(OperationFingerprint.class), eq(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX)))
         .thenReturn(USAGE_INDEX);
 
-    service = new AnalyticsService(mockClient, mockIndexConvention, opContext.getEntityRegistry());
+    SearchContext searchContext =
+        SearchContext.EMPTY.toBuilder().indexConvention(mockIndexConvention).build();
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization(searchContext);
+
+    service =
+        new AnalyticsService(mockClient, mockIndexConvention, opContext.getEntityRegistry(), null);
   }
 
   private Map<String, DateRange> twoRanges() {
@@ -215,7 +222,7 @@ public class AnalyticsServiceTest {
     when(registry.getEntitySpecs()).thenReturn(specs);
 
     AnalyticsService patchedService =
-        new AnalyticsService(mockClient, mockIndexConvention, registry);
+        new AnalyticsService(mockClient, mockIndexConvention, registry, null);
 
     assertEquals(patchedService.coerceTermValues("hasCustomFlag", List.of("true"))[0], "true");
 
@@ -274,6 +281,89 @@ public class AnalyticsServiceTest {
     assertTrue(compact.contains("\"hasOwners\":[true]"));
     assertFalse(compact.contains("\"hasOwners\":[\"true\"]"));
     assertTrue(source.contains("removed"), "soft-deleted entities must be excluded");
+  }
+
+  @Test
+  public void testEntityStatsRequestOnV3FiltersByEntityTypeNotIndex() {
+    AnalyticsService v3Service =
+        new AnalyticsService(
+            mockClient, mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
+    SearchRequest request =
+        v3Service.buildEntityStatsRequest(
+            opContext, List.of(EntityType.DATASET, EntityType.CHART), FACETS);
+
+    assertEquals(request.indices(), new String[] {"datasetindex_v3", "chartindex_v3"});
+    String source = request.source().toString();
+    assertTrue(
+        source.contains("\"_entityType\""), "V3 entity buckets must be scoped by _entityType");
+    assertTrue(source.contains("dataset"));
+    assertTrue(source.contains("chart"));
+    assertFalse(source.contains("\"_index\""), "V3 must not bucket by _index");
+  }
+
+  @Test
+  public void testAllEntityIndexNameAndQueryExclusionFollowKeywordRead() {
+    assertEquals(service.getAllEntityIndexName(opContext), "*index_v2");
+    assertEquals(service.queryEntityMustNotFilters(), Map.of("_index", List.of("*queryindex_v2*")));
+
+    AnalyticsService v3Service =
+        new AnalyticsService(
+            mockClient, mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
+    assertEquals(v3Service.getAllEntityIndexName(opContext), "*index_v3");
+    assertEquals(v3Service.queryEntityMustNotFilters(), Map.of("_entityType", List.of("query")));
+  }
+
+  @Test
+  public void testBarChartSkipsV3EntityKeywordSubfields() throws Exception {
+    AnalyticsService v3Service =
+        new AnalyticsService(
+            mockClient, mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
+
+    assertEquals(
+        v3Service.getBarChart(
+            opContext,
+            "*index_v3",
+            Optional.empty(),
+            List.of("platform.keyword"),
+            Map.of(),
+            Map.of(),
+            Optional.empty(),
+            false),
+        List.of());
+    verify(mockClient, times(0)).search(any(), any(SearchRequest.class), any());
+  }
+
+  @Test
+  public void testBarChartStillQueriesUsageIndexOnV3() throws Exception {
+    AnalyticsService v3Service =
+        new AnalyticsService(
+            mockClient, mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
+
+    try {
+      v3Service.getBarChart(
+          opContext,
+          USAGE_INDEX,
+          Optional.empty(),
+          List.of("actorUrn.keyword"),
+          Map.of(),
+          Map.of(),
+          Optional.empty(),
+          false);
+    } catch (RuntimeException ignored) {
+      // usage-index queries still hit ES; this test only asserts we did not skip them
+    }
+    verify(mockClient, times(1)).search(any(), any(SearchRequest.class), any());
+  }
+
+  private static EntityIndexConfiguration keywordReadV3() {
+    return EntityIndexConfiguration.builder()
+        .v2(EntityIndexVersionConfiguration.builder().enabled(true).build())
+        .v3(
+            EntityIndexVersionConfiguration.builder()
+                .enabled(true)
+                .keywordReadEnabled(true)
+                .build())
+        .build();
   }
 
   @Test

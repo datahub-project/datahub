@@ -84,7 +84,7 @@ public class PoliciesConfig {
   private static final Privilege VIEW_ANALYTICS_PRIVILEGE =
       Privilege.of("VIEW_ANALYTICS", "View Analytics", "View the DataHub analytics dashboard.");
 
-  private static final Privilege GET_ANALYTICS_PRIVILEGE =
+  public static final Privilege GET_ANALYTICS_PRIVILEGE =
       Privilege.of(
           "GET_ANALYTICS_PRIVILEGE",
           "Analytics API access",

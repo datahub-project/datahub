@@ -6,6 +6,7 @@ import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.AbstractBulkProcessorShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
@@ -26,10 +27,19 @@ public class BulkProcessorTestUtils {
     final SearchClientShim<?> searchClient = getRestHighLevelClient(bulkProcessor);
 
     // if the bulks are big it takes time for Elastic/OpenSearch to process these bulk requests
-    if (searchClient instanceof OpenSearch2SearchClientShim) {
+    if (searchClient instanceof OpenSearch2SearchClientShim
+        || searchClient instanceof OpenSearchSearchClientShim) {
       getBulkProcessorListener((AbstractBulkProcessorShim<?>) searchClient).waitForBulkProcessed();
     } else if (searchClient instanceof Es8SearchClientShim) {
-      getBulkListener((AbstractBulkProcessorShim<?>) searchClient).waitForBulkProcessed();
+      // Null when the proxy listener was never installed on this shim's ingesters (a test that
+      // builds its own search service regenerates the bulk processors after the container config
+      // wrapped them, leaving a plain Es8BulkListener behind). waitForCompletion + the explicit
+      // refresh below still synchronize; skip the proxy wait instead of blind-casting.
+      ESBulkProcessorProxyListener es8Listener =
+          getBulkListener((AbstractBulkProcessorShim<?>) searchClient);
+      if (es8Listener != null) {
+        es8Listener.waitForBulkProcessed();
+      }
     }
     waitForCompletion(searchClient);
     // some tasks might have refresh = false, so we need to refresh manually
@@ -82,7 +92,11 @@ public class BulkProcessorTestUtils {
       Object[] processors = (Object[]) bulkProcessors;
       if (processors.length > 0 && processors[0] instanceof BulkIngester<?>) {
         BulkIngester<?> processor = (BulkIngester<?>) processors[0];
-        return (ESBulkProcessorProxyListener) ReflectionTestUtils.getField(processor, "listener");
+        Object listener = ReflectionTestUtils.getField(processor, "listener");
+        // A raw engine listener (e.g. Es8BulkListener) means the proxy was never installed here.
+        return listener instanceof ESBulkProcessorProxyListener
+            ? (ESBulkProcessorProxyListener) listener
+            : null;
       }
     }
     return null;

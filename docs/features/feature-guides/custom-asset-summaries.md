@@ -172,6 +172,10 @@ Changes you make to an asset's Summary page are **visible to all users** who vie
 
 To customize Asset Summaries, users need the **"Manage Asset Summary"** privilege for the specific asset they want to edit. This permission can be configured through DataHub's policy editor alongside other access controls. By default, Admins, Editors, and asset owners will be granted this permission.
 
+:::note API parity
+The UI and the GraphQL `updateAssetSettings` mutation accept either **Manage Asset Summary** or **Edit Entity** on the asset. Writing the `assetSettings` aspect directly through OpenAPI or Rest.li is authorized as a generic entity update and requires **Edit Entity**; **Manage Asset Summary** alone is not sufficient on those APIs.
+:::
+
 ### Setting Up Permissions
 
 1. Navigate to **Settings > Permissions > Policies**
