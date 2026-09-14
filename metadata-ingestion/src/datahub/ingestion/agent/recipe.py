@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
 
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
@@ -7,7 +7,11 @@ from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
     collect_nested_secret_values,
 )
-from datahub.ingestion.agent.secrets import default_resolvers, resolve_config_collecting
+from datahub.ingestion.agent.secrets import (
+    SecretResolver,
+    default_resolvers,
+    resolve_config_collecting,
+)
 from datahub.ingestion.source.source_registry import source_registry
 
 _REF = re.compile(r"\$\{[^}]+\}")
@@ -49,7 +53,15 @@ def scaffold(source_type: str) -> Dict[str, object]:
     return {"source": {"type": source_type, "config": config}}
 
 
-def validate_recipe(recipe: Dict[str, object]) -> Dict[str, object]:
+def validate_recipe(
+    recipe: Dict[str, object], resolvers: Optional[List[SecretResolver]] = None
+) -> Dict[str, object]:
+    """Whether this recipe would load, and what is wrong with it if not.
+
+    `resolvers` defaults to the environment chain. A caller holding secrets
+    from somewhere else -- the CLI's stdin envelope -- passes its own, so a
+    `${REF}` that resolves for `probe run` is not reported unresolvable here.
+    """
     errors: List[str] = []
     warnings: List[str] = []
     source = recipe.get("source")
@@ -137,7 +149,9 @@ def validate_recipe(recipe: Dict[str, object]) -> Dict[str, object]:
     # An unresolvable reference is a real error and says so by name, which is
     # a better answer than a type complaint about the literal "${VAR}".
     try:
-        resolved = resolve_config_collecting(config, default_resolvers()).config
+        resolved = resolve_config_collecting(
+            config, default_resolvers() if resolvers is None else resolvers
+        ).config
     except ValueError as exc:
         errors.append(str(exc))
         resolved = None

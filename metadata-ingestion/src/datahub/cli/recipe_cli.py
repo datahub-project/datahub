@@ -139,9 +139,21 @@ def _exit_codes(
     try:
         yield
     except _USER_ERRORS as exc:
-        _fail(_redacted_text(exc, secrets), EXIT_USER)
+        _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_USER)
     except Exception as exc:
-        _fail(_redacted_text(exc, secrets), fallback)
+        _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), fallback)
+
+
+def _with_stdin_secrets(secrets: Set[str]) -> Set[str]:
+    """`secrets` plus anything piped in, for the error path.
+
+    The caller's set is empty until _load_recipe returns, so a failure *during*
+    loading -- malformed YAML inside the envelope, whose parser error quotes the
+    offending line -- would be redacted against nothing. Read at raise time
+    rather than at entry, so a command that never reaches its own collection
+    step still masks what it was handed.
+    """
+    return secrets | {v for v in _stdin_secrets.values() if v}
 
 
 def _fail(message: str, code: int) -> NoReturn:
@@ -156,11 +168,16 @@ def _fail(message: str, code: int) -> NoReturn:
 _stdin_secrets: Dict[str, str] = {}
 
 
-def _probe_resolvers() -> List[SecretResolver]:
-    """Resolvers for a probe, stdin-supplied secrets first.
+def _stdin_aware_resolvers() -> List[SecretResolver]:
+    """The environment chain, preceded by anything that arrived on stdin.
+
+    Every command that takes `-` shares this, not just the probe ones: `validate`
+    resolving with a different chain than `probe run` meant the two disagreed
+    about the same envelope, and an agent validates before it probes.
 
     A value the caller piped in wins over a same-named ambient variable: they
-    passed it that way precisely to avoid the environment.
+    passed it that way precisely to avoid the environment. With no envelope this
+    is `default_resolvers()` unchanged, so the file path behaves as before.
     """
     if _stdin_secrets:
         return [MappingResolver(_stdin_secrets), *default_resolvers()]
@@ -178,7 +195,34 @@ def _recipe_from_stdin() -> Dict[str, object]:
     if isinstance(envelope, dict) and "__recipe_yaml__" in envelope:
         secrets = envelope.get("__secrets__") or {}
         if isinstance(secrets, dict):
-            _stdin_secrets.update({str(k): str(v) for k, v in secrets.items()})
+            # Strings only, deliberately. str(v) would turn a JSON null into
+            # the literal "None" -- so a secret the caller failed to resolve
+            # became a password of "None" and the probe reported whatever the
+            # server said about it, instead of "${REF} could not be resolved".
+            # The registry will not even mask that value ("none" is on its
+            # unmaskable-literals list). Dropping the entry lets resolution
+            # fail by name, which is the honest answer. load_config_file does
+            # not coerce either.
+            _stdin_secrets.update(
+                {str(k): v for k, v in secrets.items() if isinstance(v, str) and v}
+            )
+            # Feed the masking backstop the `recipe` group installs: its
+            # excepthook, logging handlers and stdout wrapper all read the
+            # registry, and per-command redact() does not populate it.
+            #
+            # ConfigModel registers its own SecretStr fields (common.py), so
+            # the registry is not empty once a connector config is built -- but
+            # that is late and partial. It covers nothing before validation
+            # succeeds (a YAML parse error, an unresolvable ref, an unknown
+            # source type), nothing for a command that never builds a config
+            # (describe, validate), and no envelope value that is not a typed
+            # SecretStr on that connector. Registering here closes that window;
+            # it happens before the YAML is parsed so a parse failure is
+            # already covered. Same thing load_config_file does for
+            # `ingest -c -`.
+            from datahub.masking.secret_registry import SecretRegistry
+
+            SecretRegistry.get_instance().register_secrets_batch(_stdin_secrets)
         raw = envelope["__recipe_yaml__"]
     try:
         loaded = yaml.safe_load(raw) or {}
@@ -228,7 +272,7 @@ def _resolve_for_probe(
     source_type = str(source.get("type"))
     raw_config = source.get("config")
     config: Dict[str, object] = raw_config if isinstance(raw_config, dict) else {}
-    resolved = resolve_config_collecting(config, _probe_resolvers())
+    resolved = resolve_config_collecting(config, _stdin_aware_resolvers())
     spec = describe_source(source_type)
     secret_fields = {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
     # Union of every ${ref}-sourced value (nested-safe) and top-level inline
@@ -257,6 +301,11 @@ def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
     already collected rather than returning nothing.
     """
     values: Set[str] = set()
+    # Anything piped in is a secret by declaration, and goes in before the
+    # early returns below so no failure can cost us it. A value may arrive
+    # already substituted into the recipe under a key no hint recognises, in
+    # which case nothing else here would collect it. Mirrors _resolve_for_probe.
+    values |= {v for v in _stdin_secrets.values() if v}
     raw_source = recipe.get("source")
     source: Dict[str, object] = raw_source if isinstance(raw_source, dict) else {}
     raw_config = source.get("config")
@@ -265,7 +314,7 @@ def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
     # recipe, so a later failure cannot cost us these.
     values |= collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
     try:
-        resolved = resolve_config_collecting(config, _probe_resolvers())
+        resolved = resolve_config_collecting(config, _stdin_aware_resolvers())
     except Exception:
         # An unresolvable ${ref} is the command's own finding to report, and it
         # produced no value, so there is nothing further to mask.
@@ -383,7 +432,12 @@ def recipe_validate(path: str) -> None:
     with _exit_codes(secret_values):
         recipe_doc = _load_recipe(path)
         secret_values.update(_secrets_in_recipe(recipe_doc))
-        _emit(redact(validate_recipe(recipe_doc), secret_values))
+        # Same resolvers the probe path uses, so `validate -` does not report a
+        # ${REF} unresolvable when the caller piped its value in and `probe run`
+        # on the identical envelope would accept it.
+        _emit(
+            redact(validate_recipe(recipe_doc, _stdin_aware_resolvers()), secret_values)
+        )
 
 
 @recipe.command(name="test-connection")
