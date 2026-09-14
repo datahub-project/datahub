@@ -55,8 +55,10 @@ use Play development mode. Its loop is compile, `installDist`/stage, and restart
 Actions source is mounted, but its normal Python process has no file watcher. A source mount alone
 does not provide hot reload.
 
-After narrowing service rebuilds, a measured one-file GMS change traversed 229 Gradle tasks instead of 258. The build/package phase fell from approximately 17 seconds to 11 seconds, but service startup
-still took approximately 18 seconds, for a total of 30.74 seconds.
+After narrowing service rebuilds, a GMS edit traverses 229 Gradle tasks. Stable structural samples
+executed 7 tasks, spent 11-12 seconds in Gradle, and took 30.91-31.72 seconds end to end because
+service startup still takes approximately 18 seconds. Method-body samples had a 34.56-second median
+but retained a downward warm-up trend.
 
 ## 2. Docker Plus the Vite Frontend
 
@@ -96,9 +98,10 @@ Host development disables Fabric8 Kubernetes auto-configuration. Otherwise a dev
 kubeconfig credential command may run during Spring initialization even though this mode is not
 running in Kubernetes. This override is scoped to the host-dev `bootRun` invocation.
 
-The context itself remains large. This mode removes packaging and container lifecycle work, but a
-structural change still pays Spring's context restart cost. Its steady-state improvement must be
-measured separately from the initial compile and initial application startup.
+The context itself remains large. Median method-body feedback was 14.23 seconds: 5.07 seconds for
+continuous compilation and 9.09 seconds for restart/readiness. Median structural feedback was 14.32
+seconds: 5.01 seconds compiling and 9.35 seconds restarting. Compared with Docker medians of 34.56
+and 31.24 seconds, the host mode improved these loops by approximately 59% and 54%.
 
 ## 4. Host Play Development
 
@@ -120,6 +123,10 @@ its runtime project graph, so only this command disables configuration on demand
 classloader also drops the Rest.li API project's custom generated-client artifact; the development
 graph supplies that jar explicitly. The production Play distribution and normal Gradle defaults are
 unchanged.
+
+Five unique Java edits measured a 6.27-second median from file change to the response containing new
+code, compared with 15.69 seconds through Docker. Five unique route edits measured 5.31 seconds,
+compared with 17.56 seconds through Docker. These are approximately 60% and 70% reductions.
 
 ## 5. Production-Like Docker
 

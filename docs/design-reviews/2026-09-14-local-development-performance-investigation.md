@@ -13,10 +13,10 @@ unnecessary Docker image-build orchestration on a warm, unchanged start. Making 
 builds incrementally skippable reduced the measured unchanged start from 94.01 seconds to 9.99
 seconds.
 
-The next major limit is the application lifecycle. A one-file GMS change now spends about 11 seconds
-in Gradle and another 18 seconds restarting the service. Further reductions require real host
-development modes, especially Spring Boot continuous compilation/restart and Play development mode,
-instead of repeatedly packaging production-style artifacts and restarting containers.
+The next major limit was the application lifecycle. The implemented host modes reduce median Play
+Java and route feedback latency by approximately 60% and 70%, respectively. Host GMS reduces median
+method-body and structural edit-to-ready latency by approximately 59% and 54%, respectively. GMS
+still spends about five seconds compiling and nine seconds restarting the Spring context.
 
 Two frequently suggested migrations remain valid experiments, but they target different scenarios:
 
@@ -171,6 +171,56 @@ remaining Docker infrastructure.
 | One-file GMS reload end to end         | After module narrowing                       | 30.74 s                         | Includes ~18 s service startup/readiness                           |
 | Kafka during startup                   | Confluent Kafka container                    | ~530 MiB; ~111% CPU snapshot    | Supports a Redpanda resource experiment; not a steady-state sample |
 
+### Host development mode comparison
+
+The host-mode benchmark ran at `dfdb81effab544d51eb6646c80ea7fffe8daab50` on Apple arm64 with 12
+host CPUs and 64 GiB RAM. Colima used 4 CPUs, 32 GiB RAM, a 95 GiB disk, VirtioFS, and the Docker
+runtime. Java 25.0.2 and the remaining pinned tools came from mise. Gradle and Docker caches,
+generated outputs, images, and persistent volumes were retained. Each reported scenario used one or
+more discarded primers followed by five unique edits; using unique edits prevented build-cache hits
+from alternating between previously compiled source states.
+
+| Scenario             | Docker samples (s)                | Docker median | Host samples (s)                  | Host median | Improvement |
+| -------------------- | --------------------------------- | ------------- | --------------------------------- | ----------- | ----------- |
+| Play Java edit       | 15.52, 15.77, 15.70, 15.69, 15.58 | 15.69 s       | 7.12, 6.51, 6.26, 6.05, 6.27      | 6.27 s      | 60%         |
+| Play route edit      | 17.56, 17.50, 18.80, 17.94, 17.01 | 17.56 s       | 5.69, 5.25, 5.40, 5.14, 5.31      | 5.31 s      | 70%         |
+| GMS method-body edit | 38.01, 39.18, 34.56, 29.65, 29.76 | 34.56 s       | 14.33, 14.13, 14.11, 14.23, 14.37 | 14.23 s     | 59%         |
+| GMS structural edit  | 31.72, 31.24, 31.54, 30.91, 31.10 | 31.24 s       | 14.73, 14.28, 14.44, 14.16, 14.32 | 14.32 s     | 54%         |
+
+The GMS method-body Docker samples retained a downward warm-up trend, so their range is wider than
+the later structural series. The median remains sufficient for the high-level comparison but should
+not be treated as a precise steady-state estimate. The stable Docker structural series spent 11-12
+seconds in Gradle, traversed 229 tasks with 7 executed, and then spent approximately 18 seconds
+reaching readiness. Play Java traversed 113 tasks with 7 executed; route changes executed 9.
+
+Host GMS phase instrumentation produced these medians:
+
+| Edit type   | Continuous compilation | DevTools restart/readiness | Total edit-to-ready |
+| ----------- | ---------------------- | -------------------------- | ------------------- |
+| Method body | 5.07 s                 | 9.09 s                     | 14.23 s             |
+| Structural  | 5.01 s                 | 9.35 s                     | 14.32 s             |
+
+Every counted run verified a unique HTTP response marker. Temporary endpoints, fields, route entries,
+and response markers were removed after measurement, and both Docker services were rebuilt from the
+clean source tree.
+
+### Measurement control findings
+
+Two setup defects materially affected discarded primers:
+
+- `scripts/dev/datahub-dev.sh rebuild` does not itself enforce mise. Direct invocation inherited an
+  incompatible host JDK and failed with `release version 25 not supported`; the valid Docker samples
+  wrapped the command in `mise exec --`.
+- The git-properties plugin resolves the primary checkout's HEAD in a linked worktree. This
+  worktree was at `dfdb81e`, but even a no-daemon, forced generation wrote the primary checkout's
+  `f4e53a5` into `build/git.properties`. A concurrent primary-worktree commit therefore invalidated
+  git properties and caused broad jar regeneration. Measurements taken during that transition were
+  discarded, and counted GMS runs verified that the primary HEAD stayed fixed.
+
+Host GMS also becomes HTTP-healthy before the separate continuous compiler clearly reports its
+initial watch-ready state. This makes initial command readiness ambiguous even though steady-state
+edit detection works.
+
 The strongest like-for-like result is the warm unchanged start: 94.01 seconds to 9.99 seconds, an
 approximately 89% reduction. The one-file GMS build phase improved by roughly 35%, while the number of
 tasks in the graph fell by roughly 11%. The service's startup/readiness phase is now larger than its
@@ -237,7 +287,8 @@ input/output model can detect and repair it.
 
 Functional validation reached HTTP 200 on Play `/admin` and GMS `/health`. A temporary GMS source
 edit was detected by the continuous compiler, caused a DevTools restart, and returned to HTTP 200.
-These are correctness checks, not a controlled performance benchmark.
+Those initial checks established correctness; the controlled edit-to-response measurements are
+reported in the host development mode comparison above.
 
 ## Conclusions by Scenario
 
@@ -249,15 +300,17 @@ Further changes here should be justified by repeated measurements.
 
 ### Java edit/reload loop
 
-Module narrowing helped the Docker path, and the new hybrid host GMS mode removes boot-archive
-packaging and Docker restart from the inner loop. It still needs controlled measurements for an
-ordinary method-body edit and a structural edit, split into compiler and DevTools restart phases.
+Module narrowing helped the Docker path, while host GMS reduced method-body edit latency from a
+34.56-second median to 14.23 seconds and structural edit latency from 31.24 seconds to 14.32 seconds.
+Method-body and structural changes are effectively identical in host mode because both restart the
+Spring context. The next host-mode optimization target is therefore the roughly nine-second context
+restart, followed by the roughly five-second continuous compilation.
 
 ### Play server edit/reload loop
 
-`datahub-dev play` now avoids `installDist`/stage and production-server restart for server-side Play
-changes. Its Java/Scala and route edit latency should be measured independently from the
-already-supported Vite HMR path.
+`datahub-dev play` avoids `installDist`/stage and production-server restart. It reduced Java edit
+latency from a 15.69-second median to 6.27 seconds and route latency from 17.56 seconds to 5.31
+seconds. The remaining latency is Play/Gradle reload compilation rather than container lifecycle.
 
 ### Fresh frontend setup
 
@@ -284,13 +337,13 @@ root Gradle invocation while retaining path scoping and all existing checks.
 
 The order depends on the latency being optimized. For everyday edit/reload latency:
 
-1. Measure Play source and route edits in the implemented `datahub-dev play` mode.
-2. Measure method-body and structural GMS edits in the implemented `datahub-dev gms` mode, separating
-   continuous compilation, DevTools restart, and readiness.
-3. Measure hook scenarios, then consolidate Java Spotless invocations only if repeated Gradle launches
+1. Enforce mise for every `datahub-dev` Gradle invocation.
+2. Make git-properties generation linked-worktree aware and correctly track each worktree's HEAD.
+3. Make `datahub-dev gms` report compiler watch readiness separately from HTTP readiness.
+4. Measure hook scenarios, then consolidate Java Spotless invocations only if repeated Gradle launches
    are material.
-4. Benchmark Gradle worker/memory profiles on representative GMS rebuilds.
-5. Treat configuration-cache compatibility as a separate build-logic project after the above work.
+5. Benchmark Gradle worker/memory profiles on representative GMS rebuilds.
+6. Treat configuration-cache compatibility as a separate build-logic project after the above work.
 
 For environment startup and one-time setup:
 
