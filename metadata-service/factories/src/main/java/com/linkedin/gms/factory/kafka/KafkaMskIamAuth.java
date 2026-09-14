@@ -35,8 +35,8 @@ public final class KafkaMskIamAuth {
   }
 
   private static void installSharedCredentialsCallback(Map<String, Object> kafkaProperties) {
-    Object jaas = kafkaProperties.get(SASL_JAAS_CONFIG);
-    if (jaas != null && EXPLICIT_CREDENTIAL_OPTIONS.matcher(jaas.toString()).find()) {
+    String jaas = jaasConfig(kafkaProperties.get(SASL_JAAS_CONFIG));
+    if (jaas != null && EXPLICIT_CREDENTIAL_OPTIONS.matcher(jaas).find()) {
       return;
     }
 
@@ -61,8 +61,8 @@ public final class KafkaMskIamAuth {
   }
 
   private static void disableDebugCallerIdentity(Map<String, Object> kafkaProperties) {
-    Object jaas = kafkaProperties.get(SASL_JAAS_CONFIG);
-    if (!(jaas instanceof String jaasConfig) || jaasConfig.isBlank()) {
+    String jaasConfig = jaasConfig(kafkaProperties.get(SASL_JAAS_CONFIG));
+    if (jaasConfig == null) {
       return;
     }
     if (!AWS_DEBUG_CREDS_TRUE.matcher(jaasConfig).find()) {
@@ -83,7 +83,15 @@ public final class KafkaMskIamAuth {
     if (mechanism != null && AWS_MSK_IAM.equalsIgnoreCase(mechanism.toString().trim())) {
       return true;
     }
-    Object jaas = kafkaProperties.get(SASL_JAAS_CONFIG);
-    return jaas != null && jaas.toString().contains(IAM_LOGIN_MODULE);
+    String jaas = jaasConfig(kafkaProperties.get(SASL_JAAS_CONFIG));
+    return jaas != null && jaas.contains(IAM_LOGIN_MODULE);
+  }
+
+  @Nullable
+  private static String jaasConfig(@Nullable Object jaas) {
+    if (!(jaas instanceof String jaasConfig) || jaasConfig.isBlank()) {
+      return null;
+    }
+    return jaasConfig;
   }
 }

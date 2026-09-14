@@ -142,6 +142,44 @@ public class KafkaMskIamAuthTest {
   }
 
   @Test
+  public void ignoresNonStringJaasWhenDetectingExplicitCredentials() {
+    Map<String, Object> props = new HashMap<>();
+    props.put("sasl.mechanism", "AWS_MSK_IAM");
+    props.put(
+        "sasl.jaas.config",
+        new Object() {
+          @Override
+          public String toString() {
+            return "software.amazon.msk.auth.iam.IAMLoginModule required awsRoleArn=\"arn:aws:iam::1:role/r\";";
+          }
+        });
+
+    KafkaMskIamAuth.configure(props);
+
+    assertEquals(
+        props.get("sasl.client.callback.handler.class"),
+        DataHubMskIamClientCallbackHandler.class.getName());
+  }
+
+  @Test
+  public void doesNotTreatNonStringJaasAsMskIamWithoutMechanism() {
+    Map<String, Object> props = new HashMap<>();
+    props.put(
+        "sasl.jaas.config",
+        new Object() {
+          @Override
+          public String toString() {
+            return "software.amazon.msk.auth.iam.IAMLoginModule required;";
+          }
+        });
+
+    KafkaMskIamAuth.configure(props);
+
+    assertFalse(KafkaMskIamAuth.isMskIam(props));
+    assertFalse(props.containsKey("sasl.client.callback.handler.class"));
+  }
+
+  @Test
   public void doesNotRewriteAwsDebugCredsEmbeddedInAnotherValue() {
     Map<String, Object> props = new HashMap<>();
     props.put(
