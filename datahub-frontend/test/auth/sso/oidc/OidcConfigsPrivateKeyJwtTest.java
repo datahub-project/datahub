@@ -22,6 +22,26 @@ public class OidcConfigsPrivateKeyJwtTest {
   }
 
   @Test
+  void dynamicSsoPreservesExistingAuthenticationDefaultsAndRequiresItsOwnSecret() {
+    Map<String, Object> values = baseConfig();
+    values.put("auth.oidc.clientAuthenticationMethod", "client_secret_post");
+    Config config = ConfigFactory.parseMap(values);
+    JSONObject json = new JSONObject(dynamicSsoJsonWithoutAuthMaterial());
+
+    OidcConfigs.Builder missingSecret = new OidcConfigs.Builder().from(config, json.toString());
+    assertThrows(NullPointerException.class, missingSecret::build);
+
+    json.put("clientSecret", "json-secret");
+    OidcConfigs defaults = new OidcConfigs.Builder().from(config, json.toString()).build();
+    assertEquals("client_secret_basic", defaults.getClientAuthenticationMethod());
+    assertEquals("json-secret", defaults.getClientSecret());
+
+    json.put("clientAuthenticationMethod", "client_secret_post");
+    OidcConfigs explicit = new OidcConfigs.Builder().from(config, json.toString()).build();
+    assertEquals("client_secret_post", explicit.getClientAuthenticationMethod());
+  }
+
+  @Test
   void privateKeyJwtRequiresKeyAndCertificatePaths() {
     Map<String, Object> values = baseConfig();
     values.remove("auth.oidc.clientSecret");
