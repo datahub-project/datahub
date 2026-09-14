@@ -103,6 +103,10 @@ continuous compilation and 9.09 seconds for restart/readiness. Median structural
 seconds: 5.01 seconds compiling and 9.35 seconds restarting. Compared with Docker medians of 34.56
 and 31.24 seconds, the host mode improved these loops by approximately 59% and 54%.
 
+The host GMS command scales its Gradle worker limit conservatively on larger machines without changing
+the repository-wide two-worker default. It uses at most half the logical CPUs, one worker per four GiB
+of physical memory, and six workers overall. `--max-workers N` overrides the recommendation.
+
 ## 4. Host Play Development
 
 Start the Docker environment, then replace its staged frontend with Play development mode:

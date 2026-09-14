@@ -73,15 +73,20 @@ The baseline already enables:
 - configuration on demand.
 
 It limits Gradle to two workers and configures a two-GiB default daemon heap. Those conservative
-settings are appropriate for smaller machines but may underuse larger developer machines. Worker and
-memory profiles should be benchmarked rather than raised globally.
+settings remain appropriate for smaller machines. The host GMS command now raises only its own worker
+limit on larger machines, using at most half the logical CPUs, one worker per four GiB of physical
+memory, and an overall cap of six. The repository-wide default is unchanged.
 
-Configuration cache is not enabled. An optional trial produced 11 compatibility problems. These were
-build/plugin compatibility failures caused by configuration-time/project-model assumptions, not a
-stale-cache format mismatch. Deleting the configuration-cache directory would only discard stored
-state; it would not make incompatible tasks compatible. The normal build does not require
-configuration cache, so this does **not** mean the development setup is broken. Enabling it is a
-longer-term build-logic project, not an easy local-development win.
+Configuration cache is not enabled. The number of reported problems depends on the selected task
+graph; a representative `:metadata-service:war:classes` trial reported 143 problems, 93 apparently
+unique, and failed. The major groups were Pegasus tasks retaining non-serializable `Project` and
+`SourceSet` objects, Pegasus tasks accessing `Task.project` during execution, a Pegasus
+`Gradle.buildFinished` listener, and versioning scripts starting Git processes during configuration.
+These are build/plugin compatibility failures, not a stale-cache format mismatch. Deleting the
+configuration-cache directory would only discard stored state; it would not make incompatible tasks
+compatible. The normal build does not enable configuration cache, so this does **not** mean the
+development setup is broken. Supporting it requires coordinated Pegasus task-model and versioning
+work rather than a cache cleanup.
 
 ### Frontend Gradle graph
 
@@ -194,23 +199,31 @@ Host GMS phase instrumentation produced these medians:
 | Method body | 5.07 s                 | 9.09 s                     | 14.23 s             |
 | Structural  | 5.01 s                 | 9.35 s                     | 14.32 s             |
 
+A bounded worker-count comparison used unique edits after a discarded plugin-migration primer. Two
+workers took 7.03 and 5.90 seconds, six workers took 5.57 seconds, and twelve workers took 5.90 and
+5.56 seconds for the same `:metadata-service:war:classes` graph. All runs executed five of 174 tasks.
+The samples show that the global two-worker cap can constrain this graph on a large machine, while
+twelve workers provide no advantage over six. They do not establish a precise improvement percentage.
+
 Every counted run verified a unique HTTP response marker. Temporary endpoints, fields, route entries,
 and response markers were removed after measurement, and both Docker services were rebuilt from the
 clean source tree.
 
 ### Measurement control findings
 
-Two setup defects materially affected discarded primers:
+Two control failures materially affected discarded primers:
 
 - A direct `scripts/dev/datahub-dev.sh rebuild` benchmark inherited an incompatible host JDK and
   failed with `release version 25 not supported`; the valid Docker samples explicitly entered the
   benchmark machine's mise environment. This was a benchmark-environment mistake, not evidence that
   `datahub-dev` should require mise.
-- The git-properties plugin resolves the primary checkout's HEAD in a linked worktree. This
+- The previous git-properties plugin resolved the primary checkout's HEAD in a linked worktree. This
   worktree was at `dfdb81e`, but even a no-daemon, forced generation wrote the primary checkout's
   `f4e53a5` into `build/git.properties`. A concurrent primary-worktree commit therefore invalidated
   git properties and caused broad jar regeneration. Measurements taken during that transition were
-  discarded, and counted GMS runs verified that the primary HEAD stayed fixed.
+  discarded. Plugin 4.0.1 now supplies the correct worktree commit; the lightweight-tag description
+  is generated lazily by Git from the active worktree because the plugin's custom describe path still
+  selected the primary checkout in the reproduced case.
 
 Host GMS also becomes HTTP-healthy before the separate continuous compiler clearly reports its
 initial watch-ready state. This makes initial command readiness ambiguous even though steady-state
@@ -286,6 +299,19 @@ edit was detected by the continuous compiler, caused a DevTools restart, and ret
 Those initial checks established correctness; the controlled edit-to-response measurements are
 reported in the host development mode comparison above.
 
+### `66ce33b1fe fix(build): generate git properties from linked worktrees`
+
+- Upgrades the git-properties plugin from the Grgit-based 2.5.3 release to worktree-aware 4.0.1.
+- Preserves lightweight-tag descriptions using a lazy Git provider rooted in the active worktree.
+- A forced-generation check now matches both `git rev-parse HEAD` and
+  `git describe --tags --always --abbrev=7` in the linked worktree.
+
+### `7119b52481 perf(dev): scale host GMS Gradle workers`
+
+- Preserves the repository's two-worker default for normal Gradle builds.
+- Selects a conservative CPU/memory-aware worker limit for host GMS, capped at six.
+- Adds `datahub-dev gms --max-workers N` for an explicit machine-specific override.
+
 ## Conclusions by Scenario
 
 ### Warm unchanged environment start
@@ -333,12 +359,11 @@ root Gradle invocation while retaining path scoping and all existing checks.
 
 The order depends on the latency being optimized. For everyday edit/reload latency:
 
-1. Make git-properties generation linked-worktree aware and correctly track each worktree's HEAD.
-2. Make `datahub-dev gms` report compiler watch readiness separately from HTTP readiness.
-3. Measure hook scenarios, then consolidate Java Spotless invocations only if repeated Gradle launches
+1. Make `datahub-dev gms` report compiler watch readiness separately from HTTP readiness.
+2. Measure hook scenarios, then consolidate Java Spotless invocations only if repeated Gradle launches
    are material.
-4. Benchmark Gradle worker/memory profiles on representative GMS rebuilds.
-5. Treat configuration-cache compatibility as a separate build-logic project after the above work.
+3. Profile the remaining GMS compilation and Spring restart phases.
+4. Treat configuration-cache compatibility as a separate build-logic project after the above work.
 
 For environment startup and one-time setup:
 
