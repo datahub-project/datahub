@@ -109,6 +109,10 @@ def test_library_example(example_script: str, datahub_env):
     2. The script can authenticate and communicate with DataHub
     3. The example produces the expected side effects in DataHub
 
+    Exit code is the whole contract: examples are responsible for failing loudly when
+    the metadata they were asked to read or write isn't there, rather than printing
+    "not found" and exiting 0. See the README section on exit codes.
+
     Args:
         example_script: Relative path to the example script (from EXAMPLE_MANIFEST)
         datahub_env: Environment dict with DataHub credentials
