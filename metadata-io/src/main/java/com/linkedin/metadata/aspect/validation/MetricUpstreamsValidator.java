@@ -12,12 +12,12 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
-import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.metric.MetricUpstreams;
 import com.linkedin.util.Pair;
@@ -86,14 +86,17 @@ public class MetricUpstreamsValidator extends AspectPayloadValidator {
       @Nonnull AspectRetriever aspectRetriever,
       @Nullable Aspect currentAspect) {
     MetricUpstreams current = toUpstreams(currentAspect);
-    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
-      ProposedItem proposedItem = (ProposedItem) item;
+    // Default ingest builds PatchItemImpl; alternate MCP validation uses ProposedItem (also an
+    // MCPItem). Merge against the stored aspect in both cases.
+    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof MCPItem) {
       PatchItemImpl patchItem =
-          PatchItemImpl.builder()
-              .build(
-                  proposedItem.getMetadataChangeProposal(),
-                  proposedItem.getAuditStamp(),
-                  aspectRetriever.getEntityRegistry());
+          item instanceof PatchItemImpl
+              ? (PatchItemImpl) item
+              : PatchItemImpl.builder()
+                  .build(
+                      ((MCPItem) item).getMetadataChangeProposal(),
+                      item.getAuditStamp(),
+                      aspectRetriever.getEntityRegistry());
       return patchItem.applyPatch(current, aspectRetriever).getAspect(MetricUpstreams.class);
     }
     return item.getAspect(MetricUpstreams.class);

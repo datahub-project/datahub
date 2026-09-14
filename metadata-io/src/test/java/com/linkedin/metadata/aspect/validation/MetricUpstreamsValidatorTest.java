@@ -22,6 +22,7 @@ import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -161,15 +162,18 @@ public class MetricUpstreamsValidatorTest {
             .setFieldUpstreams(new EdgeArray());
     stubCurrent(current);
 
-    Urn fieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(DATASET_URN, "AMOUNT");
-    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
-    patchOp.setOp("replace");
-    patchOp.setPath("/fieldUpstreams");
-    patchOp.setValue(
-        objectMapper.convertValue(
-            List.of(Map.of("destinationUrn", fieldUrn.toString())), JsonNode.class));
+    Assert.assertTrue(validateProposedItemPatch(fieldOnlyReplaceOp()).isEmpty());
+  }
 
-    Assert.assertTrue(validatePatch(List.of(patchOp)).isEmpty());
+  @Test
+  public void testPatchItemImplFieldOnlyAcceptsWhenParentAlreadyStored() {
+    MetricUpstreams current =
+        new MetricUpstreams()
+            .setDatasetUpstreams(new EdgeArray(datasetEdge(DATASET_URN)))
+            .setFieldUpstreams(new EdgeArray());
+    stubCurrent(current);
+
+    Assert.assertTrue(validatePatchItemImpl(fieldOnlyReplaceOp()).isEmpty());
   }
 
   @Test
@@ -180,14 +184,18 @@ public class MetricUpstreamsValidatorTest {
             .setFieldUpstreams(new EdgeArray(fieldEdge(DATASET_URN, "AMOUNT")));
     stubCurrent(current);
 
-    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
-    patchOp.setOp("replace");
-    patchOp.setPath("/datasetUpstreams");
-    patchOp.setValue(
-        objectMapper.convertValue(
-            List.of(Map.of("destinationUrn", OTHER_DATASET_URN.toString())), JsonNode.class));
+    Assert.assertFalse(validateProposedItemPatch(datasetOnlyReplaceOp()).isEmpty());
+  }
 
-    Assert.assertFalse(validatePatch(List.of(patchOp)).isEmpty());
+  @Test
+  public void testPatchItemImplDatasetOnlyRejectsWhenDroppingParentOfStoredFields() {
+    MetricUpstreams current =
+        new MetricUpstreams()
+            .setDatasetUpstreams(new EdgeArray(datasetEdge(DATASET_URN)))
+            .setFieldUpstreams(new EdgeArray(fieldEdge(DATASET_URN, "AMOUNT")));
+    stubCurrent(current);
+
+    Assert.assertFalse(validatePatchItemImpl(datasetOnlyReplaceOp()).isEmpty());
   }
 
   private List<AspectValidationException> validateUpsert(MetricUpstreams aspect) {
@@ -198,7 +206,25 @@ public class MetricUpstreamsValidatorTest {
         .toList();
   }
 
-  private List<AspectValidationException> validatePatch(List<GenericJsonPatch.PatchOp> ops) {
+  private List<AspectValidationException> validateProposedItemPatch(
+      GenericJsonPatch.PatchOp patchOp) {
+    ProposedItem proposedItem =
+        ProposedItem.builder().build(buildPatchMcp(List.of(patchOp)), auditStamp, registry);
+    return validator
+        .validateProposedAspects(
+            OperationFingerprint.EMPTY, List.of(proposedItem), retrieverContext)
+        .toList();
+  }
+
+  private List<AspectValidationException> validatePatchItemImpl(GenericJsonPatch.PatchOp patchOp) {
+    PatchItemImpl patchItem =
+        PatchItemImpl.builder().build(buildPatchMcp(List.of(patchOp)), auditStamp, registry);
+    return validator
+        .validateProposedAspects(OperationFingerprint.EMPTY, List.of(patchItem), retrieverContext)
+        .toList();
+  }
+
+  private MetadataChangeProposal buildPatchMcp(List<GenericJsonPatch.PatchOp> ops) {
     GenericJsonPatch genericJsonPatch =
         GenericJsonPatch.builder().patch(ops).forceGenericPatch(true).build();
 
@@ -208,12 +234,28 @@ public class MetricUpstreamsValidatorTest {
     mcp.setAspectName(METRIC_UPSTREAMS_ASPECT_NAME);
     mcp.setChangeType(ChangeType.PATCH);
     mcp.setAspect(GenericRecordUtils.serializePatch(genericJsonPatch, objectMapper));
+    return mcp;
+  }
 
-    ProposedItem proposedItem = ProposedItem.builder().build(mcp, auditStamp, registry);
-    return validator
-        .validateProposedAspects(
-            OperationFingerprint.EMPTY, List.of(proposedItem), retrieverContext)
-        .toList();
+  private GenericJsonPatch.PatchOp fieldOnlyReplaceOp() {
+    Urn fieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(DATASET_URN, "AMOUNT");
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp("replace");
+    patchOp.setPath("/fieldUpstreams");
+    patchOp.setValue(
+        objectMapper.convertValue(
+            List.of(Map.of("destinationUrn", fieldUrn.toString())), JsonNode.class));
+    return patchOp;
+  }
+
+  private GenericJsonPatch.PatchOp datasetOnlyReplaceOp() {
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp("replace");
+    patchOp.setPath("/datasetUpstreams");
+    patchOp.setValue(
+        objectMapper.convertValue(
+            List.of(Map.of("destinationUrn", OTHER_DATASET_URN.toString())), JsonNode.class));
+    return patchOp;
   }
 
   private void stubCurrent(MetricUpstreams aspect) {
