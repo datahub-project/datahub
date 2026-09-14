@@ -21,7 +21,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
 
 # A projected column is calculated (vs. a plain projection/rename) when it carries
 # one of these expression keys rather than a bare ``ref``.
-_CALCULATION_KEYS = frozenset({CSN_XPR, CSN_FUNC, CSN_VAL})
+_CALCULATION_KEYS = frozenset({CSN_XPR, CSN_FUNC, CSN_VAL, CSN_CASE, CSN_CAST})
 
 _SQL_NULL = "NULL"
 
@@ -77,15 +77,13 @@ def render_cqn_expression(node: object) -> Optional[str]:
         if rendered_args is None:
             return None
         return f"{func}({', '.join(rendered_args)})"
-    xpr = node.get(CSN_XPR)
-    if isinstance(xpr, list):
-        return _render_xpr(xpr)
-    # ``case``/``cast`` can appear as first-class keys carrying a token stream
-    # (same shape lineage.py walks), not only as bare tokens inside an ``xpr``.
-    for key in (CSN_CASE, CSN_CAST):
-        branch = node.get(key)
-        if isinstance(branch, list):
-            return _render_xpr(branch)
+    # All three keys carry a flat token stream. ``case``/``cast`` can arrive as
+    # first-class keys (the shape lineage.py walks), not only as bare tokens
+    # inside an ``xpr``.
+    for key in (CSN_XPR, CSN_CASE, CSN_CAST):
+        tokens = node.get(key)
+        if isinstance(tokens, list):
+            return _render_xpr(tokens)
     items = node.get(CSN_LIST)
     if isinstance(items, list):
         # An empty list is degenerate — unrenderable, like an empty xpr.

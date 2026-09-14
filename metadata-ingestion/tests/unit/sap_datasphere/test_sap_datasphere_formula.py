@@ -136,6 +136,55 @@ def test_extract_formula_from_query_column():
     assert formulas == {"TOTAL": "PRICE * QTY"}
 
 
+def test_extract_formula_from_top_level_case_column():
+    # A query column whose only calc key is a top-level ``case`` (no ``xpr``
+    # wrapper) must still be recognized as calculated, not treated as a rename.
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {
+                        "case": [
+                            "when",
+                            {"ref": ["X"]},
+                            "then",
+                            {"val": 1},
+                            "else",
+                            {"val": 0},
+                        ],
+                        "as": "STATUS",
+                    },
+                ],
+            }
+        }
+    }
+    assert extract_calculated_column_formulas(csn_def) == {
+        "STATUS": "when X then 1 else 0"
+    }
+
+
+def test_extract_union_branches_both_calculated_first_wins():
+    # Both branches compute a formula for the same output name; branch 0's
+    # formula must win over branch 1's, per the first-occurrence-wins contract.
+    csn_def = {
+        "query": {
+            "SET": {
+                "op": "union",
+                "args": [
+                    _branch(
+                        [{"xpr": [{"ref": ["P"]}, "*", {"ref": ["Q"]}], "as": "TOTAL"}]
+                    ),
+                    _branch(
+                        [{"xpr": [{"ref": ["X"]}, "+", {"ref": ["Y"]}], "as": "TOTAL"}]
+                    ),
+                ],
+            }
+        }
+    }
+    assert extract_calculated_column_formulas(csn_def) == {"TOTAL": "P * Q"}
+
+
 def test_extract_formula_from_union_branches():
     csn_def = {
         "query": {
