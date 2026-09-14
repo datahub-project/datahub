@@ -2081,6 +2081,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         for column_name, formula in formulas.items():
             field = field_by_path.get(column_name)
             if field is None:
+                # Usually column_pattern dropped it; a systemic count flags a
+                # UNION name-alignment regression.
+                self.report.formula_columns_unmatched.append(
+                    f"{space_name}.{asset_name}.{column_name}"
+                )
                 continue
             field.description = make_description_with_formula(
                 field.description, formula

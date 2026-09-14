@@ -6370,3 +6370,60 @@ def test_formula_extraction_exception_degrades_gracefully(monkeypatch):
         w.title == "Failed to extract calculated-column formulas"
         for w in source.report.warnings
     )
+
+
+def test_formula_counter_increments_per_column():
+    """The emitted counter must count every decorated column, not just the asset —
+    a regression hoisting the increment out of the loop would go undetected with a
+    single-column fixture."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="formula-per-col"), cfg)
+    fields = [
+        _string_field("TOTAL", "Total"),
+        _string_field("MARGIN", "Margin"),
+    ]
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"xpr": [{"ref": ["PRICE"]}, "*", {"ref": ["QTY"]}], "as": "TOTAL"},
+                    {"xpr": [{"ref": ["REV"]}, "-", {"ref": ["COST"]}], "as": "MARGIN"},
+                ],
+            }
+        },
+    }
+
+    source._apply_calculated_column_formulas("S1", "MY_VIEW", csn_def, fields)
+
+    assert fields[0].description == "Total\n\nformula: PRICE * QTY"
+    assert fields[1].description == "Margin\n\nformula: REV - COST"
+    assert source.report.calculated_column_formulas_emitted == 2
+
+
+def test_formula_for_pattern_filtered_column_is_reported_unmatched():
+    """A formula whose output column was dropped by column_pattern (absent from the
+    field list) is recorded on the report, not silently discarded."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="formula-unmatched"), cfg)
+    fields = [_string_field("KEPT", "Kept")]
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"xpr": [{"ref": ["A"]}, "+", {"ref": ["B"]}], "as": "DROPPED"},
+                ],
+            }
+        },
+    }
+
+    source._apply_calculated_column_formulas("S1", "MY_VIEW", csn_def, fields)
+
+    assert fields[0].description == "Kept"
+    assert source.report.calculated_column_formulas_emitted == 0
+    assert "S1.MY_VIEW.DROPPED" in list(source.report.formula_columns_unmatched)

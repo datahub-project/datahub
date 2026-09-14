@@ -64,6 +64,10 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     # Assets where formula extraction raised — formula.py is defensively guarded,
     # so an escaping exception signals a renderer bug, not just malformed CSN.
     assets_formula_extraction_failed: LossyList[str] = field(default_factory=LossyList)
+    # A rendered formula whose output name matched no retained schema field. Usually
+    # benign (the column was dropped by column_pattern), but a systemic count here
+    # can also flag a UNION name-alignment regression, so keep it visible.
+    formula_columns_unmatched: LossyList[str] = field(default_factory=LossyList)
     assets_csn_fetch_failed: LossyList[str] = field(default_factory=LossyList)
     # Non-empty means the supportsAnalyticalQueries routing heuristic was wrong
     # for those assets but the sibling-type fallback recovered them.

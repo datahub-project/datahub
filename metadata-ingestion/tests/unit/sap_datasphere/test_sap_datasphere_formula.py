@@ -47,6 +47,45 @@ def test_render_function_call():
     assert render_cqn_expression(node) == "SUM(AMOUNT)"
 
 
+def test_render_zero_arg_function():
+    assert (
+        render_cqn_expression({"func": "CURRENT_DATE", "args": []}) == "CURRENT_DATE()"
+    )
+    assert render_cqn_expression({"func": "CURRENT_DATE"}) == "CURRENT_DATE()"
+
+
+def test_render_empty_func_name_is_none():
+    # An empty ``func`` token must not render as ``()``.
+    assert render_cqn_expression({"func": "", "args": [{"ref": ["A"]}]}) is None
+
+
+def test_render_float_literal():
+    assert render_cqn_expression({"val": 1.5}) == "1.5"
+
+
+def test_render_malformed_val_is_none():
+    # A nested dict/list under ``val`` is malformed — never fake a SQL literal.
+    assert render_cqn_expression({"val": {"foo": 1}}) is None
+    assert render_cqn_expression({"val": [1, 2]}) is None
+
+
+def test_render_case_as_first_class_key():
+    # ``case`` can arrive as a dict key carrying a token stream, not only as a
+    # bare token inside an ``xpr``.
+    node = {"case": ["when", {"ref": ["X"]}, "then", {"val": 1}, "else", {"val": 0}]}
+    assert render_cqn_expression(node) == "when X then 1 else 0"
+
+
+def test_render_cast_as_first_class_key():
+    node = {"cast": [{"ref": ["AMOUNT"]}, "as", "DECIMAL"]}
+    assert render_cqn_expression(node) == "AMOUNT as DECIMAL"
+
+
+def test_render_cast_type_only_dict_is_none():
+    # A cast node carrying only type metadata (no renderable operand) is skipped.
+    assert render_cqn_expression({"cast": {"type": "cds.Decimal"}}) is None
+
+
 def test_render_rejects_expression_with_unrenderable_child():
     assert (
         render_cqn_expression({"func": "COALESCE", "args": [{"ref": ["A"]}, {}]})
@@ -222,6 +261,38 @@ def test_extract_skips_pure_null_placeholder_column():
         }
     }
     assert extract_calculated_column_formulas(csn_def) == {"REAL": "A + B"}
+
+
+def test_extract_constant_value_column():
+    # A column whose only calc key is ``val`` is still a calculated column.
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [{"val": 42, "as": "ANSWER"}],
+            }
+        }
+    }
+    assert extract_calculated_column_formulas(csn_def) == {"ANSWER": "42"}
+
+
+def test_extract_duplicate_name_first_occurrence_wins():
+    # The same output name defined by a query column and an element: the query
+    # column is read first, so its formula is authoritative.
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"xpr": [{"ref": ["A"]}, "+", {"ref": ["B"]}], "as": "TOTAL"},
+                ],
+            }
+        },
+        "elements": {
+            "TOTAL": {"value": {"xpr": [{"ref": ["C"]}, "*", {"ref": ["D"]}]}},
+        },
+    }
+    assert extract_calculated_column_formulas(csn_def) == {"TOTAL": "A + B"}
 
 
 def test_extract_ignores_plain_and_unnamed_columns():

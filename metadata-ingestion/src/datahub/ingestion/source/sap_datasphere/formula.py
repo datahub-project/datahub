@@ -3,6 +3,8 @@ from typing import Dict, List, Mapping, Optional
 from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_ARGS,
     CSN_AS,
+    CSN_CASE,
+    CSN_CAST,
     CSN_COLUMNS,
     CSN_FUNC,
     CSN_KEY_ELEMENTS,
@@ -32,15 +34,19 @@ def _render_ref(segments: List[object]) -> str:
     return ".".join(parts)
 
 
-def _render_literal(value: object) -> str:
+def _render_literal(value: object) -> Optional[str]:
     if value is None:
         return _SQL_NULL
+    # bool is an int subclass, so it must be tested before int/float.
+    if isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
     if isinstance(value, str):
         # Double embedded single quotes to keep the SQL-like quoting valid.
         return "'" + value.replace("'", "''") + "'"
-    if isinstance(value, bool):
-        return "TRUE" if value else "FALSE"
-    return str(value)
+    if isinstance(value, (int, float)):
+        return str(value)
+    # A nested dict/list under ``val`` is malformed — don't fake a SQL literal.
+    return None
 
 
 def render_cqn_expression(node: object) -> Optional[str]:
@@ -63,7 +69,7 @@ def render_cqn_expression(node: object) -> Optional[str]:
     if CSN_VAL in node:
         return _render_literal(node[CSN_VAL])
     func = node.get(CSN_FUNC)
-    if isinstance(func, str):
+    if isinstance(func, str) and func:
         args = node.get(CSN_ARGS)
         if not isinstance(args, list):
             return f"{func}()"
@@ -74,6 +80,12 @@ def render_cqn_expression(node: object) -> Optional[str]:
     xpr = node.get(CSN_XPR)
     if isinstance(xpr, list):
         return _render_xpr(xpr)
+    # ``case``/``cast`` can appear as first-class keys carrying a token stream
+    # (same shape lineage.py walks), not only as bare tokens inside an ``xpr``.
+    for key in (CSN_CASE, CSN_CAST):
+        branch = node.get(key)
+        if isinstance(branch, list):
+            return _render_xpr(branch)
     items = node.get(CSN_LIST)
     if isinstance(items, list):
         # An empty list is degenerate — unrenderable, like an empty xpr.
@@ -113,11 +125,6 @@ def _is_calculated_column(col: Dict[str, object]) -> bool:
     return any(key in col for key in _CALCULATION_KEYS)
 
 
-def _is_meaningful_formula(formula: str) -> bool:
-    # Skip bare-``NULL`` placeholder columns (unrenderable nodes are already None).
-    return bool(formula) and formula != _SQL_NULL
-
-
 def _output_name(col: Dict[str, object]) -> Optional[str]:
     alias = col.get(CSN_AS)
     if isinstance(alias, str) and alias:
@@ -154,7 +161,10 @@ def _select_output_names(select: Dict[str, object]) -> List[Optional[str]]:
 
 def _record_formula(out: Dict[str, str], name: str, node: object) -> None:
     formula = render_cqn_expression(node)
-    if formula is not None and _is_meaningful_formula(formula):
+    # Skip bare-``NULL`` placeholder columns; unrenderable nodes are already None.
+    # First occurrence wins (setdefault): a UNION's output name comes from its
+    # first branch, so branch 0's formula is the authoritative one.
+    if formula and formula != _SQL_NULL:
         out.setdefault(name, formula)
 
 
@@ -197,7 +207,9 @@ def extract_calculated_column_formulas(csn_def: Mapping[str, object]) -> Dict[st
     """Map each calculated output column (by name) to its rendered formula.
 
     Reads the ``query`` projection columns and any calculated element carrying an
-    inline ``value`` expression; plain projections/renames are omitted.
+    inline ``value`` expression; plain projections/renames are omitted. When a
+    name occurs more than once (across UNION branches or between the query and
+    elements maps), the first occurrence wins.
     """
     formulas: Dict[str, str] = {}
     _formulas_from_query_columns(csn_def, formulas)
