@@ -1380,7 +1380,7 @@ class TestSkipMarkersAndEmbedAccounting:
 
         with (
             patch.object(source, "_chunk_elements", return_value=chunks),
-            pytest.raises(ValueError, match="1 vectors for 2 chunks"),
+            pytest.raises(RuntimeError, match="1 vectors for 2 chunks"),
         ):
             list(
                 source.process_elements_inline(

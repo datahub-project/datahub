@@ -880,9 +880,11 @@ class DocumentChunkingSource(Source):
 
             # Raised inside the try so both callers record it as an embedding failure
             # (no semanticContent is written, the document is retried) instead of
-            # counting a success and then emitting a misaligned aspect.
+            # counting a success and then emitting a misaligned aspect. RuntimeError
+            # is the type the inline callers already treat as "provider misbehaved,
+            # defer the document", the same contract as the zero-vector check.
             if len(embeddings) != len(texts):
-                raise ValueError(
+                raise RuntimeError(
                     f"Embedding provider returned {len(embeddings)} vectors for "
                     f"{len(texts)} chunks"
                 )
