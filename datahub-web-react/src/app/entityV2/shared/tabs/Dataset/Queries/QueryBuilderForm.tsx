@@ -16,7 +16,7 @@ const EditorWrapper = styled.div`
 `;
 
 const StyledEditor = styled(MarkdownEditor)`
-    border: 1px solid ${(props) => props.theme.colors.bgHover};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const QUERY_EDITOR_HEIGHT = '240px';

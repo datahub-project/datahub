@@ -278,7 +278,11 @@ public class GraphQLEngineFactory {
             metricUtils));
     if (isAnalyticsEnabled) {
       args.setAnalyticsService(
-          new AnalyticsService(elasticClient, indexConvention, entityRegistry));
+          new AnalyticsService(
+              elasticClient,
+              indexConvention,
+              entityRegistry,
+              configProvider.getElasticSearch().getEntityIndex()));
     }
     args.setEntityService(entityService);
     args.setRecommendationsService(recommendationsService);

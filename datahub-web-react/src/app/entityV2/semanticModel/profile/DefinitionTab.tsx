@@ -2,10 +2,10 @@ import { CopySimple } from '@phosphor-icons/react/dist/csr/CopySimple';
 import { message } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 
 import { GetSemanticModelQuery } from '@graphql/semanticModel.generated';
@@ -86,9 +86,9 @@ export function DefinitionTab() {
                 </CopyButton>
             </Toolbar>
             <CodeWrapper data-testid="definition-code-block">
-                <SyntaxHighlighter language="yaml" wrapLongLines showLineNumbers>
+                <StyledSyntaxHighlighter language="yaml" wrapLongLines showLineNumbers>
                     {nativeDefinition}
-                </SyntaxHighlighter>
+                </StyledSyntaxHighlighter>
             </CodeWrapper>
         </TabContainer>
     );

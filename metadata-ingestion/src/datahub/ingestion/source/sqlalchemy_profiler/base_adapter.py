@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnClause, ColumnElement, Label
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -16,6 +16,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    flattenable_query,
     single_row_query,
 )
 
@@ -28,24 +29,75 @@ DEFAULT_QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
 class ProfilingConnection:
     """Connection facade that makes every statement declare its row shape.
 
-    Deliberately does not expose .execute(). SQLAlchemyQueryCombiner batches
-    statements by cross-joining them as CTEs, which is only valid for statements
-    returning exactly one row, and a wrong answer degrades a whole batch to
-    serial execution. Forcing the choice through three named methods means the
-    declaration cannot be forgotten -- mypy rejects a bare .execute() call.
+    Deliberately does not expose .execute(), so the declaration cannot be
+    forgotten -- a bare .execute() call is a mypy error. Pick the rung that
+    describes your query; each is strictly weaker than the one above.
 
-    See SINGLE_ROW_EXECUTION_OPTION in query_combiner.py for what qualifies.
+    | method                | for                              | batched | flattened |
+    |-----------------------|----------------------------------|---------|-----------|
+    | execute_aggregate     | one aggregate over a whole table | yes     | yes       |
+    | execute_single_row    | a query you built, one row       | yes     | no        |
+    | execute_rows          | zero, one or many rows           | no      | no        |
+
+    Batching wraps each statement in a CTE and cross-joins them, which needs
+    exactly one row per statement but preserves every clause. Flattening merges
+    aggregates over the same table into one SELECT, which saves a table scan
+    but keeps only the select list and the FROM -- so any clause you added
+    would be silently dropped, and only execute_aggregate, which builds the
+    statement itself, can promise there is none.
+
+    When in doubt, go down a rung: the cost is a lost optimisation, not a
+    wrong number. get_row_count is the example worth studying -- it uses
+    execute_aggregate normally and execute_single_row when a sample clause has
+    to survive.
     """
 
     def __init__(self, conn: Connection) -> None:
         self._conn = conn
 
-    def execute_single_row(self, query: Any) -> Any:
-        """Execute a statement that returns exactly one row.
+    def execute_aggregate(
+        self,
+        table: Any,
+        expr: ColumnElement[Any],
+        literal_is_aggregate: bool = False,
+    ) -> Any:
+        """Execute one aggregate over a whole table.
 
-        Tags the statement so the query combiner may batch it. Only valid for a
-        bare aggregate with no GROUP BY, no LIMIT/OFFSET and no row-filtering
-        WHERE -- see SINGLE_ROW_EXECUTION_OPTION.
+        `expr` must collapse the whole table to a single row -- count, min,
+        max, avg, stddev, a native median. That is the merge contract: the
+        query is built here so it cannot carry a WHERE, GROUP BY or LIMIT, but
+        clause-absence alone is not enough. `SELECT v FROM t` has no clauses
+        and still returns N rows; merged with real aggregates it becomes
+        `SELECT count(*), v FROM t`, which returns one row on MySQL and SQLite
+        and silently drops the rest.
+
+        A non-aggregate is detected and run uncombined instead, so results stay
+        correct and only the batching is lost. sa.literal_column is opaque --
+        nothing can tell `MEDIAN(v)` from `v` -- so pass
+        literal_is_aggregate=True to assert that yours collapses to one row.
+        """
+        query = sa.select([expr]).select_from(table)
+
+        inner = expr.element if isinstance(expr, Label) else expr
+        # None: a function, which returns one row by construction.
+        # False: a plain column. True: a literal_column, opaque either way.
+        is_opaque = bool(inner.is_literal) if isinstance(inner, ColumnClause) else None
+        if is_opaque is False or (is_opaque is True and not literal_is_aggregate):
+            logger.warning(
+                f"execute_aggregate expects an expression that returns one row "
+                f"but got {expr}; running it uncombined. If it is an aggregate, "
+                f"pass literal_is_aggregate=True."
+            )
+            return self._conn.execute(query)
+
+        return self._conn.execute(flattenable_query(single_row_query(query)))
+
+    def execute_single_row(self, query: Any) -> Any:
+        """Execute a query you built yourself that returns exactly one row.
+
+        Batchable into a CTE, which preserves every clause. Not flattenable --
+        flattening keeps only the select list and the FROM, so any clause you
+        added would be silently dropped.
         """
         return self._conn.execute(single_row_query(query))
 
@@ -366,10 +418,16 @@ class PlatformAdapter(ABC):
             result = self.get_estimated_row_count(table, conn)
             return int(result) if result is not None else 0
 
-        query = sa.select([sa.func.count()]).select_from(table)
         if sample_clause:
-            query = query.suffix_with(sample_clause)
-        count_result: Any = conn.execute_single_row(query).scalar()
+            # The sample clause must survive, so this one cannot be flattened.
+            query = (
+                sa.select([sa.func.count()])
+                .select_from(table)
+                .suffix_with(sample_clause)
+            )
+            count_result: Any = conn.execute_single_row(query).scalar()
+        else:
+            count_result = conn.execute_aggregate(table, sa.func.count()).scalar()
         # scalar() can return Any | None, so we need to handle None
         if count_result is None:
             return 0
@@ -391,8 +449,9 @@ class PlatformAdapter(ABC):
         Returns:
             Non-null count
         """
-        query = sa.select([sa.func.count(sa.column(column))]).select_from(table)
-        result = conn.execute_single_row(query).scalar()
+        result = conn.execute_aggregate(
+            table, sa.func.count(sa.column(column))
+        ).scalar()
         return int(result) if result is not None else 0
 
     def get_column_min(
@@ -409,8 +468,7 @@ class PlatformAdapter(ABC):
         Returns:
             Minimum value
         """
-        query = sa.select([sa.func.min(sa.column(column))]).select_from(table)
-        return conn.execute_single_row(query).scalar()
+        return conn.execute_aggregate(table, sa.func.min(sa.column(column))).scalar()
 
     def get_column_max(
         self, table: sa.Table, column: str, conn: ProfilingConnection
@@ -426,8 +484,7 @@ class PlatformAdapter(ABC):
         Returns:
             Maximum value
         """
-        query = sa.select([sa.func.max(sa.column(column))]).select_from(table)
-        return conn.execute_single_row(query).scalar()
+        return conn.execute_aggregate(table, sa.func.max(sa.column(column))).scalar()
 
     def get_column_mean(
         self, table: sa.Table, column: str, conn: ProfilingConnection
@@ -450,8 +507,7 @@ class PlatformAdapter(ABC):
         # (e.g., Redshift needs CAST to preserve precision)
         avg_expr = self.get_mean_expr(column)
 
-        query = sa.select([avg_expr]).select_from(table)
-        result = conn.execute_single_row(query).scalar()
+        result = conn.execute_aggregate(table, avg_expr).scalar()
 
         # Return raw result to preserve database-native formatting (like GE does)
         return result
@@ -472,8 +528,9 @@ class PlatformAdapter(ABC):
         # GE uses stddev_samp (sample stddev, Bessel-corrected). Some dialects' bare
         # `stddev()` defaults to STDDEV_POP (MySQL, Doris) — calling stddev_samp
         # explicitly keeps semantics consistent across dialects.
-        query = sa.select([sa.func.stddev_samp(sa.column(column))]).select_from(table)
-        result = conn.execute_single_row(query).scalar()
+        result = conn.execute_aggregate(
+            table, sa.func.stddev_samp(sa.column(column))
+        ).scalar()
         if result is None:
             non_null_count = self.get_column_non_null_count(table, column, conn)
             if non_null_count == 1:
@@ -518,8 +575,7 @@ class PlatformAdapter(ABC):
         else:
             expr = sa.func.count(sa.func.distinct(sa.column(column)))
 
-        query = sa.select([expr]).select_from(table)
-        result = conn.execute_single_row(query).scalar()
+        result = conn.execute_aggregate(table, expr).scalar()
         return int(result) if result is not None else 0
 
     def get_column_median(
@@ -539,9 +595,13 @@ class PlatformAdapter(ABC):
         expr = self.get_median_expr(column)
         if expr is not None:
             try:
-                query = sa.select([expr]).select_from(table)
                 # Return raw result to preserve database-native formatting.
-                return conn.execute_single_row(query).scalar()
+                # A median expression collapses the table to one row by
+                # definition, including the literal_column forms several
+                # adapters use (quantile(), PERCENTILE_CONT, APPROX_QUANTILES).
+                return conn.execute_aggregate(
+                    table, expr, literal_is_aggregate=True
+                ).scalar()
             except SQLAlchemyError as e:
                 logger.debug(
                     f"Native MEDIAN expression failed for column {column}; "

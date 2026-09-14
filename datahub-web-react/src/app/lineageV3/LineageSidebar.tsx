@@ -66,7 +66,7 @@ export default function LineageSidebar() {
             }}
         >
             {createPortal(
-                <SidebarWrapper $distanceFromTop={0}>
+                <SidebarWrapper $distanceFromTop={0} data-testid="lineage-sidebar">
                     <CompactContext.Provider key={selectedEntity.urn} value>
                         {entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
                     </CompactContext.Provider>

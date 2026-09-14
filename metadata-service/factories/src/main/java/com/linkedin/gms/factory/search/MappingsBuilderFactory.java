@@ -11,6 +11,7 @@ import com.linkedin.metadata.search.elasticsearch.index.SearchEngineStructuredPr
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSearchMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3MappingContributor;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -20,6 +21,7 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -53,12 +55,17 @@ public class MappingsBuilderFactory {
   @Bean("multiEntityMappingsBuilder")
   @ConditionalOnProperty(name = "elasticsearch.entityIndex.v3.enabled", havingValue = "true")
   @Nonnull
-  protected MappingsBuilder createMultiEntityMappingsBuilder(ConfigurationProvider configProvider) {
+  protected MappingsBuilder createMultiEntityMappingsBuilder(
+      ConfigurationProvider configProvider,
+      @Autowired(required = false) @Nullable List<V3MappingContributor> mappingContributors) {
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
     int keywordMaxLength = resolveKeywordMaxLength(configProvider);
     log.info("Creating MultiEntityMappingsBuilder bean");
     try {
-      return new MultiEntityMappingsBuilder(entityIndexConfig, keywordMaxLength);
+      return new MultiEntityMappingsBuilder(
+          entityIndexConfig,
+          keywordMaxLength,
+          mappingContributors == null ? List.of() : mappingContributors);
     } catch (IOException e) {
       log.error("Failed to initialize MultiEntityMappingsBuilder", e);
       throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
