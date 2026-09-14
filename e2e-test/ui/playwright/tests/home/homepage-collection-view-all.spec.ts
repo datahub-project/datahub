@@ -16,6 +16,7 @@ import { test, expect } from '../../fixtures/login-test';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { users } from '../../data/users';
 import { DATAHUB_GRAPHQL_PATH } from '../../utils/constants';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 const FRONTEND_URL = process.env.BASE_URL || 'http://localhost:9002';
 
@@ -113,6 +114,10 @@ async function loginUi(
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Homepage Collection View All', () => {
+  test.beforeEach(async ({ apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
+  });
+
   test.beforeAll(async ({ playwright }) => {
     const adminCtx = await playwright.request.newContext({ baseURL: FRONTEND_URL });
     const userCtx = await playwright.request.newContext({ baseURL: FRONTEND_URL });

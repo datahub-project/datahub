@@ -23,7 +23,7 @@ from tests.utilities.domains import Domain
 
 from .example_manifest import EXAMPLE_DEPENDENCIES, EXAMPLE_MANIFEST
 
-pytestmark = pytest.mark.domain(Domain.INGESTION)
+pytestmark = [pytest.mark.domain(Domain.INGESTION), pytest.mark.p0]
 
 # Path to metadata-ingestion examples
 EXAMPLES_DIR = (

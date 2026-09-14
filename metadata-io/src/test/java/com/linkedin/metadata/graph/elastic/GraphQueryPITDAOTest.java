@@ -4,6 +4,8 @@ import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
+import static com.linkedin.metadata.graph.elastic.TestUtils.assertMatchesNothing;
 import static com.linkedin.metadata.graph.elastic.TestUtils.createEmptySearchResponse;
 import static com.linkedin.metadata.graph.elastic.TestUtils.createFakeLineageHits;
 import static com.linkedin.metadata.graph.elastic.TestUtils.createFakeSearchResponse;
@@ -493,27 +495,75 @@ public class GraphQueryPITDAOTest {
             null,
             new ConcurrentHashMap<>());
 
-    // Call the method - internal buildLineageGraphFiltersQuery should return empty Optional
-    // But getLineageQuery should still build a query with minimumShouldMatch(1)
+    // buildLineageGraphFiltersQuery returns empty for every entity type, so the query must
+    // match nothing rather than degrade to match_all over the whole graph index.
     QueryBuilder result =
         dao.getLineageQuery(operationContext, urnsPerEntityType, lineageGraphFilters);
 
-    // Verify that we still got a query
-    Assert.assertNotNull(result);
+    assertMatchesNothing(result);
+  }
+
+  /**
+   * An entity type with no registered lineage edges (glossaryTerm, domain, document, ...) has no
+   * lineage. The query must match nothing: a clause-less bool would degrade to match_all, drop the
+   * source-urn filter and scan the whole graph index, timing out its slices on a large graph.
+   */
+  @Test
+  public void testGetLineageQueryEntityTypeWithNoLineageEdges() {
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    GraphQueryPITDAO dao =
+        createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG);
+
+    Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
+    urnsPerEntityType.put(
+        GLOSSARY_TERM_ENTITY_NAME,
+        ImmutableSet.of(UrnUtils.getUrn("urn:li:glossaryTerm:test-term")));
+
+    LineageGraphFilters lineageGraphFilters =
+        LineageGraphFilters.withEntityTypes(LineageDirection.UPSTREAM, null);
+
+    assertMatchesNothing(
+        dao.getLineageQuery(operationContext, urnsPerEntityType, lineageGraphFilters));
+  }
+
+  /**
+   * A hop can mix entity types. As long as one of them has lineage edges the query is still built
+   * normally -- only the all-empty case short-circuits.
+   */
+  @Test
+  public void testGetLineageQueryMixedEntityTypesKeepsTypeWithEdges() {
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    GraphQueryPITDAO dao =
+        createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG);
+
+    Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
+    urnsPerEntityType.put(
+        GLOSSARY_TERM_ENTITY_NAME,
+        ImmutableSet.of(UrnUtils.getUrn("urn:li:glossaryTerm:test-term")));
+    urnsPerEntityType.put(
+        DATASET_ENTITY_NAME,
+        ImmutableSet.of(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test-dataset,PROD)")));
+
+    LineageGraphFilters lineageGraphFilters =
+        LineageGraphFilters.withEntityTypes(LineageDirection.UPSTREAM, null);
+
+    QueryBuilder result =
+        dao.getLineageQuery(operationContext, urnsPerEntityType, lineageGraphFilters);
+
     Assert.assertTrue(result instanceof BoolQueryBuilder);
-
-    // Verify that the query was structured as expected for empty URNs
     BoolQueryBuilder boolQuery = (BoolQueryBuilder) result;
-    // There should be a filter clause with the entity type queries
-    Assert.assertTrue(boolQuery.filter().size() > 0);
-
-    // Verify the first filter is a BoolQuery with minimumShouldMatch(1)
-    Object firstFilter = boolQuery.filter().get(0);
-    Assert.assertTrue(firstFilter instanceof BoolQueryBuilder);
-    BoolQueryBuilder entityTypeQueries = (BoolQueryBuilder) firstFilter;
+    Assert.assertTrue(boolQuery.mustNot().isEmpty(), "should not be a match-none query");
+    Assert.assertEquals(boolQuery.filter().size(), 1);
+    BoolQueryBuilder entityTypeQueries = (BoolQueryBuilder) boolQuery.filter().get(0);
     Assert.assertEquals(entityTypeQueries.minimumShouldMatch(), "1");
-    // Since URNs are empty, there should be no should clauses
-    Assert.assertEquals(entityTypeQueries.should().size(), 0);
+    // Only the dataset contributes a should clause; the glossaryTerm has no lineage edges.
+    Assert.assertEquals(entityTypeQueries.should().size(), 1);
+    Assert.assertTrue(
+        entityTypeQueries.should().get(0).toString().contains("test-dataset"),
+        "the surviving should clause must be the dataset's");
   }
 
   @Test

@@ -230,6 +230,143 @@ def test_databricks_regular_case():
     )
 
 
+# Redundant parentheses around a navigation step. Valid M that Power BI
+# refreshes fine, emitted by hand-edited queries.
+_DATABRICKS_PARENTHESIZED_NAVIGATION_M_QUERY: str = (
+    "let\n"
+    '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", '
+    '"/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog=null]),\n'
+    '    my_catalog_Database = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    "    my_schema_Schema = "
+    'my_catalog_Database{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    "    my_table_Table = "
+    '(my_schema_Schema{[Name="my_table",Kind="Table"]}[Data])\n'
+    "in\n"
+    "    my_table_Table"
+)
+
+# Same redundant parentheses, but wrapping an if-branch -- `then (<nav step>)`.
+_DATABRICKS_PARENTHESIZED_IF_BRANCH_M_QUERY: str = (
+    "let\n"
+    '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", '
+    '"/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog=null]),\n'
+    '    my_catalog_Database = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    "    my_schema_Schema = "
+    'my_catalog_Database{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    "    my_table_Table = if true then "
+    '(my_schema_Schema{[Name="my_table",Kind="Table"]}[Data]) else null\n'
+    "in\n"
+    "    my_table_Table"
+)
+
+_DATABRICKS_EXPECTED_URN: str = (
+    "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.my_table,PROD)"
+)
+
+
+@pytest.mark.integration
+def test_databricks_parenthesized_navigation_step():
+    """Parentheses around a navigation step must not defeat lineage extraction."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_DATABRICKS_PARENTHESIZED_NAVIGATION_M_QUERY,
+        name="my_table",
+        full_name="my_catalog.my_schema.my_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
+
+
+@pytest.mark.integration
+def test_databricks_parenthesized_navigation_step_in_if_branch():
+    """A parenthesized navigation step inside `then (...)` must still resolve."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_DATABRICKS_PARENTHESIZED_IF_BRANCH_M_QUERY,
+        name="my_table",
+        full_name="my_catalog.my_schema.my_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
+
+
+# Leaf navigation step written without Kind="Table". Valid M that Power BI
+# refreshes fine.
+_DATABRICKS_NO_KIND_M_QUERY: str = (
+    "let\n"
+    '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", '
+    '"/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog=null]),\n'
+    '    my_catalog_Database = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    "    my_schema_Schema = "
+    'my_catalog_Database{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    my_table_Table = my_schema_Schema{[Name="my_table"]}[Data]\n'
+    "in\n"
+    "    my_table_Table"
+)
+
+
+@pytest.mark.integration
+def test_databricks_navigation_step_without_kind():
+    """A leaf navigation step lacking Kind="Table" must still yield lineage."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_DATABRICKS_NO_KIND_M_QUERY,
+        name="my_table",
+        full_name="my_catalog.my_schema.my_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
+    assert reporter.m_query_resolver_errors == 0
+
+
 @pytest.mark.integration
 def test_oracle_regular_case():
     q: str = M_QUERIES[14]
@@ -1223,6 +1360,33 @@ def test_databricks_native_query():
     )
 
 
+# Native SQL on the plain Databricks.Catalogs connector. The MultiCloud variant
+# is covered by test_databricks_native_query above.
+_DATABRICKS_CATALOGS_NATIVE_QUERY_M_QUERY: str = (
+    "let\n"
+    "    Source = Value.NativeQuery(Databricks.Catalogs("
+    '"adb-123.azuredatabricks.net", "/sql/1.0/endpoints/12345dc91aa25844", '
+    '[Catalog="my_catalog", Database=null])'
+    '{[Name="my_catalog",Kind="Database"]}[Data], '
+    '"select a, b from my_schema.my_table", null, [EnableFolding=true])\n'
+    "in\n"
+    "    Source"
+)
+
+
+def test_databricks_catalogs_native_query():
+    """Value.NativeQuery against Databricks.Catalogs resolves to a 3-part URN,
+    taking the catalog from the connector's Catalog argument."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_DATABRICKS_CATALOGS_NATIVE_QUERY_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
+
+
 def test_snowflake_multi_function_call():
     q = M_QUERIES[32]
 
@@ -1958,3 +2122,166 @@ def test_native_query_cll_downstream_column_remapped_to_pbi_field_casing():
 
     assert lineage[0].column_lineage
     assert lineage[0].column_lineage[0].downstream.column == "CustomerId"
+
+
+_DATABRICKS_CONNECTOR: str = (
+    'Databricks.Catalogs("adb-123.azuredatabricks.net",'
+    ' "/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog="my_catalog"])'
+)
+
+# A nested let whose body reaches a step bound by the enclosing let.
+_NESTED_LET_OUTER_SCOPE_M_QUERY: str = (
+    "let\n"
+    f"    Source = {_DATABRICKS_CONNECTOR},\n"
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    '    sch = db{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    out = let tbl = sch{[Name="my_table",Kind="Table"]}[Data] in tbl\n'
+    "in\n"
+    "    out"
+)
+
+# A nested let whose own binding initialises from the enclosing binding of the
+# same name. A plain reference in M is exclusive -- the spec evaluates each let
+# variable "with an environment containing each of the variables of the let except
+# the one being initialized" -- so the inner `a` reads the outer `a`.
+_NESTED_SELF_INIT_M_QUERY: str = (
+    "let\n"
+    f"    Source = {_DATABRICKS_CONNECTOR},\n"
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    '    sch = db{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    a = sch{[Name="my_table",Kind="Table"]}[Data],\n'
+    "    out = let a = a in a\n"
+    "in\n"
+    "    out"
+)
+
+# The same shape with nothing outside to resolve to, which the spec calls an error.
+_SELF_INIT_UNRESOLVABLE_M_QUERY: str = (
+    f"let\n    Source = {_DATABRICKS_CONNECTOR},\n    out = let a = a in a\nin\n    out"
+)
+
+# A nested let that rebinds a name the enclosing let already uses.
+_NESTED_LET_SHADOWING_M_QUERY: str = (
+    "let\n"
+    f"    Source = {_DATABRICKS_CONNECTOR},\n"
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    '    sch = db{[Name="outer_schema",Kind="Schema"]}[Data],\n'
+    "    out = let\n"
+    '            sch = db{[Name="inner_schema",Kind="Schema"]}[Data],\n'
+    '            tbl = sch{[Name="my_table",Kind="Table"]}[Data]\n'
+    "          in\n"
+    "            tbl\n"
+    "in\n"
+    "    out"
+)
+
+
+@pytest.mark.integration
+def test_nested_let_resolves_outer_scope_name():
+    """A nested let can reach steps bound by the enclosing let, so the walk has
+    to keep the enclosing scopes rather than replacing them."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_NESTED_LET_OUTER_SCOPE_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn == "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "my_catalog.my_schema.my_table,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_nested_let_binding_shadows_outer_name():
+    """The innermost binding of a name wins, so `sch` inside the nested let must
+    resolve to the schema that let defines, not the enclosing one."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_NESTED_LET_SHADOWING_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn == "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "my_catalog.inner_schema.my_table,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_outer_step_cannot_see_a_nested_let_binding():
+    """A step bound by an outer let is evaluated in that let's scope, so it must
+    not resolve names a nested let introduces -- doing so invents an upstream
+    from an expression Power BI itself could not evaluate."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q="let\n"
+        f"    Source = {_DATABRICKS_CONNECTOR},\n"
+        '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+        '    a = sch{[Name="my_table",Kind="Table"]}[Data],\n'
+        '    out = let sch = db{[Name="inner_schema",Kind="Schema"]}[Data] in a\n'
+        "in\n"
+        "    out"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_cycle_spelled_with_different_casing_is_one_visit():
+    """M variable names are case-insensitive, so `a` and `A` are one variable and
+    a cycle written inconsistently is still a cycle."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=f"let Source = {_DATABRICKS_CONNECTOR}, a = B, b = A, out = a in out"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+@pytest.mark.xfail(
+    reason="A plain identifier reference in M is exclusive: the spec evaluates each "
+    "let variable with an environment containing every variable of the let except "
+    "the one being initialized, so `a = a` in a nested let reads the enclosing `a`. "
+    "Resolution prefers the innermost binding unconditionally, resolving it to "
+    "itself, and the circular-reference guard then drops the lineage. Left as-is "
+    "here to keep this change to scope-chain resolution; no reported query uses "
+    "the shape.",
+    strict=True,
+)
+def test_nested_self_init_reads_the_enclosing_binding():
+    """`a = a` in a nested let should skip its own binding and read the enclosing
+    `a`. Valid M that Power BI refreshes without complaint."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_NESTED_SELF_INIT_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn == "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "my_catalog.my_schema.my_table,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_self_init_with_nothing_enclosing_it_yields_nothing():
+    """With no enclosing binding the exclusive reference has nothing to resolve to,
+    which the spec calls an error. Report no lineage rather than guess."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_SELF_INIT_UNRESOLVABLE_M_QUERY
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_mutually_referencing_steps_do_not_recurse():
+    """Steps defined in terms of each other must stop rather than walk forever."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=f"let Source = {_DATABRICKS_CONNECTOR}, a = b, b = a, out = a in out"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []

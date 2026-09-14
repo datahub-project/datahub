@@ -3,6 +3,7 @@ import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -27,6 +28,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -34,7 +36,11 @@ import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useGetMlFeatureTableQuery } from '@graphql/mlFeatureTable.generated';
 import { EntityType, MlFeatureTable, SearchResult } from '@types';
 
-const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.ANNOUNCE]);
+const headerDropdownItems = new Set([
+    EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.RAISE_INCIDENT,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 /**
  * Definition of the DataHub MLFeatureTable entity.
@@ -103,6 +109,14 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                     name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
+                },
+                {
+                    name: i18next.t('entity.types:tab.incidents'),
+                    icon: WarningCircle,
+                    component: IncidentTab,
+                    getCount: (_, mlFeatureTable) => {
+                        return mlFeatureTable?.mlFeatureTable?.activeIncidents?.total;
+                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}

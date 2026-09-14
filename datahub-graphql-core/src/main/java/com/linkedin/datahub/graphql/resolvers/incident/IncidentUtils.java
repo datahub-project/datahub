@@ -19,9 +19,12 @@ import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentStage;
 import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.IncidentInfoPatch;
 import com.linkedin.metadata.service.IncidentInfoUpsert;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
+import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -45,6 +48,32 @@ public class IncidentUtils {
         .toList();
   }
 
+  /**
+   * Resolves the URN that an incident edit is authorized against.
+   *
+   * <p>For a schemaField this is the parent entity encoded in the field URN, not the field itself.
+   * There is no schemaField resource type in {@link PoliciesConfig}, so a dataset-scoped policy
+   * never matches a field URN and only platform admins would pass the check. Authorizing on the
+   * parent matches how the field page already reads its permissions, and it matches column edits,
+   * where EDIT_DATASET_COL_* is a dataset privilege rather than a field-entity one.
+   *
+   * <p>The parent is usually a dataset, but GraphQL allows dashboard and chart parents too, so the
+   * parent is read from the URN rather than assumed. A field URN that does not parse falls back to
+   * itself, which preserves the previous behaviour instead of failing open.
+   *
+   * <p>This applies to the incident edit check only. View restrictions and EDIT_DATASET_COL_* are
+   * unaffected.
+   */
+  @Nonnull
+  public static Urn getIncidentAuthorizationUrn(@Nonnull final Urn resourceUrn) {
+    if (!Constants.SCHEMA_FIELD_ENTITY_NAME.equals(resourceUrn.getEntityType())) {
+      return resourceUrn;
+    }
+    return SchemaFieldUtils.parseSchemaFieldUrn(resourceUrn)
+        .map(Pair::getFirst)
+        .orElse(resourceUrn);
+  }
+
   public static boolean isAuthorizedToEditIncidentForResource(
       final Urn resourceUrn, final QueryContext context) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -54,8 +83,9 @@ public class IncidentUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_INCIDENTS_PRIVILEGE.getType()))));
 
+    final Urn authorizationUrn = getIncidentAuthorizationUrn(resourceUrn);
     return AuthorizationUtils.isAuthorized(
-        context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
+        context, authorizationUrn.getEntityType(), authorizationUrn.toString(), orPrivilegeGroups);
   }
 
   @Nullable

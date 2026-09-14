@@ -1014,7 +1014,7 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
 
 @platform_name("Tableau")
 @config_class(TableauConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",

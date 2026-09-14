@@ -218,10 +218,11 @@ describe('getFineGrainedLineage', () => {
         };
     }
 
-    // Only dbt emits this edge, and the two siblings are drawn as a single node whether or not
-    // `hideDbtSourceInLineage` is what merged them
+    // Only dbt emits this edge. It is kept: siblings are drawn as separate nodes (e.g. a dbt model
+    // as a transformation node), so the edge is drawable, and it lets column lineage pass through
+    // a hidden sibling.
     it.each(['search', 'properties'] as const)(
-        'drops the edge between a column and the same column on a sibling, given as a sibling %s',
+        'keeps the edge between a column and the same column on a sibling, given as a sibling %s',
         (siblingShape) => {
             const fgl = run(
                 new Map([
@@ -230,8 +231,9 @@ describe('getFineGrainedLineage', () => {
                 ]),
             );
 
-            expect(fgl.downstream.size).toEqual(0);
-            expect(fgl.upstream.size).toEqual(0);
+            expect(Array.from(fgl.downstream.get(`${TABLE}::${FIELD}`)?.keys() ?? [])).toEqual([
+                `${SIBLING}::${FIELD}`,
+            ]);
         },
     );
 

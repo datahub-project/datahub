@@ -15,6 +15,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
+    ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
@@ -302,7 +303,7 @@ class SnowflakeAdapter(PlatformAdapter):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         if quantiles is None:
@@ -313,7 +314,7 @@ class SnowflakeAdapter(PlatformAdapter):
             try:
                 snowflake_expr = sa.func.approx_percentile(sa.column(column), q)
                 query = sa.select(snowflake_expr).select_from(table)
-                result = conn.execute(query).scalar()
+                result = conn.execute_rows(query).scalar()
                 results.append(float(result) if result is not None else None)
             except SQLAlchemyError as e:
                 logger.warning(

@@ -28,6 +28,7 @@ def dataset_urn(auth_session, graph_client, tmp_path_factory):
     )
 
 
+@pytest.mark.p0
 def test_add_tag(auth_session, dataset_urn):
     dataset_query = """query getDataset($urn: String!) {
             dataset(urn: $urn) {

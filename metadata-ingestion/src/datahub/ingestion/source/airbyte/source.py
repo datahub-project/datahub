@@ -117,7 +117,7 @@ def _validate_urn_component(component: str, component_name: str) -> str:
 
 @platform_name("Airbyte")
 @config_class(AirbyteSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(

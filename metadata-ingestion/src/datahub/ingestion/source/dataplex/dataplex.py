@@ -85,7 +85,7 @@ def _resolve_project_numbers(
 
 @platform_name("Google Cloud Knowledge Catalog (Dataplex)", id="dataplex")
 @config_class(DataplexConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",

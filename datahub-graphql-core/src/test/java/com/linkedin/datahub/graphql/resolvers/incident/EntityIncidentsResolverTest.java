@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.EntityIncidentsResult;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.IncidentPriority;
 import com.linkedin.datahub.graphql.generated.MLFeature;
+import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.entity.Aspect;
@@ -76,6 +77,16 @@ public class EntityIncidentsResolverTest {
     MLFeature parentEntity = new MLFeature();
     parentEntity.setUrn(mlFeatureUrn.toString());
     assertIncidentsResolvedForSource(mlFeatureUrn, parentEntity);
+  }
+
+  @Test
+  public void testGetSuccessMlFeatureTableEntity() throws Exception {
+    Urn mlFeatureTableUrn =
+        Urn.createFromString(
+            "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table)");
+    MLFeatureTable parentEntity = new MLFeatureTable();
+    parentEntity.setUrn(mlFeatureTableUrn.toString());
+    assertIncidentsResolvedForSource(mlFeatureTableUrn, parentEntity);
   }
 
   @Test

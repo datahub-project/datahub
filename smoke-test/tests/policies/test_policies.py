@@ -72,6 +72,7 @@ def _ensure_policy_present(auth_session, new_urn):
     assert result[0]["actors"]["allUsers"]
 
 
+@pytest.mark.p0
 def test_frontend_policy_operations(auth_session):
     create_policy_query = """mutation createPolicy($input: PolicyUpdateInput!) {
             createPolicy(input: $input) }"""

@@ -11,7 +11,7 @@ from tests.utils import run_datahub_cmd, unique_suffix
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.INGESTION, Domain.PLATFORM)
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 
 def generate_test_email() -> str:
@@ -79,6 +79,7 @@ def test_users_cleanup(auth_session: Any, graph_client: DataHubGraph):
         wait_for_writes_to_sync(mae_only=True)
 
 
+@pytest.mark.p0
 def test_user_add_without_role(auth_session: Any, test_users_cleanup: Any) -> None:
     """Test creating a user without specifying a role."""
     email = generate_test_email()

@@ -32,7 +32,7 @@ from tests.utils import get_kafka_broker_url
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [pytest.mark.domain(Domain.PLATFORM), pytest.mark.p0]
 
 # Load environment variables from .env file if it exists
 load_dotenv()

@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Hive Metastore")
 @config_class(HiveMetastore)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")

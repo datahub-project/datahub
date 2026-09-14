@@ -82,9 +82,9 @@ in DataHub.
 
 ### Role Privileges
 
-#### Self-Hosted DataHub and DataHub Cloud
+#### DataHub Core and DataHub Cloud
 
-These privileges are common to both Self-Hosted DataHub and DataHub Cloud.
+These privileges are common to both DataHub Core and DataHub Cloud.
 
 ##### Platform Privileges
 

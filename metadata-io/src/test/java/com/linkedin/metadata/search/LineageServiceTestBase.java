@@ -617,6 +617,95 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   }
 
   @Test
+  public void testScrollAcrossLineageClampsExcessiveMaxHops() throws Exception {
+    // scrollAcrossLineage must clamp a caller-supplied maxHops the same way searchAcrossLineage
+    // does. Previously the scroll path defaulted to 1000 without clamping, so a caller could
+    // request an unbounded deep traversal.
+    when(graphService.getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
+        .thenReturn(mockResult(Collections.emptyList()));
+
+    lineageSearchService.scrollAcrossLineage(
+        getOperationContext()
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(
+                flags ->
+                    flags
+                        .setStartTimeMillis(null, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(null, SetMode.REMOVE_IF_NULL)),
+        TEST_URN,
+        LineageDirection.DOWNSTREAM,
+        ImmutableList.of(),
+        TEST1,
+        Integer.MAX_VALUE,
+        null,
+        null,
+        null,
+        "5m",
+        10);
+
+    ArgumentCaptor<Integer> maxHopsCaptor = ArgumentCaptor.forClass(Integer.class);
+    Mockito.verify(graphService)
+        .getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            maxHopsCaptor.capture());
+    // Integer.MAX_VALUE must have been clamped down to the exact configured impact hop limit.
+    assertEquals(
+        maxHopsCaptor.getValue().intValue(),
+        getElasticSearchConfiguration().getSearch().getGraph().getImpact().getMaxHops());
+    clearCache(false);
+  }
+
+  @Test
+  public void testScrollAcrossLineageDefaultsNullMaxHopsToConfiguredLimit() throws Exception {
+    // A null maxHops must resolve to the finite configured impact hop limit, not pass through as an
+    // unbounded (or null) deep traversal.
+    when(graphService.getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
+        .thenReturn(mockResult(Collections.emptyList()));
+
+    lineageSearchService.scrollAcrossLineage(
+        getOperationContext()
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(
+                flags ->
+                    flags
+                        .setStartTimeMillis(null, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(null, SetMode.REMOVE_IF_NULL)),
+        TEST_URN,
+        LineageDirection.DOWNSTREAM,
+        ImmutableList.of(),
+        TEST1,
+        null,
+        null,
+        null,
+        null,
+        "5m",
+        10);
+
+    ArgumentCaptor<Integer> maxHopsCaptor = ArgumentCaptor.forClass(Integer.class);
+    Mockito.verify(graphService)
+        .getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            maxHopsCaptor.capture());
+    // null must resolve to the exact configured impact hop limit, not pass through.
+    assertEquals(
+        maxHopsCaptor.getValue().intValue(),
+        getElasticSearchConfiguration().getSearch().getGraph().getImpact().getMaxHops());
+    clearCache(false);
+  }
+
+  @Test
   public void testLightningSearchService() throws Exception {
     // Mostly this test ensures the code path is exercised
 

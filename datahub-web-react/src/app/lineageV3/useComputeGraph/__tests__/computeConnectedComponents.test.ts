@@ -1,4 +1,4 @@
-import { FetchStatus, LineageEntity } from '@app/lineageV3/common';
+import { FetchStatus, LineageEntity, createEdgeId } from '@app/lineageV3/common';
 import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
 
 import { EntityType, LineageDirection } from '@types';
@@ -141,5 +141,34 @@ describe('computeConnectedComponents', () => {
         expect(component).toContain(child2);
         expect(component).toContain(grandchild);
         expect(result.parents.get('grandchild')).toEqual(new Set(['child1', 'child2']));
+    });
+
+    it('should order and group query nodes with the nodes they connect', () => {
+        const root = createMockNode('root', EntityType.Dataset);
+        const query = createMockNode('urn:li:query:query', EntityType.Query);
+        const child = createMockNode('child', EntityType.Dataset);
+        const nodes = new Map([
+            ['root', root],
+            [query.urn, query],
+            ['child', child],
+        ]);
+        // Query nodes are only linked outward, from the query to the nodes it connects
+        const adjacencyList = {
+            [LineageDirection.Upstream]: new Map<string, Set<string>>([
+                ['child', new Set(['root'])],
+                [query.urn, new Set(['root'])],
+            ]),
+            [LineageDirection.Downstream]: new Map<string, Set<string>>([
+                ['root', new Set(['child'])],
+                [query.urn, new Set(['child'])],
+            ]),
+        };
+        const edges = new Map([[createEdgeId('root', 'child'), { isDisplayed: true, via: query.urn }]]);
+
+        const result = computeConnectedComponents({ nodes, adjacencyList, edges });
+
+        expect(result.displayedNodesByRoots.length).toBe(1);
+        expect(result.displayedNodesByRoots[0]).toEqual([[root], [root, query, child]]);
+        expect(result.parents.get(query.urn)).toEqual(new Set(['root']));
     });
 });

@@ -1,14 +1,14 @@
-import { InfiniteScrollList, radius } from '@components';
+import { InfiniteScrollList } from '@components';
 import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
 import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
+import ModuleIconChrome from '@app/homeV3/module/components/ModuleIconChrome';
 import { ModuleProps } from '@app/homeV3/module/types';
 
 import {
@@ -23,22 +23,11 @@ const SIGMA_ICON_SIZE = 20;
 
 type MetricEntity = { __typename: 'Metric' } & Pick<Metric, 'urn' | 'type'>;
 
-const SigmaIconContainer = styled.div`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: ${(props) => props.theme.colors.bgSurface};
-    height: 28px;
-    width: 28px;
-    border-radius: ${radius.full};
-    color: ${(props) => props.theme.colors.icon};
-`;
-
 function MetricSigmaIcon() {
     return (
-        <SigmaIconContainer>
+        <ModuleIconChrome>
             <Sigma size={SIGMA_ICON_SIZE} />
-        </SigmaIconContainer>
+        </ModuleIconChrome>
     );
 }
 

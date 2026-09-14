@@ -69,7 +69,6 @@ function run(nodeIdsByUrn: Map<string, string[]>, overrides: Overrides = {}) {
             adjacencyList: { [LineageDirection.Upstream]: new Map(), [LineageDirection.Downstream]: new Map() },
             displayedNodeIds: overrides.displayedNodeIds ?? new Set([UPSTREAM, DOWNSTREAM]),
             nodeIdsByUrn,
-            validQueryIds: new Set<string>(),
             rootUrn: DP_A,
             rootType: EntityType.DataProduct,
             showFilterNodes: overrides.showFilterNodes ?? false,
@@ -258,5 +257,43 @@ describe('column edges to lineage filter nodes', () => {
 
     it('emits no edge when filter nodes are not rendered, as the controls show the counts', () => {
         expect(filterNodeEdges({ lineageCountsFetched: false }, false)).toHaveLength(0);
+    });
+});
+
+describe('column edges through query nodes', () => {
+    const QUERY = 'urn:li:query:q1';
+    const queryRef = createColumnRef(QUERY, 'op1');
+
+    function throughQueryLineage(): FineGrainedLineage {
+        return lineageFromEdges([
+            [upstreamRef, queryRef],
+            [queryRef, downstreamRef],
+        ]);
+    }
+
+    it('routes segments through a query node displayed on the graph', () => {
+        const { columnEdges } = run(new Map(), {
+            fineGrainedLineage: throughQueryLineage(),
+            displayedNodeIds: new Set([UPSTREAM, DOWNSTREAM, QUERY]),
+        });
+
+        const edges = Array.from(columnEdges.values());
+        expect(edges.map((edge) => [edge.source, edge.target])).toEqual([
+            [UPSTREAM, QUERY],
+            [QUERY, DOWNSTREAM],
+        ]);
+    });
+
+    it('draws the edge directly when the query node is not on the graph', () => {
+        // e.g. when a fine-grained edge's query differs from its table edge's, so the graph
+        // never draws a node for it
+        const { columnEdges } = run(new Map(), { fineGrainedLineage: throughQueryLineage() });
+
+        const edges = Array.from(columnEdges.values());
+        expect(edges).toHaveLength(1);
+        expect(edges[0].source).toEqual(UPSTREAM);
+        expect(edges[0].target).toEqual(DOWNSTREAM);
+        expect(edges[0].sourceHandle).toEqual(upstreamRef);
+        expect(edges[0].targetHandle).toEqual(downstreamRef);
     });
 });

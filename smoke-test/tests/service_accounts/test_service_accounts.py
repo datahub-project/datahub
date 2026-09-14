@@ -20,7 +20,7 @@ from tests.utils import get_sleep_info
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [pytest.mark.domain(Domain.PLATFORM), pytest.mark.p0]
 
 sleep_sec, sleep_times = get_sleep_info()
 

@@ -15,7 +15,6 @@ import {
     createColumnRef,
     createLineageFilterNodeId,
     isTransformational,
-    isUrnQuery,
     isUrnTransformational,
     parseColumnRef,
     setDefault,
@@ -45,7 +44,6 @@ export default function useColumnHighlighting(
     const {
         nodes,
         adjacencyList,
-        edges,
         rootUrn,
         rootType,
         nodeVersion,
@@ -56,11 +54,6 @@ export default function useColumnHighlighting(
 
     const { cllHighlightedNodes, highlightedColumns, shownRelatedColumns, columnEdges } = useMemo(() => {
         const displayedNodeIds = new Set(shownUrns);
-        const validQueryIds = new Set(
-            Array.from(edges.values())
-                .map((edge) => edge.via)
-                .filter((via): via is string => !!via),
-        );
         return processColumnHighlights(
             selectedColumn,
             hoveredColumn,
@@ -70,7 +63,6 @@ export default function useColumnHighlighting(
                 adjacencyList,
                 displayedNodeIds,
                 nodeIdsByUrn,
-                validQueryIds,
                 rootUrn,
                 rootType,
                 showFilterNodes: showLineageFilterNodes,
@@ -84,7 +76,6 @@ export default function useColumnHighlighting(
         selectedColumn,
         hoveredColumn,
         nodes,
-        edges,
         fineGrainedLineage,
         shownUrns,
         nodeIdsByUrn,
@@ -121,7 +112,6 @@ interface ArgumentBundle {
     displayedNodeIds: Set<string>;
     /** Flow node ids for each urn, as one urn can be rendered by multiple nodes. */
     nodeIdsByUrn: Map<string, string[]>;
-    validQueryIds: Set<string>;
     rootUrn: string;
     rootType: EntityType;
     /** Whether lineage filter nodes are rendered, rather than the column lineage controls. */
@@ -149,7 +139,6 @@ export function computeSingleColumnHighlights(
         adjacencyList,
         displayedNodeIds,
         nodeIdsByUrn,
-        validQueryIds,
         rootUrn,
         rootType,
         showFilterNodes,
@@ -269,11 +258,15 @@ export function computeSingleColumnHighlights(
                 }
                 setDefault(highlightedColumns, childUrn, new Set()).add(childField);
 
-                if (displayedNodeIds.has(childUrn)) {
-                    addEdge(ref, childRef);
-                } else if (!isUrnQuery(childUrn) || validQueryIds.has(childUrn)) {
-                    // Compute parents of missing nodes; don't add any edges through them
+                if (!displayedNodeIds.has(childUrn)) {
+                    // Compute parents of missing nodes; edges are drawn directly between the
+                    // displayed columns on either side of them. Includes query nodes not on the
+                    // graph, e.g. when a fine-grained edge's query differs from its table edge's.
                     setDefault(missingNodeParents, childRef, new Set()).add(ref);
+                } else if (displayedNodeIds.has(currentUrn)) {
+                    // If `ref`'s own node is missing instead, its edges to displayed children are
+                    // drawn from its ancestors, by the missing node handling below
+                    addEdge(ref, childRef);
                 }
             });
         }

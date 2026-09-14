@@ -40,6 +40,7 @@ import microstrategyLogo from '@images/microstrategylogo.svg';
 import mlflowLogo2 from '@images/mlflowlogo2.png';
 import modeLogo from '@images/modelogo.png';
 import mongodbLogo from '@images/mongodblogo.png';
+import montecarloLogo from '@images/montecarlologo.png';
 import mssqlLogo from '@images/mssqllogo.png';
 import mysqlLogo from '@images/mysqllogo-2.png';
 import neo4j from '@images/neo4j.svg';
@@ -137,6 +138,8 @@ export const MODE = 'mode';
 export const MODE_URN = `urn:li:dataPlatform:${MODE}`;
 const MONGO_DB = 'mongodb';
 const MONGO_DB_URN = `urn:li:dataPlatform:${MONGO_DB}`;
+export const MONTECARLO = 'montecarlo';
+export const MONTECARLO_URN = `urn:li:dataPlatform:${MONTECARLO}`;
 const MSSQL = 'mssql';
 const MSSQL_URN = `urn:li:dataPlatform:${MSSQL}`;
 export const MYSQL = 'mysql';
@@ -260,6 +263,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MLFLOW_URN]: mlflowLogo2,
     [MODE_URN]: modeLogo,
     [MONGO_DB_URN]: mongodbLogo,
+    [MONTECARLO_URN]: montecarloLogo,
     [MSSQL_URN]: mssqlLogo,
     [MYSQL_URN]: mysqlLogo,
     [NOTION_URN]: notionLogo,

@@ -200,18 +200,22 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
             return <LoadingOutlined />;
         }
         return (
-            <CompactSchemaTable
-                rows={rows}
-                schemaMetadata={schemaMetadata}
-                editableSchemaMetadata={editableSchemaMetadata}
-                expandedDrawerFieldPath={expandedDrawerFieldPath}
-                setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
-                openTimelineDrawer={openTimelineDrawer}
-                setOpenTimelineDrawer={setOpenTimelineDrawer}
-                usageStats={usageStats}
-                fullHeight={!!properties?.fullHeight}
-                refetch={refetch}
-            />
+            // Provided here as well as below: the compact table renders the same field drawer, whose
+            // actions reach the schema refetch through the context rather than through props.
+            <SchemaContext.Provider value={{ refetch }}>
+                <CompactSchemaTable
+                    rows={rows}
+                    schemaMetadata={schemaMetadata}
+                    editableSchemaMetadata={editableSchemaMetadata}
+                    expandedDrawerFieldPath={expandedDrawerFieldPath}
+                    setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
+                    openTimelineDrawer={openTimelineDrawer}
+                    setOpenTimelineDrawer={setOpenTimelineDrawer}
+                    usageStats={usageStats}
+                    fullHeight={!!properties?.fullHeight}
+                    refetch={refetch}
+                />
+            </SchemaContext.Provider>
         );
     }
 

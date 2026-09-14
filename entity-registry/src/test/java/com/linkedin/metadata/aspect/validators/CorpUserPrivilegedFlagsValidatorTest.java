@@ -120,17 +120,36 @@ public class CorpUserPrivilegedFlagsValidatorTest {
   }
 
   @Test
-  public void testSystemUpdateSourceBypass() {
+  public void testClientAppSourceSystemUpdateDoesNotBypass() {
+    // Spoof regression: client-writable appSource must not elevate privilege.
     CorpUserInfo proposed = corpUserInfo(true, false);
     SystemMetadata systemMetadata = systemMetadataWithSource(SYSTEM_UPDATE_SOURCE);
 
     long violations =
         validate(proposed, null, operationContext(REGULAR_ACTOR_URN), systemMetadata).count();
+    assertEquals(violations, 1);
+  }
+
+  @Test
+  public void testSystemAuthFingerprintBypass() {
+    CorpUserInfo proposed = corpUserInfo(true, false);
+
+    long violations =
+        validate(proposed, null, systemAuthOperationContext(REGULAR_ACTOR_URN), null).count();
     assertEquals(violations, 0);
   }
 
   @Test
-  public void testSystemActorAuditStampBypass() {
+  public void testNullFingerprintDoesNotBypassOrThrow() {
+    CorpUserInfo proposed = corpUserInfo(true, false);
+
+    long violations = validate(proposed, null, null, null).count();
+    assertEquals(violations, 1);
+  }
+
+  @Test
+  public void testSystemActorAuditStampAloneDoesNotBypass() {
+    // Hardcoded SYSTEM_ACTOR on the audit stamp is not a trust signal without isSystemAuth().
     CorpUserInfo proposed = corpUserInfo(true, false);
     AuditStamp auditStamp =
         new AuditStamp()
@@ -139,7 +158,7 @@ public class CorpUserPrivilegedFlagsValidatorTest {
 
     long violations =
         validate(proposed, null, operationContext(REGULAR_ACTOR_URN), null, auditStamp).count();
-    assertEquals(violations, 0);
+    assertEquals(violations, 1);
   }
 
   @Test
@@ -335,6 +354,7 @@ public class CorpUserPrivilegedFlagsValidatorTest {
 
   @Test
   public void testIntrinsicSystemActorAllowedWithoutCorpUserInfo() {
+    // Service principal has no CorpUserInfo; trust comes from isSystemAuth(), not URN equality.
     CorpUserInfo proposed = corpUserInfo(false, true);
     AuditStamp sessionAudit =
         new AuditStamp().setActor(INTRINSIC_SYSTEM_ACTOR_URN).setTime(System.currentTimeMillis());
@@ -343,7 +363,7 @@ public class CorpUserPrivilegedFlagsValidatorTest {
         validate(
                 proposed,
                 null,
-                operationContext(INTRINSIC_SYSTEM_ACTOR_URN, INTRINSIC_SYSTEM_ACTOR_URN),
+                systemAuthOperationContext(INTRINSIC_SYSTEM_ACTOR_URN),
                 null,
                 sessionAudit)
             .count();
@@ -405,10 +425,19 @@ public class CorpUserPrivilegedFlagsValidatorTest {
   }
 
   private static OperationFingerprint operationContext(Urn actorUrn) {
-    return operationContext(actorUrn, actorUrn);
+    return operationContext(actorUrn, actorUrn, false);
+  }
+
+  private static OperationFingerprint systemAuthOperationContext(Urn actorUrn) {
+    return operationContext(actorUrn, actorUrn, true);
   }
 
   private static OperationFingerprint operationContext(Urn effectiveActorUrn, Urn auditActorUrn) {
+    return operationContext(effectiveActorUrn, auditActorUrn, false);
+  }
+
+  private static OperationFingerprint operationContext(
+      Urn effectiveActorUrn, Urn auditActorUrn, boolean systemAuth) {
     AuditStamp auditStamp =
         new AuditStamp().setActor(auditActorUrn).setTime(System.currentTimeMillis());
     return new OperationFingerprint() {
@@ -440,6 +469,11 @@ public class CorpUserPrivilegedFlagsValidatorTest {
       @Override
       public String getEntityContextId() {
         return "test-entity";
+      }
+
+      @Override
+      public boolean isSystemAuth() {
+        return systemAuth;
       }
     };
   }

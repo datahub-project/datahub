@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
@@ -72,6 +73,7 @@ import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.ReindexRequest;
 import org.opensearch.index.reindex.UpdateByQueryRequest;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 /**
  * Shim interface that abstracts different Elasticsearch/OpenSearch client implementations. This
@@ -155,6 +157,12 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
     Integer getSocketTimeout();
 
     SSLContext getSSLContext();
+
+    /** Shared AWS credentials for IAM request signing (OpenSearch). Null uses no IAM auth. */
+    @Nullable
+    default AwsCredentialsProvider getAwsCredentialsProvider() {
+      return null;
+    }
 
     /** Whether the engine type was auto-detected rather than explicitly configured. */
     default boolean isEngineTypeAutoDetected() {

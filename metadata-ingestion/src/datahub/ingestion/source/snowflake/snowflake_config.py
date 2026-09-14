@@ -492,12 +492,15 @@ class SnowflakeV2Config(
 
     fetch_views_from_information_schema: bool = Field(
         default=False,
-        description="If enabled, uses information_schema.views to fetch view definitions instead of SHOW VIEWS command. "
-        "This alternative method can be more reliable for databases with large numbers of views (> 10K views), as the "
-        "SHOW VIEWS approach has proven unreliable and can lead to missing views in such scenarios. However, this method "
-        "requires OWNERSHIP privileges on views to retrieve their definitions. For views without ownership permissions "
-        "(where VIEW_DEFINITION is null/empty), the system will automatically fall back to using batched SHOW VIEWS queries "
-        "to populate the missing definitions.",
+        description="If enabled, uses information_schema.views to fetch views instead of the SHOW VIEWS command. "
+        "Enable this if you need `view_pattern` pushdown (see `push_down_metadata_patterns`, which cannot push a "
+        "pattern list into SHOW VIEWS) or an accurate `last_altered`, which SHOW VIEWS does not report. "
+        "Trade-offs: information_schema.views only exposes VIEW_DEFINITION to a view's owner, so definitions for "
+        "views you don't own are backfilled with batched SHOW VIEWS queries; it needs a running warehouse, whereas "
+        "SHOW VIEWS does not; and it does not report materialized views, which are absent from "
+        "information_schema.views and not covered by the default `table_types`. "
+        "This option is no longer needed for databases with more than 10K views - the SHOW VIEWS path now "
+        "paginates per schema and is exact at any scale.",
     )
 
     include_technical_schema: bool = Field(

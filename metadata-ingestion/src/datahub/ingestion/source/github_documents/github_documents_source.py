@@ -93,7 +93,7 @@ def compute_file_content_hash(content: str) -> str:
 
 @platform_name("GitHub")
 @config_class(GitHubDocumentsSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
     """

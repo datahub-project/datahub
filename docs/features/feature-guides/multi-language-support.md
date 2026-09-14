@@ -24,6 +24,7 @@ most comfortable with.
 - Norwegian (Norsk bokmål) — Beta
 - Swedish (Svenska) — Beta
 - Hungarian (Magyar) — Beta
+- Simplified Chinese (简体中文)
 
 Languages marked _Beta_ are still being refined and may have untranslated strings.
 

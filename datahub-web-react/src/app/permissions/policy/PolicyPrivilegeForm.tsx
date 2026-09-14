@@ -1,44 +1,40 @@
-import { Tooltip } from '@components';
-import { Tag as CustomTag, Form, Select, Tag, Typography } from 'antd';
+import { Text } from '@components';
+import { Form } from 'antd';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
 import GlossarySelector from '@app/permissions/policy/GlossarySelector';
-import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
+import ContainersSelect from '@app/permissions/policy/PolicyPrivilegeForm/ContainersSelect';
+import DomainsSelect from '@app/permissions/policy/PolicyPrivilegeForm/DomainsSelect';
+import PrivilegesSelect from '@app/permissions/policy/PolicyPrivilegeForm/PrivilegesSelect';
+import ResourceSelect from '@app/permissions/policy/PolicyPrivilegeForm/ResourceSelect';
+import ResourceTypeSelect from '@app/permissions/policy/PolicyPrivilegeForm/ResourceTypeSelect';
+import TagsSelect from '@app/permissions/policy/PolicyPrivilegeForm/TagsSelect';
+import { FIELD_TYPES, RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
     EMPTY_POLICY,
     convertLegacyResourceFilter,
     createCriterionValue,
     createCriterionValueWithEntity,
+    getFieldCondition,
     getFieldValues,
     getFieldValuesOfTags,
-    mapResourceTypeToDisplayName,
-    mapResourceTypeToEntityType,
     mapResourceTypeToPrivileges,
+    setFieldCondition,
     setFieldValues,
 } from '@app/permissions/policy/policyUtils';
-import ClickOutside from '@app/shared/ClickOutside';
-import { ENTER_KEY_CODE } from '@app/shared/constants';
-import useDebouncedCallback from '@app/shared/hooks/useDebouncedCallback';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
-import { useGetRecommendations } from '@app/shared/recommendation';
-import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
-import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useGetSearchResultsForMultipleLazyQuery, useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { Container, Domain, Entity, EntityType, PolicyType, ResourceFilter } from '@types';
+import { PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
+
+const ALL_PRIVILEGES_VALUE = 'All';
 
 type Props = {
     policyType: PolicyType;
     resources?: ResourceFilter;
     setResources: (resources: ResourceFilter) => void;
-    selectedTags?: any[];
-    setSelectedTags: (data: any) => void;
     setEditState: (data: boolean) => void;
     isEditState: boolean;
     privileges: Array<string>;
@@ -46,34 +42,17 @@ type Props = {
     focusPolicyUrn: string | undefined;
 };
 
-const ALL_PRIVILEGES_VALUE = 'All';
-
-const SearchResultContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px;
-`;
-
 const PrivilegesForm = styled(Form)`
     margin: 12px;
     margin-top: 36px;
     margin-bottom: 40px;
 `;
 
-const TagSelect = styled(Select)`
-    width: 480px;
-`;
-
-const StyleTag = styled(CustomTag)`
-    margin: 2px;
-    display: flex;
-    justify-content: start;
-    align-items: center;
-    white-space: nowrap;
-    opacity: 1;
-    color: ${(props) => props.theme.colors.borderDisabled};
-    line-height: 16px;
+const DescriptionParagraph = styled(Text)`
+    && {
+        display: block;
+        margin-bottom: 8px;
+    }
 `;
 
 /**
@@ -86,87 +65,149 @@ export default function PolicyPrivilegeForm({
     setResources,
     privileges,
     setPrivileges,
-    setSelectedTags,
-    selectedTags,
     setEditState,
     isEditState,
     focusPolicyUrn,
 }: Props) {
     const { t } = useTranslation('settings.permissions');
-    const { t: tc } = useTranslation('common.actions');
-    const entityRegistry = useEntityRegistry();
     const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
-    const [domainInputValue, setDomainInputValue] = useState('');
-    const [containerInputValue, setContainerInputValue] = useState('');
-    const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
-    const [inputValue, setInputValue] = useState('');
-    const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
-    const { recommendedData } = useGetRecommendations([EntityType.Tag]);
-    const tagSearchResults: Array<Entity> =
-        tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const normalizedRef = useRef(false);
+    const [conditions, setConditions] = useState<Record<string, PolicyMatchCondition>>({
+        RESOURCE_TYPE: PolicyMatchCondition.Equals,
+        RESOURCE: PolicyMatchCondition.Equals,
+        TAG: PolicyMatchCondition.Equals,
+        DOMAIN: PolicyMatchCondition.Equals,
+        CONTAINER: PolicyMatchCondition.Equals,
+        GLOSSARY: PolicyMatchCondition.Equals,
+    });
 
-    const inputEl = useRef(null);
+    const updateCondition = (fieldType: string, condition: PolicyMatchCondition) => {
+        setConditions((prev) => ({ ...prev, [fieldType]: condition }));
+    };
 
     // Configuration used for displaying options
     const {
         config: { policiesConfig },
     } = useAppConfig();
 
-    const resources: ResourceFilter = convertLegacyResourceFilter(maybeResources) || EMPTY_POLICY.resources;
-    // RESOURCE_TYPE and RESOURCE_URN are deprecated, but need to get them for backwards compatibility
-    const resourceTypes = getFieldValues(resources.filter, TYPE, RESOURCE_TYPE) || [];
-    const resourceEntities = getFieldValues(resources.filter, URN, RESOURCE_URN) || [];
+    // Memoized: convertLegacyResourceFilter returns a new object for legacy (filter-less)
+    // policies, and downstream effects key on resources.filter identity — an unstable
+    // reference would re-fire them every render.
+    const resources: ResourceFilter = useMemo(
+        () => convertLegacyResourceFilter(maybeResources) || EMPTY_POLICY.resources,
+        [maybeResources],
+    );
 
-    const getDisplayName = (entity) => {
-        if (!entity) {
-            return null;
+    // Normalize legacy field names (RESOURCE_TYPE → TYPE, RESOURCE_URN → URN) once when filter loads.
+    // This prevents confusion when policies with old field names are edited and conditions
+    // are synced from both old and new field names. Uses a ref to ensure normalization happens
+    // only once, even if resources.filter changes.
+    useEffect(() => {
+        if (normalizedRef.current || !resources.filter?.criteria) return;
+
+        const hasLegacyFields = resources.filter.criteria.some(
+            (c) => c.field === RESOURCE_TYPE || c.field === RESOURCE_URN,
+        );
+        if (!hasLegacyFields) {
+            // No legacy fields, mark as normalized to skip future checks
+            normalizedRef.current = true;
+            return;
         }
-        return entityRegistry.getDisplayName(entity.type, entity);
-    };
 
-    const resourceUrnToDisplayName = new Map();
-    resourceEntities.forEach((resourceEntity) => {
-        resourceUrnToDisplayName[resourceEntity.value] = getDisplayName(resourceEntity.entity);
-    });
-    // Search for resources
-    const [searchResources, { data: resourcesSearchData }] = useGetSearchResultsForMultipleLazyQuery();
-    const resourceSearchResults = resourcesSearchData?.searchAcrossEntities?.searchResults;
+        const normalizedCriteria = resources.filter.criteria.map((criterion) => {
+            if (criterion.field === RESOURCE_TYPE) {
+                return { ...criterion, field: TYPE };
+            }
+            if (criterion.field === RESOURCE_URN) {
+                return { ...criterion, field: URN };
+            }
+            return criterion;
+        });
 
-    // Same for domains
-    const domains = getFieldValues(resources.filter, 'DOMAIN') || [];
-    const domainUrnToDisplayName = new Map();
-    domains.forEach((domainEntity) => {
-        domainUrnToDisplayName[domainEntity.value] = getDisplayName(domainEntity.entity);
-    });
-    // Search for domains
-    const [searchDomains, { data: domainsSearchData }] = useGetSearchResultsLazyQuery();
-    const domainSearchResults = domainsSearchData?.search?.searchResults;
+        // Only update if normalization actually changed something
+        const changed = normalizedCriteria.some((c, i) => c.field !== resources.filter?.criteria?.[i]?.field);
+        if (changed) {
+            setResources({
+                ...resources,
+                filter: {
+                    ...resources.filter,
+                    criteria: normalizedCriteria,
+                },
+            });
+        }
+        normalizedRef.current = true;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [resources.filter]);
 
-    // Search for containers
-    const containers = getFieldValues(resources.filter, 'CONTAINER') || [];
-    const [searchContainers, { data: containersSearchData }] = useGetSearchResultsLazyQuery();
-    const containerSearchResults = containersSearchData?.search?.searchResults;
-    const containerUrnToDisplayName = new Map();
-    containers.forEach((containerEntity) => {
-        containerUrnToDisplayName[containerEntity.value] = getDisplayName(containerEntity.entity);
-    });
+    // RESOURCE_TYPE and RESOURCE_URN are deprecated, but need to get them for backwards compatibility
+    const resourceTypes = useMemo(
+        () => getFieldValues(resources.filter, TYPE, RESOURCE_TYPE) || [],
+        [resources.filter],
+    );
+
+    const resourceEntities = useMemo(() => {
+        return getFieldValues(resources.filter, URN, RESOURCE_URN) || [];
+    }, [resources.filter]);
+
+    useEffect(() => {
+        const fieldTypeMap: Array<[string, string, string | null]> = [
+            ['RESOURCE_TYPE', FIELD_TYPES.RESOURCE_TYPE, RESOURCE_TYPE],
+            ['RESOURCE', FIELD_TYPES.RESOURCE, RESOURCE_URN],
+            ['TAG', FIELD_TYPES.TAG, null],
+            ['DOMAIN', FIELD_TYPES.DOMAIN, null],
+            ['CONTAINER', FIELD_TYPES.CONTAINER, null],
+            ['GLOSSARY', FIELD_TYPES.GLOSSARY, null],
+        ];
+
+        setConditions((prev) => {
+            const newConditions = { ...prev };
+            fieldTypeMap.forEach(([key, fieldType, legacyField]) => {
+                const cond = legacyField
+                    ? getFieldCondition(resources.filter, fieldType, legacyField)
+                    : getFieldCondition(resources.filter, fieldType);
+                if (cond) {
+                    newConditions[key] = cond;
+                }
+            });
+            // Return the previous object when nothing changed so this effect can never
+            // cause a render loop, even if resources.filter identity churns.
+            const changed = Object.keys(newConditions).some((key) => newConditions[key] !== prev[key]);
+            return changed ? newConditions : prev;
+        });
+    }, [resources.filter]);
+
+    // Get containers from filter
+    const containers = getFieldValues(resources.filter, FIELD_TYPES.CONTAINER) || [];
 
     // Whether to show the resource filter inputs including "resource type", "resource", and "domain"
     const showResourceFilterInput = policyType !== PolicyType.Platform;
 
     // Current Select dropdown values
-    const resourceTypeSelectValue = resourceTypes.map((criterionValue) => criterionValue.value);
+    const resourceTypeSelectValue = useMemo(
+        () => resourceTypes.map((criterionValue) => criterionValue.value),
+        [resourceTypes],
+    );
     const resourceSelectValue = resourceEntities.map((criterionValue) => criterionValue.value);
-    const domainSelectValue = getFieldValues(resources.filter, 'DOMAIN').map((criterionValue) => criterionValue.value);
-    const containerSelectValue = getFieldValues(resources.filter, 'CONTAINER').map(
+    const domainSelectValue = getFieldValues(resources.filter, FIELD_TYPES.DOMAIN).map(
         (criterionValue) => criterionValue.value,
     );
-    const privilegesSelectValue = privileges;
-    const isShowingDomainNavigator = !domainInputValue && isFocusedOnInput;
-    const isShowingContainerNavigator = !containerInputValue && isFocusedOnInput;
+    const containerSelectValue = getFieldValues(resources.filter, FIELD_TYPES.CONTAINER).map(
+        (criterionValue) => criterionValue.value,
+    );
 
-    // Construct privilege options for dropdown
-    const platformPrivileges = policiesConfig?.platformPrivileges || [];
+    // Construct privilege options for dropdown, deduplicating by type
+    const platformPrivileges = useMemo(() => {
+        const privs = policiesConfig?.platformPrivileges || [];
+        // Deduplicate by type, keeping first occurrence
+        const seen = new Set<string>();
+        return privs.filter((priv) => {
+            if (seen.has(priv.type)) {
+                return false;
+            }
+            seen.add(priv.type);
+            return true;
+        });
+    }, [policiesConfig]);
     const resourcePrivileges = useMemo(() => policiesConfig?.resourcePrivileges || [], [policiesConfig]);
     const resourcePrivilegesForType = useMemo(
         () => mapResourceTypeToPrivileges(resourceTypeSelectValue, resourcePrivileges),
@@ -174,587 +215,235 @@ export default function PolicyPrivilegeForm({
     );
     const privilegeOptions = policyType === PolicyType.Platform ? platformPrivileges : resourcePrivilegesForType;
 
-    const getEntityFromSearchResults = (searchResults, urn) =>
-        searchResults?.map((result) => result.entity).find((entity) => entity.urn === urn);
+    // Labels resolved from every known privilege, since privilegeOptions only covers the currently selected resource types.
+    const selectedPrivilegeOptions = useMemo(() => {
+        const displayNameByType = new Map(
+            [...platformPrivileges, ...resourcePrivileges.flatMap((resource) => resource.privileges)].map((priv) => [
+                priv.type,
+                priv.displayName,
+            ]),
+        );
+        return privileges.map((type) => ({ value: type, label: displayNameByType.get(type) || type }));
+    }, [privileges, platformPrivileges, resourcePrivileges]);
 
     // When a privilege is selected, add its type to the privileges list
     const onSelectPrivilege = (privilege: string) => {
-        if (privilege === 'All') {
+        if (privilege === ALL_PRIVILEGES_VALUE) {
             setPrivileges(privilegeOptions.map((priv) => priv.type) as never[]);
-        } else {
+        } else if (!privileges.includes(privilege)) {
+            // Only add if not already present
             const newPrivs = [...privileges, privilege];
             setPrivileges(newPrivs as never[]);
         }
     };
 
-    // When a privilege is selected, remove its type from the privileges list
+    // When a privilege is deselected, remove its type from the privileges list
     const onDeselectPrivilege = (privilege: string) => {
-        let newPrivs;
-        if (privilege === 'All') {
-            newPrivs = [];
+        if (privilege === ALL_PRIVILEGES_VALUE) {
+            setPrivileges([]);
         } else {
-            newPrivs = privileges.filter((priv) => priv !== privilege);
+            const newPrivs = privileges.filter((priv) => priv !== privilege);
+            setPrivileges(newPrivs);
         }
-        setPrivileges(newPrivs as never[]);
     };
 
-    // When a resource is selected, add its urn to the list of resources
-    const onSelectResourceType = (selectedResourceType: string) => {
+    const handleResourceTypesChange = (newResourceTypes: string[]) => {
         const filter = resources.filter || {
             criteria: [],
         };
         // remove the deprecated RESOURCE_TYPE field and replace with TYPE field
         const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_TYPE, []);
-        setResources({
-            ...resources,
-            filter: setFieldValues(filterWithoutDeprecatedField, TYPE, [
-                ...resourceTypes,
-                createCriterionValue(selectedResourceType),
-            ]),
-        });
-    };
-
-    const onDeselectResourceType = (deselectedResourceType: string) => {
-        const filter = resources.filter || {
-            criteria: [],
-        };
-        // remove the deprecated RESOURCE_TYPE field and replace with TYPE field
-        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_TYPE, []);
-        setResources({
-            ...resources,
-            filter: setFieldValues(
-                filterWithoutDeprecatedField,
-                TYPE,
-                resourceTypes?.filter((criterionValue) => criterionValue.value !== deselectedResourceType),
-            ),
-        });
-    };
-
-    // When a resource is selected, add its urn to the list of resources
-    const onSelectResource = (resource) => {
-        const filter = resources.filter || {
-            criteria: [],
-        };
-        // remove the deprecated RESOURCE_URN field and replace with URN field
-        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_URN, []);
-        setResources({
-            ...resources,
-            filter: setFieldValues(filterWithoutDeprecatedField, URN, [
-                ...resourceEntities,
-                createCriterionValueWithEntity(
-                    resource,
-                    getEntityFromSearchResults(resourceSearchResults, resource) || null,
-                ),
-            ]),
-        });
-    };
-
-    // When a resource is deselected, remove its urn from the list of resources
-    const onDeselectResource = (resource) => {
-        const filter = resources.filter || {
-            criteria: [],
-        };
-        // remove the deprecated RESOURCE_URN field and replace with URN field
-        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_URN, []);
-        setResources({
-            ...resources,
-            filter: setFieldValues(
-                filterWithoutDeprecatedField,
-                URN,
-                resourceEntities?.filter((criterionValue) => criterionValue.value !== resource),
-            ),
-        });
-    };
-
-    // When a domain is selected, add its urn to the list of domains
-    const onSelectDomain = (domainUrn, domainObj?: Domain) => {
-        const filter = resources.filter || {
-            criteria: [],
-        };
-        const domainEntity = domainObj || getEntityFromSearchResults(domainSearchResults, domainUrn);
-        const updatedFilter = setFieldValues(filter, 'DOMAIN', [
-            ...domains,
-            createCriterionValueWithEntity(domainUrn, domainEntity || null),
-        ]);
+        const updatedCriterionValues = newResourceTypes.map((type) => createCriterionValue(type));
+        let updatedFilter = setFieldValues(filterWithoutDeprecatedField, TYPE, updatedCriterionValues);
+        updatedFilter = setFieldCondition(updatedFilter, FIELD_TYPES.RESOURCE_TYPE, conditions.RESOURCE_TYPE);
         setResources({
             ...resources,
             filter: updatedFilter,
         });
     };
 
-    function selectDomainFromBrowser(domain: Domain) {
-        onSelectDomain(domain.urn, domain);
-        setIsFocusedOnInput(false);
-    }
-
-    // When a domain is deselected, remove its urn from the list of domains
-    const onDeselectDomain = (domain) => {
+    // When a resource is selected, add its urn to the list of resources
+    const handleResourcesChange = (newResourceUrns: string[]) => {
         const filter = resources.filter || {
             criteria: [],
         };
-        setResources({
-            ...resources,
-            filter: setFieldValues(
-                filter,
-                'DOMAIN',
-                domains?.filter((criterionValue) => criterionValue.value !== domain),
-            ),
-        });
-    };
-
-    // Add new container selection handler
-    const onSelectContainer = (containerUrn, containerObj?: Container) => {
-        const filter = resources.filter || {
-            criteria: [],
-        };
-        const containerEntity = containerObj || getEntityFromSearchResults(containerSearchResults, containerUrn);
-        const updatedFilter = setFieldValues(filter, 'CONTAINER', [
-            ...containers,
-            createCriterionValueWithEntity(containerUrn, containerEntity || null),
-        ]);
+        // remove the deprecated RESOURCE_URN field and replace with URN field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_URN, []);
+        const updatedCriterionValues = newResourceUrns.map((urn) => createCriterionValueWithEntity(urn, null));
+        let updatedFilter = setFieldValues(filterWithoutDeprecatedField, URN, updatedCriterionValues);
+        updatedFilter = setFieldCondition(updatedFilter, FIELD_TYPES.RESOURCE, conditions.RESOURCE);
         setResources({
             ...resources,
             filter: updatedFilter,
         });
     };
 
-    const onDeselectContainer = (containerUrn: string) => {
+    // Handle domain selection changes
+    const onDomainsChange = (domainUrns: string[]) => {
         const filter = resources.filter || {
             criteria: [],
         };
+        const updatedDomains = domainUrns.map((urn) => createCriterionValueWithEntity(urn, null));
+        const updatedFilter = setFieldValues(filter, FIELD_TYPES.DOMAIN, updatedDomains, conditions.DOMAIN);
         setResources({
             ...resources,
-            filter: setFieldValues(
-                filter,
-                'CONTAINER',
-                containers?.filter((criterionValue) => criterionValue.value !== containerUrn),
-            ),
+            filter: updatedFilter,
         });
     };
 
-    // Handle resource search, if the resource type has an associated EntityType mapping.
-    const handleResourceSearch = useDebouncedCallback((text: string) => {
-        const trimmedText: string = text.trim();
-        const entityTypes = resourceTypeSelectValue
-            .map((resourceType) => mapResourceTypeToEntityType(resourceType, resourcePrivileges))
-            .filter((entityType): entityType is EntityType => !!entityType);
-        searchResources({
-            variables: {
-                input: {
-                    types: entityTypes,
-                    query: trimmedText.length > 2 ? trimmedText : '*',
-                    start: 0,
-                    count: 10,
-                },
-            },
+    // Handle container selection changes
+    const onContainersChange = (containerUrns: string[]) => {
+        const filter = resources.filter || {
+            criteria: [],
+        };
+        const updatedContainers = containerUrns.map((urn) => createCriterionValueWithEntity(urn, null));
+        const updatedFilter = setFieldValues(filter, FIELD_TYPES.CONTAINER, updatedContainers, conditions.CONTAINER);
+        setResources({
+            ...resources,
+            filter: updatedFilter,
         });
+    };
+
+    const tagUrns = getFieldValues(resources.filter, FIELD_TYPES.TAG).map((criterionValue) => {
+        return typeof criterionValue === 'string' ? criterionValue : criterionValue?.value || criterionValue;
     });
 
-    // Handle domain search, if the domain type has an associated EntityType mapping.
-    const searchDomainsDebounced = useDebouncedCallback((trimmedText: string) => {
-        searchDomains({
-            variables: {
-                input: {
-                    type: EntityType.Domain,
-                    query: trimmedText.length > 2 ? trimmedText : '*',
-                    start: 0,
-                    count: 10,
-                },
-            },
-        });
-    });
-
-    const handleDomainSearch = (text: string) => {
-        const trimmedText: string = text.trim();
-        // Kept synchronous: this drives whether the domain navigator or the search dropdown shows.
-        setDomainInputValue(trimmedText);
-        searchDomainsDebounced(trimmedText);
-    };
-
-    const searchContainersDebounced = useDebouncedCallback((trimmedText: string) => {
-        searchContainers({
-            variables: {
-                input: {
-                    type: EntityType.Container,
-                    query: trimmedText.length > 2 ? trimmedText : '*',
-                    start: 0,
-                    count: 10,
-                },
-            },
-        });
-    });
-
-    const handleContainerSearch = (text: string) => {
-        const trimmedText: string = text.trim();
-        // Kept synchronous: this drives whether the container navigator or the search dropdown shows.
-        setContainerInputValue(trimmedText);
-        searchContainersDebounced(trimmedText);
-    };
-
-    const renderSearchResult = (result) => {
-        return (
-            <SearchResultContainer>
-                {entityRegistry.getDisplayName(result.entity.type, result.entity)}
-                <Link
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    to={() => `${entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}`}
-                >
-                    {tc('view')}
-                </Link>
-            </SearchResultContainer>
-        );
-    };
-
-    const displayStringWithMaxLength = (displayStr, length) => {
-        return displayStr.length > length
-            ? `${displayStr.substring(0, Math.min(length, displayStr.length))}...`
-            : displayStr;
-    };
-
-    function handleCLickOutside() {
-        // delay closing the domain navigator so we don't get a UI "flash" between showing search results and navigator
-        setTimeout(() => setIsFocusedOnInput(false), 0);
-    }
-
-    function handleBlur() {
-        setDomainInputValue('');
-    }
-
-    function handleBlurContainer() {
-        setContainerInputValue('');
-    }
-
-    function handleBlurTag() {
-        setInputValue('');
-    }
-
-    const renderSearchResultTags = (entity: Entity) => {
-        const displayName =
-            entity.type === EntityType.Tag ? (entity as any).name : entityRegistry.getDisplayName(entity.type, entity);
-        const tagOrTermComponent = <TagTermLabel entity={entity} />;
-        return (
-            <Select.Option data-testid="tag-term-option" value={entity.urn} key={entity.urn} name={displayName}>
-                <SearchResultContainer>{tagOrTermComponent}</SearchResultContainer>
-            </Select.Option>
-        );
-    };
-    const tags = getFieldValues(resources.filter, 'TAG') || [];
-    const newTag = getFieldValues(resources.filter, 'TAG').map((criterionValue) => {
-        if (criterionValue?.value) {
-            return criterionValue?.value;
-        }
-        return criterionValue;
-    });
-
-    const editTags = getFieldValuesOfTags(resources.filter, 'TAG').map((criterionValue) => {
+    const editTags = getFieldValuesOfTags(resources.filter, FIELD_TYPES.TAG).map((criterionValue) => {
         if (criterionValue?.value) {
             return criterionValue?.entity;
         }
         return criterionValue;
     });
-    const tagResult = !inputValue || inputValue.length === 0 ? recommendedData : tagSearchResults;
     useEffect(() => {
-        if (focusPolicyUrn && isEditState && setEditState && editTags && newTag) {
+        if (focusPolicyUrn && isEditState && setEditState && editTags && tagUrns) {
             setEditState(false);
             const filter = resources.filter || {
                 criteria: [],
             };
-            setSelectedTags(editTags);
             setResources({
                 ...resources,
-                filter: setFieldValues(filter, 'TAG', [...(newTag as any)]),
+                filter: setFieldValues(filter, FIELD_TYPES.TAG, [...(tagUrns as any)]),
             });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [focusPolicyUrn, isEditState, setEditState, editTags, newTag]);
+    }, [focusPolicyUrn, isEditState, setEditState, editTags, tagUrns]);
 
-    const onSelectValue = (urn: string) => {
+    const handleTagsChange = (tagUrnsUrns: string[]) => {
         const filter = resources.filter || {
             criteria: [],
         };
-        const selectedTagOption = tagResult?.find((tag) => tag.urn === urn);
-
+        const updatedFilter = setFieldValues(filter, FIELD_TYPES.TAG, tagUrnsUrns as any, conditions.TAG);
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'TAG', [...tags, urn as any]),
-        });
-        setSelectedTags([...(selectedTags as any), selectedTagOption]);
-        if (inputEl && inputEl.current) {
-            (inputEl.current as any).blur();
-        }
-    };
-
-    // When a Tag search result is deselected, remove the Tags
-    const onDeselectValue = (urn: string) => {
-        const filter = resources.filter || {
-            criteria: [],
-        };
-        setInputValue('');
-        setSelectedTags(selectedTags?.filter((term) => term.urn !== urn));
-
-        setResources({
-            ...resources,
-            filter: setFieldValues(
-                filter,
-                'TAG',
-                tags?.filter((criterionValue) => (criterionValue as any) !== urn),
-            ),
+            filter: updatedFilter,
         });
     };
 
-    const type = EntityType.Tag;
-    const handleSearch = useDebouncedCallback((text: string) => {
-        if (text.length > 0) {
-            tagTermSearch({
-                variables: {
-                    input: {
-                        type,
-                        query: text,
-                        start: 0,
-                        count: 10,
-                    },
-                },
-            });
-        }
-    });
-
-    const tagSearchOptions = tagResult?.map((result) => {
-        return renderSearchResultTags(result);
-    });
-
-    function clearInput() {
-        setInputValue('');
-        setTimeout(() => setIsFocusedOnInput(true), 0); // call after click outside
-    }
-
-    const tagRender = (props) => {
-        // eslint-disable-next-line react/prop-types
-        const { closable, onClose, value } = props;
-        const onPreventMouseDown = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
+    const handleConditionChange =
+        (fieldType: string) => (condition: PolicyMatchCondition, updatedResources: ResourceFilter) => {
+            updateCondition(fieldType, condition);
+            setResources(updatedResources);
         };
-
-        const selectedItem = selectedTags?.find((term) => term?.urn === value);
-        return (
-            <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
-                {!!selectedItem && entityRegistry.getDisplayName(EntityType.Tag, selectedItem)}
-            </StyleTag>
-        );
-    };
-
-    function handleKeyDown(event) {
-        if (event.keyCode === ENTER_KEY_CODE) {
-            (inputEl.current as any).blur();
-        }
-    }
 
     return (
         <PrivilegesForm layout="vertical">
             {showResourceFilterInput && (
-                <Form.Item
-                    label={<Typography.Text strong>{t('privilegeForm.resourceTypeLabel')}</Typography.Text>}
-                    labelAlign="right"
-                >
-                    <Typography.Paragraph>
+                <Form.Item label={<Text weight="bold">{t('privilegeForm.resourceTypeLabel')}</Text>} labelAlign="right">
+                    <DescriptionParagraph type="p" color="textSecondary">
                         <Trans t={t} i18nKey="privilegeForm.resourceTypeDescription" components={{ bold: <b /> }} />
-                    </Typography.Paragraph>
-                    <Select
-                        value={resourceTypeSelectValue}
-                        mode="multiple"
-                        placeholder={t('privilegeForm.resourceTypePlaceholder')}
-                        onSelect={onSelectResourceType}
-                        onDeselect={onDeselectResourceType}
-                        tagRender={(tagProps) => (
-                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                {mapResourceTypeToDisplayName(tagProps.value.toString(), resourcePrivileges)}
-                            </Tag>
-                        )}
-                    >
-                        {resourcePrivileges
-                            .filter((privs) => privs.resourceType !== 'all')
-                            .map((resPrivs) => {
-                                return (
-                                    <Select.Option key={resPrivs.resourceType} value={resPrivs.resourceType}>
-                                        {resPrivs.resourceTypeDisplayName}
-                                    </Select.Option>
-                                );
-                            })}
-                    </Select>
+                    </DescriptionParagraph>
+                    <ResourceTypeSelect
+                        resourceTypeSelectValue={resourceTypeSelectValue}
+                        resourceTypes={resourceTypes}
+                        resourceTypeCondition={conditions.RESOURCE_TYPE}
+                        onConditionChange={handleConditionChange('RESOURCE_TYPE')}
+                        onResourceTypesChange={handleResourceTypesChange}
+                        resources={resources}
+                        resourcePrivileges={resourcePrivileges}
+                    />
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>{t('privilegeForm.resourceLabel')}</Typography.Text>}>
-                    <Typography.Paragraph>
+                <Form.Item label={<Text weight="bold">{t('privilegeForm.resourceLabel')}</Text>}>
+                    <DescriptionParagraph type="p" color="textSecondary">
                         <Trans t={t} i18nKey="privilegeForm.resourceDescription" components={{ bold: <b /> }} />
-                    </Typography.Paragraph>
-                    <Select
-                        notFoundContent={t('privilegeForm.resourceNotFound')}
-                        value={resourceSelectValue}
-                        mode="multiple"
-                        filterOption={false}
-                        placeholder={t('privilegeForm.resourcePlaceholder')}
-                        onSelect={onSelectResource}
-                        onDeselect={onDeselectResource}
-                        onSearch={handleResourceSearch}
-                        tagRender={(tagProps) => (
-                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                <Tooltip title={tagProps.value.toString()}>
-                                    {displayStringWithMaxLength(
-                                        resourceUrnToDisplayName[tagProps.value.toString()] ||
-                                            tagProps.value.toString(),
-                                        75,
-                                    )}
-                                </Tooltip>
-                            </Tag>
-                        )}
-                    >
-                        {resourceSearchResults?.map((result) => (
-                            <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                {renderSearchResult(result)}
-                            </Select.Option>
-                        ))}
-                    </Select>
+                    </DescriptionParagraph>
+                    <ResourceSelect
+                        resourceSelectValue={resourceSelectValue}
+                        resourceEntities={resourceEntities}
+                        resourceCondition={conditions.RESOURCE}
+                        onConditionChange={handleConditionChange('RESOURCE')}
+                        onResourcesChange={handleResourcesChange}
+                        resources={resources}
+                        resourceTypeSelectValue={resourceTypeSelectValue}
+                        resourcePrivileges={resourcePrivileges}
+                        resourceTypeCondition={conditions.RESOURCE_TYPE}
+                    />
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>{t('privilegeForm.tagsLabel')}</Typography.Text>}>
-                    <Typography.Paragraph>{t('privilegeForm.tagsDescription')}</Typography.Paragraph>
-                    <TagSelect
-                        data-testid="tag-term-modal-input"
-                        mode="multiple"
-                        ref={inputEl}
-                        filterOption={false}
-                        placeholder={t('privilegeForm.tagSearchPlaceholder', {
-                            entityName: entityRegistry.getEntityName(type)?.toLowerCase(),
-                        })}
-                        showSearch
-                        defaultActiveFirstOption={false}
-                        onSelect={(asset: any) => onSelectValue(asset)}
-                        onDeselect={(asset: any) => onDeselectValue(asset)}
-                        onSearch={(value: string) => {
-                            // eslint-disable-next-line react/prop-types
-                            handleSearch(value.trim());
-                            // eslint-disable-next-line react/prop-types
-                            setInputValue(value.trim());
-                        }}
-                        tagRender={tagRender}
-                        value={tags}
-                        onClear={clearInput}
-                        onBlur={handleBlurTag}
-                        onInputKeyDown={handleKeyDown}
-                    >
-                        {tagSearchOptions}
-                    </TagSelect>
+                <Form.Item label={<Text weight="bold">{t('privilegeForm.tagsLabel')}</Text>}>
+                    <DescriptionParagraph type="p" color="textSecondary">
+                        {t('privilegeForm.tagsDescription')}
+                    </DescriptionParagraph>
+                    <TagsSelect
+                        tags={tagUrns as string[]}
+                        tagCondition={conditions.TAG}
+                        onConditionChange={handleConditionChange('TAG')}
+                        onTagsChange={handleTagsChange}
+                        resources={resources}
+                    />
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>{t('privilegeForm.domainsLabel')}</Typography.Text>}>
-                    <Typography.Paragraph>
+                <Form.Item label={<Text weight="bold">{t('privilegeForm.domainsLabel')}</Text>}>
+                    <DescriptionParagraph type="p" color="textSecondary">
                         <Trans t={t} i18nKey="privilegeForm.domainsDescription" components={{ bold: <b /> }} />
-                    </Typography.Paragraph>
-                    <ClickOutside onClickOutside={handleCLickOutside}>
-                        <Select
-                            showSearch
-                            value={domainSelectValue}
-                            mode="multiple"
-                            filterOption={false}
-                            placeholder={t('privilegeForm.domainPlaceholder')}
-                            onSelect={(value) => onSelectDomain(value)}
-                            onDeselect={onDeselectDomain}
-                            onSearch={handleDomainSearch}
-                            onFocus={() => setIsFocusedOnInput(true)}
-                            onBlur={handleBlur}
-                            tagRender={(tagProps) => (
-                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                    {displayStringWithMaxLength(
-                                        domainUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
-                                        75,
-                                    )}
-                                </Tag>
-                            )}
-                            dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
-                        >
-                            {domainSearchResults?.map((result) => (
-                                <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                    {renderSearchResult(result)}
-                                </Select.Option>
-                            ))}
-                        </Select>
-                        <BrowserWrapper isHidden={!isShowingDomainNavigator} width="100%" maxHeight={300}>
-                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
-                        </BrowserWrapper>
-                    </ClickOutside>
+                    </DescriptionParagraph>
+                    <DomainsSelect
+                        domainSelectValue={domainSelectValue}
+                        domainCondition={conditions.DOMAIN}
+                        onConditionChange={handleConditionChange('DOMAIN')}
+                        onDomainsChange={onDomainsChange}
+                        resources={resources}
+                    />
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>{t('privilegeForm.containersLabel')}</Typography.Text>}>
-                    <Typography.Paragraph>
+                <Form.Item label={<Text weight="bold">{t('privilegeForm.containersLabel')}</Text>}>
+                    <DescriptionParagraph type="p" color="textSecondary">
                         <Trans t={t} i18nKey="privilegeForm.containersDescription" components={{ bold: <b /> }} />
-                    </Typography.Paragraph>
-                    <Select
-                        showSearch
-                        value={containerSelectValue}
-                        mode="multiple"
-                        filterOption={false}
-                        placeholder={t('privilegeForm.containerPlaceholder')}
-                        onSelect={(value) => onSelectContainer(value)}
-                        onDeselect={onDeselectContainer}
-                        onSearch={handleContainerSearch}
-                        onBlur={handleBlurContainer}
-                        tagRender={(tagProps) => (
-                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                {displayStringWithMaxLength(
-                                    containerUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
-                                    75,
-                                )}
-                            </Tag>
-                        )}
-                        dropdownStyle={isShowingContainerNavigator ? { display: 'none' } : {}}
-                    >
-                        {containerSearchResults?.map((result) => (
-                            <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                {renderSearchResult(result)}
-                            </Select.Option>
-                        ))}
-                    </Select>
+                    </DescriptionParagraph>
+                    <ContainersSelect
+                        containerSelectValue={containerSelectValue}
+                        containers={containers}
+                        containerCondition={conditions.CONTAINER}
+                        onConditionChange={handleConditionChange('CONTAINER')}
+                        onContainersChange={onContainersChange}
+                        resources={resources}
+                    />
                 </Form.Item>
             )}
             {showResourceFilterInput && isGlossaryBasedPoliciesEnabled && (
-                <Form.Item label={<Typography.Text strong>{t('privilegeForm.glossaryTermsLabel')}</Typography.Text>}>
-                    <GlossarySelector resources={resources} setResources={setResources} />
+                <Form.Item label={<Text weight="bold">{t('privilegeForm.glossaryTermsLabel')}</Text>}>
+                    <GlossarySelector
+                        resources={resources}
+                        setResources={setResources}
+                        glossaryCondition={conditions.GLOSSARY}
+                        setGlossaryCondition={(condition) => updateCondition('GLOSSARY', condition)}
+                    />
                 </Form.Item>
             )}
-            <Form.Item label={<Typography.Text strong>{t('privilegesLabel')}</Typography.Text>}>
-                <Typography.Paragraph>{t('privilegeForm.privilegesDescription')}</Typography.Paragraph>
-                <Select
-                    data-testid="privileges"
-                    value={privilegesSelectValue}
-                    mode="multiple"
-                    onSelect={(value: string) => onSelectPrivilege(value)}
-                    onDeselect={(value: any) => onDeselectPrivilege(value)}
-                    tagRender={(tagProps) => (
-                        <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                            {tagProps.label}
-                        </Tag>
-                    )}
-                    filterOption={(input, option) => {
-                        return !!option?.children?.toString().toLowerCase().includes(input.toLowerCase());
-                    }}
-                >
-                    {privilegeOptions.map((priv, index) => {
-                        const key = `${priv.type}-${index}`;
-                        return (
-                            <Select.Option key={key} value={priv.type}>
-                                {priv.displayName}
-                            </Select.Option>
-                        );
-                    })}
-                    <Select.Option data-testid="option-all-privileges" value={ALL_PRIVILEGES_VALUE}>
-                        {t('privilegeForm.allPrivileges')}
-                    </Select.Option>
-                </Select>
+            <Form.Item label={<Text weight="bold">{t('privilegesLabel')}</Text>}>
+                <DescriptionParagraph type="p" color="textSecondary">
+                    {t('privilegeForm.privilegesDescription')}
+                </DescriptionParagraph>
+                <PrivilegesSelect
+                    selectedPrivilegeOptions={selectedPrivilegeOptions}
+                    privilegeOptions={privilegeOptions}
+                    onSelectPrivilege={onSelectPrivilege}
+                    onDeselectPrivilege={onDeselectPrivilege}
+                />
             </Form.Item>
         </PrivilegesForm>
     );
