@@ -44,10 +44,13 @@ GOLDEN_FIXTURE = (
 
 
 def _load_golden() -> list[tuple[str, str, str]]:
-    """Empty when the fixture is not in this checkout (standalone metadata-ingestion
-    tree), which skips the golden tests instead of failing collection."""
-    if not GOLDEN_FIXTURE.is_file():
+    """Empty when the metadata-io tree is not in this checkout (standalone
+    metadata-ingestion tree), which skips the golden tests instead of failing
+    collection. Inside the repo the fixture must exist: a moved file must not make
+    the parity suite vanish quietly."""
+    if not (GOLDEN_FIXTURE.parents[4]).is_dir():
         return []
+    assert GOLDEN_FIXTURE.is_file(), f"shared golden fixture missing: {GOLDEN_FIXTURE}"
     rows = json.loads(GOLDEN_FIXTURE.read_text(encoding="utf-8"))
     assert rows, "shared golden fixture is empty"
     return [(row["id"], row["text"], row["sha256"]) for row in rows]

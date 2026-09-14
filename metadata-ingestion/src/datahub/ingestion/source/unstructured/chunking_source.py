@@ -214,14 +214,18 @@ class DocumentChunkingSource(Source):
         # Initialize rate limiter for embedding calls. The limiter protects an
         # external embedding API; in-process providers have none, so throttling
         # them would only slow the backfill.
+        in_process = config.embedding.provider in IN_PROCESS_PROVIDERS
+        if self.embedding_model and config.embedding.rate_limit and in_process:
+            logger.info(
+                f"Embedding provider '{config.embedding.provider}' runs in-process; "
+                "embedding.rate_limit / documents_per_minute are not applied."
+            )
         self.rate_limiter: Optional[RateLimiter] = (
             RateLimiter(
                 max_calls=config.embedding.documents_per_minute,
                 period=60.0,
             )
-            if self.embedding_model
-            and config.embedding.rate_limit
-            and config.embedding.provider not in IN_PROCESS_PROVIDERS
+            if self.embedding_model and config.embedding.rate_limit and not in_process
             else None
         )
 

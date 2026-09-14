@@ -1019,6 +1019,21 @@ def test_classical_provider_is_not_rate_limited(pipeline_context, chunking_confi
         ).rate_limiter
         is None
     )
+    onnx = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="onnx",
+            model="bge-small-en-v1.5",
+            onnx_model_dir="/tmp/onnx-model",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    assert (
+        DocumentChunkingSource(
+            ctx=pipeline_context, config=onnx, standalone=False, graph=None
+        ).rate_limiter
+        is None
+    )
     # An API-backed provider keeps the default limiter.
     assert (
         DocumentChunkingSource(
