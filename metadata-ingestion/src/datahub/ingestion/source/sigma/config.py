@@ -640,6 +640,45 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # 54 with no owner and ZERO ambiguous on one tenant.
     chart_ref_resolved_in_loaded_data_model: int = 0
     chart_ref_loaded_dm_ambiguous: int = 0
+    # The element_named_but_not_a_lineage_upstream bucket (6,715 refs on one
+    # tenant, 2026-09), split by the one thing checkable without an oracle:
+    # does a candidate own the referenced column. no_candidate_owns_the_column
+    # is a decisive NEGATIVE -- a guess there would certainly be wrong -- so
+    # this says how much of the bucket is even eligible before anyone argues
+    # about whether to guess.
+    chart_ref_named_not_upstream_outcomes: Dict[str, int] = field(default_factory=dict)
+    # ...and the same refs scored against /schema, which resolves by ID and is
+    # therefore the independent oracle that bucket otherwise lacks. Confirmed
+    # vs contradicted is what makes resolve_chart_refs_by_element_name a
+    # decision with evidence behind it: name matching was built and DELETED
+    # once because a wrong edge is byte-identical to a stated one, and nobody
+    # has ever measured how often it is wrong. Silence from /schema counts as
+    # neither -- the unadjudicated remainder is the honest unknowable share.
+    chart_ref_name_guess_confirmed_by_schema: int = 0
+    chart_ref_name_guess_contradicted_by_schema: int = 0
+    chart_ref_name_guess_contradiction_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    # /schema resolved a chart column to the element that OWNS it. A
+    # self-reference is the ABSENCE of an upstream, so the ID path's precedence
+    # does not apply and the name path's answer is kept. Counted because it was
+    # silently reverting real edges: 109 on one tenant (2026-09), all on one
+    # element, each one reported as the ID path "disagreeing" while it
+    # discarded the only answer either path had.
+    chart_ref_schema_self_reference_refused: int = 0
+    # Can /schema supply what /columns refused? formulas_not_fetched is the
+    # largest single gap (37,655 columns, 302 dark charts) and is written off
+    # as a vendor limit, but every /schema consumer reaches columns through the
+    # /columns-derived name map, so a blocked workbook drops out of the
+    # measurement before /schema is consulted. These count what /schema
+    # actually returned for exactly those workbooks. The key sample decides it:
+    # if /schema never names its columns, a /columns-independent path is
+    # impossible rather than unbuilt.
+    blocked_workbooks_schema_fetched: int = 0
+    blocked_workbook_schema_columns: int = 0
+    blocked_workbook_schema_columns_with_formula: int = 0
+    blocked_workbook_schema_columns_named: int = 0
+    blocked_workbook_schema_column_keys: List[str] = field(default_factory=list)
     # Sibling columns whose siblings resolved to nothing either, sampled so the
     # next run can say WHETHER anything is left to win here.
     chart_sibling_not_inheritable_samples: LossyList[str] = field(

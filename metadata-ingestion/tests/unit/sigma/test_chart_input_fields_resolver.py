@@ -1973,6 +1973,150 @@ class TestChartRefMissIsAttributedToACause:
         assert self.src.reporter.chart_ref_miss_reasons != {}
 
 
+class TestTheLargestUnfixableBucketCarriesItsOwnEvidence:
+    """``element_named_but_not_a_lineage_upstream`` has no oracle, so measure.
+
+    6,715 refs on one tenant (2026-09). A workbook element carries the name the
+    formula uses, but Sigma never states that it IS the upstream, so nothing in
+    the API can settle it. What CAN be settled without guessing is whether a
+    candidate even owns the referenced column -- a candidate that does not is a
+    decisive negative -- and that split says how much of the bucket is eligible
+    before anyone argues about turning name matching back on.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+
+    def _resolve(self, ref, elements, **kwargs):
+        return self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="e1",
+            chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={"other chart": elements},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={},
+            **kwargs,
+        )
+
+    @staticmethod
+    def _named(element_id: str, columns: List[str]) -> Element:
+        elem = _make_element(element_id, "Other Chart", columns=columns)
+        elem.column_id_by_name = {c: f"{element_id}-{c}" for c in columns}
+        return elem
+
+    def test_a_candidate_owning_the_column_is_eligible(self) -> None:
+        assert (
+            self._resolve(
+                _make_ref("Other Chart", "Amount"), [self._named("a", ["Amount"])]
+            )
+            is None
+        )
+
+        assert self.src.reporter.chart_ref_named_not_upstream_outcomes == {
+            "unique_candidate_owns_the_column": 1
+        }
+
+    def test_a_candidate_lacking_the_column_is_a_decisive_negative(self) -> None:
+        """The name matched, the schema did not -- a guess here is certainly wrong."""
+        assert (
+            self._resolve(
+                _make_ref("Other Chart", "Amount"), [self._named("a", ["Other"])]
+            )
+            is None
+        )
+
+        assert self.src.reporter.chart_ref_named_not_upstream_outcomes == {
+            "no_candidate_owns_the_column": 1
+        }
+
+    def test_several_owners_are_kept_apart_from_one(self) -> None:
+        elements = [self._named("a", ["Amount"]), self._named("b", ["Amount"])]
+        assert self._resolve(_make_ref("Other Chart", "Amount"), elements) is None
+
+        assert self.src.reporter.chart_ref_named_not_upstream_outcomes == {
+            "several_candidates_own_the_column": 1
+        }
+
+    def test_the_measurement_emits_nothing(self) -> None:
+        """Evidence only. Name matching stays off until the numbers say otherwise."""
+        assert (
+            self._resolve(
+                _make_ref("Other Chart", "Amount"), [self._named("a", ["Amount"])]
+            )
+            is None
+        )
+        assert self.src.reporter.chart_ref_resolved_by_element_name_guess == 0
+
+    def test_speculative_splits_do_not_inflate_the_evidence(self) -> None:
+        assert (
+            self._resolve(
+                _make_ref("Other Chart", "Amount"),
+                [self._named("a", ["Amount"])],
+                count=False,
+            )
+            is None
+        )
+        assert self.src.reporter.chart_ref_named_not_upstream_outcomes == {}
+
+
+class TestTheNameGuessIsScoredAgainstSchemasIndependentAnswer:
+    """/schema resolves by ID, so where it answers it is the missing oracle.
+
+    Name matching was built and DELETED once because a wrong edge is
+    byte-identical to a stated one. Nobody ever measured how often it is wrong.
+    This is the comparison that turns that into a number.
+    """
+
+    _DOWN = "urn:li:chart:(sigma,downEl)"
+    _RIGHT = "urn:li:chart:(sigma,rightEl)"
+    _WRONG = "urn:li:chart:(sigma,wrongEl)"
+
+    def _score(self, guessed_element_id: str) -> SigmaSource:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src._name_guess_element_ids = {("downEl", "amount"): {guessed_element_id}}
+        src._adjudicate_name_guess(
+            element_id="downEl",
+            resolved=(self._RIGHT, "Amount"),
+            chart_urn_by_element_id={
+                "rightEl": self._RIGHT,
+                "wrongEl": self._WRONG,
+            },
+        )
+        return src
+
+    def test_the_guess_schema_agrees_with_is_confirmed(self) -> None:
+        src = self._score("rightEl")
+
+        assert src.reporter.chart_ref_name_guess_confirmed_by_schema == 1
+        assert src.reporter.chart_ref_name_guess_contradicted_by_schema == 0
+
+    def test_the_guess_schema_names_differently_is_contradicted_and_sampled(
+        self,
+    ) -> None:
+        src = self._score("wrongEl")
+
+        assert src.reporter.chart_ref_name_guess_contradicted_by_schema == 1
+        (sample,) = list(src.reporter.chart_ref_name_guess_contradiction_samples)
+        assert "name_guess=" in sample and "schema_says=" in sample
+
+    def test_silence_from_schema_counts_as_neither(self) -> None:
+        """The unadjudicated remainder is the honest size of the unknowable."""
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src._name_guess_element_ids = {("otherEl", "amount"): {"rightEl"}}
+        src._adjudicate_name_guess(
+            element_id="downEl",
+            resolved=(self._RIGHT, "Amount"),
+            chart_urn_by_element_id={"rightEl": self._RIGHT},
+        )
+
+        assert src.reporter.chart_ref_name_guess_confirmed_by_schema == 0
+        assert src.reporter.chart_ref_name_guess_contradicted_by_schema == 0
+
+
 class TestFetchFailureIsNotReportedAsMissingFormula:
     """A workbook whose /columns call aborted has no formulas THROUGH OUR FAULT.
 
@@ -2011,6 +2155,70 @@ class TestFetchFailureIsNotReportedAsMissingFormula:
         # Still one column in the fallback bucket either way: the split is a
         # sub-category, so the per-element invariant is unchanged.
         assert self.src.reporter.chart_input_fields_self_ref_fallback == 1
+
+
+class TestWhetherSchemaCanSupplyWhatColumnsRefused:
+    """The 37,655-column gap is a vendor limit on ONE endpoint, not on both.
+
+    ``formulas_not_fetched`` is written off because /columns returns a permanent
+    4xx for those workbooks. But every /schema consumer reaches columns through
+    the /columns-derived name map, so a blocked workbook drops out before
+    /schema is ever asked -- the endpoint may be holding the data while we
+    report zero. Measure only; nothing here emits.
+    """
+
+    def _measure(self, *, blocked: bool, schema: Optional[dict]) -> SigmaSource:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        workbook = _make_workbook_with_elements([[]])
+        src.sigma_api.column_formulas_incomplete_workbooks = (
+            {workbook.workbookId} if blocked else set()
+        )
+        src._measure_blocked_workbook_schema_coverage(workbook, schema=schema)
+        return src
+
+    _SCHEMA = {
+        "sheets": {
+            "s1": {
+                "columns": {
+                    "c1": {"formula": "[A/x]", "name": "Amount"},
+                    "c2": {"formula": None},
+                }
+            }
+        }
+    }
+
+    def test_a_blocked_workbook_is_measured_against_schema(self) -> None:
+        src = self._measure(blocked=True, schema=self._SCHEMA)
+        r = src.reporter
+
+        assert r.blocked_workbooks_schema_fetched == 1
+        assert r.blocked_workbook_schema_columns == 2
+        assert r.blocked_workbook_schema_columns_with_formula == 1
+        # Whether /schema NAMES its columns is what decides if it can stand in
+        # for /columns at all -- identifying them is not enough.
+        assert r.blocked_workbook_schema_columns_named == 1
+
+    def test_the_observed_key_set_is_sampled(self) -> None:
+        """We have never seen a raw /schema column, so record its shape."""
+        src = self._measure(blocked=True, schema=self._SCHEMA)
+
+        assert any(
+            "formula" in sample
+            for sample in src.reporter.blocked_workbook_schema_column_keys
+        )
+
+    def test_an_unblocked_workbook_is_not_measured(self) -> None:
+        """Otherwise the counter answers a different question than it is named for."""
+        src = self._measure(blocked=False, schema=self._SCHEMA)
+
+        assert src.reporter.blocked_workbooks_schema_fetched == 0
+        assert src.reporter.blocked_workbook_schema_columns == 0
+
+    def test_no_schema_measures_nothing_and_never_raises(self) -> None:
+        src = self._measure(blocked=True, schema=None)
+
+        assert src.reporter.blocked_workbooks_schema_fetched == 0
 
 
 class TestWorkbookSourcesMeasurement:
@@ -2451,6 +2659,37 @@ class TestSchemaTakesPrecedenceOverNameMatching:
 
         assert wus == []
         assert src.reporter.chart_ref_schema_no_id_path == 0
+
+    # /schema pointing a column at the element that OWNS it is the absence of
+    # an upstream, not an upstream, so the precedence rule does not apply.
+    _SELF_REF = {"type": "nameRef", "path": ["downSheet", "downCol"]}
+
+    def test_schema_may_not_replace_a_real_upstream_with_a_self_reference(
+        self,
+    ) -> None:
+        """The ID path wins where it HAS an answer; a self-reference is not one.
+
+        Measured on one tenant (2026-09): 109 edges found by the name path were
+        reverted to self-references here, each counted as a "disagreement" the
+        ID path had won.
+        """
+        real = builder.make_schema_field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:sigma,someDataset,PROD)", "Amount"
+        )
+        wus, src, fields = self._run(formula=self._SELF_REF, current_urn=real)
+
+        assert wus == [], "nothing to re-emit -- the name path's answer stands"
+        assert fields[self._DOWN][0].schemaFieldUrn == real
+        assert src.reporter.chart_ref_schema_self_reference_refused == 1
+        assert src.reporter.chart_ref_schema_disagrees_with_name_path == 0
+
+    def test_a_self_reference_on_both_sides_is_still_plain_agreement(self) -> None:
+        """The guard must not steal the case where neither path found anything."""
+        wus, src, _ = self._run(formula=self._SELF_REF)
+
+        assert wus == []
+        assert src.reporter.chart_ref_schema_agrees_with_name_path == 1
+        assert src.reporter.chart_ref_schema_self_reference_refused == 0
 
 
 class TestDmElementHeadShape:

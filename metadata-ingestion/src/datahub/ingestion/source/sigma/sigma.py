@@ -11,6 +11,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Sequence,
     Set,
     Tuple,
 )
@@ -6324,6 +6325,78 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         return (urn, canonical)
 
+    def _note_named_not_upstream_evidence(
+        self,
+        *,
+        ref: BracketRef,
+        chart_element_id: str,
+        named_candidates: Sequence[Element],
+    ) -> None:
+        """Gather what CAN be known about a ref naming a non-upstream element.
+
+        This is the largest bucket we could conceivably still fix (6,715 refs on
+        one tenant, 2026-09) and the one with no oracle: a workbook element
+        carries the name the formula uses, but Sigma never states that it is an
+        upstream, so "is this the referent" has no authoritative answer
+        anywhere in the API. Guessing was built once and deleted, because
+        InputFields has no confidenceScore and a wrong guess is byte-identical
+        to a stated edge.
+
+        What is available without guessing is EVIDENCE, and two kinds of it:
+
+        1. Does a candidate own the referenced column? A name match whose
+           candidate lacks the column is a decisive NEGATIVE -- the guess would
+           certainly be wrong -- and it costs nothing to check. Splitting the
+           bucket three ways says how much of it is even eligible.
+        2. The candidate is recorded per (element, upstream column) so the
+           /schema pass can adjudicate it by ID later. /schema is an
+           INDEPENDENT resolution path; where it answers, it is the oracle this
+           bucket is missing, and the agreement rate is what makes
+           ``resolve_chart_refs_by_element_name`` a decision with evidence
+           behind it rather than a coin flip.
+
+        Neither changes what is emitted. The flag stays off by default until
+        the numbers say otherwise.
+        """
+        wanted = (ref.column or "").strip().lower()
+        if not wanted:
+            return
+        owners = [
+            elem
+            for elem in named_candidates
+            if any(name.strip().lower() == wanted for name in elem.column_id_by_name)
+        ]
+        outcome = (
+            "unique_candidate_owns_the_column"
+            if len(owners) == 1
+            else "several_candidates_own_the_column"
+            if len(owners) > 1
+            else "no_candidate_owns_the_column"
+        )
+        self.reporter.chart_ref_named_not_upstream_outcomes[outcome] = (
+            self.reporter.chart_ref_named_not_upstream_outcomes.get(outcome, 0) + 1
+        )
+        if len(owners) == 1:
+            # Keyed on the UPSTREAM column name, which is what /schema reports
+            # on the other side; the chart's own column name is not known here
+            # and is not the thing being compared.
+            self._name_guess_element_ids.setdefault(
+                (chart_element_id, wanted), set()
+            ).add(owners[0].elementId)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "CHART REF NAMED-NOT-UPSTREAM element %s ref=%r -> %s: %d workbook "
+                "element(s) named %r, %d of which own column %r. candidates=%r",
+                chart_element_id,
+                ref.raw,
+                outcome,
+                len(named_candidates),
+                ref.source,
+                len(owners),
+                ref.column,
+                [elem.elementId for elem in named_candidates[:5]],
+            )
+
     def _note_chart_ref_miss(
         self,
         reason: str,
@@ -6332,6 +6405,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         chart_element_id: str,
         workbook_dm_url_ids: AbstractSet[str],
         count: bool,
+        named_candidates: Sequence[Element] = (),
     ) -> None:
         """Record WHY one formula ref did not resolve.
 
@@ -6359,6 +6433,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter.chart_ref_miss_samples.setdefault(reason, LossyList()).append(
             f"element={chart_element_id} ref={ref.raw!r} segments={len(ref.parts)}"
         )
+        if reason == _CHART_REF_MISS_NAMED_BUT_NOT_AN_UPSTREAM:
+            self._note_named_not_upstream_evidence(
+                ref=ref,
+                chart_element_id=chart_element_id,
+                named_candidates=named_candidates,
+            )
         if reason == _CHART_REF_MISS_UNKNOWN_SOURCE:
             known = ref.source.strip().lower() in self._dm_element_index_for(
                 workbook_dm_url_ids
@@ -6662,6 +6742,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             chart_element_id=chart_element_id,
             workbook_dm_url_ids=workbook_dm_url_ids,
             count=count,
+            named_candidates=candidates,
         )
         return None
 
@@ -7047,6 +7128,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # its columnIds name Sigma Datasets far more often than warehouse
         # tables -- a chart column's own columnId.
         self.sigma_dataset_urn_by_url_id: Dict[str, str] = {}
+        # (chart element id, lowercased UPSTREAM column) -> the element ids a
+        # name match would have guessed for it. Written when a ref names a
+        # non-upstream element, read when /schema resolves the same column by
+        # ID, so the guess can be scored against an independent answer instead
+        # of argued about. CLEARED per workbook: element ids repeat across
+        # workbooks -- that is the root cause of the chart URN collisions -- so
+        # a map that outlived its workbook would adjudicate one workbook's
+        # guess against another's /schema and quietly invent agreement.
+        self._name_guess_element_ids: Dict[Tuple[str, str], Set[str]] = {}
         # Global: element Dataset URN -> {lowercased column name: canonical
         # column name}. Same dedup logic as the per-element urn_to_cols in the
         # FGL builder, so column validation uses the winner set rather than raw
@@ -8339,6 +8429,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             fields_by_chart_urn=fields_by_chart_urn,
             chart_urn_by_element_id=chart_urn_by_element_id,
         )
+        # Scored by the pass above; element ids repeat across workbooks, so
+        # carrying these forward would compare one workbook's guess against
+        # another's /schema.
+        self._name_guess_element_ids.clear()
         # Now that _apply_schema_resolution has had its say, the fields are
         # final and the per-chart outcome can be decided on what will actually
         # be stored rather than on an intermediate state.
@@ -8354,6 +8448,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         self._measure_schema_resolvable_refs(workbook, pending, schema=schema)
         self._measure_workbook_sources(workbook, pending, workbook_dm_url_ids)
+        self._measure_blocked_workbook_schema_coverage(workbook, schema=schema)
 
     def _gen_pages_workunit(
         self,
@@ -9054,12 +9149,32 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # Sizes how much the fallback still carries.
             self.reporter.chart_ref_schema_no_id_path += 1
             return None
+        self._adjudicate_name_guess(
+            element_id=element_id,
+            resolved=resolved,
+            chart_urn_by_element_id=chart_urn_by_element_id,
+        )
         new_urn = builder.make_schema_field_urn(*resolved)
         current = field.schemaFieldUrn
         if current == new_urn:
             self.reporter.chart_ref_schema_agrees_with_name_path += 1
             return None
         self_urn = builder.make_schema_field_urn(chart_urn, column)
+        if new_urn == self_urn and current != self_urn:
+            # /schema resolved the column to the element that OWNS it. That is
+            # the absence of an upstream, not an upstream, so letting the ID
+            # path win here would delete a real edge the name path found and
+            # replace it with a chart pointing at itself. The precedence rule
+            # is "the ID answer wins wherever it exists"; a self-reference is
+            # exactly where it does not exist.
+            #
+            # Found on one tenant (2026-09) the run AFTER the Sigma-Dataset
+            # columnId fix started resolving these columns: 109 new edges, all
+            # on one element, were being reverted to self-references and
+            # counted as "disagrees" while doing it -- so the counter said the
+            # ID path was winning an argument rather than discarding an answer.
+            self.reporter.chart_ref_schema_self_reference_refused += 1
+            return None
         if current == self_urn:
             self.reporter.chart_input_fields_recovered_from_schema += 1
         else:
@@ -9079,6 +9194,105 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             else f"the name path's {current}",
         )
         return InputFieldClass(schemaFieldUrn=new_urn, schemaField=field.schemaField)
+
+    def _measure_blocked_workbook_schema_coverage(
+        self,
+        workbook: Workbook,
+        *,
+        schema: Optional[Dict[str, Any]],
+    ) -> None:
+        """Can /schema supply what /columns refused for a blocked workbook?
+
+        ``formulas_not_fetched`` is the single largest gap on the customer's
+        tenant -- 37,655 columns over 302 fully dark charts -- and it has been
+        written off as unreachable because ``/workbooks/{id}/columns`` returns a
+        permanent 4xx for those workbooks (``inode_archived``,
+        ``unable_to_produce_query``). That is established. What has NEVER been
+        checked is whether the OTHER endpoint still answers for them: /schema is
+        a different document, it is already fetched for every workbook with
+        chart elements, and it carries formulas keyed by column id.
+
+        The reason this is not already known is a plumbing detail, not a
+        vendor limit: every /schema consumer reaches columns through
+        ``column_id_by_name``, which comes from /columns, so a workbook whose
+        /columns aborted has an empty map and drops out of the measurement
+        before /schema is ever consulted. The endpoint may well be holding the
+        data while we report zero.
+
+        So this counts what /schema returned for exactly those workbooks, and
+        samples the KEY SET of a sheet column -- because whether /schema names
+        its columns, rather than only identifying them, is what decides if it
+        can substitute for /columns here. Measure only; nothing is emitted.
+        """
+        if schema is None:
+            return
+        if (
+            workbook.workbookId
+            not in self.sigma_api.column_formulas_incomplete_workbooks
+        ):
+            return
+        r = self.reporter
+        r.blocked_workbooks_schema_fetched += 1
+        sheets = schema.get("sheets") or {}
+        for sheet in sheets.values():
+            for column in (sheet.get("columns") or {}).values():
+                r.blocked_workbook_schema_columns += 1
+                if column.get("formula"):
+                    r.blocked_workbook_schema_columns_with_formula += 1
+                # Any key that could carry a display name. If none of these is
+                # ever populated, /schema identifies columns but cannot name
+                # them, and a /columns-independent path is impossible rather
+                # than merely unbuilt -- which is the answer either way.
+                if any(column.get(key) for key in ("name", "label", "displayName")):
+                    r.blocked_workbook_schema_columns_named += 1
+                if len(r.blocked_workbook_schema_column_keys) < 20:
+                    r.blocked_workbook_schema_column_keys.append(
+                        f"workbook={workbook.workbookId} keys={sorted(column)}"
+                    )
+
+    def _adjudicate_name_guess(
+        self,
+        *,
+        element_id: str,
+        resolved: Tuple[str, str],
+        chart_urn_by_element_id: Dict[str, str],
+    ) -> None:
+        """Score a recorded name guess against /schema's independent ID answer.
+
+        The ``element_named_but_not_a_lineage_upstream`` bucket has no oracle of
+        its own -- see ``_note_named_not_upstream_evidence``. Where /schema
+        states the same dependency by ID it IS one, and this is the only place
+        both answers exist at once, so the comparison has to happen here.
+
+        A confirmation says the name match found the element /schema names. A
+        contradiction says it found a different one, which is the failure mode
+        that got name matching deleted the first time. Silence from /schema is
+        not counted as either; the unadjudicated remainder is the honest size of
+        what cannot be checked at all.
+        """
+        if not self._name_guess_element_ids:
+            return
+        upstream_urn, upstream_field = resolved
+        guessed = self._name_guess_element_ids.get(
+            (element_id, upstream_field.strip().lower())
+        )
+        if not guessed:
+            return
+        guessed_urns = {
+            urn
+            for urn in (chart_urn_by_element_id.get(eid) for eid in guessed)
+            if urn is not None
+        }
+        if not guessed_urns:
+            return
+        if upstream_urn in guessed_urns:
+            self.reporter.chart_ref_name_guess_confirmed_by_schema += 1
+            return
+        self.reporter.chart_ref_name_guess_contradicted_by_schema += 1
+        self.reporter.chart_ref_name_guess_contradiction_samples.append(
+            f"element={element_id} column={upstream_field!r} "
+            f"name_guess={sorted(guessed_urns)} schema_says={upstream_urn}"
+        )
 
     def _measure_schema_resolvable_refs(
         self,
