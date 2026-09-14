@@ -204,8 +204,6 @@ Substitute the scoped server's **Connection URL** wherever these steps use `http
 4. Click **Add**, then **Connect**.
 5. Enter your DataHub domain when prompted (e.g. `<tenant>`), sign in, and approve.
 
-You cannot add custom connectors in the Claude mobile app. Add it on web or desktop and it becomes available on mobile.
-
 :::note
 Remote MCP connectors are configured via the Claude UI, not `claude_desktop_config.json` — that file is reserved for local stdio servers. For older Claude Desktop versions without remote MCP support, fall back to the [`mcp-remote` bridge with a PAT](#managed-mcp-server-usage).
 :::

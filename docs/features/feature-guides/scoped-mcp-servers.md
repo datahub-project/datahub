@@ -79,10 +79,6 @@ The URL identifies the tenant, so Claude won't ask for a DataHub domain.
 
 On **Team and Enterprise**, an owner adds the connector under **Organization settings → Connectors**; members then connect it individually from **Customize → Connectors**.
 
-:::note Mobile
-You cannot add custom connectors in the Claude mobile app. Add the server on web or desktop and it becomes available on mobile.
-:::
-
 </details>
 
 <details>
@@ -145,15 +141,11 @@ See [Service Accounts for Agentic Workflows](./mcp.md#service-accounts-for-agent
 
 A scoped View changes what an agent surfaces by default. It does not revoke anyone's access: the same user can still query outside the scope through the default server, the UI, or the API.
 
-[Policies](../../authorization/policies.md) alone don't close that gap either. Without [Search Access Controls](./search-access-controls.md), search applies no policy filtering at all and every user sees every entity. To make the boundary real:
+If users must be prevented from reading data outside the scope, use [view policies](../../authorization/policies.md) to restrict what they can see, and treat the scoped server as an ergonomics layer on top.
 
-1. **Enable [Search Access Controls](./search-access-controls.md)** so search returns an entity only if a policy grants **View Entity**.
-2. **Remove broad `View Entity` grants.** A platform-wide grant re-exposes everything you scoped.
-3. **Check for bypasses.** Entity types marked `viewUnrestricted: true` stay visible without a grant.
+## Handling Missing Context
 
-## Keeping Agents Inside Their Scope
-
-A View limits what an agent can retrieve, but not whether it answers from general knowledge when the catalog returns nothing. Where a wrong answer is worse than no answer, say so in **Custom instructions**:
+**Custom instructions** are where you tell an agent how to behave when the tools return nothing. By default it may fall back on general knowledge; where a wrong answer is worse than no answer, say so explicitly:
 
 > You answer questions only from the finance context available through these tools. If the tools return no relevant assets, documents, or queries for a question, say that you do not have the context to answer it and suggest who to ask. Never answer from prior knowledge or infer values that the tools did not return.
 
