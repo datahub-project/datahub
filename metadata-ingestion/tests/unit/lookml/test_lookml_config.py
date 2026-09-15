@@ -277,6 +277,25 @@ def test_project_dependencies_mixed_local_path_and_git_info(
     )
 
 
+def test_remote_dependency_domain_pattern_defaults_to_allow_all(
+    minimal_lookml_config: dict,
+) -> None:
+    config = LookMLSourceConfig.model_validate(minimal_lookml_config)
+    # Default is allow_all(): everything not in the hard denylist is permitted.
+    assert config.remote_dependency_domain_pattern.allowed("github.com")
+    assert config.remote_dependency_domain_pattern.allowed("anything.example.com")
+
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["^github\\.com$", ".*\\.github\\.com$"],
+        "deny": ["^evil\\.example$"],
+    }
+    config = LookMLSourceConfig.model_validate(minimal_lookml_config)
+    assert config.remote_dependency_domain_pattern.allowed("github.com")
+    assert config.remote_dependency_domain_pattern.allowed("gist.github.com")
+    assert not config.remote_dependency_domain_pattern.allowed("evil.example")
+    assert not config.remote_dependency_domain_pattern.allowed("gitlab.com")
+
+
 # ---- LookMLSource.get_workunits_internal: git clone failure ----
 
 
