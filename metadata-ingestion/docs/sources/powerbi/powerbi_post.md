@@ -153,9 +153,15 @@ connection to its external platform.
 `enable_advance_lineage_sql_construct: true`, and `extract_lineage: true` (the
 default). Federation is resolved while extracting lineage, so configuring the
 mapping with any of these disabled fails config validation rather than silently
-doing nothing. The target `platform` must be a recognized DataHub platform. If
-you narrow `dataset_type_mapping`, keep the target platform's PowerBI name in
-that mapping so the resolved upstream is not filtered out.
+doing nothing. The target `platform` must be one of the platforms PowerBI
+lineage supports: `athena`, `bigquery`, `databricks`, `fabric-onelake`, `hive`,
+`mssql`, `mysql`, `odbc`, `oracle`, `postgres`, `redshift`, or `snowflake`.
+Other DataHub platforms such as `cloudsql`, `alloydb`, `spanner`, or `mariadb`
+are rejected at config validation even though they exist in DataHub, so point
+the mapping at the engine's wire-compatible platform instead (Cloud SQL and
+AlloyDB expose `postgres` or `mysql`). If you narrow `dataset_type_mapping`,
+keep the target platform's PowerBI name in that mapping so the resolved upstream
+is not filtered out.
 
 **Configuration:**
 
