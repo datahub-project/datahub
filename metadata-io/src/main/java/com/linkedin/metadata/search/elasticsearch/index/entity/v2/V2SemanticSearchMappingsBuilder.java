@@ -9,6 +9,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.utils.EntityTypeUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
@@ -189,16 +190,24 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
    */
   private Collection<IndexMapping> addSemanticMappings(
       @Nonnull OperationContext opContext, Collection<IndexMapping> baseIndexMappings) {
-    Set<String> enabledEntities = semanticConfig.getEnabledEntities();
+    Set<String> enabledEntities =
+        EntityTypeUtils.canonicalizeEntityNames(
+            semanticConfig.getEnabledEntities(), opContext.getEntityRegistry());
     Map<String, Object> embeddingFieldConfig = buildEmbeddingFieldConfig();
     ArrayList<IndexMapping> semanticIndexMappings = new ArrayList<>();
 
     for (IndexMapping baseIndexMapping : baseIndexMappings) {
       String indexName = baseIndexMapping.getIndexName();
-      String entityName = indexConvention.getEntityName(opContext, indexName).orElse(null);
+      String entityName =
+          indexConvention
+              .getEntityName(opContext, indexName)
+              .flatMap(
+                  name ->
+                      EntityTypeUtils.canonicalizeEntityName(name, opContext.getEntityRegistry()))
+              .orElse(null);
 
       // Only create semantic search index for enabled entities
-      if (!enabledEntities.contains(entityName)) {
+      if (entityName == null || !enabledEntities.contains(entityName)) {
         log.debug(
             "Skipping semantic search index for entity '{}' (not in enabled list: {})",
             entityName,

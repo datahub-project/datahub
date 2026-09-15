@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -136,6 +137,24 @@ public class EntityTypeUtilsTest {
 
     EntityTypeListConfig config = EntityTypeListConfig.builder().value("CustomEntity").build();
     Assert.assertEquals(EntityTypeUtils.resolve(config, registry), List.of("customentity"));
+  }
+
+  @Test
+  public void testCanonicalizesCamelCaseEntityNames() {
+    EntityRegistry registry = Mockito.mock(EntityRegistry.class);
+    EntitySpec dataProductSpec = namedSpec("dataProduct");
+    Mockito.when(registry.getEntitySpecs()).thenReturn(Map.of("dataproduct", dataProductSpec));
+
+    Assert.assertEquals(
+        EntityTypeUtils.canonicalizeEntityName("DATAPRODUCT", registry),
+        Optional.of("dataProduct"));
+    Assert.assertEquals(
+        EntityTypeUtils.canonicalizeEntityNames(Set.of("dataproduct", "dataProduct"), registry),
+        Set.of("dataProduct"));
+    Mockito.clearInvocations(registry);
+    Assert.assertTrue(
+        EntityTypeUtils.containsEntity(Set.of("dataproduct"), registry, "dataProduct"));
+    Mockito.verify(registry).getEntitySpecs();
   }
 
   @Test
