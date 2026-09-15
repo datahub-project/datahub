@@ -278,6 +278,8 @@ class MicroStrategyMapper:
             _normalized_name(spec.name): key
             for key, spec in dataset.derived_metrics.items()
         }
+        # Dict keys in definition order, for the re-rank below.
+        report_keys: Dict[str, None] = {}
         for definition in definitions:
             object_id = normalize_object_id(definition.id)
             if object_id in catalog_ids:
@@ -285,6 +287,7 @@ class MicroStrategyMapper:
             key = object_id
             if key not in dataset.derived_metrics:
                 key = key_by_name.get(_normalized_name(definition.name), object_id)
+            report_keys.setdefault(key, None)
             spec = dataset.derived_metrics.get(key)
             if spec is None:
                 dataset.derived_metrics[object_id] = DerivedMetricSpec(
@@ -306,6 +309,17 @@ class MicroStrategyMapper:
                 spec.expression_tokens = definition.expression_tokens
             spec.definition_source = definition.source
             spec.definition_endpoint = definition.endpoint
+        # The report's definition order is the Report Objects order, so the
+        # derived metrics it defines are listed that way (schema fields follow
+        # dict order); grid-only specs keep their grid order after them.
+        if report_keys:
+            ranked = [key for key in report_keys if key in dataset.derived_metrics]
+            ranked.extend(
+                key for key in dataset.derived_metrics if key not in report_keys
+            )
+            dataset.derived_metrics = {
+                key: dataset.derived_metrics[key] for key in ranked
+            }
 
     def dataset_field_paths(self, dataset: DatasetObject) -> List[str]:
         return [spec.field_path for spec in _iter_dataset_fields(dataset)]
@@ -928,8 +942,13 @@ class MicroStrategyMapper:
                 if report_fields:
                     self.report.report_attribute_field(temporal=spec.temporal)
 
+        # Report order (the definition's object order, as the Report Objects
+        # pane lists them) unless the operator asked for the old sorted view;
+        # the DataHub schema tab re-sorts by name on a header click anyway.
+        if self.config.dataset_field_order == "alphabetical":
+            fields.sort(key=lambda field: field.fieldPath)
         return DatasetSchemaFields(
-            fields=sorted(fields, key=lambda field: field.fieldPath),
+            fields=fields,
             by_object_id=fields_by_object_id,
             object_names=object_names,
         )
@@ -2031,9 +2050,10 @@ def _iter_dataset_fields(dataset: DatasetObject) -> Iterator[_FieldSpec]:
                 temporal=_is_temporal(form) or _is_temporal(attribute),
             )
 
-    for derived in sorted(
-        dataset.derived_metrics.values(), key=lambda spec: (spec.name, spec.id)
-    ):
+    # Dict insertion order: the grid order in which each derived metric was
+    # first seen, re-ranked to the report definition's object order once a
+    # report's definitions are merged in (attach_report_derived_metrics).
+    for derived in dataset.derived_metrics.values():
         yield _FieldSpec(
             field_path=_dedupe_field_path(derived.name, seen),
             kind="derived_metric",
