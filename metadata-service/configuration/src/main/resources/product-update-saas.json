@@ -8,7 +8,7 @@
   "description": "Context Platform is now in Public Beta + Custom Agents",
   "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/in-product-release-sep2026.png",
   "ctaText": "Explore DataHub Cloud 2.2",
-  "ctaLink": "https://datahub.com/blog/datahub-cloud-2-2",
+  "ctaLink": "https://datahub.com/blog/datahub-cloud-v2-2",
   "secondaryCtaText": null,
   "secondaryCtaLink": null,
   "features": [],
@@ -57,6 +57,11 @@
       "title": "Atualizações do DataHub: setembro",
       "description": "A Context Platform agora está em beta pública + agentes personalizados",
       "ctaText": "Conheça o DataHub Cloud 2.2"
+    },
+    "ru": {
+      "title": "Обновления DataHub: сентябрь",
+      "description": "Context Platform теперь в публичной бета-версии + пользовательские агенты",
+      "ctaText": "Изучите DataHub Cloud 2.2"
     },
     "sv": {
       "title": "DataHub-uppdateringar: september",
