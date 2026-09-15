@@ -19,8 +19,7 @@ import importlib.resources as _ir
 import os
 from typing import List
 
-from packaging.requirements import InvalidRequirement, Requirement
-from packaging.version import Version, parse as _parse
+from packaging.version import Version as _Version, parse as _parse
 
 # Detection marker for tests and diagnostics.
 __datahub_shim__ = True
@@ -40,7 +39,7 @@ class DistributionNotFound(Exception):
     """Replacement for pkg_resources.DistributionNotFound."""
 
 
-def parse_version(version: str) -> Version:
+def parse_version(version: str) -> _Version:
     return _parse(version)
 
 
@@ -50,37 +49,19 @@ class _Distribution:
         self.version = version
 
     @property
-    def parsed_version(self) -> Version:
+    def parsed_version(self) -> _Version:
         return _parse(self.version)
 
 
 def get_distribution(name: str) -> "_Distribution":
-    # Accept a bare project name or a PEP 508 requirement string; real
-    # pkg_resources parses both. We only read the installed version.
-    project = name
-    specifier = None
-    marker = None
+    # The dialects this shim serves pass a bare project name, and we only read
+    # the installed version. Real pkg_resources also parses requirement strings,
+    # but nothing here needs that.
     try:
-        req = Requirement(name)
-        project = req.name
-        specifier = req.specifier
-        marker = req.marker
-    except InvalidRequirement:
-        pass  # not a requirement expression; treat the input as a plain name
-
-    # A requirement whose environment marker excludes this interpreter is not
-    # applicable, so there is no distribution to resolve.
-    if marker is not None and not marker.evaluate():
-        raise DistributionNotFound(f"{name} does not apply to this environment")
-
-    try:
-        version = _im.version(project)
+        version = _im.version(name)
     except _im.PackageNotFoundError as e:
         raise DistributionNotFound(str(e)) from e
-
-    if specifier and not specifier.contains(version, prereleases=True):
-        raise DistributionNotFound(f"{project} {version} does not satisfy {specifier}")
-    return _Distribution(project, version)
+    return _Distribution(name, version)
 
 
 def require(requirement: str) -> List["_Distribution"]:

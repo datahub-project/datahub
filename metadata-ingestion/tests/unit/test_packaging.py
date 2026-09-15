@@ -131,8 +131,9 @@ def test_sqlalchemy_stays_below_2_until_shim_removed():
         f"sqlalchemy resolves to {m.group(1)} (>=2): sqlalchemy-redshift>=1.0.0 and "
         "sqlalchemy-cockroachdb>=2.0.4 ship pkg_resources-free releases. Remove the "
         "compatibility shim: src/datahub/utilities/pkg_resources_shim.py, "
-        "src/datahub/_pkg_resources_finder.py, its import in src/datahub/__init__.py, "
-        "tests/unit/utilities/test_pkg_resources_shim.py, and this test."
+        "src/datahub/_pkg_resources_finder.py, its imports in src/datahub/__init__.py "
+        "and tests/conftest.py, tests/unit/utilities/test_pkg_resources_shim.py, and "
+        "this test."
     )
 
 

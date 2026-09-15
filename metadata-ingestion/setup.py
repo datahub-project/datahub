@@ -192,7 +192,7 @@ sqlalchemy_lib = {
     # Required for all SQL sources.
     # <2 held by databricks-sql-connector and great-expectations (sqlalchemy-redshift
     # >=1.0.0 now supports SQLAlchemy 2). Lifting this cap unblocks pkg_resources-free
-    # dialect releases (sqlalchemy-redshift, sqlalchemy-cockroachdb) — then delete the
+    # dialect releases (sqlalchemy-redshift, sqlalchemy-cockroachdb), then delete the
     # pkg_resources shim; test_sqlalchemy_stays_below_2_until_shim_removed enforces it.
     "sqlalchemy>=1.4.39,<2",
     # greenlet is imported directly by
