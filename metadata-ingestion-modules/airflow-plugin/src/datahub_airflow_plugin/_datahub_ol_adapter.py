@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Optional
 
 # Conditional import for OpenLineage (may not be installed)
 try:
@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from openlineage.client.run import Dataset as OpenLineageDataset
 
 import datahub.emitter.mce_builder as builder
+from datahub_airflow_plugin import _connection_mapping as connection_mapping
+from datahub_airflow_plugin._config import AssetConnectionDetail
 
 logger = logging.getLogger(__name__)
 
@@ -83,13 +85,21 @@ def _sanitize_ol_dataset_name(name: str) -> str:
 
 
 def translate_ol_to_datahub_urn(
-    ol_uri: "OpenLineageDataset", env: str = builder.DEFAULT_ENV
+    ol_uri: "OpenLineageDataset",
+    env: str = builder.DEFAULT_ENV,
+    connections: Optional[Dict[str, "AssetConnectionDetail"]] = None,
 ) -> str:
     """Translate OpenLineage dataset URI to DataHub URN.
 
     Args:
         ol_uri: OpenLineage dataset with namespace and name
         env: DataHub environment (default: PROD for backward compatibility)
+        connections: Connection mapping from `[datahub] asset_connections`, keyed by
+            `<scheme>://<authority>`. When an entry matches this dataset's namespace it
+            supplies the platform_instance and casing needed to match what the
+            platform's own connector emits — OL producers report Snowflake names in
+            upper case, for instance, while the Snowflake source lowercases them. With
+            no matching entry the URN is built exactly as before.
 
     Returns:
         DataHub dataset URN string
@@ -98,6 +108,24 @@ def translate_ol_to_datahub_urn(
     name = _sanitize_ol_dataset_name(ol_uri.name)
 
     scheme, *rest = namespace.split("://", maxsplit=1)
+    authority = rest[0] if rest else ""
 
-    platform = OL_SCHEME_TWEAKS.get(scheme, scheme)
-    return builder.make_dataset_urn(platform=platform, name=name, env=env)
+    detail = connection_mapping.lookup(connections, scheme, authority)
+    if detail is None:
+        # No mapping entry: stay byte-identical to before, so only OL_SCHEME_TWEAKS
+        # applies. The wider scheme -> platform map canonicalises more schemes
+        # (gs -> gcs, s3a -> s3, abfs -> adls), which would silently re-key existing
+        # unmapped datasets; opting into it is what configuring a connection means.
+        platform = OL_SCHEME_TWEAKS.get(scheme, scheme)
+    else:
+        platform = detail.platform or connection_mapping.platform_for_scheme(scheme)
+    return connection_mapping.build_named_urn(
+        platform=platform,
+        name=name,
+        detail=detail,
+        env=env,
+        # OL supplies the platform's own dotted name, so applying that platform's casing
+        # rule is what lines it up with the warehouse source: OL producers report
+        # Snowflake names in upper case while the Snowflake source lowercases them.
+        lowercase=connection_mapping.resolve_lowercase(platform, detail),
+    )

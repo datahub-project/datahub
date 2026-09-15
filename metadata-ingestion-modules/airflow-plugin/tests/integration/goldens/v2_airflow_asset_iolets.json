@@ -434,13 +434,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:postgres",
-            "name": "myhost/mydb/schema/source_table",
+            "name": "mydb.schema.source_table",
             "origin": "PROD"
         }
     }
@@ -517,7 +517,7 @@
             "name": "airflow_asset_iolets_produce_inputs_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1782206721936,
+                "time": 1786546212058,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -557,7 +557,7 @@
             "outputs": [
                 "urn:li:dataset:(urn:li:dataPlatform:airflow,my_plain_asset,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket/raw/events.json,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)"
             ]
         }
@@ -591,13 +591,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:postgres",
-            "name": "myhost/mydb/schema/source_table",
+            "name": "mydb.schema.source_table",
             "origin": "PROD"
         }
     }
@@ -622,7 +622,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206721936,
+            "timestampMillis": 1786546212058,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -639,14 +639,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206722722,
+            "timestampMillis": 1786546215901,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1782206722722
+            "lastUpdatedTimestamp": 1786546215901
         }
     }
 },
@@ -657,32 +657,32 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206722726,
+            "timestampMillis": 1786546215906,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1782206722726
+            "lastUpdatedTimestamp": 1786546215906
         }
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206722732,
+            "timestampMillis": 1786546215911,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1782206722732
+            "lastUpdatedTimestamp": 1786546215911
         }
     }
 },
@@ -693,14 +693,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206722737,
+            "timestampMillis": 1786546215916,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1782206722737
+            "lastUpdatedTimestamp": 1786546215916
         }
     }
 },
@@ -766,7 +766,7 @@
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:airflow,my_plain_asset,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket/raw/events.json,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)"
             ],
             "inputDatajobs": [],
@@ -802,13 +802,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:postgres",
-            "name": "myhost/mydb/schema/source_table",
+            "name": "mydb.schema.source_table",
             "origin": "PROD"
         }
     }
@@ -868,7 +868,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206722770,
+            "timestampMillis": 1786546215952,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -891,7 +891,7 @@
             "outputs": [
                 "urn:li:dataset:(urn:li:dataPlatform:airflow,my_plain_asset,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket/raw/events.json,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)"
             ]
         }
@@ -1154,13 +1154,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:postgres",
-            "name": "myhost/mydb/schema/source_table",
+            "name": "mydb.schema.source_table",
             "origin": "PROD"
         }
     }
@@ -1180,13 +1180,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.result_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:bigquery",
-            "name": "my-project/dataset/result_table",
+            "name": "my-project.dataset.result_table",
             "origin": "PROD"
         }
     }
@@ -1263,7 +1263,7 @@
             "name": "airflow_asset_iolets_process_with_native_assets_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1782206724099,
+                "time": 1786546216576,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1303,7 +1303,7 @@
             "inputs": [
                 "urn:li:dataset:(urn:li:dataPlatform:airflow,my_plain_asset,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket/raw/events.json,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)"
             ]
         }
@@ -1317,7 +1317,7 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.result_table,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)"
             ]
         }
@@ -1351,13 +1351,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:postgres",
-            "name": "myhost/mydb/schema/source_table",
+            "name": "mydb.schema.source_table",
             "origin": "PROD"
         }
     }
@@ -1377,13 +1377,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.result_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:bigquery",
-            "name": "my-project/dataset/result_table",
+            "name": "my-project.dataset.result_table",
             "origin": "PROD"
         }
     }
@@ -1408,7 +1408,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206724099,
+            "timestampMillis": 1786546216576,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1420,19 +1420,19 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.result_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206724476,
+            "timestampMillis": 1786546219692,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1782206724476
+            "lastUpdatedTimestamp": 1786546219692
         }
     }
 },
@@ -1443,14 +1443,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206724485,
+            "timestampMillis": 1786546219705,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1782206724485
+            "lastUpdatedTimestamp": 1786546219705
         }
     }
 },
@@ -1515,11 +1515,11 @@
             "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:airflow,my_plain_asset,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket/raw/events.json,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.result_table,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)"
             ],
             "inputDatajobs": [
@@ -1557,13 +1557,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:postgres",
-            "name": "myhost/mydb/schema/source_table",
+            "name": "mydb.schema.source_table",
             "origin": "PROD"
         }
     }
@@ -1583,13 +1583,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.result_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:bigquery",
-            "name": "my-project/dataset/result_table",
+            "name": "my-project.dataset.result_table",
             "origin": "PROD"
         }
     }
@@ -1649,7 +1649,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206724519,
+            "timestampMillis": 1786546219745,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1672,7 +1672,7 @@
             "inputs": [
                 "urn:li:dataset:(urn:li:dataPlatform:airflow,my_plain_asset,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,analytics-bucket/raw/events.json,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/source_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.source_table,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/input/data.parquet,PROD)"
             ]
         }
@@ -1686,7 +1686,7 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project/dataset/result_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.dataset.result_table,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/output/processed.parquet,PROD)"
             ]
         }
@@ -2032,7 +2032,7 @@
             "name": "airflow_asset_iolets_process_mixed_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1782206724803,
+                "time": 1786546220505,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -2149,7 +2149,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206724803,
+            "timestampMillis": 1786546220505,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -2166,14 +2166,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206725294,
+            "timestampMillis": 1786546225497,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1782206725294
+            "lastUpdatedTimestamp": 1786546225497
         }
     }
 },
@@ -2184,14 +2184,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206725310,
+            "timestampMillis": 1786546225516,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1782206725310
+            "lastUpdatedTimestamp": 1786546225516
         }
     }
 },
@@ -2362,7 +2362,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206725342,
+            "timestampMillis": 1786546225574,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -2704,7 +2704,7 @@
             "name": "airflow_asset_iolets_alias_with_partitioned_uri_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1782206725870,
+                "time": 1786546225757,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -2767,7 +2767,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206725870,
+            "timestampMillis": 1786546225757,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -2916,7 +2916,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206726386,
+            "timestampMillis": 1786546228897,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -3256,7 +3256,7 @@
             "name": "airflow_asset_iolets_alias_with_table_level_uri_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1782206726915,
+                "time": 1786546229393,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -3319,7 +3319,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206726915,
+            "timestampMillis": 1786546229393,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -3468,7 +3468,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1782206727514,
+            "timestampMillis": 1786546232456,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
