@@ -480,13 +480,17 @@ class AbstractLineage(ABC):
             return False
 
     def _report_external_query_failure(
-        self, message: LiteralString, context: str
+        self,
+        message: LiteralString,
+        context: str,
+        exc: Optional[BaseException] = None,
     ) -> None:
         self.reporter.m_query_external_query_failures += 1
         self.reporter.warning(
             title=Constant.SQL_PARSING_FAILURE,
             message=message,
             context=context,
+            exc=exc,
         )
 
     def _return_partial_external_lineage(
@@ -700,17 +704,19 @@ class AbstractLineage(ABC):
                 has_external_query = native_sql_parser.contains_external_query_call(
                     query, platform_pair.datahub_data_platform_name
                 )
-            except sqlglot.errors.SqlglotError:
+            except sqlglot.errors.SqlglotError as exc:
                 # The query could not even be tokenized (e.g. an unterminated comment or
                 # string literal). We cannot tell whether a real EXTERNAL_QUERY federation
                 # is present, and the native parser below silently resolves no tables for
                 # the same unparseable SQL, so the table would otherwise lose lineage with
                 # no signal. Report it as a federation failure and skip, rather than
-                # dropping it silently.
+                # dropping it silently. Pass the parser diagnostic through so the structured
+                # report keeps the exact tokenizer error.
                 self._report_external_query_failure(
                     message="Fail to tokenize PowerBI M-Query while detecting "
                     "EXTERNAL_QUERY federation; lineage for this query is skipped.",
                     context=f"table-name={self.table.full_name}, sql={query}",
+                    exc=exc,
                 )
                 return Lineage.empty()
 
