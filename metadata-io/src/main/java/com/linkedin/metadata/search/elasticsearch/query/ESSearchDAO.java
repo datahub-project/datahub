@@ -133,13 +133,13 @@ public class ESSearchDAO {
   @Nonnull
   private SearchClientShim<?> searchClient(
       @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest) {
-    return SearchClients.forEntityIndices(opContext, searchRequest);
+    return SearchClients.forEntityIndices(opContext, searchRequest, searchConfiguration);
   }
 
   @Nonnull
   private SearchClientShim<?> searchClient(
       @Nonnull OperationContext opContext, @Nullable String... indices) {
-    return SearchClients.forEntityIndices(opContext, indices);
+    return SearchClients.forEntityIndices(opContext, searchConfiguration, indices);
   }
 
   public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {

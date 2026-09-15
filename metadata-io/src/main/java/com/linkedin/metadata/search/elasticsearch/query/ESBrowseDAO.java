@@ -81,7 +81,7 @@ public class ESBrowseDAO {
   @Nonnull
   private SearchClientShim<?> searchClient(
       @Nonnull OperationContext opContext, @Nullable String... indices) {
-    return SearchClients.forEntityIndices(opContext, indices);
+    return SearchClients.forEntityIndices(opContext, searchConfiguration, indices);
   }
 
   private static final String BROWSE_PATH = "browsePaths";

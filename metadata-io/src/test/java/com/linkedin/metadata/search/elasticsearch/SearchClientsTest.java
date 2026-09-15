@@ -4,7 +4,9 @@ import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -83,5 +85,31 @@ public class SearchClientsTest {
 
     assertSame(SearchClients.forEntityIndices(opContext, new SearchRequest("datasetindex_v3")), v3);
     assertSame(SearchClients.forEntityIndices(opContext, new SearchRequest("datasetindex_v2")), v2);
+  }
+
+  @Test
+  public void testEmptySearchRequestUsesKeywordCutoverFlags() {
+    SearchClientShim<?> v2 = mock(SearchClientShim.class);
+    SearchClientShim<?> v3 = mock(SearchClientShim.class);
+    SearchClusterAccess access = component -> component == SearchComponent.SEARCH_V3 ? v3 : v2;
+    OperationContext opContext =
+        TestOperationContexts.withSearchClusterAccess(
+            TestOperationContexts.systemContextNoSearchAuthorization(), access);
+
+    ElasticSearchConfiguration v3Read =
+        ElasticSearchConfiguration.builder()
+            .entityIndex(
+                EntityIndexConfiguration.builder()
+                    .v2(EntityIndexVersionConfiguration.builder().enabled(true).build())
+                    .v3(
+                        EntityIndexVersionConfiguration.builder()
+                            .enabled(true)
+                            .keywordReadEnabled(true)
+                            .build())
+                    .build())
+            .build();
+
+    assertSame(SearchClients.forEntityIndices(opContext, new SearchRequest()), v2);
+    assertSame(SearchClients.forEntityIndices(opContext, new SearchRequest(), v3Read), v3);
   }
 }

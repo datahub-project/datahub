@@ -35,18 +35,27 @@ public final class SearchClients {
   }
 
   /**
-   * Route from the request's target indices. Cutover flags are unused here: the index names already
-   * encode V2 vs V3 vs semantic.
+   * Route from the request's target indices. When the request has no indices (PIT follow-up
+   * search), {@code entityIndex} cutover flags pick keyword V2 vs V3.
    */
   @Nonnull
   public static SearchClientShim<?> forEntityIndices(
       @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest) {
-    return forEntityIndices(opContext, searchRequest.indices());
+    return forEntityIndices(opContext, (EntityIndexConfiguration) null, searchRequest.indices());
+  }
+
+  @Nonnull
+  public static SearchClientShim<?> forEntityIndices(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchRequest searchRequest,
+      @Nullable ElasticSearchConfiguration config) {
+    return forEntityIndices(opContext, config, searchRequest.indices());
   }
 
   /**
    * Route from resolved entity index names. Prefer {@link #forEntityIndices(OperationContext,
-   * SearchRequest)} when a request is already built.
+   * SearchRequest)} or {@link #forEntityIndices(OperationContext, SearchRequest,
+   * ElasticSearchConfiguration)} when a request is already built.
    */
   @Nonnull
   public static SearchClientShim<?> forEntityIndices(
