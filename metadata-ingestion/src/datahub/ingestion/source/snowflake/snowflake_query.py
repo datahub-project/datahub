@@ -961,7 +961,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     ) -> str:
         return f"""
         SELECT
-            -- access_history.query_id, -- only for debugging purposes
+            access_history.query_id AS "QUERY_ID",
             access_history.query_start_time AS "QUERY_START_TIME",
             query_history.query_text AS "QUERY_TEXT",
             query_history.query_type AS "QUERY_TYPE",

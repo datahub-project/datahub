@@ -1,5 +1,4 @@
 import logging
-import time
 from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -379,11 +378,15 @@ class RedshiftUsageExtractor:
         OPERATION_CACHE_MAXSIZE = 1000
         DROP_WINDOW_SEC = 10
 
-        # All timestamps are in milliseconds.
-        timestamp_low_watermark = 0
+        # All timestamps are in milliseconds. The cache TTL is driven by event time
+        # rather than wall clock, so the watermark has to start at the first event:
+        # starting at 0 pinned min() to 0 forever, which froze the timer and meant the
+        # drop window never closed. Every later repeat on a table was then discarded,
+        # not just the bursts within DROP_WINDOW_SEC that this is meant to coalesce.
+        timestamp_low_watermark: Optional[int] = None
 
-        def timer():
-            return -timestamp_low_watermark
+        def timer() -> int:
+            return -(timestamp_low_watermark or 0)
 
         # dict of entity urn -> (last event's actor, operation type)
         # TODO: Remove the type ignore and use TTLCache[key_type, value_type] directly once that's supported in Python 3.9.
@@ -394,8 +397,10 @@ class RedshiftUsageExtractor:
         for event in events:
             assert isinstance(event.aspect, OperationClass)
 
-            timestamp_low_watermark = min(
-                timestamp_low_watermark, event.aspect.lastUpdatedTimestamp
+            timestamp_low_watermark = (
+                event.aspect.lastUpdatedTimestamp
+                if timestamp_low_watermark is None
+                else min(timestamp_low_watermark, event.aspect.lastUpdatedTimestamp)
             )
 
             urn = event.entityUrn
@@ -434,8 +439,10 @@ class RedshiftUsageExtractor:
 
             assert event.operation_type in ["insert", "delete"]
 
-            reported_time: int = int(time.time() * 1000)
-            last_updated_timestamp: int = int(event.endtime.timestamp() * 1000)
+            # Operation is a timeseries aspect: timestampMillis is the event time, and
+            # it is hashed into the ES docId, so stamping it with the ingestion time
+            # would give the same write a fresh document on every overlapping run.
+            operation_time: int = int(event.endtime.timestamp() * 1000)
             # actor is optional on OperationClass: emit the operation even when the
             # user can't be resolved rather than dropping the record entirely.
             actor: Optional[str] = (
@@ -444,14 +451,19 @@ class RedshiftUsageExtractor:
                 else None
             )
             operation_aspect = OperationClass(
-                timestampMillis=reported_time,
-                lastUpdatedTimestamp=last_updated_timestamp,
+                timestampMillis=operation_time,
+                lastUpdatedTimestamp=operation_time,
                 actor=actor,
                 operationType=(
                     OperationTypeClass.INSERT
                     if event.operation_type == "insert"
                     else OperationTypeClass.DELETE
                 ),
+                # operation_aspect_query groups by (userid, query, tbl) and UNIONs an
+                # insert and a delete branch, so one query can yield both for the same
+                # table, sharing a urn and an endtime. The operation type is needed
+                # alongside the query id to keep them in separate documents.
+                messageId=f"{event.query}-{event.operation_type}",
             )
 
             resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()

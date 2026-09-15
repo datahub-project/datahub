@@ -695,11 +695,12 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1638860400000,
+            "timestampMillis": 1638856800000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
+            "messageId": "30166c6c802ea2e1c3234b7d853d37abbe0d25097bc7fa18b5885a4195dc0c90",
             "actor": "urn:li:corpuser:user@example.com",
             "operationType": "INSERT",
             "sourceType": "DATA_PLATFORM",
