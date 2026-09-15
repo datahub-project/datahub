@@ -1,8 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-import { I18N_LOCALE_UPDATE_EVENT } from '@src/i18n/i18nVirtualModules';
-import { evictLocaleBundle, localeBundleBackend } from '@src/i18n/localeBackend';
+import { localeBundleBackend } from '@src/i18n/localeBackend';
 import { NAMESPACES } from '@src/i18n/namespaces';
 import { resolveInitialLanguage } from '@src/i18n/resolveInitialLanguage';
 
@@ -16,19 +15,13 @@ i18n.use(localeBundleBackend)
     .use(initReactI18next)
     .init({
         lng: resolveInitialLanguage(),
-        // Don't fetch English (or any other language) as a fallback resource pack. Missing keys
-        // stay missing until that language is actually selected.
-        fallbackLng: false,
+        // Every locale trails English by a few percent of its keys, so fall back to English
+        // rather than rendering the key name itself. That costs one extra bundle for non-English
+        // users, which is cheap now that a language is a single request.
+        fallbackLng: 'en',
         load: 'currentOnly',
         ns: NAMESPACES,
         interpolation: { escapeValue: false },
     });
-
-if (import.meta.hot) {
-    import.meta.hot.on(I18N_LOCALE_UPDATE_EVENT, ({ lng: updatedLng }: { lng: string }) => {
-        evictLocaleBundle(updatedLng);
-        i18n.reloadResources(updatedLng, [...NAMESPACES]).catch(() => undefined);
-    });
-}
 
 export default i18n;

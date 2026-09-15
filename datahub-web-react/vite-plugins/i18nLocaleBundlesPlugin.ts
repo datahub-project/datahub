@@ -7,7 +7,6 @@ type LocaleBundle = Record<string, Record<string, unknown>>;
 // Keep these IDs identical to `src/i18n/i18nVirtualModules.ts`.
 const I18N_LOCALE_LOADERS_ID = 'virtual:i18n-locale-loaders';
 const I18N_LOCALE_MODULE_PREFIX = 'virtual:i18n-locale/';
-const I18N_LOCALE_UPDATE_EVENT = 'i18n-locale-update';
 
 const LOADERS_RESOLVED_ID = `\0${I18N_LOCALE_LOADERS_ID}`;
 const LOCALE_RESOLVED_PREFIX = `\0${I18N_LOCALE_MODULE_PREFIX}`;
@@ -69,13 +68,16 @@ export function i18nLocaleBundlesPlugin(localesDir: string): Plugin {
             if (!rel || rel.startsWith('..') || path.isAbsolute(rel) || !file.endsWith('.json')) {
                 return undefined;
             }
+            // Drop the stale bundle so the reload rebuilds it, then fall through to Vite's full
+            // page reload. A hot update can't repaint translations here: the client would
+            // re-import an unchanged module URL, and react-i18next doesn't re-render on the
+            // store events that reloading resources emits.
             const lng = rel.split(path.sep)[0];
             const localeModule = server.moduleGraph.getModuleById(`${LOCALE_RESOLVED_PREFIX}${lng}`);
             if (localeModule) {
                 server.moduleGraph.invalidateModule(localeModule);
             }
-            server.ws.send({ type: 'custom', event: I18N_LOCALE_UPDATE_EVENT, data: { lng } });
-            return [];
+            return undefined;
         },
     };
 }

@@ -19,14 +19,22 @@ vi.mock('virtual:i18n-locale-loaders', () => ({
     },
 }));
 
-const { clearLocaleBundleCache, loadLocaleBundle, localeBundleBackend } = await import('@src/i18n/localeBackend');
+const { clearLocaleBundleCache, hasLocaleBundleFailed, loadLocaleBundle, localeBundleBackend } = await import(
+    '@src/i18n/localeBackend'
+);
 
-function readNamespace(lng: string, ns: string): Promise<false | Record<string, unknown>> {
+function readNamespace(lng: string, ns: string): Promise<boolean | Record<string, unknown>> {
     return new Promise((resolve, reject) => {
         localeBundleBackend.read(lng, ns, (error, data) => {
             if (error) reject(error);
             else resolve(data);
         });
+    });
+}
+
+function readNamespaceResult(lng: string, ns: string): Promise<{ error: unknown; data: unknown }> {
+    return new Promise((resolve) => {
+        localeBundleBackend.read(lng, ns, (error, data) => resolve({ error, data }));
     });
 }
 
@@ -77,5 +85,24 @@ describe('localeBackend', () => {
     it('rejects unsupported languages without caching the failure', async () => {
         await expect(loadLocaleBundle('unsupported')).rejects.toThrow();
         await expect(loadLocaleBundle('unsupported')).rejects.toThrow();
+    });
+
+    it("asks i18next to retry a failed read so the namespace doesn't stay permanently failed", async () => {
+        enLoader.mockRejectedValueOnce(new Error('network error'));
+
+        const { error, data } = await readNamespaceResult('en', 'alchemy');
+
+        expect(error).toBeInstanceOf(Error);
+        expect(data).toBe(true);
+    });
+
+    it('reports a failed language so callers can re-request it', async () => {
+        enLoader.mockRejectedValueOnce(new Error('network error'));
+
+        await expect(loadLocaleBundle('en')).rejects.toThrow('network error');
+        expect(hasLocaleBundleFailed('en')).toBe(true);
+
+        await expect(loadLocaleBundle('en')).resolves.toMatchObject({ alchemy: { save: 'Save' } });
+        expect(hasLocaleBundleFailed('en')).toBe(false);
     });
 });
