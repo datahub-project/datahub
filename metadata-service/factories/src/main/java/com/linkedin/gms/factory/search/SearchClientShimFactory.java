@@ -165,6 +165,7 @@ public class SearchClientShimFactory {
     }
 
     assertCompatModeNotSemanticEnabled(shim, semanticEnabled);
+    assertNoNmslibOnOpenSearch3(shim, esConfig, semanticEnabled);
 
     return shim;
   }
@@ -199,6 +200,42 @@ public class SearchClientShimFactory {
     }
   }
 
+  /**
+   * OpenSearch 3.x refuses to create new indexes with the {@code nmslib} kNN engine, so a semantic
+   * index configured for it would only fail later, at index-build time, with an engine error. Fail
+   * at startup with an actionable message instead. Every configured model is checked, not only the
+   * active one, because mappings are created for all of them.
+   *
+   * <p>Package-private for direct invocation by unit tests.
+   */
+  static void assertNoNmslibOnOpenSearch3(
+      @Nonnull SearchClientShim<?> shim,
+      @Nonnull ElasticSearchConfiguration esConfig,
+      boolean semanticEnabled) {
+    if (!semanticEnabled
+        || shim.getEngineType() != SearchClientShim.SearchEngineType.OPENSEARCH_3
+        || esConfig.getEntityIndex().getSemanticSearch().getModels() == null) {
+      return;
+    }
+    esConfig
+        .getEntityIndex()
+        .getSemanticSearch()
+        .getModels()
+        .forEach(
+            (modelKey, model) -> {
+              if (model != null
+                  && model.getKnnEngine() != null
+                  && "nmslib".equalsIgnoreCase(model.getKnnEngine().trim())) {
+                throw new IllegalStateException(
+                    "semanticSearch.models."
+                        + modelKey
+                        + ".knnEngine nmslib is not supported on OpenSearch 3.x (new nmslib"
+                        + " indexes are rejected); use faiss or lucene, or set"
+                        + " semanticSearch.enabled=false.");
+              }
+            });
+  }
+
   /** Parse the engine type from string configuration */
   private SearchClientShim.SearchEngineType parseEngineType(String engineTypeStr) {
     if (engineTypeStr == null || engineTypeStr.trim().isEmpty()) {
@@ -222,11 +259,15 @@ public class SearchClientShimFactory {
       case "OPENSEARCH_2":
       case "OS2":
         return SearchClientShim.SearchEngineType.OPENSEARCH_2;
+      case "OPENSEARCH_3":
+      case "OS3":
+        return SearchClientShim.SearchEngineType.OPENSEARCH_3;
       default:
         throw new IllegalArgumentException(
             "Unsupported engine type: "
                 + engineTypeStr
-                + ". Supported types: ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2");
+                + ". Supported types: ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9,"
+                + " OPENSEARCH_2, OPENSEARCH_3");
     }
   }
 }

@@ -88,13 +88,15 @@ public class SearchUtil {
   private static ConjunctiveCriterion transformConjunctiveCriterion(
       @Nonnull OperationFingerprint operation,
       ConjunctiveCriterion conjunctiveCriterion,
-      IndexConvention indexConvention) {
+      IndexConvention indexConvention,
+      boolean rewriteEntityTypeToIndex) {
     return new ConjunctiveCriterion()
         .setAnd(
             conjunctiveCriterion.getAnd().stream()
                 .map(
                     criterion ->
-                        criterion.getField().equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
+                        rewriteEntityTypeToIndex
+                                && criterion.getField().equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
                             ? transformEntityTypeCriterion(operation, criterion, indexConvention)
                             : criterion)
                 .collect(Collectors.toCollection(CriterionArray::new)));
@@ -103,12 +105,14 @@ public class SearchUtil {
   private static ConjunctiveCriterionArray transformConjunctiveCriterionArray(
       @Nonnull OperationFingerprint operation,
       ConjunctiveCriterionArray criterionArray,
-      IndexConvention indexConvention) {
+      IndexConvention indexConvention,
+      boolean rewriteEntityTypeToIndex) {
     return new ConjunctiveCriterionArray(
         criterionArray.stream()
             .map(
                 conjunctiveCriterion ->
-                    transformConjunctiveCriterion(operation, conjunctiveCriterion, indexConvention))
+                    transformConjunctiveCriterion(
+                        operation, conjunctiveCriterion, indexConvention, rewriteEntityTypeToIndex))
             .collect(Collectors.toList()));
   }
 
@@ -125,9 +129,23 @@ public class SearchUtil {
       @Nonnull OperationFingerprint operation,
       Filter filter,
       @Nonnull IndexConvention indexConvention) {
+    return transformFilterForEntities(operation, filter, indexConvention, true);
+  }
+
+  /**
+   * @param rewriteEntityTypeToIndex when true (V2), map {@code _entityType} filters onto {@code
+   *     _index}. V3 documents keep {@code _entityType} as a real field, so skip the rewrite.
+   */
+  public static Filter transformFilterForEntities(
+      @Nonnull OperationFingerprint operation,
+      Filter filter,
+      @Nonnull IndexConvention indexConvention,
+      boolean rewriteEntityTypeToIndex) {
     if (filter != null && filter.getOr() != null) {
       return new Filter()
-          .setOr(transformConjunctiveCriterionArray(operation, filter.getOr(), indexConvention));
+          .setOr(
+              transformConjunctiveCriterionArray(
+                  operation, filter.getOr(), indexConvention, rewriteEntityTypeToIndex));
     }
     return filter;
   }

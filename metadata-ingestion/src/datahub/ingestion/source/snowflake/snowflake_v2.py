@@ -20,6 +20,7 @@ from datahub.ingestion.api.source import (
     CapabilityReport,
     SourceCapability,
     SourceReport,
+    StructuredLogLevel,
     TestableSource,
     TestConnectionReport,
 )
@@ -781,14 +782,28 @@ class SnowflakeV2Source(
                     discovered_tables=self.discovered_datasets,
                     graph=self.ctx.graph,
                 )
-
-                # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
-                # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
-                # it should be pretty straightforward to refactor this and only initialize the aggregator once.
-                # This also applies for the _is_temp_table and _is_allowed_table methods above, duplicated from SnowflakeQueriesExtractor.
-                self.report.queries_extractor = queries_extractor.report
-                yield from queries_extractor.get_workunits_internal()
-                queries_extractor.close()
+                # The extractor borrows the source's schema resolver and must not
+                # outlive it. Deliberately not `with queries_extractor:` the way
+                # BigQuery does: __exit__ would let a close() failure replace the
+                # stage's real exception, and a full disk fails both. report_exc
+                # downgrades the cleanup failure to a warning instead.
+                try:
+                    # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
+                    # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
+                    # it should be pretty straightforward to refactor this and only initialize the aggregator once.
+                    # This also applies for the _is_temp_table and _is_allowed_table methods above, duplicated from SnowflakeQueriesExtractor.
+                    self.report.queries_extractor = queries_extractor.report
+                    yield from queries_extractor.get_workunits_internal()
+                finally:
+                    with self.report.report_exc(
+                        title="Failed to clean up after query extraction",
+                        message="Cleaning up after the query-history stage failed; "
+                        "temporary files may have been left behind.",
+                        context=queries_extractor.report.audit_log_path
+                        or "audit log path not recorded",
+                        level=StructuredLogLevel.WARN,
+                    ):
+                        queries_extractor.close()
 
         else:
             if self.lineage_extractor:

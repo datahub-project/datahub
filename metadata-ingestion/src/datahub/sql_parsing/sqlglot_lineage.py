@@ -158,6 +158,26 @@ def _table_name_from_sqlglot_table(
     Returns:
         A _TableName with the correct table name (including temp prefix for MSSQL)
     """
+    # sqlglot wraps Snowflake's IDENTIFIER('db.schema.tbl') in a DynamicIdentifier without
+    # splitting it; parse the literal as a table so quoting and dotted names resolve.
+    if isinstance(table.this, sqlglot.exp.DynamicIdentifier):
+        literal = table.this.this
+        if not (isinstance(literal, sqlglot.exp.Literal) and literal.is_string):
+            raise SqlUnderstandingError(
+                f"Cannot statically resolve table name from IDENTIFIER(...) argument: {literal}"
+            )
+        try:
+            identifier_table = sqlglot.parse_one(
+                literal.this, into=sqlglot.exp.Table, dialect=dialect
+            )
+        except Exception as e:
+            raise SqlUnderstandingError(
+                f"Cannot parse IDENTIFIER(...) argument as a table name: {literal.this!r}"
+            ) from e
+        return _table_name_from_sqlglot_table(
+            identifier_table, dialect, default_db, default_schema
+        )
+
     # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
     # In this case, table.this is a SemanticView expression, and we need to
     # extract the actual table from within it.
@@ -441,9 +461,14 @@ def _extract_table_names(
     iterable: Iterable[sqlglot.exp.Table],
     dialect: sqlglot.Dialect,
 ) -> OrderedSet[_TableName]:
-    return OrderedSet(
-        _table_name_from_sqlglot_table(table, dialect) for table in iterable
-    )
+    result: OrderedSet[_TableName] = OrderedSet()
+    for table in iterable:
+        try:
+            result.add(_table_name_from_sqlglot_table(table, dialect))
+        except SqlUnderstandingError as e:
+            # One unresolvable table ref must not drop the whole statement's lineage.
+            logger.debug(f"Skipping unresolvable table reference: {e}")
+    return result
 
 
 # ==============================================================================

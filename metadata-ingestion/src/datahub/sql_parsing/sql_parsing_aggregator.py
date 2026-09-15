@@ -128,6 +128,8 @@ class ViewDefinition:
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
     override_dialect: Optional[DialectOrStr] = None
+    # Table-level fallback for an unparseable definition; see add_view_definition.
+    table_level_fallback_upstreams: Optional[List[UrnStr]] = None
 
 
 @dataclasses.dataclass
@@ -358,6 +360,8 @@ class SqlAggregatorReport(Report):
     # Views.
     num_view_definitions: int = 0
     num_views_failed: int = 0
+    num_views_table_level_fallback: int = 0
+    num_views_self_reference_dropped: int = 0
     num_views_column_timeout: int = 0
     num_views_column_failed: int = 0
     views_parse_failures: LossyDict[UrnStr, str] = dataclasses.field(
@@ -400,6 +404,9 @@ class SqlAggregatorReport(Report):
 
     # Lineage-related.
     schema_resolver_count: Optional[int] = None
+    # Set only on a degraded run: as_obj() drops None, so a healthy run stays
+    # silent while a degraded one flags that the schema count went unread.
+    schema_resolver_unavailable: Optional[bool] = None
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
     num_lineage_skipped_due_to_filters: int = 0
@@ -430,7 +437,16 @@ class SqlAggregatorReport(Report):
     def compute_stats(self) -> None:
         if self._aggregator._closed:
             return
-        self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
+        # The resolver can be borrowed (see the schema_resolver argument), so its
+        # owner may close it while this aggregator is still open, which _closed
+        # does not describe. Clear the count rather than early-return: compute_stats
+        # runs on every render, so a skip would leave a mid-run value in the report.
+        resolver = self._aggregator._schema_resolver
+        if resolver.closed:
+            self.schema_resolver_unavailable = True
+            self.schema_resolver_count = None
+        else:
+            self.schema_resolver_count = resolver.schema_count()
         self.num_unique_query_fingerprints = len(self._aggregator._query_map)
 
         self.num_urns_with_lineage = len(self._aggregator._lineage_map)
@@ -891,6 +907,7 @@ class SqlParsingAggregator(Closeable):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
         override_dialect: Optional[DialectOrStr] = None,
+        table_level_fallback_upstreams: Optional[List[UrnStr]] = None,
     ) -> None:
         """Add a view definition to the aggregator.
 
@@ -904,6 +921,14 @@ class SqlParsingAggregator(Closeable):
         of the aggregator's platform default — useful for catalogs whose views span
         multiple dialects (e.g. Glue/Hive catalogs holding both Presto/Trino and
         Hive views).
+
+        ``table_level_fallback_upstreams`` is emitted as table-level upstreams (no
+        column-level detail) when the definition is present but yields no usable
+        lineage: either it does not parse (``table_error``), or it parses but resolves
+        to nothing (e.g. a partial MERGE-INTO-SELF parse referencing only the view). It
+        is ignored when the definition yields real upstreams. Snowflake CUSTOM_INCREMENTAL
+        dynamic tables are the motivating case: their MERGE-INTO-SELF DDL does not parse,
+        but the base tables are known from the catalog.
         """
 
         self.report.num_view_definitions += 1
@@ -913,6 +938,7 @@ class SqlParsingAggregator(Closeable):
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+            table_level_fallback_upstreams=table_level_fallback_upstreams,
         )
 
     def add_observed_query(
@@ -985,7 +1011,7 @@ class SqlParsingAggregator(Closeable):
                 downstream=downstream_urn,
                 column_lineage=parsed.column_lineage,
                 # TODO: We need a full list of columns referenced, not just the out tables.
-                column_usage=self._compute_upstream_fields(parsed),
+                column_usage=self._compute_upstream_fields(parsed.column_lineage),
                 inferred_schema=infer_output_schema(parsed),
                 confidence_score=parsed.debug_info.confidence,
                 extra_info=observed.extra_info,
@@ -1245,6 +1271,27 @@ class SqlParsingAggregator(Closeable):
 
         return schema_resolver
 
+    @staticmethod
+    def _exclude_self_upstreams(
+        view_urn: UrnStr, upstreams: List[UrnStr]
+    ) -> List[UrnStr]:
+        return [u for u in upstreams if u != view_urn]
+
+    @staticmethod
+    def _exclude_self_column_lineage(
+        view_urn: UrnStr, column_lineage: Optional[List[ColumnLineageInfo]]
+    ) -> List[ColumnLineageInfo]:
+        # Valid only for SQL-parsed views. Unity metric views self-reference and are
+        # excluded from this path (unity/source.py), so don't widen this guard.
+        result: List[ColumnLineageInfo] = []
+        for cl in column_lineage or []:
+            kept = [uc for uc in cl.upstreams if uc.table != view_urn]
+            if len(kept) == len(cl.upstreams):
+                result.append(cl)
+            elif kept:
+                result.append(cl.model_copy(update={"upstreams": kept}))
+        return result
+
     def _process_view_definition(
         self, view_urn: UrnStr, view_definition: ViewDefinition
     ) -> None:
@@ -1266,7 +1313,11 @@ class SqlParsingAggregator(Closeable):
             )
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1
-            return  # we can't do anything with this query
+            if view_definition.table_level_fallback_upstreams:
+                self._add_table_level_fallback_lineage(
+                    view_urn, view_definition.table_level_fallback_upstreams
+                )
+            return  # table_error: only the table-level fallback (if any) is emitted
         elif isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
             self.report.num_views_column_timeout += 1
         elif parsed.debug_info.column_error:
@@ -1276,6 +1327,33 @@ class SqlParsingAggregator(Closeable):
         formatted_view_definition = self._maybe_format_query(
             view_definition.view_definition
         )
+
+        # Exact-URN match, so a schema-resolver casing mismatch fails open (a self-loop
+        # slips through) to the pre-guard behavior.
+        upstreams = self._exclude_self_upstreams(view_urn, parsed.in_tables)
+        column_lineage = self._exclude_self_column_lineage(
+            view_urn, parsed.column_lineage
+        )
+        self_ref_in_parse = view_urn in parsed.in_tables or any(
+            uc.table == view_urn
+            for cl in (parsed.column_lineage or [])
+            for uc in cl.upstreams
+        )
+        if self_ref_in_parse:
+            self.report.num_views_self_reference_dropped += 1
+
+        # Fall back only when nothing usable was derived (no upstreams, no real column
+        # edge), so a real column edge is not discarded.
+        derived_nothing = not upstreams and not any(
+            cl.upstreams for cl in column_lineage
+        )
+        if derived_nothing and view_definition.table_level_fallback_upstreams:
+            self._add_table_level_fallback_lineage(
+                view_urn,
+                view_definition.table_level_fallback_upstreams,
+                count_self_drop=not self_ref_in_parse,
+            )
+            return
 
         # Register the query.
         self._add_to_query_map(
@@ -1287,14 +1365,41 @@ class SqlParsingAggregator(Closeable):
                 lineage_type=models.DatasetLineageTypeClass.VIEW,
                 latest_timestamp=None,
                 actor=None,
-                upstreams=parsed.in_tables,
-                column_lineage=parsed.column_lineage or [],
-                column_usage=self._compute_upstream_fields(parsed),
+                upstreams=upstreams,
+                column_lineage=column_lineage,
+                column_usage=self._compute_upstream_fields(column_lineage),
                 confidence_score=parsed.debug_info.confidence,
             )
         )
 
         # Register the query's lineage.
+        self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
+
+    def _add_table_level_fallback_lineage(
+        self, view_urn: UrnStr, upstreams: List[UrnStr], count_self_drop: bool = True
+    ) -> None:
+        self.report.num_views_table_level_fallback += 1
+        # Skip when the parse path already counted this view's self-loop.
+        if count_self_drop and view_urn in upstreams:
+            self.report.num_views_self_reference_dropped += 1
+        upstreams = self._exclude_self_upstreams(view_urn, upstreams)
+        query_fingerprint = self._view_fallback_query_id(view_urn)
+        self._add_to_query_map(
+            QueryMetadata(
+                query_id=query_fingerprint,
+                formatted_query_string="-skip-",
+                session_id=_MISSING_SESSION_ID,
+                query_type=QueryType.CREATE_VIEW,
+                lineage_type=models.DatasetLineageTypeClass.VIEW,
+                latest_timestamp=None,
+                actor=None,
+                upstreams=upstreams,
+                # Table-level only: identity CLL from INPUTS would be wrong for aliased/aggregated columns.
+                column_lineage=[],
+                column_usage={},
+                confidence_score=1.0,
+            )
+        )
         self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
 
     def _run_sql_parser(
@@ -1680,6 +1785,12 @@ class SqlParsingAggregator(Closeable):
         return f"known_{uuid.uuid4()}"
 
     @classmethod
+    def _view_fallback_query_id(cls, view_urn: UrnStr) -> str:
+        # "known_" prefix: can_generate_query() skips it, so no placeholder Query entity
+        # is emitted (as add_known_lineage_mapping); hashed on the URN for determinism.
+        return f"known_{generate_hash(view_urn)}"
+
+    @classmethod
     def _is_known_lineage_query_id(cls, query_id: QueryId) -> bool:
         # Our query fingerprints are hex and won't have underscores, so this will
         # never conflict with a real query fingerprint.
@@ -2007,10 +2118,10 @@ class SqlParsingAggregator(Closeable):
 
     @staticmethod
     def _compute_upstream_fields(
-        result: SqlParsingResult,
+        column_lineage: Optional[List[ColumnLineageInfo]],
     ) -> Dict[UrnStr, Set[UrnStr]]:
         upstream_fields: Dict[UrnStr, Set[UrnStr]] = defaultdict(set)
-        for cl in result.column_lineage or []:
+        for cl in column_lineage or []:
             for upstream in cl.upstreams:
                 upstream_fields[upstream.table].add(upstream.column)
         return upstream_fields
