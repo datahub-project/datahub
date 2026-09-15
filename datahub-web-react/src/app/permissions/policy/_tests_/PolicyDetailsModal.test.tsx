@@ -27,28 +27,6 @@ vi.mock('@app/useEntityRegistry', () => ({
     }),
 }));
 
-vi.mock('@app/useAppConfig', () => ({
-    useAppConfig: () => ({
-        config: {
-            policiesConfig: {
-                resourcePrivileges: [
-                    {
-                        resourceType: 'dataset',
-                        resourceTypeDisplayName: 'Dataset',
-                        privileges: [
-                            {
-                                type: 'view',
-                                displayName: 'View',
-                            },
-                        ],
-                    },
-                ],
-            },
-            featureFlags: { glossaryBasedPoliciesEnabled: true },
-        },
-    }),
-}));
-
 // Mock AvatarsGroup component to avoid rendering issues
 vi.mock('@app/permissions/AvatarsGroup', () => ({
     default: () => <div data-testid="avatars-group">Avatar Group Mock</div>,
@@ -100,6 +78,14 @@ const mockPolicy: Omit<Policy, 'urn'> = {
         resolvedRoles: [],
     },
 };
+
+const resourcePrivileges = [
+    {
+        resourceType: 'dataset',
+        resourceTypeDisplayName: 'Dataset',
+        privileges: [{ type: 'view', displayName: 'View' }],
+    },
+];
 
 // Mock policy with containers
 const mockPolicyWithContainers = {
@@ -163,6 +149,7 @@ describe('PolicyDetailsModal', () => {
                             open
                             onClose={() => {}}
                             privileges={[{ type: 'view', name: 'View' }]}
+                            resourcePrivileges={resourcePrivileges}
                         />
                     </BrowserRouter>
                 </ThemeProvider>
@@ -191,6 +178,7 @@ describe('PolicyDetailsModal', () => {
                             open
                             onClose={() => {}}
                             privileges={[{ type: 'view', name: 'View' }]}
+                            resourcePrivileges={resourcePrivileges}
                         />
                     </BrowserRouter>
                 </ThemeProvider>
@@ -211,6 +199,7 @@ describe('PolicyDetailsModal', () => {
                             open
                             onClose={() => {}}
                             privileges={[{ type: 'view', name: 'View' }]}
+                            resourcePrivileges={resourcePrivileges}
                         />
                     </BrowserRouter>
                 </ThemeProvider>
@@ -230,6 +219,7 @@ describe('PolicyDetailsModal', () => {
                             open
                             onClose={() => {}}
                             privileges={[{ type: 'view', name: 'View' }]}
+                            resourcePrivileges={resourcePrivileges}
                         />
                     </BrowserRouter>
                 </ThemeProvider>
