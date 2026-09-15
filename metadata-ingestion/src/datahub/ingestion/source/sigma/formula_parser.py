@@ -86,7 +86,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 log = logging.getLogger(__name__)
 
@@ -119,12 +119,95 @@ class BracketRef:
     AND ``column`` is None. This is a heuristic for Sigma parameter refs, which
     lineage resolvers should skip. `[p_foo]` (lowercase) is NOT flagged;
     `[P_X/col]` (has column part) is NOT flagged.
+
+    `segments` is every unescaped-``/``-delimited part of the body, in order and
+    individually whitespace-stripped (e.g. ``[a/b/c]`` → ``["a", "b", "c"]``).
+    ``source`` / ``column`` keep their first-slash split for backwards
+    compatibility, but resolvers should prefer ``segments``: Sigma writes
+    join-chain refs as ``[JoinElement/SourceElement/Column]``, where the owning
+    element is the second-to-last segment, not the first. Only the scanner may
+    produce this list -- an escaped ``\\/`` is a literal character inside one
+    segment, so re-splitting ``column`` after the fact would corrupt it.
     """
 
     raw: str
     source: str
     column: Optional[str]
     is_parameter: bool
+    # A TUPLE, not a list: this dataclass is frozen, so a list field would make
+    # ``__hash__`` raise TypeError and quietly turn a value type into something
+    # that cannot go in a set or be a dict key.
+    #
+    # Defaults to the first-slash split so hand-built refs (tests, callers that
+    # construct a ref directly) keep working. Deliberately does NOT split
+    # ``column`` on "/" -- that would reintroduce the ambiguity the scanner
+    # exists to resolve.
+    segments: Optional[Tuple[str, ...]] = None
+
+    def __post_init__(self) -> None:
+        if self.segments is None:
+            default = (
+                (self.source,) if self.column is None else (self.source, self.column)
+            )
+            # Frozen dataclass: bypass the immutability guard once, at construction.
+            object.__setattr__(self, "segments", default)
+
+    @property
+    def parts(self) -> List[str]:
+        """``segments`` as a list, for call sites that index and slice it."""
+        return list(self.segments) if self.segments else [self.source]
+
+
+def candidate_source_column_splits(ref: BracketRef) -> List[Tuple[str, str]]:
+    """Return (source, column) readings of a ref, most-likely first.
+
+    Sigma writes a column reached through a join as
+    ``[JoinElement/SourceElement/Column]`` (chaining further for nested joins),
+    so the element that owns the column is the segment immediately before the
+    column -- not the first segment, which is what ``ref.source`` holds.
+
+    Candidates are ordered join-chain reading first, then the "element name
+    itself contains a slash" reading, working right to left, and finally the
+    join element paired with the last segment. Callers validate each candidate
+    against a real element name *and* that element's schema, and take the first
+    that holds. A single-slash ref still yields exactly one candidate, which is
+    the legacy first-slash split, so nothing that resolves today stops resolving.
+
+    For multi-segment refs the legacy split is present too, though not
+    necessarily byte-identical to ``ref.column``: segments are individually
+    whitespace-stripped, so ``[A / B / C]`` has ``ref.column == 'B / C'`` while
+    the rejoined candidate column is ``'B/C'``.
+
+    Returns an empty list for refs with no column part (bare/parameter refs).
+    """
+    segments = ref.parts
+    if ref.column is None or len(segments) < 2:
+        return []
+    out: List[Tuple[str, str]] = []
+    seen = set()
+
+    def add(source: str, column: str) -> None:
+        if not source or not column:
+            return
+        if (source, column) in seen:
+            return
+        seen.add((source, column))
+        out.append((source, column))
+
+    for i in range(len(segments) - 1, 0, -1):
+        column = "/".join(segments[i:])
+        # 1. join-chain: owning element is the segment before the column.
+        add(segments[i - 1], column)
+        # 2. element name containing an unescaped "/".
+        add("/".join(segments[:i]), column)
+    # 3. The join element itself, carrying the joined column in its own output.
+    #    A join's output includes the columns of both sides, so when the owning
+    #    element is not resolvable on its own -- which is the norm on the chart
+    #    path, where a Data Model's internal elements are not workbook elements
+    #    -- the join element still has the column and is a legitimate upstream.
+    #    Last, because it names a less precise origin than the owning element.
+    add(segments[0], segments[-1])
+    return out
 
 
 def extract_bracket_refs(formula: Optional[str]) -> List[BracketRef]:
@@ -144,6 +227,9 @@ def extract_bracket_refs(formula: Optional[str]) -> List[BracketRef]:
     bracket_start_idx = 0
     source_buf: List[str] = []
     column_buf: List[str] = []
+    # One buffer per unescaped-"/"-delimited segment. Accumulated alongside
+    # source_buf/column_buf so the legacy first-slash split is untouched.
+    segment_bufs: List[List[str]] = [[]]
     seen_slash = False
     i = 0
     n = len(formula)
@@ -155,6 +241,7 @@ def extract_bracket_refs(formula: Optional[str]) -> List[BracketRef]:
                 bracket_start_idx = i
                 source_buf = []
                 column_buf = []
+                segment_bufs = [[]]
                 seen_slash = False
             elif ch == '"':
                 state = _IN_DOUBLE_STR
@@ -167,6 +254,7 @@ def extract_bracket_refs(formula: Optional[str]) -> List[BracketRef]:
                 # finish_bracket: emit_or_skip per decision matrix
                 source = "".join(source_buf).strip()
                 column = "".join(column_buf).strip() if seen_slash else None
+                segments = tuple("".join(seg).strip() for seg in segment_bufs)
                 if source and (column is None or column):
                     out.append(
                         BracketRef(
@@ -174,6 +262,7 @@ def extract_bracket_refs(formula: Optional[str]) -> List[BracketRef]:
                             source=source,
                             column=column,
                             is_parameter=source.startswith("P_") and column is None,
+                            segments=segments,
                         )
                     )
                 else:
@@ -183,18 +272,29 @@ def extract_bracket_refs(formula: Optional[str]) -> List[BracketRef]:
                     )
                 state = _NORMAL
             elif ch == "\\":
-                # escape_peek: consume next char literally into active buffer
+                # escape_peek: consume next char literally into active buffer.
+                # An escaped "/" is a literal character, so it must NOT open a
+                # new segment -- this is why segments can only be built in the
+                # scanner and never by re-splitting source/column afterwards.
                 if i + 1 < n:
                     buf.append(formula[i + 1])
+                    segment_bufs[-1].append(formula[i + 1])
                     i += 2
                     continue
                 # lone backslash at EOF → unterminated bracket; loop ends naturally
-            elif ch == "/" and not seen_slash:
-                # first unescaped slash: switch accumulation to column_buf
-                seen_slash = True
+            elif ch == "/":
+                # Every unescaped slash opens a new segment. For source/column
+                # only the first one separates; later ones stay literal in the
+                # column buffer (unchanged legacy behaviour).
+                segment_bufs.append([])
+                if not seen_slash:
+                    seen_slash = True
+                else:
+                    buf.append(ch)
             else:
-                # covers '[', '"', "'", subsequent '/', and all other chars
+                # covers '[', '"', "'", and all other chars
                 buf.append(ch)
+                segment_bufs[-1].append(ch)
         elif state == _IN_DOUBLE_STR:
             if ch == '"':
                 state = _NORMAL
