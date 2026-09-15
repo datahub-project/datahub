@@ -11,7 +11,12 @@ import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generat
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from '@graphql/browse.generated';
 import { GetDataFlowDocument } from '@graphql/dataFlow.generated';
 import { GetDataJobDocument } from '@graphql/dataJob.generated';
-import { GetDatasetDocument, GetDatasetSchemaDocument, UpdateDatasetDocument } from '@graphql/dataset.generated';
+import {
+    GetDatasetDocument,
+    GetDatasetSchemaDocument,
+    GetDatasetSchemaStructuralDocument,
+    UpdateDatasetDocument,
+} from '@graphql/dataset.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { GetMeDocument } from '@graphql/me.generated';
 import { GetMlModelDocument } from '@graphql/mlModel.generated';
@@ -1705,6 +1710,22 @@ export const mocks = [
             query: GetDatasetSchemaDocument,
             variables: {
                 urn: 'urn:li:dataset:3',
+            },
+        },
+        result: {
+            data: {
+                ...dataset3WithSchema,
+            },
+        },
+    },
+    {
+        // Phase-1 (structural) query of the two-phase schema load: same payload as the full
+        // schema mock — the structural selection is a subset of it.
+        request: {
+            query: GetDatasetSchemaStructuralDocument,
+            variables: {
+                urn: 'urn:li:dataset:3',
+                skipSiblingsSearch: false,
             },
         },
         result: {
