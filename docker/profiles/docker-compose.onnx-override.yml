@@ -26,6 +26,9 @@ services:
       ONNX_EMBEDDING_QUERY_INSTRUCTION: "Represent this sentence for searching relevant passages: "
     volumes:
       - ../datahub-gms-onnx/models:/datahub/models:ro
+      # Shadow the default (slim) war with the onnx boot archive so the debug stack runs the same
+      # BOOT-INF/lib the datahub-gms-onnx image ships. start.sh launches -jar .../war.war unchanged.
+      - ../../metadata-service/war/build/libs/war-onnx.war:/datahub/datahub-gms/bin/war.war:ro
 
   # system-update builds the Elasticsearch indices, including the per-model
   # semantic index (documentindex_v2_semantic with the nested vector field).
@@ -45,3 +48,6 @@ services:
       ONNX_EMBEDDING_QUERY_INSTRUCTION: "Represent this sentence for searching relevant passages: "
     volumes:
       - ../datahub-gms-onnx/models:/datahub/models:ro
+      # Shadow the default (slim) jar with the onnx boot archive so system-update embeds via the
+      # real datahub-upgrade-onnx BOOT-INF/lib. start.sh launches -jar .../datahub-upgrade.jar.
+      - ../../datahub-upgrade/build/libs/datahub-upgrade-onnx.jar:/datahub/datahub-upgrade/bin/datahub-upgrade.jar:ro
