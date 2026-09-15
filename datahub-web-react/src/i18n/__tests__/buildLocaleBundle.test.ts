@@ -7,12 +7,7 @@ import { NAMESPACES } from '@src/i18n/namespaces';
 
 /* Vite plugin lives outside `src/` so Node can load it without path aliases. */
 /* eslint-disable import-alias/import-alias, import/extensions */
-import {
-    buildLocaleBundle,
-    listLocaleLanguages,
-    listNamespaceGroups,
-    namespaceGroup,
-} from '../../../vite-plugins/i18nLocaleBundlesPlugin';
+import { buildLocaleBundle, listLocaleLanguages } from '../../../vite-plugins/i18nLocaleBundlesPlugin';
 
 /* eslint-enable import-alias/import-alias, import/extensions */
 
@@ -44,26 +39,6 @@ describe('buildLocaleBundle', () => {
         });
     });
 
-    it('builds only the namespaces assigned to a requested group', () => {
-        const dir = tmpDir();
-        fs.writeFileSync(path.join(dir, 'common.actions.json'), JSON.stringify({ save: 'Save' }));
-        fs.writeFileSync(path.join(dir, 'ingestion.json'), JSON.stringify({ run: 'Run' }));
-
-        expect(buildLocaleBundle(dir, 'ingestion')).toEqual({
-            ingestion: { run: 'Run' },
-        });
-    });
-
-    it('assigns heavy feature namespaces outside the core group', () => {
-        expect(namespaceGroup('common.actions')).toBe('core');
-        expect(namespaceGroup('ingestion.sourceBuilder')).toBe('ingestion');
-        expect(namespaceGroup('entity.profile.validations')).toBe('quality');
-        expect(namespaceGroup('governance.domain')).toBe('governance');
-        expect(namespaceGroup('saas.settings.ai')).toBe('settings');
-        expect(namespaceGroup('saas.context.evals')).toBe('context');
-        expect(namespaceGroup('saas.entity.profile.validations')).toBe('quality');
-    });
-
     it('lists language directories and ignores files', () => {
         const locales = tmpDir();
         fs.mkdirSync(path.join(locales, 'de'));
@@ -79,6 +54,5 @@ describe('buildLocaleBundle', () => {
         NAMESPACES.forEach((ns) => {
             expect(bundle).toHaveProperty(ns);
         });
-        expect(Object.keys(listNamespaceGroups(enDir))).toEqual(expect.arrayContaining([...NAMESPACES]));
     });
 });

@@ -1,9 +1,8 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import { coreNamespaces, namespacesByGroup } from 'virtual:i18n-locale-loaders';
 
 import { I18N_LOCALE_UPDATE_EVENT } from '@src/i18n/i18nVirtualModules';
-import { evictLocaleGroup, localeBundleBackend } from '@src/i18n/localeBackend';
+import { evictLocaleBundle, localeBundleBackend } from '@src/i18n/localeBackend';
 import { NAMESPACES } from '@src/i18n/namespaces';
 import { resolveInitialLanguage } from '@src/i18n/resolveInitialLanguage';
 
@@ -21,14 +20,14 @@ i18n.use(localeBundleBackend)
         // stay missing until that language is actually selected.
         fallbackLng: false,
         load: 'currentOnly',
-        ns: coreNamespaces,
+        ns: NAMESPACES,
         interpolation: { escapeValue: false },
     });
 
 if (import.meta.hot) {
-    import.meta.hot.on(I18N_LOCALE_UPDATE_EVENT, ({ lng, group }: { lng: string; group: string }) => {
-        evictLocaleGroup(lng, group);
-        i18n.reloadResources(lng, namespacesByGroup[group]).catch(() => undefined);
+    import.meta.hot.on(I18N_LOCALE_UPDATE_EVENT, ({ lng: updatedLng }: { lng: string }) => {
+        evictLocaleBundle(updatedLng);
+        i18n.reloadResources(updatedLng, [...NAMESPACES]).catch(() => undefined);
     });
 }
 

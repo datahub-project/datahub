@@ -6,13 +6,8 @@ import { describe, expect, it, vi } from 'vitest';
 const neverSettles = new Promise<{ default: Record<string, Record<string, unknown>> }>(() => {});
 
 vi.mock('virtual:i18n-locale-loaders', () => ({
-    coreNamespaces: ['alchemy'],
-    namespaceGroups: { alchemy: 'core' },
-    namespacesByGroup: { core: ['alchemy'] },
     default: {
-        en: {
-            core: () => neverSettles,
-        },
+        en: () => neverSettles,
     },
 }));
 
@@ -21,6 +16,5 @@ describe('i18n bootstrap', () => {
         const { default: i18n } = await import('@src/i18n/i18n');
 
         expect(i18n.language).toBe('en');
-        expect(i18n.options.ns).toEqual(['alchemy']);
     });
 });

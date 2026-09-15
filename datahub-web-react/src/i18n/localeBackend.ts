@@ -1,30 +1,29 @@
-import localeLoaders, { namespaceGroups } from 'virtual:i18n-locale-loaders';
+import localeLoaders from 'virtual:i18n-locale-loaders';
 
 import type { LocaleBundle } from '@src/i18n/i18nVirtualModules';
 
 const inflight = new Map<string, Promise<LocaleBundle>>();
 
-export function loadLocaleGroup(lng: string, group: string): Promise<LocaleBundle> {
-    const cacheKey = `${lng}:${group}`;
-    const cached = inflight.get(cacheKey);
+export function loadLocaleBundle(lng: string): Promise<LocaleBundle> {
+    const cached = inflight.get(lng);
     if (cached) return cached;
 
-    const loader = localeLoaders[lng]?.[group];
-    if (!loader) return Promise.reject(new Error(`Missing i18n locale bundle for "${cacheKey}"`));
+    const loader = localeLoaders[lng];
+    if (!loader) return Promise.reject(new Error(`Missing i18n locale bundle for "${lng}"`));
 
     const pending = loader().then(
         (mod) => mod.default,
         (error) => {
-            inflight.delete(cacheKey);
+            inflight.delete(lng);
             throw error;
         },
     );
-    inflight.set(cacheKey, pending);
+    inflight.set(lng, pending);
     return pending;
 }
 
-export function evictLocaleGroup(lng: string, group: string): void {
-    inflight.delete(`${lng}:${group}`);
+export function evictLocaleBundle(lng: string): void {
+    inflight.delete(lng);
 }
 
 export function clearLocaleBundleCache(): void {
@@ -34,12 +33,7 @@ export function clearLocaleBundleCache(): void {
 export const localeBundleBackend = {
     type: 'backend' as const,
     read(lng: string, ns: string, callback: (error: unknown, data: false | Record<string, unknown>) => void): void {
-        const group = namespaceGroups[ns];
-        if (!group) {
-            callback(new Error(`Missing i18n namespace group for "${ns}"`), false);
-            return;
-        }
-        loadLocaleGroup(lng, group)
+        loadLocaleBundle(lng)
             .then((bundle) => {
                 callback(null, bundle[ns] ?? {});
             })
