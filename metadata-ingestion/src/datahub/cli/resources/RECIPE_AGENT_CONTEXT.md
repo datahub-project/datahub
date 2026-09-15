@@ -133,12 +133,18 @@ what this source does permit:
 ```
 
 Refusals you should expect, and not try to work around: user tables, unqualified table names,
-multiple statements, non-SELECT statements, vendor-specific functions (`pg_read_file`,
-`dblink`, `load_file`), and **a write hidden inside a query** — `WITH x AS (DELETE ... RETURNING
+multiple statements, non-SELECT statements, and vendor-specific functions (`pg_read_file`,
+`dblink`, `load_file`). **A write hidden inside a query** is refused too, however read-only the
+outer statement looks:
 
-1. SELECT \* FROM x`is a data-modifying CTE, and it is refused however read-only the outer
-statement looks. BigQuery addresses catalog views as`<dataset>.INFORMATION_SCHEMA.TABLES`,
-   which is understood.
+```sql
+WITH x AS (DELETE FROM t RETURNING id) SELECT id FROM x
+```
+
+That is a data-modifying CTE: the write is inside the query, so checking only the outer
+statement type would pass it.
+
+BigQuery addresses catalog views as `<dataset>.INFORMATION_SCHEMA.TABLES`, which is understood.
 
 Results come back as `columns` plus positional `rows`, and **every** probe result carries a
 top-level `truncated` — the typed listings as well as `sql`. Read it before concluding you have

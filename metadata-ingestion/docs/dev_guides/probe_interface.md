@@ -443,8 +443,9 @@ that revives the fan-out.
 builds it through the provider's own `for_config`. It was two hooks — a `build_probe_provider()` on
 the config as well — and the pair could disagree. For Snowflake and BigQuery it did: both inherited
 the SQLAlchemy answer for discovery while executing against their own client, so each advertised six
-typed getters its provider does not have, every one of which failed at invocation with `no probe
-method bound for command 'columns'` after the recipe had validated and a connection had opened.
+typed getters its provider does not have, every one of which failed at invocation with
+`no probe method bound for command 'columns'` after the recipe had validated and a connection
+had opened.
 
 Worth knowing because it is the argument against adding a second naming site back for convenience.
 A test can catch two hooks disagreeing; one hook cannot disagree with itself.
@@ -516,8 +517,9 @@ connectors implement `test_connection` the way a probe wants — Snowflake build
 config and asks it for a connection; Kafka and Unity Catalog delegate to a purpose-built
 connection test. The SQLAlchemy family is the exception: `SQLAlchemySource.test_connection`
 (`sql/sql_common.py`) calls `cls.create(config_dict, PipelineContext(...))` to borrow one
-method, and the cost is visible in the lines above it, which force `stateful_ingestion.enabled
-= False` so that merely constructing the object doesn't demand a second connection to DataHub.
+method, and the cost is visible in the lines above it, which force
+`stateful_ingestion.enabled = False` so that merely constructing the object doesn't demand a
+second connection to DataHub.
 That patches one `__init__` side effect; the constructor also emits telemetry and builds a
 `ClassificationHandler`, a `DomainRegistry` and a `SqlParsingAggregator`. Don't copy that branch.
 
