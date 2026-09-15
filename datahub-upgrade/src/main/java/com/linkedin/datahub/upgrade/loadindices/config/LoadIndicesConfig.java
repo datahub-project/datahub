@@ -7,6 +7,7 @@ import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -32,8 +33,7 @@ public class LoadIndicesConfig {
   public LoadIndicesIndexManager createIndexManager(
       @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
       @Qualifier("searchClientShim") SearchClientShim<?> searchClient,
-      @Qualifier("elasticSearchIndexBuilder")
-          final com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder indexBuilder,
+      @Qualifier("elasticSearchIndexBuilder") final ESIndexBuilder indexBuilder,
       SearchClusterRegistry searchClusterRegistry)
       throws Exception {
     return new LoadIndicesIndexManager(

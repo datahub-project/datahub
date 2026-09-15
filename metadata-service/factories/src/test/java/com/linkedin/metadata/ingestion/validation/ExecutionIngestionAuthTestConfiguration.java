@@ -4,6 +4,7 @@ import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVE
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.context.SystemOperationContextFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.MappingsBuilderFactory;
@@ -19,6 +20,8 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -185,9 +188,12 @@ public class ExecutionIngestionAuthTestConfiguration {
 
   @Bean(name = "searchClusterRegistry")
   @Primary
-  public SearchClusterRegistry searchClusterRegistry(SearchClientShim<?> searchClientShim) {
-    SearchClusterRegistry registry = Mockito.mock(SearchClusterRegistry.class);
-    Mockito.doReturn(searchClientShim).when(registry).clientFor(Mockito.any());
-    return registry;
+  public SearchClusterRegistry searchClusterRegistry(
+      ConfigurationProvider configurationProvider, SearchClientShim<?> searchClientShim) {
+    return SearchClusterRegistry.singleCluster(
+        configurationProvider.getElasticSearch(),
+        searchClientShim,
+        Mockito.mock(ESBulkProcessor.class),
+        Mockito.mock(ESIndexBuilder.class));
   }
 }

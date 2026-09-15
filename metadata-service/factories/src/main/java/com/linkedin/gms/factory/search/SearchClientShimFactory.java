@@ -8,6 +8,7 @@ import com.linkedin.metadata.config.MaeConsumerConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SearchClusterUri;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.ShimSettings;
 import com.linkedin.metadata.config.search.SslContextSettings;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
@@ -256,9 +257,7 @@ public class SearchClientShimFactory {
             && esConfig.getEntityIndex().getSemanticSearch() != null
             && esConfig.getEntityIndex().getSemanticSearch().isEnabled()
             && clusterName.equals(
-                esConfig
-                    .getComponentCluster()
-                    .clusterFor(com.linkedin.metadata.config.search.SearchComponent.SEMANTIC));
+                esConfig.getComponentCluster().clusterFor(SearchComponent.SEMANTIC));
 
     if (semanticEnabled && client instanceof Es8SearchClientShim) {
       log.info(

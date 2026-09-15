@@ -23,6 +23,7 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
@@ -105,8 +106,7 @@ public class TestOperationContexts {
 
   @Nonnull
   public static OperationContext withFixedSearchClient(
-      @Nonnull OperationContext opContext,
-      @Nonnull com.linkedin.metadata.utils.elasticsearch.SearchClientShim<?> client) {
+      @Nonnull OperationContext opContext, @Nonnull SearchClientShim<?> client) {
     return withSearchClusterAccess(opContext, SearchClusterAccess.fixed(client));
   }
 

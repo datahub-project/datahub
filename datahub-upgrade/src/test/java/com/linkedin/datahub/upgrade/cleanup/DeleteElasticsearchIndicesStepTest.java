@@ -8,6 +8,7 @@ import com.datahub.context.OperationFingerprint;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
@@ -228,10 +229,7 @@ public class DeleteElasticsearchIndicesStepTest {
     when(secondary.performLowLevelRequest(any(), any())).thenReturn(rawResponse);
 
     SearchClusterAccess access =
-        component ->
-            component == com.linkedin.metadata.config.search.SearchComponent.USAGE
-                ? secondary
-                : searchClient;
+        component -> component == SearchComponent.USAGE ? secondary : searchClient;
     OperationContext opContext =
         TestOperationContexts.withSearchClusterAccess(
             TestOperationContexts.systemContextNoValidate(), access);

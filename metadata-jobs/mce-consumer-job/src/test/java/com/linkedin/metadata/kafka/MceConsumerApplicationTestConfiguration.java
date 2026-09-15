@@ -3,15 +3,14 @@ package com.linkedin.metadata.kafka;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.context.SystemOperationContextFactory;
 import com.linkedin.gms.factory.search.SearchClientShims;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
 import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
 import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
-import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.SiblingGraphService;
@@ -89,21 +88,13 @@ public class MceConsumerApplicationTestConfiguration {
 
   @Bean(name = "searchClusterRegistry")
   @Primary
-  public SearchClusterRegistry searchClusterRegistry(SearchClientShim<?> searchClientShim) {
-    SearchClusterRegistry registry = Mockito.mock(SearchClusterRegistry.class);
-    ESBulkProcessor bulkProcessor = Mockito.mock(ESBulkProcessor.class);
-    ESIndexBuilder indexBuilder = Mockito.mock(ESIndexBuilder.class);
-    ElasticSearchConfiguration config = Mockito.mock(ElasticSearchConfiguration.class);
-    BulkProcessorConfiguration bulkConfig = Mockito.mock(BulkProcessorConfiguration.class);
-    Mockito.when(bulkConfig.getNumRetries()).thenReturn(1);
-    Mockito.when(config.getBulkProcessor()).thenReturn(bulkConfig);
-    Mockito.doReturn(searchClientShim).when(registry).clientFor(Mockito.any(SearchComponent.class));
-    Mockito.when(registry.bulkProcessorFor(Mockito.any(SearchComponent.class)))
-        .thenReturn(bulkProcessor);
-    Mockito.when(registry.indexBuilderFor(Mockito.any(SearchComponent.class)))
-        .thenReturn(indexBuilder);
-    Mockito.when(registry.configFor(Mockito.any(SearchComponent.class))).thenReturn(config);
-    return registry;
+  public SearchClusterRegistry searchClusterRegistry(
+      ConfigurationProvider configurationProvider, SearchClientShim<?> searchClientShim) {
+    return SearchClusterRegistry.singleCluster(
+        configurationProvider.getElasticSearch(),
+        searchClientShim,
+        Mockito.mock(ESBulkProcessor.class),
+        Mockito.mock(ESIndexBuilder.class));
   }
 
   // Use @Bean @Primary to prevent EbeanDatabaseFactory from trying to connect to MySQL

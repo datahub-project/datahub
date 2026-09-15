@@ -1,9 +1,7 @@
 package com.datahub.gms.servlet;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
-import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -56,22 +54,12 @@ public class ConfigServletTestContext {
   @Bean(name = "searchClusterRegistry")
   @Primary
   public SearchClusterRegistry searchClusterRegistry(
+      ConfigurationProvider configurationProvider,
       @Autowired(required = false) SearchClientShim<?> searchClientShim) {
-    SearchClientShim<?> client =
-        searchClientShim != null ? searchClientShim : Mockito.mock(SearchClientShim.class);
-    SearchClusterRegistry registry = Mockito.mock(SearchClusterRegistry.class);
-    ESBulkProcessor bulkProcessor = Mockito.mock(ESBulkProcessor.class);
-    ESIndexBuilder indexBuilder = Mockito.mock(ESIndexBuilder.class);
-    ElasticSearchConfiguration config = Mockito.mock(ElasticSearchConfiguration.class);
-    BulkProcessorConfiguration bulkConfig = Mockito.mock(BulkProcessorConfiguration.class);
-    Mockito.when(bulkConfig.getNumRetries()).thenReturn(1);
-    Mockito.when(config.getBulkProcessor()).thenReturn(bulkConfig);
-    Mockito.doReturn(client).when(registry).clientFor(Mockito.any(SearchComponent.class));
-    Mockito.when(registry.bulkProcessorFor(Mockito.any(SearchComponent.class)))
-        .thenReturn(bulkProcessor);
-    Mockito.when(registry.indexBuilderFor(Mockito.any(SearchComponent.class)))
-        .thenReturn(indexBuilder);
-    Mockito.when(registry.configFor(Mockito.any(SearchComponent.class))).thenReturn(config);
-    return registry;
+    return SearchClusterRegistry.singleCluster(
+        configurationProvider.getElasticSearch(),
+        searchClientShim != null ? searchClientShim : Mockito.mock(SearchClientShim.class),
+        Mockito.mock(ESBulkProcessor.class),
+        Mockito.mock(ESIndexBuilder.class));
   }
 }

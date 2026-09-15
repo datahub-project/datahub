@@ -70,6 +70,28 @@ public class SearchClusterRegistry implements SearchClusterAccess, SearchWriteAc
     }
   }
 
+  /**
+   * Registry for a deployment where one cluster serves every component. This is the default shape,
+   * and it is what contexts that wire a single client — notably narrow Spring tests — need.
+   */
+  @Nonnull
+  public static SearchClusterRegistry singleCluster(
+      @Nonnull ElasticSearchConfiguration configuration,
+      @Nonnull SearchClientShim<?> client,
+      @Nonnull ESBulkProcessor bulkProcessor,
+      @Nonnull ESIndexBuilder indexBuilder) {
+    return new SearchClusterRegistry(
+        configuration,
+        Map.of(
+            ElasticSearchConfiguration.PRIMARY_CLUSTER,
+            new ClusterConnection(
+                ElasticSearchConfiguration.PRIMARY_CLUSTER,
+                configuration,
+                client,
+                bulkProcessor,
+                indexBuilder)));
+  }
+
   /** Names of all clusters that have a client, in declaration order. */
   @Nonnull
   public Set<String> clusterNames() {

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.hook.spring;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Authentication;
@@ -9,8 +10,6 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
-import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -218,17 +217,13 @@ public class MCLSpringCommonTestConfiguration {
   @Primary
   public SearchClusterRegistry searchClusterRegistry(
       ESBulkProcessor elasticSearchBulkProcessor, SearchClientShim<?> searchClientShim) {
-    SearchClusterRegistry registry = Mockito.mock(SearchClusterRegistry.class);
-    ElasticSearchConfiguration config = Mockito.mock(ElasticSearchConfiguration.class);
-    BulkProcessorConfiguration bulk = Mockito.mock(BulkProcessorConfiguration.class);
-    Mockito.when(bulk.getNumRetries()).thenReturn(1);
-    Mockito.when(config.getBulkProcessor()).thenReturn(bulk);
-    Mockito.when(registry.bulkProcessorFor(Mockito.any())).thenReturn(elasticSearchBulkProcessor);
-    Mockito.when(registry.configFor(Mockito.any())).thenReturn(config);
-    Mockito.doReturn(searchClientShim).when(registry).clientFor(Mockito.any());
-    Mockito.when(registry.indexBuilderFor(Mockito.any()))
-        .thenReturn(Mockito.mock(ESIndexBuilder.class));
-    return registry;
+    // This context does not scan factory.config, so there is no ConfigurationProvider to read the
+    // bound elasticsearch settings from.
+    return SearchClusterRegistry.singleCluster(
+        TEST_ES_SEARCH_CONFIG,
+        searchClientShim,
+        elasticSearchBulkProcessor,
+        Mockito.mock(ESIndexBuilder.class));
   }
 
   @Bean(name = "legacyMappingsBuilder")
