@@ -1544,9 +1544,9 @@ def test_metric_resolves_a_duplicated_measure_within_its_own_model():
     ]
 
 
-def test_a_filtered_measure_input_leaves_the_metric_expression_unset():
-    # The input's own filter has no home on MetricInfo, so the aggregation form
-    # would publish a broader metric than the author declared.
+def test_a_filtered_measure_input_folds_its_predicate_into_the_expression():
+    # The input's own filter has no home on MetricInfo, and the bare
+    # aggregation would publish a broader metric than the author declared.
     workunits = _emit(
         _mapper(),
         [_sm_node("orders", _ORDERS)],
@@ -1559,10 +1559,10 @@ def test_a_filtered_measure_input_leaves_the_metric_expression_unset():
                     "type": "simple",
                     "type_params": {
                         "measure": {
-                            "name": "revenue",
+                            "name": "order_total",
                             "filter": {
                                 "where_filters": [
-                                    {"where_sql_template": "revenue > 100"}
+                                    {"where_sql_template": "order_total > 100"}
                                 ]
                             },
                         }
@@ -1575,4 +1575,46 @@ def test_a_filtered_measure_input_leaves_the_metric_expression_unset():
     info = dict(_aspects(workunits, MetricInfoClass))[
         f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},large_orders)"
     ]
-    assert info.expression is None
+    assert (
+        _expression_of(info.expression).expression
+        == "sum(orders.order_total) FILTER (WHERE order_total > 100)"
+    )
+
+
+def test_both_filter_kinds_land_in_one_filter_clause():
+    # Two FILTER clauses on one aggregate would not be valid SQL, so the
+    # measure input's predicate and the metric's own are ANDed together.
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.us_large_orders": {
+                    "name": "us_large_orders",
+                    "label": "US large orders",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {
+                        "measure": {
+                            "name": "order_count",
+                            "filter": {
+                                "where_filters": [
+                                    {"where_sql_template": "order_total > 100"}
+                                ]
+                            },
+                        }
+                    },
+                    "filter": {
+                        "where_filters": [{"where_sql_template": "country = 'US'"}]
+                    },
+                }
+            }
+        ),
+    )
+
+    info = dict(_aspects(workunits, MetricInfoClass))[
+        f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},us_large_orders)"
+    ]
+    assert _expression_of(info.expression).expression == (
+        "count(orders.order_count) FILTER (WHERE order_total > 100 AND country = 'US')"
+    )

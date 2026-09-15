@@ -111,6 +111,19 @@ class _ResolvedMetricInputs:
 
 
 @dataclass(frozen=True)
+class _MetricComputation:
+    """How a metric is computed, plus any predicate that constrains it.
+
+    The predicate is held apart from the expression so a filter on the measure
+    input and the metric's own filter can land in one `FILTER (WHERE ...)`
+    clause; emitting a clause per filter would not be valid SQL.
+    """
+
+    expression: str
+    measure_predicate: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class _MeasureLocation:
     """Where a measure lives, and how it aggregates."""
 
@@ -927,22 +940,30 @@ class DbtSemanticModelMapper:
     def _metric_definition_expression(
         self, metric_definition: DBTMetric, index: _MeasureIndex
     ) -> Optional[DialectExpressionInput]:
-        expression = self._unfiltered_metric_expression(metric_definition, index)
-        if expression is None:
+        computation = self._metric_computation(metric_definition, index)
+        if computation is None:
             return None
-        if not metric_definition.filter:
-            return self._expression(expression)
         # MetricInfo.expression has no filter field, and a metric whose filter
         # is dropped computes a different number than the dbt definition -- so
-        # fold the predicate into the expression rather than publishing a
-        # broader metric as authoritative.
+        # fold the predicates into the expression rather than publishing a
+        # broader metric as authoritative. dbt keeps these as Jinja templates
+        # (`{{ Dimension(...) }}`), so the result is not always parseable SQL;
+        # the leading aggregation still names the column it reads, which is
+        # more than a dropped expression would carry.
+        predicates = [
+            predicate
+            for predicate in (computation.measure_predicate, metric_definition.filter)
+            if predicate
+        ]
+        if not predicates:
+            return self._expression(computation.expression)
         return self._expression(
-            f"{expression} FILTER (WHERE {metric_definition.filter})"
+            f"{computation.expression} FILTER (WHERE {' AND '.join(predicates)})"
         )
 
-    def _unfiltered_metric_expression(
+    def _metric_computation(
         self, metric_definition: DBTMetric, index: _MeasureIndex
-    ) -> Optional[str]:
+    ) -> Optional[_MetricComputation]:
         expr = (metric_definition.expr or "").strip()
         # dbt materializes a `create_metric: true` measure into `metrics` itself
         # and sets type_params.expr to the bare measure name. Honouring that
@@ -951,25 +972,26 @@ class DbtSemanticModelMapper:
         # author who writes `expr: revenue` over measure `revenue` means the
         # same thing, so preferring the aggregation is right either way.
         if expr and not self._expr_is_bare_measure_name(metric_definition, expr):
-            return expr
+            return _MetricComputation(expr)
         if (
             metric_definition.type == METRIC_TYPE_RATIO
             and len(metric_definition.input_metrics) == 2
         ):
             numerator, denominator = metric_definition.input_metrics
-            return f"{numerator.name} / {denominator.name}"
+            return _MetricComputation(f"{numerator.name} / {denominator.name}")
         # A simple metric is just its measure's aggregation, so reuse it rather
         # than leaving the metric with no expression at all.
         if len(metric_definition.measures) == 1:
             measure_input = metric_definition.measures[0]
-            if measure_input.filter:
-                # The input's own filter has no home on MetricInfo, and the
-                # aggregation form would read as the unfiltered measure. An
-                # absent expression is the honest answer until the filter can
-                # be carried.
-                return None
             located = self._locate_measure(metric_definition, index, measure_input.name)
-            return located.expression if located else None
+            if located is None or located.expression is None:
+                return None
+            # Only the synthesized aggregation carries the input's filter: an
+            # author-written `expr` is theirs, and folding a predicate into it
+            # would be putting words in their mouth.
+            return _MetricComputation(
+                located.expression, measure_predicate=measure_input.filter
+            )
         return None
 
     @staticmethod

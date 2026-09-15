@@ -9814,6 +9814,64 @@
       "refs": [],
       "sources": [],
       "created_at": 1700000000.0
+    },
+    "metric.sample_dbt.large_payment_amount": {
+      "name": "large_payment_amount",
+      "resource_type": "metric",
+      "package_name": "sample_dbt",
+      "path": "semantic_models/metrics.yml",
+      "original_file_path": "models/semantic_models/metrics.yml",
+      "unique_id": "metric.sample_dbt.large_payment_amount",
+      "fqn": [
+        "sample_dbt",
+        "semantic_models",
+        "large_payment_amount"
+      ],
+      "description": "Amount paid on large payments only",
+      "label": "Large Payment Amount",
+      "type": "simple",
+      "type_params": {
+        "measure": {
+          "name": "payment_amount",
+          "filter": {
+            "where_filters": [
+              {
+                "where_sql_template": "{{ Dimension('payment__payment_amount') }} > 100"
+              }
+            ]
+          },
+          "alias": null
+        },
+        "input_measures": [
+          {
+            "name": "payment_amount",
+            "filter": {
+              "where_filters": [
+                {
+                  "where_sql_template": "{{ Dimension('payment__payment_amount') }} > 100"
+                }
+              ]
+            },
+            "alias": null
+          }
+        ]
+      },
+      "filter": null,
+      "metadata": null,
+      "meta": {},
+      "tags": [],
+      "config": {
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "semantic_model.sample_dbt.payments"
+        ]
+      },
+      "refs": [],
+      "sources": [],
+      "created_at": 1700000000.0
     }
   },
   "nodes": {

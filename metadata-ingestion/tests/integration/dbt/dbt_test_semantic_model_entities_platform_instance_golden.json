@@ -7668,6 +7668,144 @@
 },
 {
     "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,large_payment_amount)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Simple"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,large_payment_amount)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,dbt-instance-1)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,large_payment_amount)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,large_payment_amount)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+        "json": {
+            "name": "Large Payment Amount",
+            "description": "Amount paid on large payments only",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,semantic_layer)",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "ANSI_SQL",
+                        "expression": "sum(payments.payment_amount) FILTER (WHERE {{ Dimension('payment__payment_amount') }} > 100)"
+                    }
+                ]
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,large_payment_amount)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+        "json": {
+            "derivedFrom": [],
+            "relatedMetrics": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,large_payment_amount)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+        "json": {
+            "datasetUpstreams": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt.semantic_layer.payments,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,large_payment_amount)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "dbt-instance-1",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,dbt-instance-1)"
+                },
+                {
+                    "id": "sample_dbt"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
     "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,payment_amount)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",

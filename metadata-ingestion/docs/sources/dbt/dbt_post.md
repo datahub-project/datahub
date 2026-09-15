@@ -618,6 +618,30 @@ In the default mode, a semantic model is also emitted as a dataset on the wareho
 though a semantic model is a YAML definition with no table behind it. `emit_semantic_model_entities`
 does not do this.
 
+##### Metric expressions
+
+A metric's expression is whatever dbt gives us, in this order: an explicit `expr`, then
+`numerator / denominator` for a ratio, then the aggregation of its single measure
+(`sum(payments.payment_amount)`). A metric dbt gives no computable form is emitted without an
+expression rather than with a fabricated one.
+
+Both kinds of dbt filter are folded into that expression, ANDed into one `FILTER (WHERE ...)` clause
+when a metric has both:
+
+- the metric's own `filter`
+- a filter on the measure it reads (`type_params.measure.filter`)
+
+`MetricInfo` has no filter field, and a metric whose filter was dropped would publish a broader
+number than the dbt definition. dbt stores these predicates as Jinja templates, so they are carried
+through as authored:
+
+```
+sum(payments.payment_amount) FILTER (WHERE {{ Dimension('payment__payment_amount') }} > 100)
+```
+
+Treat the expression as documentation rather than runnable SQL. The leading aggregation is a real
+column reference, so it stays useful for tracing what a metric reads.
+
 ##### Relationships
 
 Relationships between logical datasets are derived exactly the way MetricFlow joins: an entity
@@ -653,14 +677,8 @@ tags, terms, documentation — is not carried across automatically.
 - **Metric `window` and `grain_to_date`.** `MetricInfo` has no field for these, so a cumulative
   metric's window is not carried. The metric's `type` _is_ carried, as a subtype (`Simple`, `Ratio`,
   `Cumulative`, `Derived`, `Conversion`), so the kinds are distinguishable in search and filters even
-  though a cumulative metric's expression is the same aggregation as its simple counterpart's. A
-  metric's `filter` is also represented: it is folded into the emitted expression
-  (`sum(orders.revenue) FILTER (WHERE region = 'US')`), because a metric whose filter was dropped
-  would publish a broader number than the dbt definition.
-- **A filter on a metric's measure input.** dbt lets a metric filter the single measure it reads
-  (`type_params.measure.filter`), which is distinct from the metric's own `filter` above and has no
-  place on `MetricInfo`. Such a metric is emitted with **no expression** rather than the unfiltered
-  aggregation, since `sum(orders.revenue)` would describe a broader number than the definition.
+  though a cumulative metric's expression is the same aggregation as its simple counterpart's.
+  Metric filters _are_ represented — see [Metric expressions](#metric-expressions).
 - **Tags and `meta` on a dbt Core semantic model.** Manifest schema v11 gives a semantic model no
   `tags` field and puts `meta` under `config`, so neither is available from a manifest. On dbt Cloud
   the Discovery API does return `tags`, and those are emitted on the Semantic Model Dataset.
