@@ -9,17 +9,24 @@ import static org.mockito.ArgumentMatchers.eq;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.context.OperationFingerprint;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
@@ -45,6 +52,9 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
   private static final EntityRegistry TEST_REGISTRY = new TestEntityRegistry();
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final AuditStamp AUDIT_STAMP =
+      new AuditStamp().setTime(1000L).setActor(UrnUtils.getUrn("urn:li:corpuser:testUser"));
 
   private StructuredPropertyPrivilegeConstraintsValidator validator;
   private SearchRetriever mockSearchRetriever;
@@ -247,5 +257,72 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
         () ->
             AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
                 any(), eq(TEST_DATASET_URN), eq(expected)));
+  }
+
+  // PATCH writes must be enforced too, not just full-aspect UPSERT: this exercises the
+  // ALTERNATE_MCP_VALIDATION path where patches arrive as ProposedItem (not PatchItemImpl).
+  @Test
+  public void testPatchRemoveAuthorizesRemovedProperty() {
+    // current: p1=v1
+    StructuredProperties current = props(Map.of("urn:li:structuredProperty:p1", List.of("v1")));
+    stubCurrentAspect(
+        TEST_DATASET_URN, STRUCTURED_PROPERTIES_ASPECT_NAME, new Aspect(current.data()));
+    Mockito.when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
+
+    // PATCH removing p1 — a ProposedItem carrying a REMOVE op at /properties/<p1>
+    BatchItem patchItem =
+        structuredPropertiesPatchRemove(TEST_DATASET_URN, "urn:li:structuredProperty:p1");
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+                    any(), any(), anyCollection()))
+        .thenReturn(true);
+
+    validator
+        .validateProposedAspectsWithAuth(
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(patchItem),
+            retrieverContext,
+            mockAuthSession)
+        .forEach(e -> {});
+
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+                any(),
+                eq(TEST_DATASET_URN),
+                eq(Set.of(UrnUtils.getUrn("urn:li:structuredProperty:p1")))));
+  }
+
+  /**
+   * Builds a PATCH {@link ProposedItem} (not a {@link
+   * com.linkedin.metadata.entity.ebean.batch.PatchItemImpl}) removing a structured property, the
+   * same shape {@link com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder}
+   * emits: {@code {"op":"remove","path":"/properties/<propertyUrn>"}}.
+   */
+  private BatchItem structuredPropertiesPatchRemove(Urn entityUrn, String propertyUrn) {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(entityUrn);
+    mcp.setEntityType(entityUrn.getEntityType());
+    mcp.setAspectName(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp("remove");
+    patchOp.setPath("/properties/" + propertyUrn);
+
+    Map<String, List<String>> arrayPrimaryKeys = new HashMap<>();
+    arrayPrimaryKeys.put("properties", List.of("propertyUrn", "attribution␟source"));
+
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder()
+            .patch(List.of(patchOp))
+            .arrayPrimaryKeys(arrayPrimaryKeys)
+            .build();
+    mcp.setAspect(GenericRecordUtils.serializePatch(genericJsonPatch, OBJECT_MAPPER));
+
+    return ProposedItem.builder().build(mcp, AUDIT_STAMP, TEST_REGISTRY);
   }
 }

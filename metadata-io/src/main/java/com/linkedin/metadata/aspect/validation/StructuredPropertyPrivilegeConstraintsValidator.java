@@ -8,11 +8,14 @@ import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
@@ -100,8 +103,20 @@ public class StructuredPropertyPrivilegeConstraintsValidator
             ? null
             : RecordUtils.toRecordTemplate(StructuredProperties.class, currentAspect.data());
 
-    // PATCH handling is added in Task 3.
-    StructuredProperties newProps = item.getAspect(StructuredProperties.class);
+    StructuredProperties newProps;
+    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
+      ProposedItem proposedItem = (ProposedItem) item;
+      PatchItemImpl patchItem =
+          PatchItemImpl.builder()
+              .build(
+                  proposedItem.getMetadataChangeProposal(),
+                  proposedItem.getAuditStamp(),
+                  aspectRetriever.getEntityRegistry());
+      newProps =
+          patchItem.applyPatch(currentProps, aspectRetriever).getAspect(StructuredProperties.class);
+    } else {
+      newProps = item.getAspect(StructuredProperties.class);
+    }
 
     if (newProps == null) {
       return Collections.emptyList();
