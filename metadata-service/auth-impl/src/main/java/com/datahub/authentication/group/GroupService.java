@@ -68,6 +68,10 @@ public class GroupService implements ActorGroupMembershipService {
           ROLE_MEMBERSHIP_ASPECT_NAME);
   private static final int GROUP_MEMBER_PAGE_SIZE = 1000;
   private static final String GROUP_MEMBER_SCROLL_KEEP_ALIVE = "5m";
+  // Legacy IsMemberOfGroup edges come from GraphClient, which offers offset paging only.
+  private static final int LEGACY_GROUP_MEMBER_PAGE_SIZE = 500;
+  // Elasticsearch caps both max_result_window and exact hit counts at 10k by default.
+  private static final int MAX_GROUP_MEMBERS_TO_MIGRATE = 10_000;
   // Members are looked up in chunks so the edge query stays a bounded terms lookup regardless of
   // how many users a single request names.
   private static final int MEMBER_EDGE_LOOKUP_CHUNK_SIZE = 500;
@@ -664,17 +668,48 @@ public class GroupService implements ActorGroupMembershipService {
   List<Urn> getExistingGroupMembers(@Nonnull final Urn groupUrn, final String actorUrnStr) {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
-    final EntityRelationships relationships =
-        _graphClient.getRelatedEntities(
-            groupUrn.toString(),
-            ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
-            RelationshipDirection.INCOMING,
-            0,
-            500,
-            actorUrnStr);
-    return relationships.getRelationships().stream()
-        .map(EntityRelationship::getEntity)
-        .collect(Collectors.toList());
+    final List<Urn> memberUrns = new ArrayList<>();
+    int start = 0;
+    // Guard on the end of the window, not its start: Elasticsearch rejects a request whose
+    // from + size exceeds max_result_window outright, so a page size that does not divide the
+    // ceiling would fail the migration instead of truncating it.
+    while (start + LEGACY_GROUP_MEMBER_PAGE_SIZE <= MAX_GROUP_MEMBERS_TO_MIGRATE) {
+      final EntityRelationships relationships =
+          _graphClient.getRelatedEntities(
+              groupUrn.toString(),
+              ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
+              RelationshipDirection.INCOMING,
+              start,
+              LEGACY_GROUP_MEMBER_PAGE_SIZE,
+              actorUrnStr);
+
+      final List<Urn> page =
+          relationships.getRelationships().stream()
+              .map(EntityRelationship::getEntity)
+              .collect(Collectors.toList());
+      memberUrns.addAll(page);
+
+      // A short page means the graph is genuinely exhausted.
+      if (page.size() < LEGACY_GROUP_MEMBER_PAGE_SIZE) {
+        return memberUrns;
+      }
+      // getTotal() saturates at the same 10k cap, so it only proves completeness below that cap.
+      final int total = relationships.getTotal();
+      if (total < MAX_GROUP_MEMBERS_TO_MIGRATE && memberUrns.size() >= total) {
+        return memberUrns;
+      }
+      start += page.size();
+    }
+
+    // Members past the ceiling keep a legacy aspect that still grants and can still be revoked,
+    // so warn rather than fail the migration.
+    log.warn(
+        "Group {} has at least {} members; migrating only the first {}. Remaining members keep the"
+            + " legacy groupMembership aspect.",
+        groupUrn,
+        MAX_GROUP_MEMBERS_TO_MIGRATE,
+        memberUrns.size());
+    return memberUrns;
   }
 
   /**
