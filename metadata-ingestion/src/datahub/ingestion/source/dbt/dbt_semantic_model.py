@@ -950,6 +950,15 @@ class DbtSemanticModelMapper:
         # (`{{ Dimension(...) }}`), so the result is not always parseable SQL;
         # the leading aggregation still names the column it reads, which is
         # more than a dropped expression would carry.
+        #
+        # TODO: resolve the Jinja to real field references, which would make
+        # both filter kinds fully parseable and usable for column-level
+        # lineage: `{{ Dimension('payment__payment_amount') }}` is
+        # `<alias>.payment_amount`, and this mapper already holds the alias and
+        # the model's field paths. Deliberately not done here -- a dimension
+        # reached through a join belongs to another model's alias, and
+        # `TimeDimension('metric_time', 'month')` implies a grain
+        # to render, so it needs its own design rather than a regex.
         predicates = [
             predicate
             for predicate in (computation.measure_predicate, metric_definition.filter)
