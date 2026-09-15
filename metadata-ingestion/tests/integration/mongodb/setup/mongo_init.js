@@ -106,6 +106,7 @@ db.nativeTypesCollection.insertMany([
   {
     name: "everyBsonType",
     binaryData: BinData(0, "SGVsbG8gV29ybGQ="),
+    // Subtype 4 stays Binary by default; uuidRepresentation=standard decodes it to UUID.
     uuidField: UUID("12345678-1234-5678-1234-567812345678"),
     regexField: /^mongo.*types$/i,
     jsField: Code("function () { return 1; }"),
