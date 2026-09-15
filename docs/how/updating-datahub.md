@@ -29,6 +29,8 @@ description: "Release notes and breaking change history for upgrading DataHub be
 
 ### Other Notable Changes
 
+- **(Ingestion / Iceberg)** The Iceberg source upgrades to `pyiceberg >=0.12,<0.13` and supports geospatial schema types. The PyArrow minimum is now 18. See [#19647](https://github.com/datahub-project/datahub/pull/19647). **Action:** if you pin dependencies separately, update your pins to `pyiceberg >=0.12,<0.13` and `pyarrow >=18`; installations through `acryl-datahub[iceberg]` resolve these requirements automatically.
+
 - #13726: Removed dgraph from tests
 - #13942: Upgraded secret encryption to AES-256-GCM. Recreate tokens take advantage of the new algorithm.
 - #13898: Deprecated DropWizard metrics, enabled Micrometer & Prometheus endpoint
