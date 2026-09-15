@@ -158,7 +158,7 @@ export default function useScrollDomains({
 
     const nextScrollId = scrollData?.scrollAcrossEntities?.nextScrollId;
 
-    const [scrollRef, inView] = useInView({ triggerOnce: false });
+    const [scrollRef, inView] = useInView({ triggerOnce: false, rootMargin: '200px' });
 
     useEffect(() => {
         if (!loading && nextScrollId && scrollId !== nextScrollId && inView) {
