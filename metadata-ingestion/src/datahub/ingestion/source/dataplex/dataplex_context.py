@@ -29,6 +29,13 @@ class DataplexContext:
     # Populated during the entries stage; consumed by lineage + glossary stages.
     entry_data: List["EntryDataTuple"] = field(default_factory=list)
 
+    # Maps Dataplex entry resource name -> DataHub entity urn, for BOTH Dataset and
+    # Container entities. Consumed by the glossary term-association stage: a Dataplex
+    # term can be linked to a BigQuery dataset, which this connector models as a
+    # DataHub Container, not a Dataset. Deliberately separate from ``entry_data``,
+    # which is a lineage-only index restricted to Dataset entities.
+    entry_name_to_urn: Dict[str, str] = field(default_factory=dict)
+
     # Maps project_id -> project_number.
     # Required by the lookupEntryLinks REST API which demands project number (not ID)
     # inside the glossary term entry path. Populated at startup only when
@@ -46,3 +53,8 @@ class DataplexContext:
         """Thread-safe append to entry_data."""
         with self._entry_data_lock:
             self.entry_data.append(entry)
+
+    def register_entry_urn(self, dataplex_entry_name: str, datahub_urn: str) -> None:
+        """Thread-safe registration of the entry-name -> DataHub entity urn mapping."""
+        with self._entry_data_lock:
+            self.entry_name_to_urn[dataplex_entry_name] = datahub_urn
