@@ -341,6 +341,8 @@ def test_grep_documents_context_chars(mock_client):
     assert excerpt.startswith("...")
     assert excerpt.endswith("...")
     assert "MATCH" in excerpt
+    assert result["results"][0]["content_length"] == len(text)
+    assert result["results"][0]["is_truncated"] is True
 
 
 def test_grep_documents_empty_urns(mock_client):
@@ -540,17 +542,19 @@ def test_grep_documents_start_offset_includes_content_length(mock_client):
 
     # Should include content_length for pagination awareness
     assert result["results"][0]["content_length"] == len(text)
+    assert result["results"][0]["is_truncated"] is True
 
 
-def test_grep_documents_start_offset_zero_no_content_length(mock_client):
-    """Test that content_length is NOT included when start_offset=0."""
+def test_grep_documents_start_offset_zero_reports_completeness(mock_client):
+    """Test that first-page callers can distinguish complete and partial excerpts."""
+    text = "Some MATCH text"
     mock_client._graph.execute_graphql.return_value = {
         "entities": [
             {
                 "urn": "urn:li:document:doc1",
                 "info": {
                     "title": "Test Doc",
-                    "contents": {"text": "Some MATCH text"},
+                    "contents": {"text": text},
                 },
             }
         ]
@@ -563,8 +567,8 @@ def test_grep_documents_start_offset_zero_no_content_length(mock_client):
             start_offset=0,
         )
 
-    # Should NOT include content_length when not using offset
-    assert "content_length" not in result["results"][0]
+    assert result["results"][0]["content_length"] == len(text)
+    assert result["results"][0]["is_truncated"] is False
 
 
 def test_grep_documents_start_offset_beyond_document_length(mock_client):
