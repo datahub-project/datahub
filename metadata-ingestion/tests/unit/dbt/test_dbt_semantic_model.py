@@ -24,6 +24,9 @@ from datahub.metadata.schema_classes import (
     MetricRelationshipsClass,
     MetricUpstreamsClass,
     NumberTypeClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
     SchemaMetadataClass,
     SemanticFieldAnnotationClass,
     SemanticFieldTypeClass,
@@ -120,6 +123,7 @@ def _emit(
     nodes: List[DBTNode],
     metrics: Optional[List[DBTMetric]] = None,
     extra_nodes: Optional[List[DBTNode]] = None,
+    owners_by_dbt_name: Optional[Dict[str, List[OwnerClass]]] = None,
 ) -> List[MetadataWorkUnit]:
     all_nodes_map = {node.dbt_name: node for node in nodes}
     for node in extra_nodes or []:
@@ -129,6 +133,7 @@ def _emit(
             semantic_model_nodes=nodes,
             metric_definitions=metrics or [],
             all_nodes_map=all_nodes_map,
+            owners_by_dbt_name=owners_by_dbt_name,
         )
     )
 
@@ -1780,3 +1785,35 @@ def test_a_non_string_agg_does_not_abort_emission():
 
     assert _annotations(workunits)["total"].aggregationFunction is None
     assert _one(workunits, MetricInfoClass).expression is None
+
+
+def test_semantic_model_dataset_carries_the_resolved_owners():
+    """A dbt semantic model declares `config.meta.owner`, and the legacy
+    dataset path emits it -- so flipping the flag must not drop ownership."""
+    owners = [
+        OwnerClass(
+            owner="urn:li:corpuser:alice", type=OwnershipTypeClass.TECHNICAL_OWNER
+        )
+    ]
+    node = _sm_node("orders", _ORDERS)
+    workunits = _emit(_mapper(), [node], owners_by_dbt_name={node.dbt_name: owners})
+
+    urn, aspect = _aspects(workunits, OwnershipClass)[0]
+    assert urn.endswith(f"{_PROJECT}.semantic_layer.orders,PROD)")
+    assert [o.owner for o in aspect.owners] == ["urn:li:corpuser:alice"]
+
+
+def test_owners_do_not_land_on_the_shared_project_semantic_model():
+    """It is shared by every model in the project, so one model's owners
+    would misattribute the others'."""
+    node = _sm_node("orders", _ORDERS)
+    owners = [
+        OwnerClass(
+            owner="urn:li:corpuser:alice", type=OwnershipTypeClass.TECHNICAL_OWNER
+        )
+    ]
+    workunits = _emit(_mapper(), [node], owners_by_dbt_name={node.dbt_name: owners})
+
+    assert not any(
+        "semanticModel" in urn for urn, _ in _aspects(workunits, OwnershipClass)
+    )

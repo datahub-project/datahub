@@ -2574,8 +2574,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 message="These options are set but are not applied to "
                 "semanticModel, Semantic Model Dataset or metric entities. "
                 "Semantic-model datasets carry coarse upstream lineage to the "
-                "dbt nodes they are built on; no siblings, no column-level "
-                "lineage and no meta-derived tags, terms or owners.",
+                "dbt nodes they are built on, plus the semantic model's own "
+                "tags and owner; no siblings, no column-level lineage and no "
+                "meta_mapping-derived tags, terms or owners.",
                 context=", ".join(unsupported),
             )
         logger.info(
@@ -2608,7 +2609,31 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             semantic_model_nodes=semantic_model_nodes,
             metric_definitions=metric_definitions,
             all_nodes_map=all_nodes_map,
+            owners_by_dbt_name=self._semantic_model_owners(semantic_model_nodes),
         )
+
+    def _semantic_model_owners(
+        self, semantic_model_nodes: List[DBTNode]
+    ) -> Dict[str, List[OwnerClass]]:
+        """Owners per semantic model, resolved as for every other dbt asset.
+
+        A dbt semantic model declares its owner under `config.meta.owner`, and
+        the legacy dataset path emits it -- so the first-class path has to as
+        well, or flipping the flag drops ownership.
+
+        `meta_owner_aspects` is deliberately None: meta_mapping is not applied
+        in semantic-model mode (the one-shot config warning says so), which
+        leaves `_aggregate_owners` on its `node.owner` branch. That still
+        honours owner_extraction_pattern and strip_user_ids_from_email.
+        """
+        if not self.config.enable_owner_extraction:
+            return {}
+        owners: Dict[str, List[OwnerClass]] = {}
+        for node in semantic_model_nodes:
+            resolved = self._aggregate_owners(node, None)
+            if resolved:
+                owners[node.dbt_name] = resolved
+        return owners
 
     def _is_allowed_node(self, node: DBTNode) -> bool:
         """

@@ -24,7 +24,7 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
     DBTCloudEnvironment,
     DBTCloudJob,
 )
-from datahub.metadata.schema_classes import GlobalTagsClass
+from datahub.metadata.schema_classes import GlobalTagsClass, OwnershipClass
 
 
 @pytest.fixture
@@ -879,7 +879,7 @@ def mock_graphql_response_with_joined_semantic_models() -> Dict[str, Any]:
                     "packageName": "test_project",
                     "database": "db",
                     "schema": "sc",
-                    "meta": {},
+                    "meta": {"owner": "alice@example.com"},
                     "tags": ["daily"],
                     "dependsOn": [],
                     "entities": [
@@ -1051,6 +1051,40 @@ class TestDbtCloudSemanticModelEntities:
 
         # Prefixed with the configured tag_prefix, exactly as the legacy path did.
         assert [t.tag for t in tagged[orders].tags] == ["urn:li:tag:dbt:daily"]
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_semantic_model_dataset_keeps_the_meta_owner(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+        mock_graphql_response_with_joined_semantic_models: Dict[str, Any],
+    ) -> None:
+        """dbt Cloud reads owner from meta.owner just as dbt Core does."""
+        source = self._source(
+            mock_get_envs,
+            mock_get_jobs,
+            mock_graphql,
+            mock_graphql_response_with_joined_semantic_models,
+            emit_semantic_model_entities=True,
+        )
+
+        orders = (
+            "urn:li:dataset:"
+            "(urn:li:dataPlatform:dbt,test_project.semantic_layer.orders,PROD)"
+        )
+        owned: Dict[str, OwnershipClass] = {}
+        for wu in source.get_workunits():
+            aspect = getattr(wu.metadata, "aspect", None)
+            urn = getattr(wu.metadata, "entityUrn", None)
+            if isinstance(aspect, OwnershipClass) and isinstance(urn, str):
+                owned[urn] = aspect
+
+        assert [o.owner for o in owned[orders].owners] == [
+            "urn:li:corpuser:alice@example.com"
+        ]
 
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")

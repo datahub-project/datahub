@@ -3663,7 +3663,10 @@ def test_extract_semantic_models_basic():
                 {"name": "revenue", "agg": "sum", "description": "Total revenue"}
             ],
             "tags": ["metrics", "orders"],
-            "meta": {"team": "analytics"},
+            "config": {
+                "enabled": True,
+                "meta": {"team": "analytics", "owner": "@data-team"},
+            },
             "original_file_path": "models/semantic_models/order_metrics.yml",
         }
     }
@@ -3705,6 +3708,10 @@ def test_extract_semantic_models_basic():
     # Check tags have prefix
     assert "dbt:metrics" in node.tags
     assert "dbt:orders" in node.tags
+
+    # Check meta is read from config.meta
+    assert node.meta == {"team": "analytics", "owner": "@data-team"}
+    assert node.owner == "@data-team"
 
     # The typed definition is retained alongside the flattened columns; the
     # first-class semanticModel path reads it instead of the columns.
@@ -3770,6 +3777,57 @@ def test_parse_semantic_model_definition_tolerates_missing_and_empty_sections():
     assert not definition.dimensions[0].is_time
     assert not definition.has_no_fields()
     assert parse_semantic_model({}).definition.has_no_fields()
+
+
+def test_extract_semantic_models_config_meta():
+    """Test that meta is read from config.meta (not top-level) matching real dbt manifests."""
+    manifest_semantic_models: Dict[str, Any] = {
+        "semantic_model.my_project.revenue_metrics": {
+            "name": "revenue_metrics",
+            "description": "Revenue metrics",
+            "node_relation": {
+                "database": "analytics",
+                "schema": "public",
+                "alias": "revenue_metrics",
+            },
+            "depends_on": {"nodes": ["model.my_project.fct_revenue"]},
+            "entities": [
+                {"name": "order_id", "type": "primary", "description": "Primary key"}
+            ],
+            "dimensions": [],
+            "measures": [
+                {"name": "total_revenue", "agg": "sum", "description": "Total revenue"}
+            ],
+            "config": {
+                "enabled": True,
+                "meta": {"team": "analytics", "owner": "@alice"},
+            },
+            "original_file_path": "models/semantic_models/revenue_metrics.yml",
+            "package_name": "my_project",
+        }
+    }
+
+    manifest_nodes: Dict[str, Any] = {
+        "model.my_project.fct_revenue": {
+            "database": "analytics",
+            "schema": "public",
+            "name": "fct_revenue",
+        }
+    }
+
+    nodes = extract_semantic_models(
+        manifest_semantic_models=manifest_semantic_models,
+        manifest_nodes=manifest_nodes,
+        manifest_adapter="snowflake",
+        tag_prefix="dbt:",
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+
+    assert node.meta == {"team": "analytics", "owner": "@alice"}
+    assert node.owner == "@alice"
+    assert node.tags == []
 
 
 def test_extract_semantic_models_fallback_to_depends_on():
@@ -4924,3 +4982,62 @@ def test_two_top_level_metrics_sharing_a_name_emit_one_metric():
     assert mapper.report.num_metrics_from_manifest == 1
     assert mapper.report.num_metrics_from_measures == 0
     assert mapper.report.num_metrics_emitted == 1
+
+
+def test_config_meta_owner_reaches_the_semantic_model_dataset(
+    tmp_path: pathlib.Path,
+) -> None:
+    """End to end: config.meta.owner -> DBTNode.owner -> the new dataset.
+
+    The manifest-reading half and the emission half landed separately, so this
+    is the only test that proves they meet.
+    """
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "metadata": {
+                    "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json",
+                    "project_name": "p",
+                    "adapter_type": "postgres",
+                },
+                "nodes": {},
+                "sources": {},
+                "exposures": {},
+                "metrics": {},
+                "semantic_models": {
+                    "semantic_model.p.orders": {
+                        "name": "orders",
+                        "node_relation": {"database": "d", "schema": "s"},
+                        "entities": [{"name": "order_id", "type": "primary"}],
+                        "measures": [{"name": "total", "agg": "sum"}],
+                        "config": {"meta": {"owner": "alice@example.com"}},
+                    }
+                },
+            }
+        )
+    )
+    catalog = tmp_path / "catalog.json"
+    catalog.write_text(json.dumps({"nodes": {}, "sources": {}}))
+    source = _semantic_model_source(
+        manifest_path=str(manifest),
+        catalog_path=str(catalog),
+        sources_path=None,
+        emit_semantic_model_entities=True,
+        strip_user_ids_from_email=True,
+        write_semantics="OVERRIDE",
+    )
+
+    ownership: Dict[str, OwnershipClass] = {}
+    for wu in source.get_workunits():
+        aspect = getattr(wu.metadata, "aspect", None)
+        urn = getattr(wu.metadata, "entityUrn", None)
+        if isinstance(aspect, OwnershipClass) and isinstance(urn, str):
+            ownership[urn] = aspect
+
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,p.semantic_layer.orders,PROD)"
+    )
+    assert dataset_urn in ownership
+    # strip_user_ids_from_email applies, as it does for every other dbt asset.
+    assert [o.owner for o in ownership[dataset_urn].owners] == ["urn:li:corpuser:alice"]

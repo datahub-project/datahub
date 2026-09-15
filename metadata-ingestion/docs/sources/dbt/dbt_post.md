@@ -687,9 +687,13 @@ tags, terms, documentation — is not carried across automatically.
   `Cumulative`, `Derived`, `Conversion`), so the kinds are distinguishable in search and filters even
   though a cumulative metric's expression is the same aggregation as its simple counterpart's.
   Metric filters _are_ represented — see [Metric expressions](#metric-expressions).
-- **Tags and `meta` on a dbt Core semantic model.** Manifest schema v11 gives a semantic model no
-  `tags` field and puts `meta` under `config`, so neither is available from a manifest. On dbt Cloud
-  the Discovery API does return `tags`, and those are emitted on the Semantic Model Dataset.
+- **Tags on a dbt Core semantic model.** Manifest schema v11 gives a semantic model no `tags`
+  field, so there are none to read from a manifest. On dbt Cloud the Discovery API does return
+  `tags`, and those are emitted on the Semantic Model Dataset. The semantic model's owner is read
+  from its `meta.owner` — nested under `config` in a dbt Core manifest, returned flat by the dbt
+  Cloud Discovery API — and emitted as ownership on the Semantic Model Dataset,
+  honouring `owner_extraction_pattern` and `strip_user_ids_from_email` like every other dbt asset.
+  Owners are not put on the project-level Semantic Model, which every semantic model shares.
 - **`saved_queries` and `groups`.** Neither is ingested. A dbt saved query is a named
   metric-plus-group-by export definition and a dbt group is an ownership grouping; neither is a
   semantic model or a metric, so both are out of scope for this feature rather than missing from it.

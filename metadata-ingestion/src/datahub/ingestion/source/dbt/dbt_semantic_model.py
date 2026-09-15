@@ -28,6 +28,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DialectClass,
     ERModelRelationshipCardinalityClass,
+    OwnerClass,
     SemanticFieldTypeClass,
     SubTypesClass,
 )
@@ -209,8 +210,11 @@ class DbtSemanticModelMapper:
         semantic_model_nodes: List[DBTNode],
         metric_definitions: List[DBTMetric],
         all_nodes_map: Dict[str, DBTNode],
+        owners_by_dbt_name: Optional[Dict[str, List[OwnerClass]]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        models = self._prepare(semantic_model_nodes, all_nodes_map)
+        models = self._prepare(
+            semantic_model_nodes, all_nodes_map, owners_by_dbt_name or {}
+        )
         if not models:
             if semantic_model_nodes or metric_definitions:
                 self.report.warning(
@@ -347,7 +351,10 @@ class DbtSemanticModelMapper:
         return [BrowsePathsV2Class(path=entries)]
 
     def _prepare(
-        self, semantic_model_nodes: List[DBTNode], all_nodes_map: Dict[str, DBTNode]
+        self,
+        semantic_model_nodes: List[DBTNode],
+        all_nodes_map: Dict[str, DBTNode],
+        owners_by_dbt_name: Dict[str, List[OwnerClass]],
     ) -> List[_PreparedModel]:
         """Resolve each semantic model into everything downstream steps need.
 
@@ -393,6 +400,10 @@ class DbtSemanticModelMapper:
                         env=self.config.env,
                         description=node.description or None,
                         tags=[make_tag_urn(tag) for tag in node.tags] or None,
+                        # Only the dataset, not the project-level semanticModel:
+                        # that one is shared by every semantic model, so one
+                        # model's owners do not belong on it.
+                        owners=owners_by_dbt_name.get(node.dbt_name) or None,
                         upstreams=self._upstreams(node, all_nodes_map) or None,
                         extra_aspects=self._common_aspects(),
                     ),
