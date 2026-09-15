@@ -1627,6 +1627,65 @@ public class UpdateIndicesV2StrategyTest {
   }
 
   @Test
+  public void testResolvedTextSha256_BlankOverrideFallsBackToFetchedBody() {
+    // A whitespace-only override is truthy here and in the embedding pipeline's resolver. Stamping
+    // it would agree with an embedding the pipeline no longer builds from it.
+    com.linkedin.metadata.aspect.AspectRetriever retriever =
+        mock(com.linkedin.metadata.aspect.AspectRetriever.class);
+    when(retriever.getLatestAspectObject(
+            any(OperationContext.class), any(Urn.class), eq(Constants.DOCUMENT_INFO_ASPECT_NAME)))
+        .thenReturn(aspectOf(Map.of("contents", new DataMap(Map.of("text", "the body")))));
+    OperationContext ctx = contextWithRetriever(retriever);
+
+    ObjectNode doc = objectNode();
+    doc.put("semanticText", "   \n  ");
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.SEMANTIC_TEXT_ASPECT_NAME, doc);
+
+    org.testng.Assert.assertEquals(
+        doc.get("resolvedTextSha256").asText(), UpdateIndicesV2Strategy.sha256Hex("the body"));
+  }
+
+  @Test
+  public void testResolvedTextSha256_BlankOverrideAndBlankBodyStampEmpty() {
+    // The pipeline resolves "" here and skips the document. Stamping a hash of the whitespace
+    // body instead would make coverage compare two different digests for the same document.
+    com.linkedin.metadata.aspect.AspectRetriever retriever =
+        mock(com.linkedin.metadata.aspect.AspectRetriever.class);
+    OperationContext ctx = contextWithRetriever(retriever);
+
+    ObjectNode doc = objectNode();
+    doc.put("semanticText", "  ");
+    doc.put("text", "   ");
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.SEMANTIC_TEXT_ASPECT_NAME, doc);
+
+    org.testng.Assert.assertEquals(
+        doc.get("resolvedTextSha256").asText(), UpdateIndicesV2Strategy.sha256Hex(""));
+  }
+
+  @Test
+  public void testResolvedTextSha256_NonBreakingSpaceOverrideCountsAsBlank() {
+    // Python's str.strip() treats a non-breaking space as whitespace and Character.isWhitespace
+    // does not, so a plain isBlank() here would hash the override while the pipeline fell back to
+    // the body -- two different digests for the same document.
+    com.linkedin.metadata.aspect.AspectRetriever retriever =
+        mock(com.linkedin.metadata.aspect.AspectRetriever.class);
+    when(retriever.getLatestAspectObject(
+            any(OperationContext.class), any(Urn.class), eq(Constants.DOCUMENT_INFO_ASPECT_NAME)))
+        .thenReturn(aspectOf(Map.of("contents", new DataMap(Map.of("text", "the body")))));
+    OperationContext ctx = contextWithRetriever(retriever);
+
+    ObjectNode doc = objectNode();
+    doc.put("semanticText", "\u00a0\u2007");
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.SEMANTIC_TEXT_ASPECT_NAME, doc);
+
+    org.testng.Assert.assertEquals(
+        doc.get("resolvedTextSha256").asText(), UpdateIndicesV2Strategy.sha256Hex("the body"));
+  }
+
+  @Test
   public void testResolvedTextSha256_NonEmbedAspectUntouched() {
     com.linkedin.metadata.aspect.AspectRetriever retriever =
         mock(com.linkedin.metadata.aspect.AspectRetriever.class);

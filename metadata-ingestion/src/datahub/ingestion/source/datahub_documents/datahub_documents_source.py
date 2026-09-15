@@ -1419,8 +1419,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         this. Resolving here (rather than in the hash) means the content hash
         tracks the embedded value: editing `semanticText` re-embeds, and a change
         to `text` while `semanticText` is set does not.
+
+        A blank override counts as missing. `or` already handles `""`, but a
+        whitespace-only value is truthy, so it would win, and the callers'
+        `if not text` check does not catch it either. The document would then be
+        embedded as whitespace and could not be found, while a good body sat
+        unused in `text`. Only the emptiness check strips; the value itself is
+        returned as-is, so existing content hashes do not change.
         """
-        return contents.get("semanticText") or contents.get("text") or ""
+        semantic_text = contents.get("semanticText") or ""
+        if semantic_text.strip():
+            return semantic_text
+        text = contents.get("text") or ""
+        return text if text.strip() else ""
 
     def _calculate_text_hash(self, text: str) -> str:
         """Calculate hash of document content AND processing configuration.

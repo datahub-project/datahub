@@ -243,6 +243,27 @@ class TestDataHubDocumentsSource:
         # Empty-string semanticText is treated as absent (falls back to text).
         assert resolve({"text": "body", "semanticText": ""}) == "body"
 
+    def test_resolve_embed_text_treats_blank_override_as_absent(self):
+        """A whitespace-only override is truthy, so `or` alone would let it win and the
+        document would embed as whitespace -- unretrievable -- while a good body sat
+        unused in `text`."""
+        resolve = DataHubDocumentsSource._resolve_embed_text
+
+        assert resolve({"text": "body", "semanticText": "   \n  "}) == "body"
+        assert resolve({"text": "body", "semanticText": "\t"}) == "body"
+        # Nothing usable anywhere resolves to "" so the callers' guard skips it.
+        assert resolve({"text": "  ", "semanticText": "  "}) == ""
+        assert resolve({"text": "   "}) == ""
+
+    def test_resolve_embed_text_returns_value_verbatim(self):
+        """Only the emptiness test strips. Returning a stripped value would change the
+        content hash of every document with surrounding whitespace, and re-embedding is
+        gated on that hash."""
+        resolve = DataHubDocumentsSource._resolve_embed_text
+
+        assert resolve({"semanticText": "  summary  "}) == "  summary  "
+        assert resolve({"text": "  body  "}) == "  body  "
+
     def test_semantic_text_governs_reembed_hash(self, ctx, config):
         """The content hash tracks the embedded value: a change to `text` while
         `semanticText` is set must not change the hash (no needless re-embed)."""
