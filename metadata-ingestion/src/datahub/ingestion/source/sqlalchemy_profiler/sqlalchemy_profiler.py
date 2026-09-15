@@ -599,18 +599,19 @@ class SQLAlchemyProfiler:
                     # PERCENTILE_CONT) return [None, None, ...], which would
                     # otherwise leak through as `"quantiles": []` in the JSON
                     # output.
-                    quantiles_list = [
-                        QuantileClass(
-                            quantile=str(q),
-                            value=format_profile_value(v, col_type, as_stat=True),
+                    quantiles_list = []
+                    for q, v in zip(
+                        [0.05, 0.25, 0.5, 0.75, 0.95],
+                        quantiles,
+                        strict=False,
+                    ):
+                        if v is None:
+                            continue
+                        formatted = format_profile_value(v, col_type, as_stat=True)
+                        assert formatted is not None
+                        quantiles_list.append(
+                            QuantileClass(quantile=str(q), value=formatted)
                         )
-                        for q, v in zip(
-                            [0.05, 0.25, 0.5, 0.75, 0.95],
-                            quantiles,
-                            strict=False,
-                        )
-                        if v is not None
-                    ]
                     if quantiles_list:
                         column_profile.quantiles = quantiles_list
                 except Exception as e:
