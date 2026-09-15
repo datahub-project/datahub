@@ -397,6 +397,51 @@ class TestReconcileDataset:
             "urn:li:tag:pii"
         ]
 
+    def test_editable_unresolved_entry_survives_rewrite(self):
+        # A genuinely dropped/renamed column's editable entry can't resolve, but
+        # the aspect is still rewritten wholesale because "product2id" resolves.
+        # The unresolved entry must be carried over unchanged, not dropped.
+        graph = FakeGraph(
+            {
+                _DATASET: {
+                    "schemaMetadata": _schema("Product2Id"),
+                    "editableSchemaMetadata": EditableSchemaMetadataClass(
+                        editableSchemaFieldInfo=[
+                            EditableSchemaFieldInfoClass(
+                                fieldPath="product2id",
+                                description="the product id",
+                            ),
+                            EditableSchemaFieldInfoClass(
+                                fieldPath="legacy_discontinued_field",
+                                description="a note nobody should lose",
+                                globalTags=_tags("urn:li:tag:pii"),
+                            ),
+                        ]
+                    ),
+                },
+            }
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        assert any(
+            "legacy_discontinued_field" in s for s in result.skipped
+        )  # reported...
+        emitted = [a for (u, a) in graph.emitted if u == _DATASET]
+        assert len(emitted) == 1
+        by_path = {i.fieldPath: i for i in emitted[0].editableSchemaFieldInfo}
+        assert "legacy_discontinued_field" in by_path  # ...but NOT deleted
+        assert by_path["legacy_discontinued_field"].description == (
+            "a note nobody should lose"
+        )
+        assert [
+            t.tag for t in by_path["legacy_discontinued_field"].globalTags.tags
+        ] == ["urn:li:tag:pii"]
+
     def test_editable_merges_onto_existing_target(self):
         graph = FakeGraph(
             {
