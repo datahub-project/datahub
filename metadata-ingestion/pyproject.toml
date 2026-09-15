@@ -9,7 +9,7 @@
 
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=78.1.1", "wheel"]
+requires = ["setuptools>=83.0.0", "wheel"]
 
 [project]
 name = "acryl-datahub"

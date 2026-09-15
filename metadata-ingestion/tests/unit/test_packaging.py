@@ -81,7 +81,9 @@ def test_setuptools_not_capped_below_83(monkeypatch):
     pyproject = toml.load(_METADATA_INGESTION / "pyproject.toml")
     uv_constraints = pyproject["tool"]["uv"]["constraint-dependencies"]
     setuptools_reqs = [
-        r for r in (Requirement(c) for c in uv_constraints) if r.name == "setuptools"
+        r
+        for r in (Requirement(c) for c in uv_constraints)
+        if r.name.lower() == "setuptools"
     ]
     assert setuptools_reqs, (
         "pyproject [tool.uv] constraint-dependencies must floor setuptools>=83"
