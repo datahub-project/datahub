@@ -727,7 +727,7 @@ module.exports = {
       },
     },
     {
-      label: "Count Assets for Cloud Sizing",
+      label: "Counting Assets for DataHub Cloud Sizing",
       type: "doc",
       id: "docs/managed-datahub/count-assets-for-cloud-sizing",
     },

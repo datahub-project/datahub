@@ -15,7 +15,7 @@ Once you have your numbers, head over to [Upgrading from DataHub Core (OSS) to D
 
 ## What Gets Counted
 
-DataHub stores all of its metadata in a single table, `metadata_aspect_v2`. Every entity in your catalog has exactly one "key" aspect in that table, so counting those aspects gives you an exact count of your catalog.
+DataHub stores all of its metadata in a single table, `metadata_aspect_v2`. Every entity has exactly one "key" aspect in that table, so counting those aspects gives you an exact count of the entity types we use for Cloud sizing.
 
 The sizing count covers the following entity types:
 
@@ -33,13 +33,13 @@ The sizing count covers the following entity types:
 | ML Feature Table | `mlFeatureTableKey` |
 | ML Primary Key   | `mlPrimaryKeyKey`   |
 
-Users, groups, glossary terms, domains, tags, and schema fields are not included in the sizing count.
+Everything else is out of scope for this count, including users, groups, glossary terms, domains, tags, schema fields, data products, queries, metrics, applications, documents, and ML model deployments.
 
 ## Step 1: Find Your Database Connection Details
 
 Your GMS container already knows how to reach the database, so the quickest way to find your connection details is to ask it. This works the same way whether your database runs alongside DataHub or is a managed service.
 
-The commands below deliberately leave out `EBEAN_DATASOURCE_PASSWORD`, so nothing sensitive is printed to your terminal.
+The commands below print only the host, username, and driver. They leave out `EBEAN_DATASOURCE_PASSWORD` and `EBEAN_DATASOURCE_URL`, so credentials that might appear in a JDBC URL never hit your terminal.
 
 ### Docker
 
@@ -53,7 +53,7 @@ Then inspect its database settings:
 
 ```bash
 docker exec <GMS_CONTAINER> env \
-  | grep -E '^EBEAN_DATASOURCE_(HOST|URL|USERNAME|DRIVER)='
+  | grep -E '^EBEAN_DATASOURCE_(HOST|USERNAME|DRIVER)='
 ```
 
 ### Kubernetes
@@ -68,8 +68,7 @@ Then inspect its database settings:
 
 ```bash
 kubectl exec --namespace <NAMESPACE> deployment/<GMS_DEPLOYMENT> -- \
-  printenv EBEAN_DATASOURCE_HOST EBEAN_DATASOURCE_URL \
-  EBEAN_DATASOURCE_USERNAME EBEAN_DATASOURCE_DRIVER
+  env | grep -E '^EBEAN_DATASOURCE_(HOST|USERNAME|DRIVER)='
 ```
 
 ### Reading the Output
@@ -78,7 +77,6 @@ You'll get back something like this:
 
 ```text
 EBEAN_DATASOURCE_HOST=mysql:3306
-EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true
 EBEAN_DATASOURCE_USERNAME=datahub
 EBEAN_DATASOURCE_DRIVER=com.mysql.cj.jdbc.Driver
 ```
@@ -86,15 +84,15 @@ EBEAN_DATASOURCE_DRIVER=com.mysql.cj.jdbc.Driver
 From that you have everything you need:
 
 - **Host and port** come from `EBEAN_DATASOURCE_HOST`, in `hostname:port` form
-- **Database name** is the path in `EBEAN_DATASOURCE_URL`, before any `?`, and is usually `datahub`
 - **Username** comes from `EBEAN_DATASOURCE_USERNAME`
 - **Database type** is given away by `EBEAN_DATASOURCE_DRIVER`, which tells you whether you're on MySQL or PostgreSQL
+- **Database name** is almost always `datahub`. If yours is different, it will be in your deployment configuration.
 
 :::note Splitting the host value
 `EBEAN_DATASOURCE_HOST` combines the hostname and port, but the `mysql` and `psql` clients expect them separately. A value of `mysql:3306` becomes `-h mysql -P 3306`.
 :::
 
-For the password, use the credentials from your DataHub deployment configuration, or ask your database administrator. A read-only account is all you need.
+For the password, use the credentials from your DataHub deployment configuration, or ask your database administrator. A read-only account is all you need. In the commands below, `XXXX` is a placeholder: replace it with your password, or omit `-pXXXX` / `--password=XXXX` and let the client prompt you.
 
 ## Step 2: Connect to Your Database
 
@@ -105,7 +103,7 @@ Pick the option below that matches your deployment.
 If you're running the standard DataHub quickstart, which uses MySQL:
 
 ```bash
-docker exec -it mysql /usr/bin/mysql datahub --user=datahub --password=datahub
+docker exec -it mysql /usr/bin/mysql datahub --user=datahub --password=XXXX
 ```
 
 If your deployment uses PostgreSQL instead:
@@ -113,6 +111,8 @@ If your deployment uses PostgreSQL instead:
 ```bash
 docker exec -it <POSTGRES_CONTAINER> psql -U datahub -d datahub
 ```
+
+`psql` will prompt for a password if your PostgreSQL user requires one.
 
 If Docker Compose has given the container a prefixed or generated name, use the name shown by `docker ps`. For more on inspecting the quickstart database, see [How can I check if data has been loaded into MySQL properly?](../troubleshooting/quickstart.md#how-can-i-check-if-data-has-been-loaded-into-mysql-properly).
 
@@ -123,10 +123,10 @@ Use your usual SQL client, or launch a throwaway client container:
 ```bash
 # MySQL
 docker run --rm -it mysql:8 \
-  mysql -h <HOST> -P <PORT> -u <USERNAME> -p <DATABASE>
+  mysql -h <HOST> -P <PORT> -u <USERNAME> -pXXXX <DATABASE>
 
 # PostgreSQL
-docker run --rm -it postgres:16 \
+docker run --rm -it -e PGPASSWORD=XXXX postgres:16 \
   psql -h <HOST> -p <PORT> -U <USERNAME> -d <DATABASE>
 ```
 
@@ -145,7 +145,7 @@ Then open a client inside it:
 ```bash
 # MySQL
 kubectl exec -it --namespace <NAMESPACE> <MYSQL_POD> -- \
-  mysql -u <USERNAME> -p <DATABASE>
+  mysql -u <USERNAME> -pXXXX <DATABASE>
 
 # PostgreSQL
 kubectl exec -it --namespace <NAMESPACE> <POSTGRES_POD> -- \
@@ -160,11 +160,11 @@ Run a temporary client pod inside the cluster. This is the easiest option when y
 # MySQL
 kubectl run datahub-count --rm -it --restart=Never \
   --namespace <NAMESPACE> --image=mysql:8 -- \
-  mysql -h <HOST> -P <PORT> -u <USERNAME> -p <DATABASE>
+  mysql -h <HOST> -P <PORT> -u <USERNAME> -pXXXX <DATABASE>
 
 # PostgreSQL
 kubectl run datahub-count --rm -it --restart=Never \
-  --namespace <NAMESPACE> --image=postgres:16 -- \
+  --namespace <NAMESPACE> --image=postgres:16 --env=PGPASSWORD=XXXX -- \
   psql -h <HOST> -p <PORT> -U <USERNAME> -d <DATABASE>
 ```
 
