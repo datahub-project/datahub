@@ -84,6 +84,216 @@ FROM mytable
     )
 
 
+def test_mysql_mixed_case_table_and_column_lineage() -> None:
+    # MySQL preserves the casing of identifiers, so a table created as
+    # `MixedCaseTable` is ingested into DataHub under that exact URN. Lineage has
+    # to resolve to that real casing: if parsing folds table names to lowercase
+    # first, every candidate URN that SchemaResolver tries is lowercase, so the
+    # upstream dataset and schemaField URNs end up pointing at entities that do
+    # not exist and the lineage edge is silently dropped by GMS.
+    # Column names are matched case-insensitively (MySQL columns always are) and
+    # mapped back to the casing recorded in the schema.
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_schema.MixedCaseTable,PROD)"
+    )
+    schema_resolver = SchemaResolver(platform="mysql", env="PROD")
+    schema_resolver.add_raw_schema_info(
+        table_urn, {"MyValueCol": "NUMBER", "OtherCol": "NUMBER"}
+    )
+
+    result = sqlglot_lineage(
+        "SELECT t.MyValueCol, t.otherCOL FROM my_schema.MixedCaseTable AS t",
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.debug_info.table_error is None
+    assert result.in_tables == [table_urn]
+    assert result.debug_info.table_schemas_resolved == 1
+    assert result.column_lineage is not None
+    assert [
+        (col.downstream.column, [upstream.column for upstream in col.upstreams])
+        for col in result.column_lineage
+    ] == [("myvaluecol", ["MyValueCol"]), ("othercol", ["OtherCol"])]
+
+
+def test_mysql_transform_operation_matches_the_column_urns() -> None:
+    # Column references are folded in place before lineage is computed, so the
+    # rendered transformOperation used to name the upstream column in its folded
+    # spelling while the schemaField URNs on the same edge carried the schema's real
+    # spelling. An edge must not describe itself with a column name that differs
+    # from the URN beside it, so assert the two agree rather than leaving it to a
+    # golden that states the rendered text without tying it to the URNs.
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_schema.MixedCaseTable,PROD)"
+    )
+    schema_resolver = SchemaResolver(platform="mysql", env="PROD")
+    schema_resolver.add_raw_schema_info(table_urn, {"MyValueCol": "NUMBER"})
+
+    result = sqlglot_lineage(
+        "SELECT t.myvaluecol FROM my_schema.MixedCaseTable AS t",
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.column_lineage is not None
+    [column] = result.column_lineage
+    [upstream] = column.upstreams
+    assert upstream.column == "MyValueCol"
+    assert column.logic is not None
+    # Tied to the resolved names rather than spelled out, since the invariant is that
+    # the description and the URNs on the edge agree. The upstream reference takes the
+    # schema's spelling; the output alias keeps the query's, which is what the
+    # downstream column is actually called here.
+    assert (
+        column.logic.column_logic
+        == f"`t`.`{upstream.column}` AS `{column.downstream.column}`"
+    )
+    assert column.downstream.column == "myvaluecol"
+
+
+def test_mysql_transform_operation_does_not_borrow_another_tables_casing() -> None:
+    # The restore takes its spellings from the edge's own resolved upstreams. Built
+    # from every schema in the statement instead, a column belonging to a table with
+    # no schema would be handed the casing of a same-named column from a table that
+    # has one - so the description would contradict the URN on its own edge, which is
+    # the exact thing the restore exists to prevent.
+    known = "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_schema.Known,PROD)"
+    schema_resolver = SchemaResolver(platform="mysql", env="PROD")
+    schema_resolver.add_raw_schema_info(known, {"MyCol": "NUMBER"})
+
+    result = sqlglot_lineage(
+        "SELECT k.mycol AS a, u.mycol AS b "
+        "FROM my_schema.Known k JOIN my_schema.Unknown u ON k.mycol = u.mycol",
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.column_lineage is not None
+    for column in result.column_lineage:
+        assert column.logic is not None
+        for upstream in column.upstreams:
+            # Whatever spelling the URN reports is the spelling the description uses.
+            assert f"`{upstream.column}`" in column.logic.column_logic
+
+    by_downstream = {
+        column.downstream.column: column for column in result.column_lineage
+    }
+    assert [u.column for u in by_downstream["a"].upstreams] == ["MyCol"]
+    # Unknown has no schema, so its column keeps the as-written spelling.
+    assert [u.column for u in by_downstream["b"].upstreams] == ["mycol"]
+
+
+def test_mysql_view_quoted_columns_keep_schema_casing() -> None:
+    # MySQL's SHOW CREATE VIEW output backtick-quotes every identifier, which is
+    # what the MySQL source feeds into view lineage. Both sides of the column
+    # lineage have to come back with the casing recorded in the schema, so that
+    # the schemaField URNs match the ones the source emits for the view.
+    base_urn = "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)"
+    view_urn = "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_view,PROD)"
+    schema_resolver = SchemaResolver(platform="mysql", env="PROD")
+    for urn in (base_urn, view_urn):
+        schema_resolver.add_raw_schema_info(urn, {"id": "INT", "doubleVal": "DOUBLE"})
+
+    result = sqlglot_lineage(
+        "CREATE VIEW `my_view` AS "
+        "select `my_table`.`id` AS `id`,`my_table`.`doubleVal` AS `doubleVal` "
+        "from `my_table`",
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.in_tables == [base_urn]
+    assert result.out_tables == [view_urn]
+    assert result.column_lineage is not None
+    assert [
+        (col.downstream.column, [upstream.column for upstream in col.upstreams])
+        for col in result.column_lineage
+    ] == [("id", ["id"]), ("doubleVal", ["doubleVal"])]
+
+
+def test_mysql_mixed_case_query_resolves_lowercase_dataset() -> None:
+    # Backwards compatibility: MySQL installs with lower_case_table_names=1, and any
+    # source run with convert_urns_to_lowercase, hold lowercase URNs while queries may
+    # still be written in mixed case. That must keep resolving.
+    #
+    # Two things make it work and neither was asserted anywhere: SchemaResolver tries
+    # a lowercased URN candidate, and `mysql` is deliberately absent from
+    # PLATFORMS_WITH_CASE_SENSITIVE_TABLES so a full miss also falls back to lowercase.
+    # Adding mysql to that set would silently break every such deployment.
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_schema.mixedcasetable,PROD)"
+    )
+    schema_resolver = SchemaResolver(platform="mysql", env="PROD")
+    schema_resolver.add_raw_schema_info(table_urn, {"myvaluecol": "NUMBER"})
+
+    result = sqlglot_lineage(
+        "SELECT t.MyValueCol FROM my_schema.MixedCaseTable AS t",
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.in_tables == [table_urn]
+    assert result.debug_info.table_schemas_resolved == 1
+    assert result.column_lineage is not None
+    assert [
+        (col.downstream.column, [upstream.column for upstream in col.upstreams])
+        for col in result.column_lineage
+    ] == [("myvaluecol", ["myvaluecol"])]
+
+
+def test_mysql_output_alias_casing_preserved_without_downstream_schema() -> None:
+    # MySQL deviates from the other case-insensitive dialects on the fallback used
+    # when no schema is available to recover a column's real casing. Their sources
+    # lowercase column names, so lowercase is the right guess for them; MySQL's
+    # source reports the casing the catalog holds, so a lowercased guess would emit
+    # a schemaField URN that does not exist. The spelling written in the query is
+    # the better guess - a quoted alias is the author stating the exact casing.
+    #
+    # Asserts both halves so the deviation stays deliberate: resolved from the
+    # schema when it is available, as-written when it is not.
+    base_urn = "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)"
+    view_urn = "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.MyView,PROD)"
+    sql = "CREATE VIEW MyView AS SELECT id AS `MyAlias` FROM my_table"
+
+    def downstream_columns(*, register_view_schema: bool) -> list:
+        schema_resolver = SchemaResolver(platform="mysql", env="PROD")
+        schema_resolver.add_raw_schema_info(base_urn, {"id": "INT"})
+        if register_view_schema:
+            schema_resolver.add_raw_schema_info(view_urn, {"MyAlias": "INT"})
+        result = sqlglot_lineage(
+            sql, schema_resolver=schema_resolver, default_db="my_db"
+        )
+        assert result.column_lineage is not None
+        return [col.downstream.column for col in result.column_lineage]
+
+    assert downstream_columns(register_view_schema=False) == ["MyAlias"]
+    assert downstream_columns(register_view_schema=True) == ["MyAlias"]
+
+
+def test_mysql_select_star_qualified_by_alias() -> None:
+    # `t.*` parses to Column(this=Star()), whose .name is "". The column normalizer
+    # must leave such nodes alone; folding them would blank the node.
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_schema.MixedCaseTable,PROD)"
+    )
+    schema_resolver = SchemaResolver(platform="mysql", env="PROD")
+    schema_resolver.add_raw_schema_info(table_urn, {"MyValueCol": "NUMBER"})
+
+    result = sqlglot_lineage(
+        "SELECT t.* FROM my_schema.MixedCaseTable AS t",
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.in_tables == [table_urn]
+    assert result.column_lineage is not None
+    assert [
+        (col.downstream.column, [upstream.column for upstream in col.upstreams])
+        for col in result.column_lineage
+    ] == [("myvaluecol", ["MyValueCol"])]
+
+
 def test_select_count() -> None:
     assert_sql_result(
         """
