@@ -164,6 +164,11 @@ ext {
             'quickstartOS3': [
                     profile: 'quickstart-opensearch3',
                     modules: backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    // Image-based CI stack still needs /openapi/operations/dev/featureFlags
+                    // (smoke-test/tests/dev_tooling). Compose defaults DEV_TOOLING_ENABLED to false.
+                    additionalEnv: [
+                            DEV_TOOLING_ENABLED: 'true',
+                    ],
             ],
             'quickstartOS3Debug': [
                     profile: 'debug-opensearch3',
@@ -474,7 +479,11 @@ dockerCompose {
             environment.put 'DATAHUB_APP_VERSION', System.getenv("DATAHUB_APP_VERSION") ?: "v${version}"
             environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
             environment.put "METADATA_TESTS_ENABLED", "true"
-            environment.put "DEV_TOOLING_ENABLED", "true"
+            // Debug bind-mount stacks only. Image quickstarts keep compose's default
+            // (false) unless a task sets DEV_TOOLING_ENABLED via additionalEnv (e.g. CI OS3).
+            if (config.isDebug) {
+                environment.put "DEV_TOOLING_ENABLED", "true"
+            }
             environment.put "DATAHUB_REPO", "${docker_registry}"
             environment.put "DATAHUB_SYSTEM_CLIENT_SECRET", System.getenv("DATAHUB_SYSTEM_CLIENT_SECRET") ?: "JohnSnowKnowsNothing"
             resolveTokenServiceSecrets.call().each { key, value -> environment.put key, value }
@@ -952,7 +961,9 @@ tasks.register("reloadEnv", Exec) {
         environment.put 'DATAHUB_APP_VERSION', System.getenv("DATAHUB_APP_VERSION") ?: "v${version}"
         environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
         environment.put "METADATA_TESTS_ENABLED", "true"
-        environment.put "DEV_TOOLING_ENABLED", "true"
+        if (matchingConfig.isDebug) {
+            environment.put "DEV_TOOLING_ENABLED", "true"
+        }
         environment.put "DATAHUB_REPO", "${docker_registry}"
         environment.put "DATAHUB_SYSTEM_CLIENT_SECRET", System.getenv("DATAHUB_SYSTEM_CLIENT_SECRET") ?: "JohnSnowKnowsNothing"
         resolveTokenServiceSecrets.call().each { key, value -> environment.put key, value }
