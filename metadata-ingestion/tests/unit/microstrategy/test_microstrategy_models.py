@@ -606,3 +606,71 @@ def test_personal_folder_object_by_name_fallback_is_case_insensitive() -> None:
         _personal_report({"id": "p", "name": "Profiles"}),
         PersonalFolderResolution.empty(),
     )
+
+
+def test_dashboard_definition_annotates_chapter_and_page_names_and_positions() -> None:
+    def page(key: str, name: str, viz_key: str) -> Dict[str, Any]:
+        return {
+            "key": key,
+            "name": name,
+            "visualizations": [{"key": viz_key, "name": f"Viz {viz_key}"}],
+        }
+
+    definition = DashboardDefinition.from_api_response(
+        object_id="dash-1",
+        object_name="Executive Sales",
+        response={
+            "chapters": [
+                {
+                    "key": "ch-1",
+                    "name": "Overview",
+                    "pages": [
+                        page("pg-1", "Summary", "viz-a"),
+                        page("pg-2", "Trend", "viz-b"),
+                    ],
+                },
+                {
+                    "key": "ch-2",
+                    "name": "Detail",
+                    "pages": [
+                        page("pg-3", "By Region", "viz-c"),
+                        page("pg-4", "By Store", "viz-d"),
+                    ],
+                },
+            ]
+        },
+    )
+
+    placements = {
+        visualization.key: (
+            visualization.chapter_name,
+            visualization.chapter_key,
+            visualization.chapter_index,
+            visualization.page_name,
+            visualization.page_key,
+            visualization.page_index,
+        )
+        for visualization in definition.visualizations
+    }
+
+    assert placements == {
+        "viz-a": ("Overview", "ch-1", 1, "Summary", "pg-1", 1),
+        "viz-b": ("Overview", "ch-1", 1, "Trend", "pg-2", 2),
+        "viz-c": ("Detail", "ch-2", 2, "By Region", "pg-3", 1),
+        "viz-d": ("Detail", "ch-2", 2, "By Store", "pg-4", 2),
+    }
+
+
+def test_visualization_outside_any_page_has_no_placement() -> None:
+    definition = DashboardDefinition.from_api_response(
+        object_id="dash-1",
+        object_name="Executive Sales",
+        response={"visualizations": [{"key": "viz-1", "name": "Loose"}]},
+    )
+
+    visualization = definition.visualizations[0]
+
+    assert visualization.chapter_name is None
+    assert visualization.chapter_index is None
+    assert visualization.page_name is None
+    assert visualization.page_index is None

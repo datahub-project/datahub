@@ -486,8 +486,13 @@ class Visualization(MicroStrategyBaseModel):
     name: str
     type: Optional[str] = None
     chapter_key: Optional[str] = Field(default=None, alias="chapterKey")
+    chapter_name: Optional[str] = Field(default=None, alias="chapterName")
+    # 1-based position of the chapter in the dossier and of the page within
+    # its chapter, so charts can be ordered the way the dossier reads.
+    chapter_index: Optional[int] = Field(default=None, alias="chapterIndex")
     page_key: Optional[str] = Field(default=None, alias="pageKey")
     page_name: Optional[str] = Field(default=None, alias="pageName")
+    page_index: Optional[int] = Field(default=None, alias="pageIndex")
     datasets: List[str] = Field(default_factory=list)
     object_ids: List[str] = Field(default_factory=list)
     column_sets: List[ColumnSet] = Field(default_factory=list)
@@ -814,6 +819,44 @@ def _extract_datasource_reference(
     return None
 
 
+def _page_visualizations(chapters: List[object]) -> List[MicroStrategyDict]:
+    """Visualizations placed on dossier pages, each annotated with the chapter
+    and page it sits on: definition key, name and 1-based position."""
+    found: List[MicroStrategyDict] = []
+    for chapter_index, chapter in enumerate(chapters, start=1):
+        if not isinstance(chapter, dict):
+            continue
+        chapter_key = _first_str(chapter, MSTR_KEYS_KEY_ID)
+        chapter_name = _first_str(chapter, MSTR_KEYS_NAME)
+        pages = chapter.get("pages")
+        if not isinstance(pages, list):
+            continue
+        for page_index, page in enumerate(pages, start=1):
+            if not isinstance(page, dict):
+                continue
+            page_key = _first_str(page, MSTR_KEYS_KEY_ID)
+            page_name = _first_str(page, MSTR_KEYS_NAME)
+            visualizations = page.get("visualizations")
+            if not isinstance(visualizations, list):
+                continue
+            for visualization in visualizations:
+                if not isinstance(visualization, dict):
+                    continue
+                annotated = dict(visualization)
+                if chapter_key:
+                    annotated["chapterKey"] = chapter_key
+                if chapter_name:
+                    annotated["chapterName"] = chapter_name
+                annotated["chapterIndex"] = chapter_index
+                if page_key:
+                    annotated["pageKey"] = page_key
+                if page_name:
+                    annotated["pageName"] = page_name
+                annotated["pageIndex"] = page_index
+                found.append(annotated)
+    return found
+
+
 def _extract_visualizations(definition: MicroStrategyDict) -> List[MicroStrategyDict]:
     found: List[MicroStrategyDict] = []
 
@@ -832,32 +875,7 @@ def _extract_visualizations(definition: MicroStrategyDict) -> List[MicroStrategy
 
     chapters = definition.get("chapters")
     if isinstance(chapters, list):
-        for chapter in chapters:
-            if not isinstance(chapter, dict):
-                continue
-            chapter_key = _first_str(chapter, MSTR_KEYS_KEY_ID)
-            pages = chapter.get("pages")
-            if not isinstance(pages, list):
-                continue
-            for page in pages:
-                if not isinstance(page, dict):
-                    continue
-                page_key = _first_str(page, MSTR_KEYS_KEY_ID)
-                page_name = _first_str(page, MSTR_KEYS_NAME)
-                visualizations = page.get("visualizations")
-                if not isinstance(visualizations, list):
-                    continue
-                for visualization in visualizations:
-                    if not isinstance(visualization, dict):
-                        continue
-                    annotated = dict(visualization)
-                    if chapter_key:
-                        annotated["chapterKey"] = chapter_key
-                    if page_key:
-                        annotated["pageKey"] = page_key
-                    if page_name:
-                        annotated["pageName"] = page_name
-                    found.append(annotated)
+        found.extend(_page_visualizations(chapters))
 
     visit(definition.get("chapters", definition))
 

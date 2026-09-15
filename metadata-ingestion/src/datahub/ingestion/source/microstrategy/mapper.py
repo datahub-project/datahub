@@ -1324,11 +1324,24 @@ class MicroStrategyMapper:
 
     @staticmethod
     def _visualization_properties(visualization: Visualization) -> Dict[str, str]:
+        """Chart custom properties. The dossier chapter and page are recorded
+        here (name, key and 1-based position) because customProperties are
+        searchable: a reader can find every visualization on a page by free
+        text or by the exact `microstrategyPage=<name>` term. Emitted only
+        when the definition placed the visualization on a page."""
         return {
             key: value
             for key, value in {
                 "microstrategyVisualizationKey": visualization.key,
                 "microstrategyVisualizationType": visualization.type,
+                "microstrategyChapter": visualization.chapter_name,
+                "microstrategyChapterKey": visualization.chapter_key,
+                "microstrategyChapterIndex": _optional_index_str(
+                    visualization.chapter_index
+                ),
+                "microstrategyPage": visualization.page_name,
+                "microstrategyPageKey": visualization.page_key,
+                "microstrategyPageIndex": _optional_index_str(visualization.page_index),
                 "microstrategyDatasetIds": ",".join(visualization.datasets),
                 "microstrategyInputDatasetCount": str(len(visualization.datasets)),
                 "microstrategyObjectIdCount": str(len(visualization.object_ids)),
@@ -1599,6 +1612,10 @@ def _optional_str(value: object) -> Optional[str]:
     if isinstance(value, str) and value:
         return value
     return None
+
+
+def _optional_index_str(value: Optional[int]) -> Optional[str]:
+    return str(value) if value is not None else None
 
 
 def _field_name(item: Dict[str, object]) -> str:
