@@ -115,7 +115,8 @@ public class UpdateIndicesStrategyFactory {
       EntityDocumentIdHasher entityDocumentIdHasher,
       @Autowired(required = false) @Nullable List<V3SearchDocumentContributor> documentContributors,
       @Value("${elasticsearch.entityIndex.v3.cleanup:false}") boolean v3Cleanup,
-      @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled) {
+      @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled,
+      @Value("${elasticsearch.idHashAlgo}") String idHashAlgo) {
 
     EntityIndexVersionConfiguration v3Config =
         EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v3Cleanup).build();
@@ -129,6 +130,7 @@ public class UpdateIndicesStrategyFactory {
         timeseriesWriteThrottleCache,
         entityDocumentIdHasher,
         documentContributors == null ? List.of() : documentContributors,
-        v2Enabled);
+        v2Enabled,
+        idHashAlgo);
   }
 }

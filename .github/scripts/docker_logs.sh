@@ -16,10 +16,13 @@ sanitize() {
 mkdir -p "$TARGET_DIR"
 
 if [ -n "${COMPOSE_PROJECT_NAME:-}" ]; then
-  # Compose v2 names containers with a hyphen (datahub-mysql-1); some older
-  # tooling used an underscore (datahub_mysql_1). Match either separator so
-  # failure log collection does not silently capture nothing.
-  names=$(docker ps -a --format '{{.Names}}' | grep -E "^${COMPOSE_PROJECT_NAME}[-_]" || true)
+  # Compose v2 uses hyphenated container names; older Compose used underscores.
+  # Select by the stable project label so startup failures are captured with either format.
+  names=$(
+    docker ps -a \
+      --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" \
+      --format '{{.Names}}'
+  )
 else
   names=$(docker ps -a --format '{{.Names}}')
 fi
