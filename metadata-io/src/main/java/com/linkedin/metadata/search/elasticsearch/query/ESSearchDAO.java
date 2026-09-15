@@ -15,7 +15,6 @@ import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -893,7 +892,7 @@ public class ESSearchDAO {
                 SearchRequest searchRequest = new SearchRequest(resolvedIndex);
                 searchRequest.source(searchSourceBuilder);
 
-                return clientForRawIndex(opContext, indexName, resolvedIndex)
+                return SearchClients.forIndex(opContext, searchConfiguration, resolvedIndex)
                     .search(opContext, searchRequest, RequestOptions.DEFAULT);
               } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -1018,32 +1017,6 @@ public class ESSearchDAO {
   private String entityIndexName(@Nonnull OperationContext opContext, @Nonnull String entityName) {
     return EntitySearchIndexResolver.indexName(
         opContext, entityName, searchConfiguration.getEntityIndex());
-  }
-
-  @Nonnull
-  private SearchClientShim<?> clientForRawIndex(
-      @Nonnull OperationContext opContext,
-      @Nonnull String indexName,
-      @Nonnull String resolvedIndex) {
-    if (isUsageEventIndex(opContext, indexName, resolvedIndex)) {
-      return SearchClients.forComponent(opContext, SearchComponent.USAGE);
-    }
-    return searchClient(opContext, resolvedIndex);
-  }
-
-  private static boolean isUsageEventIndex(
-      @Nonnull OperationContext opContext,
-      @Nonnull String indexName,
-      @Nonnull String resolvedIndex) {
-    if (indexName.equals(Constants.DATAHUB_USAGE_EVENT_INDEX)) {
-      return true;
-    }
-    String canonical =
-        opContext
-            .getSearchContext()
-            .getIndexConvention()
-            .getIndexName(opContext, Constants.DATAHUB_USAGE_EVENT_INDEX);
-    return resolvedIndex.equals(canonical);
   }
 
   private void testLog(ObjectMapper mapper, SearchRequest searchRequest) {

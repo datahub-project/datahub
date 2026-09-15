@@ -3,12 +3,12 @@ package com.linkedin.datahub.upgrade.loadindices;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -265,29 +265,7 @@ public class LoadIndicesIndexManager {
       return indexBuilder;
     }
     SearchComponent component =
-        SearchClusterAccess.tryComponentForEntityIndex(indexConvention, indexOrPattern);
-    if (component == null) {
-      String graphIndex =
-          indexConvention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
-      String systemMetadataIndex =
-          indexConvention.getIndexName(opContext, ElasticSearchSystemMetadataService.INDEX_NAME);
-      if (matchesOwnedIndex(indexOrPattern, graphIndex)) {
-        component = SearchComponent.GRAPH;
-      } else if (matchesOwnedIndex(indexOrPattern, systemMetadataIndex)) {
-        component = SearchComponent.SYSTEM_METADATA;
-      } else {
-        throw new IllegalArgumentException(
-            "Index '"
-                + indexOrPattern
-                + "' is not a recognized search, graph, or system-metadata index. Unrecognized"
-                + " names are a setup error; refusing to use the primary cluster.");
-      }
-    }
+        SearchClients.componentForManagedIndex(opContext, indexConvention, indexOrPattern);
     return searchClusterRegistry.indexBuilderFor(component);
-  }
-
-  private static boolean matchesOwnedIndex(
-      @Nonnull String nameOrPattern, @Nonnull String concreteName) {
-    return nameOrPattern.equals(concreteName) || nameOrPattern.startsWith(concreteName + "_");
   }
 }

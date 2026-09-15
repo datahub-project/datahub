@@ -13,7 +13,6 @@ import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexDeletionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -55,33 +54,18 @@ public class ESWriteDAO {
   private final ElasticSearchConfiguration config;
   private final SearchClientShim<?> searchClient;
   @Getter private final ESBulkProcessor bulkProcessor;
-  @Nullable private final SearchWriteAccess writeAccess;
+  @Nonnull private final SearchWriteAccess writeAccess;
   private boolean canWrite = true;
-
-  /**
-   * Single-cluster constructor for tests. Production wiring passes {@link SearchWriteAccess} from
-   * the cluster registry.
-   *
-   * @deprecated use {@link #ESWriteDAO(ElasticSearchConfiguration, SearchClientShim,
-   *     ESBulkProcessor, SearchWriteAccess)}
-   */
-  @Deprecated
-  public ESWriteDAO(
-      ElasticSearchConfiguration config,
-      SearchClientShim<?> searchClient,
-      ESBulkProcessor bulkProcessor) {
-    this(config, searchClient, bulkProcessor, SearchWriteAccess.fixed(bulkProcessor));
-  }
 
   public ESWriteDAO(
       ElasticSearchConfiguration config,
       SearchClientShim<?> searchClient,
       ESBulkProcessor bulkProcessor,
-      @Nullable SearchWriteAccess writeAccess) {
+      @Nonnull SearchWriteAccess writeAccess) {
     this.config = config;
     this.searchClient = searchClient;
     this.bulkProcessor = bulkProcessor;
-    this.writeAccess = writeAccess != null ? writeAccess : SearchWriteAccess.fixed(bulkProcessor);
+    this.writeAccess = writeAccess;
   }
 
   @Nonnull
@@ -100,7 +84,7 @@ public class ESWriteDAO {
   @Nonnull
   private SearchClientShim<?> clientForIndex(
       @Nonnull OperationContext opContext, @Nonnull String indexName) {
-    return SearchClients.forEntityIndices(opContext, indexName);
+    return SearchClients.forIndex(opContext, indexName);
   }
 
   /**
@@ -110,18 +94,7 @@ public class ESWriteDAO {
   @Nonnull
   private SearchClientShim<?> clientForPattern(
       @Nonnull OperationContext opContext, @Nonnull String pattern) {
-    SearchClusterAccess access = opContext.getSearchContext().requireSearchClusterAccess();
-    SearchComponent component =
-        SearchClusterAccess.tryComponentForEntityIndex(
-            opContext.getSearchContext().getIndexConvention(), pattern);
-    if (component == null) {
-      throw new IllegalArgumentException(
-          "Index pattern '"
-              + pattern
-              + "' is not a Search V2, V3, or semantic entity family. Unrecognized names are a"
-              + " setup error; do not route them to the keyword cluster.");
-    }
-    return access.clientFor(component);
+    return SearchClients.forEntityIndices(opContext, pattern);
   }
 
   public void setWritable(boolean writable) {

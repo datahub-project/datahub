@@ -247,5 +247,6 @@ public class SearchClusterRegistryTest {
     assertEquals(unique.get(1).getName(), "secondary");
     assertSame(unique.get(0).getClient(), shared);
     assertSame(unique.get(1).getClient(), other);
+    assertSame(reg.uniqueConnections(), reg.uniqueConnections());
   }
 }

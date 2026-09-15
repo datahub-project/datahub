@@ -20,6 +20,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
@@ -114,7 +115,11 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO =
-        new ESWriteDAO(getElasticSearchConfiguration(), getSearchClient(), getBulkProcessor());
+        new ESWriteDAO(
+            getElasticSearchConfiguration(),
+            getSearchClient(),
+            getBulkProcessor(),
+            SearchWriteAccess.fixed(getBulkProcessor()));
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),

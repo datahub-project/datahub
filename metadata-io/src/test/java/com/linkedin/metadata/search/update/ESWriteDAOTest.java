@@ -91,7 +91,12 @@ public class ESWriteDAOTest {
         TestOperationContexts.withFixedSearchClient(
             TestOperationContexts.systemContextNoValidate(), mockSearchClient);
 
-    esWriteDAO = new ESWriteDAO(searchConfig(true), mockSearchClient, mockBulkProcessor);
+    esWriteDAO =
+        new ESWriteDAO(
+            searchConfig(true),
+            mockSearchClient,
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
   }
 
   private static ElasticSearchConfiguration searchConfig(boolean v3Enabled) {
@@ -108,7 +113,11 @@ public class ESWriteDAOTest {
   @Test
   public void testSearchGroupWritesSkippedWhenV3Disabled() {
     ESWriteDAO v3DisabledDAO =
-        new ESWriteDAO(searchConfig(false), mockSearchClient, mockBulkProcessor);
+        new ESWriteDAO(
+            searchConfig(false),
+            mockSearchClient,
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
 
     v3DisabledDAO.upsertDocumentBySearchGroup(
         opContext, "test_group", "{\"field\":\"value\"}", TEST_DOC_ID);
@@ -1557,7 +1566,8 @@ public class ESWriteDAOTest {
                 .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(NUM_RETRIES).build())
                 .build(),
             mockSearchClient,
-            mockBulkProcessor);
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
 
     esWriteDAO.setWritable(false);
 

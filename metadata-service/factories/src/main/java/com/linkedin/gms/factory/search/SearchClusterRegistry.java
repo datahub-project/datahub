@@ -50,6 +50,7 @@ public class SearchClusterRegistry implements SearchClusterAccess, SearchWriteAc
 
   private final Map<String, ClusterConnection> connections;
   private final ElasticSearchConfiguration configuration;
+  private final List<ClusterConnection> uniqueConnections;
 
   public SearchClusterRegistry(
       @Nonnull ElasticSearchConfiguration configuration,
@@ -68,6 +69,7 @@ public class SearchClusterRegistry implements SearchClusterAccess, SearchWriteAc
                 + connections.keySet());
       }
     }
+    this.uniqueConnections = distinctConnections(connections);
   }
 
   /**
@@ -105,6 +107,12 @@ public class SearchClusterRegistry implements SearchClusterAccess, SearchWriteAc
    */
   @Nonnull
   public Collection<ClusterConnection> uniqueConnections() {
+    return uniqueConnections;
+  }
+
+  @Nonnull
+  private static List<ClusterConnection> distinctConnections(
+      @Nonnull Map<String, ClusterConnection> connections) {
     IdentityHashMap<SearchClientShim<?>, Boolean> seen = new IdentityHashMap<>();
     List<ClusterConnection> unique = new ArrayList<>();
     for (ClusterConnection connection : connections.values()) {

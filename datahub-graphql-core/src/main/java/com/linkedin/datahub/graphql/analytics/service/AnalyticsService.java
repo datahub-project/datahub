@@ -15,7 +15,6 @@ import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
-import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -24,8 +23,6 @@ import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.time.Clock;
@@ -612,7 +609,7 @@ public class AnalyticsService {
       @Nonnull OperationContext opContext, SearchRequest searchRequest) {
     try {
       final SearchResponse searchResponse =
-          clientFor(opContext, searchRequest)
+          SearchClients.forSearchRequest(opContext, searchRequest)
               .search(opContext, searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return searchResponse.getAggregations().<Filter>get(FILTERED);
@@ -620,24 +617,6 @@ public class AnalyticsService {
       log.error("Search query failed", e);
       throw new RuntimeException("Search query failed:", e);
     }
-  }
-
-  private SearchClientShim<?> clientFor(
-      @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest) {
-    SearchClusterAccess access = opContext.getSearchContext().requireSearchClusterAccess();
-    String[] indices = searchRequest.indices();
-    if (indices != null) {
-      for (String index : indices) {
-        if (index != null && isUsageIndex(opContext, index)) {
-          return access.clientFor(SearchComponent.USAGE);
-        }
-      }
-    }
-    return SearchClients.forEntityIndices(opContext, searchRequest);
-  }
-
-  private boolean isUsageIndex(@Nonnull OperationContext opContext, @Nonnull String index) {
-    return index.equals(getUsageIndexName(opContext)) || index.equals(DATAHUB_USAGE_EVENT_INDEX);
   }
 
   AggregationBuilder getFilteredAggregation(
