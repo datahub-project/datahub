@@ -1298,10 +1298,12 @@ identity. The migration engine does **not** automatically derive child mappings 
   include mappings for its child dataJob URNs; otherwise the dataJob key aspects become inconsistent
   with the entity URN. Automatic derivation of child URN mappings may be added in a future release.
 - **schemaField**: column-level metadata stored on the dataset's `editableSchemaMetadata` aspect
-  (tags, terms, descriptions applied via the UI) **is** migrated along with the dataset. However,
-  `schemaField` entities — which carry their own `globalTags`, `glossaryTerms`, and `documentation`
-  aspects — are **not** migrated by any migration command. These are typically re-created by the next
-  ingestion run against the new dataset name.
+  (tags, terms, descriptions applied via the UI) **is** migrated along with the dataset. `schemaField`
+  entities — which carry their own `globalTags`, `glossaryTerms`, `documentation`, and structured
+  property aspects — are **not** repointed by `urns-mapping`; they are typically re-created by the next
+  ingestion run against the new dataset name. When only the **column casing** changes (the dataset URN
+  stays the same), use [`schema-field-case`](#schema-field-case) instead, which re-anchors those
+  `schemaField` aspects and `editableSchemaMetadata` entries onto the new field paths.
 
 Example `mapping.json` (list form):
 
@@ -1328,6 +1330,66 @@ The equivalent flat-object form maps each source URN directly to its target:
 
 ```console
 datahub migrate urns-mapping --mapping-file ./mapping.json --dry-run
+```
+
+#### schema-field-case
+
+The `schema-field-case` command re-anchors column-level metadata after a connector changes the
+**casing** of column names — for example after enabling Snowflake's
+[`preserve_column_case`](https://docs.datahub.com/docs/generated/ingestion/sources/snowflake), or on
+any connector that historically lowercased identifiers (e.g. Oracle). The dataset URN is unchanged;
+only the field paths move (`product2id` → `Product2Id`), which strands the UI/API-authored metadata
+that was keyed on the old paths.
+
+Unlike the other `migrate` commands, this does **not** rewrite entity URNs or use the migration
+engine. It reconciles, per dataset, against the freshly re-ingested `schemaMetadata` (the source of
+truth for the new casing):
+
+- **`editableSchemaMetadata`** entries (descriptions, tags, terms edited in the UI) are rewritten in
+  place onto the matching current field path.
+- **`schemaField` entity** aspects (`globalTags`, `glossaryTerms`, `documentation`,
+  `structuredProperties`, `businessAttributes`, and the other user-authored column aspects) are
+  copied onto the correctly-cased `schemaField` URN. The old entity is soft-deleted by default (use
+  `--keep-source-fields` to keep it).
+
+**Run order:** re-ingest the source with the new casing **first**, then run this command.
+
+Matching is case-insensitive and handles both v1 and v2 field paths. It is conservative by design:
+
+- **Ambiguous case-only collisions are never guessed.** If a single stranded field maps to two
+  current fields that differ only by case (e.g. a historically lowercased `col` now split into `Col`
+  and `COL`), it is reported for manual review and left untouched.
+- **Existing destination metadata is preserved.** Tags and glossary terms are unioned with whatever
+  already sits on the correctly-cased field (deduped by URN, preserving source/immutable attribution);
+  any other aspect that already differs on the destination is reported rather than overwritten, and
+  the source is kept so nothing is lost.
+- **Re-running is safe** (idempotent): matched entries converge and tags/terms are unioned.
+
+Options:
+
+- `--platform`: Platform to discover datasets for (e.g. `snowflake`, `oracle`). Ignored when
+  `--urn` / `--urn-file` is given.
+- `--platform-instance`: Platform instance to filter discovery on, if any. Works with or without a
+  platform instance — everything is derived from the actual dataset URN.
+- `--env`: Env (e.g. `PROD`) to filter discovery on, if any.
+- `--urn` / `--urn-file`: Explicit dataset URN(s) to reconcile instead of discovery (repeatable /
+  one URN per line).
+- `--keep-source-fields` / `--delete-source-fields`: Keep or soft-delete the old `schemaField` entity
+  after copying its aspects (default: delete). `editableSchemaMetadata` entries are always rewritten
+  in place.
+- `--include-soft-deleted` / `--exclude-soft-deleted`: Include soft-deleted `schemaField` entities
+  when discovering stranded fields (default: exclude).
+- `--dry-run` / `-n`: Report what would change without writing.
+- `--force` / `-F`: Skip the confirmation prompt.
+
+```console
+# Preview against a single dataset
+datahub migrate schema-field-case \
+  --urn 'urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)' \
+  --dry-run
+
+# Reconcile every Snowflake dataset after enabling preserve_column_case
+datahub migrate schema-field-case --platform snowflake --force
 ```
 
 #### Known limitations

@@ -11,6 +11,10 @@ import progressbar
 
 from datahub.cli import delete_cli, migration_utils
 from datahub.cli.migration_utils import ALL_ENTITY_TYPES
+from datahub.cli.schema_field_case_migration import (
+    discover_dataset_urns as discover_schema_field_dataset_urns,
+    run_migration as run_schema_field_case_migration,
+)
 from datahub.cli.snowflake_semantic_view_migration import (
     SEMANTIC_VIEW_SUBTYPE,
     MigrationDirection,
@@ -1233,5 +1237,121 @@ def snowflake_semantic_views(
         dry_run=dry_run,
         report_inbound_refs=report_inbound_refs,
         subtype_skipped=subtype_skipped,
+    )
+    click.echo(f"{report}")
+
+
+@migrate.command(name="schema-field-case")
+@click.option(
+    "--platform",
+    type=str,
+    default=None,
+    help="Platform to discover datasets for (e.g. snowflake, oracle). Ignored "
+    "when --urn/--urn-file is given.",
+)
+@click.option(
+    "--platform-instance",
+    type=str,
+    default=None,
+    help="Platform instance to filter discovery on, if any.",
+)
+@click.option(
+    "--env",
+    type=str,
+    default=None,
+    help="Env (e.g. PROD) to filter discovery on, if any.",
+)
+@click.option(
+    "--urn",
+    "urns",
+    type=str,
+    multiple=True,
+    help="Explicit dataset urn(s) to reconcile. Repeatable. If neither --urn nor "
+    "--urn-file is given, datasets are discovered via --platform/--env filters.",
+)
+@click.option(
+    "--urn-file",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    help="File with one dataset urn per line. Blank and '#' lines are ignored.",
+)
+@click.option(
+    "--keep-source-fields/--delete-source-fields",
+    default=False,
+    help="After copying a stranded schemaField entity's aspects onto the new "
+    "field path, whether to keep (default) or soft-delete the old schemaField "
+    "entity. editableSchemaMetadata entries are always rewritten in place.",
+)
+@click.option(
+    "--include-soft-deleted/--exclude-soft-deleted",
+    default=False,
+    help="Include soft-deleted schemaField entities when discovering stranded "
+    "fields (default: exclude).",
+)
+@click.option("--dry-run", "-n", type=bool, is_flag=True, default=False)
+@click.option(
+    "-F",
+    "--force",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Skip the confirmation prompt.",
+)
+@telemetry.with_telemetry()
+@upgrade.check_upgrade
+def schema_field_case(
+    platform: Optional[str],
+    platform_instance: Optional[str],
+    env: Optional[str],
+    urns: Tuple[str, ...],
+    urn_file: Optional[str],
+    keep_source_fields: bool,
+    include_soft_deleted: bool,
+    dry_run: bool,
+    force: bool,
+) -> None:
+    """Re-anchor column metadata after a connector column-casing change.
+
+    Reconciles UI/API-authored, column-level metadata (editableSchemaMetadata
+    entries and schemaField-entity aspects) onto the field paths of the freshly
+    re-ingested ``schemaMetadata``. This fixes the orphaning that happens when a
+    connector changes column casing (Snowflake ``preserve_column_case``, or any
+    connector that used to lowercase everything, e.g. Oracle).
+
+    Matching is case-insensitive and handles both v1 and v2 field paths, making
+    no assumption about the transform. A case-only collision (two current fields
+    differing only by case, e.g. "col" and "COL") is reported for manual
+    resolution rather than guessed.
+
+    Re-ingest the source with the new casing FIRST, then run this command.
+    Re-running is safe: matched entries are idempotent and tags/terms are unioned.
+    """
+    graph = get_default_graph(ClientMode.CLI)
+
+    dataset_urns: List[str] = list(urns)
+    if urn_file:
+        dataset_urns.extend(_read_urns_from_file(urn_file))
+    dataset_urns = list(dict.fromkeys(dataset_urns))
+
+    if not dataset_urns:
+        dataset_urns = discover_schema_field_dataset_urns(
+            graph, platform=platform, platform_instance=platform_instance, env=env
+        )
+
+    if not dataset_urns:
+        click.echo("No datasets found to reconcile.")
+        return
+
+    click.echo(f"Found {len(dataset_urns)} dataset(s) to reconcile.")
+    if not force and not dry_run:
+        click.echo(f"Will reconcile datasets such as: {dataset_urns[:5]}")
+        click.confirm("Ok to proceed?", abort=True)
+
+    report = run_schema_field_case_migration(
+        graph=graph,
+        dataset_urns=dataset_urns,
+        dry_run=dry_run,
+        delete_source=not keep_source_fields,
+        include_soft_deleted=include_soft_deleted,
     )
     click.echo(f"{report}")
