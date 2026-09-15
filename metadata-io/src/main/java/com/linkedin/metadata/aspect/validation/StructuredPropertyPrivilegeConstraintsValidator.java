@@ -142,6 +142,9 @@ public class StructuredPropertyPrivilegeConstraintsValidator
     newValues.forEach(
         (urn, values) -> {
           PrimitivePropertyValueArray existing = currentValues.get(urn);
+          // PrimitivePropertyValueArray.equals() is order-sensitive, so re-sending the same
+          // values in a different order is treated as a change. This only triggers an extra
+          // authorization check (fail-restrictive), never a bypass.
           if (existing == null || !existing.equals(values)) {
             difference.add(urn);
           }
