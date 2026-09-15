@@ -16,6 +16,8 @@ import com.linkedin.policy.PolicyMatchCondition;
 import com.linkedin.policy.PolicyMatchCriterion;
 import com.linkedin.policy.PolicyMatchCriterionArray;
 import com.linkedin.policy.PolicyMatchFilter;
+import com.linkedin.policy.StructuredPropertyCriterionValue;
+import com.linkedin.policy.StructuredPropertyCriterionValueArray;
 import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -36,7 +38,9 @@ public class PolicyUpdateInputInfoMapper
   public DataHubPolicyInfo apply(
       @Nullable QueryContext queryContext, @Nonnull final PolicyUpdateInput policyInput) {
     final DataHubPolicyInfo result = new DataHubPolicyInfo();
-    result.setDescription(policyInput.getDescription());
+    if (policyInput.getDescription() != null) {
+      result.setDescription(policyInput.getDescription());
+    }
     result.setType(policyInput.getType().toString());
     result.setDisplayName(policyInput.getName());
     result.setPrivileges(new StringArray(policyInput.getPrivileges()));
@@ -101,14 +105,34 @@ public class PolicyUpdateInputInfoMapper
         .setCriteria(
             new PolicyMatchCriterionArray(
                 filter.getCriteria().stream()
-                    .map(
-                        criterion ->
-                            new PolicyMatchCriterion()
-                                .setField(criterion.getField())
-                                .setValues(new StringArray(criterion.getValues()))
-                                .setCondition(
-                                    PolicyMatchCondition.valueOf(criterion.getCondition().name())))
+                    .map(this::mapCriterion)
                     .collect(Collectors.toList())));
+  }
+
+  private PolicyMatchCriterion mapCriterion(
+      final com.linkedin.datahub.graphql.generated.PolicyMatchCriterionInput criterion) {
+    final PolicyMatchCriterion result =
+        new PolicyMatchCriterion()
+            .setField(criterion.getField())
+            .setValues(new StringArray(criterion.getValues()))
+            .setCondition(PolicyMatchCondition.valueOf(criterion.getCondition().name()));
+
+    // Map structured property values if present
+    if (criterion.getStructuredPropertyValues() != null
+        && !criterion.getStructuredPropertyValues().isEmpty()) {
+      final StructuredPropertyCriterionValueArray structuredPropValues =
+          new StructuredPropertyCriterionValueArray(
+              criterion.getStructuredPropertyValues().stream()
+                  .map(
+                      propValue ->
+                          new StructuredPropertyCriterionValue()
+                              .setPropertyUrn(propValue.getPropertyUrn())
+                              .setValues(new StringArray(propValue.getValues())))
+                  .collect(Collectors.toList()));
+      result.setStructuredPropertyValues(structuredPropValues);
+    }
+
+    return result;
   }
 
   private Urn createUrn(String urnStr) {

@@ -53,10 +53,9 @@ export function usePolicy(
     const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation();
 
     const toFilterInput = (filter: PolicyMatchFilter, state?: string | undefined): PolicyMatchFilterInput => {
-        console.log({ state });
         return {
             criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
-                return {
+                const criterionInput: PolicyMatchCriterionInput = {
                     field: criterion.field,
                     values: criterion.values.map((criterionValue) =>
                         criterion.field === 'TAG' && state !== 'TOGGLE'
@@ -65,6 +64,16 @@ export function usePolicy(
                     ),
                     condition: criterion.condition,
                 };
+                // Include structuredPropertyValues if present
+                if ((criterion as any).structuredPropertyValues) {
+                    criterionInput.structuredPropertyValues = (criterion as any).structuredPropertyValues.map(
+                        (propValue: any) => ({
+                            propertyUrn: propValue.propertyUrn,
+                            values: propValue.values || [],
+                        }),
+                    );
+                }
+                return criterionInput;
             }),
         };
     };
@@ -185,18 +194,12 @@ export function usePolicy(
         if (focusPolicyUrn) {
             // If there's an URN associated with the focused policy, then we are editing an existing policy.
             updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } }).then(() => {
-                const newPolicy = {
-                    __typename: 'ListPoliciesResult',
-                    urn: focusPolicyUrn,
-                    ...savePolicy,
-                    resources: null,
-                };
                 analytics.event({
                     type: EventType.UpdatePolicyEvent,
                     policyUrn: focusPolicyUrn,
                 });
                 toast.success(t('savePolicySuccess'));
-                updateListPoliciesCache(client, newPolicy, DEFAULT_PAGE_SIZE);
+                // Refetch will update the cache with complete data
                 setTimeout(() => {
                     policiesRefetch();
                 }, 1000);
@@ -204,23 +207,15 @@ export function usePolicy(
             });
         } else {
             // If there's no URN associated with the focused policy, then we are creating.
-            createPolicy({ variables: { input: toPolicyInput(savePolicy) } }).then((result) => {
-                const newPolicy = {
-                    __typename: 'ListPoliciesResult',
-                    urn: result?.data?.createPolicy,
-                    ...savePolicy,
-                    type: null,
-                    actors: null,
-                    resources: null,
-                };
+            createPolicy({ variables: { input: toPolicyInput(savePolicy) } }).then(() => {
                 analytics.event({
                     type: EventType.CreatePolicyEvent,
                 });
                 toast.success(t('savePolicySuccess'));
+                // Refetch will update the cache with complete data
                 setTimeout(() => {
                     policiesRefetch();
                 }, 1000);
-                updateListPoliciesCache(client, newPolicy, DEFAULT_PAGE_SIZE);
                 onClosePolicyBuilder();
             });
         }

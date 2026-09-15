@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.PolicyMatchFilter;
 import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.datahub.graphql.generated.ResourceFilter;
+import com.linkedin.datahub.graphql.generated.StructuredPropertyCriterionValue;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.policy.DataHubActorFilter;
@@ -119,16 +120,24 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
         .setCriteria(
             filter.getCriteria().stream()
                 .map(
-                    criterion ->
-                        PolicyMatchCriterion.builder()
-                            .setField(criterion.getField())
-                            .setValues(
-                                criterion.getValues().stream()
-                                    .map(v -> mapValue(context, v))
-                                    .collect(Collectors.toList()))
-                            .setCondition(
-                                PolicyMatchCondition.valueOf(criterion.getCondition().name()))
-                            .build())
+                    criterion -> {
+                      boolean hasStructuredProps = criterion.hasStructuredPropertyValues();
+                      return PolicyMatchCriterion.builder()
+                          .setField(criterion.getField())
+                          .setValues(
+                              criterion.getValues().stream()
+                                  .map(v -> mapValue(context, v))
+                                  .collect(Collectors.toList()))
+                          .setCondition(
+                              PolicyMatchCondition.valueOf(criterion.getCondition().name()))
+                          .setStructuredPropertyValues(
+                              hasStructuredProps
+                                  ? criterion.getStructuredPropertyValues().stream()
+                                      .map(PolicyInfoPolicyMapper::mapStructuredPropertyValue)
+                                      .collect(Collectors.toList())
+                                  : null)
+                          .build();
+                    })
                 .collect(Collectors.toList()))
         .build();
   }
@@ -146,5 +155,13 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
       // Value is not an urn. Just set value
       return PolicyMatchCriterionValue.builder().setValue(value).build();
     }
+  }
+
+  private static StructuredPropertyCriterionValue mapStructuredPropertyValue(
+      final com.linkedin.policy.StructuredPropertyCriterionValue value) {
+    final StructuredPropertyCriterionValue result = new StructuredPropertyCriterionValue();
+    result.setPropertyUrn(value.getPropertyUrn());
+    result.setValues(value.getValues());
+    return result;
   }
 }

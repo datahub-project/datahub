@@ -1,0 +1,20 @@
+namespace com.linkedin.policy
+
+/**
+ * Represents a criterion value for structured property matching in policies.
+ * Contains a structured property URN and values to match against.
+ */
+record StructuredPropertyCriterionValue {
+
+  /**
+   * The URN of the structured property to match against
+   */
+  propertyUrn: string
+
+  /**
+   * Values to match for this structured property.
+   * Within a criterion, matching follows OR logic: asset matches if ANY value in this list matches.
+   */
+  values: array[string]
+
+}

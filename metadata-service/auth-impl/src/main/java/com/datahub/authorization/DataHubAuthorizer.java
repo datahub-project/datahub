@@ -219,29 +219,34 @@ public class DataHubAuthorizer
       final Optional<EntitySpec> resourceSpec,
       @Nonnull final OperationContext opContext) {
 
-    Urn actorUrn = UrnUtils.getUrn(actor);
+    try {
+      Urn actorUrn = UrnUtils.getUrn(actor);
 
-    // 1. Fetch all policies
-    final List<DataHubPolicyInfo> policiesToEvaluate =
-        new LinkedList<>(getOrDefault(ALL, new ArrayList<>()));
-    policiesToEvaluate.addAll(PoliciesConfig.getDefaultPolicies(actorUrn));
+      // 1. Fetch all policies
+      final List<DataHubPolicyInfo> policiesToEvaluate =
+          new LinkedList<>(getOrDefault(ALL, new ArrayList<>()));
+      policiesToEvaluate.addAll(PoliciesConfig.getDefaultPolicies(actorUrn));
 
-    final ResolvedEntitySpec resolvedActorSpec =
-        resolveActorEntitySpec(new EntitySpec(actorUrn.getEntityType(), actor), opContext);
+      final ResolvedEntitySpec resolvedActorSpec =
+          resolveActorEntitySpec(new EntitySpec(actorUrn.getEntityType(), actor), opContext);
 
-    Optional<ResolvedEntitySpec> resolvedResourceSpec =
-        resourceSpec.map(entitySpecResolver::resolve);
+      Optional<ResolvedEntitySpec> resolvedResourceSpec =
+          resourceSpec.map(entitySpecResolver::resolve);
 
-    final PolicyEngine.PolicyEvaluationContext evaluationContext =
-        buildActorEvaluationContext(opContext, actorUrn, null, null, null);
+      final PolicyEngine.PolicyEvaluationContext evaluationContext =
+          buildActorEvaluationContext(opContext, actorUrn, null, null, null);
 
-    return policyEngine.getGrantedPrivileges(
-        opContext,
-        policiesToEvaluate,
-        resolvedActorSpec,
-        resolvedResourceSpec,
-        Collections.emptyList(),
-        evaluationContext);
+      return policyEngine.getGrantedPrivileges(
+          opContext,
+          policiesToEvaluate,
+          resolvedActorSpec,
+          resolvedResourceSpec,
+          Collections.emptyList(),
+          evaluationContext);
+    } catch (RuntimeException e) {
+      log.error("Error while evaluating granted privileges for actor {}", actor, e);
+      return PolicyEngine.PolicyGrantedPrivileges.empty();
+    }
   }
 
   @Override
@@ -431,8 +436,14 @@ public class DataHubAuthorizer
               sharedEvaluationContext);
       return result.isGranted();
     } catch (RuntimeException e) {
-      log.error("Error evaluating policy {} for request {}", policy.getDisplayName(), request);
-      throw e;
+      // Log the error but don't fail the entire authorization chain.
+      // Continue to evaluate the next policy instead of blocking authorization.
+      log.warn(
+          "Error evaluating policy {} for request {}, skipping this policy and continuing to next",
+          policy.getDisplayName(),
+          request,
+          e);
+      return false;
     }
   }
 
