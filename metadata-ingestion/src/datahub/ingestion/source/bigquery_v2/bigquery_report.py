@@ -25,11 +25,13 @@ class BigQuerySchemaApiPerfReport(Report):
     num_list_projects_api_requests: int = 0
     num_list_datasets_api_requests: int = 0
     num_get_columns_for_dataset_api_requests: int = 0
+    num_list_policy_tags_api_requests: int = 0
     num_get_tables_for_dataset_api_requests: int = 0
     num_list_tables_api_requests: int = 0
     num_get_views_for_dataset_api_requests: int = 0
     num_get_snapshots_for_dataset_api_requests: int = 0
     num_get_table_constraints_for_dataset_api_requests: int = 0
+    num_datasets_missing_type: int = 0
 
     list_projects_timer: PerfTimer = field(default_factory=PerfTimer)
     list_projects_with_labels_timer: PerfTimer = field(default_factory=PerfTimer)
@@ -37,6 +39,7 @@ class BigQuerySchemaApiPerfReport(Report):
     enrich_datasets_timer: PerfTimer = field(default_factory=PerfTimer)
 
     get_columns_for_dataset_sec: float = 0
+    list_policy_tags_sec: float = 0
     get_tables_for_dataset_sec: float = 0
     get_table_constraints_for_dataset_sec: float = 0
     list_tables_sec: float = 0
@@ -67,12 +70,18 @@ class BigQueryQueriesExtractorReport(Report):
     audit_log_load_timer: PerfTimer = field(default_factory=PerfTimer)
     sql_aggregator: Optional[SqlAggregatorReport] = None
     num_queries_by_project: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    num_queries_by_region: TopKDict[str, int] = field(default_factory=int_top_k_dict)
 
     num_total_queries: int = 0
     num_unique_queries: int = 0
 
     num_discovered_tables: Optional[int] = None
     inferred_temp_tables: LossySet[str] = field(default_factory=LossySet)
+
+    region_qualifiers_configured: List[str] = field(default_factory=list)
+    region_qualifiers_auto_discovered: List[str] = field(default_factory=list)
+    region_qualifiers_used: List[str] = field(default_factory=list)
+    discovered_locations_unparseable: LossyList[str] = field(default_factory=LossyList)
 
 
 @dataclass
@@ -81,6 +90,20 @@ class BigQueryV2Report(
     BaseTimeWindowReport,
     ClassificationReportMixin,
 ):
+    # BigQuery Sharing linked datasets.
+    num_linked_datasets_detected: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+    num_linked_datasets_resolved: int = 0
+    num_linked_datasets_unresolved: int = 0
+    num_linked_datasets_missing_link_state: int = 0
+    num_linked_datasets_not_linked: int = 0
+    num_publisher_lookups_from_project_list: int = 0
+    num_publisher_lookups_from_resource_manager: int = 0
+    num_linked_dataset_lineage_emitted: int = 0
+    num_sharing_subscriptions_scanned: int = 0
+    num_sharing_subscriptions_unmatched: int = 0
+
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
@@ -189,5 +212,6 @@ class BigQueryV2Report(
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
     num_skipped_external_table_lineage: int = 0
+    num_biglake_datasets_skipped_for_region_autodetect: int = 0
 
     queries_extractor: Optional[BigQueryQueriesExtractorReport] = None

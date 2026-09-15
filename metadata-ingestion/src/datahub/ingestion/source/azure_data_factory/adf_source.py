@@ -48,8 +48,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.azure_data_factory.adf_client import (
     AzureDataFactoryClient,
 )
@@ -68,9 +68,6 @@ from datahub.ingestion.source.common.subtypes import (
     DataJobSubTypes,
     FlowContainerSubTypes,
     SourceCapabilityModifier,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -99,53 +96,6 @@ PLATFORM = "azure-data-factory"
 MAX_RUN_MESSAGE_LENGTH = 500  # Truncate long error/status messages
 MAX_RUN_PARAMETERS = 10  # Limit number of parameters to store
 MAX_PARAMETER_VALUE_LENGTH = 100  # Truncate long parameter values
-
-# Mapping of ADF linked service types to DataHub platforms.
-# Platform identifiers must match those defined in:
-# metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
-# Unsupported linked service types will trigger a structured warning.
-LINKED_SERVICE_PLATFORM_MAP: dict[str, str] = {
-    # Azure Storage - all Azure storage types map to "abs" (Azure Blob Storage)
-    "AzureBlobStorage": "abs",
-    "AzureBlobFS": "abs",  # Azure Data Lake Storage Gen2 (uses abfs:// protocol)
-    "AzureDataLakeStore": "abs",  # Azure Data Lake Storage Gen1
-    "AzureDataLakeStoreCosmosStructuredStream": "abs",
-    "AzureFileStorage": "abs",
-    # Azure Databases - Synapse uses mssql protocol
-    "AzureSqlDatabase": "mssql",
-    "AzureSqlDW": "mssql",  # Azure Synapse (formerly SQL DW)
-    "AzureSynapseAnalytics": "mssql",  # Azure Synapse Analytics
-    "AzureSqlMI": "mssql",
-    "SqlServer": "mssql",
-    "AzurePostgreSql": "postgres",
-    "AzureMySql": "mysql",
-    # Databricks
-    "AzureDatabricks": "databricks",
-    "AzureDatabricksDeltaLake": "databricks",
-    # Cloud Platforms
-    "AmazonS3": "s3",
-    "AmazonS3Compatible": "s3",
-    "GoogleCloudStorage": "gcs",
-    "AmazonRedshift": "redshift",
-    "GoogleBigQuery": "bigquery",
-    "Snowflake": "snowflake",
-    # Traditional Databases
-    "PostgreSql": "postgres",
-    "MySql": "mysql",
-    "Oracle": "oracle",
-    "OracleServiceCloud": "oracle",
-    "Db2": "db2",
-    "Teradata": "teradata",
-    "Vertica": "vertica",
-    # Data Warehouses
-    "Hive": "hive",
-    "Spark": "spark",
-    "Hdfs": "hdfs",
-    # SaaS Applications
-    "Salesforce": "salesforce",
-    "SalesforceServiceCloud": "salesforce",
-    "SalesforceMarketingCloud": "salesforce",
-}
 
 # Mapping of ADF activity types to DataHub subtypes
 ACTIVITY_SUBTYPE_MAP: dict[str, str] = {
@@ -199,7 +149,7 @@ class AzureDataFactoryContainerKey(ContainerKey):
 
 @platform_name("Azure Data Factory")
 @config_class(AzureDataFactoryConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE,
@@ -266,14 +216,6 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         config = AzureDataFactoryConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Generate workunits for all Azure Data Factory resources."""
         logger.info(
@@ -288,7 +230,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 self.client.get_factories(resource_group=self.config.resource_group)
             )
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to List Data Factories",
                 message="Unable to retrieve Data Factories from Azure. Check permissions and subscription ID.",
                 context=f"subscription={self.config.subscription_id}",
@@ -337,11 +279,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     yield from self._process_execution_history(factory, resource_group)
 
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to Process Data Factory",
                     message="Error processing Data Factory. Skipping to next.",
                     context=f"factory={factory_name}",
                     exc=e,
+                    log=False,
                 )
 
     def _extract_resource_group(self, resource_id: str) -> str:
@@ -477,11 +420,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 if pipeline.name:  # Skip pipelines with no name
                     self._pipelines_cache[factory_key][pipeline.name] = pipeline
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to List Pipelines",
                 message="Unable to retrieve pipelines from factory.",
                 context=f"factory={factory_name}",
                 exc=e,
+                log=False,
             )
             return  # Can't process pipelines if we can't list them
 
@@ -1218,7 +1162,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             self.report.report_unmapped_platform(dataset_name, "unknown")
             return None
 
-        platform = LINKED_SERVICE_PLATFORM_MAP.get(ls_type)
+        platform = ADF_LINKED_SERVICE_PLATFORM_MAP.get(ls_type)
 
         if not platform:
             self.report.report_unmapped_platform(dataset_name, ls_type)
@@ -1302,11 +1246,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 )
             )
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Fetch Execution History",
                 message="Unable to retrieve pipeline runs.",
                 context=f"factory={factory_name}",
                 exc=e,
+                log=False,
             )
             return
 
@@ -1356,8 +1301,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         if pipeline_run.message:
             properties["message"] = pipeline_run.message[:MAX_RUN_MESSAGE_LENGTH]
         if pipeline_run.invoked_by:
-            invoker_name = pipeline_run.invoked_by.get("name", "")
-            invoker_type = pipeline_run.invoked_by.get("invokedByType", "")
+            invoker_name = pipeline_run.invoked_by.name or ""
+            invoker_type = pipeline_run.invoked_by.invoked_by_type or ""
             if invoker_name:
                 properties["invoked_by"] = invoker_name
             if invoker_type:

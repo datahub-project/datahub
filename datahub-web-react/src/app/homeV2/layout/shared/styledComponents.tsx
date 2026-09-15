@@ -8,7 +8,7 @@ const ReferenceSectionContainer = styled.div<{ $isShowNavBarRedesign?: boolean }
     overflow: wrap;
 `;
 
-export const ReferenceSectionDivider = styled.hr`
+const ReferenceSectionDivider = styled.hr`
     height: 1px;
     opacity: 0.1;
     width: 100%;

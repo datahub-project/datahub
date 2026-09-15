@@ -2,8 +2,8 @@ import { DatePicker, DatePickerValue, DatePickerVariant } from '@components';
 import React, { useEffect, useState } from 'react';
 
 import {
-    dateStringToMoment,
-    momentToDateString,
+    formatDateString,
+    parseDateString,
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/utils';
 
 type DateSwitcherProps = {
@@ -12,9 +12,9 @@ type DateSwitcherProps = {
 };
 
 export default function DateSwitcher({ value, setValue }: DateSwitcherProps) {
-    const [internalValue, setInternalValue] = useState<DatePickerValue>(dateStringToMoment(value));
+    const [internalValue, setInternalValue] = useState<DatePickerValue>(parseDateString(value));
 
-    useEffect(() => setValue?.(momentToDateString(internalValue)), [setValue, internalValue]);
+    useEffect(() => setValue?.(formatDateString(internalValue)), [setValue, internalValue]);
 
     return (
         <DatePicker

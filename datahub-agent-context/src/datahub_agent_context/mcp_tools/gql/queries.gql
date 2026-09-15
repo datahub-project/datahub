@@ -29,7 +29,10 @@ fragment query on QueryEntity {
   subjects {
     dataset {
       urn
-      name
+      type
+      ... on Dataset {
+        name
+      }
     }
     schemaField {
       urn

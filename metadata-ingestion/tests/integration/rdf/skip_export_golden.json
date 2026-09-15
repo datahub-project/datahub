@@ -1,0 +1,95 @@
+[
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: example.org",
+            "name": "example.org"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396610669,
+        "runId": "rdf-test-skip-export",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org.glossary",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: glossary",
+            "parentNode": "urn:li:glossaryNode:example.org",
+            "name": "glossary"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765406907934,
+        "runId": "rdf-test-skip-export",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.glossary.ChildTerm",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "http://example.org/glossary/ChildTerm",
+                "rdf:definition": "@prefix ex: <http://example.org/glossary/> .\n@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\nex:ChildTerm a skos:Concept ;\n    skos:broader ex:ParentTerm ;\n    skos:definition \"A child term\" ;\n    skos:prefLabel \"Child Term\" .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "skos:broaderIRIs": "http://example.org/glossary/ParentTerm",
+                "rdf:lexicalSummary": "Preferred label: Child Term. Definition: A child term."
+            },
+            "name": "Child Term",
+            "definition": "A child term",
+            "parentNode": "urn:li:glossaryNode:example.org.glossary",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://example.org/glossary/ChildTerm",
+            "sourceUrl": "http://example.org/glossary/ChildTerm"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1771632454513,
+        "runId": "rdf-test-skip-export",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.glossary.ParentTerm",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "http://example.org/glossary/ParentTerm",
+                "rdf:definition": "@prefix ex: <http://example.org/glossary/> .\n@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\nex:ParentTerm a skos:Concept ;\n    skos:definition \"A parent term\" ;\n    skos:prefLabel \"Parent Term\" .\n\n",
+                "rdf:definitionIncoming": "@prefix ex: <http://example.org/glossary/> .\n@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\nex:ChildTerm skos:broader ex:ParentTerm .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "rdf:lexicalSummary": "Preferred label: Parent Term. Definition: A parent term."
+            },
+            "name": "Parent Term",
+            "definition": "A parent term",
+            "parentNode": "urn:li:glossaryNode:example.org.glossary",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://example.org/glossary/ParentTerm",
+            "sourceUrl": "http://example.org/glossary/ParentTerm"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1771632454513,
+        "runId": "rdf-test-skip-export",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

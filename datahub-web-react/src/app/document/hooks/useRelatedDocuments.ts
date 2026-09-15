@@ -7,7 +7,7 @@ import {
 } from '@graphql/document.generated';
 import { Document, DocumentSourceType } from '@types';
 
-export interface RelatedDocumentsInput {
+interface RelatedDocumentsInput {
     start?: number;
     count?: number;
     parentDocuments?: string[];
@@ -50,7 +50,7 @@ function extractRelatedDocuments(entity: GetRelatedDocumentsQuery['entity']): Re
 }
 
 export function useRelatedDocuments(entityUrn: string, input?: RelatedDocumentsInput) {
-    const { data, loading, error, refetch } = useGetRelatedDocumentsQuery({
+    const { data, loading, error } = useGetRelatedDocumentsQuery({
         variables: {
             urn: entityUrn,
             input: {
@@ -75,15 +75,9 @@ export function useRelatedDocuments(entityUrn: string, input?: RelatedDocumentsI
         return (relatedDocumentsResult?.documents || []) as Document[];
     }, [relatedDocumentsResult]);
 
-    const total = useMemo(() => {
-        return relatedDocumentsResult?.total ?? 0;
-    }, [relatedDocumentsResult]);
-
     return {
         documents,
-        total,
         loading,
         error,
-        refetch,
     };
 }

@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import _ from 'lodash';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { LoadingWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
@@ -29,6 +30,7 @@ const renderCustomAssigneeOption = (option: NestedSelectOption) => {
 };
 
 export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: AssigneeSelectorProps) => {
+    const { t } = useTranslation('entity.profile.incident');
     const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([EntityType.CorpUser]);
     const [useSearch, setUseSearch] = useState(false);
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
@@ -130,6 +132,8 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
             setUseSearch(false);
         }
     };
+    const combinedAssigneeOptions = _.uniqBy([...ownerSearchOptions, ...selectedAssigneeOptions], 'value');
+
     return recommendationsLoading ? (
         <LoadingWrapper>
             <LoadingOutlined />
@@ -138,7 +142,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
         <SimpleSelect
             options={ownerSearchOptions}
             isMultiSelect
-            placeholder="Select assignee"
+            placeholder={t('editor.assigneePlaceholder')}
             width="full"
             optionListStyle={{
                 maxHeight: '20vh',
@@ -148,7 +152,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
             values={assigneeList}
             onSearchChange={(value: string) => handleSearch(EntityType.CorpUser, value)}
             showSearch
-            combinedSelectedAndSearchOptions={_.uniqBy([...ownerSearchOptions, ...selectedAssigneeOptions], 'value')}
+            combinedSelectedAndSearchOptions={combinedAssigneeOptions}
             renderCustomSelectedValue={renderSelectedAssignee}
             renderCustomOptionText={renderCustomAssigneeOption}
             selectLabelProps={{ variant: 'custom' }}

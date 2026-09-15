@@ -10,9 +10,34 @@ namespace com.linkedin.common
 record Status {
   /**
    * Whether the entity has been removed (soft-deleted).
+   * Kept for backward compatibility. When lifecycleStage is set to a stage
+   * with hideInSearch=true, this field is NOT automatically synced — the
+   * search layer uses lifecycleStage settings directly.
    */
   @Searchable = {
     "fieldType": "BOOLEAN"
   }
   removed: boolean = false
+
+  /**
+   * The lifecycle stage of the entity, referencing a lifecycleStageType entity.
+   * When null, the entity is in its default active state (visible in search).
+   * When set, the referenced lifecycle stage's settings determine behavior
+   * (e.g., hideInSearch=true excludes the entity from default search results).
+   *
+   * Users can override default filtering by explicitly filtering on this field.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
+  lifecycleStage: optional Urn
+
+  /**
+   * Attribution for the lifecycle stage transition — who moved the entity
+   * into its current stage and when. Populated automatically by the
+   * setLifecycleStage mutation; should be set by any code path that
+   * writes the lifecycleStage field.
+   */
+  lifecycleLastUpdated: optional AuditStamp
 }

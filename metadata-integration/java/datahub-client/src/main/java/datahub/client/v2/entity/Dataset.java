@@ -78,7 +78,8 @@ public class Dataset extends Entity
         HasOwners<Dataset>,
         HasDomains<Dataset>,
         HasSubTypes<Dataset>,
-        HasStructuredProperties<Dataset> {
+        HasStructuredProperties<Dataset>,
+        HasDocumentation<Dataset> {
 
   private static final String ENTITY_TYPE = "dataset";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();

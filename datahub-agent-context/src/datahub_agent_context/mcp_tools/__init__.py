@@ -1,11 +1,20 @@
 """MCP tools for interacting with DataHub metadata."""
 
+from datahub_agent_context.mcp_tools.ask_datahub import (
+    ask_datahub_chat,
+    get_datahub_chat,
+)
 from datahub_agent_context.mcp_tools.assertions import get_dataset_assertions
 from datahub_agent_context.mcp_tools.descriptions import update_description
 from datahub_agent_context.mcp_tools.documents import grep_documents, search_documents
 from datahub_agent_context.mcp_tools.domains import remove_domains, set_domains
 from datahub_agent_context.mcp_tools.entities import get_entities, list_schema_fields
 from datahub_agent_context.mcp_tools.get_me import get_me
+from datahub_agent_context.mcp_tools.incidents import (
+    list_incidents,
+    raise_incident,
+    resolve_incident,
+)
 from datahub_agent_context.mcp_tools.lineage import (
     get_lineage,
     get_lineage_paths_between,
@@ -32,6 +41,7 @@ __all__ = [
     "get_lineage_paths_between",
     "get_dataset_queries",
     "get_dataset_assertions",
+    "list_incidents",
     "search_documents",
     "grep_documents",
     "add_tags",
@@ -47,4 +57,9 @@ __all__ = [
     "remove_structured_properties",
     "get_me",
     "save_document",
+    "raise_incident",
+    "resolve_incident",
+    # Cloud-only tools
+    "ask_datahub_chat",
+    "get_datahub_chat",
 ]

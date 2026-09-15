@@ -1,9 +1,8 @@
 import { DeleteOutlined } from '@ant-design/icons';
 import { Button, Input } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 
 const MultiStringWrapper = styled.div``;
 
@@ -11,7 +10,7 @@ const StyledInput = styled(Input)`
     width: 75%;
     min-width: 350px;
     max-width: 500px;
-    border: 1px solid ${ANTD_GRAY_V2[6]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const InputWrapper = styled.div`
@@ -37,6 +36,8 @@ interface Props {
 }
 
 export default function MultipleOpenEndedInput({ selectedValues, updateSelectedValues, inputType = 'text' }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
+
     function updateInput(text: string, index: number) {
         const updatedValues =
             selectedValues.length > 0 ? selectedValues.map((value, i) => (i === index ? text : value)) : [text];
@@ -80,7 +81,7 @@ export default function MultipleOpenEndedInput({ selectedValues, updateSelectedV
                 />
             )}
             <StyledButton type="link" onClick={addNewValue}>
-                + Add More
+                {t('structuredProperty.addMore')}
             </StyledButton>
         </MultiStringWrapper>
     );

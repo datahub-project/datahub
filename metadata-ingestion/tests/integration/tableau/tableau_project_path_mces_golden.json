@@ -15,7 +15,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -30,7 +31,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -45,7 +47,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -62,7 +65,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -77,7 +81,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -97,7 +102,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -116,7 +122,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -131,7 +138,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -146,7 +154,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -163,7 +172,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -178,7 +188,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -190,7 +201,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "ee012e36-d916-4c21-94ab-f0d66736af4e"
+                "workbook_id": "ee012e36-d916-4c21-94ab-f0d66736af4e",
+                "luid": "b45eabfe-dc3d-4331-9324-cc1b14b0549b"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/17904",
             "name": "Deny Pattern WorkBook",
@@ -199,7 +211,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_project_path_pattern"
     }
 },
 {
@@ -214,7 +228,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -229,7 +244,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -246,7 +262,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -262,6 +279,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -270,7 +288,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -285,7 +304,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -309,7 +329,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

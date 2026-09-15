@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { EmbeddedListSearchEmbed } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchEmbed';
 import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
@@ -43,6 +44,7 @@ export const ImpactAnalysis = ({
     resetShouldRefetch,
     setIsLoading,
 }: Props) => {
+    const { t } = useTranslation('lineage');
     const finalStartTimeMillis = startTimeMillis || undefined;
     const finalEndTimeMillis = endTimeMillis || undefined;
 
@@ -80,7 +82,7 @@ export const ImpactAnalysis = ({
             defaultFilters={defaultFilters || [{ field: 'degree', values: ['1'] }]}
             shouldRefetch={shouldRefetch}
             resetShouldRefetch={resetShouldRefetch}
-            placeholderText="Search related assets..."
+            placeholderText={t('impactAnalysis.searchPlaceholder')}
             showFilterBar={showFilterBar}
             applyView
         />

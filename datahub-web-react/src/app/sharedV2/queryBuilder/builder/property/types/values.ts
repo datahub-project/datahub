@@ -11,6 +11,11 @@ export enum ValueTypeId {
      */
     URN = 'URN',
     /**
+     * A hierarchical URN reference (Domain, Container, Parent Document)
+     * that supports Within (descendants-inclusive) matching.
+     */
+    URN_HIERARCHY = 'URN_HIERARCHY',
+    /**
      * String type
      */
     STRING = 'STRING',
@@ -65,19 +70,10 @@ export enum ValueTypeId {
 }
 
 /**
- * A single well-supported operator.
- */
-export type Value = {
-    id: ValueTypeId;
-    displayName: string;
-    operators: OperatorId[];
-};
-
-/**
  * A list of value types and their corresponding details,
  * including their display names and the operators that they support
  */
-export const valueTypes = [
+const valueTypes = [
     {
         id: ValueTypeId.BOOLEAN,
         displayName: 'Boolean',
@@ -113,6 +109,11 @@ export const valueTypes = [
         id: ValueTypeId.URN,
         displayName: 'Ref',
         operators: [OperatorId.EQUAL_TO, OperatorId.EXISTS],
+    },
+    {
+        id: ValueTypeId.URN_HIERARCHY,
+        displayName: 'Ref',
+        operators: [OperatorId.WITHIN, OperatorId.EQUAL_TO, OperatorId.EXISTS],
     },
     {
         id: ValueTypeId.URN_LIST,
@@ -187,11 +188,9 @@ export enum ValueInputType {
     /**
      * No input type
      */
-    NONE,
 }
 
 export enum SelectInputMode {
-    NONE = 'none',
     SINGLE = 'single',
     MULTIPLE = 'multiple',
 }
@@ -205,7 +204,7 @@ export type SelectParams = {
     options: SelectOption[];
 };
 
-export type EntitySearchParams = {
+type EntitySearchParams = {
     entityTypes: EntityType[];
 };
 

@@ -13,4 +13,30 @@ source:
     include_usage_statistics: true
     stateful_ingestion:
       enabled: true
+
+    # --- Performance options for large installations ---
+
+    # Skip column extraction for tables not altered in the last N days (recommended for
+    # scheduled pipelines — set once and never update the recipe).
+    #column_extraction_days_back: 3
+
+    # Alternative: skip column extraction for tables unchanged since an absolute timestamp.
+    # Set to the start time of the last successful run. Mutually exclusive with
+    # column_extraction_days_back.
+    #column_extraction_watermark: "2024-06-01T00:00:00Z"
+
+    # Use dbc.ColumnsV for view columns first (faster); fall back to HELP only
+    # when a column has an unknown type (e.g. derived expressions).
+    #use_dbc_columns_for_views: true
+
+    # Cap profiling to high-priority tables (uses standard GEProfilingConfig).
+    #profiling:
+    #  enabled: true
+    #  limit: 500
+    #profile_pattern:
+    #  allow:
+    #    - "important_db\\..*"
+
+    # Increase if lineage queries against DBC.QryLogV time out (default: 120000 ms).
+    #request_timeout_ms: 300000
 sink:

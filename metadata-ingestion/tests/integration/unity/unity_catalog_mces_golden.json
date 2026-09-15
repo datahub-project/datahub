@@ -220,85 +220,32 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/name",
-                "value": "view1"
+        "json": {
+            "customProperties": {
+                "table_type": "HIVE_VIEW",
+                "Catalog": "hive_metastore",
+                "Database": "bronze_kambi",
+                "Table": "view1",
+                "Last Access": "UNKNOWN",
+                "Created By": "Spark 3.2.1",
+                "Owner": "root",
+                "table_id": "hive_metastore.bronze_kambi.view1",
+                "created_at": "2022-06-22 05:14:56"
             },
-            {
-                "op": "add",
-                "path": "/created",
-                "value": {
-                    "time": 1655874896000
-                }
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/view1",
+            "name": "view1",
+            "qualifiedName": "hive_metastore.bronze_kambi.view1",
+            "created": {
+                "time": 1655874896000
             },
-            {
-                "op": "add",
-                "path": "/lastModified",
-                "value": {
-                    "time": 1655874896000
-                }
+            "lastModified": {
+                "time": 1655874896000
             },
-            {
-                "op": "add",
-                "path": "/qualifiedName",
-                "value": "hive_metastore.bronze_kambi.view1"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_type",
-                "value": "HIVE_VIEW"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Catalog",
-                "value": "hive_metastore"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Database",
-                "value": "bronze_kambi"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Table",
-                "value": "view1"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Last Access",
-                "value": "UNKNOWN"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Created By",
-                "value": "Spark 3.2.1"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Owner",
-                "value": "root"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_id",
-                "value": "hive_metastore.bronze_kambi.view1"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/created_at",
-                "value": "2022-06-22 05:14:56"
-            },
-            {
-                "op": "add",
-                "path": "/externalUrl",
-                "value": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/view1"
-            }
-        ]
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
@@ -1244,110 +1191,37 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/name",
-                "value": "bet"
+        "json": {
+            "customProperties": {
+                "storage_location": "dbfs:/user/hive/warehouse/bronze_kambi.db/bet",
+                "data_source_format": "DELTA",
+                "table_type": "HIVE_MANAGED_TABLE",
+                "Catalog": "hive_metastore",
+                "Database": "bronze_kambi",
+                "Table": "bet",
+                "Last Access": "UNKNOWN",
+                "Created By": "Spark 3.2.1",
+                "Statistics": "1024 bytes, 3 rows",
+                "Owner": "root",
+                "Is_managed_location": "true",
+                "Table Properties": "[delta.autoOptimize.autoCompact=true,delta.autoOptimize.optimizeWrite=true,delta.minReaderVersion=1,delta.minWriterVersion=2]",
+                "table_id": "hive_metastore.bronze_kambi.bet",
+                "created_at": "2022-06-22 05:14:56"
             },
-            {
-                "op": "add",
-                "path": "/created",
-                "value": {
-                    "time": 1655874896000
-                }
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/bet",
+            "name": "bet",
+            "qualifiedName": "hive_metastore.bronze_kambi.bet",
+            "created": {
+                "time": 1655874896000
             },
-            {
-                "op": "add",
-                "path": "/lastModified",
-                "value": {
-                    "time": 1655874896000
-                }
+            "lastModified": {
+                "time": 1655874896000
             },
-            {
-                "op": "add",
-                "path": "/qualifiedName",
-                "value": "hive_metastore.bronze_kambi.bet"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/storage_location",
-                "value": "dbfs:/user/hive/warehouse/bronze_kambi.db/bet"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/data_source_format",
-                "value": "DELTA"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_type",
-                "value": "HIVE_MANAGED_TABLE"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Catalog",
-                "value": "hive_metastore"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Database",
-                "value": "bronze_kambi"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Table",
-                "value": "bet"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Last Access",
-                "value": "UNKNOWN"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Created By",
-                "value": "Spark 3.2.1"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Statistics",
-                "value": "1024 bytes, 3 rows"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Owner",
-                "value": "root"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Is_managed_location",
-                "value": "true"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Table Properties",
-                "value": "[delta.autoOptimize.autoCompact=true,delta.autoOptimize.optimizeWrite=true,delta.minReaderVersion=1,delta.minWriterVersion=2]"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_id",
-                "value": "hive_metastore.bronze_kambi.bet"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/created_at",
-                "value": "2022-06-22 05:14:56"
-            },
-            {
-                "op": "add",
-                "path": "/externalUrl",
-                "value": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/bet"
-            }
-        ]
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
@@ -1460,110 +1334,37 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.external_metastore,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/name",
-                "value": "external_metastore"
+        "json": {
+            "customProperties": {
+                "storage_location": "s3://external_metastore/",
+                "data_source_format": "DELTA",
+                "table_type": "HIVE_EXTERNAL_TABLE",
+                "Catalog": "hive_metastore",
+                "Database": "bronze_kambi",
+                "Table": "external_metastore",
+                "Last Access": "UNKNOWN",
+                "Created By": "Spark 3.2.1",
+                "Statistics": "1024 bytes, 3 rows",
+                "Owner": "root",
+                "Is_managed_location": "true",
+                "Table Properties": "[delta.autoOptimize.autoCompact=true,delta.autoOptimize.optimizeWrite=true,delta.minReaderVersion=1,delta.minWriterVersion=2]",
+                "table_id": "hive_metastore.bronze_kambi.external_metastore",
+                "created_at": "2022-06-22 05:14:56"
             },
-            {
-                "op": "add",
-                "path": "/created",
-                "value": {
-                    "time": 1655874896000
-                }
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/external_metastore",
+            "name": "external_metastore",
+            "qualifiedName": "hive_metastore.bronze_kambi.external_metastore",
+            "created": {
+                "time": 1655874896000
             },
-            {
-                "op": "add",
-                "path": "/lastModified",
-                "value": {
-                    "time": 1655874896000
-                }
+            "lastModified": {
+                "time": 1655874896000
             },
-            {
-                "op": "add",
-                "path": "/qualifiedName",
-                "value": "hive_metastore.bronze_kambi.external_metastore"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/storage_location",
-                "value": "s3://external_metastore/"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/data_source_format",
-                "value": "DELTA"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_type",
-                "value": "HIVE_EXTERNAL_TABLE"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Catalog",
-                "value": "hive_metastore"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Database",
-                "value": "bronze_kambi"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Table",
-                "value": "external_metastore"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Last Access",
-                "value": "UNKNOWN"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Created By",
-                "value": "Spark 3.2.1"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Statistics",
-                "value": "1024 bytes, 3 rows"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Owner",
-                "value": "root"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Is_managed_location",
-                "value": "true"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/Table Properties",
-                "value": "[delta.autoOptimize.autoCompact=true,delta.autoOptimize.optimizeWrite=true,delta.minReaderVersion=1,delta.minWriterVersion=2]"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_id",
-                "value": "hive_metastore.bronze_kambi.external_metastore"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/created_at",
-                "value": "2022-06-22 05:14:56"
-            },
-            {
-                "op": "add",
-                "path": "/externalUrl",
-                "value": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/external_metastore"
-            }
-        ]
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
@@ -1618,36 +1419,19 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.delta_error_table,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/name",
-                "value": "delta_error_table"
+        "json": {
+            "customProperties": {
+                "table_type": "UNKNOWN",
+                "table_id": "hive_metastore.bronze_kambi.delta_error_table"
             },
-            {
-                "op": "add",
-                "path": "/qualifiedName",
-                "value": "hive_metastore.bronze_kambi.delta_error_table"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_type",
-                "value": "UNKNOWN"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_id",
-                "value": "hive_metastore.bronze_kambi.delta_error_table"
-            },
-            {
-                "op": "add",
-                "path": "/externalUrl",
-                "value": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/delta_error_table"
-            }
-        ]
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi/delta_error_table",
+            "name": "delta_error_table",
+            "qualifiedName": "hive_metastore.bronze_kambi.delta_error_table",
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
@@ -2513,122 +2297,41 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/name",
-                "value": "quickstart_table_external"
+        "json": {
+            "customProperties": {
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "data_source_format": "DELTA",
+                "generation": "2",
+                "table_type": "EXTERNAL",
+                "created_by": "abc@acryl.io",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
+                "spark.sql.statistics.numRows": "10",
+                "spark.sql.statistics.totalSize": "512",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2022-10-19 13:27:29.633000+00:00",
+                "created_at": "2022-10-19 13:21:38.688000+00:00"
             },
-            {
-                "op": "add",
-                "path": "/created",
-                "value": {
-                    "time": 1666185698688,
-                    "actor": "urn:li:corpuser:abc@acryl.io"
-                }
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table_external",
+            "name": "quickstart_table_external",
+            "qualifiedName": "quickstart_catalog.quickstart_schema.quickstart_table_external",
+            "created": {
+                "time": 1666185698688,
+                "actor": "urn:li:corpuser:abc@acryl.io"
             },
-            {
-                "op": "add",
-                "path": "/lastModified",
-                "value": {
-                    "time": 1666186049633,
-                    "actor": "urn:li:corpuser:abc@acryl.io"
-                }
+            "lastModified": {
+                "time": 1666186049633,
+                "actor": "urn:li:corpuser:abc@acryl.io"
             },
-            {
-                "op": "add",
-                "path": "/qualifiedName",
-                "value": "quickstart_catalog.quickstart_schema.quickstart_table_external"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/storage_location",
-                "value": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/data_source_format",
-                "value": "DELTA"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/generation",
-                "value": "2"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_type",
-                "value": "EXTERNAL"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/created_by",
-                "value": "abc@acryl.io"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/delta.lastCommitTimestamp",
-                "value": "1666185711000"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/delta.lastUpdateVersion",
-                "value": "1"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/delta.minReaderVersion",
-                "value": "1"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/delta.minWriterVersion",
-                "value": "2"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/spark.sql.statistics.numRows",
-                "value": "10"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/spark.sql.statistics.totalSize",
-                "value": "512"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_id",
-                "value": "cff27aa1-1c6a-4d78-b713-562c660c2896"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/owner",
-                "value": "account users"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/updated_by",
-                "value": "abc@acryl.io"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/updated_at",
-                "value": "2022-10-19 13:27:29.633000+00:00"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/created_at",
-                "value": "2022-10-19 13:21:38.688000+00:00"
-            },
-            {
-                "op": "add",
-                "path": "/externalUrl",
-                "value": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table_external"
-            }
-        ]
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
@@ -2699,24 +2402,28 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/owners/urn:li:corpuser:account users/DATAOWNER",
-                "value": {
+        "json": {
+            "owners": [
+                {
                     "owner": "urn:li:corpuser:account users",
                     "type": "DATAOWNER"
                 }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
             }
-        ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {
@@ -2814,122 +2521,41 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/name",
-                "value": "quickstart_table"
+        "json": {
+            "customProperties": {
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "data_source_format": "DELTA",
+                "generation": "2",
+                "table_type": "MANAGED",
+                "created_by": "abc@acryl.io",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
+                "spark.sql.statistics.numRows": "10",
+                "spark.sql.statistics.totalSize": "512",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2022-10-19 13:27:29.633000+00:00",
+                "created_at": "2022-10-19 13:21:38.688000+00:00"
             },
-            {
-                "op": "add",
-                "path": "/created",
-                "value": {
-                    "time": 1666185698688,
-                    "actor": "urn:li:corpuser:abc@acryl.io"
-                }
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table",
+            "name": "quickstart_table",
+            "qualifiedName": "quickstart_catalog.quickstart_schema.quickstart_table",
+            "created": {
+                "time": 1666185698688,
+                "actor": "urn:li:corpuser:abc@acryl.io"
             },
-            {
-                "op": "add",
-                "path": "/lastModified",
-                "value": {
-                    "time": 1666186049633,
-                    "actor": "urn:li:corpuser:abc@acryl.io"
-                }
+            "lastModified": {
+                "time": 1666186049633,
+                "actor": "urn:li:corpuser:abc@acryl.io"
             },
-            {
-                "op": "add",
-                "path": "/qualifiedName",
-                "value": "quickstart_catalog.quickstart_schema.quickstart_table"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/storage_location",
-                "value": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/data_source_format",
-                "value": "DELTA"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/generation",
-                "value": "2"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_type",
-                "value": "MANAGED"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/created_by",
-                "value": "abc@acryl.io"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/delta.lastCommitTimestamp",
-                "value": "1666185711000"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/delta.lastUpdateVersion",
-                "value": "1"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/delta.minReaderVersion",
-                "value": "1"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/delta.minWriterVersion",
-                "value": "2"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/spark.sql.statistics.numRows",
-                "value": "10"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/spark.sql.statistics.totalSize",
-                "value": "512"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_id",
-                "value": "cff27aa1-1c6a-4d78-b713-562c660c2896"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/owner",
-                "value": "account users"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/updated_by",
-                "value": "abc@acryl.io"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/updated_at",
-                "value": "2022-10-19 13:27:29.633000+00:00"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/created_at",
-                "value": "2022-10-19 13:21:38.688000+00:00"
-            },
-            {
-                "op": "add",
-                "path": "/externalUrl",
-                "value": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table"
-            }
-        ]
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
@@ -2966,24 +2592,28 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/owners/urn:li:corpuser:account users/DATAOWNER",
-                "value": {
+        "json": {
+            "owners": [
+                {
                     "owner": "urn:li:corpuser:account users",
                     "type": "DATAOWNER"
                 }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
             }
-        ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {

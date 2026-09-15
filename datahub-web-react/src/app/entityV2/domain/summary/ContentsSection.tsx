@@ -1,11 +1,11 @@
 import { AppstoreOutlined } from '@ant-design/icons';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import ContentSectionLoading from '@app/entityV2/domain/summary/ContentSectionLoading';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     getContentsSummary,
     getDomainEntitiesFilterUrl,
@@ -17,7 +17,6 @@ import {
     SummaryTabHeaderWrapper,
 } from '@app/entityV2/shared/summary/HeaderComponents';
 import { getContentTypeIcon } from '@app/entityV2/shared/summary/IconComponents';
-import { pluralize } from '@app/shared/textUtil';
 import { EntityCountCard } from '@app/sharedV2/cards/EntityCountCard';
 import { Carousel } from '@app/sharedV2/carousel/Carousel';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -25,16 +24,18 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetDomainEntitySummaryQuery } from '@graphql/domain.generated';
 
 const ViewAllButton = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding: 2px;
     :hover {
         cursor: pointer;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
         text-decoration: underline;
     }
 `;
 
 export const ContentsSection = () => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const { entityState } = useEntityContext();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -64,9 +65,12 @@ export const ContentsSection = () => {
     return (
         <SectionContainer>
             <SummaryTabHeaderWrapper>
-                <SummaryTabHeaderTitle icon={<AppstoreOutlined />} title={`Assets (${contentsCount})`} />
+                <SummaryTabHeaderTitle
+                    icon={<AppstoreOutlined />}
+                    title={t('shared.assetsCountTitle', { count: contentsCount })}
+                />
                 <ViewAllButton onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>
-                    View all
+                    {tc('viewAll')}
                 </ViewAllButton>
             </SummaryTabHeaderWrapper>
             {loading && <ContentSectionLoading />}
@@ -93,7 +97,7 @@ export const ContentsSection = () => {
                                 name={typeName}
                                 count={summary.count}
                                 icon={getContentTypeIcon(entityRegistry, summary.entityType, summary.type)}
-                                tooltipDescriptor={pluralize(count, typeName)}
+                                tooltipDescriptor={t('shared.assetTypeNameCount', { count, type: typeName })}
                                 link={link}
                             />
                         );

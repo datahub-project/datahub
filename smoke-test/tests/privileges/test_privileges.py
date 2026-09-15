@@ -20,6 +20,7 @@ from tests.privileges.utils import (
     set_view_dataset_sensitive_info_policy_status,
     set_view_entity_profile_privileges_policy_status,
 )
+from tests.utilities.domains import Domain
 from tests.utils import (
     get_admin_credentials,
     get_frontend_session,
@@ -31,7 +32,16 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.global_policy_mutator,
+    pytest.mark.domain(Domain.PLATFORM),
+    pytest.mark.p0,
+]
+
+# Valid email for auth.native.signUp.enforceValidEmail (Play EmailValidator).
+TEST_PRIVILEGES_USER_EMAIL = "privileges.user@smoke.datahub.test"
+TEST_PRIVILEGES_USER_URN = f"urn:li:corpuser:{TEST_PRIVILEGES_USER_EMAIL}"
 
 
 @pytest.fixture(scope="module")
@@ -43,14 +53,14 @@ def admin_session(auth_session):
 def privileges_and_test_user_setup(admin_session):
     """Fixture to execute setup before and tear down after all tests are run"""
     # Clean up any leftover test policies from previous failed runs
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefix="Test Policy")
 
     # Disable 'All users' privileges
     set_base_platform_privileges_policy_status("INACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("INACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("INACTIVE", admin_session)
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     # Verify clean state
     logger.info("=" * 80)
@@ -59,10 +69,10 @@ def privileges_and_test_user_setup(admin_session):
     logger.info("=" * 80)
 
     # Create a new user
-    admin_session = create_user(admin_session, "user", "user")
+    admin_session = create_user(admin_session, TEST_PRIVILEGES_USER_EMAIL, "user")
 
     # Verify test user has no privileges initially
-    user_session = login_as("user", "user")
+    user_session = login_as(TEST_PRIVILEGES_USER_EMAIL, "user")
     user_info = log_user_privileges(user_session, "(initial state)")
     if user_info:
         privileges = user_info["privileges"]
@@ -83,13 +93,13 @@ def privileges_and_test_user_setup(admin_session):
     yield
 
     # Remove test user
-    remove_user(admin_session, "urn:li:corpuser:user")
+    remove_user(admin_session, TEST_PRIVILEGES_USER_URN)
 
     # Remove secret
     remove_secret(admin_session, "urn:li:dataHubSecret:TestSecretName")
 
     # Remove test policies
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefix="Test Policy")
 
     # Restore All users privileges
     set_base_platform_privileges_policy_status("ACTIVE", admin_session)
@@ -97,7 +107,7 @@ def privileges_and_test_user_setup(admin_session):
     set_view_entity_profile_privileges_policy_status("ACTIVE", admin_session)
 
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 @with_test_retry(max_attempts=10)
@@ -195,7 +205,7 @@ def _ensure_can_create_user_policy(session, json):
 def test_privilege_to_create_and_manage_secrets():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
-    user_session = login_as("user", "user")
+    user_session = login_as(TEST_PRIVILEGES_USER_EMAIL, "user")
     secret_urn = "urn:li:dataHubSecret:TestSecretName"
 
     # Verify new user can't create secrets
@@ -214,7 +224,7 @@ def test_privilege_to_create_and_manage_secrets():
 
     # Assign privileges to the new user to manage secrets
     policy_urn = create_user_policy(
-        "urn:li:corpuser:user", ["MANAGE_SECRETS"], admin_session
+        TEST_PRIVILEGES_USER_URN, ["MANAGE_SECRETS"], admin_session
     )
 
     # Verify new user can create and manage secrets
@@ -249,7 +259,7 @@ def test_privilege_to_create_and_manage_secrets():
 def test_privilege_to_create_and_manage_ingestion_source():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
-    user_session = login_as("user", "user")
+    user_session = login_as(TEST_PRIVILEGES_USER_EMAIL, "user")
 
     # Verify new user can't create ingestion source
     create_ingestion_source = {
@@ -282,7 +292,7 @@ def test_privilege_to_create_and_manage_ingestion_source():
 
     # Assign privileges to the new user to manage ingestion source
     policy_urn = create_user_policy(
-        "urn:li:corpuser:user", ["MANAGE_INGESTION"], admin_session
+        TEST_PRIVILEGES_USER_URN, ["MANAGE_INGESTION"], admin_session
     )
 
     # Verify new user can create and manage ingestion source(edit, delete)
@@ -357,7 +367,7 @@ def test_privilege_to_create_and_manage_ingestion_source():
 def test_privilege_to_create_and_revoke_personal_access_tokens():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
-    user_session = login_as("user", "user")
+    user_session = login_as(TEST_PRIVILEGES_USER_EMAIL, "user")
 
     # Verify new user can't create access token
     create_access_token = {
@@ -365,7 +375,7 @@ def test_privilege_to_create_and_revoke_personal_access_tokens():
           createAccessToken(input: $input) {\n    accessToken\n    __typename\n  }\n}\n""",
         "variables": {
             "input": {
-                "actorUrn": "urn:li:corpuser:user",
+                "actorUrn": TEST_PRIVILEGES_USER_URN,
                 "type": "PERSONAL",
                 "duration": "ONE_MONTH",
                 "name": "test",
@@ -378,14 +388,14 @@ def test_privilege_to_create_and_revoke_personal_access_tokens():
 
     # Assign privileges to the new user to create and manage access tokens
     policy_urn = create_user_policy(
-        "urn:li:corpuser:user", ["GENERATE_PERSONAL_ACCESS_TOKENS"], admin_session
+        TEST_PRIVILEGES_USER_URN, ["GENERATE_PERSONAL_ACCESS_TOKENS"], admin_session
     )
 
     # Verify new user can create and manage access token(create, revoke)
     # Create a access token
     _ensure_can_create_access_token(user_session, create_access_token)
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     # List access tokens first to get token id
     list_access_tokens = {
@@ -398,7 +408,9 @@ def test_privilege_to_create_and_revoke_personal_access_tokens():
             "input": {
                 "start": 0,
                 "count": 10,
-                "filters": [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}],
+                "filters": [
+                    {"field": "ownerUrn", "values": [TEST_PRIVILEGES_USER_URN]}
+                ],
             }
         },
     }
@@ -442,7 +454,7 @@ def test_privilege_to_create_and_revoke_personal_access_tokens():
 def test_privilege_to_create_and_manage_policies():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
-    user_session = login_as("user", "user")
+    user_session = login_as(TEST_PRIVILEGES_USER_EMAIL, "user")
 
     # Log initial user privilege state
     logger.info("=" * 80)
@@ -475,7 +487,7 @@ def test_privilege_to_create_and_manage_policies():
                 "resources": {"filter": {"criteria": []}},
                 "privileges": ["MANAGE_POLICIES"],
                 "actors": {
-                    "users": ["urn:li:corpuser:user"],
+                    "users": [TEST_PRIVILEGES_USER_URN],
                     "resourceOwners": False,
                     "allUsers": False,
                     "allGroups": False,
@@ -488,7 +500,7 @@ def test_privilege_to_create_and_manage_policies():
 
     # Assign privileges to the new user to create and manage policies
     admin_policy_urn = create_user_policy(
-        "urn:li:corpuser:user", ["MANAGE_POLICIES"], admin_session
+        TEST_PRIVILEGES_USER_URN, ["MANAGE_POLICIES"], admin_session
     )
 
     # Verify new user can create and manage policy(create, edit, delete)
@@ -554,7 +566,7 @@ def test_privilege_to_create_and_manage_policies():
 def test_privilege_from_group_role_can_create_and_manage_secret():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
-    user_session = login_as("user", "user")
+    user_session = login_as(TEST_PRIVILEGES_USER_EMAIL, "user")
     secret_urn = "urn:li:dataHubSecret:TestName"
 
     # Verify new user can't create secrets
@@ -578,7 +590,7 @@ def test_privilege_from_group_role_can_create_and_manage_secret():
     assign_role(admin_session, "urn:li:dataHubRole:Admin", [group_urn])
 
     # Assign user to group
-    assign_user_to_group(admin_session, group_urn, ["urn:li:corpuser:user"])
+    assign_user_to_group(admin_session, group_urn, [TEST_PRIVILEGES_USER_URN])
 
     # Verify new user with admin group can create and manage secrets
     # Create a secret

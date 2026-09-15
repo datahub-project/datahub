@@ -1,10 +1,11 @@
-import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
-import { Collapse, Typography } from 'antd';
-import React from 'react';
+import { Icon } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import EntityProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/EntityProperty';
 import SyncedOrShared from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrShared';
@@ -20,41 +21,27 @@ const SyncedAssetContainer = styled.div`
     flex-direction: column;
 `;
 
-export const StyledCollapse = styled(Collapse)`
-    text-wrap: wrap;
-    .ant-collapse-header {
-        padding: 0px 0px !important;
-        align-items: center !important;
-    }
-
-    .ant-collapse-content-box {
-        padding: 0 0 6px 20px !important;
-    }
-
-    .ant-collapse-arrow {
-        margin-right: 0 !important;
-        height: 20px;
-        width: 20px;
-    }
+const DeprecatedHeader = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
 `;
 
-const StyledIcon = styled.div`
-    svg {
-        height: 18px;
-        width: 18px;
-        color: ${REDESIGN_COLORS.DARK_DIVIDER};
-        stroke: ${REDESIGN_COLORS.DARK_DIVIDER};
-        stroke-width: 1px;
-    }
+const DeprecatedContent = styled.div`
+    padding: 0 0 6px 20px;
 `;
 
-const EmptyText = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.COLD_GREY_TEXT};
+const EmptyText = styled.span`
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StatusSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tl } = useTranslation('common.labels');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
+    const [isDeprecationExpanded, setIsDeprecationExpanded] = useState(false);
 
     const dataset = entityData as any;
     const entityType = entityData?.type;
@@ -96,60 +83,69 @@ const StatusSection = () => {
 
     return (
         <SidebarSection
-            title="Status"
+            title={tl('status')}
             content={
                 <SyncedAssetContainer>
-                    {!!created && <TimeProperty labelText="Created:" time={created} />}
+                    {!!created && <TimeProperty labelText={t('sidebar.status.createdLabel')} time={created} />}
                     {(entityType === EntityType.Dashboard || entityType === EntityType.Chart) && (
                         <>
-                            {!!lastModified && <TimeProperty labelText="Last Modified:" time={lastModified} />}
-                            {!!lastRefreshed && <TimeProperty labelText="Data Last Refreshed:" time={lastRefreshed} />}
+                            {!!lastModified && (
+                                <TimeProperty labelText={t('sidebar.status.lastModifiedLabel')} time={lastModified} />
+                            )}
+                            {!!lastRefreshed && (
+                                <TimeProperty
+                                    labelText={t('sidebar.status.dataLastRefreshedLabel')}
+                                    time={lastRefreshed}
+                                />
+                            )}
                         </>
                     )}
                     {!!lastUpdated && entityType === EntityType.Dataset && (
                         <TimeProperty
-                            labelText="Last Updated:"
+                            labelText={t('sidebar.status.lastUpdatedLabel')}
                             time={lastUpdated}
-                            titleTip={`Time when the asset was last modified ${
-                                baseEntityPlatformName ? `in ${baseEntityPlatformName}` : null
-                            }`}
+                            titleTip={
+                                baseEntityPlatformName
+                                    ? t('sidebar.status.lastUpdatedTip', { platform: baseEntityPlatformName })
+                                    : undefined
+                            }
                         />
                     )}
                     {isDeprecated && (
-                        <StyledCollapse
-                            defaultActiveKey=""
-                            ghost
-                            expandIcon={({ isActive }) => (
-                                <StyledIcon>{isActive ? <KeyboardArrowDown /> : <KeyboardArrowRight />} </StyledIcon>
+                        <div>
+                            <DeprecatedHeader onClick={() => setIsDeprecationExpanded((prev) => !prev)}>
+                                <Icon icon={isDeprecationExpanded ? CaretDown : CaretRight} size="md" color="inherit" />
+                                <TimeProperty
+                                    labelText={
+                                        deprecatedByEntityName
+                                            ? t('sidebar.status.deprecatedByLabel', { name: deprecatedByEntityName })
+                                            : t('sidebar.status.deprecatedLabel')
+                                    }
+                                />
+                            </DeprecatedHeader>
+                            {isDeprecationExpanded && (
+                                <DeprecatedContent>
+                                    {deprecationReplacement && (
+                                        <EntityProperty
+                                            labelText={t('sidebar.status.replacementLabel')}
+                                            entity={deprecationReplacement}
+                                        />
+                                    )}
+                                    {decommissionTime ? (
+                                        <TimeProperty
+                                            labelText={t('sidebar.status.scheduledDecommissionLabel')}
+                                            time={entityData.deprecation?.decommissionTime}
+                                        />
+                                    ) : (
+                                        <EmptyText>{t('sidebar.status.noAdditionalInfoText')}</EmptyText>
+                                    )}
+                                </DeprecatedContent>
                             )}
-                        >
-                            <Collapse.Panel
-                                header={
-                                    <TimeProperty
-                                        labelText={`Deprecated${
-                                            !!deprecatedByEntityName && `: by ${deprecatedByEntityName}`
-                                        }`}
-                                    />
-                                }
-                                key={1}
-                            >
-                                {deprecationReplacement && (
-                                    <EntityProperty labelText="Replacement:" entity={deprecationReplacement} />
-                                )}
-                                {decommissionTime ? (
-                                    <TimeProperty
-                                        labelText="Scheduled Decommission:"
-                                        time={entityData.deprecation?.decommissionTime}
-                                    />
-                                ) : (
-                                    <EmptyText>No additional information</EmptyText>
-                                )}
-                            </Collapse.Panel>
-                        </StyledCollapse>
+                        </div>
                     )}
                     {!!lastIngested && (
                         <SyncedOrShared
-                            labelText="Synced:"
+                            labelText={t('sidebar.status.syncedLabel')}
                             time={lastIngested}
                             platformName={rootSiblingPlatformName}
                             platform={platform}

@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
@@ -53,6 +54,40 @@ public class IndexUtils {
 
   private static List<ReindexConfig> _reindexConfigs = new ArrayList<>();
 
+  /** Clears the cached reindex configs. Visible for testing. */
+  @com.google.common.annotations.VisibleForTesting
+  public static void clearReindexConfigCache() {
+    _reindexConfigs = new ArrayList<>();
+  }
+
+  public static List<ReindexConfig> getIndicesNeedingReindex(
+      OperationContext opContext,
+      List<ElasticSearchIndexed> services,
+      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties)
+      throws IOException {
+    final List<ReindexConfig> reindexConfigs =
+        getAllReindexConfigs(opContext, services, structuredProperties);
+
+    // Get indices to update
+    return reindexConfigs.stream()
+        .filter(ReindexConfig::requiresReindex)
+        .collect(Collectors.toList());
+  }
+
+  public static List<ReindexConfig> getIndicesNeedingReindexOrBuild(
+      OperationContext opContext,
+      List<ElasticSearchIndexed> services,
+      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties)
+      throws IOException {
+    final List<ReindexConfig> reindexConfigs =
+        getAllReindexConfigs(opContext, services, structuredProperties);
+
+    // Get indices to update
+    return reindexConfigs.stream()
+        .filter(reindexConfig -> !reindexConfig.exists() || reindexConfig.requiresReindex())
+        .collect(Collectors.toList());
+  }
+
   public static List<ReindexConfig> getAllReindexConfigs(
       OperationContext opContext,
       List<ElasticSearchIndexed> elasticSearchIndexedList,
@@ -72,9 +107,12 @@ public class IndexUtils {
   }
 
   public static boolean validateWriteBlock(
-      SearchClientShim<?> esClient, String indexName, boolean expectedState)
+      OperationContext opContext,
+      SearchClientShim<?> esClient,
+      String indexName,
+      boolean expectedState)
       throws IOException, InterruptedException {
-    final String finalIndexName = resolveAlias(esClient, indexName);
+    final String finalIndexName = resolveAlias(opContext, esClient, indexName);
 
     GetSettingsRequest request =
         new GetSettingsRequest()
@@ -84,7 +122,8 @@ public class IndexUtils {
 
     int count = INDEX_BLOCKS_WRITE_RETRY;
     while (count > 0) {
-      GetSettingsResponse response = esClient.getIndexSettings(request, RequestOptions.DEFAULT);
+      GetSettingsResponse response =
+          esClient.getIndexSettings(opContext, request, RequestOptions.DEFAULT);
       if (response
           .getSetting(finalIndexName, INDEX_BLOCKS_WRITE_SETTING)
           .equals(String.valueOf(expectedState))) {
@@ -100,12 +139,14 @@ public class IndexUtils {
     return false;
   }
 
-  public static String resolveAlias(SearchClientShim<?> esClient, String indexName)
+  public static String resolveAlias(
+      OperationContext opContext, SearchClientShim<?> esClient, String indexName)
       throws IOException {
     String finalIndexName = indexName;
 
     GetAliasesResponse aliasResponse =
-        esClient.getIndexAliases(new GetAliasesRequest(indexName), RequestOptions.DEFAULT);
+        esClient.getIndexAliases(
+            opContext, new GetAliasesRequest(indexName), RequestOptions.DEFAULT);
 
     if (!aliasResponse.getAliases().isEmpty()) {
       Set<String> indices = aliasResponse.getAliases().keySet();
@@ -277,11 +318,13 @@ public class IndexUtils {
    * @throws IOException if the request fails
    */
   public static RawResponse performGetRequest(
-      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents, String endpoint)
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String endpoint)
       throws IOException {
     log.info("GET => {}", endpoint);
     Request request = new Request("GET", endpoint);
-    return esComponents.getSearchClient().performLowLevelRequest(request);
+    return esComponents.getSearchClient().performLowLevelRequest(opContext, request);
   }
 
   /**
@@ -294,6 +337,7 @@ public class IndexUtils {
    * @throws IOException if the request fails
    */
   public static RawResponse performPutRequest(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String endpoint,
       String jsonBody)
@@ -301,7 +345,7 @@ public class IndexUtils {
     log.info("PUT => {}", endpoint);
     Request request = new Request("PUT", endpoint);
     request.setJsonEntity(jsonBody);
-    return esComponents.getSearchClient().performLowLevelRequest(request);
+    return esComponents.getSearchClient().performLowLevelRequest(opContext, request);
   }
 
   /**
@@ -314,6 +358,7 @@ public class IndexUtils {
    * @throws IOException if the request fails
    */
   public static RawResponse performPostRequest(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String endpoint,
       String jsonBody)
@@ -321,7 +366,7 @@ public class IndexUtils {
     log.info("POST => {}", endpoint);
     Request request = new Request("POST", endpoint);
     request.setJsonEntity(jsonBody);
-    return esComponents.getSearchClient().performLowLevelRequest(request);
+    return esComponents.getSearchClient().performLowLevelRequest(opContext, request);
   }
 
   /**
@@ -335,6 +380,7 @@ public class IndexUtils {
    * @throws IOException if the request fails
    */
   public static RawResponse performPutRequestWithParams(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String endpoint,
       String queryParams,
@@ -344,6 +390,6 @@ public class IndexUtils {
     log.info("PUT => {}", fullEndpoint);
     Request request = new Request("PUT", fullEndpoint);
     request.setJsonEntity(jsonBody);
-    return esComponents.getSearchClient().performLowLevelRequest(request);
+    return esComponents.getSearchClient().performLowLevelRequest(opContext, request);
   }
 }

@@ -1,3 +1,7 @@
+---
+description: "Extract logs from running DataHub GMS and frontend containers to debug issues with the backend server and UI."
+---
+
 # How to Extract Logs from DataHub Containers
 
 DataHub containers, datahub GMS (backend server) and datahub frontend (UI server), write log files to the local container filesystem. To extract these logs, you'll need to get them from inside the container where the services are running.

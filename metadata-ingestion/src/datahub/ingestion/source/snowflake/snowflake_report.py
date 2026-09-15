@@ -64,6 +64,9 @@ class SnowflakeReport(SQLSourceReport, BaseTimeWindowReport):
     num_table_to_view_edges_scanned: int = 0
     num_view_to_table_edges_scanned: int = 0
     num_external_table_edges_scanned: int = 0
+    # semanticModel lineage is emitted directly, not via the dataset-mode view
+    # lineage path, so it needs its own counter.
+    num_semantic_model_lineage_edges_scanned: int = 0
     ignore_start_time_lineage: Optional[bool] = None
     upstream_lineage_in_report: Optional[bool] = None
     upstream_lineage: LossyDict[str, List[str]] = field(default_factory=LossyDict)
@@ -106,6 +109,9 @@ class SnowflakeV2Report(
     procedures_scanned: int = 0
     streamlit_apps_scanned: int = 0
     semantic_views_scanned: int = 0
+    stages_scanned: int = 0
+    tasks_scanned: int = 0
+    pipes_scanned: int = 0
 
     include_usage_stats: bool = False
     include_operational_stats: bool = False
@@ -118,7 +124,24 @@ class SnowflakeV2Report(
     num_streams_with_known_upstreams: int = 0
     num_upstream_lineage_edge_parsing_failed: int = 0
     num_secure_views_missing_definition: int = 0
+    num_dynamic_tables_missing_definition: int = 0
+    # No DYNAMIC_TABLE_GRAPH_HISTORY row matched the dynamic table's qualified name, so its
+    # INPUTS upstreams and target_lag fallback are unavailable. Counted because that loss is
+    # otherwise invisible: this equalling the dynamic-table count is the signature of the
+    # keying bug fixed in #19143, and of the graph-history query's filters excluding
+    # everything on an edition whose output differs from the documented one.
+    num_dynamic_tables_missing_graph_info: int = 0
     num_structured_property_templates_created: int = 0
+    # sqlglot parse failures while resolving metric-to-metric derivedFrom refs;
+    # best-effort, the metric is still emitted without those edges.
+    num_semantic_view_metric_expr_parse_failures: int = 0
+
+    marketplace_listings_scanned: int = 0
+    marketplace_listings_filtered: int = 0
+    marketplace_purchases_scanned: int = 0
+    marketplace_usage_events_processed: int = 0
+    marketplace_data_products_created: int = 0
+    marketplace_enhanced_datasets: int = 0
 
     # Lineage consistency tracking
     num_tables_added_from_column_lineage: int = 0
@@ -142,6 +165,16 @@ class SnowflakeV2Report(
     _scanned_tags: MutableSet[str] = field(default_factory=set)
 
     edition: Optional[SnowflakeEdition] = None
+
+    # Server-aware resolution of semantic_views.emit_semantic_model_entities.
+    semantic_model_emission_effective: Optional[bool] = None
+    semantic_model_emission_reason: Optional[str] = None
+    semantic_model_emission_is_saas: Optional[bool] = None
+    semantic_model_emission_metrics_enabled: Optional[bool] = None
+    # Whether the server can accept semanticModel/metric in structured-property
+    # entityTypes (managed server: version only; OSS: recipe). Gates the tag extractor's
+    # entityTypes list independently of the emit decision, so it never flaps.
+    semantic_model_entity_types_capable: Optional[bool] = None
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
@@ -181,3 +214,21 @@ class SnowflakeV2Report(
 
     def report_tag_processed(self, tag_name: str) -> None:
         self._processed_tags.add(tag_name)
+
+    def report_marketplace_listing_scanned(self) -> None:
+        self.marketplace_listings_scanned += 1
+
+    def report_marketplace_listing_filtered(self) -> None:
+        self.marketplace_listings_filtered += 1
+
+    def report_marketplace_purchase_scanned(self) -> None:
+        self.marketplace_purchases_scanned += 1
+
+    def report_marketplace_data_product_created(self) -> None:
+        self.marketplace_data_products_created += 1
+
+    def report_marketplace_dataset_enhanced(self) -> None:
+        self.marketplace_enhanced_datasets += 1
+
+    def report_marketplace_usage_events_processed(self, count: int) -> None:
+        self.marketplace_usage_events_processed += count

@@ -1,5 +1,7 @@
 import { Text, Tooltip } from '@components';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetPlatforms } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetPlatforms';
@@ -13,10 +15,9 @@ import { useAppConfig } from '@app/useAppConfig';
 
 import { DataHubPageModuleType, Entity } from '@types';
 
-const NUMBER_OF_PLATFORMS = 15;
-
 const PlatformsModule = (props: ModuleProps) => {
-    const { user, platformPrivileges } = useUserContext();
+    const { t } = useTranslation('modules');
+    const { platformPrivileges } = useUserContext();
 
     const { config } = useAppConfig();
 
@@ -25,29 +26,27 @@ const PlatformsModule = (props: ModuleProps) => {
         return isIngestionEnabled && platformPrivileges?.manageIngestion;
     }, [config?.managedIngestionConfig?.enabled, platformPrivileges?.manageIngestion]);
 
-    const { platforms, loading } = useGetPlatforms(user, NUMBER_OF_PLATFORMS);
+    // Show every platform the backend returns (the card is fixed-height and scrollable) rather
+    // than a fixed top-N slice, so low-volume platforms stay discoverable here instead of being
+    // silently dropped below the fold.
+    const { platforms, loading } = useGetPlatforms();
     const { navigateToDataSources, handleEntityClick } = usePlatformModuleUtils();
 
     const renderAssetCount = (entity: Entity) => {
         const platformEntity = platforms.find((platform) => platform.platform.urn === entity.urn);
         const assetCount = platformEntity?.count || 0;
 
-        return (
-            <>
-                {assetCount > 0 && (
-                    <Text size="sm" color="gray">
-                        {formatNumber(assetCount)}
-                    </Text>
-                )}
-            </>
-        );
+        return <>{assetCount > 0 && <Text size="sm">{formatNumber(assetCount)}</Text>}</>;
     };
 
     const renderCustomTooltip = (entity: Entity, children: React.ReactNode) => {
         const platformEntity = platforms.find((platform) => platform.platform.urn === entity.urn);
         return (
             <Tooltip
-                title={`View ${formatNumberWithoutAbbreviation(platformEntity?.count)} ${platformEntity?.platform.name} assets`}
+                title={t('platforms.viewAssets', {
+                    formattedCount: formatNumberWithoutAbbreviation(platformEntity?.count),
+                    platformName: platformEntity?.platform.name,
+                })}
                 placement="bottom"
             >
                 {children}
@@ -59,10 +58,10 @@ const PlatformsModule = (props: ModuleProps) => {
         <LargeModule {...props} loading={loading} dataTestId="platforms-module">
             {platforms.length === 0 ? (
                 <EmptyContent
-                    icon="Database"
-                    title="No Platforms Yet"
-                    description="You have not ingested any data."
-                    linkText={hasPermissionsToManageIngestion ? 'Add data sources' : undefined}
+                    icon={Database}
+                    title={t('platforms.emptyTitle')}
+                    description={t('platforms.emptyDescription')}
+                    linkText={hasPermissionsToManageIngestion ? t('platforms.emptyLink') : undefined}
                     onLinkClick={navigateToDataSources}
                 />
             ) : (

@@ -47,12 +47,11 @@ public class RemoveStructuredPropertiesResolver
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            // check authorization
+            // check authorization first
             final List<Urn> propertyUrns =
                 input.getStructuredPropertyUrns().stream()
                     .map(UrnUtils::getUrn)
                     .collect(Collectors.toList());
-
             if (!AuthorizationUtils.canEditProperties(assetUrn, context, propertyUrns)) {
               throw new AuthorizationException(
                   String.format(

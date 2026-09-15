@@ -534,7 +534,7 @@ class Dataset(
         domain: Optional[DomainInputType] = None,
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
-        upstreams: Optional[models.UpstreamLineageClass] = None,
+        upstreams: Optional[UpstreamLineageInputType] = None,
         structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
         # View lineage parsing option.
@@ -886,11 +886,11 @@ class Dataset(
 
         dialect_str = get_dialect_str(platform)
 
-        # Parse the SQL (returns sqlglot.Expression)
+        # Parse the SQL (returns sqlglot.expressions.Expression)
         try:
             dialect = sqlglot.Dialect.get_or_raise(dialect_str)
             # Type annotation uses string literal since sqlglot is lazily imported
-            parsed: "sqlglot.Expression" = sqlglot.maybe_parse(
+            parsed: "sqlglot.exp.Expression" = sqlglot.maybe_parse(
                 sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
             )
         except sqlglot.errors.ParseError as e:

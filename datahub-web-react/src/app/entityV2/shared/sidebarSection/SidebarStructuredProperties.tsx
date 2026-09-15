@@ -1,5 +1,5 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
@@ -20,6 +20,7 @@ import {
     getEntityTypesPropertyFilter,
     getNotHiddenPropertyFilter,
     getPropertyRowFromSearchResult,
+    matchesAllowedPlatforms,
 } from '@src/app/govern/structuredProperties/utils';
 import {
     SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
@@ -28,6 +29,7 @@ import {
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import {
+    DataPlatform,
     EntityType,
     Maybe,
     SchemaFieldEntity,
@@ -94,7 +96,15 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
         },
     );
 
-    const entityTypeProperties = data?.searchAcrossEntities?.searchResults;
+    // Determine the current entity's platform URN for filtering allowedPlatforms
+    const platformUrn = isSchemaSidebar
+        ? ((properties?.fieldEntity?.parent as { platform?: DataPlatform } | undefined)?.platform?.urn ??
+          (entityData?.platform as DataPlatform | undefined)?.urn)
+        : (entityData?.platform as DataPlatform | undefined)?.urn;
+
+    const entityTypeProperties = data?.searchAcrossEntities?.searchResults?.filter((result) =>
+        matchesAllowedPlatforms(result.entity as StructuredPropertyEntity, platformUrn),
+    );
 
     const allProperties = isSchemaSidebar
         ? properties?.fieldEntity?.structuredProperties
@@ -153,7 +163,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                             extra={
                                 <>
                                     <SectionActionButton
-                                        button={values ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                                        icon={values ? PencilSimple : Plus}
                                         onClick={(event) => {
                                             setSelectedProperty(property);
                                             setIsPropModalVisible(true);

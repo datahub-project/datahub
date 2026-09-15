@@ -208,7 +208,9 @@ class DatahubSensors:
                 )
             )
         self.graph = DataHubGraph(
-            self.config.datahub_client_config,
+            self.config.datahub_client_config.model_copy(
+                update={"default_emit_mode": self.config.emit_mode}
+            )
         )
 
         self.graph.test_connection()

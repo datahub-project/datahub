@@ -1,3 +1,5 @@
+import ColorTheme from '@conf/theme/colorThemes/types';
+
 // General types
 export enum SizeValues {
     xs = 'xs',
@@ -80,7 +82,7 @@ export enum FontSizeValues {
 }
 export type FontSizeOptions = keyof typeof SizeValues | keyof typeof FontSizeValues;
 export type FontWeightOptions = 'normal' | 'medium' | 'semiBold' | 'bold';
-export type FontColorOptions = MiscColorOptions | ColorOptions;
+export type FontColorOptions = MiscColorOptions | ColorOptions | keyof ColorTheme;
 export type FontColorLevelOptions = keyof Color;
 
 export type BorderRadiusOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
@@ -94,6 +96,8 @@ export type RotationOptions = '0' | '90' | '180' | '270';
 export enum PillVariantValues {
     filled = 'filled',
     outline = 'outline',
+    squareFilled = 'squareFilled',
+    squareOutline = 'squareOutline',
     version = 'version',
 }
 
@@ -101,6 +105,6 @@ export type PillVariantOptions = keyof typeof PillVariantValues;
 
 export type AlignmentOptions = 'left' | 'right' | 'center' | 'justify';
 
-export type AvatarSizeOptions = 'sm' | 'md' | 'lg' | 'xl' | 'default';
+export type AvatarSizeOptions = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'default';
 
 export type IconAlignmentOptions = 'horizontal' | 'vertical';

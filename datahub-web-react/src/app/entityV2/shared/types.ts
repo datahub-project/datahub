@@ -66,6 +66,7 @@ export type EntityTab = {
 };
 
 export type EntitySidebarTab = {
+    key?: string;
     name: string;
     component: React.FunctionComponent<EntityTabProps>;
     icon: React.FunctionComponent<any>;
@@ -91,7 +92,3 @@ export type EntitySidebarSection = {
     };
     properties?: any;
 };
-
-export type ResourceType = 'incidents' | 'assertions';
-
-export type QueryType = 'incident_urn' | 'assertion_urn';

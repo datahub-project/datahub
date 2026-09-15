@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config;
 
+import com.linkedin.metadata.config.kubernetes.KubernetesScaleDownConfiguration;
 import lombok.Data;
 
 @Data
@@ -14,4 +15,7 @@ public class SystemUpdateConfiguration {
 
   /** Entity consistency checking configuration */
   private EntityConsistencyConfiguration entityConsistency;
+
+  /** Kubernetes scale-down during system-update (GMS/MAE/MCE) */
+  private KubernetesScaleDownConfiguration kubernetesScaleDown;
 }

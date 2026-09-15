@@ -1,3 +1,6 @@
+// If you change this component's content, also update QUICKSTART_CTA_MD in
+// docs-website/generateDocsDir.ts, which mirrors it as plain markdown for the
+// AI-tools "Copy page" feature.
 import React from "react";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import Link from "@docusaurus/Link";
@@ -20,8 +23,8 @@ const QuickstartCTA = () => {
         <Link className="button button--primary button--md" to={useBaseUrl("docs/quickstart")}>
           Quickstart With Open Source
         </Link>
-        <Link className="button button--secondary button--md" to="https://datahub.com/products/why-datahub-cloud/">
-          Learn About DataHub Cloud
+        <Link className="button button--secondary button--md" to="https://datahub.com/get-datahub-cloud/">
+          Try DataHub Cloud
         </Link>
     </div>  
   </div>

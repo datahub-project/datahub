@@ -24,6 +24,15 @@ class ConnectionMode(StrEnum):
     BOTH = "both"  # Both BDP and Iglu
 
 
+class EventSpecStatus(StrEnum):
+    """Event specification status values from BDP API."""
+
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    DEPRECATED = "deprecated"
+    ARCHIVED = "archived"
+
+
 class DataClassification(StrEnum):
     """Data classification levels for field tagging."""
 

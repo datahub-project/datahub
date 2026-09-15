@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { buildInitialViewState, fromUnionType } from '@app/entity/view/builder/utils';
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function SaveViewButton({ activeFilters, unionType }: Props) {
+    const { t } = useTranslation('search');
     const [isViewModalVisible, setIsViewModalVisible] = useState(false);
     const isValidViewDefiniton = useMemo(() => canCreateViewFromFilters(activeFilters), [activeFilters]);
 
@@ -39,13 +41,13 @@ export default function SaveViewButton({ activeFilters, unionType }: Props) {
                 placement="right"
                 title={
                     <>
-                        <ToolTipHeader>Save these filters as a new View.</ToolTipHeader>
-                        <div>Views allow you to easily save or share search filters.</div>
+                        <ToolTipHeader>{t('saveAsView.tooltipHeader')}</ToolTipHeader>
+                        <div>{t('saveAsView.tooltipDescription')}</div>
                     </>
                 }
             >
                 <TextButton type="text" onClick={toggleViewBuilder} marginTop={0} data-testid="save-as-view">
-                    Save as a View
+                    {t('saveAsView.label')}
                 </TextButton>
             </Tooltip>
             {isViewModalVisible && (
@@ -58,12 +60,7 @@ export default function SaveViewButton({ activeFilters, unionType }: Props) {
                             onCancel={() => setIsViewModalVisible(false)}
                         />
                     )}
-                    {!isValidViewDefiniton && (
-                        <Message
-                            type="error"
-                            content="This combination of filters cannot be saved as a View at this time."
-                        />
-                    )}
+                    {!isValidViewDefiniton && <Message type="error" content={t('saveAsView.cannotSaveError')} />}
                 </>
             )}
         </>

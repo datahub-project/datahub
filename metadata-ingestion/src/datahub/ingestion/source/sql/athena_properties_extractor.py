@@ -17,7 +17,7 @@ from sqlglot.expressions import (
     ColumnDef,
     Create,
     Day,
-    Expression,
+    Expr,
     FileFormatProperty,
     Hour,
     Identifier,
@@ -508,7 +508,7 @@ class AthenaPropertiesExtractor:
             transform_info = TransformInfo(type="unknown", column=column_info)
             return column_info, transform_info
 
-    def _extract_partition_info(self, parsed: Expression) -> PartitionInfo:
+    def _extract_partition_info(self, parsed: Expr) -> PartitionInfo:
         """Extract partitioning information from the parsed SQL statement.
 
         Args:
@@ -619,7 +619,7 @@ class AthenaPropertiesExtractor:
             simple_columns=unique_simple_columns, transforms=transforms
         )
 
-    def _extract_table_properties(self, parsed: Expression) -> TableProperties:
+    def _extract_table_properties(self, parsed: Expr) -> TableProperties:
         """Extract table properties from the parsed SQL statement.
 
         Args:
@@ -765,7 +765,7 @@ class AthenaPropertiesExtractor:
             pass
         return None, None
 
-    def _extract_row_format(self, parsed: Expression) -> RowFormatInfo:
+    def _extract_row_format(self, parsed: Expr) -> RowFormatInfo:
         """Extract and format RowFormatDelimitedProperty.
 
         Args:

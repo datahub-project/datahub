@@ -1,3 +1,4 @@
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useCallback, useMemo, useState } from 'react';
 
 import { BreadcrumbItem } from '@components/components/Breadcrumb/BreadcrumbItem';
@@ -7,9 +8,7 @@ import { BreadcrumbProps } from '@components/components/Breadcrumb/types';
 import { Popover } from '@components/components/Popover';
 
 export const Breadcrumb = ({ items, showPopover = breadcrumbDefaults.showPopover }: BreadcrumbProps) => {
-    const defaultSeparator = (
-        <NoShrinkIcon icon="CaretRight" source="phosphor" color="gray" colorLevel={1800} size="sm" />
-    );
+    const defaultSeparator = <NoShrinkIcon icon={CaretRight} color="gray" colorLevel={1800} size="sm" />;
 
     const [itemsTruncationState, setItemsTruncationState] = useState<Map<string, boolean>>(new Map());
 

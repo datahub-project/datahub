@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import (
@@ -435,3 +436,41 @@ def test_datajob_with_non_prod_env() -> None:
 
     assert "QA" in str(job_qa.urn)
     assert job_qa.env == "QA"
+
+
+def test_datajob_lowercase_cluster_normalized_in_aspect() -> None:
+    """Lowercase cluster (Airflow default 'prod') is preserved in the URN but uppercased
+    in the DataJobInfo aspect, which requires a FabricType enum value."""
+    flow = DataFlow(platform="airflow", name="dag", env="prod")
+    job = DataJob(flow=flow, name="task")
+
+    # URN identity must keep the original lowercase cluster.
+    assert flow.urn.cluster == "prod"
+    assert "prod" in str(job.urn)
+    assert "PROD" not in str(job.urn)
+    # Aspect env must be uppercase for the Environment search filter.
+    assert job.env == "PROD"
+
+
+def test_datajob_new_from_graph_preserves_cluster() -> None:
+    """_new_from_graph must reconstruct the DataJob (and its embedded DataFlow URN) with
+    the exact cluster from the URN — not silently replace it with DEFAULT_ENV."""
+    # Simulate an Airflow-created entity: flow URN cluster is lowercase "prod".
+    job_urn = DataJobUrn.from_string(
+        "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_name,prod),task_name)"
+    )
+    aspects: models.AspectBag = {
+        "dataJobInfo": models.DataJobInfoClass(
+            name="task_name",
+            type=models.AzkabanJobTypeClass.COMMAND,
+            env="PROD",  # stored uppercase in the aspect
+        ),
+    }
+    job = DataJob._new_from_graph(job_urn, aspects)
+
+    # The embedded flow URN must keep "prod", not be promoted to "PROD".
+    assert job.flow_urn.cluster == "prod"
+    assert "prod" in str(job.urn)
+    assert "PROD" not in str(job.urn)
+    # Aspect env comes from the graph (already uppercase).
+    assert job.env == "PROD"

@@ -217,6 +217,10 @@ public class UpdateStructuredPropertyResolver
       input.getNewEntityTypes().forEach(builder::addEntityType);
       hasUpdatedDefinition = true;
     }
+    if (input.getNewAllowedPlatforms() != null) {
+      input.getNewAllowedPlatforms().forEach(builder::addAllowedPlatform);
+      hasUpdatedDefinition = true;
+    }
 
     if (hasUpdatedDefinition) {
       builder.setLastModified(context.getOperationContext().getAuditStamp());
@@ -257,7 +261,7 @@ public class UpdateStructuredPropertyResolver
                 primitiveValue.setString(allowedValueInput.getStringValue());
               }
               if (allowedValueInput.getNumberValue() != null) {
-                primitiveValue.setDouble(allowedValueInput.getNumberValue().doubleValue());
+                primitiveValue.setDouble(allowedValueInput.getNumberValue());
               }
               value.setValue(primitiveValue);
               value.setDescription(allowedValueInput.getDescription(), SetMode.IGNORE_NULL);

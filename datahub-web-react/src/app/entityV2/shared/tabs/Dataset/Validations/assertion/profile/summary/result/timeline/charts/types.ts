@@ -26,9 +26,3 @@ export type TimeRange = {
     startMs: number;
     endMs: number;
 };
-
-export enum AssertionChartType {
-    ValuesOverTime,
-    StatusOverTime,
-    Freshness,
-}

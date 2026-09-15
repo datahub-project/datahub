@@ -121,7 +121,8 @@ public class AspectTestUtils {
             validatorConfigs, // aspectPayloadValidators - matches our validators
             Collections.emptyList(), // mutationHooks
             Collections.emptyList(), // mclSideEffects
-            Collections.emptyList() // mcpSideEffects
+            Collections.emptyList(), // mcpSideEffects
+            Collections.emptyList() // mcpObservers
             );
 
     // Create PluginFactory with both plugin instances and matching configuration
@@ -131,7 +132,8 @@ public class AspectTestUtils {
         validators,
         Collections.emptyList(), // No mutation hooks for basic testing
         Collections.emptyList(), // No MCL side effects for basic testing
-        Collections.emptyList() // No MCP side effects for basic testing
+        Collections.emptyList(), // No MCP side effects for basic testing
+        Collections.emptyList() // No MCP observers for basic testing
         );
   }
 

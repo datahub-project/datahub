@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  floci-az:
+    image: floci/floci-az:0.9.0
+    # Unique host port (container listens on 4577) to avoid colliding with the
+    # other Floci-backed suites when integration batches run in parallel.
+    ports:
+      - "14577:4577"
+    # Built-in healthcheck (/_floci/health); `up --wait` in the fixture blocks
+    # until healthy, so no test-layer readiness polling is needed.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4577/_floci/health || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s

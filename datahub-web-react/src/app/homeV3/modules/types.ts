@@ -1,4 +1,4 @@
-import { IconNames } from '@components';
+import React from 'react';
 
 import { DataHubPageModuleType } from '@types';
 
@@ -8,5 +8,5 @@ export type ModuleInfo = {
     type: DataHubPageModuleType;
     name: string;
     description?: string;
-    icon: IconNames;
+    icon: React.ComponentType<any>;
 };

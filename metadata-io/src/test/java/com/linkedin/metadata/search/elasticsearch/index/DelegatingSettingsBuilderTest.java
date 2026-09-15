@@ -98,8 +98,8 @@ public class DelegatingSettingsBuilderTest {
     Map<String, Object> v3Settings = new HashMap<>(); // Empty for v3
 
     // Mock the index convention to identify v2 index
-    when(indexConvention.isV2EntityIndex("datasetindex_v2")).thenReturn(true);
-    when(indexConvention.isV3EntityIndex("datasetindex_v2")).thenReturn(false);
+    when(indexConvention.isV2EntityIndexType(eq("datasetindex_v2"))).thenReturn(true);
+    when(indexConvention.isV3EntityIndexType(eq("datasetindex_v2"))).thenReturn(false);
 
     Map<String, Object> result = builder.getSettings(indexConfiguration, "datasetindex_v2");
 
@@ -114,8 +114,8 @@ public class DelegatingSettingsBuilderTest {
     DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     // Mock the index convention to identify v3 index
-    when(indexConvention.isV2EntityIndex("datasetindex_v3")).thenReturn(false);
-    when(indexConvention.isV3EntityIndex("datasetindex_v3")).thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(eq("datasetindex_v3"))).thenReturn(false);
+    when(indexConvention.isV3EntityIndexType(eq("datasetindex_v3"))).thenReturn(true);
 
     Map<String, Object> result = builder.getSettings(indexConfiguration, "datasetindex_v3");
 
@@ -130,8 +130,8 @@ public class DelegatingSettingsBuilderTest {
     DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     // Mock the index convention to identify non-entity index
-    when(indexConvention.isV2EntityIndex("timeseriesindex_v1")).thenReturn(false);
-    when(indexConvention.isV3EntityIndex("timeseriesindex_v1")).thenReturn(false);
+    when(indexConvention.isV2EntityIndexType(eq("timeseriesindex_v1"))).thenReturn(false);
+    when(indexConvention.isV3EntityIndexType(eq("timeseriesindex_v1"))).thenReturn(false);
 
     Map<String, Object> result = builder.getSettings(indexConfiguration, "timeseriesindex_v1");
 
@@ -145,8 +145,8 @@ public class DelegatingSettingsBuilderTest {
     DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     // Mock the index convention to identify both v2 and v3 indices
-    when(indexConvention.isV2EntityIndex("datasetindex_v2")).thenReturn(true);
-    when(indexConvention.isV3EntityIndex("datasetindex_v2")).thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(eq("datasetindex_v2"))).thenReturn(true);
+    when(indexConvention.isV3EntityIndexType(eq("datasetindex_v2"))).thenReturn(true);
 
     Map<String, Object> result = builder.getSettings(indexConfiguration, "datasetindex_v2");
 
@@ -161,8 +161,8 @@ public class DelegatingSettingsBuilderTest {
     // For now, we'll test the basic functionality
     DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
-    when(indexConvention.isV2EntityIndex("datasetindex_v2")).thenReturn(true);
-    when(indexConvention.isV3EntityIndex("datasetindex_v2")).thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(eq("datasetindex_v2"))).thenReturn(true);
+    when(indexConvention.isV3EntityIndexType(eq("datasetindex_v2"))).thenReturn(true);
 
     // This should work fine with our current implementation
     Map<String, Object> result = builder.getSettings(indexConfiguration, "datasetindex_v2");
@@ -188,8 +188,8 @@ public class DelegatingSettingsBuilderTest {
     // Test that settings are consistent across multiple calls
     DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
-    when(indexConvention.isV2EntityIndex("datasetindex_v2")).thenReturn(true);
-    when(indexConvention.isV3EntityIndex("datasetindex_v2")).thenReturn(false);
+    when(indexConvention.isV2EntityIndexType(eq("datasetindex_v2"))).thenReturn(true);
+    when(indexConvention.isV3EntityIndexType(eq("datasetindex_v2"))).thenReturn(false);
 
     Map<String, Object> settings1 = builder.getSettings(indexConfiguration, "datasetindex_v2");
     Map<String, Object> settings2 = builder.getSettings(indexConfiguration, "datasetindex_v2");
@@ -206,8 +206,8 @@ public class DelegatingSettingsBuilderTest {
         builder instanceof SettingsBuilder,
         "DelegatingSettingsBuilder should implement SettingsBuilder interface");
 
-    when(indexConvention.isV2EntityIndex("test_index")).thenReturn(true);
-    when(indexConvention.isV3EntityIndex("test_index")).thenReturn(false);
+    when(indexConvention.isV2EntityIndexType(eq("test_index"))).thenReturn(true);
+    when(indexConvention.isV3EntityIndexType(eq("test_index"))).thenReturn(false);
 
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
     assertNotNull(settings, "getSettings should return non-null settings");

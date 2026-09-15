@@ -28,6 +28,7 @@ public class StructuredPropertyDefinitionPatchBuilder
   public static final String ALLOWED_VALUES_FIELD = "allowedValues";
   public static final String CARDINALITY_FIELD = "cardinality";
   public static final String ENTITY_TYPES_FIELD = "entityTypes";
+  public static final String ALLOWED_PLATFORMS_FIELD = "allowedPlatforms";
   public static final String DESCRIPTION_FIELD = "description";
   public static final String IMMUTABLE_FIELD = "immutable";
   private static final String LAST_MODIFIED_KEY = "lastModified";
@@ -112,6 +113,16 @@ public class StructuredPropertyDefinitionPatchBuilder
             PatchOperationType.ADD.getValue(),
             PATH_DELIM + ENTITY_TYPES_FIELD + PATH_DELIM + entityTypeUrn,
             instance.textNode(entityTypeUrn)));
+    return this;
+  }
+
+  public StructuredPropertyDefinitionPatchBuilder addAllowedPlatform(
+      @Nonnull String dataPlatformUrn) {
+    this.pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            PATH_DELIM + ALLOWED_PLATFORMS_FIELD + PATH_DELIM + dataPlatformUrn,
+            instance.textNode(dataPlatformUrn)));
     return this;
   }
 

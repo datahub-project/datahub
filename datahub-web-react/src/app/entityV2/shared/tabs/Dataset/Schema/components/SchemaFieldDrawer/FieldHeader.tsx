@@ -1,6 +1,7 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { Divider } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -14,15 +15,16 @@ import FieldPath from '@app/entityV2/shared/tabs/Dataset/Schema/components/Schem
 import TypeLabel from '@app/entityV2/shared/tabs/Dataset/Schema/components/TypeLabel';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { SchemaField } from '@types';
+
+const FIELD_PATH_SEPARATOR = '.';
 
 const FieldHeaderWrapper = styled.div`
     padding: 16px;
     display: flex;
     justify-content: space-between;
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const NameTypesWrapper = styled.div`
@@ -49,7 +51,7 @@ const MenuWrapper = styled.div`
 const FieldText = styled.div`
     font-size: 12px;
     line-height: 24px;
-    color: #8d95b1;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const CloseIcon = styled.div`
@@ -79,11 +81,11 @@ const StyledDivider = styled(Divider)`
 
 const StyledTypeLabel = styled(TypeLabel)`
     font-size: 14px;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const StyleLink = styled(Link)`
-    color: ${colors.gray[800]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
 
     &:hover {
@@ -97,6 +99,7 @@ interface Props {
 }
 
 export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath }: Props) {
+    const { t: tc } = useTranslation('common.labels');
     const { config } = useAppConfig();
     const displayName = translateFieldPath(expandedField.fieldPath || '');
     const entityRegistry = useEntityRegistry();
@@ -117,10 +120,10 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                                 )}/Lineage`
                             }
                         >
-                            {displayName.split('.').pop()}
+                            {displayName.split(FIELD_PATH_SEPARATOR).pop()}
                         </StyleLink>
                     ) : (
-                        displayName.split('.').pop()
+                        displayName.split(FIELD_PATH_SEPARATOR).pop()
                     )}
                     <StyledDivider type="vertical" />
                     <StyledTypeLabel type={expandedField.type} nativeDataType={expandedField.nativeDataType} />
@@ -129,7 +132,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                     {expandedField.nullable && <NullableLabel />}
                     <FieldPath displayName={displayName} setExpandedDrawerFieldPath={setExpandedDrawerFieldPath} />
                 </TitleWrapper>
-                <FieldText>Column</FieldText>
+                <FieldText>{tc('column')}</FieldText>
             </NameTypesWrapper>
             <RightGroup>
                 <MenuWrapper>

@@ -1,6 +1,8 @@
 import { Tooltip } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Form, FormInstance } from 'antd';
 import React, { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     AddButtonContainer,
@@ -14,6 +16,8 @@ import {
 import { PropValueField } from '@app/govern/structuredProperties/utils';
 import { Button, Icon, Input, Text, TextArea } from '@src/alchemy-components';
 import { AllowedValue } from '@src/types.generated';
+
+const VALIDATE_TRIGGERS = ['onChange', 'onBlur'];
 
 interface Props {
     showAllowedValuesDrawer: boolean;
@@ -32,6 +36,10 @@ const AllowedValuesDrawer = ({
     noOfExistingValues,
     form,
 }: Props) => {
+    const { t } = useTranslation('governance.structured-properties');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
+
     useEffect(() => {
         form.setFieldsValue({ allowedValues: allowedValues || [{}] });
     }, [form, showAllowedValuesDrawer, allowedValues]);
@@ -58,13 +66,13 @@ const AllowedValuesDrawer = ({
                                     return (
                                         <FieldGroupContainer key={field.name}>
                                             <InputLabel>
-                                                Value
+                                                {t('allowedValues.valueLabel')}
                                                 <Text color="red" weight="bold">
                                                     *
                                                 </Text>
                                             </InputLabel>
                                             <Tooltip
-                                                title={isExisting && 'Editing existing allowed values is not permitted'}
+                                                title={isExisting && t('allowedValues.editExistingTooltip')}
                                                 showArrow={false}
                                             >
                                                 <Form.Item
@@ -73,15 +81,15 @@ const AllowedValuesDrawer = ({
                                                     rules={[
                                                         {
                                                             required: true,
-                                                            message: 'Please enter the value!',
+                                                            message: t('allowedValues.valueError'),
                                                         },
                                                     ]}
                                                     key={`${field.name}.value`}
-                                                    validateTrigger={['onChange', 'onBlur']}
+                                                    validateTrigger={VALIDATE_TRIGGERS}
                                                 >
                                                     <Input
                                                         label=""
-                                                        placeholder="Provide a value"
+                                                        placeholder={t('allowedValues.valuePlaceholder')}
                                                         type={propType === 'numberValue' ? 'number' : 'text'}
                                                         isDisabled={isExisting}
                                                     />
@@ -93,19 +101,16 @@ const AllowedValuesDrawer = ({
                                                 key={`${field.name}.desc`}
                                             >
                                                 <TextArea
-                                                    label="Description"
-                                                    placeholder="Provide a description"
+                                                    label={tl('description')}
+                                                    placeholder={t('allowedValues.descriptionPlaceholder')}
                                                     isDisabled={isExisting}
                                                 />
                                             </Form.Item>
                                             {!isExisting && (
                                                 <DeleteIconContainer>
-                                                    <Tooltip
-                                                        title="Remove from the allowed values list"
-                                                        showArrow={false}
-                                                    >
+                                                    <Tooltip title={t('allowedValues.removeTooltip')} showArrow={false}>
                                                         <Icon
-                                                            icon="Delete"
+                                                            icon={Trash}
                                                             onClick={() => remove(field.name)}
                                                             color="gray"
                                                             size="xl"
@@ -121,7 +126,7 @@ const AllowedValuesDrawer = ({
                         )}
 
                         <AddButtonContainer>
-                            <Tooltip title="Add a new value to the allowed list" showArrow={false}>
+                            <Tooltip title={t('allowedValues.addTooltip')} showArrow={false}>
                                 <Button
                                     onClick={() => {
                                         add();
@@ -129,7 +134,7 @@ const AllowedValuesDrawer = ({
                                     }}
                                     type="button"
                                 >
-                                    Add
+                                    {tc('add')}
                                 </Button>
                             </Tooltip>
                         </AddButtonContainer>

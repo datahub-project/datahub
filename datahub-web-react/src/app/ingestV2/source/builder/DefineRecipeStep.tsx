@@ -1,8 +1,8 @@
 import { Alert, Space, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import RecipeBuilder from '@app/ingestV2/source/builder/RecipeBuilder';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
@@ -26,7 +26,7 @@ const Section = styled.div`
 `;
 
 const BorderedSection = styled(Section)`
-    border: solid ${ANTD_GRAY[4]} 0.5px;
+    border: solid ${(props) => props.theme.colors.border} 0.5px;
 `;
 
 const SelectTemplateHeader = styled(Typography.Title)`
@@ -53,6 +53,8 @@ export const DefineRecipeStep = ({
     selectedSource,
     setSelectedSourceType,
 }: StepProps) => {
+    const { t } = useTranslation('ingestion.sourceBuilder');
+    const { t: tc } = useTranslation('common.actions');
     const existingRecipeJson = state.config?.recipe;
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
     const { type } = state;
@@ -93,7 +95,7 @@ export const DefineRecipeStep = ({
 
         if (!JSON.parse(recipeJson).source?.type) {
             message.warning({
-                content: `Please add valid ingestion type`,
+                content: t('defineRecipe.invalidIngestionType'),
                 duration: 3,
             });
             return;
@@ -132,7 +134,9 @@ export const DefineRecipeStep = ({
     return (
         <>
             <Section>
-                <SelectTemplateHeader level={5}>Configure {sourceDisplayName} Recipe</SelectTemplateHeader>
+                <SelectTemplateHeader level={5}>
+                    {t('defineRecipe.title', { displayName: sourceDisplayName })}
+                </SelectTemplateHeader>
                 {showLookerBanner && (
                     <Alert
                         type="warning"
@@ -141,25 +145,34 @@ export const DefineRecipeStep = ({
                             <>
                                 <big>
                                     <i>
-                                        <b>You must acknowledge this message to proceed!</b>
+                                        <b>{t('defineRecipe.lookerBanner.acknowledge')}</b>
                                     </i>
                                 </big>
                                 <br />
                                 <br />
-                                To get complete Looker metadata integration (including Looker views and lineage to the
-                                underlying warehouse tables), you must <b>also</b> use the{' '}
-                                <a href={LOOKML_DOC_LINK} target="_blank" rel="noopener noreferrer">
-                                    DataHub lookml module
-                                </a>
-                                .
+                                <Trans
+                                    t={t}
+                                    i18nKey="defineRecipe.lookerBanner.integration"
+                                    components={{
+                                        bold: <b />,
+                                        anchor: (
+                                            <a href={LOOKML_DOC_LINK} target="_blank" rel="noopener noreferrer">
+                                                {t('defineRecipe.lookerBanner.lookmlModuleLinkText')}
+                                            </a>
+                                        ),
+                                    }}
+                                />
                                 <br />
                                 <br />
-                                LookML ingestion <b>cannot</b> currently be performed via UI-based ingestion. This is a
-                                known problem the DataHub team is working to solve!
+                                <Trans
+                                    t={t}
+                                    i18nKey="defineRecipe.lookerBanner.uiUnsupported"
+                                    components={{ bold: <b /> }}
+                                />
                                 <br />
                                 <Space direction="horizontal" style={{ width: '100%', justifyContent: 'center' }}>
                                     <Button variant="text" onClick={() => setShowLookerBanner(false)}>
-                                        I have set up LookML ingestion!
+                                        {t('defineRecipe.lookerBanner.acknowledgeButton')}
                                     </Button>
                                 </Space>
                             </>
@@ -169,10 +182,18 @@ export const DefineRecipeStep = ({
                 )}
                 <Typography.Text>
                     {showLookerBanner && <br />}
-                    For more information about how to configure a recipe, see the{' '}
-                    <a href={sourceDocumentationUrl} target="_blank" rel="noopener noreferrer">
-                        {sourceDisplayName} source docs.
-                    </a>
+                    <Trans
+                        t={t}
+                        i18nKey="defineRecipe.docsHint"
+                        values={{ displayName: sourceDisplayName }}
+                        components={{
+                            anchor: (
+                                <a href={sourceDocumentationUrl} target="_blank" rel="noopener noreferrer">
+                                    {t('defineRecipe.docsLinkText', { displayName: sourceDisplayName })}
+                                </a>
+                            ),
+                        }}
+                    />
                 </Typography.Text>
             </Section>
             <BorderedSection>
@@ -180,10 +201,10 @@ export const DefineRecipeStep = ({
             </BorderedSection>
             <ControlsContainer>
                 <Button variant="outline" color="gray" disabled={isEditing} onClick={prev}>
-                    Previous
+                    {tc('previous')}
                 </Button>
-                <Button disabled={!stepComplete} onClick={onClickNext}>
-                    Next
+                <Button disabled={!stepComplete} onClick={onClickNext} data-testid="recipe-builder-next-button">
+                    {tc('next')}
                 </Button>
             </ControlsContainer>
         </>

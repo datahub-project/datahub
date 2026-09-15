@@ -5,13 +5,6 @@ import { AndFilterInput, FilterOperator } from '@src/types.generated';
 const LOGICAL_OPERATORS = new Set(Object.values(LogicalOperatorType));
 
 /**
- * Retrieves the display name for a specific Logical Operator Type.
- */
-export const getOperatorDisplayName = (operator: LogicalOperatorType) => {
-    return operator.toLocaleUpperCase();
-};
-
-/**
  * Returns true if the predicate is a logical predicate, as opposed
  * to a property predicate.
  */
@@ -26,6 +19,8 @@ function mapOperator(operator: string): FilterOperator {
         equals: FilterOperator.Equal,
         equal: FilterOperator.Equal,
         exists: FilterOperator.Exists,
+        within: FilterOperator.DescendantsIncl,
+        descendantsincl: FilterOperator.DescendantsIncl,
         greaterthan: FilterOperator.GreaterThan,
         greaterthanorequalto: FilterOperator.GreaterThanOrEqualTo,
         in: FilterOperator.In,

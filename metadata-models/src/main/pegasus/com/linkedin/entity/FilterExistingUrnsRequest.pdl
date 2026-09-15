@@ -1,0 +1,15 @@
+namespace com.linkedin.entity
+
+/**
+ * Request body for the entities filterExistingUrns action.
+ */
+record FilterExistingUrnsRequest {
+
+  /** Entity URNs to check for existence. */
+  urns: array[string]
+
+  /**
+   * When true (default), entities with status.removed are still considered to exist.
+   */
+  includeSoftDelete: optional boolean
+}

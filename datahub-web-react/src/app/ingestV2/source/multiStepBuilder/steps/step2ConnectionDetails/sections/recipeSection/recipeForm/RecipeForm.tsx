@@ -22,12 +22,6 @@ import { jsonToYaml } from '@app/ingestV2/source/utils';
 
 import { IngestionSource } from '@types';
 
-export const ControlsContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-    margin-top: 12px;
-`;
-
 const GapContainer = styled.div`
     display: flex;
     flex-direction: column;

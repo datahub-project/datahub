@@ -1,0 +1,53 @@
+namespace com.linkedin.metric
+
+import com.linkedin.common.Edge
+import com.linkedin.common.Urn
+
+/**
+ * Relationships from a Metric to other Metric entities.
+ */
+@Aspect = {
+  "name": "metricRelationships"
+}
+record MetricRelationships {
+
+  /**
+   * The parent metric of which this metric is a component or sub-metric.
+   * Used to build the metric hierarchy sidebar (roots = metrics with no parent).
+   */
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "metric" ]
+  }
+  @Searchable = {
+    "fieldName": "parentMetric",
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasParentMetric"
+  }
+  parentMetric: optional Urn
+
+  /**
+   * Lineage edges to the metrics this metric is derived from.
+   * Marked isLineage so the lineage graph includes these edges.
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "DerivedFrom",
+      "entityTypes": [ "metric" ],
+      "isLineage": true
+    }
+  }
+  derivedFrom: array[DerivedMetricInput] = [ ]
+
+  /**
+   * Non-lineage edges to semantically related metrics
+   * (e.g. metrics that share a dimension or are frequently queried together).
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "RelatedTo",
+      "entityTypes": [ "metric" ]
+    }
+  }
+  relatedMetrics: array[Edge] = [ ]
+}

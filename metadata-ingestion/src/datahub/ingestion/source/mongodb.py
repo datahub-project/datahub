@@ -1,12 +1,22 @@
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    ValuesView,
+)
 
 import bson.timestamp
 import pymongo.collection
 from packaging import version
-from pydantic import PositiveInt, field_validator
+from pydantic import PositiveInt, field_validator, model_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
@@ -34,7 +44,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -45,7 +54,6 @@ from datahub.ingestion.source.schema_inference.object import (
     construct_schema,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulIngestionConfigBase,
     StatefulStaleMetadataRemovalConfig,
@@ -133,6 +141,15 @@ class MongoDBConfig(
         description="Hosting environment of MongoDB, default is SELF_HOSTED, currently support `SELF_HOSTED`, `ATLAS`, `AWS_DOCUMENTDB`",
     )
 
+    platform: Literal["mongodb", "documentdb"] = Field(
+        default="mongodb",
+        description=(
+            "Data platform to emit entities under. Use `documentdb` to surface "
+            "AWS DocumentDB clusters as their own platform instead of `mongodb`. "
+            "Requires `hostingEnvironment` to be `AWS_DOCUMENTDB`."
+        ),
+    )
+
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for databases to filter in ingestion.",
@@ -140,6 +157,17 @@ class MongoDBConfig(
     collection_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for collections to filter in ingestion.",
+    )
+    excludeSystemCollections: bool = Field(
+        default=True,
+        description=(
+            "Whether to exclude MongoDB system collections (those starting with 'system.') "
+            "from ingestion. System collections such as system.profile and system.views are "
+            "internal MongoDB collections that do not contain user data. Ingesting them produces "
+            "noisy or incorrect metadata. Set to False only if you explicitly need to ingest "
+            "system collections and have granted the appropriate database roles (dbAdmin for "
+            "system.profile). Default: True."
+        ),
     )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -150,6 +178,17 @@ class MongoDBConfig(
         if doc_size_filter_value > 16793600:
             raise ValueError("maxDocumentSize must be a positive value <= 16793600.")
         return doc_size_filter_value
+
+    @model_validator(mode="after")
+    def check_documentdb_requires_aws_hosting(self) -> "MongoDBConfig":
+        if (
+            self.platform == "documentdb"
+            and self.hostingEnvironment != HostingEnvironment.AWS_DOCUMENTDB
+        ):
+            raise ValueError(
+                "platform='documentdb' requires hostingEnvironment='AWS_DOCUMENTDB'."
+            )
+        return self
 
 
 @dataclass
@@ -175,6 +214,8 @@ PYMONGO_TYPE_TO_MONGO_TYPE = {
     bson.dbref.DBRef: "dbref",
     bson.objectid.ObjectId: "oid",
     bson.Decimal128: "numberDecimal",
+    bytes: "binary",
+    bson.datetime_ms.DatetimeMS: "date",
     "mixed": "mixed",
 }
 
@@ -192,6 +233,8 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
     bson.dbref.DBRef: BytesTypeClass,
     bson.objectid.ObjectId: BytesTypeClass,
     bson.Decimal128: NumberTypeClass,
+    bytes: BytesTypeClass,
+    bson.datetime_ms.DatetimeMS: TimeTypeClass,
     dict: RecordTypeClass,
     "mixed": UnionTypeClass,
 }
@@ -256,7 +299,7 @@ def construct_schema_pymongo(
 
 @platform_name("MongoDB")
 @config_class(MongoDBConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
@@ -269,29 +312,25 @@ def construct_schema_pymongo(
 @dataclass
 class MongoDBSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts the following:
+    Source that extracts databases and collections from MongoDB with inferred schemas.
 
-    - Databases and associated metadata
-    - Collections in each database and schemas for each collection (via schema inference)
-
-    By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
-    Moreover, setting `useRandomSampling: False` will sample the first documents found without random selection, which may be faster for large collections.
-
-    Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
-
-    Really large schemas will be further truncated to a maximum of 300 schema fields. This is configurable using the `maxSchemaSize` parameter.
-
+    Implementation notes:
+    - Uses PyMongo for MongoDB connections
+    - Schema inference samples documents to derive field types
+    - Supports multiple auth mechanisms (SCRAM, AWS IAM, X.509)
+    - Configurable sampling size, random sampling, and schema truncation
     """
 
     config: MongoDBConfig
     report: MongoDBSourceReport
     mongo_client: MongoClient
-    platform: str = "mongodb"
+    platform: Literal["mongodb", "documentdb"]
 
     def __init__(self, ctx: PipelineContext, config: MongoDBConfig):
         super().__init__(config, ctx)
         self.config = config
         self.report = MongoDBSourceReport()
+        self.platform = config.platform
 
         options = {}
         if self.config.username is not None:
@@ -320,14 +359,6 @@ class MongoDBSource(StatefulIngestionSourceBase):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MongoDBSource":
         config = MongoDBConfig.model_validate(config_dict)
         return cls(ctx, config)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_pymongo_type_string(
         self, field_type: Union[Type, str], collection_name: str
@@ -407,6 +438,16 @@ class MongoDBSource(StatefulIngestionSourceBase):
             for collection_name in sorted(collection_names):
                 dataset_name = f"{database_name}.{collection_name}"
 
+                # Skip MongoDB internal system collections by default.
+                # system.profile requires dbAdmin (not just read/readWrite) and only exists
+                # when profiling is enabled. system.views contains view definitions, not data.
+                # Both produce garbage schema metadata if ingested naively.
+                if self.config.excludeSystemCollections and collection_name.startswith(
+                    "system."
+                ):
+                    self.report.report_dropped(dataset_name)
+                    continue
+
                 if not self.config.collection_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue
@@ -484,10 +525,11 @@ class MongoDBSource(StatefulIngestionSourceBase):
         assert max_schema_size is not None
         if collection_schema_size > max_schema_size:
             # downsample the schema, using frequency as the sort key
-            self.report.report_warning(
+            self.report.warning(
                 title="Too many schema fields",
-                message=f"Downsampling the collection schema because it has too many schema fields. Configured threshold is {max_schema_size}",
-                context=f"Schema Size: {collection_schema_size}, Collection: {dataset_urn}",
+                message="Downsampling the collection schema because it has too many schema fields",
+                context=f"schema_size={collection_schema_size}, threshold={max_schema_size}, collection={dataset_urn}",
+                log=False,
             )
             # Add this information to the custom properties so user can know they are looking at downsampled schema
             dataset_properties.customProperties["schema.downsampled"] = "True"

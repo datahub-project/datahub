@@ -1,4 +1,3 @@
-import { AppWindow, Archive } from '@phosphor-icons/react';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 
@@ -7,8 +6,9 @@ import { MFESchema } from '@app/mfeframework/mfeConfigLoader';
 import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
 
 describe('getMfeMenuItems and getMfeMenuDropdownItems', () => {
-    it('returns only valid menu items where flags.showInNav is true and maps navIcon to correct icon', () => {
+    it('returns only showInNav=true items with valid icon elements', () => {
         const mfeConfig: MFESchema = {
+            topLevelMenuTitle: 'My Apps',
             subNavigationMode: false,
             microFrontends: [
                 {
@@ -17,7 +17,7 @@ describe('getMfeMenuItems and getMfeMenuDropdownItems', () => {
                     path: '/mfe-one',
                     remoteEntry: 'https://mfe-one.com/remoteEntry.js',
                     module: 'mfeOneApplication/mount',
-                    navIcon: 'Archive',
+                    navIcon: 'Package',
                     flags: { enabled: true, showInNav: true },
                 },
                 {
@@ -35,8 +35,7 @@ describe('getMfeMenuItems and getMfeMenuDropdownItems', () => {
                     path: '/mfe-three',
                     remoteEntry: 'https://mfe-three.com/remoteEntry.js',
                     module: 'mfeThreeApplication/mount',
-                    // navIcon not set, should default to AppWindow
-                    navIcon: '',
+                    navIcon: 'Globe',
                     flags: { enabled: true, showInNav: true },
                 },
                 {
@@ -45,7 +44,7 @@ describe('getMfeMenuItems and getMfeMenuDropdownItems', () => {
                     path: '/mfe-four',
                     remoteEntry: 'https://mfe-four.com/remoteEntry.js',
                     module: 'mfeFourApplication/mount',
-                    navIcon: 'InvalidNavIcon',
+                    navIcon: 'UnknownIcon',
                     flags: { enabled: true, showInNav: true },
                 },
             ],
@@ -55,44 +54,27 @@ describe('getMfeMenuItems and getMfeMenuDropdownItems', () => {
 
         expect(items).toHaveLength(3);
 
-        // Check first item (should use Archive icon)
-        expect(items[0].type).toBe(NavBarMenuItemTypes.Item);
         expect(items[0].title).toBe('MFE One');
         expect(items[0].key).toBe('mfe-1');
         expect(items[0].link).toBe('/mfe/mfe-one');
         expect(React.isValidElement(items[0].icon)).toBe(true);
-        expect(items[0].icon).not.toBeNull();
-        expect((items[0].icon as JSX.Element).type).toBe(Archive);
-        expect(typeof items[0].onClick).toBe('function');
 
-        // Check second item (should default to AppWindow icon)
-        expect(items[1].type).toBe(NavBarMenuItemTypes.Item);
         expect(items[1].title).toBe('MFE Three');
-        expect(items[1].key).toBe('mfe-3');
-        expect(items[1].link).toBe('/mfe/mfe-three');
         expect(React.isValidElement(items[1].icon)).toBe(true);
-        expect(items[1].icon).not.toBeNull();
-        expect((items[1].icon as JSX.Element).type).toBe(AppWindow);
-        expect(typeof items[1].onClick).toBe('function');
 
-        // Check third item (should default to AppWindow icon as InvalidNavIcon is not a valid icon)
-        expect(items[2].type).toBe(NavBarMenuItemTypes.Item);
+        // Unknown navIcon still produces a valid element (renders fallback via Suspense)
         expect(items[2].title).toBe('MFE Four');
-        expect(items[2].key).toBe('mfe-4');
-        expect(items[2].link).toBe('/mfe/mfe-four');
         expect(React.isValidElement(items[2].icon)).toBe(true);
-        expect(items[2].icon).not.toBeNull();
-        expect((items[2].icon as JSX.Element).type).toBe(AppWindow);
-        expect(typeof items[2].onClick).toBe('function');
 
-        // All should be of type Item
         items.forEach((item) => {
             expect(item.type).toBe(NavBarMenuItemTypes.Item);
+            expect(typeof item.onClick).toBe('function');
         });
     });
 
     it('returns items of type DropdownElement when subNavigationMode is true', () => {
         const mfeConfig: MFESchema = {
+            topLevelMenuTitle: 'My Apps',
             subNavigationMode: true,
             microFrontends: [
                 {
@@ -101,7 +83,7 @@ describe('getMfeMenuItems and getMfeMenuDropdownItems', () => {
                     path: '/mfe-one',
                     remoteEntry: 'https://mfe-one.com/remoteEntry.js',
                     module: 'mfeOneApplication/mount',
-                    navIcon: 'Archive',
+                    navIcon: 'Package',
                     flags: { enabled: true, showInNav: true },
                 },
                 {
@@ -116,21 +98,20 @@ describe('getMfeMenuItems and getMfeMenuDropdownItems', () => {
             ],
         };
         const items = getMfeMenuDropdownItems(mfeConfig);
-        expect(items.length).toBe(2);
+        expect(items).toHaveLength(2);
         items.forEach((item) => {
             expect(item.type).toBe(NavBarMenuItemTypes.DropdownElement);
+            expect(React.isValidElement(item.icon)).toBe(true);
         });
     });
 
     it('returns empty array if no microFrontends (getMfeMenuItems)', () => {
-        const mfeConfig: MFESchema = { microFrontends: [], subNavigationMode: false };
-        const items = getMfeMenuItems(mfeConfig);
-        expect(items).toEqual([]);
+        const mfeConfig: MFESchema = { topLevelMenuTitle: 'My Apps', microFrontends: [], subNavigationMode: false };
+        expect(getMfeMenuItems(mfeConfig)).toEqual([]);
     });
 
     it('returns empty array if no microFrontends (getMfeMenuDropdownItems)', () => {
-        const mfeConfig: MFESchema = { microFrontends: [], subNavigationMode: true };
-        const items = getMfeMenuDropdownItems(mfeConfig);
-        expect(items).toEqual([]);
+        const mfeConfig: MFESchema = { topLevelMenuTitle: 'My Apps', microFrontends: [], subNavigationMode: true };
+        expect(getMfeMenuDropdownItems(mfeConfig)).toEqual([]);
     });
 });

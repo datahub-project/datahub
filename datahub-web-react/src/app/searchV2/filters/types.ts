@@ -8,12 +8,6 @@ export interface FilterOptionType {
     displayName?: string | null;
 }
 
-export interface Filter {
-    field: string;
-    displayName: string;
-    options?: FilterOptionType[];
-}
-
 export interface FilterValue {
     value: string;
     entity: Entity | null;
@@ -92,6 +86,7 @@ export enum FilterOperatorType {
     LESS_THAN,
     LESS_THAN_OR_EQUALS,
     ALL_EQUALS, // used for splitting criterion values into multiple AND criterions
+    WITHIN, // hierarchical: selected URN + nested descendants (DESCENDANTS_INCL)
 }
 
 export enum FrontendFilterOperator {

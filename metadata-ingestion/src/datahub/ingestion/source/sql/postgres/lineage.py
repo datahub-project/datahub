@@ -145,7 +145,7 @@ class PostgresLineageExtractor:
                 "pg_stat_statements not ready: %s. Query-based lineage will be skipped.",
                 message,
             )
-            self.report.report_failure(
+            self.report.failure(
                 message=message,
                 context="pg_stat_statements_not_ready",
             )
@@ -191,9 +191,10 @@ class PostgresLineageExtractor:
             except (DatabaseError, OperationalError, ProgrammingError) as e:
                 # Expected database errors: connection issues, permission denied, invalid SQL, etc.
                 logger.error("Failed to extract query history: %s", e)
-                self.report.report_failure(
-                    message=str(e),
+                self.report.failure(
+                    message="Failed to extract query history",
                     context="query_history_extraction_failed",
+                    exc=e,
                 )
                 return []
 

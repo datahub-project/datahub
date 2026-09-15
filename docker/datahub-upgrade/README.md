@@ -20,6 +20,8 @@ The following jobs are supported:
 
 3. **SystemUpdateNonBlocking**: Performs any _nonblocking_ tasks required to update to a new version of DataHub, as a subset of **SystemUpdate**.
 
+   Notable non-blocking steps include **GenerateSchemaFieldsFromSchemaMetadata** (`SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED`), which scans dataset `schemaMetadata`/`status`, builds RESTATE MCLItems (`APP_SOURCE=SYSTEM_UPDATE`), and invokes post-MCP `SchemaFieldSideEffect` via async `ingestProposal` (not a no-op parent upsert) so schemaField entities are materialized. Its upgrade id is fingerprinted by the effective MCP domain/ownership mirror flags (`schema-field-from-schema-metadata-v2-d{0|1}-o{0|1}`): a **first-time** change to a new fingerprint schedules a pass that backfills when enabling and, when disabling, deletes field `domains`/`ownership` for the off flag(s) on **every** schemaField under each scanned dataset — including manually written field aspects, not only mirrored copies. **Toggling flags in a cycle** back to a fingerprint that already SUCCEEDED does **not** re-run — use **manual reprocess** (`SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS=true`) or clear/modify that fingerprint's `dataHubUpgradeResult` (either is valid). Keep MCP side-effect flags aligned on GMS, MCE, and the upgrade job. See `docs/how/updating-datahub.md` and `docs/deploy/environment-vars.md`.
+
 4. **RestoreIndices**: Restores indices by fetching the latest version of each aspect and restating MetadataChangeLog events for each latest aspect. Arguments include:
 
    - _batchSize_ (Optional): The number of rows to migrate at a time. Defaults to 1000.
@@ -120,7 +122,7 @@ These variables tell the upgrade job how to connect to critical storage systems 
 2. Pull (or build) & execute the `datahub-upgrade` container:
 
 ```aidl
-docker pull acryldata/datahub-upgrade:head && docker run --env-file *path-to-custom-env-file.env* acryldata/datahub-upgrade:head -u <Upgrade Job Name> -a <Upgrade Job Arguments>
+docker pull acryldata/datahub-upgrade:quickstart && docker run --env-file *path-to-custom-env-file.env* acryldata/datahub-upgrade:quickstart -u <Upgrade Job Name> -a <Upgrade Job Arguments>
 ```
 
 ## Command-Line Arguments
@@ -139,7 +141,7 @@ For example, to run the migration named "NoCodeDataMigration", you would do exec
 OR
 
 ```aidl
-docker pull acryldata/datahub-upgrade:head && docker run --env-file env/docker.env acryldata/datahub-upgrade:head -u NoCodeDataMigration
+docker pull acryldata/datahub-upgrade:quickstart && docker run --env-file env/docker.env acryldata/datahub-upgrade:quickstart -u NoCodeDataMigration
 ```
 
 ### Provided Arguments for a Given Upgrade Job
@@ -157,5 +159,5 @@ To specify these, you can use a combination of `-a` arguments and of the form _a
 OR
 
 ```aidl
-docker pull acryldata/datahub-upgrade:head && docker run --env-file env/docker.env acryldata/datahub-upgrade:head -u NoCodeDataMigration -a batchSize=500 -a batchDelayMs=1000
+docker pull acryldata/datahub-upgrade:quickstart && docker run --env-file env/docker.env acryldata/datahub-upgrade:quickstart -u NoCodeDataMigration -a batchSize=500 -a batchDelayMs=1000
 ```

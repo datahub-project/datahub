@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.plugins.hooks;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
@@ -17,7 +18,9 @@ public class CustomDataQualityRulesMutator extends MutationHook {
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationFingerprint,
+      @Nonnull Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
     return changeMCPS.stream()
         .map(
             changeMCP -> {

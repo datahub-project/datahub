@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity.versioning.validation;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -58,6 +59,7 @@ public class VersionSetPropertiesValidatorTest {
     // Test validation with no existing properties
     Stream<AspectValidationException> validationResult =
         VersionSetPropertiesValidator.validatePropertiesUpserts(
+            OperationFingerprint.EMPTY,
             TestMCP.ofOneUpsertItem(TEST_VERSION_SET_URN, properties, new TestEntityRegistry()),
             retrieverContext);
 
@@ -92,6 +94,7 @@ public class VersionSetPropertiesValidatorTest {
     // Test validation
     Stream<AspectValidationException> validationResult =
         VersionSetPropertiesValidator.validatePropertiesUpserts(
+            OperationFingerprint.EMPTY,
             TestMCP.ofOneUpsertItem(TEST_VERSION_SET_URN, newProperties, new TestEntityRegistry()),
             retrieverContext);
 
@@ -125,6 +128,7 @@ public class VersionSetPropertiesValidatorTest {
     // Test validation
     Stream<AspectValidationException> validationResult =
         VersionSetPropertiesValidator.validatePropertiesUpserts(
+            OperationFingerprint.EMPTY,
             TestMCP.ofOneUpsertItem(TEST_VERSION_SET_URN, newProperties, new TestEntityRegistry()),
             retrieverContext);
 

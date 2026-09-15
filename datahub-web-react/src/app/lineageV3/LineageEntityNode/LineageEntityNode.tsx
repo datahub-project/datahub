@@ -9,10 +9,13 @@ import {
     LineageEntity,
     LineageNodesContext,
     TRANSITION_DURATION_MS,
+    createLineageFilterNodeId,
+    mayHideLineage,
     parseColumnRef,
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import useRefetchLineage from '@app/lineageV3/queries/useRefetchLineage';
+import { getMemberBoundingBoxUrn } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.utils';
 
 import { LineageDirection } from '@types';
 
@@ -21,9 +24,13 @@ const MAX_NODES_FOR_TRANSITION = 50;
 
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { data, selected, dragging } = props;
-    const { urn, type, entity, id, fetchStatus, isExpanded, filters, parentDataJob } = data;
+    const { urn, type, entity, id, fetchStatus, isExpanded, filters, parentDataJob, boundingBoxes } = data;
+    // Members render one node per bounding box; the box's urn is encoded in the (qualified) node id.
+    // Resolve the boolean here (rather than passing `boundingBoxes`) to avoid re-memoizing NodeContents.
+    const parentBoundingBoxUrn = getMemberBoundingBoxUrn(id);
+    const isOutputPort = !!boundingBoxes?.find((box) => box.urn === parentBoundingBoxUrn)?.isOutputPort;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
-    const { rootUrn, rootType, nodes, adjacencyList } = useContext(LineageNodesContext);
+    const { rootUrn, rootType, nodes, adjacencyList, collapseColumnsVersion } = useContext(LineageNodesContext);
     const {
         selectedColumn,
         hoveredColumn,
@@ -33,6 +40,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
         setHoveredNode,
         displayedMenuNode,
         setDisplayedMenuNode,
+        lineageFilters,
     } = useContext(LineageDisplayContext);
     const { searchQuery, searchedEntity } = useContext(LineageVisualizationContext);
 
@@ -44,6 +52,11 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     useEffect(() => {
         setPageIndex(0);
     }, [filterText, onlyWithLineage, setPageIndex]);
+
+    // Collapse columns when the graph is redrawn, so nodes are laid out at their default size
+    useEffect(() => {
+        setShowColumns(false);
+    }, [collapseColumnsVersion]);
 
     const transitionDuration = shownUrns.length <= MAX_NODES_FOR_TRANSITION ? TRANSITION_DURATION_MS : 0;
 
@@ -63,6 +76,32 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const [hoveredColumnUrn] = hoveredColumn ? parseColumnRef(hoveredColumn) : [null];
 
     const hasParentDataJob = parentDataJob ? true : undefined;
+    // Data flow lineage: members count only the neighbors outside their own data job
+    const numUpstreams =
+        hasParentDataJob &&
+        Array.from(adjacencyList[LineageDirection.Upstream].get(urn) || []).filter(
+            (upstream) => nodes.get(upstream)?.parentDataJob !== parentDataJob,
+        ).length;
+    const numDownstreams =
+        hasParentDataJob &&
+        Array.from(adjacencyList[LineageDirection.Downstream].get(urn) || []).filter(
+            (downstream) => nodes.get(downstream)?.parentDataJob !== parentDataJob,
+        ).length;
+
+    // Columns only claim to hide lineage in directions where their node does, and pay for the
+    // counts query only then. Passed as booleans to keep `NodeContents` memoized.
+    const mayHideLineageIn = (
+        direction: LineageDirection,
+        numNeighbors: number | undefined,
+        numChildren: number | undefined,
+    ) =>
+        mayHideLineage(
+            direction,
+            data,
+            !!(numNeighbors ?? !!numChildren), // Matches `NodeContents`
+            !!lineageFilters.get(createLineageFilterNodeId(urn, direction)),
+        );
+
     return (
         <NodeContents
             id={id}
@@ -79,6 +118,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
             rootUrn={rootUrn}
             rootType={rootType}
             parentDataJob={parentDataJob}
+            isOutputPort={isOutputPort}
             searchQuery={searchQuery}
             setHoveredNode={setHoveredNode}
             showColumns={showColumns}
@@ -93,7 +133,9 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
             setDisplayedMenuNode={setDisplayedMenuNode}
             selectedColumn={selectedColumnUrn === urn ? selectedColumn : null}
             setSelectedColumn={setSelectedColumn}
-            hoveredColumn={hoveredColumnUrn === urn ? hoveredColumn : null}
+            // A selected column anywhere on the graph takes precedence over a hovered one, as it
+            // does when computing column highlights, so don't report a hover alongside a selection
+            hoveredColumn={!selectedColumn && hoveredColumnUrn === urn ? hoveredColumn : null}
             setHoveredColumn={setHoveredColumn}
             paginatedColumns={paginatedColumns}
             extraHighlightedColumns={extraHighlightedColumns}
@@ -102,18 +144,18 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
             numColumnsTotal={numColumnsTotal}
             refetch={refetch}
             ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
-            numUpstreams={
-                hasParentDataJob &&
-                Array.from(adjacencyList[LineageDirection.Upstream].get(urn) || []).filter(
-                    (upstream) => nodes.get(upstream)?.parentDataJob !== parentDataJob,
-                ).length
-            }
-            numDownstreams={
-                hasParentDataJob &&
-                Array.from(adjacencyList[LineageDirection.Downstream].get(urn) || []).filter(
-                    (downstream) => nodes.get(downstream)?.parentDataJob !== parentDataJob,
-                ).length
-            }
+            numUpstreams={numUpstreams}
+            numDownstreams={numDownstreams}
+            mayHideUpstreamLineage={mayHideLineageIn(
+                LineageDirection.Upstream,
+                numUpstreams,
+                entity?.numUpstreamChildren,
+            )}
+            mayHideDownstreamLineage={mayHideLineageIn(
+                LineageDirection.Downstream,
+                numDownstreams,
+                entity?.numDownstreamChildren,
+            )}
         />
     );
 }

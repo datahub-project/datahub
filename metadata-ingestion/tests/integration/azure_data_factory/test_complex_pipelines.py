@@ -55,7 +55,7 @@ from typing import Any, Dict, Iterator, List, Optional
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.azure_data_factory.adf_source import (
@@ -362,7 +362,7 @@ def _run_test_pipeline(
 # - Users need to see the full orchestration hierarchy
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_nested_pipeline_creates_all_entities(pytestconfig, tmp_path):
     """Test that nested pipelines create correct DataFlow and DataJob entities.
@@ -389,7 +389,7 @@ def test_nested_pipeline_creates_all_entities(pytestconfig, tmp_path):
     assert pipeline.source.report.pipelines_scanned == len(scenario["pipelines"])
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_nested_pipeline_golden(pytestconfig, tmp_path):
     """Golden file test for nested pipeline scenario.
@@ -472,7 +472,7 @@ def test_nested_pipeline_golden(pytestconfig, tmp_path):
 # - The Copy activity inside ForEach creates lineage for each iteration
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_foreach_loop_pipeline(pytestconfig, tmp_path):
     """Golden file test for ForEach loop pipeline.
@@ -559,7 +559,7 @@ def test_foreach_loop_pipeline(pytestconfig, tmp_path):
 # - Lineage must include data flows in every branch
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_branching_pipeline(pytestconfig, tmp_path):
     """Golden file test for If-Condition and Switch branching pipeline.
@@ -645,7 +645,7 @@ def test_branching_pipeline(pytestconfig, tmp_path):
 # - Scripts help users understand what transformations are applied
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_dataflow_pipeline_with_lineage(pytestconfig, tmp_path):
     """Golden file test for Mapping Data Flow pipeline with lineage extraction.
@@ -741,7 +741,7 @@ def test_dataflow_pipeline_with_lineage(pytestconfig, tmp_path):
 # - Platform-specific URNs enable cross-system lineage in DataHub
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_multisource_etl_pipeline(pytestconfig, tmp_path):
     """Golden file test for multi-source ETL pipeline with full lineage chain.
@@ -813,7 +813,7 @@ def test_multisource_etl_pipeline(pytestconfig, tmp_path):
 # about the extracted metadata rather than comparing full output.
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_multisource_lineage_accuracy(tmp_path):
     """Verify lineage edges are correct for multi-source ETL pipeline.
@@ -897,7 +897,7 @@ def test_multisource_lineage_accuracy(tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_dataflow_lineage_sources_and_sinks(tmp_path):
     """Verify Data Flow sources and sinks are extracted for lineage.
@@ -987,7 +987,7 @@ def test_dataflow_lineage_sources_and_sinks(tmp_path):
 # - Activity subtypes help with filtering and understanding
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_diverse_activities_pipeline(pytestconfig, tmp_path):
     """Test that diverse activity types are correctly captured.
@@ -1049,7 +1049,7 @@ def test_diverse_activities_pipeline(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_diverse_activities_subtypes(tmp_path):
     """Verify that diverse activity types have correct subtypes.
@@ -1149,7 +1149,7 @@ def test_diverse_activities_subtypes(tmp_path):
 # - The dependency is visible in DataHub
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_pipeline_to_pipeline_lineage(tmp_path):
     """Verify that ExecutePipeline activities create DataJob-to-DataJob lineage.
@@ -1485,7 +1485,7 @@ def test_mixed_pipeline_and_dataset_dependencies(tmp_path: Path) -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_mixed_dependencies_golden(pytestconfig, tmp_path):
     """Golden file test for mixed pipeline and dataset dependencies.

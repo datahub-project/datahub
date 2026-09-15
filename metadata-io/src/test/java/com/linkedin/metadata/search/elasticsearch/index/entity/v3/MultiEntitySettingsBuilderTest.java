@@ -125,7 +125,7 @@ public class MultiEntitySettingsBuilderTest {
     when(v3Config.getAnalyzerConfig()).thenReturn("search_entity_analyzer_config.yaml");
 
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV3EntityIndex("test_index")).thenReturn(true);
+    when(indexConvention.isV3EntityIndexType(eq("test_index"))).thenReturn(true);
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention);
     IndexConfiguration indexConfiguration =
@@ -215,7 +215,7 @@ public class MultiEntitySettingsBuilderTest {
     when(v3Config.getAnalyzerConfig()).thenReturn("search_entity_analyzer_config.yaml");
 
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV3EntityIndex("test_index")).thenReturn(true);
+    when(indexConvention.isV3EntityIndexType(eq("test_index"))).thenReturn(true);
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention);
     IndexConfiguration indexConfiguration =
@@ -277,7 +277,7 @@ public class MultiEntitySettingsBuilderTest {
     realEntityIndexConfiguration.setV3(realV3Config);
 
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV3EntityIndex("test_index")).thenReturn(true);
+    when(indexConvention.isV3EntityIndexType(eq("test_index"))).thenReturn(true);
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(realEntityIndexConfiguration, indexConvention);
     IndexConfiguration indexConfiguration =
@@ -340,27 +340,27 @@ public class MultiEntitySettingsBuilderTest {
         IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     // Test v3 entity index - should return settings
-    when(indexConvention.isV3EntityIndex("datasetindex_v3")).thenReturn(true);
+    when(indexConvention.isV3EntityIndexType(eq("datasetindex_v3"))).thenReturn(true);
     Map<String, Object> v3Settings = builder.getSettings(indexConfiguration, "datasetindex_v3");
     assertTrue(
         v3Settings.isEmpty(),
         "Should return empty settings for v3 entity index (no analyzer config)");
 
     // Test v2 entity index - should return empty settings
-    when(indexConvention.isV3EntityIndex("datasetindex_v2")).thenReturn(false);
+    when(indexConvention.isV3EntityIndexType(eq("datasetindex_v2"))).thenReturn(false);
     Map<String, Object> v2Settings = builder.getSettings(indexConfiguration, "datasetindex_v2");
     assertTrue(v2Settings.isEmpty(), "Should return empty settings for v2 entity index");
 
     // Test non-entity index - should return empty settings
-    when(indexConvention.isV3EntityIndex("timeseriesindex_v1")).thenReturn(false);
+    when(indexConvention.isV3EntityIndexType(eq("timeseriesindex_v1"))).thenReturn(false);
     Map<String, Object> timeseriesSettings =
         builder.getSettings(indexConfiguration, "timeseriesindex_v1");
     assertTrue(timeseriesSettings.isEmpty(), "Should return empty settings for non-entity index");
 
     // Verify that isV3EntityIndex was called for each index
-    verify(indexConvention).isV3EntityIndex("datasetindex_v3");
-    verify(indexConvention).isV3EntityIndex("datasetindex_v2");
-    verify(indexConvention).isV3EntityIndex("timeseriesindex_v1");
+    verify(indexConvention).isV3EntityIndexType(eq("datasetindex_v3"));
+    verify(indexConvention).isV3EntityIndexType(eq("datasetindex_v2"));
+    verify(indexConvention).isV3EntityIndexType(eq("timeseriesindex_v1"));
   }
 
   @Test
@@ -375,19 +375,19 @@ public class MultiEntitySettingsBuilderTest {
         IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     // Test v3 entity index - should return settings with analysis
-    when(indexConvention.isV3EntityIndex("datasetindex_v3")).thenReturn(true);
+    when(indexConvention.isV3EntityIndexType(eq("datasetindex_v3"))).thenReturn(true);
     Map<String, Object> v3Settings = builder.getSettings(indexConfiguration, "datasetindex_v3");
     assertTrue(
         v3Settings.containsKey("analysis"),
         "Should return settings with analysis for v3 entity index");
 
     // Test v2 entity index - should return empty settings
-    when(indexConvention.isV3EntityIndex("datasetindex_v2")).thenReturn(false);
+    when(indexConvention.isV3EntityIndexType(eq("datasetindex_v2"))).thenReturn(false);
     Map<String, Object> v2Settings = builder.getSettings(indexConfiguration, "datasetindex_v2");
     assertTrue(v2Settings.isEmpty(), "Should return empty settings for v2 entity index");
 
     // Verify that isV3EntityIndex was called for each index
-    verify(indexConvention).isV3EntityIndex("datasetindex_v3");
-    verify(indexConvention).isV3EntityIndex("datasetindex_v2");
+    verify(indexConvention).isV3EntityIndexType(eq("datasetindex_v3"));
+    verify(indexConvention).isV3EntityIndexType(eq("datasetindex_v2"));
   }
 }

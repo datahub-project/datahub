@@ -1,5 +1,6 @@
 import { Editor } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
@@ -89,6 +90,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     relatedAssets,
     relatedDocuments,
 }) => {
+    const { t } = useTranslation('entity.types');
     const [content, setContent] = useState(initialContent || '');
     const [isSaving, setIsSaving] = useState(false);
     const [isEditorFocused, setIsEditorFocused] = useState(false);
@@ -330,7 +332,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                         key={`editor-${documentUrn}-${editorVersion}`}
                         content={content}
                         onChange={setContent}
-                        placeholder="Write about anything..."
+                        placeholder={t('document.writeAboutAnythingPlaceholder')}
                         hideBorder
                         doNotFocus
                         $hideToolbar={!isEditorFocused}
@@ -347,7 +349,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                         key={`editor-readonly-${documentUrn}-${editorVersion}`}
                         content={content}
                         readOnly
-                        placeholder="No content"
+                        placeholder={t('document.noContentPlaceholder')}
                         hideBorder
                     />
                 )}

@@ -1,5 +1,8 @@
-import { Badge, Icon, SearchBar, colors } from '@components';
+import { Badge, Icon, SearchBar } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -11,6 +14,7 @@ import SourcePlatformCard from '@app/ingestV2/source/multiStepBuilder/steps/step
 import { useCardsPerRow } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/useCardsPerRow';
 import {
     CARD_WIDTH,
+    CATEGORY_I18N_KEYS,
     CUSTOM_SOURCE_NAME,
     EXTERNAL_SOURCE_REDIRECT_URL,
     computeRows,
@@ -48,7 +52,7 @@ const SectionHeader = styled.div`
     justify-content: space-between;
     font-size: 16px;
     font-weight: 700;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const CardsWrapper = styled.div`
@@ -70,12 +74,12 @@ const RightSection = styled.div`
 `;
 
 export function SelectSourceStep() {
+    const { t } = useTranslation(['ingestion.sourceBuilder', 'ingest.sources']);
     const { updateState, setCurrentStepCompleted, isCurrentStepCompleted, goToNext } = useMultiStepContext<
         MultiStepSourceBuilderState,
         IngestionSourceFormStep
     >();
     const [searchQuery, setSearchQuery] = useState<string>('');
-
     const { ingestionSources } = useIngestionSources();
 
     const filteredSources = ingestionSources.filter((src) =>
@@ -124,7 +128,8 @@ export function SelectSourceStep() {
     return (
         <StepContainer ref={containerRef}>
             <SearchBar
-                placeholder="Search..."
+                data-testid="source-type-search-input"
+                placeholder={t('multiStep.selectSource.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(value) => handleSearch(value)}
                 width="320px"
@@ -135,7 +140,11 @@ export function SelectSourceStep() {
                         <>
                             <SectionHeader>
                                 <LeftSection>
-                                    {customSource.category}
+                                    {customSource.category
+                                        ? t(CATEGORY_I18N_KEYS[customSource.category] ?? customSource.category, {
+                                              defaultValue: customSource.category,
+                                          })
+                                        : customSource.category}
                                     <Badge count={1} size="xs" />
                                 </LeftSection>
                             </SectionHeader>
@@ -170,15 +179,16 @@ export function SelectSourceStep() {
                             <Section key={category}>
                                 <SectionHeader>
                                     <LeftSection>
-                                        {category}
+                                        {t(CATEGORY_I18N_KEYS[category] ?? category, {
+                                            defaultValue: category,
+                                        })}
                                         <Badge count={list.length} size="xs" />
                                     </LeftSection>
 
                                     {!searchQuery && (
                                         <RightSection>
                                             <Icon
-                                                icon={isOpen ? 'CaretDown' : 'CaretRight'}
-                                                source="phosphor"
+                                                icon={isOpen ? CaretDown : CaretRight}
                                                 color="gray"
                                                 size="2xl"
                                                 onClick={() =>

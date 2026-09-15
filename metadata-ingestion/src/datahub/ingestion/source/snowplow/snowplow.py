@@ -1,15 +1,11 @@
 """
-Snowplow source for DataHub.
+Source that extracts metadata from Snowplow BDP Console API or Iglu Registry.
 
-Extracts metadata from Snowplow:
-- Event and entity schemas from BDP Console API or Iglu Registry
-- Event specifications (BDP only)
-- Tracking scenarios (BDP only)
-- Lineage from warehouse atomic events table (optional)
-
-Supports both:
-- Snowplow BDP (managed) deployments
-- Open-source Snowplow with Iglu registry
+Implementation notes:
+- Uses dedicated processor classes for each entity type (schemas, event specs, tracking plans)
+- Supports both BDP API and open-source Iglu registry via mode selection
+- Optional warehouse lineage extraction via SQL query parsing against atomic events table
+- Implements caching for schema resolution and API responses
 """
 
 import logging
@@ -98,9 +94,6 @@ from datahub.ingestion.source.snowplow.utils.cache_manager import CacheManager
 from datahub.ingestion.source.snowplow.utils.field_reference_parser import (
     FieldReferenceParser,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -111,7 +104,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Snowplow")
 @config_class(SnowplowSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via configuration")
 @capability(
@@ -175,9 +168,6 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         self.user_resolver.load_users()
 
         # Initialize stale entity removal handler
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, self.ctx
-        )
 
         # Domain registry (optional)
         self.domain_registry: Optional[DomainRegistry] = None
@@ -451,10 +441,23 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
+        # Resolve display name: API name > UUID fallback
+        display_label = org_id
+        if self.bdp_client:
+            try:
+                org = self.bdp_client.get_organization()
+                if org and org.name:
+                    display_label = org.name
+            except Exception as e:
+                logger.warning(
+                    f"Failed to resolve organization name for {org_id}, "
+                    f"falling back to organization ID: {e}"
+                )
+
         # Use gen_containers to emit all container aspects properly
         yield from gen_containers(
             container_key=org_key,
-            name=f"Snowplow Organization ({org_id})",
+            name=f"Snowplow Organization ({display_label})",
             sub_types=[DatasetContainerSubTypes.DATABASE],
             description="Snowplow BDP organization containing event and entity schemas",
             extra_properties={
@@ -490,10 +493,12 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             for pipeline in pipelines:
                 self._extract_pii_fields_from_pipeline(pipeline.id, pii_fields)
         except Exception as e:
-            self.report.report_warning(
-                "pii_extraction",
-                f"Failed to extract PII fields from enrichments: {e}. "
+            self.report.warning(
+                message="Failed to extract PII fields from enrichments. "
                 "PII field tagging may be incomplete.",
+                context="pii_extraction",
+                exc=e,
+                log=False,
             )
             logger.warning(f"Failed to extract PII fields from enrichments: {e}")
 
@@ -510,10 +515,12 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             for enrichment in enrichments:
                 self._extract_pii_fields_from_enrichment(enrichment, pii_fields)
         except Exception as e:
-            self.report.report_warning(
-                "pii_extraction",
-                f"Failed to extract PII fields from pipeline {pipeline_id}: {e}. "
+            self.report.warning(
+                message="Failed to extract PII fields from pipeline. "
                 "PII field tagging may be incomplete for this pipeline.",
+                context=f"pii_extraction: pipeline_id={pipeline_id}",
+                exc=e,
+                log=False,
             )
             logger.warning(
                 f"Failed to extract PII fields from pipeline {pipeline_id}: {e}"

@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -6,6 +7,7 @@ from functools import lru_cache
 from typing import (
     Any,
     Callable,
+    ClassVar,
     Dict,
     FrozenSet,
     Iterable,
@@ -13,6 +15,7 @@ from typing import (
     List,
     Optional,
     Set,
+    Tuple,
 )
 
 from google.api_core import retry
@@ -50,6 +53,45 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass
+class ExternalTableOptions:
+    _FORMAT_RE: ClassVar[re.Pattern] = re.compile(
+        r"format\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE
+    )
+    _URIS_RE: ClassVar[re.Pattern] = re.compile(
+        r"uris\s*=\s*\[([^\]]+)\]", re.IGNORECASE
+    )
+    _URI_ITEM_RE: ClassVar[re.Pattern] = re.compile(r"['\"]([^'\"]+)['\"]")
+    _COMPRESSION_RE: ClassVar[re.Pattern] = re.compile(
+        r"compression\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE
+    )
+    _MAX_BAD_RECORDS_RE: ClassVar[re.Pattern] = re.compile(
+        r"max_bad_records\s*=\s*(\d+)", re.IGNORECASE
+    )
+
+    source_format: Optional[str] = None
+    source_uris: Optional[List[str]] = None
+    compression: Optional[str] = None
+    max_bad_records: Optional[int] = None
+
+    @classmethod
+    def from_ddl(cls, ddl: str) -> "ExternalTableOptions":
+        """Parse source_format, source_uris, compression, and max_bad_records from a BigQuery external table DDL."""
+        opts = cls()
+
+        if m := cls._FORMAT_RE.search(ddl):
+            opts.source_format = m.group(1).upper()
+        if m := cls._URIS_RE.search(ddl):
+            if items := cls._URI_ITEM_RE.findall(m.group(1)):
+                opts.source_uris = items
+        if m := cls._COMPRESSION_RE.search(ddl):
+            opts.compression = m.group(1).upper()
+        if m := cls._MAX_BAD_RECORDS_RE.search(ddl):
+            opts.max_bad_records = int(m.group(1))
+
+        return opts
+
+
+@dataclass
 class BigqueryColumn(BaseColumn):
     field_path: str
     is_partition_column: bool
@@ -73,23 +115,86 @@ class BigqueryTableConstraint:
 
 RANGE_PARTITION_NAME: str = "RANGE"
 
+# BigQuery Sharing. `type` arrives on the datasets.list payload; `linkState` only on
+# the full dataset resource from datasets.get.
+LINKED_DATASET_TYPE: str = "LINKED"
+LINK_STATE_LINKED: str = "LINKED"
 
+_POLICY_TAG_TAXONOMY_RE: re.Pattern = re.compile(
+    r"(projects/[^/]+/locations/[^/]+/taxonomies/[^/]+)/policyTags/"
+)
+
+
+def _parse_taxonomy_id(policy_tag_resource_name: str) -> Optional[str]:
+    """Extract taxonomy resource name from a policy tag resource name.
+
+    Input:  "projects/123/locations/us/taxonomies/456/policyTags/789"
+    Output: "projects/123/locations/us/taxonomies/456"
+    Returns None for malformed resource names.
+    """
+    match = _POLICY_TAG_TAXONOMY_RE.match(policy_tag_resource_name)
+    return match.group(1) if match else None
+
+
+# Not frozen: the optional nested BigqueryColumn tuple is mutable, so a frozen
+# dataclass would advertise __hash__ but raise TypeError the moment it is used as a
+# dict key or set member. Keep it plain and treat it as value-like by convention.
 @dataclass
 class PartitionInfo:
-    field: str
-    # Data type is optional as we not have it when we set it from TimePartitioning
-    column: Optional[BigqueryColumn] = None
+    fields: Tuple[str, ...]
+    columns: Optional[Tuple[BigqueryColumn, ...]] = None
     type: str = TimePartitioningType.DAY
     expiration_ms: Optional[int] = None
-    require_partition_filter: bool = False
+    require_partition_filter: Optional[bool] = False
 
-    # TimePartitioning field doesn't provide data_type so we have to add it afterwards
+    def __post_init__(self) -> None:
+        if not self.fields:
+            raise ValueError("PartitionInfo must have at least one field")
+        if any(not f or not f.strip() for f in self.fields):
+            raise ValueError("PartitionInfo fields must not contain blank names")
+        if self.columns is not None and len(self.fields) != len(self.columns):
+            raise ValueError(
+                f"fields/columns length mismatch: {len(self.fields)} fields vs {len(self.columns)} columns"
+            )
+
+    @property
+    def field(self) -> str:
+        return self.fields[0]
+
+    @property
+    def column(self) -> Optional[BigqueryColumn]:
+        if not self.columns:
+            return None
+        return self.columns[0]
+
+    def __repr__(self) -> str:
+        # Keep the pre-multi-column custom-property string for single-field
+        # partitions so existing catalog values and connector-test goldens stay stable.
+        if len(self.fields) == 1:
+            return (
+                "PartitionInfo("
+                f"field={self.fields[0]!r}, "
+                f"column={self.column!r}, "
+                f"type={self.type!r}, "
+                f"expiration_ms={self.expiration_ms!r}, "
+                f"require_partition_filter={self.require_partition_filter!r})"
+            )
+        return (
+            "PartitionInfo("
+            f"fields={self.fields!r}, "
+            f"columns={self.columns!r}, "
+            f"type={self.type!r}, "
+            f"expiration_ms={self.expiration_ms!r}, "
+            f"require_partition_filter={self.require_partition_filter!r})"
+        )
+
     @classmethod
     def from_time_partitioning(
         cls, time_partitioning: TimePartitioning
     ) -> "PartitionInfo":
+        """Convert BigQuery time partitioning to PartitionInfo."""
         return cls(
-            field=time_partitioning.field or "_PARTITIONTIME",
+            fields=(time_partitioning.field or "_PARTITIONTIME",),
             type=time_partitioning.type_,
             expiration_ms=time_partitioning.expiration_ms,
             require_partition_filter=time_partitioning.require_partition_filter,
@@ -104,7 +209,7 @@ class PartitionInfo:
             return None
 
         return cls(
-            field=field,
+            fields=(field,),
             type=RANGE_PARTITION_NAME,
         )
 
@@ -134,6 +239,10 @@ class BigqueryTable(BaseTable):
     long_term_billable_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
     external: bool = False
+    external_source_format: Optional[str] = None
+    external_source_uris: Optional[List[str]] = None
+    external_compression: Optional[str] = None
+    external_max_bad_records: Optional[int] = None
     constraints: List[BigqueryTableConstraint] = field(default_factory=list)
     table_type: Optional[str] = None
 
@@ -161,10 +270,14 @@ class BigqueryDataset:
     last_altered: Optional[datetime] = None
     location: Optional[str] = None
     comment: Optional[str] = None
+    type: Optional[str] = None
     tables: List[BigqueryTable] = field(default_factory=list)
     views: List[BigqueryView] = field(default_factory=list)
     snapshots: List[BigqueryTableSnapshot] = field(default_factory=list)
     columns: List[BigqueryColumn] = field(default_factory=list)
+
+    def is_linked_dataset(self) -> bool:
+        return self.type == LINKED_DATASET_TYPE
 
     # Some INFORMATION_SCHEMA views are not available for BigLake tables
     # based on Amazon S3 and Blob Storage data.
@@ -201,6 +314,9 @@ class BigQuerySchemaApi:
         self.projects_client = projects_client
         self.report = report
         self.datacatalog_client = datacatalog_client
+        # Cache mapping policy tag resource names to display names, shared across all datasets
+        # in a single ingestion run to avoid redundant API calls per taxonomy.
+        self._policy_tag_mapping_cache: Dict[str, str] = {}
 
     def get_query_result(
         self, query: str, location: Optional[str] = None
@@ -314,15 +430,24 @@ class BigQuerySchemaApi:
                 )
                 continue
 
-            location = (
-                d._properties.get("location")
+            # google-cloud-bigquery exposes neither `location` nor `type` on
+            # DatasetListItem, so both come off the raw payload.
+            properties = (
+                d._properties
                 if hasattr(d, "_properties") and isinstance(d._properties, dict)
-                else None
+                else {}
             )
+            location = properties.get("location")
+            dataset_type = properties.get("type")
+            if dataset_type is None:
+                # A client upgrade that stops returning `type` would make every
+                # dataset read as non-linked. The counter surfaces that in the report.
+                self.report.num_datasets_missing_type += 1
             filtered_datasets.append(
                 BigqueryDataset(
                     name=d.dataset_id,
                     location=location,
+                    type=dataset_type,
                     labels=d.labels,
                 )
             )
@@ -402,14 +527,17 @@ class BigQuerySchemaApi:
         tables: Dict[str, TableListItem],
         report: BigQueryV2Report,
         with_partitions: bool = False,
+        use_legacy_table_stats: bool = False,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
             filter_clause: str = ", ".join(f"'{table}'" for table in tables)
 
-            if with_partitions:
-                query_template = BigqueryQuery.tables_for_dataset
+            if not with_partitions:
+                query_template = BigqueryQuery.tables_for_dataset_without_stats
+            elif use_legacy_table_stats:
+                query_template = BigqueryQuery.tables_for_dataset_with_legacy_stats
             else:
-                query_template = BigqueryQuery.tables_for_dataset_without_partition_data
+                query_template = BigqueryQuery.tables_for_dataset_with_partition_stats
 
             # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
             # and skip the others. Sharded tables are tables with suffix _20220102
@@ -455,6 +583,12 @@ class BigQuerySchemaApi:
             expiration = None
 
         _, shard = BigqueryTableIdentifier.get_table_and_shard(table.table_name)
+        external = table.table_type == BigqueryTableType.EXTERNAL
+        ext_opts = (
+            ExternalTableOptions.from_ddl(table.ddl)
+            if external and table.ddl
+            else ExternalTableOptions()
+        )
         return BigqueryTable(
             name=table.table_name,
             created=table.created,
@@ -475,27 +609,30 @@ class BigQuerySchemaApi:
             num_partitions=table.get("num_partitions"),
             active_billable_bytes=table.get("active_billable_bytes"),
             long_term_billable_bytes=table.get("long_term_billable_bytes"),
-            external=(table.table_type == BigqueryTableType.EXTERNAL),
+            external=external,
+            external_source_format=ext_opts.source_format,
+            external_source_uris=ext_opts.source_uris,
+            external_compression=ext_opts.compression,
+            external_max_bad_records=ext_opts.max_bad_records,
         )
 
     def get_views_for_dataset(
         self,
         project_id: str,
         dataset_name: str,
-        has_data_read: bool,
+        use_legacy_table_stats: bool,
         report: BigQueryV2Report,
     ) -> Iterator[BigqueryView]:
         with PerfTimer() as current_timer:
-            if has_data_read:
-                # If profiling is enabled
+            if use_legacy_table_stats:
                 cur = self.get_query_result(
-                    BigqueryQuery.views_for_dataset.format(
+                    BigqueryQuery.views_for_dataset_with_legacy_stats.format(
                         project_id=project_id, dataset_name=dataset_name
                     ),
                 )
             else:
                 cur = self.get_query_result(
-                    BigqueryQuery.views_for_dataset_without_data_read.format(
+                    BigqueryQuery.views_for_dataset_without_stats.format(
                         project_id=project_id, dataset_name=dataset_name
                     ),
                 )
@@ -529,55 +666,92 @@ class BigQuerySchemaApi:
             labels=parse_labels(view.labels) if view.get("labels") else None,
         )
 
-    def get_policy_tags_for_column(
+    def build_policy_tag_display_name_mapping(
         self,
-        project_id: str,
-        dataset_name: str,
-        table_name: str,
-        column_name: str,
+        policy_tag_resource_names: Set[str],
         report: BigQueryV2Report,
         rate_limiter: Optional[RateLimiter] = None,
-    ) -> Iterable[str]:
+    ) -> Dict[str, str]:
+        """Build a mapping of policy tag resource names to display names.
+
+        Uses taxonomy-level batch API (list_policy_tags) so that all tags in a
+        taxonomy are resolved with a single API call instead of one call per tag.
+        Results are cached in self._policy_tag_mapping_cache across datasets for
+        the entire ingestion run.
+
+        Returns a dict mapping resource_name -> display_name. For any tag that
+        cannot be resolved (API failure, deleted tag, malformed name) the resource
+        name itself is used as the display name value so callers always get a
+        usable string.
+        """
         assert self.datacatalog_client
 
-        try:
-            # Get the table schema
-            table_ref = f"{project_id}.{dataset_name}.{table_name}"
-            table = self.bq_client.get_table(table_ref)
-            schema = table.schema
+        uncached_names = {
+            name
+            for name in policy_tag_resource_names
+            if name not in self._policy_tag_mapping_cache
+        }
 
-            # Find the specific field in the schema
-            field = next((f for f in schema if f.name == column_name), None)
-            if not field or not field.policy_tags:
-                return
+        if not uncached_names:
+            return {
+                name: self._policy_tag_mapping_cache[name]
+                for name in policy_tag_resource_names
+            }
 
-            # Retrieve policy tag display names
-            for policy_tag_name in field.policy_tags.names:
-                try:
-                    if rate_limiter:
-                        with rate_limiter:
-                            policy_tag = self.datacatalog_client.get_policy_tag(
-                                name=policy_tag_name
-                            )
-                    else:
-                        policy_tag = self.datacatalog_client.get_policy_tag(
-                            name=policy_tag_name
+        # Parse taxonomy IDs from uncached resource names, skipping any that are malformed.
+        taxonomy_ids: Set[str] = set()
+        malformed_names: Set[str] = set()
+        for resource_name in uncached_names:
+            taxonomy_id = _parse_taxonomy_id(resource_name)
+            if taxonomy_id:
+                taxonomy_ids.add(taxonomy_id)
+            else:
+                malformed_names.add(resource_name)
+                report.warning(
+                    title="Malformed policy tag resource name",
+                    message="Could not parse taxonomy ID from policy tag resource name; tag will be skipped",
+                    context=resource_name,
+                )
+
+        # One list_policy_tags() call per unique taxonomy resolves all tags at once.
+        logger.info(
+            f"Resolving policy tag display names from {len(taxonomy_ids)} "
+            f"{'taxonomy' if len(taxonomy_ids) == 1 else 'taxonomies'}: {sorted(taxonomy_ids)}"
+        )
+        for taxonomy_id in taxonomy_ids:
+            try:
+                if rate_limiter:
+                    with rate_limiter:
+                        policy_tags = self.datacatalog_client.list_policy_tags(
+                            parent=taxonomy_id
                         )
-                    yield policy_tag.display_name
-                except Exception as e:
-                    report.warning(
-                        title="Failed to retrieve policy tag",
-                        message="Unexpected error when retrieving policy tag for column",
-                        context=f"policy tag {policy_tag_name} for column {column_name} in table {table_ref}",
-                        exc=e,
+                else:
+                    policy_tags = self.datacatalog_client.list_policy_tags(
+                        parent=taxonomy_id
                     )
-        except Exception as e:
-            report.warning(
-                title="Failed to retrieve policy tag for table",
-                message="Unexpected error retrieving policy tag for table",
-                context=table_ref,
-                exc=e,
-            )
+
+                self.report.num_list_policy_tags_api_requests += 1
+                for policy_tag in policy_tags:
+                    self._policy_tag_mapping_cache[policy_tag.name] = (
+                        policy_tag.display_name
+                    )
+
+            except Exception as e:
+                report.warning(
+                    title="Failed to list policy tags for taxonomy",
+                    message=(
+                        "Data Catalog API call failed; policy tag resource names will be "
+                        "stored instead of display names for this taxonomy"
+                    ),
+                    context=taxonomy_id,
+                    exc=e,
+                )
+
+        return {
+            name: self._policy_tag_mapping_cache.get(name, name)
+            for name in policy_tag_resource_names
+            if name not in malformed_names
+        }
 
     def get_table_constraints_for_dataset(
         self,
@@ -673,47 +847,90 @@ class BigQuerySchemaApi:
                 )
                 return None
 
+            # Collect raw rows first so we can batch-resolve policy tag display names
+            # before constructing BigqueryColumn objects.
+            raw_rows = []
             last_seen_table: str = ""
             for column in cur:
-                with timer.pause():
-                    if (
-                        column_limit
-                        and column.table_name in columns
-                        and len(columns[column.table_name]) >= column_limit
-                    ):
-                        if last_seen_table != column.table_name:
-                            logger.warning(
-                                f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                if (
+                    column_limit
+                    and column.table_name in columns
+                    and len(columns[column.table_name]) >= column_limit
+                ):
+                    if last_seen_table != column.table_name:
+                        logger.warning(
+                            f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                        )
+                        last_seen_table = column.table_name
+                else:
+                    raw_rows.append(column)
+
+            # Batch-resolve policy tag display names for the entire dataset in a
+            # small number of Data Catalog API calls (one per unique taxonomy).
+            policy_tag_display_name_map: Dict[str, str] = {}
+            if extract_policy_tags_from_catalog:
+                all_resource_names: Set[str] = set()
+                for column in raw_rows:
+                    policy_tag_column = getattr(column, "policy_tags", None)
+                    if policy_tag_column:
+                        try:
+                            all_resource_names.update(policy_tag_column)
+                        except Exception as e:
+                            report.warning(
+                                title="Policy tags column not available in INFORMATION_SCHEMA",
+                                message="Requires BigQuery API v2. Skipping policy tag extraction for this dataset.",
+                                context=f"{project_id}.{dataset_name}",
+                                exc=e,
                             )
-                            last_seen_table = column.table_name
-                    else:
-                        columns[column.table_name].append(
-                            BigqueryColumn(
-                                name=column.column_name,
-                                ordinal_position=column.ordinal_position,
-                                field_path=column.field_path,
-                                is_nullable=column.is_nullable == "YES",
-                                data_type=column.data_type,
-                                comment=column.comment,
-                                is_partition_column=column.is_partitioning_column
-                                == "YES",
-                                cluster_column_position=column.clustering_ordinal_position,
-                                policy_tags=(
-                                    list(
-                                        self.get_policy_tags_for_column(
-                                            project_id,
-                                            dataset_name,
-                                            column.table_name,
-                                            column.column_name,
-                                            report,
-                                            rate_limiter,
-                                        )
-                                    )
-                                    if extract_policy_tags_from_catalog
-                                    else []
-                                ),
+                            extract_policy_tags_from_catalog = False
+
+                if extract_policy_tags_from_catalog and all_resource_names:
+                    with PerfTimer() as policy_tag_timer:
+                        policy_tag_display_name_map = (
+                            self.build_policy_tag_display_name_mapping(
+                                all_resource_names,
+                                report,
+                                rate_limiter,
                             )
                         )
+                    elapsed = policy_tag_timer.elapsed_seconds()
+                    logger.info(
+                        f"Resolved policy tags for {project_id}.{dataset_name} "
+                        f"in {elapsed:.2f}s"
+                    )
+                    self.report.list_policy_tags_sec += elapsed
+
+            for column in raw_rows:
+                policy_tags: List[str] = []
+                if extract_policy_tags_from_catalog:
+                    raw_tags = getattr(column, "policy_tags", None)
+                    if raw_tags:
+                        for resource_name in raw_tags:
+                            if resource_name not in policy_tag_display_name_map:
+                                logger.debug(
+                                    f"Policy tag resource name not found in mapping "
+                                    f"(tag may have been deleted): {resource_name}"
+                                )
+                            policy_tags.append(
+                                policy_tag_display_name_map.get(
+                                    resource_name, resource_name
+                                )
+                            )
+
+                columns[column.table_name].append(
+                    BigqueryColumn(
+                        name=column.column_name,
+                        ordinal_position=column.ordinal_position,
+                        field_path=column.field_path,
+                        is_nullable=column.is_nullable == "YES",
+                        data_type=column.data_type,
+                        comment=column.comment,
+                        is_partition_column=column.is_partitioning_column == "YES",
+                        cluster_column_position=column.clustering_ordinal_position,
+                        policy_tags=policy_tags,
+                    )
+                )
+
             self.report.num_get_columns_for_dataset_api_requests += 1
             self.report.get_columns_for_dataset_sec += timer.elapsed_seconds()
 
@@ -723,20 +940,19 @@ class BigQuerySchemaApi:
         self,
         project_id: str,
         dataset_name: str,
-        has_data_read: bool,
+        use_legacy_table_stats: bool,
         report: BigQueryV2Report,
     ) -> Iterator[BigqueryTableSnapshot]:
         with PerfTimer() as current_timer:
-            if has_data_read:
-                # If profiling is enabled
+            if use_legacy_table_stats:
                 cur = self.get_query_result(
-                    BigqueryQuery.snapshots_for_dataset.format(
+                    BigqueryQuery.snapshots_for_dataset_with_legacy_stats.format(
                         project_id=project_id, dataset_name=dataset_name
                     ),
                 )
             else:
                 cur = self.get_query_result(
-                    BigqueryQuery.snapshots_for_dataset_without_data_read.format(
+                    BigqueryQuery.snapshots_for_dataset_without_stats.format(
                         project_id=project_id, dataset_name=dataset_name
                     ),
                 )
@@ -747,7 +963,7 @@ class BigQuerySchemaApi:
                         yield BigQuerySchemaApi._make_bigquery_table_snapshot(table)
                 except Exception as e:
                     snapshot_name = f"{project_id}.{dataset_name}.{table.table_name}"
-                    report.report_warning(
+                    report.warning(
                         title="Failed to process snapshot",
                         message="Error encountered while processing snapshot",
                         context=snapshot_name,
@@ -841,7 +1057,7 @@ def query_project_list_from_labels(
     )
 
     if not projects:  # Report failure on exception and if empty list is returned
-        report.report_failure(
+        report.failure(
             "metadata-extraction",
             "Get projects didn't return any project with any of the specified label(s). "
             "Maybe resourcemanager.projects.list permission is missing for the service account. "

@@ -6,7 +6,7 @@ import { useUserContext } from '@app/context/useUserContext';
  * Permissions for the Context Documents section (sidebar and landing page).
  * These are platform-level permissions, not entity-level.
  */
-export interface ContextDocumentsPermissions {
+interface ContextDocumentsPermissions {
     /** Whether the user can create new documents */
     canCreate: boolean;
     /** Whether the user can manage (delete/move) any documents */

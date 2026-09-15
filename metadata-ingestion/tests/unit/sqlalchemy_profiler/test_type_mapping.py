@@ -35,13 +35,16 @@ class TestTypeMapping:
             get_column_profiler_type(sa_types.Float(), "postgresql")
             == ProfilerDataType.FLOAT
         )
+
+    def test_get_column_profiler_type_numeric(self):
+        """Test numeric type detection (DECIMAL, NUMERIC - fixed precision)."""
         assert (
             get_column_profiler_type(sa_types.Numeric(), "postgresql")
-            == ProfilerDataType.FLOAT
+            == ProfilerDataType.NUMERIC
         )
         assert (
             get_column_profiler_type(sa_types.DECIMAL(), "postgresql")
-            == ProfilerDataType.FLOAT
+            == ProfilerDataType.NUMERIC
         )
 
     def test_get_column_profiler_type_string(self):
@@ -131,9 +134,26 @@ class TestTypeMapping:
 
     def test_get_column_types_to_ignore(self):
         """Test database-specific type filtering."""
-        # PostgreSQL
-        ignored = _get_column_types_to_ignore("postgresql")
-        assert "JSON" in ignored or "JSONB" in ignored
+        # PostgreSQL — the platform name ("postgres"), the SQLAlchemy dialect
+        # name ("postgresql"), and the postgres-family sources that share
+        # PGDialect's process-global ischema_names but report their own
+        # platform names must all resolve to the same exclusions.
+        for dialect in ("postgres", "postgresql", "timescaledb", "cockroachdb"):
+            ignored = _get_column_types_to_ignore(dialect)
+            assert "JSON" in ignored
+            # Geometric types and xml have no equality operator, so
+            # COUNT(DISTINCT col) would fail during field profiling.
+            for geo_type in (
+                "POINT",
+                "LINE",
+                "LSEG",
+                "BOX",
+                "PATH",
+                "POLYGON",
+                "CIRCLE",
+                "XML",
+            ):
+                assert geo_type in ignored
 
         # BigQuery
         ignored = _get_column_types_to_ignore("bigquery")
@@ -235,18 +255,20 @@ class TestTypeMapping:
             == ProfilerDataType.INT
         )
 
-        # Test all float variants
+        # Test float type (real floating point)
         assert (
             get_column_profiler_type(sa_types.Float(), "postgresql")
             == ProfilerDataType.FLOAT
         )
+
+        # Test numeric types (DECIMAL, NUMERIC - fixed precision)
         assert (
             get_column_profiler_type(sa_types.Numeric(), "postgresql")
-            == ProfilerDataType.FLOAT
+            == ProfilerDataType.NUMERIC
         )
         assert (
             get_column_profiler_type(sa_types.DECIMAL(), "postgresql")
-            == ProfilerDataType.FLOAT
+            == ProfilerDataType.NUMERIC
         )
 
         # Test all string variants

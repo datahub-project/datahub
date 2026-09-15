@@ -1,8 +1,8 @@
 import { Tooltip } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { StructuredReportLogEntry } from '@app/ingestV2/executions/components/reporting/types';
 
 const Container = styled.div`
@@ -21,8 +21,8 @@ const Item = styled.pre`
     padding: 6px;
     font-size: 12px;
     border-radius: 2px;
-    background-color: ${ANTD_GRAY[3]};
-    color: ${ANTD_GRAY[8]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {
@@ -30,15 +30,16 @@ interface Props {
 }
 
 export function StructuredReportItemContext({ item }: Props) {
+    const { t } = useTranslation('ingestion');
     return (
         <Container>
-            <Tooltip showArrow={false} title="Additional context about the source of the issue" placement="left">
-                <Title>Context</Title>
+            <Tooltip showArrow={false} title={t('report.contextTooltip')} placement="left">
+                <Title>{t('report.contextTitle')}</Title>
             </Tooltip>
             {(item.context?.length || 0) > 0
                 ? // eslint-disable-next-line react/no-array-index-key
                   item.context.map((contextItem, index) => <Item key={`${contextItem}-${index}`}>{contextItem}</Item>)
-                : 'No additional context found.'}
+                : t('report.noContext')}
         </Container>
     );
 }

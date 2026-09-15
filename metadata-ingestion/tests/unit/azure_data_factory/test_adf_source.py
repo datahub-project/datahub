@@ -18,13 +18,13 @@ from typing import Callable, Optional
 import pytest
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     CopyActivityColumnLineageExtractor,
     DatasetSchemaInfo,
 )
 from datahub.ingestion.source.azure_data_factory.adf_source import (
     ACTIVITY_SUBTYPE_MAP,
-    LINKED_SERVICE_PLATFORM_MAP,
 )
 from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
@@ -43,7 +43,7 @@ class TestLinkedServicePlatformMapping:
         """All Azure SQL variants should map to mssql platform."""
         azure_sql_types = ["AzureSqlDatabase", "AzureSqlMI", "SqlServer"]
         for sql_type in azure_sql_types:
-            assert LINKED_SERVICE_PLATFORM_MAP.get(sql_type) == "mssql", (
+            assert ADF_LINKED_SERVICE_PLATFORM_MAP.get(sql_type) == "mssql", (
                 f"{sql_type} should map to 'mssql'"
             )
 
@@ -51,7 +51,7 @@ class TestLinkedServicePlatformMapping:
         """Azure Synapse variants should map to mssql platform (same protocol)."""
         synapse_types = ["AzureSynapseAnalytics", "AzureSqlDW"]
         for synapse_type in synapse_types:
-            assert LINKED_SERVICE_PLATFORM_MAP.get(synapse_type) == "mssql", (
+            assert ADF_LINKED_SERVICE_PLATFORM_MAP.get(synapse_type) == "mssql", (
                 f"{synapse_type} should map to 'mssql'"
             )
 
@@ -59,15 +59,15 @@ class TestLinkedServicePlatformMapping:
         """Databricks services should all map to databricks platform."""
         databricks_types = ["AzureDatabricks", "AzureDatabricksDeltaLake"]
         for db_type in databricks_types:
-            assert LINKED_SERVICE_PLATFORM_MAP.get(db_type) == "databricks", (
+            assert ADF_LINKED_SERVICE_PLATFORM_MAP.get(db_type) == "databricks", (
                 f"{db_type} should map to 'databricks'"
             )
 
     def test_azure_storage_types_map_to_abs_platform(self) -> None:
         """All Azure storage types should map to abs (Azure Blob Storage) platform."""
-        assert LINKED_SERVICE_PLATFORM_MAP["AzureBlobStorage"] == "abs"
-        assert LINKED_SERVICE_PLATFORM_MAP["AzureBlobFS"] == "abs"
-        assert LINKED_SERVICE_PLATFORM_MAP["AzureDataLakeStore"] == "abs"
+        assert ADF_LINKED_SERVICE_PLATFORM_MAP["AzureBlobStorage"] == "abs"
+        assert ADF_LINKED_SERVICE_PLATFORM_MAP["AzureBlobFS"] == "abs"
+        assert ADF_LINKED_SERVICE_PLATFORM_MAP["AzureDataLakeStore"] == "abs"
 
     def test_major_cloud_databases_covered(self) -> None:
         """Major cloud databases should be mapped."""
@@ -77,7 +77,9 @@ class TestLinkedServicePlatformMapping:
             "AmazonRedshift": "redshift",
         }
         for service_type, expected_platform in major_databases.items():
-            assert LINKED_SERVICE_PLATFORM_MAP.get(service_type) == expected_platform
+            assert (
+                ADF_LINKED_SERVICE_PLATFORM_MAP.get(service_type) == expected_platform
+            )
 
     def test_common_open_source_databases_covered(self) -> None:
         """Common OSS databases should be mapped."""
@@ -87,12 +89,14 @@ class TestLinkedServicePlatformMapping:
             "Oracle": "oracle",
         }
         for service_type, expected_platform in oss_databases.items():
-            assert LINKED_SERVICE_PLATFORM_MAP.get(service_type) == expected_platform
+            assert (
+                ADF_LINKED_SERVICE_PLATFORM_MAP.get(service_type) == expected_platform
+            )
 
     def test_unknown_service_type_returns_none(self) -> None:
         """Unknown service types should return None (not raise)."""
-        assert LINKED_SERVICE_PLATFORM_MAP.get("UnknownServiceType") is None
-        assert LINKED_SERVICE_PLATFORM_MAP.get("CustomConnector") is None
+        assert ADF_LINKED_SERVICE_PLATFORM_MAP.get("UnknownServiceType") is None
+        assert ADF_LINKED_SERVICE_PLATFORM_MAP.get("CustomConnector") is None
 
 
 class TestActivitySubtypeMapping:

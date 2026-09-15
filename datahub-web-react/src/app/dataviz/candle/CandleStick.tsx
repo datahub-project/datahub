@@ -31,6 +31,7 @@ type Props = {
     extraBarProps?: CandleBarProps;
     opacity?: number;
     wrapper?: (children: JSX.Element) => JSX.Element;
+    showWarningOverlay?: boolean;
 };
 export const CandleStick = ({
     parentChartHeight,
@@ -44,6 +45,7 @@ export const CandleStick = ({
     opacity,
     markerOverlapPx,
     extraBarProps,
+    showWarningOverlay,
 }: Props) => {
     const yOffset = parentChartHeight - candleHeight;
 
@@ -72,6 +74,20 @@ export const CandleStick = ({
         <Group opacity={opacity}>
             <Bar {...barProps} />
             {shape.type === 'diamond' ? <GlyphDiamond {...shapeProps} /> : <GlyphCircle {...shapeProps} />}
+            {/* For Smart Assertions: '!' icon overlaps if this has been marked as a false positive or false negative */}
+            {showWarningOverlay ? (
+                // Downloaded from phosphor icons
+                <svg
+                    x={leftOffset - shapeSize / 20}
+                    y={yOffset - shapeSize / 20}
+                    width={shapeSize / 10}
+                    height={shapeSize / 10}
+                    fill="white"
+                    viewBox="0 0 256 256"
+                >
+                    <path d="M144,200a16,16,0,1,1-16-16A16,16,0,0,1,144,200Zm-16-40a8,8,0,0,0,8-8V48a8,8,0,0,0-16,0V152A8,8,0,0,0,128,160Z" />
+                </svg>
+            ) : null}
         </Group>
     );
     return wrapper ? wrapper(candleGroup) : candleGroup;

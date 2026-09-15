@@ -9,8 +9,3 @@ export interface ExtendedSchemaFields extends SchemaField {
     isDeletedRow?: boolean;
     parent?: ExtendedSchemaFields;
 }
-
-export enum SchemaViewType {
-    NORMAL,
-    BLAME,
-}

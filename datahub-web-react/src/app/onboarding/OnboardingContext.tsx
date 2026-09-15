@@ -7,6 +7,8 @@ interface Props {
     setIsTourOpen: React.Dispatch<React.SetStateAction<boolean>>;
     isUserInitializing: boolean;
     setIsUserInitializing: React.Dispatch<React.SetStateAction<boolean>>;
+    isOnboardingAvailable: boolean;
+    setIsOnboardingAvailable: (value: boolean) => void;
 }
 
 const OnboardingContext = React.createContext<Props>({
@@ -16,6 +18,8 @@ const OnboardingContext = React.createContext<Props>({
     setIsTourOpen: () => {},
     isUserInitializing: false,
     setIsUserInitializing: () => {},
+    isOnboardingAvailable: false,
+    setIsOnboardingAvailable: () => {},
 });
 
 export default OnboardingContext;

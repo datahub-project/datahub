@@ -12,7 +12,7 @@ import React from 'react';
 
 import { SchemaFieldDataType } from '@types';
 
-export default function CompactFieldIcon(type?: SchemaFieldDataType): JSX.Element | null {
+function CompactFieldIcon(type?: SchemaFieldDataType): JSX.Element | null {
     if (type === SchemaFieldDataType.Number) {
         return <NumberOutlined />;
     }

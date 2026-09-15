@@ -197,8 +197,9 @@ We use ruff, and mypy to ensure consistent code style and quality.
 
 ```shell
 # Assumes: ../gradlew :metadata-ingestion:installDev and venv is activated
-ruff check src/ tests/
-mypy src/ tests/
+# Checks everything ruff and mypy are configured to see, examples/ included.
+ruff check .
+mypy .
 ```
 
 or you can run from root of the repository
@@ -229,6 +230,33 @@ The vast majority of our dependencies are not required by the "core" package but
 Where possible, we should avoid pinning version dependencies. The `acryl-datahub` package is frequently used as a library and hence installed alongside other tools. If you need to restrict the version of a dependency, use a range like `>=1.2.3,<2.0.0` or a negative constraint like `>=1.2.3, !=1.2.7` instead. Every upper bound and negative constraint should be accompanied by a comment explaining why it's necessary.
 
 Caveat: Some packages like Great Expectations and Airflow frequently make breaking changes. For such packages, it's ok to add a "defensive" upper bound with the current latest version, accompanied by a comment. It's critical that we revisit these upper bounds at least once a month and broaden them if possible.
+
+### Updating the Lock File
+
+After changing dependencies in `setup.py`, regenerate all generated files:
+
+```shell
+../gradlew :metadata-ingestion:updateLockFile
+```
+
+This runs the full chain: `setup.py` → `pyproject.toml` → `uv.lock` → `constraints.txt`.
+
+To validate that all generated files are up to date without modifying them:
+
+```shell
+../gradlew :metadata-ingestion:checkLockFile
+```
+
+This runs automatically in CI as part of `check`, so PRs with stale generated files will fail.
+
+You can also run the steps manually:
+
+```shell
+python scripts/generate_pyproject_deps.py   # setup.py → pyproject.toml
+python scripts/verify_pyproject_equivalence.py  # verify equivalence
+uv lock                                      # update uv.lock
+uv export --format requirements-txt --no-hashes --all-extras --no-emit-project -o constraints.txt
+```
 
 ## Guidelines for Ingestion Configs
 
@@ -311,16 +339,16 @@ cd metadata-ingestion-modules/airflow-plugin
 # Run all tests.
 tox
 
-# Run a specific environment.
-# These are defined in the `tox.ini` file
-tox -e py310-airflow26
+# Run a specific environment (py311-airflow30, py311-airflow31, py311-airflow32).
+# Defined in the `tox.ini` file.
+tox -e py311-airflow31
 
 # Run a specific test.
-tox -e py310-airflow26 -- tests/integration/test_plugin.py
+tox -e py311-airflow31 -- tests/integration/test_plugin.py
 
 # Update all golden files.
 tox -- --update-golden-files
 
 # Update golden files for a specific environment.
-tox -e py310-airflow26 -- --update-golden-files
+tox -e py311-airflow31 -- --update-golden-files
 ```

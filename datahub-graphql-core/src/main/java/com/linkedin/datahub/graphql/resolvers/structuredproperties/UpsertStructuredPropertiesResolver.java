@@ -36,9 +36,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 public class UpsertStructuredPropertiesResolver
     implements DataFetcher<
         CompletableFuture<com.linkedin.datahub.graphql.generated.StructuredProperties>> {
@@ -67,14 +65,9 @@ public class UpsertStructuredPropertiesResolver
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            // check authorization
+            // check authorization first
             final List<Urn> propertyUrns =
                 updateMap.keySet().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
-
-            log.info(
-                "Upserting structured properties for asset urn {}, with property urns {}",
-                assetUrn,
-                propertyUrns);
             if (!AuthorizationUtils.canEditProperties(assetUrn, context, propertyUrns)) {
               throw new AuthorizationException(
                   String.format(
@@ -132,7 +125,9 @@ public class UpsertStructuredPropertiesResolver
             ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME));
     StructuredProperties structuredProperties = new StructuredProperties();
     structuredProperties.setProperties(new StructuredPropertyValueAssignmentArray());
-    if (response != null && response.getAspects().containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME)) {
+    if (response != null
+        && response.getAspects() != null
+        && response.getAspects().containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME)) {
       structuredProperties =
           new StructuredProperties(
               response.getAspects().get(STRUCTURED_PROPERTIES_ASPECT_NAME).getValue().data());

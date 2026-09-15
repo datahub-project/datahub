@@ -32,7 +32,7 @@ The `ownershipTypeInfo` aspect contains the essential metadata for an ownership 
 DataHub ships with four built-in ownership types that are automatically created:
 
 1. **Technical Owner** (`__system__technical_owner`): Involved in the production, maintenance, or distribution of the asset(s)
-2. **Business Owner** (`__system__business_owner`): Principle stakeholders or domain experts associated with the asset(s)
+2. **Business Owner** (`__system__business_owner`): Principal stakeholders or domain experts associated with the asset(s)
 3. **Data Steward** (`__system__data_steward`): Involved in governance of the asset(s)
 4. **None** (`__system__none`): No ownership type specified
 
@@ -103,7 +103,7 @@ Built-in ownership types can only be soft-deleted (status.removed = true), while
 Retrieve a specific ownership type:
 
 ```bash
-curl 'http://localhost:8080/entities/urn%3Ali%3AownershipType%3A__system__technical_owner'
+curl 'http://localhost:8080/entitiesV2/urn%3Ali%3AownershipType%3A__system__technical_owner'
 ```
 
 Response includes the `ownershipTypeInfo` and `status` aspects:

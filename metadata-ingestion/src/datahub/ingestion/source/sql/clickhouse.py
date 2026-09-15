@@ -43,6 +43,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.sql.clickhouse_connection import with_client_identity
 from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     logger,
@@ -258,7 +259,11 @@ class ClickHouseConfig(
         if self.sqlalchemy_uri and current_db:
             url = url.set(database=current_db)
 
-        return str(url)
+        url = with_client_identity(url)
+        # Explicit about keeping the password: on SQLAlchemy 1.4 (currently pinned)
+        # str(URL) already renders it, but SQLAlchemy 2.0 masks it in str() — this
+        # keeps create_engine() working if/when the pin moves to 2.x.
+        return url.render_as_string(hide_password=False)
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @model_validator(mode="before")
@@ -511,7 +516,7 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
@@ -532,35 +537,19 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
     SourceCapability.USAGE_STATS,
     "Optionally enabled via `include_usage_statistics`",
 )
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Optionally enabled via `include_query_log_operations`",
+)
 class ClickHouseSource(TwoTierSQLAlchemySource):
     """
-    This plugin extracts the following:
+    Source that extracts tables, views, and dictionaries from ClickHouse via SQLAlchemy.
 
-    - Metadata for tables, views, materialized views and dictionaries
-    - Column types associated with each table(except *AggregateFunction and DateTime with timezone)
-    - Table, row, and column statistics via optional SQL profiling.
-    - Table, view, materialized view and dictionary(with CLICKHOUSE source_type) lineage
-
-    ### Query Log Extraction
-
-    Enable `include_query_log_lineage` and/or `include_usage_statistics` to extract
-    additional metadata from ClickHouse's `system.query_log`:
-
-    - **Query-based lineage**: Table and column-level lineage from INSERT/CREATE queries
-    - **Usage statistics**: Dataset usage from SELECT queries
-    - **Operations**: Operation aspects (INSERT, UPDATE, etc.)
-
-    ```yaml
-    source:
-      type: clickhouse
-      config:
-        host_port: "localhost:8123"
-        include_query_log_lineage: true
-        include_usage_statistics: true
-        start_time: "2024-01-01T00:00:00Z"
-        end_time: "2024-01-08T00:00:00Z"
-    ```
-
+    Implementation notes:
+    - Extends TwoTierSQLAlchemySource (database.table hierarchy)
+    - Optionally parses system.query_log for usage and lineage
+    - Supports ClickHouse-specific objects (dictionaries, materialized views)
+    - Some column types not fully supported (*AggregateFunction, DateTime with timezone)
     """
 
     config: ClickHouseConfig
@@ -764,9 +753,10 @@ ORDER BY event_time ASC
             result = engine.execute(text(query))
             rows = list(result)
         except Exception as e:
-            self.report.report_failure(
-                "query_log_extraction",
-                f"Failed to fetch query log: {e}",
+            self.report.failure(
+                message="Failed to fetch query log",
+                context="query_log_extraction",
+                exc=e,
             )
             return
 
@@ -805,11 +795,11 @@ ORDER BY event_time ASC
                 session_id=row.get("query_id"),
                 timestamp=event_time,
                 user=CorpUserUrn(user) if user else None,
-                # Don't pass current_database as default_db. ClickHouse uses 2-level
-                # naming (database.table), but sqlglot expects 3-level (database.schema.table).
-                # Passing current_database causes sqlglot to prepend it to already-qualified
-                # names, creating incorrect URNs like "default.analytics_marts.table".
+                # ClickHouse is 2-level: the database goes in the schema slot (as in
+                # TwoTierSQLAlchemySource.get_db_schema); default_db would fill the
+                # unused catalog slot, over-qualifying to "default.my_db.table".
                 default_db=None,
+                default_schema=row.get("current_database") or None,
                 query_hash=str(row.get("normalized_query_hash", "")),
             )
         except Exception as e:

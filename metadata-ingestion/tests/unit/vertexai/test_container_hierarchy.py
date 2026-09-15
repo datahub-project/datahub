@@ -12,7 +12,7 @@ REGION = "us-west2"
 def source() -> VertexAISource:
     return VertexAISource(
         ctx=PipelineContext(run_id="vertexai-source-test"),
-        config=VertexAIConfig(project_id=PROJECT_ID, region=REGION),
+        config=VertexAIConfig(project_ids=[PROJECT_ID], region=REGION),
     )
 
 

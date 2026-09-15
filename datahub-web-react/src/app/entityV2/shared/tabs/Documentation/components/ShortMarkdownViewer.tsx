@@ -11,7 +11,7 @@ const StyledText = styled(Text)`
     width: 100%;
 `;
 
-export type Props = {
+type Props = {
     content: string;
     clearMarkdown?: boolean;
 };

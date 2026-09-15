@@ -1,219 +1,489 @@
 """Entry processing utilities for Dataplex source (Universal Catalog/Entries API)."""
 
 import logging
-from collections.abc import Callable
-from threading import Lock
-from typing import Iterable
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
+from itertools import islice
+from typing import (
+    TYPE_CHECKING,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+)
 
 from google.cloud import dataplex_v1
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
-from datahub.ingestion.source.dataplex.dataplex_containers import (
-    track_bigquery_container,
+from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
+from datahub.ingestion.source.dataplex.dataplex_helpers import ExportedEntry
+from datahub.ingestion.source.dataplex.dataplex_mappers import (
+    EntryMappingContext,
+    get_entry_mapper,
 )
-from datahub.ingestion.source.dataplex.dataplex_helpers import (
-    EntryDataTuple,
-    make_audit_stamp,
-    parse_entry_fqn,
-)
-from datahub.ingestion.source.dataplex.dataplex_properties import (
-    extract_entry_custom_properties,
-)
-from datahub.ingestion.source.dataplex.dataplex_schema import (
-    extract_schema_from_entry_aspects,
-)
-from datahub.metadata.schema_classes import (
-    ContainerClass,
-    DataPlatformInstanceClass,
-    DatasetPropertiesClass,
-    TimeStampClass,
-)
-from datahub.metadata.urns import DataPlatformUrn
+from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
+    from datahub.sdk.entity import Entity
+
 
 logger = logging.getLogger(__name__)
 
+# Naive upper bound on in-flight futures submitted to the thread pool at once.
+# Prevents O(N) memory growth when there are thousands of entries.
+# TODO: replace with proper backpressure (e.g. bounded queue / semaphore).
+WORKERS_BATCH_SIZE = 200
 
-def process_entry(
-    project_id: str,
-    entry: dataplex_v1.Entry,
-    entry_group_id: str,
-    config: DataplexConfig,
-    entry_data_by_project: dict[str, set[EntryDataTuple]],
-    entry_data_lock: Lock,
-    bq_containers: dict[str, set[str]],
-    bq_containers_lock: Lock,
-    construct_mcps_fn: Callable[[str, list], Iterable[MetadataChangeProposalWrapper]],
-) -> Iterable[MetadataChangeProposalWrapper]:
-    """Process a single entry from Universal Catalog.
 
-    Args:
-        project_id: GCP project ID
-        entry: Entry object from Catalog API
-        entry_group_id: Entry group ID
-        config: Dataplex configuration object
-        entry_data_by_project: Mapping of project IDs to entry data tuples
-        entry_data_lock: Lock for entry_data_by_project access
-        bq_containers: BigQuery containers cache
-        bq_containers_lock: Lock for bq_containers access
-        construct_mcps_fn: Function to construct MCPs from dataset URN and aspects
+@dataclass
+class DataplexEntriesReport(Report):
+    """Entry-processing observability metrics.
 
-    Yields:
-        MetadataChangeProposalWrapper objects for the entry
+    Tracks high-level counters and lossy samples for filtered and processed
+    entry groups / entries. This report is intentionally scoped to the entries
+    processing loop and can later be folded into DataplexReport.
     """
-    entry_id = entry.name.split("/")[-1]
 
-    if not entry.fully_qualified_name:
-        logger.debug(f"Entry {entry_id} has no fully_qualified_name, skipping")
-        return
+    entry_groups_seen: int = 0
+    entry_groups_filtered: int = 0
+    entry_group_filtered_samples: LossyList[str] = field(default_factory=LossyList)
+    entry_groups_processed: int = 0
+    entry_group_processed_samples: LossyList[str] = field(default_factory=LossyList)
 
-    fqn = entry.fully_qualified_name
-    logger.debug(f"Processing entry with FQN: {fqn}")
+    entries_seen: int = 0
+    entries_filtered_by_pattern: int = 0
+    entry_pattern_filtered_samples: LossyList[str] = field(default_factory=LossyList)
+    entries_filtered_by_missing_fqn: int = 0
+    entry_missing_fqn_samples: LossyList[str] = field(default_factory=LossyList)
+    entries_filtered_by_fqn_pattern: int = 0
+    entry_fqn_filtered_samples: LossyList[str] = field(default_factory=LossyList)
 
-    # Apply dataset pattern filter to entry_id
-    if not config.filter_config.entries.dataset_pattern.allowed(entry_id):
-        logger.debug(f"Entry {entry_id} filtered out by entries.dataset_pattern")
-        return
+    entries_processed: int = 0
+    entries_processed_samples: LossyList[str] = field(default_factory=LossyList)
+    # Aspect types dropped from custom properties by aspect_type_pattern (default
+    # deny "datahub-.*"). Surfaces both the intended sync-back filtering and any
+    # native aspect that happened to match the pattern.
+    aspects_filtered: int = 0
+    aspects_filtered_samples: LossyList[str] = field(default_factory=LossyList)
+    catalog_api: dict[str, tuple[int, float]] = field(default_factory=dict)
 
-    # Parse the FQN to determine platform and dataset_id
-    source_platform, dataset_id = parse_entry_fqn(fqn)
-    if not source_platform or not dataset_id:
-        logger.warning(f"Could not parse FQN {fqn} for entry {entry_id}, skipping")
-        return
+    def __post_init__(self) -> None:
+        # Lock protecting all mutable fields when report methods are called from
+        # parallel worker threads (Phase 1b of process_entries).
+        self._lock: threading.Lock = threading.Lock()
 
-    # Validate that FQN has a table/file component (not just zone/asset metadata)
-    if ":" in fqn:
-        _, resource_path = fqn.split(":", 1)
+    def report_filtered_aspect(self, aspect_type: str) -> None:
+        """Record one aspect type dropped by ``aspect_type_pattern``."""
+        with self._lock:
+            self.aspects_filtered += 1
+            self.aspects_filtered_samples.append(aspect_type)
 
-        # For BigQuery: should be project.dataset.table (3 parts minimum)
-        if source_platform == "bigquery":
-            parts = resource_path.split(".")
-            if len(parts) < 3:
-                logger.debug(
-                    f"Skipping entry {entry_id} with FQN {fqn} - missing table name (only {len(parts)} parts)"
-                )
-                return
-            # Check if the table name looks like a zone or asset (common pattern suffixes)
-            table_name = parts[-1]
-            if any(
-                suffix in table_name.lower()
-                for suffix in ["_zone", "_asset", "zone1", "asset1"]
-            ):
-                logger.debug(
-                    f"Skipping entry {entry_id} with FQN {fqn} - table name '{table_name}' appears to be zone/asset metadata"
-                )
-                return
-
-        # For GCS: should be bucket/path (2 parts minimum)
-        elif source_platform == "gcs":
-            parts = resource_path.split("/")
-            if len(parts) < 2:
-                logger.debug(
-                    f"Skipping entry {entry_id} with FQN {fqn} - missing file path (only {len(parts)} parts)"
-                )
-                return
-            # Check if the file/object name looks like an asset
-            object_name = parts[-1]
-            if any(suffix in object_name.lower() for suffix in ["_asset", "asset1"]):
-                logger.debug(
-                    f"Skipping entry {entry_id} with FQN {fqn} - object name '{object_name}' appears to be asset metadata"
-                )
-                return
-
-    # Track entry for lineage extraction
-    with entry_data_lock:
-        if project_id not in entry_data_by_project:
-            entry_data_by_project[project_id] = set()
-        entry_data_by_project[project_id].add(
-            EntryDataTuple(
-                entry_id=entry_id,
-                source_platform=source_platform,
-                dataset_id=dataset_id,
-            )
-        )
-
-    # Generate dataset URN using the full resource path from FQN
-    # For BigQuery: bigquery:project.dataset.table -> use full path
-    if ":" in fqn:
-        _, resource_path = fqn.split(":", 1)
-        dataset_name = resource_path
-    else:
-        dataset_name = entry_id
-
-    dataset_urn = make_dataset_urn_with_platform_instance(
-        platform=source_platform,
-        name=dataset_name,
-        platform_instance=None,
-        env=config.env,
-    )
-    logger.debug(
-        f"Created dataset URN for entry {entry_id} (FQN: {fqn}): {dataset_urn}"
-    )
-
-    # Extract custom properties using helper method
-    custom_properties = extract_entry_custom_properties(entry, entry_id, entry_group_id)
-
-    # Try to extract schema from entry aspects (if enabled)
-    schema_metadata = None
-    if config.include_schema:
-        schema_metadata = extract_schema_from_entry_aspects(
-            entry, entry_id, source_platform
-        )
-
-    # Build aspects list - extract timestamps and description safely
-    created_time = (
-        make_audit_stamp(entry.entry_source.create_time)
-        if entry.entry_source and entry.entry_source.create_time
-        else None
-    )
-    modified_time = (
-        make_audit_stamp(entry.entry_source.update_time)
-        if entry.entry_source and entry.entry_source.update_time
-        else None
-    )
-    description = (
-        entry.entry_source.description
-        if entry.entry_source and entry.entry_source.description
-        else ""
-    )
-
-    aspects = [
-        DatasetPropertiesClass(
-            name=entry_id,
-            description=description,
-            customProperties=custom_properties,
-            created=TimeStampClass(**created_time) if created_time else None,
-            lastModified=TimeStampClass(**modified_time) if modified_time else None,
-        ),
-        DataPlatformInstanceClass(platform=str(DataPlatformUrn(source_platform))),
-    ]
-
-    # Add schema metadata if available
-    if schema_metadata:
-        aspects.append(schema_metadata)
-        logger.debug(
-            f"Added schema metadata for entry {entry_id} with {len(schema_metadata.fields)} fields"
-        )
-
-    # Link to source platform container (only for BigQuery)
-    if source_platform == "bigquery":
-        # Extract project_id and dataset from the full FQN
-        # dataset_id format: project.dataset.table
-        parts = dataset_id.split(".")
-        if len(parts) >= 3:
-            bq_project_id = parts[0]
-            bq_dataset_id = parts[1]
-            with bq_containers_lock:
-                container_urn = track_bigquery_container(
-                    bq_project_id, bq_dataset_id, bq_containers, config
-                )
-            if container_urn:
-                aspects.append(ContainerClass(container=container_urn))
-        else:
-            logger.warning(
-                f"Could not extract BigQuery project and dataset from dataset_id '{dataset_id}' for entry {entry_id}"
+    def report_catalog_api_call(self, api_name: str, elapsed_seconds: float) -> None:
+        """Accumulate per-API call count and total latency in seconds."""
+        with self._lock:
+            num_calls, total_time_secs = self.catalog_api.get(api_name, (0, 0.0))
+            self.catalog_api[api_name] = (
+                num_calls + 1,
+                total_time_secs + elapsed_seconds,
             )
 
-    # Construct MCPs
-    yield from construct_mcps_fn(dataset_urn, aspects)
+    def report_entry_group(self, entry_group_name: str, filtered: bool) -> None:
+        """Report one scanned entry group and its filtering outcome."""
+        with self._lock:
+            self.entry_groups_seen += 1
+            if filtered:
+                self.entry_groups_filtered += 1
+                self.entry_group_filtered_samples.append(entry_group_name)
+                logger.debug(
+                    f"Entry group filtered out by entry_groups.pattern: {entry_group_name}"
+                )
+            else:
+                self.entry_groups_processed += 1
+                self.entry_group_processed_samples.append(entry_group_name)
+
+    def report_entry(
+        self,
+        entry_name: str,
+        filtered_missing_fqn: bool,
+        filtered_fqn: bool,
+        filtered_name: bool,
+    ) -> None:
+        """Report one scanned entry and its filtering outcome."""
+        with self._lock:
+            self.entries_seen += 1
+
+            if filtered_name:
+                self.entries_filtered_by_pattern += 1
+                self.entry_pattern_filtered_samples.append(entry_name)
+                logger.debug(f"Entry filtered out by entries.pattern: {entry_name}")
+
+            if filtered_missing_fqn:
+                self.entries_filtered_by_missing_fqn += 1
+                self.entry_missing_fqn_samples.append(entry_name)
+                logger.debug(
+                    f"Entry filtered out by missing fully_qualified_name: {entry_name}"
+                )
+
+            if filtered_fqn:
+                self.entries_filtered_by_fqn_pattern += 1
+                self.entry_fqn_filtered_samples.append(entry_name)
+                logger.debug(f"Entry filtered out by entries.fqn_pattern: {entry_name}")
+
+            if not filtered_name and not filtered_missing_fqn and not filtered_fqn:
+                self.entries_processed += 1
+                self.entries_processed_samples.append(entry_name)
+
+
+class DataplexEntriesProcessor:
+    """Class-based Dataplex entry processing surface."""
+
+    def __init__(
+        self,
+        config: DataplexConfig,
+        catalog_client: Optional[dataplex_v1.CatalogServiceClient],
+        report: DataplexEntriesReport,
+        source_report: SourceReport,
+        ctx: DataplexContext,
+    ) -> None:
+        # catalog_client is None in export mode (extraction_method: export),
+        # where entries arrive pre-fetched from GCS via process_exported_entries.
+        self.config = config
+        self.catalog_client = catalog_client
+        self.report = report
+        self.source_report = source_report
+        self._ctx = ctx
+        self._emitted_project_containers: set[str] = set()
+        # Guards the check+add on _emitted_project_containers across parallel workers.
+        self._container_lock: threading.Lock = threading.Lock()
+
+    @property
+    def entry_data(self) -> List["EntryDataTuple"]:
+        return self._ctx.entry_data
+
+    # ------------------------------------------------------------------
+    # Parallel entry processing (three-phase)
+    # ------------------------------------------------------------------
+
+    def process_entries(
+        self, project_ids: List[str], max_workers: int
+    ) -> Iterable["Entity"]:
+        """Process all entries across configured projects using a thread pool.
+
+        Three-phase execution:
+
+        * Phase 1a (sequential): iterate all project × location pairs and call
+          ``list_entry_groups`` + ``list_entries`` to accumulate the minimal set
+          of entry names that pass configured filters.  These listing calls are
+          fast (paginated, no detail payload) so sequential execution is fine.
+
+        * Phase 1b (parallel): submit all accumulated entry-name stubs to a
+          ``ThreadPoolExecutor``.  Each worker calls ``get_entry(view=ALL)``
+          (the expensive per-entry RPC) and then builds DataHub entities.
+          Distributing across a flat pool avoids the bottleneck of a single
+          project with thousands of entries.
+
+        * Phase 1c (sequential): run the Spanner ``search_entries`` workaround
+          for each project × location pair.  Search results contain only stub
+          data (no aspects), so a separate ``get_entry(view=ALL)`` call is made
+          per entry to fetch full detail including schema aspects.
+        """
+        # Phase 1a: accumulate entry stubs across all projects and locations.
+        # Wrap each (project, location) pair individually so one failing project
+        # (e.g. PermissionDenied) does not abort listing for the others.
+        entry_stubs: List[Tuple[str, str]] = []  # (entry_name, location)
+        for project_id in project_ids:
+            for location in self.config.entries_locations:
+                try:
+                    for name in self._list_entry_stubs(project_id, location):
+                        entry_stubs.append((name, location))
+                except Exception as exc:
+                    self.source_report.warning(
+                        title="Dataplex entry listing failed",
+                        message="Failed to list entries for project/location. Skipping.",
+                        context=f"project_id={project_id}, location={location}",
+                        exc=exc,
+                    )
+
+        # Phase 1b: fetch entry details in parallel and build entities.
+        # Submit stubs in bounded batches to cap in-flight futures and prevent
+        # O(N) memory growth for large deployments.
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            it = iter(entry_stubs)
+            while batch := list(islice(it, WORKERS_BATCH_SIZE)):
+                futures = {
+                    executor.submit(self._fetch_and_build_entry, name, loc): (name, loc)
+                    for name, loc in batch
+                }
+                for future in as_completed(futures):
+                    entry_name, _ = futures[future]
+                    try:
+                        yield from future.result()
+                    except Exception as exc:
+                        self.source_report.warning(
+                            title="Dataplex entry processing failed",
+                            message="Failed to fetch or build entity for entry. Skipping.",
+                            context=f"entry_name={entry_name}",
+                            exc=exc,
+                        )
+
+        # Phase 1c: Spanner entries (sequential — already fully-fetched from search_entries).
+        for project_id in project_ids:
+            for location in self.config.entries_locations:
+                yield from self._process_spanner_entries(project_id, location)
+
+    def process_exported_entries(
+        self, entries: Iterable[ExportedEntry]
+    ) -> Iterable["Entity"]:
+        """Build entities from pre-fetched entries (``extraction_method: export``).
+
+        ``entries`` yields ``ExportedEntry`` items parsed from the metadata
+        export's GCS JSONL output. Exported entries already carry full detail
+        (aspects included), so there is no per-entry RPC to parallelise — this
+        is a plain sequential pass through the same filter + mapper pipeline as
+        the API path. Note that ``filter_config.entry_groups.pattern`` does not
+        apply here (the export is scoped by entry type, not entry group); use
+        the entry-level ``pattern`` / ``fqn_pattern`` filters instead.
+        """
+        for exported in entries:
+            entry = exported.entry
+            if not self._report_and_should_process_entry(entry):
+                continue
+            try:
+                yield from self._build_entities_for_entry(entry, exported.location)
+            except Exception as exc:
+                self.source_report.warning(
+                    title="Dataplex entry processing failed",
+                    message="Failed to build entity for exported entry. Skipping.",
+                    context=f"entry_name={entry.name}",
+                    exc=exc,
+                )
+
+    def _list_entry_stubs(self, project_id: str, location: str) -> List[str]:
+        """Return entry names that pass filters for one project/location pair.
+
+        Only performs ``list_entry_groups`` and ``list_entries`` — does NOT
+        call ``get_entry``.  Meant to be called sequentially in Phase 1a so
+        that the slower ``get_entry`` calls can be parallelised in Phase 1b.
+        """
+        assert self.catalog_client is not None, "api extraction requires catalog_client"
+        entry_names: List[str] = []
+        for entry_group in self.list_entry_groups(project_id, location):
+            logger.info(f"Listing entry group {entry_group.name}")
+            logger.info(f"Entry group payload: {entry_group}")
+            filtered = not self.should_process_entry_group(entry_group.name)
+            self.report.report_entry_group(entry_group.name, filtered=filtered)
+            if filtered:
+                continue
+
+            request = dataplex_v1.ListEntriesRequest(parent=entry_group.name)
+            with PerfTimer() as timer:
+                for entry in self.catalog_client.list_entries(request=request):
+                    logger.info(
+                        f"Listing entry {entry.name} from group {entry_group.name}"
+                    )
+                    logger.info(f"ListEntries payload: {entry}")
+                    if self._report_and_should_process_entry(entry):
+                        entry_names.append(entry.name)
+                    else:
+                        logger.debug(
+                            "Skipping entry stub for filtered entry %s from group %s",
+                            entry.name,
+                            entry_group.name,
+                        )
+            self.report.report_catalog_api_call("list_entries", timer.elapsed_seconds())
+        return entry_names
+
+    def _fetch_entry_detail(self, entry_name: str) -> dataplex_v1.Entry:
+        """Fetch full entry detail via ``get_entry(view=ALL)``.
+
+        Safe to call from parallel worker threads — only reads from shared GCP
+        client (thread-safe) and reports via the lock-protected report methods.
+        Raises on failure; callers should catch via ``future.result()``.
+        """
+        assert self.catalog_client is not None, "api extraction requires catalog_client"
+        request = dataplex_v1.GetEntryRequest(
+            name=entry_name,
+            view=dataplex_v1.EntryView.ALL,
+        )
+        with PerfTimer() as timer:
+            detailed_entry = self.catalog_client.get_entry(request=request)
+        self.report.report_catalog_api_call("get_entry", timer.elapsed_seconds())
+        logger.debug(f"Detailed entry {detailed_entry}")
+        return detailed_entry
+
+    def _build_entities_for_entry(
+        self, entry: dataplex_v1.Entry, location: str
+    ) -> List["Entity"]:
+        """Build DataHub entities from a fully-fetched entry via its type mapper.
+
+        The per-type transformation lives in ``dataplex_mappers``; this method
+        only orchestrates the two cross-entry concerns that cannot live in a pure
+        mapper: the global project-container dedup and the lineage side-channel.
+
+        Safe to call from parallel worker threads:
+        - Uses ``_container_lock`` for the atomic check+add on
+          ``_emitted_project_containers``.
+        - Uses ``ctx.append_entry`` (thread-safe) for appends to ``ctx.entry_data``.
+        - The mapper itself is pure; all shared state accessed here is either
+          read-only or already lock-protected.
+        """
+        mapper = get_entry_mapper(entry.entry_type, self.source_report, entry=entry)
+        if mapper is None:
+            return []
+
+        result = mapper.map(
+            entry,
+            EntryMappingContext(
+                config=self.config,
+                location=location,
+                report=self.source_report,
+                entries_report=self.report,
+            ),
+        )
+        if result is None:
+            return []
+
+        results: List["Entity"] = []
+
+        # additional_entities (e.g. the owning project container) are global-dedup
+        # candidates: emit each unique one exactly once across all entries.
+        for extra in result.additional_entities:
+            with self._container_lock:
+                extra_urn = extra.urn.urn()
+                if extra_urn not in self._emitted_project_containers:
+                    self._emitted_project_containers.add(extra_urn)
+                    results.append(extra)
+
+        if result.main_entity is not None:
+            if result.lineage_entry is not None:
+                self._ctx.append_entry(result.lineage_entry)
+            results.append(result.main_entity)
+
+        return results
+
+    def _fetch_and_build_entry(self, entry_name: str, location: str) -> List["Entity"]:
+        """Fetch entry details and build entities. Called from thread pool."""
+        return self._build_entities_for_entry(
+            self._fetch_entry_detail(entry_name), location
+        )
+
+    def _process_spanner_entries(
+        self, project_id: str, location: str
+    ) -> Iterable["Entity"]:
+        """Process Spanner entries via ``search_entries`` workaround (Phase 1c).
+
+        ``search_entries`` returns stub entries without aspects, so a separate
+        ``get_entry(view=ALL)`` call is made per entry to fetch full detail
+        including schema aspects.
+        """
+        assert self.catalog_client is not None, "api extraction requires catalog_client"
+        logger.info(
+            f"SearchEntries spanner for project={project_id} location={location}"
+        )
+        request = dataplex_v1.SearchEntriesRequest(
+            name=f"projects/{project_id}/locations/{location}",
+            scope=f"projects/{project_id}",
+            query="system=cloud_spanner",
+        )
+        try:
+            with PerfTimer() as timer:
+                for result in self.catalog_client.search_entries(request=request):
+                    logger.info(f"SearchEntries result payload: {result}")
+                    dataplex_entry = getattr(result, "dataplex_entry", None)
+                    if dataplex_entry is None:
+                        continue
+                    if not self._report_and_should_process_entry(dataplex_entry):
+                        logger.debug(
+                            "Skipping filtered spanner entry %s from search_entries",
+                            dataplex_entry.name,
+                        )
+                        continue
+                    try:
+                        detailed_entry = self._fetch_entry_detail(dataplex_entry.name)
+                    except Exception as exc:
+                        self.source_report.warning(
+                            title="Dataplex Spanner entry fetch failed",
+                            message="Failed to fetch detail for a Spanner entry. Skipping.",
+                            context=f"entry_name={dataplex_entry.name}",
+                            exc=exc,
+                        )
+                        continue
+                    yield from self._build_entities_for_entry(detailed_entry, location)
+            self.report.report_catalog_api_call(
+                "search_entries", timer.elapsed_seconds()
+            )
+        except Exception as exc:
+            # Surfaced (not just logged) so a permissions gap does not read as a
+            # green run with zero Spanner entities.
+            self.source_report.warning(
+                title="Dataplex Spanner search failed",
+                message="search_entries workaround failed for a project/location. Skipping.",
+                context=f"project_id={project_id}, location={location}",
+                exc=exc,
+            )
+            return
+
+    def list_entry_groups(
+        self, project_id: str, location: str
+    ) -> Iterable[dataplex_v1.EntryGroup]:
+        """List entry groups for a ``(project_id, location)`` pair."""
+        assert self.catalog_client is not None, "api extraction requires catalog_client"
+        parent = f"projects/{project_id}/locations/{location}"
+        request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
+        with PerfTimer() as timer:
+            response = self.catalog_client.list_entry_groups(request=request)
+        self.report.report_catalog_api_call(
+            "list_entry_groups", timer.elapsed_seconds()
+        )
+        return response
+
+    def should_process_entry_group(self, entry_group_name: str) -> bool:
+        """Evaluate ``filter_config.entry_groups.pattern``."""
+        entry_groups_filter = self.config.filter_config.entry_groups
+        return entry_groups_filter.pattern.allowed(entry_group_name)
+
+    def should_process_entry(self, entry: dataplex_v1.Entry) -> bool:
+        """Apply entry-level ``pattern`` and ``fqn_pattern`` filters."""
+        if not entry.fully_qualified_name:
+            return False
+        entry_name = entry.name
+        return self._entry_name_allowed(entry_name) and self._entry_fqn_allowed(
+            entry.fully_qualified_name
+        )
+
+    def _report_and_should_process_entry(self, entry: dataplex_v1.Entry) -> bool:
+        """Apply entry filters, report counters/samples, and return pass/fail."""
+        entry_name = entry.name
+        filtered_missing_fqn = not bool(entry.fully_qualified_name)
+        if filtered_missing_fqn:
+            self.report.report_entry(
+                entry_name=entry_name,
+                filtered_missing_fqn=True,
+                filtered_fqn=False,
+                filtered_name=False,
+            )
+            return False
+
+        assert entry.fully_qualified_name
+        filtered_name = not self._entry_name_allowed(entry_name)
+        filtered_fqn = not self._entry_fqn_allowed(entry.fully_qualified_name)
+        self.report.report_entry(
+            entry_name=entry_name,
+            filtered_missing_fqn=False,
+            filtered_fqn=filtered_fqn,
+            filtered_name=filtered_name,
+        )
+        return not filtered_name and not filtered_fqn
+
+    def _entry_name_allowed(self, entry_name: str) -> bool:
+        entries_filter = self.config.filter_config.entries
+        return entries_filter.pattern.allowed(entry_name)
+
+    def _entry_fqn_allowed(self, fully_qualified_name: str) -> bool:
+        entries_filter = self.config.filter_config.entries
+        return entries_filter.fqn_pattern.allowed(fully_qualified_name)

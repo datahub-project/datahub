@@ -7,13 +7,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/*
+ Prefer /openapi/v3/relationship instead
+*/
+@Deprecated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/openapi/v2/relationship")
 @Slf4j
 @Tag(
     name = "Generic Relationships",
-    description = "APIs for ingesting and accessing entity relationships.")
+    description = "Deprecated: prefer /openapi/v3/relationship for relationship operations.")
 public class RelationshipController extends GenericRelationshipController {
   // Supports same methods as GenericRelationshipController.
 }

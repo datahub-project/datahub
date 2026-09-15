@@ -1,17 +1,15 @@
-import {
-    Code,
-    CodeBlock,
-    ListBullets,
-    ListNumbers,
-    Table,
-    TextB,
-    TextItalic,
-    TextStrikethrough,
-    TextUnderline,
-} from '@phosphor-icons/react';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { CodeBlock } from '@phosphor-icons/react/dist/csr/CodeBlock';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { ListNumbers } from '@phosphor-icons/react/dist/csr/ListNumbers';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { TextB } from '@phosphor-icons/react/dist/csr/TextB';
+import { TextItalic } from '@phosphor-icons/react/dist/csr/TextItalic';
+import { TextStrikethrough } from '@phosphor-icons/react/dist/csr/TextStrikethrough';
+import { TextUnderline } from '@phosphor-icons/react/dist/csr/TextUnderline';
 import { useActive, useCommands, useRemirrorContext } from '@remirror/react';
 import { Divider } from 'antd';
-import React, { useCallback } from 'react';
+import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop';
@@ -30,7 +28,7 @@ const Container = styled.div<{ $fixedBottom?: boolean }>`
     ${(props) => (props.$fixedBottom ? 'bottom: 48px;' : 'top: 0;')}
     ${(props) =>
         props.$fixedBottom
-            ? 'left: 50%; transform: translateX(-50%); max-width: 800px; width: fit-content;'
+            ? 'left: 50%; transform: translateX(-50%); max-width: 800px; width: max-content;'
             : 'width: 100%;'}
     z-index: ${(props) => (props.$fixedBottom ? '1000' : '99')};
     background-color: ${(props) => props.theme.colors.bg};
@@ -43,9 +41,19 @@ const Container = styled.div<{ $fixedBottom?: boolean }>`
         line-height: 0;
     }
     display: flex;
-    justify-content: start;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     box-shadow: ${(props) => (props.$fixedBottom ? props.theme.colors.shadowLg : props.theme.colors.shadowSm)};
+`;
+
+const BelowToolbarRow = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 4px 0 4px;
+    margin-top: 4px;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const InnerContainer = styled.div`
@@ -62,9 +70,11 @@ const CustomDivider = styled(Divider)`
 interface Props {
     styles?: React.CSSProperties;
     fixedBottom?: boolean;
+    /** Optional content rendered below the formatting buttons inside the toolbar card. */
+    belowToolbar?: React.ReactNode;
 }
 
-export const Toolbar = ({ styles, fixedBottom }: Props) => {
+export const Toolbar = ({ styles, fixedBottom, belowToolbar }: Props) => {
     const commands = useCommands();
     const active = useActive(true);
     const theme = useTheme();
@@ -75,12 +85,8 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
 
     const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.uploadFileProps?.onFileUpload;
 
-    const handleMouseDown = useCallback((e: React.MouseEvent) => {
-        e.preventDefault();
-    }, []);
-
     return (
-        <Container style={styles} $fixedBottom={fixedBottom} onMouseDown={handleMouseDown}>
+        <Container style={styles} $fixedBottom={fixedBottom}>
             <InnerContainer>
                 <FontSizeSelect />
                 <HeadingMenu />
@@ -149,6 +155,7 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
                 />
                 <FileUploadButton />
             </InnerContainer>
+            {belowToolbar && <BelowToolbarRow>{belowToolbar}</BelowToolbarRow>}
         </Container>
     );
 };

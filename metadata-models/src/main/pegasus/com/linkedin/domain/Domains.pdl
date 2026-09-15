@@ -6,7 +6,8 @@ import com.linkedin.common.Urn
  * Links from an Asset to its Domains
  */
 @Aspect = {
-  "name": "domains"
+  "name": "domains",
+  "schemaVersion": 2
 }
 record Domains {
   /**
@@ -28,4 +29,12 @@ record Domains {
     }
   }
   domains: array[Urn]
+
+  /**
+   * Additional per-domain association metadata such as attribution and propagation source.
+   * A superset of the domains field; entries correspond by domain URN.
+   * Initial migration handled by the DomainsMigrationMutator;
+   * the two fields are kept in sync via the DomainsSyncMutationHook.
+   */
+  domainAssociations: optional array[DomainAssociation]
 }

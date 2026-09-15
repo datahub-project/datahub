@@ -1,5 +1,6 @@
 ---
-title: Overview
+title: Custom Properties Overview
+description: "Add custom, validated metadata fields to any DataHub entity using Structured Properties to support governance and discovery use cases."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -49,6 +50,18 @@ Structured Properties are especially useful for organizations that require:
 </p>
 
 By leveraging these configurations, teams can ensure their metadata adheres to organizational policies and improves the discoverability and usability of Data Assets.
+
+## Limitations
+
+### Value size for Text and Rich Text properties
+
+String-backed structured property values (**Text**, **Rich Text**, **Date**, and **DataHub Entity / URN**) are indexed as Elasticsearch / OpenSearch keywords. Each individual value may be at most **32,766 UTF-8 bytes** by default (Lucene's keyword term limit).
+
+Configure the limit with `STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH` / `structuredProperties.keywordMaxLength` (default `32766`). By default, DataHub rejects writes that exceed the configured limit with a validation error, so oversized values never reach the search index.
+
+Set `STRUCTURED_PROPERTIES_DROP_OVERSIZED_KEYWORD_VALUES_FROM_INDEX` / `structuredProperties.dropOversizedKeywordValuesFromIndex` to `true` (default `false`) to persist values over that byte threshold in primary storage while omitting them from Elasticsearch / OpenSearch documents. GraphQL and OpenAPI reads still return the stored value; search and filters will not. Values under the byte threshold but over the mapping `ignore_above` character limit (`keywordMaxLength / 4`) may still be stored in the document `_source` while remaining unsearchable. Prefer shorter values for properties that need to be searchable or filterable; store large free-form content (long Markdown, HTML, or documents) elsewhere — for example as Asset documentation — rather than as a structured property value.
+
+Number properties are not subject to this keyword limit.
 
 ## Next Steps
 

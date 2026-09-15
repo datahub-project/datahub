@@ -107,6 +107,7 @@ class Entities(ConfigModel):
 
 class Actors(ConfigModel):
     owners: Optional[bool] = None
+    ownership_types: Optional[List[str]] = None  # ownership-type URNs
     users: Optional[List[str]] = None  # can be user IDs or urns
     groups: Optional[List[str]] = None  # can be group IDs or urns
 
@@ -249,7 +250,10 @@ class Forms(ConfigModel):
             groups = Forms.format_groups(actors.groups)
 
         return FormActorAssignmentClass(
-            owners=actors.owners, users=users, groups=groups
+            owners=actors.owners,
+            ownershipTypes=actors.ownership_types,
+            users=users,
+            groups=groups,
         )
 
     def upload_entities_for_form(self, emitter: DataHubGraph) -> Union[None, Exception]:

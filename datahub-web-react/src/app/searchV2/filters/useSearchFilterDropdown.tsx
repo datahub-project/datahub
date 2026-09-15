@@ -71,7 +71,7 @@ export default function useSearchFilterDropdown({
         data?.aggregateAcrossEntities?.facets?.find((f) => f.field === filter.field)?.aggregations || [];
     const searchAggregations = filter.aggregations;
     const activeAggregations = searchAggregations.filter((agg) =>
-        activeFilters.find((f) => f.values?.includes(agg.value) || f.value === agg.value),
+        activeFilters.find((f) => f.values?.includes(agg.value)),
     );
 
     const prevNewAggregations = usePrevious(newAggregations);
@@ -90,6 +90,10 @@ export default function useSearchFilterDropdown({
                 filter.field,
                 activeFilters,
                 newFilters.map((f) => f.value),
+                // Pass this field's facet so getNewFilters can read the structured-property valueType
+                // and pick the right default condition (free-form TEXT -> CONTAINS). Without it the
+                // condition falls back to the backend default (EQUAL) even though the UI shows "contains".
+                [filter],
             ),
         );
     }

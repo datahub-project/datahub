@@ -1,7 +1,8 @@
 import { Select } from 'antd';
-import moment from 'moment-timezone';
 import React from 'react';
 import styled from 'styled-components';
+
+import { getSupportedTimezones } from '@app/shared/time/timeUtils';
 
 const StyledSelect = styled(Select)`
     max-width: 300px;
@@ -13,7 +14,7 @@ type Props = {
 };
 
 export const TimezoneSelect = ({ value, onChange }: Props) => {
-    const timezones = moment.tz.names();
+    const timezones = getSupportedTimezones();
     return (
         <>
             <StyledSelect showSearch value={value} onChange={onChange}>

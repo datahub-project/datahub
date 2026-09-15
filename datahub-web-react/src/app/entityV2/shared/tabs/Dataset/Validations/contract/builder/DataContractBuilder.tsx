@@ -1,25 +1,25 @@
 import { Button, message } from 'antd';
 import lodash from 'lodash';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import {
-    createAssertionGroups,
-    tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
+import { extractAssertionsFromQuery } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { DataContractAssertionGroupSelect } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractAssertionGroupSelect';
 import {
     DEFAULT_BUILDER_STATE,
     DataContractBuilderState,
     DataContractCategoryType,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
-import { buildUpsertDataContractMutationVariables } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/utils';
-import { DATA_QUALITY_ASSERTION_TYPES } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
+import {
+    buildUpsertDataContractMutationVariables,
+    partitionAssertionsByContractCategory,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/utils';
 import { useGetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 
 import { useUpsertDataContractMutation } from '@graphql/contract.generated';
-import { Assertion, AssertionType, DataContract } from '@types';
+import { Assertion, DataContract } from '@types';
 
 const BuilderContainer = styled.div`
     display: flex;
@@ -30,7 +30,7 @@ const BuilderContainer = styled.div`
 `;
 
 const AssertionsSection = styled.div`
-    border: 0.5px solid ${ANTD_GRAY[4]};
+    border: 0.5px solid ${(props) => props.theme.colors.border};
     flex: 1;
     overflow: auto;
     min-height: 0;
@@ -38,7 +38,7 @@ const AssertionsSection = styled.div`
 
 const HeaderText = styled.div`
     padding: 16px 20px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 16px;
 `;
 
@@ -47,7 +47,7 @@ const ActionContainer = styled.div`
     justify-content: space-between;
     flex-shrink: 0;
     padding: 16px 20px;
-    border-top: 1px solid ${ANTD_GRAY[4]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     margin-top: 0;
 `;
 
@@ -72,24 +72,24 @@ type Props = {
  * In order to build a data contract, we simply list all dataset assertions and allow the user to choose.
  */
 export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
+    const { t: tc } = useTranslation('common.actions');
     const isEdit = !!initialState;
     const [builderState, setBuilderState] = useState(initialState || DEFAULT_BUILDER_STATE);
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
 
     // note that for contracts, we do not allow the use of sibling node assertions, for clarity.
-    const { data: assertionData } = useGetDatasetAssertionsWithRunEventsQuery({
+    const { data: assertionData, loading: assertionLoading } = useGetDatasetAssertionsWithRunEventsQuery({
         variables: { urn: entityUrn },
         fetchPolicy: 'cache-first',
     });
-    const assertionsWithMonitorsDetails: Assertion[] =
-        tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(assertionData) ?? [];
-    const assertionGroups = createAssertionGroups(assertionsWithMonitorsDetails);
-    const freshnessAssertions =
-        assertionGroups.find((group) => group.type === AssertionType.Freshness)?.assertions || [];
-    const schemaAssertions = assertionGroups.find((group) => group.type === AssertionType.DataSchema)?.assertions || [];
-    const dataQualityAssertions = assertionGroups
-        .filter((group) => DATA_QUALITY_ASSERTION_TYPES.has(group.type))
-        .flatMap((group) => group.assertions || []);
+    const assertions: Assertion[] = extractAssertionsFromQuery(assertionData) ?? [];
+    const { freshnessAssertions, schemaAssertions, dataQualityAssertions } =
+        partitionAssertionsByContractCategory(assertions);
+
+    if (assertionLoading) {
+        return <TableLoadingSkeleton />;
+    }
 
     /**
      * Upserts the Data Contract for an entity
@@ -101,7 +101,7 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
             .then(({ data, errors }) => {
                 if (!errors) {
                     message.success({
-                        content: isEdit ? `Edited Data Contract` : `Created Data Contract!`,
+                        content: isEdit ? t('contractBuilder.editedSuccess') : t('contractBuilder.createdSuccess'),
                         duration: 3,
                     });
                     onSubmit?.(data?.upsertDataContract as DataContract);
@@ -109,7 +109,7 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: 'Failed to create Data Contract! An unexpected error occurred' });
+                message.error({ content: t('contractBuilder.failedCreate') });
             });
     };
 
@@ -165,8 +165,8 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
 
     return (
         <BuilderContainer>
-            {(hasAssertions && <HeaderText>Select the assertions that will make up your contract.</HeaderText>) || (
-                <HeaderText>Add a few assertions on this entity to create a data contract out of them.</HeaderText>
+            {(hasAssertions && <HeaderText>{t('contractBuilder.selectAssertionsHeader')}</HeaderText>) || (
+                <HeaderText>{t('contractBuilder.addAssertionsHeader')}</HeaderText>
             )}
             <AssertionsSection>
                 {(freshnessAssertions.length && (
@@ -202,10 +202,10 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
                     undefined}
             </AssertionsSection>
             <ActionContainer>
-                <CancelButton onClick={onCancel}>Cancel</CancelButton>
+                <CancelButton onClick={onCancel}>{tc('cancel')}</CancelButton>
                 <div>
                     <SaveButton disabled={editDisabled} type="primary" onClick={upsertDataContract}>
-                        Save
+                        {tc('save')}
                     </SaveButton>
                 </div>
             </ActionContainer>

@@ -1,13 +1,14 @@
-import { Button, Icon, Text, borders, colors, radius } from '@components';
+import { Button, Icon, Text, borders, radius } from '@components';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import React from 'react';
 import styled from 'styled-components';
 
 interface Props {
-    icon: string;
+    icon: React.ComponentType<any>;
     title: string;
     description: string;
     linkText?: string;
-    linkIcon?: string;
+    linkIcon?: React.ComponentType<any>;
     onLinkClick?: () => void;
 }
 
@@ -32,25 +33,31 @@ const IconWrapper = styled.div`
     width: 32px;
     height: 32px;
 
-    border: ${borders['1px']} ${colors.gray[100]};
+    border: ${borders['1px']} ${(props) => props.theme.colors.border};
     border-radius: ${radius.full};
     margin-bottom: 8px;
+    color: ${(props) => props.theme.colors.icon};
+`;
+
+const Title = styled(Text).attrs({ size: 'lg', weight: 'bold' })`
+    color: ${(props) => props.theme.colors.text};
+`;
+
+const Description = styled(Text)`
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export default function EmptyContent({ icon, title, description, linkText, linkIcon, onLinkClick }: Props) {
     return (
         <Container>
             <IconWrapper>
-                {/* TODO: adjust color of icon */}
-                <Icon icon={icon} source="phosphor" color="gray" />
+                <Icon icon={icon} color="icon" />
             </IconWrapper>
-            <Text size="lg" weight="bold" color="gray" colorLevel={600}>
-                {title}
-            </Text>
-            <Text color="gray">{description}</Text>
+            <Title>{title}</Title>
+            <Description>{description}</Description>
             {linkText && onLinkClick && (
                 <Button variant="text" onClick={onLinkClick}>
-                    {linkText} <Icon icon={linkIcon ?? 'ArrowRight'} color="primary" source="phosphor" size="md" />
+                    {linkText} <Icon icon={linkIcon ?? ArrowRight} color="primary" size="md" />
                 </Button>
             )}
         </Container>

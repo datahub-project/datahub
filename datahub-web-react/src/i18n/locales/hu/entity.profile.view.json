@@ -1,0 +1,12 @@
+{
+    "viewDefinitionTab.detailsHeading": "Részletek",
+    "viewDefinitionTab.formatCompiled": "Lefordított",
+    "viewDefinitionTab.formatFormatted": "Formázott",
+    "viewDefinitionTab.formatRaw": "Nyers",
+    "viewDefinitionTab.formatSource": "Forrás",
+    "viewDefinitionTab.languageLabel": "Nyelv",
+    "viewDefinitionTab.logicHeading": "Logika",
+    "viewDefinitionTab.materializedFalse": "Nem",
+    "viewDefinitionTab.materializedLabel": "Materializált",
+    "viewDefinitionTab.materializedTrue": "Igen"
+}

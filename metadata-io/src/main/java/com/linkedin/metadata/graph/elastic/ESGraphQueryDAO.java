@@ -43,6 +43,7 @@ public class ESGraphQueryDAO implements GraphQueryDAO, DisposableBean {
         break;
       case ELASTICSEARCH_8:
       case OPENSEARCH_2:
+      case OPENSEARCH_3:
       case ELASTICSEARCH_9:
         this.delegate = new GraphQueryPITDAO(client, graphServiceConfig, config, metricUtils);
         break;
@@ -95,13 +96,14 @@ public class ESGraphQueryDAO implements GraphQueryDAO, DisposableBean {
     return delegate.getSearchResponse(opContext, filters, sortCriteria, scrollId, keepAlive, count);
   }
 
-  SearchResponse executeSearch(@Nonnull SearchRequest searchRequest) {
-    return delegate.executeSearch(searchRequest);
+  SearchResponse executeSearch(
+      @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest) {
+    return delegate.executeSearch(opContext, searchRequest);
   }
 
   @Override
-  public void cleanupPointInTime(String pitId) {
-    delegate.cleanupPointInTime(pitId);
+  public void cleanupPointInTime(@Nonnull OperationContext opContext, String pitId) {
+    delegate.cleanupPointInTime(opContext, pitId);
   }
 
   @Override

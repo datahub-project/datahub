@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SidebarPopularityHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarPopularityHeaderSection';
 import {
     PopularityTier,
@@ -27,7 +26,7 @@ const Container = styled.div`
 
 const StyledDivider = styled(Divider)`
     height: 16px;
-    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_2};
+    color: ${(props) => props.theme.colors.border};
 `;
 
 interface Props {
@@ -49,7 +48,7 @@ const PreviewCardFooterRightSection = ({
     tier,
     statsSummary,
 }: Props) => {
-    const previewData = usePreviewData();
+    const { previewData } = usePreviewData();
 
     const status = tier !== undefined ? getBarsStatusFromPopularityTier(tier) : 0;
 

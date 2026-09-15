@@ -19,6 +19,7 @@ class ProfilerDataType(Enum):
 
     INT = "INT"
     FLOAT = "FLOAT"
+    NUMERIC = "NUMERIC"
     STRING = "STRING"
     DATETIME = "DATETIME"
     BOOLEAN = "BOOLEAN"
@@ -41,16 +42,19 @@ def get_column_profiler_type(
     ):
         return ProfilerDataType.INT
 
-    # Float types
+    # Float types (real floating point)
+    if isinstance(col_type, sa_types.Float):
+        return ProfilerDataType.FLOAT
+
+    # Numeric types (DECIMAL, NUMERIC - fixed precision)
     if isinstance(
         col_type,
         (
-            sa_types.Float,
             sa_types.Numeric,
             sa_types.DECIMAL,
         ),
     ):
-        return ProfilerDataType.FLOAT
+        return ProfilerDataType.NUMERIC
 
     # String types
     if isinstance(
@@ -98,10 +102,11 @@ def resolve_profiler_type_with_fallback(
         try:
             datahub_field_type = resolve_sql_type(column_type_str, dialect_name.lower())
             if isinstance(datahub_field_type, NumberType):
-                # Determine if int or float based on type
+                # Determine if int or numeric based on type
+                # This matches GE profiler behavior which uses NUMERIC for unknown number types
                 if "int" in str(datahub_field_type).lower():
                     return ProfilerDataType.INT
-                return ProfilerDataType.FLOAT
+                return ProfilerDataType.NUMERIC
         except Exception as e:
             logger.debug(
                 f"Error resolving sql type {column_type_str}: {type(e).__name__}: {str(e)}",
@@ -142,8 +147,27 @@ def _get_column_types_to_ignore(dialect_name: str) -> list[str]:
     Returns uppercase type names for case-insensitive matching.
     """
     dialect_lower = dialect_name.lower()
-    if dialect_lower == "postgresql":
-        return ["JSON"]
+    # PostgresSource.get_platform() reports "postgres" while the SQLAlchemy
+    # dialect is named "postgresql". The postgres ischema_names registrations
+    # are process-global on PGDialect, so they also reach the postgres-family
+    # sources that reflect through it but report their own platform names
+    # (TimescaleDB, CockroachDB) — match all of them, otherwise these
+    # exclusions never fire.
+    if dialect_lower in ("postgres", "postgresql", "timescaledb", "cockroachdb"):
+        # The built-in geometric types and xml have no default equality
+        # operator, so COUNT(DISTINCT col) fails with "could not identify an
+        # equality operator for type ..." during field profiling.
+        return [
+            "JSON",
+            "XML",
+            "POINT",
+            "LINE",
+            "LSEG",
+            "BOX",
+            "PATH",
+            "POLYGON",
+            "CIRCLE",
+        ]
     elif dialect_lower == "bigquery":
         # GEOGRAPHY doesn't support aggregate functions like APPROX_COUNT_DISTINCT
         return ["ARRAY", "STRUCT", "GEOGRAPHY", "JSON", "INTERVAL"]

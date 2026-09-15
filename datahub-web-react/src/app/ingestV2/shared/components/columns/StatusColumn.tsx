@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, Pill } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import {
@@ -45,8 +46,9 @@ interface StatusProps {
 }
 
 export function StatusColumn({ status, onClick, dataTestId }: StatusProps) {
+    const { t } = useTranslation('ingestion');
     const icon = getExecutionRequestStatusIcon(status);
-    const text = getExecutionRequestStatusDisplayText(status) || 'Pending';
+    const text = getExecutionRequestStatusDisplayText(status) || t('status.pending');
     const color = getExecutionRequestStatusDisplayColor(status);
     return (
         <AllStatusWrapper>
@@ -65,7 +67,7 @@ export function StatusColumn({ status, onClick, dataTestId }: StatusProps) {
                             status === EXECUTION_REQUEST_STATUS_RUNNING ? (
                                 <LoadingOutlined />
                             ) : (
-                                <Icon icon={icon} source="phosphor" size="md" />
+                                <Icon icon={icon} size="md" />
                             )
                         }
                         label={text}

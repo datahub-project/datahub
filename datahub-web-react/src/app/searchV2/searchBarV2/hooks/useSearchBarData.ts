@@ -25,7 +25,7 @@ type APIResponse = {
     loading?: boolean;
 };
 
-export type SearchResponse = {
+type SearchResponse = {
     facets?: FacetMetadata[];
     entitiesWithMatchedFields?: EntityWithMatchedFields[];
     loading?: boolean;

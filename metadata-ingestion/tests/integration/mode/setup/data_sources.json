@@ -6,7 +6,7 @@
   },
   "_embedded": {
     "data_sources": [{
-      "id": 34499,
+      "id": "34499",
       "name": "PostgreSQL",
       "description": "dvdrental",
       "token": "ea1c23ebaddc",

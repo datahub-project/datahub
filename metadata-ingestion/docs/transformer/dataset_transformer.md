@@ -1,8 +1,13 @@
 ---
-title: "Dataset"
+title: "Dataset Transformers"
 ---
 
 # Dataset Transformers
+
+:::tip "Looking for multi-entity support?"
+
+The transformers on this page only process dataset entities. To apply domains or ownership to containers, charts, dashboards, and other entity types, see [Universal Transformers](./universal_transformers.md).
+:::
 
 The below table shows transformer which can transform aspects of entity [Dataset](../../../docs/generated/metamodel/entities/dataset.md).
 
@@ -131,6 +136,11 @@ transformers:
 
 ## Simple Add Dataset ownership
 
+:::warning "Deprecated"
+
+Use [`simple_add_ownership`](./universal_transformers.md#simple-add-ownership) instead, which supports all entity types. This transformer only processes datasets, charts, dashboards, data jobs, and data flows.
+:::
+
 ### Config Details
 
 | Field              | Required | Type         | Default     | Description                                                                                                |
@@ -201,6 +211,11 @@ transformers:
   ```
 
 ## Pattern Add Dataset ownership
+
+:::warning "Deprecated"
+
+Use [`pattern_add_ownership`](./universal_transformers.md#pattern-add-ownership) instead, which supports all entity types. This transformer only processes datasets, charts, dashboards, data jobs, and data flows.
+:::
 
 ### Config Details
 
@@ -1225,6 +1240,11 @@ transformers:
 
 ## Simple Add Dataset domains
 
+:::warning "Deprecated"
+
+Use [`simple_add_domain`](./universal_transformers.md#simple-add-domain) instead, which supports all entity types. This transformer only processes datasets.
+:::
+
 ### Config Details
 
 | Field              | Required | Type                  | Default     | Description                                                      |
@@ -1286,6 +1306,11 @@ transformers:
   ```
 
 ## Pattern Add Dataset domains
+
+:::warning "Deprecated"
+
+Use [`pattern_add_domain`](./universal_transformers.md#pattern-add-domain) instead, which supports all entity types. This transformer only processes datasets.
+:::
 
 ### Config Details
 
@@ -1630,9 +1655,8 @@ First, let's get all our imports in:
 import json
 from typing import List, Optional
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, TransformerSemantics
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.add_dataset_ownership import Semantics
 from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
     SingleAspectTransformer,
@@ -1658,7 +1682,9 @@ class AddCustomOwnership(BaseTransformer, SingleAspectTransformer):
     # as defined in the previous block
     config: AddCustomOwnershipConfig
 
-    def __init__(self, config: AddCustomOwnershipConfig, ctx: PipelineContext):
+    def __init__(
+        self, config: AddCustomOwnershipConfig, ctx: PipelineContext
+    ) -> None:
         super().__init__()
         self.ctx = ctx
         self.config = config
@@ -1707,15 +1733,19 @@ def transform_aspect(  # type: ignore
     owners_to_add = self.owners
     assert aspect is None or isinstance(aspect, OwnershipClass)
 
-    if owners_to_add:
-        ownership = (
-            aspect
-            if aspect
-            else OwnershipClass(
-                owners=[],
-            )
+    # Returning the incoming aspect unchanged is the correct no-op here; returning
+    # None would suppress the aspect entirely.
+    if not owners_to_add:
+        return aspect
+
+    ownership = (
+        aspect
+        if aspect
+        else OwnershipClass(
+            owners=[],
         )
-        ownership.owners.extend(owners_to_add)
+    )
+    ownership.owners.extend(owners_to_add)
 
     return ownership
 ```
@@ -1763,7 +1793,7 @@ def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventCla
         )
         ownership.owners.extend(owners_to_add)
 
-        if self.config.semantics == Semantics.PATCH:
+        if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
             patch_ownership = AddDatasetOwnership.get_ownership_to_set(
                 self.ctx.graph, mce.proposedSnapshot.urn, ownership

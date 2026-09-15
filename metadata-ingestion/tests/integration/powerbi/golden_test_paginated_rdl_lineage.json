@@ -1,0 +1,141 @@
+[
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "PATCH",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:mssql,sales-sqlserver.internal.MarketingDB,PROD)",
+                "value": {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,sales-sqlserver.internal.MarketingDB,PROD)"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/title",
+                "value": "Printable SalesMarketing"
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "Paginated report with embedded RDL datasources (no datasetId)"
+            },
+            {
+                "op": "add",
+                "path": "/dashboardUrl",
+                "value": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/rdlreports/584cf13a-1485-41c2-a514-b1bb66fff163"
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-rdl-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-rdl-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardKey",
+    "aspect": {
+        "json": {
+            "dashboardTool": "powerbi",
+            "dashboardId": "powerbi.linkedin.com/dashboards/584cf13a-1485-41c2-a514-b1bb66fff163"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-rdl-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "PaginatedReport"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-rdl-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-rdl-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-rdl-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

@@ -6,9 +6,12 @@ import pytest
 
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import run_datahub_cmd
+from tests.utilities.domains import Domain
+from tests.utils import run_datahub_cmd, unique_suffix
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 
 def generate_test_email() -> str:
@@ -73,9 +76,10 @@ def test_users_cleanup(auth_session: Any, graph_client: DataHubGraph):
             logger.warning(f"Failed to clean up user {user_urn}: {e}")
 
     if created_users:
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
 
+@pytest.mark.p0
 def test_user_add_without_role(auth_session: Any, test_users_cleanup: Any) -> None:
     """Test creating a user without specifying a role."""
     email = generate_test_email()
@@ -93,7 +97,7 @@ def test_user_add_without_role(auth_session: Any, test_users_cleanup: Any) -> No
     assert email in result.output
     assert "URN:" in result.output
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 def test_user_add_with_admin_role(auth_session: Any, test_users_cleanup: Any) -> None:
@@ -114,7 +118,7 @@ def test_user_add_with_admin_role(auth_session: Any, test_users_cleanup: Any) ->
     assert "Admin" in result.output
     assert "URN:" in result.output
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 def test_user_add_with_editor_role(auth_session: Any, test_users_cleanup: Any) -> None:
@@ -135,7 +139,7 @@ def test_user_add_with_editor_role(auth_session: Any, test_users_cleanup: Any) -
     assert "Editor" in result.output
     assert "URN:" in result.output
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 def test_user_add_with_reader_role(auth_session: Any, test_users_cleanup: Any) -> None:
@@ -156,7 +160,7 @@ def test_user_add_with_reader_role(auth_session: Any, test_users_cleanup: Any) -
     assert "Reader" in result.output
     assert "URN:" in result.output
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 def test_user_add_duplicate_user(auth_session: Any, test_users_cleanup: Any) -> None:
@@ -172,7 +176,7 @@ def test_user_add_duplicate_user(auth_session: Any, test_users_cleanup: Any) -> 
     )
     assert first_result.exit_code == 0
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     second_result = datahub_user_add(
         auth_session, email, display_name, password, email_as_id=True
@@ -228,7 +232,7 @@ def test_user_add_with_explicit_id(auth_session: Any, test_users_cleanup: Any) -
     assert user_id in result.output
     assert "URN:" in result.output
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 def test_user_add_without_id_or_flag(auth_session: Any) -> None:
@@ -294,8 +298,12 @@ def test_user_add_id_different_from_email(
     auth_session: Any, test_users_cleanup: Any
 ) -> None:
     """Test creating a user where ID is different from email."""
-    email = "john.doe@company.com"
-    user_id = "jdoe"
+    # Use a unique id/email so this test never collides with the shared
+    # `urn:li:corpuser:jdoe` seed used by other modules (containers, domains),
+    # which run on parallel xdist workers against the same GMS.
+    unique = unique_suffix()
+    email = f"john.doe-{unique}@company.com"
+    user_id = f"jdoe-{unique}"
     display_name = "John Doe"
     password = "securepass123"
 
@@ -311,4 +319,4 @@ def test_user_add_id_different_from_email(
     assert "Editor" in result.output
     assert f"urn:li:corpuser:{user_id}" in result.output
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)

@@ -2,16 +2,33 @@ import datetime
 import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Generic, List, Optional, Type, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    cast,
+)
 
 from typing_extensions import Self
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.env_vars import (
+    get_report_failure_sample_size,
+    get_report_warning_sample_size,
+)
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +37,12 @@ logger = logging.getLogger(__name__)
 class SinkReport(Report):
     total_records_written: int = 0
     records_written_per_second: int = 0
-    warnings: LossyList[Any] = field(default_factory=LossyList)
-    failures: LossyList[Any] = field(default_factory=LossyList)
+    warnings: LossyList[Any] = field(
+        default_factory=lambda: LossyList(max_elements=get_report_warning_sample_size())
+    )
+    failures: LossyList[Any] = field(
+        default_factory=lambda: LossyList(max_elements=get_report_failure_sample_size())
+    )
     start_time: datetime.datetime = field(default_factory=datetime.datetime.now)
     current_time: Optional[datetime.datetime] = None
     total_duration_in_seconds: Optional[float] = None
@@ -145,6 +166,25 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
     ) -> None:
         # must call callback when done.
         pass
+
+    def flush(self) -> None:
+        """Block until all buffered/in-flight writes are delivered.
+
+        Called by the pipeline before committing state, so that async sinks can
+        confirm delivery (and record any failures on their report) before the
+        commit gate reads sink failures. Default is a no-op for synchronous
+        sinks; async sinks (e.g. datahub-kafka) should override.
+        """
+        pass
+
+    def to_graph(self) -> Optional["DataHubGraph"]:
+        """Return a DataHubGraph for features that need a GMS client (e.g.
+        stateful ingestion) when this sink is the injected default.
+
+        Default None (no graph -> such features are disabled). Sinks that can
+        provide one (e.g. datahub-kafka via its REST fallback) should override.
+        """
+        return None
 
     def get_report(self) -> SinkReportType:
         return self.report

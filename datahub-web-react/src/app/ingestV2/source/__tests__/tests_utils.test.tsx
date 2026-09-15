@@ -1,6 +1,3 @@
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { SortingState } from '@components/components/Table/types';
@@ -58,10 +55,6 @@ const mockEntityRegistry = {
         'notebook',
     ],
 } as any;
-
-// Extend dayjs with required plugins
-dayjs.extend(utc);
-dayjs.extend(timezone);
 
 // Mock the structuredReport property of ExecutionRequestResult
 const mockExecutionRequestResult = (structuredReportData: any): Partial<ExecutionRequestResult> => {
@@ -577,13 +570,21 @@ describe('formatTimezone', () => {
         expect(['EST', 'EDT']).toContain(nycAbbr);
 
         const londonAbbr = formatTimezone('Europe/London');
-        expect(['GMT', 'BST']).toContain(londonAbbr);
+        expect(['GMT', 'GMT+0', 'GMT+1', 'BST']).toContain(londonAbbr);
 
         // Tokyo doesn't observe DST, so it's always GMT+9
         expect(formatTimezone('Asia/Tokyo')).toBe('GMT+9');
 
         // Clean up
         vi.restoreAllMocks();
+    });
+
+    it('should format common backend timezone values', () => {
+        const timezones = ['UTC', 'Etc/UTC', 'GMT', 'Etc/GMT', 'CET', 'Asia/Kolkata', 'US/Eastern'];
+
+        timezones.forEach((timezone) => {
+            expect(formatTimezone(timezone)).toBeTruthy();
+        });
     });
 
     it('should handle invalid timezone gracefully', () => {

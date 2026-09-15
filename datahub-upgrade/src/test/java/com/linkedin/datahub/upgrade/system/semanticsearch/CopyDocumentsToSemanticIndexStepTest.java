@@ -9,6 +9,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -61,11 +62,14 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "datasetindex_v2_semantic_search";
     String taskId = "node123:456789";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn(taskId);
 
     // Mock task completion
@@ -87,8 +91,12 @@ public class CopyDocumentsToSemanticIndexStepTest {
     assertEquals(result.stepId(), "CopyDocumentsToSemanticIndex_dataset");
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    verify(searchClient).indexExists(any(GetIndexRequest.class), any(RequestOptions.class));
-    verify(searchClient).submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class));
+    verify(searchClient)
+        .indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class));
+    verify(searchClient)
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
     verify(searchClient).getTask(any(GetTaskRequest.class), any(RequestOptions.class));
   }
 
@@ -98,10 +106,12 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String baseIndexName = "datasetindex_v2";
     String semanticIndexName = "datasetindex_v2_semantic_search";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
     // Semantic index does not exist
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
 
     step =
@@ -116,7 +126,8 @@ public class CopyDocumentsToSemanticIndexStepTest {
 
     // Verify reindex task was NOT submitted
     verify(searchClient, never())
-        .submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class));
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -126,11 +137,14 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "chartindex_v2_semantic_search";
     String taskId = "node456:789012";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn(taskId);
 
     // Mock task completion with cancellation
@@ -160,11 +174,14 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "dashboardindex_v2_semantic_search";
     String taskId = "invalid-task-id-without-colon"; // Invalid format
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn(taskId);
 
     step =
@@ -188,11 +205,14 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "datasetindex_v2_semantic_search";
     String taskId = "node123:456789";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn(taskId);
 
     // Task not found (empty optional - may have completed and been cleaned up)
@@ -217,11 +237,14 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String baseIndexName = "datasetindex_v2";
     String semanticIndexName = "datasetindex_v2_semantic_search";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenThrow(new IOException("Connection refused"));
 
     step =
@@ -242,11 +265,14 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "datasetindex_v2_semantic_search";
     String taskId = "node123:456789";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn(taskId);
 
     // getTask throws exception
@@ -346,11 +372,14 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "datasetindex_v2_semantic_search";
     String taskId = "node123:456789";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn(taskId);
 
     // First call: task still running, second call: task completed

@@ -1,8 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import TrendDetail from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/TrendDetail';
-import { pluralize } from '@app/shared/textUtil';
 
 import { DatasetFieldProfile } from '@types';
 
@@ -17,6 +17,7 @@ interface Props {
 }
 
 export default function StatsSummaryRow({ fieldProfile }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const nullProportion = fieldProfile?.nullProportion;
     const nullCount = fieldProfile?.nullCount;
     const uniqueProportion = fieldProfile?.uniqueProportion;
@@ -32,28 +33,26 @@ export default function StatsSummaryRow({ fieldProfile }: Props) {
     return (
         <StatsSummaryRowContent>
             <TrendDetail
-                tooltipTitle={`${nullCount} null ${pluralize(
-                    nullCount || 0,
-                    'value',
-                )} found for this column across rows`}
-                headline="Null Values"
+                tooltipTitle={t('statsSummary.nullValuesTooltip', {
+                    count: nullCount ?? 0,
+                })}
+                headline={t('statsSummary.nullValues')}
                 proportion={nullProportion}
                 showCount
                 count={nullCount || 0}
             />
             <TrendDetail
-                tooltipTitle={`${uniqueCount} unique ${pluralize(
-                    uniqueCount || 0,
-                    'value',
-                )} found for this column across rows`}
-                headline="Distinct Values"
+                tooltipTitle={t('statsSummary.uniqueValuesTooltip', {
+                    count: uniqueCount ?? 0,
+                })}
+                headline={t('statsSummary.distinctValues')}
                 proportion={uniqueProportion}
                 showCount
                 count={uniqueCount || 0}
             />
             <TrendDetail
                 tooltipTitle=""
-                headline="Numerical stats"
+                headline={t('statsSummary.numericalStats')}
                 proportion={undefined}
                 showCount
                 count={numericalStatsCount}

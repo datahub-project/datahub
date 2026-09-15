@@ -11,4 +11,4 @@ sink:
     filename: ./output.json
 
 datahub_api:
-  server: http://localhost:8080
+  server: http://localhost:${SQL_QUERIES_MOCK_PORT}

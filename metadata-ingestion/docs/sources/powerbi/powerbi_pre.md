@@ -1,252 +1,74 @@
-## User and Ownership Handling
+### Overview
 
-PowerBI Source supports two modes for handling user ownership:
+The `powerbi` module ingests metadata from Powerbi into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-### Soft References Mode (Recommended - Default)
+This plugin extracts the following:
 
-When `ownership.create_corp_user: false` (default), PowerBI will:
+- Power BI dashboards, tiles and datasets
+- Names, descriptions and URLs of dashboard and tile
+- Owners of dashboards
 
-- Extract ownership information as URN references only
-- NOT create user entities in DataHub
-- User profiles must come from your identity provider (LDAP/SCIM/Okta)
+### Prerequisites
 
-This is the recommended approach as it prevents PowerBI from overwriting user profiles from your identity provider.
+In order to execute this source, you will need to have a Microsoft Entra Application service principal and grant permissions to it inside Power BI.
 
-```yaml
-ownership:
-  create_corp_user: false # Default - soft references only
-```
+[Power BI's APIs](https://learn.microsoft.com/en-us/rest/api/power-bi/) can be categorized into two sets of API methods, with different permission structures:
 
-### Full User Creation Mode (Opt-in)
+- Public APIs are designed for developers to interact with specific resources within a tenant, and require the Entra application to be explicitly granted access to individual Workspaces.
+- The Admin APIs are designed for administrators to interact with the entire Power BI tenant at a high level, and return metadata on all Power BI resources.
 
-When `ownership.create_corp_user: true`, PowerBI will:
+The recommended way to execute Power BI ingestion is to do both: add your Entra application to the workspaces you want to ingest, andgrant it access to the public _and_ Admin APIs. That way ingestion can extract the most metadata.
 
-- Create user entities with `displayName` and `email` from PowerBI
-- This may overwrite existing user profiles from LDAP/Okta/SCIM
+#### Public APIs ingestion
 
-**Warning**: Only use this if PowerBI is your authoritative source for user information.
+To grant public API access to your Entra application:
 
-```yaml
-ownership:
-  create_corp_user: true # Opt-in - creates user entities
-```
+1. **Grant permissions to access Fabric public APIs:** Add your Entra Application's parent Entra Group under your Power BI/Fabric tenant settings in order to grant API access.
 
-### Filtering Owners by Access Rights
+   a. In Power BI or Fabric, go to `Settings` -> `Admin portal`
 
-You can limit which users become owners using `owner_criteria`. Only users with at least one of the specified access rights will be assigned as owners:
+   b. In the `Admin portal`, navigate to `Tenant settings`
 
-```yaml
-ownership:
-  owner_criteria:
-    - ReadWriteReshareExplore
-    - Owner
-    - Admin
-```
+   d. Under `Developer Settings`, enable the option `Service principals can call Fabric Public APIs` (or `Allow service principals to use Power BI APIs` in older versions of Power BI), and add your application's Entra group under `Specific security groups`.
 
-Valid values depend on the PowerBI access right types for your resources (e.g., dataset, report, dashboard). If `owner_criteria` is not set or is an empty list, all users with `principalType: User` qualify as owners.
+2. **Add your Entra application as a member of your Power BI workspaces:** For workspaces which you want to ingest into DataHub, add the Entra application as a member. For most cases `Viewer` role is enough, but for profiling the `Contributor` role is required.
 
-## Configuration Notes
+If you have granted your Entra application permissions to the public APIs and added it as a member in a workspace, then the Power BI Source will be able to ingest the below metadata of that particular workspace:
 
-1. Refer [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) to create a Microsoft AD Application. Once Microsoft AD Application is created you can configure client-credential i.e. client_id and client_secret in recipe for ingestion.
-2. Enable admin access if you want to ingest data source and dataset information, including lineage, and endorsement tags. Refer section [Admin Ingestion vs. Basic Ingestion](#admin-ingestion-vs-basic-ingestion) for more detail.
+- Dashboards
+- Dashboard Tiles
+- Reports
+- Report Pages
 
-   Login to PowerBI as Admin and from `Admin API settings` allow below permissions
+If you don't want to add an Entra application as a member in your workspace, then you can enable `admin_apis_only: true` in your recipe to use the Power BI Admin API only. Caveats of setting `admin_apis_only` to `true`:
 
-   - Allow service principals to use read-only admin APIs
-   - Enhance admin APIs responses with detailed metadata
-   - Enhance admin APIs responses with DAX and mashup expressions
+- Report Pages will not get ingested as the page API is not available in the Power BI Admin API
+- [Power BI Parameters](https://learn.microsoft.com/en-us/power-query/power-query-query-parameters) will not get resolved to actual values while processing M-Query for table lineage
+- Dataset profiling is unavailable, as it requires access to the non-admin workspace API
 
-## Concept mapping
+#### Admin APIs ingestion
 
-| PowerBI           | Datahub             |
-| ----------------- | ------------------- |
-| `Dashboard`       | `Dashboard`         |
-| `Dataset's Table` | `Dataset`           |
-| `Tile`            | `Chart`             |
-| `Report.webUrl`   | `Chart.externalUrl` |
-| `Workspace`       | `Container`         |
-| `Report`          | `Dashboard`         |
-| `PaginatedReport` | `Dashboard`         |
-| `Page`            | `Chart`             |
-| `App`             | `Dashboard`         |
+To grant admin API access to the Entra application:
 
-- If `Tile` is created from report then `Chart.externalUrl` is set to Report.webUrl.
-- The `Page` is unavailable for PowerBI PaginatedReport.
+1. **Grant permissions to access Admin APIs:** Add your Entra Application's parent Entra Group under your Power BI/Fabric tenant settings in order to grant API access.
 
-## Lineage
+   a. In Power BI or Fabric, go to `Settings` -> `Admin portal`
 
-This source extracts table lineage for tables present in PowerBI Datasets. Lets consider a PowerBI Dataset `SALES_REPORT` and a PostgreSQL database is configured as data-source in `SALES_REPORT` dataset.
+   b. In the `Admin portal`, navigate to `Tenant settings`
 
-Consider `SALES_REPORT` PowerBI Dataset has a table `SALES_ANALYSIS` which is backed by `SALES_ANALYSIS_VIEW` of PostgreSQL Database then in this case `SALES_ANALYSIS_VIEW` will appear as upstream dataset for `SALES_ANALYSIS` table.
+   d. For each of the following options, enable the option and add your Entra application's Group under `Specific security groups`:
 
-You can control table lineage ingestion using `extract_lineage` configuration parameter, by default it is set to `true`.
+   - `Service principals can access read-only admin APIs`
+   - `Enhance admin APIs responses with detailed metadata`
+   - `Enhance admin APIs responses with DAX and mashup expressions`
 
-PowerBI Source extracts the lineage information by parsing PowerBI M-Query expressions and from dataset data returned by the PowerBI API.
-
-The source will attempt to extract information from ODBC connection strings in M-Query expressions to determine the database type. If the database type matches a supported platform and the source is able to extract enough information to construct a valid Dataset URN, it will extract lineage for that data source.
-
-PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
-
-1.  Snowflake
-2.  Oracle
-3.  PostgreSQL
-4.  Microsoft SQL Server
-5.  Google BigQuery
-6.  Databricks
-7.  MySQL
-8.  Amazon Redshift
-9.  Amazon Athena
-
-Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, and ODBC data sources.
-
-### Athena Federated Query Platform Override
-
-When using Amazon Athena via ODBC that queries federated data sources (e.g., Athena querying MySQL or PostgreSQL via federated connectors), the lineage URNs will default to the Athena platform. Use `athena_table_platform_override` to point lineage to the actual source platform instead of Athena.
-
-**Configuration:**
-
-```yaml
-source:
-  type: powerbi
-  config:
-    # ... other config ...
-    dsn_to_platform_name:
-      MyAthenaDSN: athena
-    athena_table_platform_override:
-      # DSN-scoped key (takes precedence)
-      "MyAthenaDSN:analytics.users": mysql
-      # Global key (fallback for any DSN)
-      "reporting.orders": postgres
-```
-
-**Key format:**
-
-- **DSN-scoped**: `"DSN_NAME:database.table"` - applies only to specific DSN
-- **Global**: `"database.table"` - applies to all DSNs
-
-DSN-scoped keys take precedence over global keys, allowing different overrides for the same table name across different Athena data sources.
-
-**Note:** This override only applies to Athena ODBC connections. For other ODBC platforms, lineage will use the platform determined from the DSN configuration.
-
-For example, consider the SQL query shown below. The table `OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_UNIT_TARGET` will be ingested as an upstream table.
-
-```shell
-let
-  Source = Value.NativeQuery(
-    Snowflake.Databases(
-      "sdfsd788.ws-east-2.fakecomputing.com",
-      "operations_analytics_prod",
-      [Role = "OPERATIONS_ANALYTICS_MEMBER"]
-    ){[Name = "OPERATIONS_ANALYTICS"]}[Data],
-    "select #(lf)UPPER(REPLACE(AGENT_NAME,\'-\',\'\')) AS Agent,#(lf)TIER,#(lf)UPPER(MANAGER),#(lf)TEAM_TYPE,#(lf)DATE_TARGET,#(lf)MONTHID,#(lf)TARGET_TEAM,#(lf)SELLER_EMAIL,#(lf)concat((UPPER(REPLACE(AGENT_NAME,\'-\',\'\'))), MONTHID) as AGENT_KEY,#(lf)UNIT_TARGET AS SME_Quota,#(lf)AMV_TARGET AS Revenue_Quota,#(lf)SERVICE_QUOTA,#(lf)BL_TARGET,#(lf)SOFTWARE_QUOTA as Software_Quota#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_UNIT_TARGETS#(lf)#(lf)where YEAR_TARGET >= 2020#(lf)and TEAM_TYPE = \'foo\'#(lf)and TARGET_TEAM = \'bar\'",
-    null,
-    [EnableFolding = true]
-  ),
-  #"Added Conditional Column" = Table.AddColumn(
-    Source,
-    "Has PS Software Quota?",
-    each
-      if [TIER] = "Expansion (Medium)" then
-        "Yes"
-      else if [TIER] = "Acquisition" then
-        "Yes"
-      else
-        "No"
-  )
-in
-  #"Added Conditional Column"
-```
-
-Use full-table-name in `from` clause. For example dev.public.category
-
-## M-Query Pattern Supported For Lineage Extraction
-
-Lets consider a M-Query which combine two PostgreSQL tables. Such M-Query can be written as per below patterns.
-
-**Pattern-1**
-
-```shell
-let
-Source = PostgreSQL.Database("localhost", "book_store"),
-book_date = Source{[Schema="public",Item="book"]}[Data],
-issue_history = Source{[Schema="public",Item="issue_history"]}[Data],
-combine_result  = Table.Combine({book_date, issue_history})
-in
-combine_result
-```
-
-**Pattern-2**
-
-```shell
-let
-Source = PostgreSQL.Database("localhost", "book_store"),
-combine_result  = Table.Combine({Source{[Schema="public",Item="book"]}[Data], Source{[Schema="public",Item="issue_history"]}[Data]})
-in
-combine_result
-```
-
-`Pattern-2` is _not_ supported for upstream table lineage extraction as it uses nested item-selector i.e. {Source{[Schema="public",Item="book"]}[Data], Source{[Schema="public",Item="issue_history"]}[Data]} as argument to M-QUery table function i.e. Table.Combine
-
-`Pattern-1` is supported as it first assigns the table from schema to variable and then variable is used in M-Query Table function i.e. Table.Combine
-
-## Extract endorsements to tags
-
-By default, extracting endorsement information to tags is disabled. The feature may be useful if organization uses [endorsements](https://learn.microsoft.com/en-us/power-bi/collaborate-share/service-endorse-content) to identify content quality.
-
-Please note that the default implementation overwrites tags for the ingested entities, if you need to preserve existing tags, consider using a [transformer](../../../../metadata-ingestion/docs/transformer/dataset_transformer.md#simple-add-dataset-globaltags) with `semantics: PATCH` tags instead of `OVERWRITE`.
-
-## Profiling
-
-The profiling implementation is done through querying [DAX query endpoint](https://learn.microsoft.com/en-us/rest/api/power-bi/datasets/execute-queries). Therefore, the principal needs to have permission to query the datasets to be profiled. Usually this means that the service principal should have `Contributor` role for the workspace to be ingested. Profiling is done with column-based queries to be able to handle wide datasets without timeouts.
-
-Take into account that the profiling implementation executes a fairly big number of DAX queries, and for big datasets this is a significant load to the PowerBI system.
-
-The `profiling_pattern` setting may be used to limit profiling actions to only a certain set of resources in PowerBI. Both allowed and deny rules are matched against the following pattern for every table in a PowerBI Dataset: `workspace_name.dataset_name.table_name`. Users may limit profiling with these settings at table level, dataset level or workspace level.
-
-## Admin Ingestion vs. Basic Ingestion
-
-PowerBI provides two sets of API i.e. [Basic API and Admin API](https://learn.microsoft.com/en-us/rest/api/power-bi/).
-
-The Basic API returns metadata of PowerBI resources where service principal has granted access explicitly on resources,
-whereas Admin API returns metadata of all PowerBI resources irrespective of whether service principal has granted
-or doesn't grant access explicitly on resources.
-
-The Admin Ingestion (explained below) is the recommended way to execute PowerBI ingestion as this ingestion can extract most of the metadata.
-
-### Admin Ingestion: Service Principal As Admin in Tenant Setting and Added as Member In Workspace
-
-To grant admin access to the service principal, visit your PowerBI tenant Settings.
-
-If you have added service principal as `member` in workspace and also allowed below permissions from PowerBI tenant Settings
-
-- Allow service principal to use read-only PowerBI Admin APIs
-- Enhance admin APIs responses with detailed metadata
-- Enhance admin APIs responses with DAX and mashup expressions
-
-PowerBI Source would be able to ingest below listed metadata of that particular workspace
+If you have granted your Entra application permissions to the Admin APIs, then the Power BI Source will be able to ingest the below listed metadata of that particular workspace:
 
 - Lineage
-- PowerBI Dataset
+- Datasets
 - Endorsement as tag
 - Dashboards
-- Reports
 - Dashboard Tiles
+- Reports
 - Report Pages
 - App
-
-If you don't want to add a service principal as a member in your workspace, then you can enable the `admin_apis_only: true` in recipe to use PowerBI Admin API only.
-
-Caveats of setting `admin_apis_only` to `true`:
-
-- Report's pages would not get ingested as page API is not available in PowerBI Admin API
-- [PowerBI Parameters](https://learn.microsoft.com/en-us/power-query/power-query-query-parameters) would not get resolved to actual values while processing M-Query for table lineage
-- Dataset profiling is unavailable, as it requires access to the workspace API
-
-### Basic Ingestion: Service Principal As Member In Workspace
-
-If you have added service principal as `member` in workspace then PowerBI Source would be able to ingest below metadata of that particular workspace
-
-- Dashboards
-- Reports
-- Dashboard's Tiles
-- Report's Pages

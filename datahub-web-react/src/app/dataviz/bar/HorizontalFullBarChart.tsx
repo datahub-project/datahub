@@ -62,7 +62,7 @@ export const HorizontalFullBarChart = <Data extends object, DataKeys>({
                         <>
                             <XYChart
                                 width={parentWidth}
-                                height={baseHeight}
+                                height={calculatedHeight}
                                 margin={margin}
                                 xScale={{ type: 'linear' }}
                                 yScale={{ type: 'band', paddingInner: 0.3 }}

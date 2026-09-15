@@ -1,0 +1,10 @@
+version: "2"
+services:
+  testaerospike:
+    image: aerospike:ce-7.2.0.1
+    container_name: "testaerospike"
+    ports:
+      - 3000-3002:3000-3002
+#    volumes:
+#      - ./setup/aerospike_init.js:/docker-entrypoint-initdb.d/aerospike_init.js:ro
+#      - ./setup:/setup

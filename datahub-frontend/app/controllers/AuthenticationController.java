@@ -15,11 +15,13 @@ import auth.JAASConfigs;
 import auth.NativeAuthenticationConfigs;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
+import client.NativeUserCredentialVerifyResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.auth.LoginIdentityMask;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -254,12 +256,12 @@ public class AuthenticationController extends Controller {
     boolean loginSucceeded = tryLogin(username, password);
 
     if (!loginSucceeded) {
-      logger.info("Login failed for user: {}", username);
+      logger.info("Login failed for userRef: {}", LoginIdentityMask.mask(username));
       return Results.badRequest(invalidCredsJson);
     }
 
     final Urn actorUrn = new CorpuserUrn(username);
-    logger.info("Login successful for user: {}, urn: {}", username, actorUrn);
+    logger.info("Login successful for userRef: {}", LoginIdentityMask.mask(username));
     final String accessToken =
         authClient.generateSessionTokenForUser(actorUrn.getId(), PASSWORD_LOGIN);
     return createSession(actorUrn.toString(), accessToken);
@@ -470,8 +472,9 @@ public class AuthenticationController extends Controller {
     if (nativeAuthenticationConfigs.isNativeAuthenticationEnabled() && !loginSucceeded) {
       final Urn userUrn = new CorpuserUrn(username);
       final String userUrnString = userUrn.toString();
-      loginSucceeded =
-          loginSucceeded || authClient.verifyNativeUserCredentials(userUrnString, password);
+      final NativeUserCredentialVerifyResult verifyResult =
+          authClient.verifyNativeUserCredentials(userUrnString, password);
+      loginSucceeded = loginSucceeded || verifyResult.allowsSessionCreation();
     }
 
     return loginSucceeded;

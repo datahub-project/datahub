@@ -109,10 +109,10 @@ DataHub Cloud offers comprehensive features designed to support the authoring of
 </p>
 
 
-- **[Approval Flows](https://docs.datahub.com/docs/managed-datahub/change-proposals):** Structured workflows for approving changes to the glossary, maintaining quality and consistency through time
+- **[Approval Flows](https://docs.datahub.com/docs/managed-datahub/change-proposals#using-approval-workflows):** Structured workflows for approving changes to the glossary, maintaining quality and consistency through time
 
 - **Automated Data Classification:** Tools to tag critical data assets - tables, columns, dashboards, and pipelines - with terms from the business glossary using automations and custom rules.
-
+ 
 By implementing these solutions, you can ensure that your business terminology is consistently defined and accurately used across all teams, supporting reliable decision-making and regulatory compliance.
 
 ## Conclusion

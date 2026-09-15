@@ -7,6 +7,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Non-blocking system upgrade that backfills dataset lineage index fields.
@@ -17,6 +18,7 @@ import java.util.List;
  * (column-level) lineage - fineGrainedUpstreams: list of schema field URNs that provide lineage to
  * this dataset
  */
+@Slf4j
 public class BackfillDatasetLineageIndexFields implements NonBlockingSystemUpgrade {
   private final List<UpgradeStep> _steps;
 
@@ -33,6 +35,9 @@ public class BackfillDatasetLineageIndexFields implements NonBlockingSystemUpgra
               new BackfillDatasetLineageIndexFieldsStep(
                   opContext, entityService, searchService, reprocessEnabled, batchSize));
     } else {
+      log.info(
+          "{} is disabled (systemUpdate.lineageIndexFields.enabled=false); no steps registered.",
+          id());
       _steps = ImmutableList.of();
     }
   }

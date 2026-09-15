@@ -30,15 +30,20 @@
     "changeType": "PATCH",
     "aspectName": "globalTags",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/tags/urn:li:tag:test_tag",
-                "value": {
-                    "tag": "urn:li:tag:test_tag"
+        "json": {
+            "arrayPrimaryKeys": {
+                "tags": ["attribution\u241fsource", "tag"]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/tags//urn:li:tag:test_tag",
+                    "value": {
+                        "tag": "urn:li:tag:test_tag"
+                    }
                 }
-            }
-        ]
+            ]
+        }
     }
 },
 {
@@ -102,6 +107,11 @@
                 "value": {
                     "tag": "urn:li:tag:tag1"
                 }
+            },
+            {
+                "op": "remove",
+                "path": "/editableSchemaFieldInfo/field1/glossaryTerms/terms/urn:li:glossaryTerm:term1",
+                "value": {}
             }
         ]
     }

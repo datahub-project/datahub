@@ -1,11 +1,18 @@
-### Authentication
+### Overview
 
-See Mode's [Authentication documentation](https://mode.com/developer/api-reference/authentication/) on how to generate an API `token` and `password`.
+The `mode` module ingests metadata from Mode into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-Mode does not support true "service accounts", so you must use a user account for authentication.
-Depending on your requirements, you may want to create a dedicated user account for usage with DataHub ingestion.
+### Prerequisites
 
-### Permissions
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
+
+#### Authentication
+
+Generate an API `token` and `password` following Mode's [Authentication documentation](https://mode.com/developer/api-reference/authentication/).
+
+Mode requires a user account for authentication (no service accounts). Consider creating a dedicated user for DataHub ingestion.
+
+#### Permissions
 
 DataHub ingestion requires the user to have the following permissions:
 

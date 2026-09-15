@@ -13,11 +13,10 @@ The processor handles:
 - View lineage integration via SqlParsingAggregator
 """
 
-import base64
 import dataclasses
-import json
 import logging
 from collections import namedtuple
+from itertools import groupby
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -37,6 +36,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.presto_view_decoder import decode_presto_view
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -63,7 +63,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     ViewPropertiesClass,
 )
-from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 if TYPE_CHECKING:
@@ -100,10 +99,6 @@ class HiveMetadataProcessor:
     It extracts shared metadata processing logic from HiveMetastoreSource
     to enable composition-based design.
     """
-
-    # Presto view markers for base64-encoded view definitions
-    _PRESTO_VIEW_PREFIX = "/* Presto View: "
-    _PRESTO_VIEW_SUFFIX = " */"
 
     def __init__(
         self,
@@ -288,14 +283,10 @@ class HiveMetadataProcessor:
         self, view_original_text: str
     ) -> Tuple[List[Dict[str, Any]], str]:
         """Extract column metadata from base64-encoded Presto view definition."""
-        encoded_view_info = view_original_text.split(self._PRESTO_VIEW_PREFIX, 1)[
-            -1
-        ].rsplit(self._PRESTO_VIEW_SUFFIX, 1)[0]
+        decoded_view_info = decode_presto_view(view_original_text)
+        view_definition = decoded_view_info["originalSql"]
 
-        decoded_view_info = base64.b64decode(encoded_view_info)
-        view_definition = json.loads(decoded_view_info).get("originalSql")
-
-        columns = json.loads(decoded_view_info).get("columns")
+        columns = decoded_view_info["columns"]
         for col in columns:
             col["col_name"], col["col_type"] = col["name"], col["type"]
 
@@ -430,7 +421,7 @@ class HiveMetadataProcessor:
         # Fetch and process table rows
         table_rows = self.fetcher.fetch_table_rows()
 
-        for key, group in groupby_unsorted(table_rows, self._get_table_key):
+        for key, group in groupby(table_rows, self._get_table_key):
             schema_name = (
                 f"{db_name}.{key.schema}"
                 if self.config.include_catalog_name_in_ids
@@ -451,9 +442,19 @@ class HiveMetadataProcessor:
                 self.report.report_dropped(dataset_name)
                 continue
 
-            columns = list(group)
+            columns = sorted(
+                group,
+                key=lambda c: (
+                    c.get("is_partition_col", 0),
+                    c.get("col_sort_order", 0),
+                ),
+            )
             if len(columns) == 0:
-                self.report.report_warning(dataset_name, "missing column information")
+                self.report.warning(
+                    message="Missing column information",
+                    context=dataset_name,
+                    log=False,
+                )
 
             dataset_urn: str = make_dataset_urn_with_platform_instance(
                 self.platform,
@@ -481,6 +482,11 @@ class HiveMetadataProcessor:
                 self.config.simplify_nested_field_paths,
             )
             dataset_snapshot.aspects.append(schema_metadata)
+
+            # Register schema with aggregator so view lineage SQL parsing
+            # can resolve column types without network calls to DataHub
+            if self.aggregator is not None:
+                self.aggregator.register_schema(dataset_urn, schema_metadata)
 
             # Build properties
             properties: Dict[str, str] = properties_cache.get(dataset_name, {})
@@ -568,7 +574,7 @@ class HiveMetadataProcessor:
         """Iterate over Hive view datasets from view rows."""
         view_rows = self.fetcher.fetch_view_rows()
 
-        for key, group in groupby_unsorted(view_rows, self._get_table_key):
+        for key, group in groupby(view_rows, self._get_table_key):
             schema_name = (
                 f"{db_name}.{key.schema}"
                 if self.config.include_catalog_name_in_ids
@@ -584,7 +590,11 @@ class HiveMetadataProcessor:
             columns = list(group)
 
             if len(columns) == 0:
-                self.report.report_warning(dataset_name, "missing column information")
+                self.report.warning(
+                    message="Missing column information",
+                    context=dataset_name,
+                    log=False,
+                )
 
             yield ViewDataset(
                 dataset_name=dataset_name,
@@ -621,12 +631,26 @@ class HiveMetadataProcessor:
             )
             dataset_name = self._get_identifier(schema=schema_name, entity=row["name"])
 
-            columns, view_definition = self._get_presto_view_column_metadata(
-                row["view_original_text"]
-            )
+            try:
+                columns, view_definition = self._get_presto_view_column_metadata(
+                    row["view_original_text"]
+                )
+            except Exception as e:
+                # A single malformed Presto view must not abort the whole database.
+                self.report.warning(
+                    message="Failed to decode Presto view definition",
+                    context=dataset_name,
+                    exc=e,
+                    log=False,
+                )
+                continue
 
             if len(columns) == 0:
-                self.report.report_warning(dataset_name, "missing column information")
+                self.report.warning(
+                    message="Missing column information",
+                    context=dataset_name,
+                    log=False,
+                )
 
             yield ViewDataset(
                 dataset_name=dataset_name,
@@ -687,6 +711,9 @@ class HiveMetadataProcessor:
                 simplify_nested_field_paths=self.config.simplify_nested_field_paths,
             )
             dataset_snapshot.aspects.append(schema_metadata)
+
+            if self.aggregator is not None:
+                self.aggregator.register_schema(dataset_urn, schema_metadata)
 
             # Add properties
             properties: Dict[str, str] = {"is_view": "True"}

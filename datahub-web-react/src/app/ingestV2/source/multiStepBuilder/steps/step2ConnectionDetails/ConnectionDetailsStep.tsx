@@ -1,5 +1,6 @@
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -29,8 +30,10 @@ const Container = styled.div`
 `;
 
 export function ConnectionDetailsStep() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const { state, updateState, setCurrentStepCompleted, setCurrentStepUncompleted, setOnNextHandler } =
         useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
+    const [isRecipeStateInitialized, setIsRecipeStateInitialized] = useState<boolean>(false);
 
     const { ingestionSources } = useIngestionSources();
 
@@ -139,24 +142,32 @@ export function ConnectionDetailsStep() {
             if (e instanceof Error) {
                 if (e.message === INGESTION_TYPE_EMPTY_ERROR) {
                     message.warning({
-                        content: 'Please add valid ingestion type',
+                        content: t('multiStep.connection.invalidIngestionType'),
                         duration: 3,
                     });
                 } else if (e.message === INGESTION_TYPE_CHANGED_ERROR) {
                     message.warning({
-                        content: "It's not possible to change source type for existing ingestion source",
+                        content: t('multiStep.connection.cannotChangeSourceType'),
                         duration: 3,
                     });
                 }
             }
             throw e;
         }
-    }, [stagedRecipeYml, updateRecipe]);
+    }, [stagedRecipeYml, updateRecipe, t]);
 
     useEffect(() => {
         setOnNextHandler(() => onNextHandler);
         return () => setOnNextHandler(undefined);
     }, [onNextHandler, setOnNextHandler]);
+
+    // Save placeholder recipe to state if there are no any recipe in the state
+    useEffect(() => {
+        if (!initialRecipeYml && !isRecipeStateInitialized) {
+            updateRecipe(placeholderRecipe, true);
+            setIsRecipeStateInitialized(true);
+        }
+    }, [placeholderRecipe, initialRecipeYml, updateRecipe, isRecipeStateInitialized]);
 
     return (
         <>

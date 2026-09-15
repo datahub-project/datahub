@@ -1,15 +1,18 @@
-import { CaretDown, CaretRight, FileText, Folder } from '@phosphor-icons/react';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import Loading from '@app/shared/Loading';
-import { Button, Tooltip } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
-import { getColor } from '@src/alchemy-components/theme/utils';
+import { Button, Checkbox, Tooltip } from '@src/alchemy-components';
 
 import { Document } from '@types';
 
-export interface DocumentChild {
+interface DocumentChild {
     urn: string;
     title: string;
 }
@@ -31,19 +34,15 @@ const SearchResultItemContainer = styled.div<{ $isSelected: boolean; $level: num
     ${(props) =>
         props.$isSelected
             ? `
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
-    `
+background: ${props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${props.theme.colors.shadowFocusBrand};
+ `
             : `
-        &:hover {
-            background-color: ${colors.gray[1500]};
-        }
-    `}
+ &:hover {
+background-color: ${props.theme.colors.bgHover};
+        box-shadow: ${props.theme.colors.shadowFocus};
+ }
+ `}
 
     &:hover .search-result-actions {
         opacity: 1;
@@ -69,7 +68,7 @@ const Actions = styled.div`
 
 const ActionButton = styled(Button)`
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
@@ -86,21 +85,21 @@ const SearchResultTitle = styled.span<{ $isSelected: boolean }>`
     white-space: nowrap;
     font-size: 14px;
     line-height: 20px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor('primary', 500, props.theme)} 99%);
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 600;
-    `}
+background: ${props.theme.colors.brandGradientSelected};
+ background-clip: text;
+ -webkit-text-fill-color: transparent;
+ font-weight: 600;
+ `}
 `;
 
 const SearchResultBreadcrumb = styled.div`
     font-size: 12px;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     line-height: 16px;
     margin-top: 2px;
 `;
@@ -114,8 +113,8 @@ const IconWrapper = styled.div<{ $isSelected: boolean }>`
     && svg {
         ${(props) =>
             props.$isSelected
-                ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles?.['primary-color'] || '#6C47FF'};`
-                : 'color: #8088a3;'}
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
+                : `color: ${props.theme.colors.icon};`}
     }
 `;
 
@@ -136,6 +135,13 @@ const ExpandButton = styled.button`
     &:hover {
         opacity: 0.7;
     }
+`;
+
+const CheckboxSlot = styled.div`
+    display: flex;
+    align-items: center;
+    margin-left: 8px;
+    flex-shrink: 0;
 `;
 
 interface SearchResultItemProps {
@@ -161,6 +167,12 @@ interface SearchResultItemProps {
     onToggleExpand: () => void;
     /** Optional callback for creating a child document */
     onCreateChild?: (parentUrn: string) => void;
+    /**
+     * When true, renders a leading checkbox driven by `isSelected`, and hides
+     * per-row actions (create-child) so the picker stays focused on selection.
+     * Clicks on the row and the checkbox both fire `onSelect`.
+     */
+    multiSelect?: boolean;
 }
 
 /**
@@ -186,7 +198,9 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
     onSelect,
     onToggleExpand,
     onCreateChild,
+    multiSelect = false,
 }) => {
+    const { t } = useTranslation('home.v2');
     const [isHovered, setIsHovered] = useState(false);
 
     // Determine document title and URN
@@ -255,16 +269,21 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
                         {level === 0 && breadcrumb && <SearchResultBreadcrumb>{breadcrumb}</SearchResultBreadcrumb>}
                     </SearchResultContent>
                 </LeftContent>
-                {onCreateChild && (
+                {!multiSelect && onCreateChild && (
                     <Actions className="search-result-actions">
-                        <Tooltip title="New document" placement="bottom" showArrow={false}>
-                            <ActionButton
-                                icon={{ icon: 'Plus', source: 'phosphor' }}
-                                variant="text"
-                                onClick={handleAddChildClick}
-                            />
+                        <Tooltip title={t('documents.newDocumentTooltip')} placement="bottom" showArrow={false}>
+                            <ActionButton icon={{ icon: Plus }} variant="text" onClick={handleAddChildClick} />
                         </Tooltip>
                     </Actions>
+                )}
+                {multiSelect && (
+                    <CheckboxSlot>
+                        <Checkbox
+                            isChecked={isSelected}
+                            setIsChecked={() => onSelect()}
+                            dataTestId={`search-result-checkbox-${docUrn}`}
+                        />
+                    </CheckboxSlot>
                 )}
             </SearchResultItemContainer>
             {isExpanded && children}

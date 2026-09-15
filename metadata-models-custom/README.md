@@ -328,13 +328,13 @@ plugins:
           aspectName: customDataQualityRules
 ```
 
-Read Mutation:
+Structured properties assignment mutator:
 
-A read mutator would implement the following interface and the following example is a read mutation which hides soft
-deleted structured properties from being returned on entities.
+The standard {@code StructuredPropertiesAssignmentMutator} filters invalid assignments on read (soft-deleted
+definitions) and optionally on write (missing definitions). The read path example:
 
 ```java
-public class StructuredPropertiesSoftDelete extends MutationHook {
+public class StructuredPropertiesAssignmentMutator extends MutationHook {
     @Override
     protected Stream<Pair<ReadItem, Boolean>> readMutation(
             @Nonnull Collection<ReadItem> items, @Nonnull AspectRetriever aspectRetriever) {

@@ -12,7 +12,7 @@ import {
 } from '@app/entityV2/view/builder/utils';
 import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
-import { FilterOperator, LogicalOperator } from '@types';
+import { EntityType, FilterOperator, LogicalOperator } from '@types';
 
 describe('View builder conversion utils', () => {
     describe('selectedUrnsToFilters', () => {
@@ -322,7 +322,7 @@ describe('View builder conversion utils', () => {
         it('should build a valid view definition with AND operator', () => {
             const filters = [{ field: URN_FILTER_NAME, values: ['urn:li:domain:marketing'] }];
 
-            const result = buildViewDefinition(LogicalOperator.And, filters);
+            const result = buildViewDefinition(LogicalOperator.And, filters, []);
 
             expect(result.entityTypes).toEqual([]);
             expect(result.filter?.operator).toBe(LogicalOperator.And);
@@ -334,6 +334,7 @@ describe('View builder conversion utils', () => {
         it('should map known UI operators to backend FilterOperator', () => {
             expect(mapUiOperatorToCondition('equals')).toBe(FilterOperator.Equal);
             expect(mapUiOperatorToCondition('exists')).toBe(FilterOperator.Exists);
+            expect(mapUiOperatorToCondition('within')).toBe(FilterOperator.DescendantsIncl);
             expect(mapUiOperatorToCondition('contains_str')).toBe(FilterOperator.Contain);
             expect(mapUiOperatorToCondition('greater_than')).toBe(FilterOperator.GreaterThan);
             expect(mapUiOperatorToCondition('less_than')).toBe(FilterOperator.LessThan);
@@ -357,6 +358,7 @@ describe('View builder conversion utils', () => {
         it('should map known backend conditions to UI operators', () => {
             expect(mapConditionToUiOperator(FilterOperator.Equal)).toBe('equals');
             expect(mapConditionToUiOperator(FilterOperator.Exists)).toBe('exists');
+            expect(mapConditionToUiOperator(FilterOperator.DescendantsIncl)).toBe('within');
             expect(mapConditionToUiOperator(FilterOperator.Contain)).toBe('contains_str');
             expect(mapConditionToUiOperator(FilterOperator.GreaterThan)).toBe('greater_than');
         });
@@ -403,6 +405,38 @@ describe('View builder conversion utils', () => {
             expect(op0.values).toEqual(['urn:li:domain:finance']);
             expect(op1.property).toBe('platform');
             expect(op1.operator).toBe('exists');
+        });
+
+        it('should round-trip within operator as DescendantsIncl', () => {
+            const original: LogicalPredicate = {
+                type: 'logical',
+                operator: LogicalOperatorType.AND,
+                operands: [
+                    {
+                        type: 'property',
+                        property: 'domains',
+                        operator: 'within',
+                        values: ['urn:li:domain:finance'],
+                    },
+                    {
+                        type: 'property',
+                        property: 'parentDocument',
+                        operator: 'within',
+                        values: ['urn:li:document:parent'],
+                    },
+                ],
+            };
+
+            const { operator, filters } = logicalPredicateToFilters(original);
+
+            expect(filters[0].condition).toBe(FilterOperator.DescendantsIncl);
+            expect(filters[1].condition).toBe(FilterOperator.DescendantsIncl);
+
+            const restored = filtersToLogicalPredicate(operator, filters);
+            const op0 = restored.operands[0] as { property?: string; operator?: string };
+            const op1 = restored.operands[1] as { property?: string; operator?: string };
+            expect(op0.operator).toBe('within');
+            expect(op1.operator).toBe('within');
         });
 
         it('should round-trip boolean is_true/is_false operators correctly', () => {
@@ -459,6 +493,36 @@ describe('View builder conversion utils', () => {
             const result = buildEntityMap(entities);
 
             expect(result['urn:li:domain:a'].name).toBe('second');
+        });
+    });
+
+    describe('entity-type scope pass-through', () => {
+        it('should return the entity types it was given', () => {
+            const definition = buildViewDefinition(
+                LogicalOperator.And,
+                [{ field: 'tags', values: ['urn:li:tag:pii'] }],
+                [EntityType.Dataset, EntityType.Dashboard],
+            );
+
+            expect(definition.entityTypes).toEqual([EntityType.Dataset, EntityType.Dashboard]);
+        });
+
+        it('should never invent a scope of its own', () => {
+            expect(
+                buildViewDefinition(LogicalOperator.And, [{ field: 'tags', values: ['urn:li:tag:pii'] }], [])
+                    .entityTypes,
+            ).toEqual([]);
+        });
+
+        it('should keep an _entityType row as an ordinary filter instead of lifting it into the scope', () => {
+            const definition = buildViewDefinition(
+                LogicalOperator.And,
+                [{ field: '_entityType', values: ['dataset'] }],
+                [EntityType.Chart],
+            );
+
+            expect(definition.entityTypes).toEqual([EntityType.Chart]);
+            expect(definition.filter?.filters).toEqual([{ field: '_entityType', values: ['dataset'] }]);
         });
     });
 });

@@ -83,7 +83,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
 
     Filter transformedFilter =
         SearchUtil.transformFilterForEntities(
-            f, getOperationContext().getSearchContext().getIndexConvention());
+            getOperationContext(),
+            f,
+            getOperationContext().getSearchContext().getIndexConvention());
     assertEquals(f, transformedFilter);
   }
 
@@ -91,7 +93,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   public void testTransformFilterForEntitiesNullFilter() {
     Filter transformedFilter =
         SearchUtil.transformFilterForEntities(
-            null, getOperationContext().getSearchContext().getIndexConvention());
+            getOperationContext(),
+            null,
+            getOperationContext().getSearchContext().getIndexConvention());
     assertNotNull(getOperationContext().getSearchContext().getIndexConvention());
     assertEquals(null, transformedFilter);
   }
@@ -116,7 +120,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
 
     Filter transformedFilter =
         SearchUtil.transformFilterForEntities(
-            f, getOperationContext().getSearchContext().getIndexConvention());
+            getOperationContext(),
+            f,
+            getOperationContext().getSearchContext().getIndexConvention());
     assertNotEquals(originalF, transformedFilter);
 
     Criterion expectedNewCriterion =
@@ -151,7 +157,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
 
     Filter transformedFilter =
         SearchUtil.transformFilterForEntities(
-            f, getOperationContext().getSearchContext().getIndexConvention());
+            getOperationContext(),
+            f,
+            getOperationContext().getSearchContext().getIndexConvention());
     assertNotEquals(originalF, transformedFilter);
 
     Criterion expectedNewCriterion =
@@ -190,7 +198,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
 
     Filter transformedFilter =
         SearchUtil.transformFilterForEntities(
-            f, getOperationContext().getSearchContext().getIndexConvention());
+            getOperationContext(),
+            f,
+            getOperationContext().getSearchContext().getIndexConvention());
     assertNotEquals(originalF, transformedFilter);
 
     Criterion expectedNewCriterion =
@@ -235,7 +245,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
     assertEquals(
         expectedResult,
         searchDAO.transformIndexIntoEntityName(
-            getOperationContext().getSearchContext().getIndexConvention(), result));
+            getOperationContext(),
+            getOperationContext().getSearchContext().getIndexConvention(),
+            result));
 
     // one facet, do not transform
     Map<String, Long> aggMap = Map.of("urn:li:corpuser:datahub", Long.valueOf(3));
@@ -258,7 +270,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
     }
     assertEquals(
         searchDAO.transformIndexIntoEntityName(
-            getOperationContext().getSearchContext().getIndexConvention(), result),
+            getOperationContext(),
+            getOperationContext().getSearchContext().getIndexConvention(),
+            result),
         expectedResult);
 
     // one facet, transform
@@ -293,7 +307,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setAggregations(new AggregationMetadataArray(expectedAggregationMetadataList)));
     assertEquals(
         searchDAO.transformIndexIntoEntityName(
-            getOperationContext().getSearchContext().getIndexConvention(), result),
+            getOperationContext(),
+            getOperationContext().getSearchContext().getIndexConvention(),
+            result),
         expectedResult);
   }
 
@@ -367,7 +383,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setNumEntities(50);
     assertEquals(
         searchDAO.transformIndexIntoEntityName(
-            getOperationContext().getSearchContext().getIndexConvention(), result),
+            getOperationContext(),
+            getOperationContext().getSearchContext().getIndexConvention(),
+            result),
         expectedResult);
 
     // One nested facet, opposite order
@@ -430,7 +448,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setNumEntities(50);
     assertEquals(
         searchDAO.transformIndexIntoEntityName(
-            getOperationContext().getSearchContext().getIndexConvention(), result),
+            getOperationContext(),
+            getOperationContext().getSearchContext().getIndexConvention(),
+            result),
         expectedResult);
   }
 

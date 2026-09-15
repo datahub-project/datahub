@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -30,9 +31,11 @@ interface Props {
 }
 
 export const ManageUsersAndGroups = ({ version }: Props) => {
+    const { t } = useTranslation('entity.identity');
     const location = useLocation();
     const [isViewingInviteToken, setIsViewingInviteToken] = useState(false);
     const [isCreatingServiceAccount, setIsCreatingServiceAccount] = useState(false);
+    const [isCreatingGroup, setIsCreatingGroup] = useState(false);
     const authenticatedUser = useUserContext();
     const canManageUserCredentials = authenticatedUser?.platformPrivileges?.manageUserCredentials || false;
     const canManageServiceAccounts = authenticatedUser?.platformPrivileges?.manageServiceAccounts || false;
@@ -87,21 +90,21 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
     const getTabs = () => {
         const baseTabs = [
             {
-                name: TabType.Users,
+                name: t('tabs.users'),
                 path: TabType.Users.toLocaleLowerCase(),
                 content: <UserList />,
                 tabType: TabType.Users,
-                customTitle: <TabTitleWithCount name={TabType.Users} count={userCount} />,
+                customTitle: <TabTitleWithCount name={t('tabs.users')} count={userCount} />,
                 display: {
                     enabled: () => true,
                 },
             },
             {
-                name: TabType.Groups,
+                name: t('tabs.groups'),
                 path: TabType.Groups.toLocaleLowerCase(),
-                content: <GroupList />,
+                content: <GroupList isCreatingGroup={isCreatingGroup} setIsCreatingGroup={setIsCreatingGroup} />,
                 tabType: TabType.Groups,
-                customTitle: <TabTitleWithCount name={TabType.Groups} count={groupCount} />,
+                customTitle: <TabTitleWithCount name={t('tabs.groups')} count={groupCount} />,
                 display: {
                     enabled: () => true,
                 },
@@ -111,7 +114,7 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
         // Add Service Accounts tab if user has permission
         if (canManageServiceAccounts) {
             baseTabs.push({
-                name: TabType.ServiceAccounts,
+                name: t('tabs.serviceAccounts'),
                 path: 'service-accounts',
                 content: (
                     <ServiceAccountList
@@ -120,7 +123,7 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
                     />
                 ),
                 tabType: TabType.ServiceAccounts,
-                customTitle: <TabTitleWithCount name={TabType.ServiceAccounts} count={serviceAccountCount} />,
+                customTitle: <TabTitleWithCount name={t('tabs.serviceAccounts')} count={serviceAccountCount} />,
                 display: {
                     enabled: () => true,
                 },
@@ -131,7 +134,6 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
     };
 
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
-    const onTabChange = () => null;
 
     return (
         <PageContainer>
@@ -142,9 +144,10 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
                 activeTab={activeTab}
                 onInviteUsers={() => setIsViewingInviteToken(true)}
                 onCreateServiceAccount={() => setIsCreatingServiceAccount(true)}
+                onCreateGroup={() => setIsCreatingGroup(true)}
             />
             <Content>
-                <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
+                <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} />
             </Content>
             {isViewingInviteToken && (
                 <ViewInviteTokenModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />

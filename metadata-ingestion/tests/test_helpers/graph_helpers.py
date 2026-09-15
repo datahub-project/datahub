@@ -18,6 +18,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.schema_classes import (
     ASPECT_NAME_MAP,
+    DataProductPropertiesClass,
     DomainPropertiesClass,
     SystemMetadataClass,
     UsageAggregationClass,
@@ -106,6 +107,30 @@ class MockDataHubGraph(DataHubGraph):
         else:
             return None
 
+    def get_data_product_urn_by_name(self, data_product_name: str) -> Optional[str]:
+        data_product_metadata = {
+            urn: metadata
+            for urn, metadata in self.entity_graph.items()
+            if urn.startswith("urn:li:dataProduct:")
+        }
+        data_product_properties_metadata = {
+            urn: metadata["dataProductProperties"].name
+            for urn, metadata in data_product_metadata.items()
+            if "dataProductProperties" in metadata
+            and isinstance(
+                metadata["dataProductProperties"], DataProductPropertiesClass
+            )
+        }
+        urn_match = [
+            urn
+            for urn, name in data_product_properties_metadata.items()
+            if name == data_product_name
+        ]
+        if urn_match:
+            return urn_match[0]
+        else:
+            return None
+
     def emit(
         self,
         item: Union[
@@ -115,7 +140,7 @@ class MockDataHubGraph(DataHubGraph):
             UsageAggregationClass,
         ],
         callback: Union[Callable[[Exception, str], None], None] = None,
-        emit_mode: EmitMode = EmitMode.ASYNC,
+        emit_mode: Optional[EmitMode] = None,
     ) -> None:
         self.emitted.append(item)  # type: ignore
 
@@ -126,7 +151,7 @@ class MockDataHubGraph(DataHubGraph):
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         async_flag: Optional[bool] = None,
-        emit_mode: EmitMode = EmitMode.ASYNC,
+        emit_mode: Optional[EmitMode] = None,
         wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> None:
         self.emitted.append(mcp)

@@ -250,7 +250,7 @@ class TestPostgresLineageIntegration:
             database="postgres",
         )
 
-        report = type("Report", (), {"report_warning": lambda *args, **kwargs: None})()
+        report = type("Report", (), {"warning": lambda *args, **kwargs: None})()
         aggregator = SqlParsingAggregator(
             platform="postgres", generate_lineage=True, generate_queries=True
         )
@@ -325,7 +325,7 @@ class TestPostgresLineageIntegration:
             def __init__(self):
                 self.failures = []
 
-            def report_failure(self, message, context=None, **kwargs):  # type: ignore[no-untyped-def]
+            def failure(self, message, context=None, **kwargs):  # type: ignore[no-untyped-def]
                 self.failures.append({"message": message, "context": context})
 
         report = MockReport()
@@ -366,7 +366,7 @@ class TestPostgresLineageIntegration:
             def __init__(self):
                 self.failures = []
 
-            def report_failure(self, message, context=None, **kwargs):  # type: ignore[no-untyped-def]
+            def failure(self, message, context=None, **kwargs):  # type: ignore[no-untyped-def]
                 self.failures.append({"message": message, "context": context})
 
         report = MockReport()
@@ -414,7 +414,7 @@ class TestPostgresLineageIntegration:
                 self.failures = []
                 self.num_queries_extracted = 0
 
-            def report_failure(self, message, context=None, **kwargs):  # type: ignore[no-untyped-def]
+            def failure(self, message, context=None, **kwargs):  # type: ignore[no-untyped-def]
                 self.failures.append({"message": message, "context": context})
 
         report = MockReport()

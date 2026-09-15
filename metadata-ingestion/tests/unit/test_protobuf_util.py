@@ -1,9 +1,14 @@
+from types import SimpleNamespace
 from typing import List
+from unittest.mock import patch
 
-import pytest
+from google.protobuf.descriptor import FieldDescriptor
 
 from datahub.ingestion.extractor.protobuf_util import (
+    _DESCRIPTOR_CACHE,
     ProtobufSchema,
+    _from_protobuf_schema_to_descriptors,
+    _is_repeated_field,
     protobuf_schema_to_mce_fields,
 )
 from datahub.metadata.schema_classes import ArrayTypeClass, SchemaFieldClass
@@ -139,6 +144,23 @@ message Test6 {
     assert isinstance(fields[0].type.type, ArrayTypeClass)
     assert fields[0].type.type.nestedType is not None
     assert fields[0].type.type.nestedType[0] == "int64"
+
+
+def test_is_repeated_field_across_protobuf_versions() -> None:
+    # protobuf 6.x / 7.x: is_repeated present (label may be absent, as in 7.x).
+    assert _is_repeated_field(SimpleNamespace(is_repeated=True)) is True
+    assert _is_repeated_field(SimpleNamespace(is_repeated=False)) is False
+    # protobuf 5.29.x: only label is present.
+    assert (
+        _is_repeated_field(SimpleNamespace(label=FieldDescriptor.LABEL_REPEATED))
+        is True
+    )
+    assert (
+        _is_repeated_field(SimpleNamespace(label=FieldDescriptor.LABEL_OPTIONAL))
+        is False
+    )
+    # Non-field descriptors expose neither attribute.
+    assert _is_repeated_field(SimpleNamespace()) is False
 
 
 def test_protobuf_schema_to_mce_fields_nestd_repeated() -> None:
@@ -301,7 +323,150 @@ message Test11 {
     Test11 recursive = 2;
 }
 """
-    with pytest.raises(Exception) as e_info:
-        protobuf_schema_to_mce_fields(ProtobufSchema("main_9.proto", schema))
+    # Cyclic schemas should return empty fields instead of raising exceptions
+    # This follows DataHub's "log and continue" pattern for graceful degradation
+    fields = protobuf_schema_to_mce_fields(ProtobufSchema("main_9.proto", schema))
+    assert fields == []
 
-    assert str(e_info.value) == "Cyclic schemas are not supported"
+
+def test_descriptor_cache_hit() -> None:
+    _DESCRIPTOR_CACHE.clear()
+
+    schema = """
+syntax = "proto3";
+
+message CacheTestMessage {
+  string id = 1;
+  int32 value = 2;
+}
+"""
+
+    schema1 = ProtobufSchema("cache_test.proto", schema)
+    schema2 = ProtobufSchema("cache_test.proto", schema)
+
+    with patch("grpc.protos") as mock_protos:
+        mock_descriptor = object()
+        mock_protos.return_value.DESCRIPTOR = mock_descriptor
+
+        result1 = _from_protobuf_schema_to_descriptors(schema1)
+        assert result1 is mock_descriptor
+        assert mock_protos.call_count == 1
+
+        result2 = _from_protobuf_schema_to_descriptors(schema2)
+        assert result2 is mock_descriptor
+        assert mock_protos.call_count == 1
+
+
+def test_descriptor_cache_different_schemas() -> None:
+    _DESCRIPTOR_CACHE.clear()
+
+    schema1_content = """
+syntax = "proto3";
+
+message Message1 {
+  string field1 = 1;
+}
+"""
+
+    schema2_content = """
+syntax = "proto3";
+
+message Message2 {
+  int32 field2 = 1;
+}
+"""
+
+    schema1 = ProtobufSchema("schema1.proto", schema1_content)
+    schema2 = ProtobufSchema("schema2.proto", schema2_content)
+
+    with patch("grpc.protos") as mock_protos:
+        mock_descriptor1 = object()
+        mock_descriptor2 = object()
+        mock_protos.return_value.DESCRIPTOR = mock_descriptor1
+
+        result1 = _from_protobuf_schema_to_descriptors(schema1)
+        assert result1 is mock_descriptor1
+        assert mock_protos.call_count == 1
+
+        mock_protos.return_value.DESCRIPTOR = mock_descriptor2
+
+        result2 = _from_protobuf_schema_to_descriptors(schema2)
+        assert result2 is mock_descriptor2
+        assert mock_protos.call_count == 2
+
+
+def test_descriptor_cache_failed_compilation() -> None:
+    _DESCRIPTOR_CACHE.clear()
+
+    schema = """
+syntax = "proto3";
+
+message DuplicateMessage {
+  string id = 1;
+}
+"""
+
+    schema1 = ProtobufSchema("duplicate.proto", schema)
+    schema2 = ProtobufSchema("duplicate.proto", schema)
+
+    with patch("grpc.protos") as mock_protos:
+        mock_protos.side_effect = Exception(
+            "Couldn't build proto file into descriptor pool: duplicate symbol 'DuplicateMessage'"
+        )
+
+        result1 = _from_protobuf_schema_to_descriptors(schema1)
+        assert result1 is None
+        assert mock_protos.call_count == 1
+
+        result2 = _from_protobuf_schema_to_descriptors(schema2)
+        assert result2 is None
+        assert mock_protos.call_count == 1
+
+
+def test_descriptor_cache_with_imported_schemas() -> None:
+    _DESCRIPTOR_CACHE.clear()
+
+    main_schema_content = """
+syntax = "proto3";
+
+import "imported.proto";
+
+message MainMessage {
+  ImportedMessage field = 1;
+}
+"""
+
+    imported_schema1_content = """
+syntax = "proto3";
+
+message ImportedMessage {
+  string id = 1;
+}
+"""
+
+    imported_schema2_content = """
+syntax = "proto3";
+
+message ImportedMessage {
+  int32 id = 1;
+}
+"""
+
+    main_schema = ProtobufSchema("main.proto", main_schema_content)
+    imported1 = ProtobufSchema("imported.proto", imported_schema1_content)
+    imported2 = ProtobufSchema("imported.proto", imported_schema2_content)
+
+    with patch("grpc.protos") as mock_protos:
+        mock_descriptor1 = object()
+        mock_descriptor2 = object()
+        mock_protos.return_value.DESCRIPTOR = mock_descriptor1
+
+        result1 = _from_protobuf_schema_to_descriptors(main_schema, [imported1])
+        assert result1 is mock_descriptor1
+        assert mock_protos.call_count == 1
+
+        mock_protos.return_value.DESCRIPTOR = mock_descriptor2
+
+        result2 = _from_protobuf_schema_to_descriptors(main_schema, [imported2])
+        assert result2 is mock_descriptor2
+        assert mock_protos.call_count == 2

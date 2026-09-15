@@ -7,6 +7,7 @@ from pydantic import Field, RootModel
 from typing_extensions import Literal
 
 from datahub.api.entities.datacontract.assertion import BaseAssertion
+from datahub.emitter.mce_builder import make_assertion_source
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -78,6 +79,7 @@ class FreshnessAssertion(
                 type=FreshnessAssertionTypeClass.DATASET_CHANGE,
                 schedule=self.root.generate_freshness_assertion_schedule(),
             ),
+            source=make_assertion_source(),
             description=self.root.description,
         )
         return [MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=aspect)]

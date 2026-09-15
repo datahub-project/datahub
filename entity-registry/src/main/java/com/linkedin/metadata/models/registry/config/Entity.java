@@ -20,4 +20,5 @@ public class Entity {
 
   @Nullable String category;
   @Nullable String searchGroup;
+  @Nullable Boolean viewUnrestricted;
 }

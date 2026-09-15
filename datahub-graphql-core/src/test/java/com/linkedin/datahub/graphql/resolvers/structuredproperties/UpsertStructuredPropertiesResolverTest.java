@@ -40,7 +40,6 @@ public class UpsertStructuredPropertiesResolverTest {
       "urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)";
   private static final String PROPERTY_URN_1 = "urn:li:structuredProperty:test1";
   private static final String PROPERTY_URN_2 = "urn:li:structuredProperty:test2";
-
   private static final StructuredPropertyInputParams PROP_INPUT_1 =
       new StructuredPropertyInputParams(
           PROPERTY_URN_1, ImmutableList.of(new PropertyValueInput("test1", null)));
@@ -239,7 +238,7 @@ public class UpsertStructuredPropertiesResolverTest {
     UpsertStructuredPropertiesResolver resolver =
         new UpsertStructuredPropertiesResolver(mockEntityClient);
 
-    // Execute resolver with deny context
+    // Execute resolver with a context that denies all privileges
     QueryContext mockContext = getMockDenyContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
@@ -247,7 +246,7 @@ public class UpsertStructuredPropertiesResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    // Validate that we did NOT call ingestProposal
+    // Validate that we never attempted to ingest the change
     Mockito.verify(mockEntityClient, Mockito.times(0))
         .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
   }

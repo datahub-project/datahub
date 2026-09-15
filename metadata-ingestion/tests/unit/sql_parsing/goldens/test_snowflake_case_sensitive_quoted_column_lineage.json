@@ -1,0 +1,38 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "43233c4a4be7d52ab7723ee797991487d756bd67accbf8eee5fc16c08d49c610",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "fullname",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)",
+                    "column": "CustomerName"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"TBL\".\"CUSTOMERNAME\" AS \"FullName\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT \"CustomerName\" AS \"FullName\" FROM db.sch.tbl"
+    }
+}

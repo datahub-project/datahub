@@ -1,6 +1,7 @@
 import { FormOutlined, MoreOutlined } from '@ant-design/icons';
 import { Button, Dropdown } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import DownloadAsCsvButton from '@app/entity/shared/components/styled/search/DownloadAsCsvButton';
@@ -39,6 +40,7 @@ export default function SearchExtendedMenu({
     totalResults,
     setShowSelectMode,
 }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
     const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
     const [showDownloadAsCsvModal, setShowDownloadAsCsvModal] = useState(false);
 
@@ -61,7 +63,7 @@ export default function SearchExtendedMenu({
                       <MenuItemStyle>
                           <SelectButton type="text" onClick={() => setShowSelectMode(true)}>
                               <FormOutlined />
-                              Edit...
+                              {t('searchExtendedMenu.edit')}
                           </SelectButton>
                       </MenuItemStyle>
                   ),

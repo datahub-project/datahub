@@ -2,7 +2,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewOptionName } from '@app/entityV2/view/select/ViewOptionName';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
@@ -18,41 +17,38 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
     display: flex;
     align-items: center;
     position: relative;
-    background: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '')};
+    background: ${(props) => (props.selected ? props.theme.colors.buttonFillBrand : '')};
     ${(props) => !props.$isShowNavBarRedesign && 'padding: 10px;'}
     width: 100%;
     border-radius: 16px;
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        border: 1px solid ${props.selected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BORDER_1};
+        border: 1px solid ${props.selected ? props.theme.colors.borderBrand : props.theme.colors.border};
     `}
 
     &:hover {
         ${(props) =>
             !props.$isShowNavBarRedesign &&
             `
-            border: ${`1px solid ${props.theme.styles['primary-color']}`};
+            border: ${`1px solid ${props.theme.colors.borderBrand}`};
             padding: 10px;
         `}
         border-radius: 16px;
         & .create-view-icon {
-            background: ${(props) => props.theme.styles['primary-color']} !important;
-            border: ${(props) =>
-                !props.selected ? `1px solid ${props.theme.styles['primary-color']} !important` : ''};
+            background: ${(props) => props.theme.colors.buttonFillBrand} !important;
+            border: ${(props) => (!props.selected ? `1px solid ${props.theme.colors.borderBrand} !important` : '')};
         }
     }
     & .default-view-icon-container {
-        border: 1px solid
-            ${(props) =>
-                props.selected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK};
+        border: 1px solid ${(props) => (props.selected ? props.theme.colors.borderBrand : props.theme.colors.border)};
         border-radius: 100%;
     }
     & .close-container {
         position: absolute;
         top: -10px;
         right: -5px;
-        background-color: ${ANTD_GRAY[1]};
+        background-color: ${(props) => props.theme.colors.bg};
         display: flex;
         align-items: center;
         border-radius: 100%;
@@ -63,7 +59,7 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
 
 const CloseIconStyle = styled(CloseIcon)`
     font-size: 14px !important;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 type Props = {

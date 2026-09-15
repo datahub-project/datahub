@@ -502,9 +502,49 @@
                 "transforms": [
                     {
                         "queryStatement": {
-                            "value": "PACKAGE analytics_pkg AS\n    PROCEDURE generate_sales_report(p_month IN VARCHAR2);\n    FUNCTION calculate_commission(p_emp_id IN NUMBER, p_rate IN NUMBER) RETURN NUMBER;\nEND analytics_pkg;",
+                            "value": "PACKAGE analytics_pkg AS\n    PROCEDURE generate_sales_report(p_month IN VARCHAR2);\n    FUNCTION calculate_commission(p_emp_id IN NUMBER, p_rate IN NUMBER) RETURN NUMBER;\nEND analytics_pkg;\nPACKAGE BODY analytics_pkg AS\n    PROCEDURE generate_sales_report(p_month IN VARCHAR2) AS\n        v_count NUMBER;\n    BEGIN\n        -- Use both materialized views (creates dependencies)\n        SELECT COUNT(*) INTO v_count\n        FROM employee_sales_summary e\n        JOIN monthly_order_summary m ON 1=1  -- Simplified join for demo\n        WHERE m.order_month = p_month;\n\n        -- This procedure depends on both materialized views\n        NULL; -- Placeholder for report generation logic\n    END generate_sales_report;\n\n    FUNCTION calculate_commission(p_emp_id IN NUMBER, p_rate IN NUMBER) RETURN NUMBER AS\n        v_total_sales NUMBER;\n    BEGIN\n        -- Depends on employee_sales_summary materialized view\n        SELECT NVL(total_sales, 0) INTO v_total_sales\n        FROM employee_sales_summary\n        WHERE employee_id = p_emp_id;\n\n        RETURN v_total_sales * p_rate;\n    END calculate_commission;\nEND analytics_pkg;",
                             "language": "SQL"
                         }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInputOutput",
+        "aspect": {
+            "json": {
+                "inputDatasets": [
+                    "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.employee_sales_summary,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.monthly_order_summary,PROD)"
+                ],
+                "outputDatasets": [
+                    "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.v_count,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.v_total_sales,PROD)"
+                ],
+                "inputDatajobs": [
+                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)"
+                ],
+                "fineGrainedLineages": [
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.employee_sales_summary,PROD),total_sales)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.v_total_sales,PROD),nvl%28\"employee_sales_summary\".\"total_sales\"%2C 0%29)"
+                        ],
+                        "transformOperation": "SQL: NVL(\"EMPLOYEE_SALES_SUMMARY\".\"TOTAL_SALES\", 0) AS \"_col_0\"",
+                        "confidenceScore": 0.2
                     }
                 ]
             }
@@ -550,7 +590,7 @@
                 "customProperties": {
                     "object_type": "PROCEDURE",
                     "status": "VALID",
-                    "upstream_dependencies": "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), PUBLIC.DBMS_MVIEW (SYNONYM)"
+                    "upstream_dependencies": "PUBLIC.DBMS_MVIEW (SYNONYM), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE)"
                 },
                 "name": "REFRESH_ANALYTICS_DATA",
                 "type": {
@@ -1427,112 +1467,6 @@
     },
     {
         "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
-        "changeType": "UPSERT",
-        "aspectName": "dataJobInfo",
-        "aspect": {
-            "json": {
-                "customProperties": {
-                    "object_type": "PROCEDURE",
-                    "status": "VALID",
-                    "upstream_dependencies": "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), HR_SCHEMA.DEPARTMENTS (TABLE), HR_SCHEMA.EMPLOYEES (TABLE)"
-                },
-                "name": "GET_EMPLOYEE_INFO",
-                "type": {
-                    "string": "Stored Procedure"
-                }
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
-        "changeType": "UPSERT",
-        "aspectName": "subTypes",
-        "aspect": {
-            "json": {
-                "typeNames": [
-                    "Stored Procedure"
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
-        "changeType": "UPSERT",
-        "aspectName": "container",
-        "aspect": {
-            "json": {
-                "container": "urn:li:container:95eca163199143e2636cac2685c9d809"
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
-        "changeType": "UPSERT",
-        "aspectName": "dataTransformLogic",
-        "aspect": {
-            "json": {
-                "transforms": [
-                    {
-                        "queryStatement": {
-                            "value": "PROCEDURE get_employee_info(p_emp_id IN NUMBER, p_cursor OUT SYS_REFCURSOR) AS\nBEGIN\n    OPEN p_cursor FOR\n    SELECT e.employee_id, e.first_name, e.last_name, e.salary, d.department_name\n    FROM employees e\n    JOIN departments d ON e.department_id = d.department_id\n    WHERE e.employee_id = p_emp_id;\nEND;",
-                            "language": "SQL"
-                        }
-                    }
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataJob",
-        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
-        "changeType": "UPSERT",
-        "aspectName": "browsePathsV2",
-        "aspect": {
-            "json": {
-                "path": [
-                    {
-                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
-                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
-                    },
-                    {
-                        "id": "urn:li:container:95eca163199143e2636cac2685c9d809",
-                        "urn": "urn:li:container:95eca163199143e2636cac2685c9d809"
-                    }
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataJob",
         "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
         "changeType": "UPSERT",
         "aspectName": "dataJobInfo",
@@ -1541,7 +1475,7 @@
                 "customProperties": {
                     "object_type": "FUNCTION",
                     "status": "VALID",
-                    "upstream_dependencies": "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), HR_SCHEMA.EMPLOYEES (TABLE)"
+                    "upstream_dependencies": "HR_SCHEMA.EMPLOYEES (TABLE), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE)"
                 },
                 "name": "CALCULATE_ANNUAL_SALARY",
                 "type": {
@@ -1615,6 +1549,112 @@
     {
         "entityType": "dataJob",
         "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:95eca163199143e2636cac2685c9d809",
+                        "urn": "urn:li:container:95eca163199143e2636cac2685c9d809"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInfo",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "object_type": "PROCEDURE",
+                    "status": "VALID",
+                    "upstream_dependencies": "HR_SCHEMA.DEPARTMENTS (TABLE), HR_SCHEMA.EMPLOYEES (TABLE), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE)"
+                },
+                "name": "GET_EMPLOYEE_INFO",
+                "type": {
+                    "string": "Stored Procedure"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Stored Procedure"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:95eca163199143e2636cac2685c9d809"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+        "changeType": "UPSERT",
+        "aspectName": "dataTransformLogic",
+        "aspect": {
+            "json": {
+                "transforms": [
+                    {
+                        "queryStatement": {
+                            "value": "PROCEDURE get_employee_info(p_emp_id IN NUMBER, p_cursor OUT SYS_REFCURSOR) AS\nBEGIN\n    OPEN p_cursor FOR\n    SELECT e.employee_id, e.first_name, e.last_name, e.salary, d.department_name\n    FROM employees e\n    JOIN departments d ON e.department_id = d.department_id\n    WHERE e.employee_id = p_emp_id;\nEND;",
+                            "language": "SQL"
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
         "changeType": "UPSERT",
         "aspectName": "browsePathsV2",
         "aspect": {
@@ -2366,7 +2406,7 @@
                 "customProperties": {
                     "object_type": "FUNCTION",
                     "status": "VALID",
-                    "upstream_dependencies": "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), SALES_SCHEMA.ORDER_ITEMS (TABLE)"
+                    "upstream_dependencies": "SALES_SCHEMA.ORDER_ITEMS (TABLE), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE)"
                 },
                 "name": "GET_ORDER_TOTAL",
                 "type": {
@@ -2512,7 +2552,7 @@
                 "customProperties": {
                     "object_type": "PROCEDURE",
                     "status": "VALID",
-                    "upstream_dependencies": "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), HR_SCHEMA.EMPLOYEES (TABLE), SALES_SCHEMA.ORDERS (TABLE)"
+                    "upstream_dependencies": "HR_SCHEMA.EMPLOYEES (TABLE), SALES_SCHEMA.ORDERS (TABLE), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE)"
                 },
                 "name": "PROCESS_ORDER",
                 "type": {
@@ -2682,7 +2722,7 @@
                         },
                         "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.dual,PROD)",
                         "type": "VIEW",
-                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29"
+                        "query": "urn:li:query:view_843debbfebfcff86ffa5ec18c0c7a64d970e2ca250bace890cc4aa63b6f27dd2"
                     }
                 ]
             }
@@ -2695,7 +2735,7 @@
     },
     {
         "entityType": "query",
-        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
+        "entityUrn": "urn:li:query:view_843debbfebfcff86ffa5ec18c0c7a64d970e2ca250bace890cc4aa63b6f27dd2",
         "changeType": "UPSERT",
         "aspectName": "queryProperties",
         "aspect": {
@@ -2724,7 +2764,7 @@
     },
     {
         "entityType": "query",
-        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
+        "entityUrn": "urn:li:query:view_843debbfebfcff86ffa5ec18c0c7a64d970e2ca250bace890cc4aa63b6f27dd2",
         "changeType": "UPSERT",
         "aspectName": "querySubjects",
         "aspect": {
@@ -2756,7 +2796,7 @@
     },
     {
         "entityType": "query",
-        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
+        "entityUrn": "urn:li:query:view_843debbfebfcff86ffa5ec18c0c7a64d970e2ca250bace890cc4aa63b6f27dd2",
         "changeType": "UPSERT",
         "aspectName": "dataPlatformInstance",
         "aspect": {
@@ -2789,7 +2829,7 @@
                         },
                         "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)",
                         "type": "VIEW",
-                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                        "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                     }
                 ],
                 "fineGrainedLineages": [
@@ -2804,7 +2844,7 @@
                         ],
                         "transformOperation": "COPY: \"EMPLOYEES\".\"DEPARTMENT_ID\" AS \"DEPARTMENT_ID\"",
                         "confidenceScore": 0.9,
-                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                        "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                     },
                     {
                         "upstreamType": "FIELD_SET",
@@ -2817,7 +2857,7 @@
                         ],
                         "transformOperation": "SQL: AVG(\"EMPLOYEES\".\"SALARY\") AS \"AVG_SALARY\"",
                         "confidenceScore": 0.9,
-                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                        "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                     },
                     {
                         "upstreamType": "FIELD_SET",
@@ -2830,7 +2870,7 @@
                         ],
                         "transformOperation": "SQL: MAX(\"EMPLOYEES\".\"SALARY\") AS \"MAX_SALARY\"",
                         "confidenceScore": 0.9,
-                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                        "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                     },
                     {
                         "upstreamType": "FIELD_SET",
@@ -2843,7 +2883,7 @@
                         ],
                         "transformOperation": "SQL: MIN(\"EMPLOYEES\".\"SALARY\") AS \"MIN_SALARY\"",
                         "confidenceScore": 0.9,
-                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                        "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                     }
                 ]
             }
@@ -2856,7 +2896,7 @@
     },
     {
         "entityType": "query",
-        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+        "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
         "changeType": "UPSERT",
         "aspectName": "queryProperties",
         "aspect": {
@@ -2885,7 +2925,7 @@
     },
     {
         "entityType": "query",
-        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+        "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
         "changeType": "UPSERT",
         "aspectName": "querySubjects",
         "aspect": {
@@ -2929,7 +2969,7 @@
     },
     {
         "entityType": "query",
-        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+        "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
         "changeType": "UPSERT",
         "aspectName": "dataPlatformInstance",
         "aspect": {
@@ -2962,7 +3002,7 @@
                         },
                         "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)",
                         "type": "VIEW",
-                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29"
+                        "query": "urn:li:query:view_cbc8a76880233ea29c386635292f352adaaf06ae0c0990c67b9b148511fbf165"
                     }
                 ],
                 "fineGrainedLineages": [
@@ -2977,7 +3017,7 @@
                         ],
                         "transformOperation": "SQL: TO_CHAR(\"ORDERS\".\"ORDER_DATE\", 'YYYY-MM') AS \"ORDER_MONTH\"",
                         "confidenceScore": 0.9,
-                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29"
+                        "query": "urn:li:query:view_cbc8a76880233ea29c386635292f352adaaf06ae0c0990c67b9b148511fbf165"
                     },
                     {
                         "upstreamType": "FIELD_SET",
@@ -2990,7 +3030,7 @@
                         ],
                         "transformOperation": "SQL: SUM(\"ORDERS\".\"ORDER_TOTAL\") AS \"TOTAL_REVENUE\"",
                         "confidenceScore": 0.9,
-                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29"
+                        "query": "urn:li:query:view_cbc8a76880233ea29c386635292f352adaaf06ae0c0990c67b9b148511fbf165"
                     },
                     {
                         "upstreamType": "FIELD_SET",
@@ -3003,7 +3043,7 @@
                         ],
                         "transformOperation": "SQL: AVG(\"ORDERS\".\"ORDER_TOTAL\") AS \"AVG_ORDER_VALUE\"",
                         "confidenceScore": 0.9,
-                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29"
+                        "query": "urn:li:query:view_cbc8a76880233ea29c386635292f352adaaf06ae0c0990c67b9b148511fbf165"
                     }
                 ]
             }
@@ -3016,7 +3056,7 @@
     },
     {
         "entityType": "query",
-        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29",
+        "entityUrn": "urn:li:query:view_cbc8a76880233ea29c386635292f352adaaf06ae0c0990c67b9b148511fbf165",
         "changeType": "UPSERT",
         "aspectName": "queryProperties",
         "aspect": {
@@ -3045,7 +3085,7 @@
     },
     {
         "entityType": "query",
-        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29",
+        "entityUrn": "urn:li:query:view_cbc8a76880233ea29c386635292f352adaaf06ae0c0990c67b9b148511fbf165",
         "changeType": "UPSERT",
         "aspectName": "querySubjects",
         "aspect": {
@@ -3086,454 +3126,7 @@
     },
     {
         "entityType": "query",
-        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29",
-        "changeType": "UPSERT",
-        "aspectName": "dataPlatformInstance",
-        "aspect": {
-            "json": {
-                "platform": "urn:li:dataPlatform:oracle"
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "upstreamLineage",
-        "aspect": {
-            "json": {
-                "upstreams": [
-                    {
-                        "auditStamp": {
-                            "time": 1643871600000,
-                            "actor": "urn:li:corpuser:_ingestion"
-                        },
-                        "created": {
-                            "time": 1770987565000,
-                            "actor": "urn:li:corpuser:_ingestion"
-                        },
-                        "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.sales_schema.orders,PROD)",
-                        "type": "TRANSFORMED",
-                        "query": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda"
-                    }
-                ],
-                "fineGrainedLineages": [
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.sales_schema.orders,PROD),order_date)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD),order_date)"
-                        ],
-                        "transformOperation": "COPY: \"ORDERS\".\"ORDER_DATE\" AS \"ORDER_DATE\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda"
-                    },
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.sales_schema.orders,PROD),order_total)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD),sum%28\"orders\".\"order_total\"%29)"
-                        ],
-                        "transformOperation": "SQL: SUM(\"ORDERS\".\"ORDER_TOTAL\") AS \"_col_1\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda"
-                    }
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "query",
-        "entityUrn": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda",
-        "changeType": "UPSERT",
-        "aspectName": "queryProperties",
-        "aspect": {
-            "json": {
-                "customProperties": {},
-                "statement": {
-                    "value": "INSERT INTO staging_schema.daily_revenue (\n  order_date,\n  total_revenue\n)\nSELECT\n  order_date,\n  SUM(order_total)\nFROM sales_schema.orders\nGROUP BY\n  order_date",
-                    "language": "SQL"
-                },
-                "source": "SYSTEM",
-                "created": {
-                    "time": 1770987565000,
-                    "actor": "urn:li:corpuser:_ingestion"
-                },
-                "lastModified": {
-                    "time": 1770987565000,
-                    "actor": "urn:li:corpuser:_ingestion"
-                }
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "query",
-        "entityUrn": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda",
-        "changeType": "UPSERT",
-        "aspectName": "querySubjects",
-        "aspect": {
-            "json": {
-                "subjects": [
-                    {
-                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.sales_schema.orders,PROD)"
-                    },
-                    {
-                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.sales_schema.orders,PROD),order_date)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.sales_schema.orders,PROD),order_total)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD),order_date)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD),sum%28\"orders\".\"order_total\"%29)"
-                    }
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "query",
-        "entityUrn": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda",
-        "changeType": "UPSERT",
-        "aspectName": "dataPlatformInstance",
-        "aspect": {
-            "json": {
-                "platform": "urn:li:dataPlatform:oracle"
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "upstreamLineage",
-        "aspect": {
-            "json": {
-                "upstreams": [
-                    {
-                        "auditStamp": {
-                            "time": 1643871600000,
-                            "actor": "urn:li:corpuser:_ingestion"
-                        },
-                        "created": {
-                            "time": 1770987565000,
-                            "actor": "urn:li:corpuser:_ingestion"
-                        },
-                        "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD)",
-                        "type": "TRANSFORMED",
-                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
-                    }
-                ],
-                "fineGrainedLineages": [
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),employee_id)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),employee_id)"
-                        ],
-                        "transformOperation": "COPY: \"EMPLOYEES\".\"EMPLOYEE_ID\" AS \"EMPLOYEE_ID\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
-                    },
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),first_name)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),first_name)"
-                        ],
-                        "transformOperation": "COPY: \"EMPLOYEES\".\"FIRST_NAME\" AS \"FIRST_NAME\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
-                    },
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),last_name)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),last_name)"
-                        ],
-                        "transformOperation": "COPY: \"EMPLOYEES\".\"LAST_NAME\" AS \"LAST_NAME\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
-                    },
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),email)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),email)"
-                        ],
-                        "transformOperation": "COPY: \"EMPLOYEES\".\"EMAIL\" AS \"EMAIL\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
-                    },
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),phone_number)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),phone_number)"
-                        ],
-                        "transformOperation": "COPY: \"EMPLOYEES\".\"PHONE_NUMBER\" AS \"PHONE_NUMBER\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
-                    },
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),hire_date)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),hire_date)"
-                        ],
-                        "transformOperation": "COPY: \"EMPLOYEES\".\"HIRE_DATE\" AS \"HIRE_DATE\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
-                    },
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),job_id)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),job_id)"
-                        ],
-                        "transformOperation": "COPY: \"EMPLOYEES\".\"JOB_ID\" AS \"JOB_ID\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
-                    },
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),salary)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),salary)"
-                        ],
-                        "transformOperation": "COPY: \"EMPLOYEES\".\"SALARY\" AS \"SALARY\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
-                    },
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),commission_pct)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),commission_pct)"
-                        ],
-                        "transformOperation": "COPY: \"EMPLOYEES\".\"COMMISSION_PCT\" AS \"COMMISSION_PCT\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
-                    },
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),manager_id)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),manager_id)"
-                        ],
-                        "transformOperation": "COPY: \"EMPLOYEES\".\"MANAGER_ID\" AS \"MANAGER_ID\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
-                    },
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),department_id)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),department_id)"
-                        ],
-                        "transformOperation": "COPY: \"EMPLOYEES\".\"DEPARTMENT_ID\" AS \"DEPARTMENT_ID\"",
-                        "confidenceScore": 0.2,
-                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
-                    }
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "query",
-        "entityUrn": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c",
-        "changeType": "UPSERT",
-        "aspectName": "queryProperties",
-        "aspect": {
-            "json": {
-                "customProperties": {},
-                "statement": {
-                    "value": "INSERT INTO staging_schema.employee_backup (\n  employee_id,\n  first_name,\n  last_name,\n  email,\n  phone_number,\n  hire_date,\n  job_id,\n  salary,\n  commission_pct,\n  manager_id,\n  department_id\n)\nSELECT\n  employee_id,\n  first_name,\n  last_name,\n  email,\n  phone_number,\n  hire_date,\n  job_id,\n  salary,\n  commission_pct,\n  manager_id,\n  department_id\nFROM hr_schema.employees\nWHERE\n  department_id = 10",
-                    "language": "SQL"
-                },
-                "source": "SYSTEM",
-                "created": {
-                    "time": 1770987565000,
-                    "actor": "urn:li:corpuser:_ingestion"
-                },
-                "lastModified": {
-                    "time": 1770987565000,
-                    "actor": "urn:li:corpuser:_ingestion"
-                }
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "query",
-        "entityUrn": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c",
-        "changeType": "UPSERT",
-        "aspectName": "querySubjects",
-        "aspect": {
-            "json": {
-                "subjects": [
-                    {
-                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD)"
-                    },
-                    {
-                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),commission_pct)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),department_id)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),email)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),employee_id)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),first_name)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),hire_date)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),job_id)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),last_name)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),manager_id)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),phone_number)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),salary)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),employee_id)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),first_name)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),last_name)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),email)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),phone_number)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),hire_date)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),job_id)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),salary)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),commission_pct)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),manager_id)"
-                    },
-                    {
-                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),department_id)"
-                    }
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "query",
-        "entityUrn": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c",
+        "entityUrn": "urn:li:query:view_cbc8a76880233ea29c386635292f352adaaf06ae0c0990c67b9b148511fbf165",
         "changeType": "UPSERT",
         "aspectName": "dataPlatformInstance",
         "aspect": {
@@ -3692,24 +3285,8 @@
         }
     },
     {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {
-            "json": {
-                "removed": false
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD)",
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_843debbfebfcff86ffa5ec18c0c7a64d970e2ca250bace890cc4aa63b6f27dd2",
         "changeType": "UPSERT",
         "aspectName": "status",
         "aspect": {
@@ -3725,7 +3302,7 @@
     },
     {
         "entityType": "query",
-        "entityUrn": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda",
+        "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
         "changeType": "UPSERT",
         "aspectName": "status",
         "aspect": {
@@ -3741,55 +3318,7 @@
     },
     {
         "entityType": "query",
-        "entityUrn": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c",
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {
-            "json": {
-                "removed": false
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "query",
-        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {
-            "json": {
-                "removed": false
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "query",
-        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {
-            "json": {
-                "removed": false
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "oracle-query-usage-test",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "query",
-        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29",
+        "entityUrn": "urn:li:query:view_cbc8a76880233ea29c386635292f352adaaf06ae0c0990c67b9b148511fbf165",
         "changeType": "UPSERT",
         "aspectName": "status",
         "aspect": {

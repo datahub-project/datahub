@@ -1,3 +1,7 @@
+---
+description: "Authenticate DataHub API requests with JWT tokens from external identity providers like Okta, Azure AD, and Google Identity."
+---
+
 # External OAuth Authentication
 
 :::note DataHub Cloud Customers
@@ -195,6 +199,57 @@ response = requests.post(
     json={'query': '{ me { corpUser { urn username }}}'}
 )
 ```
+
+## Authenticating DataHub Clients (CLI, SDK, and Ingestion)
+
+Instead of pasting a static token, the Python SDK, the `datahub` CLI, and ingestion pipelines can mint short-lived OAuth tokens themselves via a configurable token provider. Tokens are fetched from your IdP, cached, and refreshed automatically before expiry.
+
+### Declarative configuration (recipes and SDK)
+
+Add an `auth` block to any client config — for example in an ingestion recipe:
+
+```yaml
+sink:
+  type: datahub-rest
+  config:
+    server: https://your-datahub.com/gms
+    auth:
+      type: oidc_client_credentials
+      config:
+        token_endpoint: https://your-idp.com/oauth2/token
+        client_id: datahub-client
+        client_secret: "${IDP_CLIENT_SECRET}"
+        audience: datahub-api
+```
+
+The same block works on `datahub_api` (for sources that read from DataHub) and on `DatahubClientConfig` in SDK code. `auth` and `token` are mutually exclusive — configure one or the other.
+
+### Environment-based configuration (`DATAHUB_AUTH_TYPE`)
+
+Processes that resolve their client config from environment variables — the `datahub` CLI, the default ingestion sink, and Remote Executor recipe subprocesses — can configure OAuth entirely via env vars:
+
+| `DATAHUB_AUTH_TYPE`       | Required variables                                                                         | Optional variables                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `k8s_oidc`                | —                                                                                          | `DATAHUB_AUTH_TOKEN_FILE`, `DATAHUB_AUTH_AUDIENCE`              |
+| `azure_entra`             | `DATAHUB_AUTH_AZURE_TENANT_ID`, `DATAHUB_AUTH_AZURE_CLIENT_ID`, `DATAHUB_AUTH_AZURE_SCOPE` | `DATAHUB_AUTH_AZURE_CLIENT_SECRET` (omit for workload identity) |
+| `oidc_client_credentials` | `DATAHUB_AUTH_TOKEN_ENDPOINT`, `DATAHUB_AUTH_CLIENT_ID`, `DATAHUB_AUTH_CLIENT_SECRET`      | `DATAHUB_AUTH_SCOPE`, `DATAHUB_AUTH_AUDIENCE`                   |
+
+```bash
+export DATAHUB_GMS_URL=https://your-datahub.com/gms
+export DATAHUB_AUTH_TYPE=oidc_client_credentials
+export DATAHUB_AUTH_TOKEN_ENDPOINT=https://your-idp.com/oauth2/token
+export DATAHUB_AUTH_CLIENT_ID=datahub-client
+export DATAHUB_AUTH_CLIENT_SECRET=...
+datahub ingest -c recipe.yml
+```
+
+### Precedence rules
+
+- **Explicit credentials win over the environment.** A recipe sink or client config that sets `token` or `auth` ignores `DATAHUB_AUTH_TYPE`.
+- **Env OAuth wins over static tokens** — over `DATAHUB_GMS_TOKEN` and over a token stored in `~/.datahubenv`. Each override is logged as a warning. Note that this swaps the calling identity: a job that deliberately authenticated with a personal access token will act as the OAuth service identity once `DATAHUB_AUTH_TYPE` is set in its environment.
+- **Env OAuth applies only to the env-configured server.** A credential-less `sink: datahub-rest` block inherits env OAuth only when its `server` matches `DATAHUB_GMS_URL` (same scheme, host, and port); otherwise the merge is skipped with a warning so freshly minted tokens are never sent to a different host.
+
+Custom token providers registered via the provider registry are supported through the declarative `auth` block only, not through `DATAHUB_AUTH_TYPE`.
 
 ## Best Practices
 

@@ -54,7 +54,7 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                 if (
                     parsedYaml &&
                     !!existingIngestionSource &&
-                    parsedYaml?.source?.config?.type !== existingIngestionSource.type
+                    parsedYaml?.source?.type !== existingIngestionSource.type
                 ) {
                     throw new Error("It's not possible to change source type for existing ingestion source");
                 }

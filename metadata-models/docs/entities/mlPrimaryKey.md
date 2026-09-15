@@ -124,7 +124,7 @@ MLPrimaryKeys support the `structuredProperties` aspect, allowing organizations 
 ### Reading MLPrimaryKey Information
 
 <details>
-<summary>Python SDK: Read MLPrimaryKey using the v2 SDK</summary>
+<summary>Python SDK: Read MLPrimaryKey properties</summary>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/mlprimarykey_read.py show_path_as_comment }}
@@ -145,12 +145,12 @@ MLPrimaryKeys are typically associated with feature tables to define how records
 
 </details>
 
-### Querying MLPrimaryKey via REST API
+### Querying MLPrimaryKey via the Python SDK
 
-The standard REST APIs can be used to retrieve MLPrimaryKey metadata and relationships.
+The Python SDK can be used to retrieve MLPrimaryKey metadata and relationships.
 
 <details>
-<summary>REST API: Fetch MLPrimaryKey entity information</summary>
+<summary>Python SDK: Fetch MLPrimaryKey entity information</summary>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/mlprimarykey_query_rest.py show_path_as_comment }}

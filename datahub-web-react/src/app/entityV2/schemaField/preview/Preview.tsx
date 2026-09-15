@@ -1,4 +1,4 @@
-import { Rows } from '@phosphor-icons/react';
+import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import React from 'react';
 
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';

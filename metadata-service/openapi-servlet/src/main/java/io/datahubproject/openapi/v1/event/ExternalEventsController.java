@@ -20,6 +20,7 @@ import io.datahubproject.event.models.v1.ExternalEvents;
 import io.datahubproject.event.models.v1.ExternalEventsResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -110,7 +111,8 @@ public class ExternalEventsController {
           OperationContext.asSession(
               systemOperationContext,
               RequestContext.builder()
-                  .buildOpenapi(authentication.getActor().toUrnStr(), request, "poll", List.of()),
+                  .buildOpenapi(authentication.getActor().toUrnStr(), request, "poll", List.of())
+                  .withUsageOperation(UsageOperation.OTHER_READ),
               authorizationChain,
               authentication,
               true);
@@ -145,13 +147,14 @@ public class ExternalEventsController {
 
   private boolean isAuthorizedToGetEvents(
       @Nonnull final OperationContext opContext, @Nonnull final String topic) {
+    if (AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_TOPIC_EVENTS_PRIVILEGE)) {
+      return true;
+    }
     if (Topics.PLATFORM_EVENT.equals(topic)) {
       return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_PLATFORM_EVENTS_PRIVILEGE);
     }
-    if (Topics.METADATA_CHANGE_LOG_VERSIONED.equals(topic)) {
-      return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS);
-    }
-    if (Topics.METADATA_CHANGE_LOG_TIMESERIES.equals(topic)) {
+    if (Topics.METADATA_CHANGE_LOG_VERSIONED.equals(topic)
+        || Topics.METADATA_CHANGE_LOG_TIMESERIES.equals(topic)) {
       return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS);
     }
     return false;
@@ -222,7 +225,8 @@ public class ExternalEventsController {
                     authentication.getActor().toUrnStr(),
                     request,
                     "search",
-                    DATAHUB_USAGE_EVENT_INDEX),
+                    DATAHUB_USAGE_EVENT_INDEX)
+                .withUsageOperation(UsageOperation.SEARCH_QUERY),
             authorizationChain,
             authentication,
             true);

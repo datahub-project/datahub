@@ -4,14 +4,13 @@ import styled from 'styled-components';
 
 import { PreviewType } from '@app/entityV2/Entity';
 import EditDataProductModal from '@app/entityV2/domain/DataProductsTab/EditDataProductModal';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { useEntityContext } from '@src/app/entity/shared/EntityContext';
 
 import { DataProduct, EntityType } from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${REDESIGN_COLORS.RED_ERROR};
+    color: ${(props) => props.theme.colors.textError};
     font-size: 12px;
     box-shadow: none;
     border: none;
@@ -25,7 +24,7 @@ const TransparentButton = styled(Button)`
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
-        color: ${REDESIGN_COLORS.RED_ERROR};
+        color: ${(props) => props.theme.colors.textError};
     }
 `;
 
@@ -33,8 +32,8 @@ const ResultWrapper = styled.div`
     padding: 20px;
     display: flex;
     align-items: center;
-    border: 1px solid #ebecf0;
-    background: ${REDESIGN_COLORS.WHITE};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 10px;
 
     &:hover ${TransparentButton} {

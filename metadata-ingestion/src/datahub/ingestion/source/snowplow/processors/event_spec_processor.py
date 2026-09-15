@@ -99,10 +99,32 @@ class EventSpecProcessor(EntityProcessor):
             )
             return
 
+        # Pre-compute allowed statuses set (already normalized to lowercase by config validator)
+        allowed_statuses: Optional[frozenset] = None
+        if self.config.event_spec_statuses is not None:
+            allowed_statuses = frozenset(self.config.event_spec_statuses)
+
         for event_spec in event_specs:
             self.report.report_event_spec_found()
 
-            # Apply filtering
+            # Apply status filtering
+            if allowed_statuses is not None:
+                if event_spec.status is None:
+                    logger.info(
+                        f"Filtering out event spec '{event_spec.name}' "
+                        f"(no status set, filter requires one of {self.config.event_spec_statuses})"
+                    )
+                    self.report.report_event_spec_filtered(event_spec.name)
+                    continue
+                if event_spec.status.lower() not in allowed_statuses:
+                    logger.info(
+                        f"Filtering out event spec '{event_spec.name}' "
+                        f"(status='{event_spec.status}' not in {self.config.event_spec_statuses})"
+                    )
+                    self.report.report_event_spec_filtered(event_spec.name)
+                    continue
+
+            # Apply name pattern filtering
             if not self.config.event_spec_pattern.allowed(event_spec.name):
                 self.report.report_event_spec_filtered(event_spec.name)
                 continue

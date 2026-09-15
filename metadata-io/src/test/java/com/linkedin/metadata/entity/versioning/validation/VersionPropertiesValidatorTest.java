@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.when;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.VersionTag;
 import com.linkedin.common.urn.Urn;
@@ -98,6 +99,7 @@ public class VersionPropertiesValidatorTest {
 
     Stream<AspectValidationException> validationResult =
         VersionPropertiesValidator.validatePropertiesUpserts(
+            OperationFingerprint.EMPTY,
             TestMCP.ofOneUpsertItem(TEST_ENTITY_URN, properties, new TestEntityRegistry()),
             retrieverContext);
 
@@ -114,6 +116,7 @@ public class VersionPropertiesValidatorTest {
 
     Stream<AspectValidationException> validationResult =
         VersionPropertiesValidator.validatePropertiesUpserts(
+            OperationFingerprint.EMPTY,
             TestMCP.ofOneUpsertItem(TEST_ENTITY_URN, properties, new TestEntityRegistry()),
             retrieverContext);
 
@@ -132,6 +135,7 @@ public class VersionPropertiesValidatorTest {
 
     Stream<AspectValidationException> validationResult =
         VersionPropertiesValidator.validatePropertiesUpserts(
+            OperationFingerprint.EMPTY,
             TestMCP.ofOneUpsertItem(TEST_ENTITY_URN, properties, new TestEntityRegistry()),
             retrieverContext);
 
@@ -150,6 +154,7 @@ public class VersionPropertiesValidatorTest {
 
     Stream<AspectValidationException> validationResult =
         VersionPropertiesValidator.validatePropertiesUpserts(
+            OperationFingerprint.EMPTY,
             TestMCP.ofOneUpsertItem(TEST_ENTITY_URN, properties, new TestEntityRegistry()),
             retrieverContext);
 
@@ -171,6 +176,7 @@ public class VersionPropertiesValidatorTest {
 
     Stream<AspectValidationException> validationResult =
         VersionPropertiesValidator.validatePropertiesUpserts(
+            OperationFingerprint.EMPTY,
             TestMCP.ofOneUpsertItem(TEST_ENTITY_URN, properties, new TestEntityRegistry()),
             retrieverContext);
 
@@ -192,6 +198,7 @@ public class VersionPropertiesValidatorTest {
 
     Stream<AspectValidationException> validationResult =
         VersionPropertiesValidator.validatePropertiesUpserts(
+            OperationFingerprint.EMPTY,
             TestMCP.ofOneUpsertItem(TEST_ENTITY_URN, properties, new TestEntityRegistry()),
             retrieverContext);
 

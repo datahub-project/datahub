@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import ChangeTypeSummaryPill from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeTypeSummaryPill';
@@ -22,6 +23,7 @@ type SubtitleProps = {
 };
 
 export default function Subtitle({ summary, onTypeClick, selectedOperationTypes }: SubtitleProps) {
+    const { t } = useTranslation('entity.profile.stats');
     const operations = useMemo(() => {
         return Object.entries(summary?.operations || {})
             .map(([_, value]) => value)
@@ -32,7 +34,7 @@ export default function Subtitle({ summary, onTypeClick, selectedOperationTypes 
 
     return (
         <Container>
-            <span>Operations made to this table:</span>
+            <span>{t('changeHistoryGraph.operationsMade')}</span>
             {operations.map((operation) => (
                 <ChangeTypeSummaryPill
                     key={operation.key}

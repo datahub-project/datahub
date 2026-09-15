@@ -6,10 +6,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -19,10 +23,23 @@ public class DevToolingControllerTest {
 
   @BeforeMethod
   public void setup() {
+    AuthenticationContext.remove();
     FeatureFlags featureFlags = new FeatureFlags();
     ConfigurationProvider configProvider = mock(ConfigurationProvider.class);
     when(configProvider.getFeatureFlags()).thenReturn(featureFlags);
-    mockMvc = MockMvcBuilders.standaloneSetup(new DevToolingController(configProvider)).build();
+    AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
+    mockMvc =
+        MockMvcBuilders.standaloneSetup(
+                new DevToolingController(
+                    configProvider,
+                    TestOperationContexts.systemContextNoValidate(),
+                    authorizerChain))
+            .build();
+  }
+
+  @AfterMethod
+  public void tearDown() {
+    AuthenticationContext.remove();
   }
 
   @Test
