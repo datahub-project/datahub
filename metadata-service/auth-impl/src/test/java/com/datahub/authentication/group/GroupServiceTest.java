@@ -2,6 +2,7 @@ package com.datahub.authentication.group;
 
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -49,7 +50,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -559,6 +562,73 @@ public class GroupServiceTest {
                         && NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME.equals(proposal.getAspectName())));
     assertTrue(
         written.stream().noneMatch(proposal -> OTHER_USER_URN.equals(proposal.getEntityUrn())));
+  }
+
+  @Test
+  public void testMigrateGroupMembershipWritesOriginLast() throws Exception {
+    mockMigrationDependencies();
+
+    _groupService.migrateGroupMembershipToNativeGroupMembership(
+        opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString());
+
+    // Grant before revoke, since the member list is read from GroupMembership-derived edges.
+    // Origin last so an interrupted run stays re-migratable.
+    InOrder inOrder = inOrder(_entityClient);
+    inOrder
+        .verify(_entityClient)
+        .batchIngestProposals(any(OperationContext.class), anyCollection(), eq(false));
+    inOrder
+        .verify(_entityClient)
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(mcp -> GROUP_MEMBERSHIP_ASPECT_NAME.equals(mcp.getAspectName())));
+    inOrder
+        .verify(_entityClient)
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(mcp -> ORIGIN_ASPECT_NAME.equals(mcp.getAspectName())));
+
+    assertEquals(
+        capturedBatchProposals(1).stream()
+            .map(MetadataChangeProposal::getAspectName)
+            .collect(Collectors.toList()),
+        ImmutableList.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
+  }
+
+  @Test
+  public void testMigrateGroupMembershipInterruptedLeavesOriginUnset() throws Exception {
+    mockMigrationDependencies();
+    // The grant used to run after the Origin write, so failing here left members in no group at
+    // all and ineligible for re-migration.
+    when(_entityClient.batchIngestProposals(
+            any(OperationContext.class), anyCollection(), eq(false)))
+        .thenThrow(new RuntimeException("Migration interrupted"));
+
+    assertThrows(
+        () ->
+            _groupService.migrateGroupMembershipToNativeGroupMembership(
+                opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString()));
+
+    // Leaving Origin unset is what lets the next call retry.
+    verify(_entityClient, never())
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(mcp -> ORIGIN_ASPECT_NAME.equals(mcp.getAspectName())));
+  }
+
+  private void mockMigrationDependencies() throws Exception {
+    when(_graphClient.getRelatedEntities(
+            eq(EXTERNAL_GROUP_URN_STRING),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            anyInt(),
+            anyInt(),
+            any()))
+        .thenReturn(_entityRelationships);
+    when(_entityClient.batchGetV2NoCache(any(), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(_entityResponseMap);
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN));
   }
 
   @Test

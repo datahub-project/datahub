@@ -534,11 +534,13 @@ public class GroupService implements ActorGroupMembershipService {
       throws Exception {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
-    // Get the existing set of users. This list is graph-derived, so it may still name users who
-    // no longer exist in SQL (e.g. a deleted corpuser whose IsMemberOfGroup edge is stale).
-    // addUsersToNativeGroup rejects the whole batch if any URN is absent, so those stale URNs
-    // must be filtered out before removeExistingGroupMembers commits anything - otherwise one
-    // stale edge would empty the group's membership entirely.
+    // Runs inline in the resolvers, so a timeout or disconnect can interrupt it. Step order keeps
+    // that recoverable: the member list comes from graph edges derived from GroupMembership, so
+    // grant native membership before revoking it, and write Origin last - a set Origin disables
+    // the resolvers' retry guard for good.
+    //
+    // Graph edges outlive a hard-deleted user, and addUsersToNativeGroup rejects the whole batch
+    // if any URN is absent, so filter stale URNs out before committing anything.
     final List<Urn> graphDerivedUserUrnList = getExistingGroupMembers(groupUrn, actorUrnStr);
     final Set<Urn> existingUserUrns =
         _entityService.exists(opContext, new LinkedHashSet<>(graphDerivedUserUrnList), true);
@@ -561,12 +563,9 @@ public class GroupService implements ActorGroupMembershipService {
           staleUserUrns);
     }
 
-    // Remove the existing group membership for each (still-existing) user in the group
-    removeExistingGroupMembers(opContext, groupUrn, userUrnList);
-    // Mark the group as a native group
-    createNativeGroupOrigin(opContext, groupUrn);
-    // Add each user as a native group member to the group
     addUsersToNativeGroup(opContext, userUrnList, groupUrn);
+    removeExistingGroupMembers(opContext, groupUrn, userUrnList);
+    createNativeGroupOrigin(opContext, groupUrn);
   }
 
   NativeGroupMembership getExistingNativeGroupMembership(
