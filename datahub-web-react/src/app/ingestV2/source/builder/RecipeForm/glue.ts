@@ -33,19 +33,23 @@ export const awsSecretAccessKeyFieldPath = 'source.config.aws_secret_access_key'
 export const awsSessionTokenFieldPath = 'source.config.aws_session_token';
 export const awsRoleFieldPath = 'source.config.aws_role';
 
-export function setGlueAwsAuthMethodOnRecipe(recipe: any): any {
-    let updatedRecipe = { ...recipe };
-    const authType = get(updatedRecipe, awsAuthTypeFieldPath);
+export function setGlueAwsAuthMethodOnRecipe(recipe: any, value: string | undefined): any {
+    // `aws_auth_method` is NOT a real GlueSourceConfig field — it's a UI-only selector
+    // (the Python connector infers the auth method from which credentials are populated)
+    // and GlueSourceConfig inherits ConfigModel with `extra="forbid"`, so writing it
+    // would make the recipe fail validation. Keep it out of the recipe and only use it
+    // to drive credential cleanup.
+    let updatedRecipe = omit({ ...recipe }, [awsAuthTypeFieldPath]);
 
     const accessKeyFields = [awsAccessKeyIdFieldPath, awsSecretAccessKeyFieldPath, awsSessionTokenFieldPath];
-
     const roleFields = [awsRoleFieldPath];
 
-    if (authType === awsAuthAccessKeys) {
-        updatedRecipe = omit(updatedRecipe, accessKeyFields);
-    } else if (authType === awsAuthIamRole) {
+    if (value === awsAuthAccessKeys) {
         updatedRecipe = omit(updatedRecipe, roleFields);
+    } else if (value === awsAuthIamRole) {
+        updatedRecipe = omit(updatedRecipe, accessKeyFields);
     } else {
+        // Default credentials or unknown — no per-recipe credentials should remain.
         updatedRecipe = omit(updatedRecipe, [...accessKeyFields, ...roleFields]);
     }
 
