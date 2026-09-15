@@ -2,10 +2,11 @@ import { Modal } from '@components';
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components/macro';
 
-const PreviewSyntax = styled(SyntaxHighlighter)`
+import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
+
+const PreviewSyntax = styled(StyledSyntaxHighlighter)`
     max-height: 68px;
     overflow: hidden !important;
     border-radius: 12px;
@@ -65,9 +66,9 @@ const SummaryQuerySection = ({ query }: Props) => {
                 onCancel={() => setShowFullContentModal(false)}
             >
                 <ModalSyntaxContainer>
-                    <SyntaxHighlighter language="sql" wrapLongLines showLineNumbers>
+                    <StyledSyntaxHighlighter language="sql" wrapLongLines showLineNumbers>
                         {query}
-                    </SyntaxHighlighter>
+                    </StyledSyntaxHighlighter>
                 </ModalSyntaxContainer>
             </Modal>
 
