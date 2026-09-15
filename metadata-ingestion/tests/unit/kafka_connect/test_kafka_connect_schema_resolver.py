@@ -1260,6 +1260,54 @@ class TestSinkFineGrainedLineage:
 
         assert result is None
 
+    def test_uses_connector_graph_with_bulk_schema_resolver(self) -> None:
+        """Bulk resolvers stay graphless while sink lineage reads Kafka schemas."""
+        manifest = ConnectorManifest(
+            name="jdbc-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost/testdb",
+                "topics": "orders",
+            },
+            tasks=[],
+        )
+        connector = JdbcSinkConnector(
+            manifest, self._config(), KafkaConnectSourceReport(), platform="postgres"
+        )
+        resolver = self._resolver(
+            platform="postgres",
+            db_schemas={"testdb.public.orders": {"id": "INTEGER", "amount": "NUMERIC"}},
+            kafka_schemas={self._KAFKA_ORDERS_URN: ["id", "amount"]},
+        )
+        graph = resolver.graph
+        resolver.graph = None  # type: ignore[assignment]
+        connector.schema_resolver = resolver  # type: ignore[assignment]
+        connector.graph = graph
+
+        result = connector._extract_sink_fine_grained_lineage(
+            "orders", "testdb.public.orders", "postgres"
+        )
+
+        assert result is not None
+        lineage_pairs = []
+        for lineage in result:
+            assert lineage.upstreams is not None
+            assert lineage.downstreams is not None
+            lineage_pairs.append((lineage.upstreams[0], lineage.downstreams[0]))
+
+        assert sorted(lineage_pairs) == sorted(
+            [
+                (
+                    f"urn:li:schemaField:({self._KAFKA_ORDERS_URN},id)",
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.orders,PROD),id)",
+                ),
+                (
+                    f"urn:li:schemaField:({self._KAFKA_ORDERS_URN},amount)",
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.orders,PROD),amount)",
+                ),
+            ]
+        )
+
     def test_returns_none_when_kafka_schema_missing(self) -> None:
         """Returns None gracefully when the Kafka topic has no schema in DataHub."""
         manifest = ConnectorManifest(
