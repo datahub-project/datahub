@@ -18,6 +18,7 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Literal, Optional, Tuple
 
+from datahub.errors import ItemNotFoundError
 from datahub.metadata import schema_classes as models
 from datahub.sdk import Document
 from datahub_agent_context.context import get_datahub_client
@@ -152,15 +153,34 @@ def _generate_document_id() -> str:
     return f"shared-{unique_id}"
 
 
-def _is_document_in_shared_folder(document_urn: str) -> Tuple[bool, Optional[str]]:
+def _get_existing_document(client, document_urn: str):
+    """Fetch an existing document, returning ``None`` if it does not exist.
+
+    The SDK raises ``ItemNotFoundError`` for a missing document rather than
+    returning ``None``; both mean "does not exist". Real errors (transport,
+    auth, server) propagate so the caller can return a structured failure.
+    """
+    try:
+        return client.entities.get(document_urn)
+    except ItemNotFoundError:
+        return None
+
+
+def _is_document_in_shared_folder(document_urn: str, doc) -> Tuple[bool, Optional[str]]:
     """Check if a document is within the shared documents folder.
+
+    ``doc`` is the already-fetched document (or ``None`` if it does not exist
+    yet). The caller fetches it exactly once and passes it in so the hierarchy
+    validation and the create-or-update decision agree on the same entity (a
+    second read could observe a different state than the one that was
+    validated). A ``None`` document is allowed (it will be created).
 
     Simple validation: document must have the shared folder as a parent/ancestor.
 
     Returns:
         Tuple of (is_valid, error_message)
-        - (True, None) if document is in the shared folder
-        - (False, error_message) if document is outside the folder
+        - (True, None) if the document is in the shared folder or does not exist yet
+        - (False, error_message) if the document is outside the folder
     """
 
     client = get_datahub_client()
@@ -173,17 +193,12 @@ def _is_document_in_shared_folder(document_urn: str) -> Tuple[bool, Optional[str
             "Only documents within this folder can be updated."
         )
 
-    try:
-        # Fetch the document
-        doc = client.entities.get(document_urn)
-        logger.debug(
-            f"Validating document {document_urn} for update, fetched: {doc is not None}"
-        )
-        if doc is None:
-            # Document doesn't exist yet - allow (will be created)
-            logger.debug(f"Document {document_urn} does not exist, allowing update")
-            return True, None
+    # A document that does not exist yet is allowed (it will be created below).
+    if doc is None:
+        logger.debug(f"Document {document_urn} does not exist, allowing update")
+        return True, None
 
+    try:
         # Get documentInfo aspect
         aspects = getattr(doc, "aspects", None) or getattr(doc, "_aspects", {})
         logger.debug(
@@ -379,9 +394,11 @@ def save_document(
     - Under a configurable parent folder (default: "Shared" for global context)
     - Optionally grouped by the user who authored them
 
-    UPSERT BEHAVIOR:
+    UPSERT BEHAVIOR (create-or-update keyed on the URN):
     - If `urn` is NOT provided: Creates a NEW document with a unique URN
-    - If `urn` IS provided: Updates the EXISTING document with that URN
+    - If `urn` IS provided and the document does not exist yet: Creates it at
+      that URN (stable and addressable across runs)
+    - If `urn` IS provided and the document already exists: Updates it
 
     IMPORTANT USAGE GUIDELINES:
     - Always confirm with the user before saving
@@ -409,11 +426,14 @@ def save_document(
 
     OPTIONAL PARAMETERS:
 
-    urn: The URN of an existing document to update.
-        - ONLY use after a search_documents or get_entity call returns a document URN
-        - Example: "urn:li:document:agent-insight-abc123"
-        - If not provided, a new document is created with a unique URN
-        - If provided, the existing document is updated (upsert operation)
+    urn: Optional URN to create or update a document at (create-or-update keyed
+        on the URN).
+        - If the document does not exist, it is created at this URN.
+        - If it already exists, it is updated.
+        - Publishing to a stable, addressable URN lets an agent read/write its
+          own memory deterministically across runs (e.g.
+          "urn:li:document:memory:<run>:<channel>").
+        - If not provided, a new document is created with a unique URN.
 
     topics: List of topic tags for categorization and discovery (like a word cloud).
         - These become searchable tags in DataHub that users can click to find related documents
@@ -523,10 +543,25 @@ def save_document(
                 "author": None,
             }
 
-        # Validate that the document is within the agent-authored hierarchy
-        # This prevents accidental modification of user-created or imported documents
+        # Fetch the existing document exactly once so the shared-folder check
+        # and the create-or-update decision agree on the same entity (a second
+        # read could observe a different state than the one that was validated).
+        try:
+            existing_doc = _get_existing_document(client, urn)
+        except Exception as probe_error:
+            logger.error(f"Failed to read document {urn}: {probe_error}", exc_info=True)
+            return {
+                "success": False,
+                "urn": None,
+                "message": f"Error reading document {urn}: {str(probe_error)}",
+                "author": None,
+            }
+
+        # Validate that the document is within the agent-authored hierarchy.
+        # This prevents accidental modification of user-created or imported
+        # documents, and also prohibits updating the root shared folder.
         if _restrict_updates_to_shared_folder():
-            is_valid, error_message = _is_document_in_shared_folder(urn)
+            is_valid, error_message = _is_document_in_shared_folder(urn, existing_doc)
             if not is_valid:
                 return {
                     "success": False,
@@ -535,10 +570,19 @@ def save_document(
                     "author": None,
                 }
 
-        is_update = True
         document_urn = urn
         # Extract document ID from URN
         document_id = urn.replace("urn:li:document:", "")
+        if not document_id:
+            return {
+                "success": False,
+                "urn": None,
+                "message": f"Invalid urn format '{urn}'. A document URN must have a non-empty id.",
+                "author": None,
+            }
+        # A caller-supplied URN is create-or-update keyed on the URN: create at
+        # that URN when the document does not exist yet, update it otherwise.
+        is_update = existing_doc is not None
     else:
         is_update = False
         # Generate new document ID
