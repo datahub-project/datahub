@@ -333,7 +333,7 @@ describe('useExtractFieldTagsInfo', () => {
         expect(numberOfTags).toBe(2);
     });
 
-    it('should match camelCase editable paths against lowercased schema paths (ING-2174)', () => {
+    it('should match camelCase editable paths against lowercased schema paths', () => {
         const metadata: EditableSchemaMetadata = {
             editableSchemaFieldInfo: [
                 {
