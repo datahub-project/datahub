@@ -1186,6 +1186,7 @@ metabase = [
 microstrategy = [
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
+    { name = "sqlparse" },
 ]
 mlflow = [
     { name = "mlflow-skinny" },
@@ -2713,6 +2714,7 @@ requires-dist = [
     { name = "sqlparse", marker = "extra == 'kafka-connect'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'mariadb'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'matillion-dpc'", specifier = ">=0.6.0,<1.0.0" },
+    { name = "sqlparse", marker = "extra == 'microstrategy'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'mssql'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'mssql-odbc'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'mysql'", specifier = ">=0.6.0,<1.0.0" },

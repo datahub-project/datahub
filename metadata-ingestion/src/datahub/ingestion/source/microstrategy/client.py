@@ -1,6 +1,17 @@
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import requests
 import urllib3
@@ -15,6 +26,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_API_AUTH_LOGIN,
     MSTR_API_AUTH_LOGOUT,
     MSTR_API_AUTH_PREFIX,
+    MSTR_API_FOLDERS_PREDEFINED,
     MSTR_API_METADATA_SEARCHES,
     MSTR_API_OBJECT,
     MSTR_API_PROJECTS,
@@ -30,6 +42,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasourceConnection,
     MicroStrategyObject,
     ModelTablesResponse,
+    PredefinedFolder,
     Project,
     SqlView,
 )
@@ -49,7 +62,27 @@ _MAX_RETRY_DELAY_SECONDS = 60
 
 
 class MicroStrategyAPIError(RuntimeError):
-    pass
+    """An API call failed. `status_code` and `url` are set when the failure
+    was an HTTP error response, so callers that swallow the error can still
+    record which endpoint answered with what (e.g. a 403 on the Modeling
+    service vs. a 404 on an older server that lacks it)."""
+
+    def __init__(
+        self,
+        message: str,
+        status_code: Optional[int] = None,
+        url: Optional[str] = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.url = url
+
+    def summary(self) -> str:
+        """One-line form for report samples: the HTTP status when known,
+        then the message."""
+        if self.status_code is not None:
+            return f"HTTP {self.status_code}: {self}"
+        return str(self)
 
 
 class MicroStrategyAuthError(RuntimeError):
@@ -168,6 +201,26 @@ class MicroStrategyClient:
             Datasource, datasources, f"GET {path} project_id={project_id}"
         )
 
+    def get_predefined_folders(
+        self, project_id: str, folder_types: Sequence[int]
+    ) -> List[PredefinedFolder]:
+        """GET /api/folders/preDefined?folderType=... -- resolves the id and
+        MicroStrategy-assigned label for one or more EnumDSSXMLFolderNames
+        predefined folders (e.g. 7 = Shared Reports) for this project."""
+        path = MSTR_API_FOLDERS_PREDEFINED
+        params = {
+            "folderType": ",".join(str(folder_type) for folder_type in folder_types)
+        }
+        payload = self._get_json(path, project_id=project_id, params=params)
+        folders = self._extract_list(payload, "preDefined")
+        if not folders:
+            self._warn_if_unrecognized_shape(
+                payload, path, recognized_keys={"preDefined", "result", "items"}
+            )
+        return self._parse_models(
+            PredefinedFolder, folders, f"GET {path} project_id={project_id}"
+        )
+
     def list_project_datasources(self, project_id: str) -> List[Datasource]:
         path = f"/api/projects/{project_id}/datasources"
         payload = self._get_json(path, project_id=project_id)
@@ -218,11 +271,22 @@ class MicroStrategyClient:
         report_id: str,
     ) -> Optional[MicroStrategyObject]:
         """Fetch one report (with folder ancestors) by id, avoiding a full library scan."""
-        path = MSTR_API_OBJECT.format(object_id=report_id)
+        return self.get_object_info(project_id, report_id, MSTR_OBJECT_TYPE_REPORT)
+
+    def get_object_info(
+        self,
+        project_id: str,
+        object_id: str,
+        object_type: int,
+    ) -> Optional[MicroStrategyObject]:
+        """GET /api/objects/{id}?type=... -- one object's metadata including its
+        subtype and folder ancestors. Reports and cubes both use object type 3
+        (EnumDSSXMLObjectTypes report definition); the subtype tells them apart."""
+        path = MSTR_API_OBJECT.format(object_id=object_id)
         payload = self._get_json(
             path,
             project_id=project_id,
-            params={"type": MSTR_OBJECT_TYPE_REPORT},
+            params={"type": object_type},
         )
         item = payload
         if "id" not in item and isinstance(item.get("result"), dict):
@@ -235,7 +299,10 @@ class MicroStrategyClient:
         return self._parse_model(
             MicroStrategyObject,
             item,
-            f"report object info project_id={project_id}, report_id={report_id}",
+            (
+                f"object info project_id={project_id}, object_id={object_id}, "
+                f"type={object_type}"
+            ),
         )
 
     def _search_typed_objects(
@@ -313,6 +380,16 @@ class MicroStrategyClient:
         return self._get_json(
             f"/api/model/consolidations/{consolidation_id}",
             project_id=project_id,
+        )
+
+    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, object]:
+        """GET /api/model/reports/{id} (Modeling service, 2021 Update 7+): the
+        report's full definition including its report-level derived metrics
+        with expressions; parsed by models.extract_embedded_metric_definitions."""
+        return self._get_json(
+            f"/api/model/reports/{report_id}",
+            project_id=project_id,
+            params={"showExpressionAs": "tokens"},
         )
 
     def get_model_document(
@@ -856,7 +933,9 @@ class MicroStrategyClient:
             except requests.HTTPError as error:
                 self.report.report_api_error()
                 raise MicroStrategyAPIError(
-                    f"MicroStrategy API request failed: {method} {path}: {error}"
+                    f"MicroStrategy API request failed: {method} {path}: {error}",
+                    status_code=response.status_code,
+                    url=url,
                 ) from error
             return response
 

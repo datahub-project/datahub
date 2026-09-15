@@ -342,6 +342,40 @@ export const MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS: RecipeField = {
     getValueFromRecipeOverride: getBooleanValueWithTrueDefault(extractMetricExpressionsFieldPath),
 };
 
+const extractDerivedMetricsFieldPath = 'source.config.extract_derived_metrics';
+export const MICROSTRATEGY_EXTRACT_DERIVED_METRICS: RecipeField = {
+    name: 'extract_derived_metrics',
+    label: 'Extract Derived Metrics',
+    tooltip:
+        'Whether to surface visualization-local derived metrics (grid columns marked derived: true, which exist only inside a dossier visualization and not in the metadata catalog) as schema fields on the dataset backing their column group, tagged Derived. Requires Extract Lineage and Extract Visualization Details; adds no API calls.',
+    type: FieldType.BOOLEAN,
+    fieldPath: extractDerivedMetricsFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: getBooleanValueWithTrueDefault(extractDerivedMetricsFieldPath),
+};
+
+export const MICROSTRATEGY_EXTRACT_METRIC_FORMULA_LINEAGE: RecipeField = {
+    name: 'extract_metric_formula_lineage',
+    label: 'Extract Metric Formula Lineage',
+    tooltip:
+        'Whether to parse metric-name references out of catalog metric expressions and emit field-to-field lineage from a metric to the sibling fields it references on the same dataset. Requires Extract Metric Expressions. Disabled by default.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.extract_metric_formula_lineage',
+    rules: null,
+};
+
+const usePredefinedFolderNamesFieldPath = 'source.config.use_predefined_folder_names';
+export const MICROSTRATEGY_USE_PREDEFINED_FOLDER_NAMES: RecipeField = {
+    name: 'use_predefined_folder_names',
+    label: 'Use Predefined Folder Names',
+    tooltip:
+        "Resolve the 'Shared Reports' predefined folder label via the MicroStrategy folders API and use it for browse-path matching, container identity, and display instead of the folder's raw metadata name ('Reports'). Disabling this keeps prior container URNs for environments that already ingested that folder under its raw name.",
+    type: FieldType.BOOLEAN,
+    fieldPath: usePredefinedFolderNamesFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: getBooleanValueWithTrueDefault(usePredefinedFolderNamesFieldPath),
+};
+
 const extractModelLineageFieldPath = 'source.config.extract_model_lineage';
 export const MICROSTRATEGY_EXTRACT_MODEL_LINEAGE: RecipeField = {
     name: 'extract_model_lineage',

@@ -1,6 +1,6 @@
 from typing import Annotated, Dict, Literal, Optional, Union
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.source_common import (
@@ -120,7 +120,37 @@ class MicroStrategyConfig(
         description=(
             "Regex patterns to filter folder containers by name. When an "
             "intermediate folder is denied, its children re-parent to the "
-            "nearest allowed ancestor rather than being dropped."
+            "nearest allowed ancestor rather than being dropped, so this "
+            "cannot exclude content; personal folders are excluded by "
+            "`include_personal_folders` instead."
+        ),
+    )
+    include_personal_folders: bool = Field(
+        default=False,
+        description=(
+            "Whether to ingest personal folders: each user's profile folder "
+            "tree under the project's 'Profiles' system folder, holding that "
+            "user's 'My Reports', 'My Objects' and similar folders. Excluded by "
+            "default: dashboards, documents and reports filed there are skipped "
+            "before any definition is fetched (counted in "
+            "`personal_folder_objects_skipped`) and their folder containers are "
+            "not emitted. The Profiles root is resolved by id via "
+            "GET /api/folders/preDefined (EnumDSSXMLFolderNames 19/20) plus the "
+            "profile folder's own ancestors; when that fails, an ancestor folder "
+            "named 'Profiles' or 'My Reports' (case-insensitive) identifies "
+            "personal content instead. Set true to ingest them."
+        ),
+    )
+    use_predefined_folder_names: bool = Field(
+        default=True,
+        description=(
+            "Resolve the 'Shared Reports' predefined folder (MicroStrategy "
+            "EnumDSSXMLFolderNames type 7) via GET /api/folders/preDefined and use "
+            "that label -- for browse-path matching, container identity, and "
+            "display -- instead of the folder's raw metadata name ('Reports'). "
+            "Adds one cached API call per project. Disabling this keeps prior "
+            "container URNs for environments that already ingested that folder "
+            "under its raw name; see docs/how/updating-datahub.md."
         ),
     )
 
@@ -199,6 +229,33 @@ class MicroStrategyConfig(
             "Whether to fetch metric model definitions with expression tokens "
             "and attach expression metadata to metric schema fields when the "
             "MicroStrategy principal has access."
+        ),
+    )
+    extract_derived_metrics: bool = Field(
+        default=True,
+        description=(
+            "Whether to surface derived metrics (grid columns marked "
+            "`derived: true`) as schema fields on the dataset backing their "
+            "column group, tagged `Derived`. When the dataset is a report, its "
+            "definition is fetched (GET /api/model/reports/{id}, falling back "
+            "to GET /api/v2/reports/{id}) so report-level derived metrics carry "
+            "the report's object name and formula; every derived metric the "
+            "report defines is emitted, not only those a grid displays. "
+            "Derived metrics no definition exposes are visualization-local and "
+            "carry provenance but no expression. Adds one or two API calls per "
+            "distinct report-backed dataset per project. Grid input requires "
+            "`extract_lineage` and `extract_visualization_details`."
+        ),
+    )
+    extract_metric_formula_lineage: bool = Field(
+        default=False,
+        description=(
+            "Whether to parse `{Metric Name}` references out of catalog metric "
+            "expressions (fetched via `extract_metric_expressions`) and emit "
+            "field-to-field lineage from a metric to the sibling fields it "
+            "references on the same dataset. Best effort: references to "
+            "objects that are not fields of the dataset are counted in the "
+            "report and skipped. Disabled by default."
         ),
     )
     extract_model_lineage: bool = Field(
@@ -319,6 +376,18 @@ class MicroStrategyConfig(
         default=True,
         description="Whether to map API owner fields to DataHub ownership aspects.",
     )
+    dataset_field_order: Literal["report", "alphabetical"] = Field(
+        default="report",
+        description=(
+            "Order of the schema fields emitted for each dataset. `report` "
+            "(the default) keeps the order the report or cube definition lists "
+            "its objects in - metrics, then attributes and their forms, then "
+            "derived metrics - which is how the Report Objects pane shows "
+            "them. `alphabetical` sorts fields by name, the behaviour of "
+            "earlier releases. Either way the DataHub schema tab re-sorts the "
+            "fields alphabetically when the column header is clicked."
+        ),
+    )
     datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
         default_factory=dict,
         description=(
@@ -352,6 +421,18 @@ class MicroStrategyConfig(
         default=None,
         description="Stateful ingestion config with stale entity removal support.",
     )
+
+    @model_validator(mode="after")
+    def _formula_lineage_requires_metric_expressions(self) -> "MicroStrategyConfig":
+        # Opt-in flag whose entire input supply is another flag's output: a
+        # recipe combining them this way would silently emit nothing.
+        if self.extract_metric_formula_lineage and not self.extract_metric_expressions:
+            raise ValueError(
+                "extract_metric_formula_lineage requires "
+                "extract_metric_expressions: metric formulas are the only "
+                "source of formula references."
+            )
+        return self
 
     @field_validator("base_url", mode="after")
     @classmethod
