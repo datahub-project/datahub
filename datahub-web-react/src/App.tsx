@@ -116,7 +116,9 @@ export const InnerApp: React.VFC = () => {
         <HelmetProvider>
             <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
                 <GlobalStyles />
-                <ToastRenderer />
+                <Suspense fallback={null}>
+                    <ToastRenderer />
+                </Suspense>
                 <FilesUploadingDownloadingLatencyTracker />
 
                 <Helmet>

@@ -226,6 +226,11 @@ export default defineConfig(async ({ mode }) => {
                     // splits cut import cycles and cause "cannot access X before initialization"
                     // TDZ crashes at load).
                     sourcemapExcludeSources: true,
+                    // Keep the extension point used by downstream builds. Locale grouping is now
+                    // handled by i18nLocaleBundlesPlugin's virtual dynamic imports.
+                    manualChunks() {
+                        return undefined;
+                    },
                 },
             },
         },
