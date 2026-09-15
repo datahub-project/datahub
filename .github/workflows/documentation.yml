@@ -45,7 +45,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       # Restore always; save only from master (below) so PR runs stop minting per-PR
       # copies of this shared key. Key hashes the manifests that actually determine the
       # uv cache contents — the old '**/requirements.txt' matched 13 unrelated files and
