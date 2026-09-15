@@ -1,0 +1,38 @@
+{
+  "eventTime": "2024-01-01T00:00:00.000Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.13.1/integration/spark",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "COMPLETE",
+  "run": {
+    "runId": "01234567-89ab-cdef-0123-456789abcdef"
+  },
+  "job": {
+    "namespace": "spark_integration",
+    "name": "array_schema_job"
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "namespace": "s3://my-bucket-test",
+      "name": "/sample_data/array_output.parquet",
+      "facets": {
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.13.1/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            { "name": "id", "type": "long" },
+            { "name": "tags", "type": "array<string>" },
+            {
+              "name": "markers",
+              "type": "array",
+              "fields": [
+                { "name": "name", "type": "string" },
+                { "name": "score", "type": "double" }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
