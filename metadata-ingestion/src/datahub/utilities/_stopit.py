@@ -1,8 +1,10 @@
 # Vendored and trimmed from stopit 1.1.2 (https://github.com/glenfant/stopit).
 # stopit is unmaintained (last release 2018) and imports pkg_resources at load,
 # so it cannot be installed alongside setuptools>=82. Only the threading-based
-# timeout is kept; the mechanism is unchanged from upstream (ctypes
-# PyThreadState_SetAsyncExc + threading.Timer), so behaviour is identical.
+# timeout is kept; the timeout mechanism is unchanged from upstream (ctypes
+# PyThreadState_SetAsyncExc + threading.Timer). Unused surface (__bool__,
+# cancel(), the CANCELED state) is dropped, so the mechanism matches upstream
+# but the full BaseTimeout API does not.
 #
 # Copyright (c) 2018 Gilles Lenfant
 #

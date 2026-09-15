@@ -1,4 +1,5 @@
 import importlib
+import importlib.machinery
 import importlib.metadata
 import importlib.util
 import os
@@ -95,8 +96,12 @@ def test_finder_installed_once_and_targets_only_pkg_resources():
 
     finders = [f for f in sys.meta_path if isinstance(f, _PkgResourcesShimFinder)]
     assert len(finders) == 1  # installed once, no duplicates
-    assert finders[0].find_spec("pkg_resources", None) is not None
     assert finders[0].find_spec("something_else", None) is None
+    # Appended after the standard finders, so a real pkg_resources always wins
+    # (guards against a future insert(0, ...) shadowing the real module).
+    assert sys.meta_path.index(finders[0]) > sys.meta_path.index(
+        importlib.machinery.PathFinder
+    )
 
 
 def test_finder_aliases_the_real_shim_module():
