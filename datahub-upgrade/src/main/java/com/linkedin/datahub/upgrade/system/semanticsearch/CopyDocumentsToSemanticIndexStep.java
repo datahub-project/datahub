@@ -26,6 +26,7 @@ import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.reindex.ReindexRequest;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -138,7 +139,7 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
       String semanticIndexName)
       throws IOException {
     SearchSourceBuilder source = new SearchSourceBuilder();
-    source.query(org.opensearch.index.query.QueryBuilders.matchAllQuery());
+    source.query(QueryBuilders.matchAllQuery());
     source.size(CROSS_CLUSTER_PAGE_SIZE);
     // `_id` is not a sortable field on OpenSearch/ES 7+. V2 entity documents have unique `urn`.
     source.sort("urn", SortOrder.ASC);

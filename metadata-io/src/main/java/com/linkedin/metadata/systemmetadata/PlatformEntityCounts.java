@@ -142,7 +142,7 @@ public class PlatformEntityCounts {
     SearchResponse response;
     try {
       response =
-          SearchClients.forEntityIndices(opContext, entityIndexConfiguration, indexName)
+          SearchClients.forEntityIndices(opContext, request)
               .search(opContext, request, RequestOptions.DEFAULT);
     } catch (OpenSearchStatusException e) {
       if (e.status() == RestStatus.NOT_FOUND) {

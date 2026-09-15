@@ -633,7 +633,7 @@ public class AnalyticsService {
         }
       }
     }
-    return SearchClients.forEntityIndices(opContext, entityIndexConfiguration, indices);
+    return SearchClients.forEntityIndices(opContext, searchRequest);
   }
 
   private boolean isUsageIndex(@Nonnull OperationContext opContext, @Nonnull String index) {

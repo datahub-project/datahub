@@ -231,8 +231,7 @@ public class DailyReport {
       // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
       // per-event context available
       SearchResponse searchResponse =
-          SearchClients.forEntityIndices(
-                  systemOperationContext, entityIndexConfiguration(), corpUserIndexName())
+          SearchClients.forEntityIndices(systemOperationContext, searchRequest)
               .search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
       return (int) searchResponse.getHits().getTotalHits().value;
     } catch (Exception e) {
@@ -260,8 +259,7 @@ public class DailyReport {
       // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
       // per-event context available
       SearchResponse searchResponse =
-          SearchClients.forEntityIndices(
-                  systemOperationContext, entityIndexConfiguration(), corpUserIndexName())
+          SearchClients.forEntityIndices(systemOperationContext, searchRequest)
               .search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
       return (int) searchResponse.getHits().getTotalHits().value;
     } catch (Exception e) {

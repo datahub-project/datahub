@@ -12,6 +12,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import org.opensearch.action.search.SearchRequest;
 import org.testng.annotations.Test;
 
 public class SearchClientsTest {
@@ -63,5 +64,24 @@ public class SearchClientsTest {
         () ->
             SearchClients.forEntityIndices(
                 opContext, (EntityIndexConfiguration) null, "graph_service_v1"));
+  }
+
+  @Test
+  public void testSearchRequestRoutesFromItsIndices() {
+    SearchClientShim<?> v2 = mock(SearchClientShim.class);
+    SearchClientShim<?> v3 = mock(SearchClientShim.class);
+    SearchClusterAccess access = component -> component == SearchComponent.SEARCH_V3 ? v3 : v2;
+    OperationContext opContext =
+        TestOperationContexts.withSearchClusterAccess(
+            TestOperationContexts.systemContextNoSearchAuthorization(
+                SearchContext.builder()
+                    .indexConvention(
+                        IndexConventionImpl.noPrefix("MD5", new EntityIndexConfiguration()))
+                    .searchClusterAccess(access)
+                    .build()),
+            access);
+
+    assertSame(SearchClients.forEntityIndices(opContext, new SearchRequest("datasetindex_v3")), v3);
+    assertSame(SearchClients.forEntityIndices(opContext, new SearchRequest("datasetindex_v2")), v2);
   }
 }

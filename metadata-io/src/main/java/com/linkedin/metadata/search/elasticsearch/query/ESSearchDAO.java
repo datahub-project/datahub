@@ -132,8 +132,14 @@ public class ESSearchDAO {
 
   @Nonnull
   private SearchClientShim<?> searchClient(
+      @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest) {
+    return SearchClients.forEntityIndices(opContext, searchRequest);
+  }
+
+  @Nonnull
+  private SearchClientShim<?> searchClient(
       @Nonnull OperationContext opContext, @Nullable String... indices) {
-    return SearchClients.forEntityIndices(opContext, searchConfiguration, indices);
+    return SearchClients.forEntityIndices(opContext, indices);
   }
 
   public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {
@@ -188,7 +194,7 @@ public class ESSearchDAO {
           try {
             log.debug("Executing request {}: {}", id, searchRequest);
             searchResponse =
-                searchClient(opContext, searchRequest.indices())
+                searchClient(opContext, searchRequest)
                     .search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
@@ -316,7 +322,7 @@ public class ESSearchDAO {
         () -> {
           try {
             final SearchResponse searchResponse =
-                searchClient(opContext, searchRequest.indices())
+                searchClient(opContext, searchRequest)
                     .search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
@@ -494,7 +500,7 @@ public class ESSearchDAO {
       Pair<SearchRequest, AutocompleteRequestHandler> searchRequestAndBuilder =
           buildAutocompleteRequest(opContext, entityName, query, field, requestParams, limit);
       SearchResponse searchResponse =
-          searchClient(opContext, searchRequestAndBuilder.getLeft().indices())
+          searchClient(opContext, searchRequestAndBuilder.getLeft())
               .search(opContext, searchRequestAndBuilder.getLeft(), RequestOptions.DEFAULT);
       return searchRequestAndBuilder.getRight().extractResult(opContext, searchResponse, query);
     } catch (Exception e) {
@@ -558,7 +564,7 @@ public class ESSearchDAO {
             final SearchRequest searchRequest =
                 buildAggregateByValue(opContext, entityNames, field, requestParams, limit);
             final SearchResponse searchResponse =
-                searchClient(opContext, searchRequest.indices())
+                searchClient(opContext, searchRequest)
                     .search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results, validated against document model as well
             return AggregationQueryBuilder.extractAggregationsFromResponse(searchResponse, field);
@@ -653,7 +659,7 @@ public class ESSearchDAO {
               final SearchRequest searchRequest =
                   buildActiveIncidentStatsRequest(opContext, new HashSet<>(batch));
               final SearchResponse searchResponse =
-                  searchClient(opContext, searchRequest.indices())
+                  searchClient(opContext, searchRequest)
                       .search(opContext, searchRequest, RequestOptions.DEFAULT);
               result.putAll(extractIncidentStats(searchResponse));
             }
@@ -928,7 +934,7 @@ public class ESSearchDAO {
 
                 return Map.entry(
                     entry.getKey(),
-                    searchClient(opContext, searchRequest.indices())
+                    searchClient(opContext, searchRequest)
                         .search(opContext, searchRequest, RequestOptions.DEFAULT));
               } catch (IOException e) {
                 throw new RuntimeException(e);

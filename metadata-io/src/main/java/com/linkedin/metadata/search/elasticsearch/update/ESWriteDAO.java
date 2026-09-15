@@ -100,7 +100,7 @@ public class ESWriteDAO {
   @Nonnull
   private SearchClientShim<?> clientForIndex(
       @Nonnull OperationContext opContext, @Nonnull String indexName) {
-    return SearchClients.forEntityIndices(opContext, config, indexName);
+    return SearchClients.forEntityIndices(opContext, indexName);
   }
 
   /**
