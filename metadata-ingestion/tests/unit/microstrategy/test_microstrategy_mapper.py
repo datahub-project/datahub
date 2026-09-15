@@ -2353,3 +2353,96 @@ def test_chart_input_fields_show_grid_alias_for_report_derived_metric() -> None:
         json.loads(entry.schemaField.jsonProps or "{}")["microstrategyObjectName"]
         == "RTL PLN"
     )
+
+
+def _paged_definition() -> DashboardDefinition:
+    def page(key: str, name: str, viz_key: str) -> dict:
+        return {
+            "key": key,
+            "name": name,
+            "visualizations": [
+                {"key": viz_key, "name": f"Viz {viz_key}", "datasets": ["ds-1"]}
+            ],
+        }
+
+    return DashboardDefinition.from_api_response(
+        object_id="dash-paged",
+        object_name="Paged Dossier",
+        response={
+            "definition": {
+                "datasets": [{"id": "ds-1", "name": "Sales Cube"}],
+                "chapters": [
+                    {
+                        "key": "ch-1",
+                        "name": "Overview",
+                        "pages": [
+                            page("pg-1", "Summary", "viz-a"),
+                            page("pg-2", "Trend", "viz-b"),
+                        ],
+                    },
+                    {
+                        "key": "ch-2",
+                        "name": "Detail",
+                        "pages": [
+                            page("pg-3", "By Region", "viz-c"),
+                            page("pg-4", "By Store", "viz-d"),
+                        ],
+                    },
+                ],
+            }
+        },
+    )
+
+
+_PLACEMENT_PROPERTY_KEYS = (
+    "microstrategyChapter",
+    "microstrategyChapterKey",
+    "microstrategyChapterIndex",
+    "microstrategyPage",
+    "microstrategyPageKey",
+    "microstrategyPageIndex",
+)
+
+
+def test_chart_properties_record_dossier_chapter_and_page() -> None:
+    mapper = _mapper()
+    dashboard = _paged_definition()
+
+    placements = {}
+    for visualization in dashboard.visualizations:
+        chart_info = _aspect(
+            mapper.gen_chart_workunits(
+                "project-1", dashboard, visualization, mapper.project_key("project-1")
+            ),
+            ChartInfoClass,
+        )
+        placements[visualization.key] = tuple(
+            chart_info.customProperties.get(key) for key in _PLACEMENT_PROPERTY_KEYS
+        )
+
+    assert placements == {
+        "viz-a": ("Overview", "ch-1", "1", "Summary", "pg-1", "1"),
+        "viz-b": ("Overview", "ch-1", "1", "Trend", "pg-2", "2"),
+        "viz-c": ("Detail", "ch-2", "2", "By Region", "pg-3", "1"),
+        "viz-d": ("Detail", "ch-2", "2", "By Store", "pg-4", "2"),
+    }
+
+
+def test_chart_properties_omit_placement_for_visualization_without_a_page() -> None:
+    dashboard = DashboardDefinition.from_api_response(
+        object_id="dash-loose",
+        object_name="Loose Dossier",
+        response={
+            "definition": {
+                "datasets": [{"id": "ds-1", "name": "Sales Cube"}],
+                "visualizations": [{"key": "viz-1", "name": "Loose"}],
+            }
+        },
+    )
+
+    properties = MicroStrategyMapper._visualization_properties(
+        dashboard.visualizations[0]
+    )
+
+    assert properties["microstrategyVisualizationKey"] == "viz-1"
+    assert not set(_PLACEMENT_PROPERTY_KEYS) & set(properties)
