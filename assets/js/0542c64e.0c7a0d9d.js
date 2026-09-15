@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkdocs_website=globalThis.webpackChunkdocs_website||[]).push([[81522],{70062(s){s.exports=JSON.parse('{"label":"Business Metric","permalink":"/learn/tags/business-metric","allTagsPath":"/learn/tags","count":1}')}}]);
