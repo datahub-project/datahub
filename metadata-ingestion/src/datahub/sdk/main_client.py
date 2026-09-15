@@ -74,6 +74,7 @@ class DataHubClient:
         *,
         client_mode: ClientMode = ClientMode.SDK,
         datahub_component: Optional[str] = None,
+        server_config_retry_max_times: Optional[int] = None,
     ) -> "DataHubClient":
         """Initialize a DataHubClient from the environment variables or ~/.datahubenv file.
 
@@ -87,6 +88,8 @@ class DataHubClient:
         Args:
             client_mode: [internal] The client mode to use. Defaults to "SDK".
             datahub_component: [internal] The DataHub component name to include in the user agent.
+            server_config_retry_max_times: Maximum retries for server configuration
+                probes. Other requests retain their configured retry policy.
 
         Returns:
             A DataHubClient instance.
@@ -98,6 +101,7 @@ class DataHubClient:
         graph = get_default_graph(
             client_mode=client_mode,
             datahub_component=datahub_component,
+            server_config_retry_max_times=server_config_retry_max_times,
         )
 
         return cls(graph=graph)
