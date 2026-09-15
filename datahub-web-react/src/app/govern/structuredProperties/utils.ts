@@ -245,10 +245,13 @@ export const getNewAllowedPlatforms = (entity: StructuredPropertyEntity, values:
     return (newPlatforms?.length || 0) > 0 ? newPlatforms : undefined;
 };
 
+export const getAllowedValueKey = (val: {
+    numberValue?: number | null;
+    stringValue?: string | null;
+}): number | string | undefined | null => val.numberValue ?? val.stringValue;
+
 export const getNewAllowedValues = (entity: StructuredPropertyEntity, values: StructuredProp) => {
-    const currentAllowedValues = entity.definition.allowedValues?.map(
-        (val: any) => val.value.numberValue || val.value.stringValue,
-    );
+    const currentAllowedValues = entity.definition.allowedValues?.map((val: any) => getAllowedValueKey(val.value));
     return values.allowedValues?.filter(
         (val: any) =>
             !(currentAllowedValues?.includes(val.stringValue) || currentAllowedValues?.includes(val.numberValue)),

@@ -5,6 +5,7 @@ const addToCache = (existingProperties, newProperty) => {
         entity: {
             urn: newProperty.urn,
             type: newProperty.type,
+            exists: newProperty.exists,
             definition: {
                 displayName: newProperty.definition.displayName,
                 qualifiedName: newProperty.definition.qualifiedName,
@@ -26,7 +27,6 @@ const addToCache = (existingProperties, newProperty) => {
                 hideInAssetSummaryWhenEmpty: newProperty.settings.hideInAssetSummaryWhenEmpty,
                 showInColumnsTable: newProperty.settings.showInColumnsTable,
             },
-            exists: newProperty.exists,
             __typename: 'StructuredPropertyEntity',
         },
         matchedFields: [],
