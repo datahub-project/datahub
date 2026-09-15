@@ -404,7 +404,8 @@ public class GroupServiceTest {
     _groupService.removeExistingNativeGroupMembers(
         opContext, Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST);
 
-    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any());
+    verify(_entityClient, never())
+        .batchIngestProposals(any(OperationContext.class), anyCollection(), anyBoolean());
   }
 
   @Test
@@ -416,7 +417,8 @@ public class GroupServiceTest {
     _groupService.removeExistingGroupMembers(
         opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST);
 
-    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any());
+    verify(_entityClient, never())
+        .batchIngestProposals(any(OperationContext.class), anyCollection(), anyBoolean());
   }
 
   @Test
@@ -475,7 +477,9 @@ public class GroupServiceTest {
 
     _groupService.removeExistingNativeGroupMembers(
         opContext, Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST);
-    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
+    assertEquals(
+        aspectNames(capturedBatchProposals(1)),
+        ImmutableList.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
   }
 
   @Test
@@ -503,10 +507,12 @@ public class GroupServiceTest {
 
     _groupService.migrateGroupMembershipToNativeGroupMembership(
         opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString());
-    // Two single writes of its own - dropping the legacy membership and stamping the native origin
-    // - plus the batched write that addUsersToNativeGroup now issues.
-    verify(_entityClient, times(2)).ingestProposal(any(OperationContext.class), any());
-    assertEquals(capturedBatchProposals(1).size(), 1);
+    // One single write of its own - stamping the native origin - plus the two batched writes,
+    // granting native membership and dropping the legacy membership.
+    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
+    assertEquals(
+        aspectNames(capturedBatchProposals(2)),
+        ImmutableList.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, GROUP_MEMBERSHIP_ASPECT_NAME));
   }
 
   @Test
@@ -546,14 +552,13 @@ public class GroupServiceTest {
         opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString());
 
     // Must not throw despite the stale OTHER_USER_URN edge, and must still migrate the member
-    // that does exist: one removeExistingGroupMembers proposal for USER_URN, one
-    // createNativeGroupOrigin proposal, and one addUsersToNativeGroup proposal for USER_URN.
+    // that does exist: one createNativeGroupOrigin proposal, plus the batched native-membership
+    // and legacy-membership writes for USER_URN.
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(_entityClient, times(2))
-        .ingestProposal(any(OperationContext.class), proposalCaptor.capture());
+    verify(_entityClient).ingestProposal(any(OperationContext.class), proposalCaptor.capture());
     List<MetadataChangeProposal> written = new ArrayList<>(proposalCaptor.getAllValues());
-    written.addAll(capturedBatchProposals(1));
+    written.addAll(capturedBatchProposals(2));
     assertTrue(
         written.stream()
             .anyMatch(
@@ -576,23 +581,25 @@ public class GroupServiceTest {
     InOrder inOrder = inOrder(_entityClient);
     inOrder
         .verify(_entityClient)
-        .batchIngestProposals(any(OperationContext.class), anyCollection(), eq(false));
+        .batchIngestProposals(
+            any(OperationContext.class),
+            argThat(
+                batch ->
+                    aspectNames(batch)
+                        .equals(ImmutableList.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))),
+            eq(false));
     inOrder
         .verify(_entityClient)
-        .ingestProposal(
+        .batchIngestProposals(
             any(OperationContext.class),
-            argThat(mcp -> GROUP_MEMBERSHIP_ASPECT_NAME.equals(mcp.getAspectName())));
+            argThat(
+                batch -> aspectNames(batch).equals(ImmutableList.of(GROUP_MEMBERSHIP_ASPECT_NAME))),
+            eq(false));
     inOrder
         .verify(_entityClient)
         .ingestProposal(
             any(OperationContext.class),
             argThat(mcp -> ORIGIN_ASPECT_NAME.equals(mcp.getAspectName())));
-
-    assertEquals(
-        capturedBatchProposals(1).stream()
-            .map(MetadataChangeProposal::getAspectName)
-            .collect(Collectors.toList()),
-        ImmutableList.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
   }
 
   @Test
@@ -714,7 +721,8 @@ public class GroupServiceTest {
 
     _groupService.removeExistingGroupMembers(
         opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST);
-    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
+    assertEquals(
+        aspectNames(capturedBatchProposals(1)), ImmutableList.of(GROUP_MEMBERSHIP_ASPECT_NAME));
   }
 
   @Test
@@ -992,6 +1000,12 @@ public class GroupServiceTest {
       }
     }
     return proposals;
+  }
+
+  private static List<String> aspectNames(Collection<?> proposals) {
+    return proposals.stream()
+        .map(proposal -> ((MetadataChangeProposal) proposal).getAspectName())
+        .collect(Collectors.toList());
   }
 
   private void mockNativeGroupMembershipReads(Urn... groups) throws Exception {

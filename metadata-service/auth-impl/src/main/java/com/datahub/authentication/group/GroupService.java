@@ -385,13 +385,9 @@ public class GroupService implements ActorGroupMembershipService {
   /**
    * Strips {@code groupUrn} from each listed user's {@code nativeGroupMembership}.
    *
-   * <p>Best-effort by contract: one aspect read plus one synchronously indexed write per user,
-   * sequentially, with no batching, retry, or durable record of what remains. A caller that runs
-   * this outside the request thread — {@code RemoveGroupResolver} does, after a group delete — can
-   * lose the remainder of the list to a GMS restart mid-loop. The backstop is the repair in {@link
-   * #addUsersToNativeGroup}: a member left with a stale reference has it cleaned up the next time
-   * they are added to a group with that urn. Making the sweep resumable is worthwhile but out of
-   * scope here.
+   * <p>Best-effort: one batched read and one batched synchronously indexed write, with no retry.
+   * The entity client partitions a large batch, so a failure part-way through leaves earlier
+   * members removed. The backstop is the repair in {@link #addUsersToNativeGroup}.
    *
    * <p>This is the explicit "remove these members" path, which applies the list unconditionally.
    * Cleanup after a group delete goes through {@link #removeStaleNativeGroupMembership} instead,
@@ -405,16 +401,27 @@ public class GroupService implements ActorGroupMembershipService {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
     Objects.requireNonNull(userUrnList, "userUrnList must not be null");
 
-    final Set<Urn> userUrns = new HashSet<>(userUrnList);
+    final Set<Urn> userUrns = new LinkedHashSet<>(userUrnList);
+    if (userUrns.isEmpty()) {
+      return;
+    }
+
+    final Map<Urn, EntityResponse> entityResponses =
+        batchGetUserAspectsNoCache(
+            opContext, userUrns, Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
+
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (Urn userUrn : userUrns) {
       final NativeGroupMembership nativeGroupMembership =
-          loadNativeGroupMembershipForUpdate(opContext, userUrn);
+          toNativeGroupMembership(entityResponses.get(userUrn));
       if (nativeGroupMembership.getNativeGroups().remove(groupUrn)) {
-        final MetadataChangeProposal proposal =
+        proposals.add(
             buildSynchronousMetadataChangeProposal(
-                userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership);
-        _entityClient.ingestProposal(opContext, proposal);
+                userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership));
       }
+    }
+    if (!proposals.isEmpty()) {
+      _entityClient.batchIngestProposals(opContext, proposals, false);
     }
   }
 
@@ -436,8 +443,8 @@ public class GroupService implements ActorGroupMembershipService {
    *
    * <p>Best-effort by contract, like {@link #removeExistingNativeGroupMembers}: the caller has
    * already reported the delete itself as successful, so no failure here is surfaced. Unlike that
-   * method, aspect reads and writes are batched, and one failing batch does not abandon the rest of
-   * the captured list.
+   * method, the captured list is partitioned into fixed-size batches and one failing batch does not
+   * abandon the rest.
    */
   public void removeStaleNativeGroupMembership(
       @Nonnull OperationContext opContext,
@@ -770,37 +777,26 @@ public class GroupService implements ActorGroupMembershipService {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
     Objects.requireNonNull(userUrnList, "userUrnList must not be null");
 
-    final Set<Urn> userUrns = new HashSet<>(userUrnList);
+    final Set<Urn> userUrns = new LinkedHashSet<>(userUrnList);
+    if (userUrns.isEmpty()) {
+      return;
+    }
+
+    final Map<Urn, EntityResponse> entityResponses =
+        batchGetUserAspectsNoCache(opContext, userUrns, Set.of(GROUP_MEMBERSHIP_ASPECT_NAME));
+
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (Urn userUrn : userUrns) {
-      final GroupMembership groupMembership = loadGroupMembershipForUpdate(opContext, userUrn);
+      final GroupMembership groupMembership = toGroupMembership(entityResponses.get(userUrn));
       if (groupMembership.getGroups().remove(groupUrn)) {
-        final MetadataChangeProposal proposal =
+        proposals.add(
             buildSynchronousMetadataChangeProposal(
-                userUrn, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership);
-        _entityClient.ingestProposal(opContext, proposal);
+                userUrn, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership));
       }
     }
-  }
-
-  private NativeGroupMembership loadNativeGroupMembershipForUpdate(
-      @Nonnull OperationContext opContext, @Nonnull Urn userUrn) throws Exception {
-    final EntityResponse entityResponse =
-        batchGetUserAspectsNoCache(
-                opContext,
-                Collections.singleton(userUrn),
-                Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))
-            .get(userUrn);
-    return toNativeGroupMembership(entityResponse);
-  }
-
-  private GroupMembership loadGroupMembershipForUpdate(
-      @Nonnull OperationContext opContext, @Nonnull Urn userUrn)
-      throws RemoteInvocationException, URISyntaxException {
-    final EntityResponse entityResponse =
-        batchGetUserAspectsNoCache(
-                opContext, Collections.singleton(userUrn), Set.of(GROUP_MEMBERSHIP_ASPECT_NAME))
-            .get(userUrn);
-    return toGroupMembership(entityResponse);
+    if (!proposals.isEmpty()) {
+      _entityClient.batchIngestProposals(opContext, proposals, false);
+    }
   }
 
   private NativeGroupMembership toNativeGroupMembership(@Nullable EntityResponse entityResponse) {
