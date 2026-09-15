@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
@@ -14,7 +15,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-import com.codahale.metrics.MetricRegistry;
+import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -29,6 +30,7 @@ import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
+import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
 import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
@@ -47,6 +49,7 @@ import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -76,6 +79,7 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
       AspectGenerationUtils.getAspectName(new CorpUserInfo());
   private static final String STATUS_ASPECT = AspectGenerationUtils.getAspectName(new Status());
 
+  private Database database;
   private EbeanAspectDao aspectDao;
   private EntityServiceImpl entityService;
   private EventProducer mockProducer;
@@ -89,7 +93,7 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
     mockProducer = mock(EventProducer.class);
     UpdateIndicesService mockUpdateIndicesService = mock(UpdateIndicesService.class);
 
-    Database server =
+    database =
         EbeanTestUtils.createTestServer(
             EbeanEntityServiceOptimisticWriteBatchTest.class.getSimpleName());
 
@@ -110,7 +114,7 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
     aspectDao =
         spy(
             new EbeanAspectDao(
-                PrimaryStorageTestUtils.ebeanResolver(server),
+                PrimaryStorageTestUtils.ebeanResolver(database),
                 config,
                 spyMetrics,
                 List.of(),
@@ -135,10 +139,10 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
     EbeanRetentionService<ChangeItemImpl> retentionService =
         new EbeanRetentionService<>(
             entityService,
-            server,
+            database,
             1000,
             new PlainAspectTableResolver(),
-            new PassThroughScopedTransactionFactory(server),
+            new PassThroughScopedTransactionFactory(database),
             RetentionTestUtils.systemEntityClient(
                 entityService, mockProducer, mock(MetricUtils.class)));
     entityService.setRetentionService(retentionService);
@@ -238,17 +242,17 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
         TEST_AUDIT_STAMP,
         AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP));
 
-    // Verify final state: both aspects updated to the new values.
+    // Verify both aspects committed. Version-N history is omitted when no retention policy
+    // requests maxVersions > 1 (resolveMaxVersionsToKeep defaults to 1).
     assertStoredEmail(urn, "writer@test.com");
     assertStoredRemoved(urn, true);
 
-    // Verify version history: both aspects have two versions (seed v1 + new v2).
     EntityAspect infoRow =
-        aspectDao.getAspect(opContext, urn.toString(), CORP_USER_INFO_ASPECT, 1L);
-    assertNotNull(infoRow, "version 1 (seed) should exist for corpUserInfo");
+        aspectDao.getAspect(opContext, urn.toString(), CORP_USER_INFO_ASPECT, 0L);
+    assertNotNull(infoRow, "version 0 (latest) should exist for corpUserInfo");
 
-    EntityAspect statusRow = aspectDao.getAspect(opContext, urn.toString(), STATUS_ASPECT, 1L);
-    assertNotNull(statusRow, "version 1 (seed) should exist for status");
+    EntityAspect statusRow = aspectDao.getAspect(opContext, urn.toString(), STATUS_ASPECT, 0L);
+    assertNotNull(statusRow, "version 0 (latest) should exist for status");
 
     // Verify batch path was engaged: updateAspectsConditionalBatch should have been called.
     verify(aspectDao, atLeast(1)).updateAspectsConditionalBatch(any(), any(), any());
@@ -506,19 +510,18 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
   public void legacyNullVersionRowIsNotBatched() throws Exception {
     Urn urn = UrnUtils.getUrn("urn:li:corpuser:olBatchLegacy");
 
-    // Seed one aspect with SystemMetadata that has NO version field (legacy row).
-    // Use createSystemMetadata(int, String, String, String, AuditStamp) with version=null
-    // and SetMode.IGNORE_NULL will leave the version field unset.
-    entityService.ingestAspects(
-        opContext,
-        urn,
-        List.of(
-            com.linkedin.util.Pair.of(
-                CORP_USER_INFO_ASPECT,
-                (RecordTemplate) AspectGenerationUtils.createCorpUserInfo("legacy@test.com"))),
-        TEST_AUDIT_STAMP,
-        AspectGenerationUtils.createSystemMetadata(
-            1625792689, "run-123", null, null, TEST_AUDIT_STAMP));
+    // Seed a version-0 row whose systemMetadata JSON has no version field (pre-OL rows).
+    // ingestAspects always stamps a version, so this must be a raw insert.
+    database.insert(
+        new EbeanAspectV2(
+            urn.toString(),
+            CORP_USER_INFO_ASPECT,
+            0L,
+            RecordUtils.toJsonString(AspectGenerationUtils.createCorpUserInfo("legacy@test.com")),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            "{\"lastObserved\":1625792689,\"runId\":\"run-123\"}"));
 
     reset(mockProducer);
 
@@ -567,13 +570,16 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
         AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP));
 
     // Verify batch-level metrics were recorded.
-    String batchSizeMetric =
-        MetricRegistry.name(EbeanAspectDao.class, "optimistic_lock_batch_size");
-    String batchExecutionsMetric =
-        MetricRegistry.name(EbeanAspectDao.class, "optimistic_lock_batch_executions");
+    String batchSizeMetricSuffix = "optimistic_lock_batch_size";
+    String batchExecutionsMetricSuffix = "optimistic_lock_batch_executions";
 
-    verify(spyMetrics, times(1)).increment(eq(batchSizeMetric), eq(2));
-    verify(spyMetrics, times(1)).increment(eq(batchExecutionsMetric), eq(1));
+    // Metric names use the runtime class (Mockito spy suffix), so match on the suffix. Count is
+    // a double on MetricUtils.increment(String, double).
+    verify(spyMetrics, times(1))
+        .increment(argThat((String n) -> n != null && n.endsWith(batchSizeMetricSuffix)), eq(2.0));
+    verify(spyMetrics, times(1))
+        .increment(
+            argThat((String n) -> n != null && n.endsWith(batchExecutionsMetricSuffix)), eq(1.0));
 
     // Verify final state: both aspects updated to the new values.
     assertStoredEmail(urn, "metrics@test.com");

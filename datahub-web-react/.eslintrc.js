@@ -60,6 +60,7 @@ const COLOR_ENFORCEMENT_RULES = {
         },
     ],
     'rulesdir/no-hardcoded-colors': 'error',
+    'rulesdir/no-background-token-in-border': 'error',
 };
 
 // --------------------------------------------------------------------------

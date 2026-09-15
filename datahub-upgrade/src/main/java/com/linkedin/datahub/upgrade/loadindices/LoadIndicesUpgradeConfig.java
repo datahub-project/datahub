@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Import;
     basePackages = {
       "com.linkedin.datahub.upgrade.loadindices.config",
       "com.linkedin.gms.factory.config",
+      "com.linkedin.gms.factory.aws",
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.entity",
       "com.linkedin.gms.factory.entityclient",
