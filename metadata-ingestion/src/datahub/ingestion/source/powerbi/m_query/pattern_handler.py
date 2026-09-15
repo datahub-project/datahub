@@ -695,24 +695,38 @@ class AbstractLineage(ABC):
         # Extract EXTERNAL_QUERY before T-SQL cleanup so regexes do not rewrite
         # USE/GO/SET/DROP inside federation string literals.
         external_upstreams: List[DataPlatformTable] = []
-        if (
-            platform_pair.datahub_data_platform_name == _BIGQUERY_PLATFORM_NAME
-            and native_sql_parser.contains_external_query_call(
-                query, platform_pair.datahub_data_platform_name
-            )
-        ):
-            resolution = self._resolve_external_query_upstreams(query)
-            if resolution.outer_parse_failed:
-                # Extraction could not parse the query even after retrying on the
-                # T-SQL-cleaned form (see _resolve_external_query_upstreams), so the
-                # EXTERNAL_QUERY calls were left in place (not rewritten to placeholders).
-                # Feeding that raw federation syntax to the native parser cannot isolate
-                # the BigQuery tables and only re-triggers the empty-URN failure this
-                # handling exists to avoid. The failure was already reported in
-                # _resolve_external_query_upstreams, so skip lineage here.
+        if platform_pair.datahub_data_platform_name == _BIGQUERY_PLATFORM_NAME:
+            try:
+                has_external_query = native_sql_parser.contains_external_query_call(
+                    query, platform_pair.datahub_data_platform_name
+                )
+            except sqlglot.errors.SqlglotError:
+                # The query could not even be tokenized (e.g. an unterminated comment or
+                # string literal). We cannot tell whether a real EXTERNAL_QUERY federation
+                # is present, and the native parser below silently resolves no tables for
+                # the same unparseable SQL, so the table would otherwise lose lineage with
+                # no signal. Report it as a federation failure and skip, rather than
+                # dropping it silently.
+                self._report_external_query_failure(
+                    message="Fail to tokenize PowerBI M-Query while detecting "
+                    "EXTERNAL_QUERY federation; lineage for this query is skipped.",
+                    context=f"table-name={self.table.full_name}, sql={query}",
+                )
                 return Lineage.empty()
-            external_upstreams = resolution.upstreams
-            query = resolution.rewritten_query
+
+            if has_external_query:
+                resolution = self._resolve_external_query_upstreams(query)
+                if resolution.outer_parse_failed:
+                    # Extraction could not parse the query even after retrying on the
+                    # T-SQL-cleaned form (see _resolve_external_query_upstreams), so the
+                    # EXTERNAL_QUERY calls were left in place (not rewritten to placeholders).
+                    # Feeding that raw federation syntax to the native parser cannot isolate
+                    # the BigQuery tables and only re-triggers the empty-URN failure this
+                    # handling exists to avoid. The failure was already reported in
+                    # _resolve_external_query_upstreams, so skip lineage here.
+                    return Lineage.empty()
+                external_upstreams = resolution.upstreams
+                query = resolution.rewritten_query
 
         query = native_sql_parser.remove_drop_statement(query)
 

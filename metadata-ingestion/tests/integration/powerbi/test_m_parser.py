@@ -1157,6 +1157,59 @@ def test_bigquery_external_query_comment_mention_not_federation_when_unparseable
 
 
 @pytest.mark.integration
+def test_bigquery_external_query_untokenizable_reports_failure_not_silent():
+    # An unterminated /* comment makes sqlglot's tokenizer raise TokenError, so the
+    # federation detector cannot tell whether the real EXTERNAL_QUERY call below is a
+    # genuine federation, and the native parser resolves no tables for the same
+    # unparseable SQL. The lineage is therefore dropped either way — but it must NOT be
+    # dropped silently: before this fix the tokenize failure was swallowed into a False,
+    # the query fell through to the native path (in_tables=[], table_error=None), and the
+    # table lost its lineage with no warning and no counter. The tokenize failure is now
+    # handled back to the caller so a federation failure is reported.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"") /* unterminated", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    lineages: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+    )
+
+    # Lineage is dropped (the SQL cannot be tokenized), but not silently: a federation
+    # failure warning and counter fire so the drop is visible in the ingestion report.
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert reporter.m_query_external_query_failures == 1
+    assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
+
+
+@pytest.mark.integration
 def test_bigquery_external_query_string_literal_mention_does_not_hijack_native_lineage():
     # A *parseable* BigQuery query whose only "EXTERNAL_QUERY(" appears inside a string
     # constant is not a federation. The tokenizer-based trigger collapses the literal into

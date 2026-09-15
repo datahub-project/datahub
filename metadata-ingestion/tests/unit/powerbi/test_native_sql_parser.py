@@ -563,16 +563,17 @@ def test_contains_external_query_call_comment_between_name_and_paren():
     )
 
 
-def test_contains_external_query_call_unterminated_comment_is_not_a_call():
-    # An unterminated /* comment raises TokenError from the tokenizer. EXTERNAL_QUERY(
-    # appears only inside that comment, so there is no real federation call. Tokenizing
-    # fails, and we must return False rather than fall back to the raw regex — the regex
-    # would match the commented-out text and hijack this (already broken) native query
-    # into federation handling, dropping its lineage and firing a bogus warning.
-    assert not native_sql_parser.contains_external_query_call(
-        "select name from my_project.my_dataset.native_table /* EXTERNAL_QUERY(c, s)",
-        "bigquery",
-    )
+def test_contains_external_query_call_unterminated_comment_raises():
+    # An unterminated /* comment makes the tokenizer raise TokenError (a SqlglotError).
+    # The error is handed back rather than swallowed into False: the same unparseable SQL
+    # also resolves no tables in the native parser, so returning False would drop the
+    # query's lineage silently (no warning, no counter). The caller (pattern_handler)
+    # catches this and reports it as a federation failure instead.
+    with pytest.raises(sqlglot.errors.SqlglotError):
+        native_sql_parser.contains_external_query_call(
+            "select name from my_project.my_dataset.native_table /* EXTERNAL_QUERY(c, s)",
+            "bigquery",
+        )
 
 
 def test_get_tables_blank_query_returns_empty():
