@@ -250,6 +250,18 @@ export enum EntityProfileTab {
     SUMMARY_TAB = 'SUMMARY_TAB',
 }
 
+/**
+ * Stable, locale-independent identifiers for entity profile tabs.
+ *
+ * Tab `name` values are translated via i18next, but routing resolves the active tab by matching the
+ * URL path segment. Routing on the translated `name` breaks under non-English locales (see issue
+ * datahub-project/datahub#19658). These ids are assigned to a tab's `id` and passed as the `tabName`
+ * (URL segment) by callers so routing is independent of the UI language. The values match the legacy
+ * English `name` literals so existing English URLs keep resolving.
+ */
+export const DOCUMENTATION_TAB_ID = 'Documentation';
+export const INCIDENTS_TAB_ID = 'Incidents';
+
 export const EDITING_DOCUMENTATION_URL_PARAM = 'editing';
 
 export const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';

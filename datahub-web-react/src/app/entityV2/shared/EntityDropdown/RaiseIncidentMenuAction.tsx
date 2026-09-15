@@ -10,13 +10,14 @@ import {
     ENTITY_HEADER_ACTION_ICON_SIZE,
     ENTITY_HEADER_ACTION_ICON_WEIGHT,
 } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import { INCIDENTS_TAB_ID } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
 import { AddIncidentModal } from '@app/entityV2/shared/tabs/Incident/components/AddIncidentModal';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-// Tab path segment passed to getEntityPath — a route identifier, not user-visible copy.
-const INCIDENTS_TAB_NAME = 'Incidents';
+// Stable, locale-independent tab id passed to getEntityPath as the URL segment (see issue #19658).
+const INCIDENTS_TAB_NAME = INCIDENTS_TAB_ID;
 
 export default function RaiseIncidentMenuAction() {
     const { t } = useTranslation('entity.shared.entityDropdown');

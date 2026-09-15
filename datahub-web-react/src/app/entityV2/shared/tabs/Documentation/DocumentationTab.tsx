@@ -10,6 +10,7 @@ import styled from 'styled-components';
 import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import { DOCUMENTATION_TAB_ID } from '@app/entityV2/shared/constants';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreviewModal } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreviewModal';
 import { RelatedSection } from '@app/entityV2/shared/tabs/Documentation/components/RelatedSection';
@@ -17,7 +18,8 @@ import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentat
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
 import { Button, Editor, Text } from '@src/alchemy-components';
 
-const DOCUMENTATION_TAB_NAME = 'Documentation';
+// Stable, locale-independent tab id used for routing (see issue #19658). Must match the tab's `id`.
+const DOCUMENTATION_TAB_NAME = DOCUMENTATION_TAB_ID;
 const DOCUMENTATION_TAB = 'documentation';
 
 const DocumentationContainer = styled.div`
