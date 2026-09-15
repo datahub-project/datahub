@@ -885,7 +885,7 @@ elasticsearch:
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
     enabled: ${ELASTICSEARCH_SHIM_ENABLED:false}
-    # Engine type: AUTO_DETECT, ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2
+    # Engine type: AUTO_DETECT, ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2, OPENSEARCH_3
     engineType: ${ELASTICSEARCH_SHIM_ENGINE_TYPE:AUTO_DETECT}
     # Whether to auto-detect the engine type by connecting to the cluster
     autoDetectEngine: ${ELASTICSEARCH_SHIM_AUTO_DETECT:true}
