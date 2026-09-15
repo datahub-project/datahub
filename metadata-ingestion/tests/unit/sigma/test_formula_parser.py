@@ -400,8 +400,8 @@ class TestSegments:
         assert ref.parts == ["A/B", "col"]
 
     def test_escaped_brackets_stay_inside_one_segment(self) -> None:
-        (ref,) = extract_bracket_refs(r"[\[Rel\] Originators/DIM_B/Name]")
-        assert ref.parts == ["[Rel] Originators", "DIM_B", "Name"]
+        (ref,) = extract_bracket_refs(r"[\[Tag\] Element A/Element B/col_a]")
+        assert ref.parts == ["[Tag] Element A", "Element B", "col_a"]
 
     def test_segments_are_whitespace_stripped(self) -> None:
         (ref,) = extract_bracket_refs("[ E1 / E2 / col ]")
