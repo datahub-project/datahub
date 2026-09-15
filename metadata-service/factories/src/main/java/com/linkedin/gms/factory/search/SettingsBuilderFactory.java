@@ -4,6 +4,7 @@ import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVE
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
@@ -45,7 +46,8 @@ public class SettingsBuilderFactory {
       ConfigurationProvider configProvider,
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       SearchClusterRegistry searchClusterRegistry) {
-    IndexConfiguration indexConfig = configProvider.getElasticSearch().getIndex();
+    IndexConfiguration indexConfig =
+        searchClusterRegistry.configFor(SearchComponent.SEARCH_V2).getIndex();
     SearchClientShim<?> v2Client = searchClusterRegistry.clientFor(SearchComponent.SEARCH_V2);
     log.info(
         "Creating LegacySettingsBuilder bean (engineType={} is diagnostic only; V2 settings are engine-agnostic)",
@@ -60,7 +62,8 @@ public class SettingsBuilderFactory {
       ConfigurationProvider configProvider,
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       SearchClusterRegistry searchClusterRegistry) {
-    EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
+    EntityIndexConfiguration entityIndexConfig =
+        searchClusterRegistry.configFor(SearchComponent.SEARCH_V3).getEntityIndex();
     SearchClientShim<?> v3Client = searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3);
     log.info(
         "Creating MultiEntitySettingsBuilder bean (engineType={} is diagnostic only; V3 settings are engine-agnostic)",
@@ -83,8 +86,10 @@ public class SettingsBuilderFactory {
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       @Qualifier("legacySettingsBuilder") @Nullable SettingsBuilder v2SettingsBuilder,
       SearchClusterRegistry searchClusterRegistry) {
-    EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
-    SemanticSearchConfiguration semanticConfig = entityIndexConfig.getSemanticSearch();
+    ElasticSearchConfiguration semanticClusterConfig =
+        searchClusterRegistry.configFor(SearchComponent.SEMANTIC);
+    SemanticSearchConfiguration semanticConfig =
+        semanticClusterConfig.getEntityIndex().getSemanticSearch();
 
     if (v2SettingsBuilder == null) {
       throw new IllegalStateException(
@@ -97,7 +102,12 @@ public class SettingsBuilderFactory {
         "Creating SemanticSearchSettingsBuilder bean for entities: {} engine: {}",
         semanticConfig.getEnabledEntities(),
         semanticClient.getEngineType());
-    return new V2SemanticSearchSettingsBuilder(indexConvention, v2SettingsBuilder, semanticClient);
+    // Build V2-shaped settings from this cluster's index config so a sidecar tokenizer is not
+    // inherited from the SEARCH_V2 cluster.
+    return new V2SemanticSearchSettingsBuilder(
+        indexConvention,
+        new V2LegacySettingsBuilder(semanticClusterConfig.getIndex(), indexConvention),
+        semanticClient);
   }
 
   @Bean("settingsBuilder")

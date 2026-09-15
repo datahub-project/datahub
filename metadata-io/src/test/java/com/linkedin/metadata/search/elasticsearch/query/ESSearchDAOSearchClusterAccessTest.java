@@ -115,9 +115,7 @@ public class ESSearchDAOSearchClusterAccessTest {
         IllegalArgumentException.class,
         () ->
             dao.raw(
-                opContext,
-                "datahub_usage_event_index_template",
-                "{\"query\":{\"match_all\":{}}}"));
+                opContext, "datahub_usage_event_index_template", "{\"query\":{\"match_all\":{}}}"));
     verify(usage, never()).search(any(), any(), any());
   }
 

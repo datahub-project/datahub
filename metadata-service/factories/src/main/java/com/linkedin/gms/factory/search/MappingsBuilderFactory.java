@@ -45,7 +45,8 @@ public class MappingsBuilderFactory {
   @Nonnull
   protected MappingsBuilder createLegacyMappingsBuilder(
       ConfigurationProvider configProvider, SearchClusterRegistry searchClusterRegistry) {
-    EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
+    EntityIndexConfiguration entityIndexConfig =
+        searchClusterRegistry.configFor(SearchComponent.SEARCH_V2).getEntityIndex();
     int keywordMaxLength = resolveKeywordMaxLength(configProvider);
     SearchClientShim<?> v2Client = searchClusterRegistry.clientFor(SearchComponent.SEARCH_V2);
     log.info(
@@ -62,7 +63,8 @@ public class MappingsBuilderFactory {
       ConfigurationProvider configProvider,
       SearchClusterRegistry searchClusterRegistry,
       @Autowired(required = false) @Nullable List<V3MappingContributor> mappingContributors) {
-    EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
+    EntityIndexConfiguration entityIndexConfig =
+        searchClusterRegistry.configFor(SearchComponent.SEARCH_V3).getEntityIndex();
     int keywordMaxLength = resolveKeywordMaxLength(configProvider);
     SearchClientShim<?> v3Client = searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3);
     log.info(
@@ -89,8 +91,9 @@ public class MappingsBuilderFactory {
       @Qualifier("legacyMappingsBuilder") @Nullable MappingsBuilder v2MappingsBuilder,
       @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       SearchClusterRegistry searchClusterRegistry) {
-    SemanticSearchConfiguration semanticConfig =
-        configProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
+    EntityIndexConfiguration semanticEntityIndex =
+        searchClusterRegistry.configFor(SearchComponent.SEMANTIC).getEntityIndex();
+    SemanticSearchConfiguration semanticConfig = semanticEntityIndex.getSemanticSearch();
 
     if (v2MappingsBuilder == null) {
       throw new IllegalStateException(
@@ -101,7 +104,7 @@ public class MappingsBuilderFactory {
     SearchClientShim<?> semanticClient = searchClusterRegistry.clientFor(SearchComponent.SEMANTIC);
     MappingsBuilder semanticMappingsBase =
         new V2MappingsBuilder(
-            configProvider.getElasticSearch().getEntityIndex(),
+            semanticEntityIndex,
             semanticClient.partialNgramConfig(),
             resolveKeywordMaxLength(configProvider));
     log.info(

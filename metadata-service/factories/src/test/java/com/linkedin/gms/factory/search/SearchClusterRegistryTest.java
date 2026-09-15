@@ -12,6 +12,7 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.metadata.config.search.ComponentClusterConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -140,6 +141,54 @@ public class SearchClusterRegistryTest {
     assertSame(resolver.apply("datasetindex_v2_semantic_1712345678"), secondary);
     assertSame(resolver.apply("datasetindex_v2"), primary);
     assertSame(resolver.apply("datasetindex_v3"), primary);
+  }
+
+  @Test
+  public void testConfigForReturnsTheTargetClustersEntityIndexOverlay() {
+    ElasticSearchConfiguration routing =
+        config(ComponentClusterConfiguration.builder().searchV3("secondary").build());
+    ElasticSearchConfiguration primaryConfig =
+        routing.toBuilder()
+            .entityIndex(
+                EntityIndexConfiguration.builder()
+                    .v3(
+                        EntityIndexVersionConfiguration.builder()
+                            .analyzerConfig("shared.yaml")
+                            .mappingConfig("shared_map.yaml")
+                            .build())
+                    .build())
+            .build();
+    ElasticSearchConfiguration secondaryConfig =
+        routing.toBuilder()
+            .entityIndex(
+                EntityIndexConfiguration.builder()
+                    .v3(
+                        EntityIndexVersionConfiguration.builder()
+                            .analyzerConfig("os3.yaml")
+                            .mappingConfig("os3_map.yaml")
+                            .build())
+                    .build())
+            .build();
+    Map<String, SearchClusterRegistry.ClusterConnection> connections = new LinkedHashMap<>();
+    connections.put(
+        "primary",
+        new SearchClusterRegistry.ClusterConnection(
+            "primary", primaryConfig, null, null, mock(ESIndexBuilder.class)));
+    connections.put(
+        "secondary",
+        new SearchClusterRegistry.ClusterConnection(
+            "secondary", secondaryConfig, null, null, mock(ESIndexBuilder.class)));
+    SearchClusterRegistry reg = new SearchClusterRegistry(routing, connections);
+
+    assertEquals(
+        reg.configFor(SearchComponent.SEARCH_V2).getEntityIndex().getV3().getAnalyzerConfig(),
+        "shared.yaml");
+    assertEquals(
+        reg.configFor(SearchComponent.SEARCH_V3).getEntityIndex().getV3().getAnalyzerConfig(),
+        "os3.yaml");
+    assertEquals(
+        reg.configFor(SearchComponent.SEARCH_V3).getEntityIndex().getV3().getMappingConfig(),
+        "os3_map.yaml");
   }
 
   @Test
