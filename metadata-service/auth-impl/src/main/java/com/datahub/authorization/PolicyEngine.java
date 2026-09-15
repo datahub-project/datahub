@@ -729,6 +729,10 @@ public class PolicyEngine {
     public Map<String, String> getReasonOfDeny() {
       return this.reasonOfDeny;
     }
+
+    public static PolicyGrantedPrivileges empty() {
+      return new PolicyGrantedPrivileges(Collections.emptyList(), Collections.emptyMap());
+    }
   }
 
   /** Class used to represent the result of a Policy evaluation */

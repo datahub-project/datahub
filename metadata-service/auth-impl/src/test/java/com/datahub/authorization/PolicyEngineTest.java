@@ -3092,32 +3092,8 @@ public class PolicyEngineTest {
   @Test
   public void testEvaluatePolicyEmptyStructuredPropertyCriteria_EqualsCondition() throws Exception {
     // Empty/null structured property criterion with EQUALS should DENY access
-    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
-    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
-    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
-    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
-    final DataHubActorFilter actorFilter = new DataHubActorFilter();
-    actorFilter.setGroups(new UrnArray());
-    actorFilter.setUsers(new UrnArray());
-    actorFilter.setResourceOwners(false);
-    actorFilter.setAllUsers(true);
-    actorFilter.setAllGroups(true);
-    dataHubPolicyInfo.setActors(actorFilter);
-
-    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
-    criterion.setField("STRUCTURED_PROPERTY");
-    criterion.setValues(new StringArray());
-    criterion.setCondition(PolicyMatchCondition.EQUALS);
-    // Empty/null structured property values array
-    criterion.setStructuredPropertyValues(new StructuredPropertyCriterionValueArray());
-
-    final PolicyMatchFilter filter = new PolicyMatchFilter();
-    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
-
-    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
-    resourceFilter.setAllResources(true);
-    resourceFilter.setFilter(filter);
-    dataHubPolicyInfo.setResources(resourceFilter);
+    final DataHubPolicyInfo dataHubPolicyInfo =
+        createEmptyStructuredPropertyPolicy(PolicyMatchCondition.EQUALS);
 
     ResolvedEntitySpec resourceSpec =
         buildEntityResolversWithStructuredProperties(
@@ -3139,7 +3115,6 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             Collections.emptyList());
 
-    // Empty criterion with EQUALS should deny access
     assertFalse(result.isGranted());
   }
 
@@ -3147,32 +3122,8 @@ public class PolicyEngineTest {
   public void testEvaluatePolicyEmptyStructuredPropertyCriteria_NotEqualsCondition()
       throws Exception {
     // Empty/null structured property criterion with NOT_EQUALS should GRANT access
-    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
-    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
-    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
-    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
-    final DataHubActorFilter actorFilter = new DataHubActorFilter();
-    actorFilter.setGroups(new UrnArray());
-    actorFilter.setUsers(new UrnArray());
-    actorFilter.setResourceOwners(false);
-    actorFilter.setAllUsers(true);
-    actorFilter.setAllGroups(true);
-    dataHubPolicyInfo.setActors(actorFilter);
-
-    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
-    criterion.setField("STRUCTURED_PROPERTY");
-    criterion.setValues(new StringArray());
-    criterion.setCondition(PolicyMatchCondition.NOT_EQUALS);
-    // Empty/null structured property values array
-    criterion.setStructuredPropertyValues(new StructuredPropertyCriterionValueArray());
-
-    final PolicyMatchFilter filter = new PolicyMatchFilter();
-    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
-
-    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
-    resourceFilter.setAllResources(true);
-    resourceFilter.setFilter(filter);
-    dataHubPolicyInfo.setResources(resourceFilter);
+    final DataHubPolicyInfo dataHubPolicyInfo =
+        createEmptyStructuredPropertyPolicy(PolicyMatchCondition.NOT_EQUALS);
 
     ResolvedEntitySpec resourceSpec =
         buildEntityResolversWithStructuredProperties(
@@ -3194,8 +3145,38 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec),
             Collections.emptyList());
 
-    // Empty criterion with NOT_EQUALS should grant access
     assertTrue(result.isGranted());
+  }
+
+  private DataHubPolicyInfo createEmptyStructuredPropertyPolicy(PolicyMatchCondition condition) {
+    final DataHubPolicyInfo policy = new DataHubPolicyInfo();
+    policy.setDisplayName("Test Policy");
+    policy.setType(METADATA_POLICY_TYPE);
+    policy.setState(ACTIVE_POLICY_STATE);
+    policy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setGroups(new UrnArray());
+    actorFilter.setUsers(new UrnArray());
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllUsers(true);
+    actorFilter.setAllGroups(true);
+    policy.setActors(actorFilter);
+
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setValues(new StringArray());
+    criterion.setCondition(condition);
+    criterion.setStructuredPropertyValues(new StructuredPropertyCriterionValueArray());
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    policy.setResources(resourceFilter);
+
+    return policy;
   }
 
   private Map<Urn, EntityResponse> createGroupRoleBatchResponse(

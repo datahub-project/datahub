@@ -36,9 +36,13 @@ vi.mock('react-i18next', () => ({
     }),
 }));
 
-vi.mock('@apollo/client', () => ({
-    useApolloClient: vi.fn(() => ({})),
-}));
+vi.mock('@apollo/client', async () => {
+    const actual = await vi.importActual('@apollo/client');
+    return {
+        ...actual,
+        useApolloClient: vi.fn(() => ({})),
+    };
+});
 
 vi.mock('antd', () => ({
     Modal: {
@@ -67,6 +71,22 @@ describe('usePolicy', () => {
         <MockedProvider mocks={[]}>{children}</MockedProvider>
     );
 
+    // Helper to render usePolicy hook with consistent setup
+    const renderUsePolicy = (focusPolicyUrn?: string) => {
+        return renderHook(
+            () =>
+                usePolicy(
+                    mockPoliciesConfig,
+                    focusPolicyUrn,
+                    mockPoliciesRefetch,
+                    mockSetShowViewPolicyModal,
+                    mockOnCancelViewPolicy,
+                    mockOnClosePolicyBuilder,
+                ),
+            { wrapper },
+        );
+    };
+
     beforeEach(() => {
         vi.clearAllMocks();
     });
@@ -76,18 +96,7 @@ describe('usePolicy', () => {
     });
 
     it('should initialize with no errors', () => {
-        const { result } = renderHook(
-            () =>
-                usePolicy(
-                    mockPoliciesConfig,
-                    undefined,
-                    mockPoliciesRefetch,
-                    mockSetShowViewPolicyModal,
-                    mockOnCancelViewPolicy,
-                    mockOnClosePolicyBuilder,
-                ),
-            { wrapper },
-        );
+        const { result } = renderUsePolicy();
 
         expect(result.current.createPolicyError).toBeUndefined();
         expect(result.current.updatePolicyError).toBeUndefined();
@@ -96,70 +105,23 @@ describe('usePolicy', () => {
     });
 
     it('should have getPrivilegeNames function', () => {
-        const { result } = renderHook(
-            () =>
-                usePolicy(
-                    mockPoliciesConfig,
-                    undefined,
-                    mockPoliciesRefetch,
-                    mockSetShowViewPolicyModal,
-                    mockOnCancelViewPolicy,
-                    mockOnClosePolicyBuilder,
-                ),
-            { wrapper },
-        );
-
+        const { result } = renderUsePolicy();
         expect(typeof result.current.getPrivilegeNames).toBe('function');
     });
 
     it('should have onToggleActiveDuplicate function', () => {
-        const { result } = renderHook(
-            () =>
-                usePolicy(
-                    mockPoliciesConfig,
-                    undefined,
-                    mockPoliciesRefetch,
-                    mockSetShowViewPolicyModal,
-                    mockOnCancelViewPolicy,
-                    mockOnClosePolicyBuilder,
-                ),
-            { wrapper },
-        );
-
+        const { result } = renderUsePolicy();
         expect(typeof result.current.onToggleActiveDuplicate).toBe('function');
     });
 
     it('should have onRemovePolicy function', () => {
-        const { result } = renderHook(
-            () =>
-                usePolicy(
-                    mockPoliciesConfig,
-                    undefined,
-                    mockPoliciesRefetch,
-                    mockSetShowViewPolicyModal,
-                    mockOnCancelViewPolicy,
-                    mockOnClosePolicyBuilder,
-                ),
-            { wrapper },
-        );
-
+        const { result } = renderUsePolicy();
         expect(typeof result.current.onRemovePolicy).toBe('function');
     });
 
     describe('filter mapping with structured properties', () => {
         it('should map basic criterion without structuredPropertyValues', async () => {
-            const { result } = renderHook(
-                () =>
-                    usePolicy(
-                        mockPoliciesConfig,
-                        undefined,
-                        mockPoliciesRefetch,
-                        mockSetShowViewPolicyModal,
-                        mockOnCancelViewPolicy,
-                        mockOnClosePolicyBuilder,
-                    ),
-                { wrapper },
-            );
+            const { result } = renderUsePolicy();
 
             const policy = {
                 type: PolicyType.Metadata,
@@ -200,18 +162,7 @@ describe('usePolicy', () => {
         });
 
         it('should map criterion with structuredPropertyValues correctly', async () => {
-            const { result } = renderHook(
-                () =>
-                    usePolicy(
-                        mockPoliciesConfig,
-                        undefined,
-                        mockPoliciesRefetch,
-                        mockSetShowViewPolicyModal,
-                        mockOnCancelViewPolicy,
-                        mockOnClosePolicyBuilder,
-                    ),
-                { wrapper },
-            );
+            const { result } = renderUsePolicy();
 
             const policy = {
                 type: PolicyType.Metadata,
@@ -258,18 +209,7 @@ describe('usePolicy', () => {
         });
 
         it('should handle empty structuredPropertyValues array', async () => {
-            const { result } = renderHook(
-                () =>
-                    usePolicy(
-                        mockPoliciesConfig,
-                        undefined,
-                        mockPoliciesRefetch,
-                        mockSetShowViewPolicyModal,
-                        mockOnCancelViewPolicy,
-                        mockOnClosePolicyBuilder,
-                    ),
-                { wrapper },
-            );
+            const { result } = renderUsePolicy();
 
             const policy = {
                 type: PolicyType.Metadata,
@@ -413,18 +353,7 @@ describe('usePolicy', () => {
 
     describe('policy with complex actors', () => {
         it('should save policy with resourceOwners flag', async () => {
-            const { result } = renderHook(
-                () =>
-                    usePolicy(
-                        mockPoliciesConfig,
-                        undefined,
-                        mockPoliciesRefetch,
-                        mockSetShowViewPolicyModal,
-                        mockOnCancelViewPolicy,
-                        mockOnClosePolicyBuilder,
-                    ),
-                { wrapper },
-            );
+            const { result } = renderUsePolicy();
 
             const policy = {
                 type: PolicyType.Metadata,
@@ -460,18 +389,7 @@ describe('usePolicy', () => {
 
     describe('onToggleActiveDuplicate', () => {
         it('should toggle policy from active to inactive', async () => {
-            const { result } = renderHook(
-                () =>
-                    usePolicy(
-                        mockPoliciesConfig,
-                        undefined,
-                        mockPoliciesRefetch,
-                        mockSetShowViewPolicyModal,
-                        mockOnCancelViewPolicy,
-                        mockOnClosePolicyBuilder,
-                    ),
-                { wrapper },
-            );
+            const { result } = renderUsePolicy();
 
             const activePolicy = {
                 urn: 'urn:li:policy:123',
@@ -504,18 +422,7 @@ describe('usePolicy', () => {
 
     describe('getPrivilegeNames', () => {
         it('should return empty array when policy has no privileges', () => {
-            const { result } = renderHook(
-                () =>
-                    usePolicy(
-                        mockPoliciesConfig,
-                        undefined,
-                        mockPoliciesRefetch,
-                        mockSetShowViewPolicyModal,
-                        mockOnCancelViewPolicy,
-                        mockOnClosePolicyBuilder,
-                    ),
-                { wrapper },
-            );
+            const { result } = renderUsePolicy();
 
             const policy = {
                 type: PolicyType.Metadata,

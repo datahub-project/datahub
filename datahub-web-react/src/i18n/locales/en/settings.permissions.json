@@ -93,6 +93,7 @@
     "privilegeForm.datePlaceholder": "Select date",
     "privilegeForm.addProperty": "Add Property",
     "privilegeForm.incompleteStructuredPropertiesMessage": "All selected structured properties must have values. Please provide values for them.",
+    "privilegeForm.propertyAlreadySelected": "This property is already selected in another row.",
     "privilegesLabel": "Privileges",
     "removePolicySuccess": "Successfully removed policy.",
     "roleColumnPolicies": "Policies",

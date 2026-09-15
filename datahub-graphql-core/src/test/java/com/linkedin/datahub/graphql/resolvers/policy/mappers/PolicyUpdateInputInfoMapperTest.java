@@ -55,6 +55,24 @@ public class PolicyUpdateInputInfoMapperTest {
     input.setResources(resources);
   }
 
+  private static PolicyMatchCriterionInput createStructuredPropertyCriterion(
+      PolicyMatchCondition condition, StructuredPropertyCriterionValueInput... propValues) {
+    PolicyMatchCriterionInput criterion = new PolicyMatchCriterionInput();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setValues(Arrays.asList()); // Empty for structured properties
+    criterion.setStructuredPropertyValues(Arrays.asList(propValues));
+    criterion.setCondition(condition);
+    return criterion;
+  }
+
+  private static StructuredPropertyCriterionValueInput createStructuredPropertyValue(
+      String propertyUrn, String... values) {
+    StructuredPropertyCriterionValueInput propValue = new StructuredPropertyCriterionValueInput();
+    propValue.setPropertyUrn(propertyUrn);
+    propValue.setValues(Arrays.asList(values));
+    return propValue;
+  }
+
   @Test
   public void testMapBasicPolicyFields() {
     PolicyUpdateInput input = createBasicPolicyInput("Test Policy");
@@ -95,16 +113,11 @@ public class PolicyUpdateInputInfoMapperTest {
   public void testMapStructuredPropertyCriteria() {
     PolicyUpdateInput input = createBasicPolicyInput("Structured Property Policy");
 
-    // Structured property criterion
-    StructuredPropertyCriterionValueInput propValue = new StructuredPropertyCriterionValueInput();
-    propValue.setPropertyUrn("urn:li:structuredProperty:data_classification");
-    propValue.setValues(Arrays.asList("high", "sensitive"));
-
-    PolicyMatchCriterionInput structuredPropCriterion = new PolicyMatchCriterionInput();
-    structuredPropCriterion.setField("STRUCTURED_PROPERTY");
-    structuredPropCriterion.setValues(Arrays.asList()); // Empty for structured properties
-    structuredPropCriterion.setStructuredPropertyValues(Arrays.asList(propValue));
-    structuredPropCriterion.setCondition(PolicyMatchCondition.EQUALS);
+    StructuredPropertyCriterionValueInput propValue =
+        createStructuredPropertyValue(
+            "urn:li:structuredProperty:data_classification", "high", "sensitive");
+    PolicyMatchCriterionInput structuredPropCriterion =
+        createStructuredPropertyCriterion(PolicyMatchCondition.EQUALS, propValue);
 
     applyResourceFilter(input, structuredPropCriterion);
 
@@ -133,21 +146,12 @@ public class PolicyUpdateInputInfoMapperTest {
   public void testMapMultipleStructuredProperties() {
     PolicyUpdateInput input = createBasicPolicyInput("Multi Structured Property Policy");
 
-    // First structured property
-    StructuredPropertyCriterionValueInput propValue1 = new StructuredPropertyCriterionValueInput();
-    propValue1.setPropertyUrn("urn:li:structuredProperty:dept");
-    propValue1.setValues(Arrays.asList("sales", "eng"));
-
-    // Second structured property
-    StructuredPropertyCriterionValueInput propValue2 = new StructuredPropertyCriterionValueInput();
-    propValue2.setPropertyUrn("urn:li:structuredProperty:data_classification");
-    propValue2.setValues(Arrays.asList("high"));
-
-    PolicyMatchCriterionInput structuredPropCriterion = new PolicyMatchCriterionInput();
-    structuredPropCriterion.setField("STRUCTURED_PROPERTY");
-    structuredPropCriterion.setValues(Arrays.asList());
-    structuredPropCriterion.setStructuredPropertyValues(Arrays.asList(propValue1, propValue2));
-    structuredPropCriterion.setCondition(PolicyMatchCondition.EQUALS);
+    StructuredPropertyCriterionValueInput propValue1 =
+        createStructuredPropertyValue("urn:li:structuredProperty:dept", "sales", "eng");
+    StructuredPropertyCriterionValueInput propValue2 =
+        createStructuredPropertyValue("urn:li:structuredProperty:data_classification", "high");
+    PolicyMatchCriterionInput structuredPropCriterion =
+        createStructuredPropertyCriterion(PolicyMatchCondition.EQUALS, propValue1, propValue2);
 
     applyResourceFilter(input, structuredPropCriterion);
 
@@ -181,15 +185,10 @@ public class PolicyUpdateInputInfoMapperTest {
     tagCriterion.setCondition(PolicyMatchCondition.EQUALS);
 
     // Structured property criterion
-    StructuredPropertyCriterionValueInput propValue = new StructuredPropertyCriterionValueInput();
-    propValue.setPropertyUrn("urn:li:structuredProperty:dept");
-    propValue.setValues(Arrays.asList("sales"));
-
-    PolicyMatchCriterionInput structuredPropCriterion = new PolicyMatchCriterionInput();
-    structuredPropCriterion.setField("STRUCTURED_PROPERTY");
-    structuredPropCriterion.setValues(Arrays.asList());
-    structuredPropCriterion.setStructuredPropertyValues(Arrays.asList(propValue));
-    structuredPropCriterion.setCondition(PolicyMatchCondition.EQUALS);
+    StructuredPropertyCriterionValueInput propValue =
+        createStructuredPropertyValue("urn:li:structuredProperty:dept", "sales");
+    PolicyMatchCriterionInput structuredPropCriterion =
+        createStructuredPropertyCriterion(PolicyMatchCondition.EQUALS, propValue);
 
     applyResourceFilter(input, tagCriterion, structuredPropCriterion);
 
@@ -213,15 +212,10 @@ public class PolicyUpdateInputInfoMapperTest {
   public void testMapStructuredPropertyWithStartsWithCondition() {
     PolicyUpdateInput input = createBasicPolicyInput("Starts With Policy");
 
-    StructuredPropertyCriterionValueInput propValue = new StructuredPropertyCriterionValueInput();
-    propValue.setPropertyUrn("urn:li:structuredProperty:name");
-    propValue.setValues(Arrays.asList("test_"));
-
-    PolicyMatchCriterionInput structuredPropCriterion = new PolicyMatchCriterionInput();
-    structuredPropCriterion.setField("STRUCTURED_PROPERTY");
-    structuredPropCriterion.setValues(Arrays.asList());
-    structuredPropCriterion.setStructuredPropertyValues(Arrays.asList(propValue));
-    structuredPropCriterion.setCondition(PolicyMatchCondition.STARTS_WITH);
+    StructuredPropertyCriterionValueInput propValue =
+        createStructuredPropertyValue("urn:li:structuredProperty:name", "test_");
+    PolicyMatchCriterionInput structuredPropCriterion =
+        createStructuredPropertyCriterion(PolicyMatchCondition.STARTS_WITH, propValue);
 
     applyResourceFilter(input, structuredPropCriterion);
 
@@ -236,15 +230,10 @@ public class PolicyUpdateInputInfoMapperTest {
   public void testMapStructuredPropertyWithNotEqualsCondition() {
     PolicyUpdateInput input = createBasicPolicyInput("Not Equals Policy");
 
-    StructuredPropertyCriterionValueInput propValue = new StructuredPropertyCriterionValueInput();
-    propValue.setPropertyUrn("urn:li:structuredProperty:status");
-    propValue.setValues(Arrays.asList("inactive"));
-
-    PolicyMatchCriterionInput structuredPropCriterion = new PolicyMatchCriterionInput();
-    structuredPropCriterion.setField("STRUCTURED_PROPERTY");
-    structuredPropCriterion.setValues(Arrays.asList());
-    structuredPropCriterion.setStructuredPropertyValues(Arrays.asList(propValue));
-    structuredPropCriterion.setCondition(PolicyMatchCondition.NOT_EQUALS);
+    StructuredPropertyCriterionValueInput propValue =
+        createStructuredPropertyValue("urn:li:structuredProperty:status", "inactive");
+    PolicyMatchCriterionInput structuredPropCriterion =
+        createStructuredPropertyCriterion(PolicyMatchCondition.NOT_EQUALS, propValue);
 
     applyResourceFilter(input, structuredPropCriterion);
 
