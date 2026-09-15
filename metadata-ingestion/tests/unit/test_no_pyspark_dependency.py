@@ -31,6 +31,7 @@ def _extras_require() -> Dict[str, Any]:
         find_packages=lambda *a, **k: [],
         find_namespace_packages=lambda *a, **k: [],
     )
+    had_setuptools = "setuptools" in sys.modules
     saved = sys.modules.get("setuptools")
     sys.modules["setuptools"] = stub
     original_argv = sys.argv
@@ -38,10 +39,11 @@ def _extras_require() -> Dict[str, Any]:
     try:
         runpy.run_path(str(SETUP_PY), run_name="__main__")
     finally:
-        if saved is None:
-            sys.modules.pop("setuptools", None)
+        if had_setuptools:
+            # `saved` may be the real module or the None import-block sentinel.
+            sys.modules["setuptools"] = saved  # type: ignore[assignment]
         else:
-            sys.modules["setuptools"] = saved
+            sys.modules.pop("setuptools", None)
         sys.argv = original_argv
 
     return captured["extras_require"]

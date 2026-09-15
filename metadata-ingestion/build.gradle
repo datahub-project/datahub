@@ -203,13 +203,11 @@ task lintFix(type: Exec, dependsOn: installDev) {
 // Add "PYTHONDEVMODE=1" here to also warn on unclosed sockets.
 def pytest_default_env = "PYTHONFAULTHANDLER=1"
 
-// Fail a wedged test fast instead of occupying CI until the job cap. pytest-timeout
-// (thread method) bounds each test's setup/call/teardown and dumps all thread stacks.
-// The process backstop catches a hang outside a test (collection/teardown); `timeout` is
-// absent on stock macOS (Homebrew ships gtimeout), so resolve it at runtime and skip
-// locally rather than failing the task.
+// thread-method timeout os._exit(1)s a wedged test -> no JUnit XML for that run
+// (the stack dump lands in the job log). Thread not signal: native hangs ignore
+// SIGALRM. Wall-clock backstop covers non-test hangs; gtimeout on macOS.
 def pytest_timeout_args = "--timeout=600 --timeout-method=thread"
-def resolve_wall_clock = 'WALL="$(command -v timeout || command -v gtimeout || true)"; WALL="${WALL:+$WALL -s ABRT 2700}"; '
+def resolve_wall_clock = 'WALL="$(command -v timeout || command -v gtimeout || true)" && WALL="${WALL:+$WALL -s ABRT 2700}" && '
 
 task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.

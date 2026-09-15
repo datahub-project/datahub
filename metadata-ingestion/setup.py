@@ -190,7 +190,10 @@ pyarrow_common = {
 
 sqlalchemy_lib = {
     # Required for all SQL sources.
-    # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
+    # <2 held by databricks-sql-connector and great-expectations (sqlalchemy-redshift
+    # >=1.0.0 now supports SQLAlchemy 2). Lifting this cap unblocks pkg_resources-free
+    # dialect releases (sqlalchemy-redshift, sqlalchemy-cockroachdb) — then delete the
+    # pkg_resources shim; test_sqlalchemy_stays_below_2_until_shim_removed enforces it.
     "sqlalchemy>=1.4.39,<2",
     # greenlet is imported directly by
     # datahub.ingestion.source.sqlalchemy_profiler.query_combiner, which is used
@@ -404,12 +407,6 @@ s3_base = {
     *cachetools_lib,
 }
 
-threading_timeout_common = {
-    # Bounds M-Query parse time. stopit imports pkg_resources at import time;
-    # setuptools>=82 removed pkg_resources, so we install a shim
-    # (utilities/pkg_resources_shim) before importing stopit; no setuptools pin needed.
-    "stopit==1.1.2",
-}
 
 abs_base = {
     # CVE-2025-36068: azure-core <1.34.0 has Server-Side Request Forgery via
@@ -852,7 +849,6 @@ plugins: Dict[str, Set[str]] = {
         microsoft_common
         | {"sqlparse>=0.6.0,<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
         | sqlglot_lib
-        | threading_timeout_common
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},

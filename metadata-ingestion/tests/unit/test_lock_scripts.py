@@ -32,3 +32,6 @@ def test_load_setup_py_variables_without_setuptools(
     ns = generate_pyproject_deps.load_setup_py_variables()
     assert "base_requirements" in ns
     assert "_setup_args" in ns
+    # The None sentinel is an intentional import block; the loader must restore
+    # it, not pop it, or setuptools could import again downstream.
+    assert "setuptools" in sys.modules and sys.modules["setuptools"] is None

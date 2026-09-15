@@ -1,13 +1,16 @@
 """A minimal ``pkg_resources`` replacement, loaded in place of the real module
 when setuptools>=82 has removed it.
 
-``stopit``, ``sqlalchemy-redshift`` and ``sqlalchemy-cockroachdb`` all
+The ``sqlalchemy-redshift`` and ``sqlalchemy-cockroachdb`` dialects
 ``import pkg_resources`` at module load. This module implements only the
 ``pkg_resources`` API those dependencies use; anything else raises via the
 module-level ``__getattr__`` below, so a new caller needing more must add it here
 after checking the real semantics. It is loaded by the ``sys.meta_path`` finder
 in ``datahub/_pkg_resources_finder.py``, which defers to a real ``pkg_resources``
 whenever one is installed.
+
+Temporary: removable once ``sqlalchemy>=2`` unblocks pkg_resources-free dialect
+releases; ``test_sqlalchemy_stays_below_2_until_shim_removed`` enforces the deletion.
 """
 
 import importlib

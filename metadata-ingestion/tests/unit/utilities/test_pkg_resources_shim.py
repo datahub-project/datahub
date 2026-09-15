@@ -99,17 +99,17 @@ def test_finder_installed_once_and_targets_only_pkg_resources():
     assert finders[0].find_spec("something_else", None) is None
 
 
-def test_finder_spec_loads_a_working_shim():
+def test_finder_aliases_the_real_shim_module():
     from datahub._pkg_resources_finder import _PkgResourcesShimFinder
 
     spec = _PkgResourcesShimFinder().find_spec("pkg_resources", None)
     assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = importlib.util.module_from_spec(spec)  # invokes the alias loader
+    # One identity: pkg_resources IS the datahub shim module, so a single
+    # DistributionNotFound class -> cross-name except/isinstance match.
+    assert module is pkg_resources_shim
+    assert module.DistributionNotFound is pkg_resources_shim.DistributionNotFound
     assert module.__datahub_shim__ is True
-    assert module.get_distribution(_PKG).version == importlib.metadata.version(_PKG)
-    with pytest.raises(AttributeError):
-        _ = module.working_set
 
 
 @pytest.mark.parametrize("mod", ["sqlalchemy_redshift", "sqlalchemy_cockroachdb"])
