@@ -111,7 +111,8 @@ public class SearchTestUtils {
                   .pointInTimeCreationEnabled(false) // Disable PIT for search entities by default
                   // The query/aggregation builders read these without null guards or defaults;
                   // leaving them unset fails any test that builds a query. Values mirror
-                  // application.yaml defaults.
+                  // application.yaml defaults; SearchCommonTestConfiguration overrides them with
+                  // its own tuned boosts for the Spring-based search tests.
                   .maxTermBucketSize(60)
                   .exactMatch(testExactMatchConfiguration())
                   .wordGram(testWordGramConfiguration())
