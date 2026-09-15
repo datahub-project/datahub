@@ -376,6 +376,18 @@ class MicroStrategyConfig(
         default=True,
         description="Whether to map API owner fields to DataHub ownership aspects.",
     )
+    dataset_field_order: Literal["report", "alphabetical"] = Field(
+        default="report",
+        description=(
+            "Order of the schema fields emitted for each dataset. `report` "
+            "(the default) keeps the order the report or cube definition lists "
+            "its objects in - metrics, then attributes and their forms, then "
+            "derived metrics - which is how the Report Objects pane shows "
+            "them. `alphabetical` sorts fields by name, the behaviour of "
+            "earlier releases. Either way the DataHub schema tab re-sorts the "
+            "fields alphabetically when the column header is clicked."
+        ),
+    )
     datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
         default_factory=dict,
         description=(

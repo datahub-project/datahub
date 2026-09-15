@@ -138,11 +138,13 @@ def _mapper(
     metric_glossary_term_mapping: Optional[Dict[str, str]] = None,
     folder_pattern: Optional[Dict[str, object]] = None,
     extract_metric_formula_lineage: bool = False,
+    dataset_field_order: str = "report",
 ) -> MicroStrategyMapper:
     config = MicroStrategyConfig.model_validate(
         {
             "base_url": "https://mstr.example.com/MicroStrategyLibrary",
             "platform_instance": "prod",
+            "dataset_field_order": dataset_field_order,
             "emit_dashboard_dataset_edges": emit_dashboard_dataset_edges,
             "extract_warehouse_lineage": extract_warehouse_lineage,
             "extract_report_sql_lineage": extract_report_sql_lineage,
@@ -2446,3 +2448,129 @@ def test_chart_properties_omit_placement_for_visualization_without_a_page() -> N
 
     assert properties["microstrategyVisualizationKey"] == "viz-1"
     assert not set(_PLACEMENT_PROPERTY_KEYS) & set(properties)
+
+
+def _unsorted_objects_definition() -> DashboardDefinition:
+    # availableObjects deliberately out of alphabetical order, the way a
+    # report definition lists its objects.
+    return DashboardDefinition.from_api_response(
+        object_id="dash-order",
+        object_name="Ordered Dossier",
+        response={
+            "result": {
+                "definition": {
+                    "datasets": [
+                        {
+                            "id": "ds-1",
+                            "name": "Sales Cube",
+                            "availableObjects": {
+                                "metrics": [
+                                    {"id": "m-z", "name": "Zeta Amt"},
+                                    {"id": "m-a", "name": "Alpha Amt"},
+                                ],
+                                "attributes": [
+                                    {
+                                        "id": "a-m",
+                                        "name": "Month",
+                                        "forms": [{"id": "f-m", "name": "ID"}],
+                                    },
+                                    {
+                                        "id": "a-b",
+                                        "name": "Brand",
+                                        "forms": [
+                                            {"id": "f-b-id", "name": "ID"},
+                                            {"id": "f-b-desc", "name": "DESC"},
+                                        ],
+                                    },
+                                ],
+                            },
+                        }
+                    ],
+                    "chapters": [],
+                }
+            }
+        },
+    )
+
+
+def _schema_field_paths(
+    mapper: MicroStrategyMapper, dashboard: DashboardDefinition, dataset: DatasetObject
+) -> "list[str]":
+    schema = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, dataset, mapper.project_key("project-1")
+        ),
+        SchemaMetadataClass,
+    )
+    return [field.fieldPath for field in schema.fields]
+
+
+def test_dataset_fields_follow_report_object_order_by_default() -> None:
+    dashboard = _unsorted_objects_definition()
+
+    paths = _schema_field_paths(_mapper(), dashboard, dashboard.datasets[0])
+
+    assert paths == ["Zeta Amt", "Alpha Amt", "Month", "Brand.ID", "Brand.DESC"]
+
+
+def test_dataset_field_order_alphabetical_restores_sorted_fields() -> None:
+    dashboard = _unsorted_objects_definition()
+    dataset = dashboard.datasets[0]
+
+    report_order = _schema_field_paths(_mapper(), dashboard, dataset)
+    alphabetical = _schema_field_paths(
+        _mapper(dataset_field_order="alphabetical"), dashboard, dataset
+    )
+
+    # Ordering only: the same field paths either way.
+    assert sorted(report_order) == sorted(alphabetical)
+    assert alphabetical == sorted(report_order)
+    assert alphabetical == ["Alpha Amt", "Brand.DESC", "Brand.ID", "Month", "Zeta Amt"]
+
+
+def _derived_field_paths(
+    mapper: MicroStrategyMapper, dashboard: DashboardDefinition, dataset: DatasetObject
+) -> "list[str]":
+    schema = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, dataset, mapper.project_key("project-1")
+        ),
+        SchemaMetadataClass,
+    )
+    return [
+        field.fieldPath
+        for field in schema.fields
+        if DERIVED_TAG_URN in _tag_urns(field)
+    ]
+
+
+def test_derived_metrics_follow_report_definition_order_after_catalog_objects() -> None:
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+    mapper.attach_report_derived_metrics(retail, _report_definitions())
+
+    paths = _schema_field_paths(mapper, dashboard, retail)
+
+    # The report lists RTL PLN before Qty Var LYS %; alphabetical order would
+    # reverse them. Derived metrics stay after the catalog objects.
+    assert paths[-2:] == ["RTL PLN", "Qty Var LYS %"]
+    assert paths[:2] == ["Net Sales Retail Amt", "Salon RTL % Plan"]
+
+
+def test_report_definition_order_outranks_grid_order_for_derived_metrics() -> None:
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+    # The grid saw D-RTL first; the report lists D-QTY-VAR first.
+    assert list(retail.derived_metrics) == ["D-RTL"]
+
+    mapper.attach_report_derived_metrics(retail, list(reversed(_report_definitions())))
+
+    assert list(retail.derived_metrics) == ["D-QTY-VAR", "D-RTL"]
+    assert _derived_field_paths(mapper, dashboard, retail) == [
+        "Qty Var LYS %",
+        "RTL PLN",
+    ]

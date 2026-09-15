@@ -80,7 +80,7 @@ Note that `folder_pattern` cannot exclude content: a denied folder re-parents it
 
 #### Metric and Attribute Tags
 
-MicroStrategy metrics and attributes are emitted as schema fields on the dashboard dataset/cube. The connector attaches canonical DataHub tags to the fields:
+MicroStrategy metrics and attributes are emitted as schema fields on the dashboard dataset/cube. Fields are listed in the order the report or cube definition returns its objects -- metrics, then attributes and their forms, then derived metrics in the report definition's order -- which is the order the Report Objects pane shows them; set `dataset_field_order: alphabetical` to sort them by name instead (the DataHub schema tab re-sorts alphabetically on a column-header click either way). The connector attaches canonical DataHub tags to the fields:
 
 - `urn:li:tag:Measure` for metrics.
 - `urn:li:tag:Dimension` for attributes and attribute forms.

@@ -1241,6 +1241,17 @@ def extract_embedded_metric_definitions(
             for child in value:
                 visit(child, parent_key, parent)
 
+    # The Modeling definition's data template lists report objects in Report
+    # Objects order; walking it first fixes the definitions' order to that
+    # (dataset schema fields follow it) regardless of the payload's key
+    # order. The full walk then only adds grid aliases and anything the
+    # template does not carry.
+    template_parent = payload.get("dataSource")
+    if not isinstance(template_parent, dict):
+        template_parent = payload
+    template = template_parent.get("dataTemplate")
+    if isinstance(template, dict):
+        visit(template, "dataTemplate", template_parent)
     visit(payload, "", None)
     return list(found.values())
 

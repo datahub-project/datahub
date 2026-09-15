@@ -674,3 +674,47 @@ def test_visualization_outside_any_page_has_no_placement() -> None:
     assert visualization.chapter_index is None
     assert visualization.page_name is None
     assert visualization.page_index is None
+
+
+def test_extract_embedded_metric_definitions_follow_data_template_order() -> None:
+    from datahub.ingestion.source.microstrategy.models import (
+        extract_embedded_metric_definitions,
+    )
+
+    def derived(object_id: str, name: str) -> Dict[str, Any]:
+        return {
+            "id": object_id,
+            "name": name,
+            "subType": "derived_metric",
+            "expression": {"text": f"{{{name}}} - 1"},
+        }
+
+    # The grid precedes the data template in this payload's key order; the
+    # template's element order (the Report Objects order) still wins.
+    payload = {
+        "grid": {
+            "viewTemplate": {
+                "columns": {
+                    "units": [{"type": "metrics", "elements": [derived("D-B", "Beta")]}]
+                }
+            }
+        },
+        "dataSource": {
+            "dataTemplate": {
+                "units": [
+                    {
+                        "type": "metrics",
+                        "elements": [
+                            {"id": "M-1", "name": "Net", "subType": "metric"},
+                            derived("D-A", "Alpha"),
+                            derived("D-B", "Beta"),
+                        ],
+                    }
+                ]
+            }
+        },
+    }
+
+    definitions = extract_embedded_metric_definitions(payload)
+
+    assert [definition.id for definition in definitions] == ["D-A", "D-B"]
