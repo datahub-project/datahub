@@ -1354,16 +1354,22 @@ truth for the new casing):
 
 **Run order:** re-ingest the source with the new casing **first**, then run this command.
 
-Matching is case-insensitive and handles both v1 and v2 field paths. It is conservative by design:
+Matching is case-insensitive and handles both v1 and v2 field paths. It is conservative by default:
 
 - **Ambiguous case-only collisions are never guessed.** If a single stranded field maps to two
   current fields that differ only by case (e.g. a historically lowercased `col` now split into `Col`
   and `COL`), it is reported for manual review and left untouched.
-- **Existing destination metadata is preserved.** Tags and glossary terms are unioned with whatever
-  already sits on the correctly-cased field (deduped by URN, preserving source/immutable attribution);
-  any other aspect that already differs on the destination is reported rather than overwritten, and
-  the source is kept so nothing is lost.
-- **Re-running is safe** (idempotent): matched entries converge and tags/terms are unioned.
+- **Existing destination metadata is preserved.** Tags, glossary terms, and structured properties are
+  merged with whatever already sits on the correctly-cased field: tags/terms are unioned by URN
+  (preserving source/immutable attribution), and structured properties are unioned by property URN.
+  The same structured property carrying different values on each side, or any other aspect
+  (`documentation`, `deprecation`, `businessAttributes`, …) that already differs on the destination,
+  is reported rather than overwritten, and the source is kept so nothing is lost.
+- **Re-running is safe** (idempotent): matched entries converge and merged aspects do not duplicate.
+
+Use `--interactive` to resolve those clashes at the prompt instead of skipping them — you choose the
+target for an ambiguous collision, and decide per-aspect whether to overwrite the destination on a
+conflict. Without it, clashes are reported under "needing manual review" and left for you to handle.
 
 Options:
 
@@ -1379,6 +1385,8 @@ Options:
   in place.
 - `--include-soft-deleted` / `--exclude-soft-deleted`: Include soft-deleted `schemaField` entities
   when discovering stranded fields (default: exclude).
+- `--interactive` / `--no-interactive`: Prompt to resolve each clash (ambiguous collision target,
+  aspect-conflict overwrite) instead of skipping it (default: no). Ignored under `--dry-run`.
 - `--dry-run` / `-n`: Report what would change without writing.
 - `--force` / `-F`: Skip the confirmation prompt.
 

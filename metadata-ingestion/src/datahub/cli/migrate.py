@@ -12,6 +12,8 @@ import progressbar
 from datahub.cli import delete_cli, migration_utils
 from datahub.cli.migration_utils import ALL_ENTITY_TYPES
 from datahub.cli.schema_field_case_migration import (
+    ClashResolver,
+    InteractiveClashResolver,
     discover_dataset_urns as discover_schema_field_dataset_urns,
     run_migration as run_schema_field_case_migration,
 )
@@ -1290,6 +1292,14 @@ def snowflake_semantic_views(
 )
 @click.option("--dry-run", "-n", type=bool, is_flag=True, default=False)
 @click.option(
+    "--interactive/--no-interactive",
+    default=False,
+    help="Prompt to resolve each clash instead of skipping it: pick the target "
+    "for an ambiguous case-only collision, and decide whether to overwrite the "
+    "destination on an aspect conflict. Ignored under --dry-run. Default: skip "
+    "and report clashes for manual handling.",
+)
+@click.option(
     "-F",
     "--force",
     type=bool,
@@ -1308,6 +1318,7 @@ def schema_field_case(
     keep_source_fields: bool,
     include_soft_deleted: bool,
     dry_run: bool,
+    interactive: bool,
     force: bool,
 ) -> None:
     """Re-anchor column metadata after a connector column-casing change.
@@ -1319,9 +1330,11 @@ def schema_field_case(
     connector that used to lowercase everything, e.g. Oracle).
 
     Matching is case-insensitive and handles both v1 and v2 field paths, making
-    no assumption about the transform. A case-only collision (two current fields
-    differing only by case, e.g. "col" and "COL") is reported for manual
-    resolution rather than guessed.
+    no assumption about the transform. Tags, glossary terms, and structured
+    properties are merged additively onto the correctly-cased field; a case-only
+    collision (two current fields differing only by case, e.g. "col" and "COL")
+    or a genuine aspect conflict is reported for manual resolution rather than
+    guessed. Pass --interactive to resolve those clashes at the prompt instead.
 
     Re-ingest the source with the new casing FIRST, then run this command.
     Re-running is safe: matched entries are idempotent and tags/terms are unioned.
@@ -1347,11 +1360,16 @@ def schema_field_case(
         click.echo(f"Will reconcile datasets such as: {dataset_urns[:5]}")
         click.confirm("Ok to proceed?", abort=True)
 
+    # Interactive prompting only makes sense when we are actually writing.
+    resolver = (
+        InteractiveClashResolver() if interactive and not dry_run else ClashResolver()
+    )
     report = run_schema_field_case_migration(
         graph=graph,
         dataset_urns=dataset_urns,
         dry_run=dry_run,
         delete_source=not keep_source_fields,
         include_soft_deleted=include_soft_deleted,
+        resolver=resolver,
     )
     click.echo(f"{report}")

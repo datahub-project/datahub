@@ -10,6 +10,8 @@ from click.testing import CliRunner
 
 from datahub.cli.migrate import schema_field_case
 from datahub.cli.schema_field_case_migration import (
+    ClashResolver,
+    InteractiveClashResolver,
     PathReconciler,
     _merge_editable_field_info,
     reconcile_dataset,
@@ -653,6 +655,142 @@ class TestSchemaFieldEntityMergeGuard:
         assert old_sf in graph.soft_deleted  # identical → safe to retire source
 
 
+class TestStructuredPropertyMerge:
+    def test_disjoint_structured_properties_union(self):
+        # A property propagated onto the correctly-cased field and a different one
+        # on the stranded field both survive.
+        old_sf = _sf("product2id")
+        new_sf = _sf("Product2Id")
+        graph = FakeGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Product2Id")},
+                old_sf: {
+                    "structuredProperties": _structured_prop(
+                        "urn:li:structuredProperty:pii", "yes"
+                    )
+                },
+                new_sf: {
+                    "structuredProperties": _structured_prop(
+                        "urn:li:structuredProperty:tier", "gold"
+                    )
+                },
+            }
+        )
+        reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        emitted = [a for (u, a) in graph.emitted if u == new_sf][-1]
+        by_urn = {p.propertyUrn: p for p in emitted.properties}
+        assert set(by_urn) == {
+            "urn:li:structuredProperty:pii",
+            "urn:li:structuredProperty:tier",
+        }
+        assert old_sf in graph.soft_deleted
+
+    def test_same_property_different_values_is_conflict(self):
+        old_sf = _sf("product2id")
+        new_sf = _sf("Product2Id")
+        graph = FakeGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Product2Id")},
+                old_sf: {
+                    "structuredProperties": _structured_prop(
+                        "urn:li:structuredProperty:tier", "silver"
+                    )
+                },
+                new_sf: {
+                    "structuredProperties": _structured_prop(
+                        "urn:li:structuredProperty:tier", "gold"
+                    )
+                },
+            }
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        assert not [a for (u, a) in graph.emitted if u == new_sf]
+        assert old_sf not in graph.soft_deleted
+        assert any("structuredProperties" in s for s in result.skipped)
+
+
+class _FixedResolver(ClashResolver):
+    """Test double: returns a fixed target / overwrite decision and records calls."""
+
+    def __init__(self, target: Optional[str] = None, overwrite: bool = False) -> None:
+        self._target = target
+        self._overwrite = overwrite
+        self.choose_calls: List[str] = []
+        self.conflict_calls: List[str] = []
+
+    def choose_target(
+        self, old_path: str, candidates: List[str], what: str
+    ) -> Optional[str]:
+        self.choose_calls.append(old_path)
+        return self._target
+
+    def resolve_conflict(self, old_path: str, new_path: str, aspect_name: str) -> bool:
+        self.conflict_calls.append(aspect_name)
+        return self._overwrite
+
+
+class TestInteractiveResolver:
+    def test_ambiguous_collision_resolved_to_chosen_target(self):
+        stale_sf = _sf("col")
+        chosen_sf = _sf("COL")
+        graph = FakeGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Col", "COL")},
+                stale_sf: {"documentation": _doc("was ambiguous")},
+            }
+        )
+        resolver = _FixedResolver(target="COL")
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+            resolver=resolver,
+        )
+        assert [u for (u, _) in graph.emitted] == [chosen_sf]
+        assert resolver.choose_calls == ["col"]
+        assert stale_sf in graph.soft_deleted
+        assert not result.skipped
+
+    def test_conflict_overwrite_replaces_destination(self):
+        old_sf = _sf("product2id")
+        new_sf = _sf("Product2Id")
+        graph = FakeGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Product2Id")},
+                old_sf: {"documentation": _doc("stranded doc")},
+                new_sf: {"documentation": _doc("destination doc")},
+            }
+        )
+        resolver = _FixedResolver(overwrite=True)
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+            resolver=resolver,
+        )
+        emitted = [a for (u, a) in graph.emitted if u == new_sf][-1]
+        assert emitted.documentations[0].documentation == "stranded doc"
+        assert resolver.conflict_calls == ["documentation"]
+        assert old_sf in graph.soft_deleted
+        assert not result.skipped
+
+
 class TestRunMigrationReport:
     def test_report_counts(self):
         old_sf = _sf("product2id")
@@ -759,6 +897,34 @@ class TestSchemaFieldCaseCli:
         result = CliRunner().invoke(schema_field_case, ["--platform", "snowflake"])
         assert result.exit_code == 0, result.output
         assert "No datasets found" in result.output
+
+    @patch("datahub.cli.migrate.run_schema_field_case_migration")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_interactive_flag_uses_interactive_resolver(
+        self, mock_graph: MagicMock, mock_run: MagicMock
+    ) -> None:
+        mock_run.return_value = MagicMock()
+        result = CliRunner().invoke(
+            schema_field_case, ["--urn", _DATASET, "--force", "--interactive"]
+        )
+        assert result.exit_code == 0, result.output
+        assert isinstance(
+            mock_run.call_args.kwargs["resolver"], InteractiveClashResolver
+        )
+
+    @patch("datahub.cli.migrate.run_schema_field_case_migration")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_interactive_ignored_under_dry_run(
+        self, mock_graph: MagicMock, mock_run: MagicMock
+    ) -> None:
+        mock_run.return_value = MagicMock()
+        result = CliRunner().invoke(
+            schema_field_case, ["--urn", _DATASET, "--interactive", "--dry-run"]
+        )
+        assert result.exit_code == 0, result.output
+        assert not isinstance(
+            mock_run.call_args.kwargs["resolver"], InteractiveClashResolver
+        )
 
     @patch("datahub.cli.migrate.run_schema_field_case_migration")
     @patch("datahub.cli.migrate.discover_schema_field_dataset_urns")

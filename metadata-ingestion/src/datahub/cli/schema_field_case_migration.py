@@ -2,8 +2,8 @@
 
 A casing change (Snowflake ``preserve_column_case``, or any connector that used
 to lowercase everything) makes re-ingestion rewrite ``schemaMetadata`` with new
-field paths, orphaning column-level metadata on the old paths: ``editableSchema-
-Metadata`` entries on the dataset and aspects on the ``schemaField`` entities
+field paths, orphaning column-level metadata on the old paths: the dataset's
+``editableSchemaMetadata`` entries and aspects on the ``schemaField`` entities
 (whose urns embed the field path). This reconciles both onto the current schema
 by a case-insensitive path match, making no assumption about the transform so it
 works for any connector.
@@ -12,6 +12,8 @@ works for any connector.
 import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Set, Tuple, cast
+
+import click
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -24,6 +26,7 @@ from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
     SchemaMetadataClass,
+    StructuredPropertiesClass,
     TagAssociationClass,
     _Aspect,
 )
@@ -32,6 +35,7 @@ from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_fie
 
 log = logging.getLogger(__name__)
 
+DATASET_ENTITY = "dataset"
 SCHEMA_FIELD_ENTITY = "schemaField"
 
 # Searchable field on schemaFieldKey pointing at the owning dataset.
@@ -105,6 +109,11 @@ class PathReconciler:
             )
         return targets[0], None
 
+    def candidates(self, old_path: str) -> List[str]:
+        """Current field paths an ambiguous ``old_path`` could map to (>1 means a
+        case-only collision; empty means no match at all)."""
+        return sorted(self._norm_to_paths.get(_norm(old_path), []))
+
 
 @dataclass
 class FieldRemap:
@@ -121,6 +130,51 @@ class DatasetReconcileResult:
     editable_updated: bool = False
     skipped: List[str] = field(default_factory=list)
     error: Optional[str] = None
+
+
+class ClashResolver:
+    """Decides how to handle the two situations the reconciler cannot resolve on
+    its own. The default is conservative: never guess — report and skip, so no
+    metadata is lost or overwritten. ``--interactive`` swaps in a subclass that
+    asks the operator instead.
+    """
+
+    def choose_target(
+        self, old_path: str, candidates: List[str], what: str
+    ) -> Optional[str]:
+        """Pick which current field a stranded ``old_path`` maps to when it
+        case-folds to more than one. ``None`` means skip."""
+        return None
+
+    def resolve_conflict(self, old_path: str, new_path: str, aspect_name: str) -> bool:
+        """Whether to overwrite the destination's existing ``aspect_name`` with the
+        stranded field's value. ``False`` keeps both for manual handling."""
+        return False
+
+
+class InteractiveClashResolver(ClashResolver):
+    def choose_target(
+        self, old_path: str, candidates: List[str], what: str
+    ) -> Optional[str]:
+        click.echo(f"\nAmbiguous: stranded '{old_path}' ({what}) could map to:")
+        for i, candidate in enumerate(candidates, 1):
+            click.echo(f"  [{i}] {candidate}")
+        click.echo("  [s] skip (leave for manual handling)")
+        while True:
+            choice = click.prompt("Choose target", default="s").strip().lower()
+            if choice == "s":
+                return None
+            if choice.isdigit() and 1 <= int(choice) <= len(candidates):
+                return candidates[int(choice) - 1]
+            click.echo("Invalid choice.")
+
+    def resolve_conflict(self, old_path: str, new_path: str, aspect_name: str) -> bool:
+        return click.confirm(
+            f"\nConflict on '{new_path}': it already has a different "
+            f"'{aspect_name}' than stranded '{old_path}'. Overwrite the "
+            f"destination with the stranded value?",
+            default=False,
+        )
 
 
 def _current_field_paths(graph: DataHubGraph, dataset_urn: str) -> List[str]:
@@ -171,12 +225,6 @@ def _read_schema_field_aspects(
     return {name: bag[name] for name in MIGRATED_SCHEMA_FIELD_ASPECTS if name in bag}
 
 
-# schemaField-entity aspects that we union with the destination instead of
-# overwriting it, so a tag/term already propagated onto the correctly-cased field
-# (with its source attribution) survives the migration.
-_UNIONABLE_ASPECTS = frozenset({"globalTags", "glossaryTerms"})
-
-
 def _dedup_tags(tags: Sequence[TagAssociationClass]) -> List[TagAssociationClass]:
     # On a duplicate urn, keep the association carrying attribution (a
     # source-assigned / propagated / "immutable" tag) over a bare UI one, so the
@@ -219,6 +267,46 @@ def _union_association_aspect(
     return GlossaryTermsClass(
         terms=_dedup_terms([*dest_terms, *src_terms]), auditStamp=audit_stamp
     )
+
+
+def _merge_structured_properties(
+    dest: Optional[_Aspect], src: _Aspect
+) -> Tuple[Optional[_Aspect], bool]:
+    """Union structured-property assignments by ``propertyUrn``. Disjoint or
+    identical assignments merge additively; the same property carrying different
+    values on each side is a genuine conflict (returns ``(None, True)``) — we do
+    not guess which value wins."""
+    dest_props = dest.properties if isinstance(dest, StructuredPropertiesClass) else []
+    src_props = src.properties if isinstance(src, StructuredPropertiesClass) else []
+    merged: Dict[str, object] = {}
+    for prop in [*dest_props, *src_props]:
+        prev = merged.get(prop.propertyUrn)
+        if prev is None:
+            merged[prop.propertyUrn] = prop
+        elif prev.values != prop.values:  # type: ignore[attr-defined]
+            return None, True
+    return StructuredPropertiesClass(properties=list(merged.values())), False  # type: ignore[arg-type]
+
+
+def _merge_aspect(
+    name: str, dest: Optional[_Aspect], src: _Aspect
+) -> Tuple[Optional[_Aspect], bool]:
+    """Combine a stranded field's aspect with whatever the destination already has.
+
+    Returns ``(aspect_to_emit, conflict)``. Tags, terms, and structured properties
+    merge additively (a value already propagated onto the correctly-cased field
+    survives). Any other aspect that already differs on the destination is a
+    conflict the caller must resolve rather than silently clobber.
+    """
+    if dest is None:
+        return src, False
+    if name in ("globalTags", "glossaryTerms"):
+        return _union_association_aspect(name, dest, src), False
+    if name == "structuredProperties":
+        return _merge_structured_properties(dest, src)
+    if dest == src:
+        return src, False
+    return None, True
 
 
 def _merge_editable_field_info(
@@ -292,6 +380,7 @@ def _reconcile_schema_field_entities(
     reconciler: PathReconciler,
     remaps: Dict[Tuple[str, str], FieldRemap],
     result: DatasetReconcileResult,
+    resolver: ClashResolver,
     *,
     dry_run: bool,
     delete_source: bool,
@@ -316,10 +405,19 @@ def _reconcile_schema_field_entities(
             continue
 
         if new_path is None:
-            result.skipped.append(
-                f"schemaField '{old_path}': {reason}; left in place: {sorted(aspects)}"
+            candidates = reconciler.candidates(old_path)
+            new_path = (
+                resolver.choose_target(
+                    old_path, candidates, f"aspects {sorted(aspects)}"
+                )
+                if len(candidates) > 1
+                else None
             )
-            continue
+            if new_path is None:
+                result.skipped.append(
+                    f"schemaField '{old_path}': {reason}; left in place: {sorted(aspects)}"
+                )
+                continue
 
         new_schema_field_urn = make_schema_field_urn(dataset_urn, new_path)
         # Read the destination so we never clobber metadata already sitting on the
@@ -328,20 +426,19 @@ def _reconcile_schema_field_entities(
         carried: List[str] = []
         left_behind = False
         for name, aspect in aspects.items():
-            dest = existing_dest.get(name)
-            if name in _UNIONABLE_ASPECTS:
-                to_emit: _Aspect = _union_association_aspect(name, dest, aspect)
-            elif dest is not None and dest != aspect:
-                # A non-union aspect already exists on the destination with
-                # different content — surface it rather than overwrite either side.
-                result.skipped.append(
-                    f"schemaField '{old_path}' -> '{new_path}': destination already "
-                    f"has a different '{name}'; left source copy in place for review"
-                )
-                left_behind = True
-                continue
-            else:
-                to_emit = aspect
+            to_emit, conflict = _merge_aspect(name, existing_dest.get(name), aspect)
+            if conflict:
+                if resolver.resolve_conflict(old_path, new_path, name):
+                    to_emit = aspect  # operator chose the stranded value
+                else:
+                    result.skipped.append(
+                        f"schemaField '{old_path}' -> '{new_path}': destination "
+                        f"already has a different '{name}'; left source copy in "
+                        "place for review"
+                    )
+                    left_behind = True
+                    continue
+            assert to_emit is not None
             if not dry_run:
                 graph.emit_mcp(
                     MetadataChangeProposalWrapper(
@@ -367,6 +464,7 @@ def _reconcile_editable_schema_metadata(
     reconciler: PathReconciler,
     remaps: Dict[Tuple[str, str], FieldRemap],
     result: DatasetReconcileResult,
+    resolver: ClashResolver,
     *,
     dry_run: bool,
 ) -> None:
@@ -393,11 +491,25 @@ def _reconcile_editable_schema_metadata(
             continue
         new_path, reason = reconciler.resolve(info.fieldPath)
         if new_path is None:
-            if _has_editable_content(info):
-                result.skipped.append(
-                    f"editableSchemaMetadata '{info.fieldPath}': {reason}"
-                )
-            continue
+            candidates = reconciler.candidates(info.fieldPath)
+            new_path = (
+                resolver.choose_target(info.fieldPath, candidates, "editable entry")
+                if len(candidates) > 1
+                else None
+            )
+            if new_path is None:
+                if _has_editable_content(info):
+                    result.skipped.append(
+                        f"editableSchemaMetadata '{info.fieldPath}': {reason}"
+                    )
+                    # Keep it at its own path: the aspect below is rewritten
+                    # wholesale from ``by_path`` once any *other* entry resolves,
+                    # and an unresolved entry omitted here would be deleted
+                    # rather than left in place for manual review.
+                    by_path[info.fieldPath] = _merge_editable_field_info(
+                        by_path.get(info.fieldPath), info, info.fieldPath
+                    )
+                continue
         by_path[new_path] = _merge_editable_field_info(
             by_path.get(new_path), info, new_path
         )
@@ -425,7 +537,9 @@ def reconcile_dataset(
     dry_run: bool,
     delete_source: bool,
     include_soft_deleted: bool,
+    resolver: Optional[ClashResolver] = None,
 ) -> DatasetReconcileResult:
+    resolver = resolver or ClashResolver()
     result = DatasetReconcileResult(dataset_urn=dataset_urn)
     current_paths = _current_field_paths(graph, dataset_urn)
     if not current_paths:
@@ -445,6 +559,7 @@ def reconcile_dataset(
             reconciler,
             remaps,
             result,
+            resolver,
             dry_run=dry_run,
             delete_source=delete_source,
             include_soft_deleted=include_soft_deleted,
@@ -455,6 +570,7 @@ def reconcile_dataset(
             reconciler,
             remaps,
             result,
+            resolver,
             dry_run=dry_run,
         )
     except Exception as e:
@@ -473,7 +589,7 @@ def discover_dataset_urns(
 ) -> List[str]:
     return list(
         graph.get_urns_by_filter(
-            entity_types=["dataset"],
+            entity_types=[DATASET_ENTITY],
             platform=platform,
             platform_instance=platform_instance,
             env=env,
@@ -530,7 +646,9 @@ def run_migration(
     dry_run: bool,
     delete_source: bool,
     include_soft_deleted: bool,
+    resolver: Optional[ClashResolver] = None,
 ) -> SchemaFieldCaseMigrationReport:
+    resolver = resolver or ClashResolver()
     report = SchemaFieldCaseMigrationReport(dry_run=dry_run)
     for dataset_urn in dataset_urns:
         try:
@@ -540,6 +658,7 @@ def run_migration(
                 dry_run=dry_run,
                 delete_source=delete_source,
                 include_soft_deleted=include_soft_deleted,
+                resolver=resolver,
             )
         except Exception as e:
             log.warning(f"Unexpected error reconciling {dataset_urn}: {e}")
