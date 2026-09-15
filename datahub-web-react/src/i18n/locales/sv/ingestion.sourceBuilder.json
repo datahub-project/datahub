@@ -91,6 +91,7 @@
     "looker.lookerSourceLink": "DataHub Looker Ingestion-källa",
     "looker.lookmlSourceLink": "DataHub LookML Ingestion-källa",
     "looker.warning": "För att slutföra Looker-integrationen (inklusive Looker-vyer och lineage till de underliggande warehouse-tabellerna) måste du <bold>också</bold> använda <anchor></anchor>.",
+    "snowflake.passwordAuthDeprecation.message": "Snowflake avvecklar autentisering med användarnamn + lösenord (DEFAULT_AUTHENTICATOR) som en del av Strong Authentication-utrullningen. Lösenordsautentisering kommer att sluta fungera på ett kontospecifikt ikraftträdelsedatum under Fas 3 (Aug-Okt 2026). Byt detta recept till nyckelpar-autentisering (KEY_PAIR_AUTHENTICATOR) före ditt kontos ikraftträdelsedatum. Se <anchor>migreringsguide</anchor>.",
     "modal.connectTitle": "Anslut datakälla",
     "modal.editTitle": "Redigera datakälla",
     "multiStep.builder.actorsPlaceholder": "Sök efter användare eller grupper",

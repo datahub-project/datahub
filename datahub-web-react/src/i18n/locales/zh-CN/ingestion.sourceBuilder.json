@@ -91,6 +91,7 @@
     "looker.lookerSourceLink": "DataHub Looker 数据引入源",
     "looker.lookmlSourceLink": "DataHub LookML 数据引入源",
     "looker.warning": "若要完成 Looker 集成（包括 Looker 视图以及到底层仓库表的数据血缘），你<bold>还必须</bold>使用 <anchor></anchor>。",
+    "snowflake.passwordAuthDeprecation.message": "作为 Strong Authentication 推广的一部分，Snowflake 正在弃用用户名 + 密码身份验证（DEFAULT_AUTHENTICATOR）。密码身份验证将在第 3 阶段（2026 年 8 月至 10 月）的某个账户特定执行日期停止工作。请在账户执行日期之前将此配方切换为密钥对身份验证（KEY_PAIR_AUTHENTICATOR）。请参阅<anchor>迁移指南</anchor>。",
     "modal.connectTitle": "连接数据源",
     "modal.editTitle": "编辑数据源",
     "multiStep.builder.actorsPlaceholder": "搜索用户或用户组",

@@ -34,10 +34,13 @@ export const SnowflakePasswordAuthDeprecationWarning = ({ recipe }: Props) => {
                     t={t}
                     i18nKey="snowflake.passwordAuthDeprecation.message"
                     components={{
+                        // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label -- link text is injected by <Trans> from the i18n message string
                         anchor: (
-                            <a href={SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL} target="_blank" rel="noopener noreferrer">
-                                {t('snowflake.passwordAuthDeprecation.linkText')}
-                            </a>
+                            <a
+                                href={SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            />
                         ),
                     }}
                 />

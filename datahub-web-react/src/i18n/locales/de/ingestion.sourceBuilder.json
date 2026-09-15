@@ -91,6 +91,7 @@
     "looker.lookerSourceLink": "DataHub-Looker-Ingestion-Source",
     "looker.lookmlSourceLink": "DataHub-LookML-Ingestion-Source",
     "looker.warning": "Um die Looker-Integration abzuschließen (einschließlich Looker-Views und Lineage zu den zugrunde liegenden Warehouse-Tabellen), musst du <bold>auch</bold> die <anchor></anchor> verwenden.",
+    "snowflake.passwordAuthDeprecation.message": "Snowflake schaltet die Authentifizierung mit Benutzername + Passwort (DEFAULT_AUTHENTICATOR) im Rahmen des Strong-Autentication-Rollouts ab. Die Passwort-Authentifizierung funktioniert ab einem kontospezifischen Stichtag in Phase 3 (Aug-Okt 2026) nicht mehr. Wechsle dieses Rezept vor dem Stichtag deines Kontos auf Key-Pair-Authentifizierung (KEY_PAIR_AUTHENTICATOR). Siehe den <anchor>Migrationsleitfaden</anchor>.",
     "modal.connectTitle": "Datenquelle verbinden",
     "modal.editTitle": "Datenquelle bearbeiten",
     "multiStep.builder.actorsPlaceholder": "Nach Benutzern oder Gruppen suchen",

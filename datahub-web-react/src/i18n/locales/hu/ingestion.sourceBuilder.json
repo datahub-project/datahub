@@ -91,6 +91,7 @@
     "looker.lookerSourceLink": "DataHub Looker adatbetöltési forrás",
     "looker.lookmlSourceLink": "DataHub LookML adatbetöltési forrás",
     "looker.warning": "A Looker-integráció befejezéséhez (beleértve a Looker-nézeteket és a Lineage-t a mögöttes adattárház-táblákig) <bold>szintén</bold> használnia kell a következőt: <anchor></anchor>.",
+    "snowflake.passwordAuthDeprecation.message": "A Snowflake a Strong Authentication bevezetésének részeként kivezeti a felhasználónév + jelszó hitelesítést (DEFAULT_AUTHENTICATOR). A jelszavas hitelesítés a 3. fázisban (Aug-Okt 2026) egy fiókspecifikus érvényesítési napon fog megszűnni működni. Váltsd át ezt a receptet kulcspár hitelesítésre (KEY_PAIR_AUTHENTICATOR) a fiókod érvényesítési napja előtt. Lásd a <anchor>migrációs útmutató</anchor>.",
     "modal.connectTitle": "Adatforrás csatlakoztatása",
     "modal.editTitle": "Adatforrás szerkesztése",
     "multiStep.builder.actorsPlaceholder": "Felhasználók vagy csoportok keresése",

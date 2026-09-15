@@ -91,6 +91,7 @@
     "looker.lookerSourceLink": "DataHub Looker Ingestionソース",
     "looker.lookmlSourceLink": "DataHub LookML Ingestionソース",
     "looker.warning": "Lookerの連携を完全にする（Lookerのビューや基盤となるウェアハウステーブルへのLineageを含む）には、<bold>併せて</bold><anchor></anchor>を使用する必要があります。",
+    "snowflake.passwordAuthDeprecation.message": "SnowflakeはStrong Authenticationのロールアウトの一環として、ユーザー名＋パスワード認証（DEFAULT_AUTHENTICATOR）を非推奨に移行しています。パスワード認証はフェーズ3（2026年8月〜10月）中のアカウント固有の施行日に機能しなくなります。アカウントの施行日の前に、このレシピをキーペア認証（KEY_PAIR_AUTHENTICATOR）に切り替えてください。<anchor>移行ガイド</anchor>を参照してください。",
     "modal.connectTitle": "データソースを接続",
     "modal.editTitle": "データソースを編集",
     "multiStep.builder.actorsPlaceholder": "ユーザーまたはグループを検索",

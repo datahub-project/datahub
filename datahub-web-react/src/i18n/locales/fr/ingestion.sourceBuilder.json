@@ -91,6 +91,7 @@
     "looker.lookerSourceLink": "Source d'ingestion Looker DataHub",
     "looker.lookmlSourceLink": "Source d'ingestion LookML DataHub",
     "looker.warning": "Pour terminer l'intégration Looker (y compris les vues Looker et le Lineage vers les tables de l'entrepôt de données sous-jacentes), vous devez <bold>également</bold> utiliser le <anchor></anchor>.",
+    "snowflake.passwordAuthDeprecation.message": "Snowflake déprécie l'authentification par nom d'utilisateur + mot de passe (DEFAULT_AUTHENTICATOR) dans le cadre de son déploiement Strong Authentication. L'authentification par mot de passe cessera de fonctionner à une date d'application spécifique au compte durant la Phase 3 (Août-Oct 2026). Basculez cette recette vers l'authentification par paire de clés (KEY_PAIR_AUTHENTICATOR) avant la date d'application de votre compte. Consultez le <anchor>guide de migration</anchor>.",
     "modal.connectTitle": "Connecter une source de données",
     "modal.editTitle": "Modifier la source de données",
     "multiStep.builder.actorsPlaceholder": "Rechercher des utilisateurs ou des groupes",

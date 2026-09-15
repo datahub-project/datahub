@@ -18,11 +18,12 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
         );
 
         expect(getByText(/Snowflake is deprecating username \+ password authentication/)).toBeInTheDocument();
-        // The migration guide link is present.
+        // The migration guide link is present with its text and href.
         const link = getByRole('link');
         expect(link.getAttribute('href')).toBe(
             'https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/migrate-to-key-pair-auth',
         );
+        expect(link).toHaveTextContent('migration guide');
     });
 
     it('renders nothing when the recipe uses key-pair auth', () => {
