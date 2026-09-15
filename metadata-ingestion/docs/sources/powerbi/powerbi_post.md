@@ -255,3 +255,4 @@ The `profiling_pattern` setting may be used to limit profiling actions to only a
 - **Authentication failures**: verify `tenant_id`, `client_id`, and `client_secret`, and confirm the app has the required Power BI API permissions.
 - **Missing workspaces/assets**: check service principal access to target workspaces or enable the required admin API mode/settings.
 - **Lineage gaps**: confirm lineage-related config is enabled and that semantic models expose supported upstream source details.
+- **`Missing PowerBI Public API Permission` / `Missing PowerBI Admin API Permission` warnings**: these come from the pre-flight permission check described under [Permission checks](#permission-checks) and identify exactly which tenant setting is missing — see [Public APIs ingestion](#public-apis-ingestion) and [Admin APIs ingestion](#admin-apis-ingestion) for how to grant it.
