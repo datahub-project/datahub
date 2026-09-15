@@ -206,7 +206,8 @@ class MongoDBSourceReport(StaleEntityRemovalSourceReport):
         self.filtered.append(name)
 
 
-# map PyMongo types to canonical MongoDB strings
+# Preserve the source's existing native type names for compatibility; they are
+# not necessarily MongoDB's $type aliases.
 PYMONGO_TYPE_TO_MONGO_TYPE = {
     list: "ARRAY",
     dict: "OBJECT",
@@ -225,8 +226,6 @@ PYMONGO_TYPE_TO_MONGO_TYPE = {
     # both share the existing "binary" native type string.
     bytes: "binary",
     bson.binary.Binary: "binary",
-    # Native type strings below follow the official BSON `$type` aliases:
-    # https://www.mongodb.com/docs/manual/reference/bson-types/
     uuid.UUID: "uuid",
     bson.regex.Regex: "regex",
     bson.code.Code: "javascript",
