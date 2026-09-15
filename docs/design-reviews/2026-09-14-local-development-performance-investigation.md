@@ -73,9 +73,9 @@ The baseline already enables:
 - configuration on demand.
 
 It limits Gradle to two workers and configures a two-GiB default daemon heap. Those conservative
-settings remain appropriate for smaller machines. The host GMS command now raises only its own worker
-limit on larger machines, using at most half the logical CPUs, one worker per four GiB of physical
-memory, and an overall cap of six. The repository-wide default is unchanged.
+settings remain appropriate for smaller machines. A bounded host GMS worker-count experiment did not
+establish a relevant improvement, so the proposed adaptive worker override was removed. The
+repository-wide defaults remain unchanged.
 
 Configuration cache is not enabled. The number of reported problems depends on the selected task
 graph; a representative `:metadata-service:war:classes` trial reported 143 problems, 93 apparently
@@ -87,6 +87,21 @@ configuration-cache directory would only discard stored state; it would not make
 compatible. The normal build does not enable configuration cache, so this does **not** mean the
 development setup is broken. Supporting it requires coordinated Pegasus task-model and versioning
 work rather than a cache cleanup.
+
+Static inspection suggests that configuration-cache support for the GMS classes graph is realistic
+without a large compatibility layer. Of the recorded diagnostics, 122 serialization reports arise
+from shared Pegasus task actions and `onlyIf` predicates capturing `Project` or `SourceSet`. Further
+reports arise from resource-filter closures doing the same. These are repeated plugin patterns, not
+143 independent fixes. A clean implementation would capture declared task inputs during configuration,
+remove execution-time project access, and replace the build-finished listener with an appropriate
+service or reporting task. Version inference also needs cache-compatible process providers.
+
+The Pegasus plugin is already an archived-upstream fork vendored as a jar. Its source should be fixed
+in that existing fork, then the jar and integrity hashes updated; per-module shims or another plugin
+framework would add avoidable bloat. This is a bounded plugin refactor, not a small configuration
+toggle. Success for the GMS classes graph would not establish compatibility for the full build,
+Docker, Play, or every other plugin. Configuration cache should remain opt-in until those paths are
+validated separately.
 
 ### Frontend Gradle graph
 
@@ -202,8 +217,8 @@ Host GMS phase instrumentation produced these medians:
 A bounded worker-count comparison used unique edits after a discarded plugin-migration primer. Two
 workers took 7.03 and 5.90 seconds, six workers took 5.57 seconds, and twelve workers took 5.90 and
 5.56 seconds for the same `:metadata-service:war:classes` graph. All runs executed five of 174 tasks.
-The samples show that the global two-worker cap can constrain this graph on a large machine, while
-twelve workers provide no advantage over six. They do not establish a precise improvement percentage.
+The small sample and warm-up trend do not establish a relevant worker-count effect. This experiment
+was rejected; no adaptive worker override remains in `datahub-dev`.
 
 Every counted run verified a unique HTTP response marker. Temporary endpoints, fields, route entries,
 and response markers were removed after measurement, and both Docker services were rebuilt from the
@@ -306,11 +321,10 @@ reported in the host development mode comparison above.
 - A forced-generation check now matches both `git rev-parse HEAD` and
   `git describe --tags --always --abbrev=7` in the linked worktree.
 
-### `7119b52481 perf(dev): scale host GMS Gradle workers`
+### Rejected experiment: `7119b52481 perf(dev): scale host GMS Gradle workers`
 
-- Preserves the repository's two-worker default for normal Gradle builds.
-- Selects a conservative CPU/memory-aware worker limit for host GMS, capped at six.
-- Adds `datahub-dev gms --max-workers N` for an explicit machine-specific override.
+This introduced a CPU/memory-aware worker limit for host GMS and a `--max-workers` option. Both were
+subsequently removed because the limited measurements did not justify the additional policy and code.
 
 ## Conclusions by Scenario
 
