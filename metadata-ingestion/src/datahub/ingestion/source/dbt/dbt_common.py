@@ -169,9 +169,12 @@ class _TwoTierSchemaResolver(SchemaResolver):
     matches the 2-part URN that dbt and target_platform_urn_to_dbt_name use.
     """
 
-    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        # All URNs are 2-part — strip any catalog prefix before lookup.
-        return super().resolve_table(table.model_copy(update={"database": None}))
+    def _table_for_lookup(self, table: _TableName) -> _TableName:
+        # All URNs are 2-part — strip any catalog prefix before lookup. Overriding the
+        # hook rather than resolve_table keeps prefetching consistent with resolution;
+        # overriding resolve_table alone left prefetch_tables warming 3-part URNs that
+        # were never looked up, costing an extra round trip instead of saving one.
+        return table.model_copy(update={"database": None})
 
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")

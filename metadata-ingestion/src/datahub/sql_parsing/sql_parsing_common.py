@@ -11,6 +11,33 @@ PLATFORMS_WITH_CASE_SENSITIVE_TABLES = {
 }
 
 
+def lower_if_all_upper(name: str) -> str:
+    """Replicate SQLAlchemy's ``normalize_name``: lowercase an identifier only if
+    it is entirely uppercase, and leave anything else verbatim.
+
+    Engines that fold unquoted identifiers to uppercase store them that way, so an
+    all-uppercase name means "written unquoted" and a mixed-case one means "written
+    quoted". SQLAlchemy dialects undo the former and preserve the latter, and the
+    DataHub sources riding those dialects inherit that when they build URNs.
+    """
+    return name.lower() if name.isupper() else name
+
+
+# Platforms whose DataHub source applies ``lower_if_all_upper`` when it builds
+# URNs, so an all-uppercase identifier in a query corresponds to a lowercased URN
+# component while a mixed-case one is kept verbatim. Both ride a SQLAlchemy
+# dialect that does this: oracle via ``normalize_db_name`` in
+# ``ingestion/source/sql/oracle.py``, hana via ``sqlalchemy-hana`` natively.
+#
+# Deliberately not every platform: applying the rule elsewhere would invent URN
+# candidates that platform never emits, and on a case-sensitive platform it could
+# match a genuinely different dataset that happens to differ only by case.
+PLATFORMS_WITH_NORMALIZE_NAME_URNS = {
+    "oracle",
+    "hana",
+}
+
+
 def get_dialect_str(platform: str) -> str:
     """Map DataHub platform names to sqlglot dialect names.
 
