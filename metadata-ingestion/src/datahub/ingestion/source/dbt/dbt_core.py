@@ -47,7 +47,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
-    parse_semantic_model_definition,
+    parse_semantic_model,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
@@ -507,7 +507,7 @@ def _metric_input(value: Any) -> Optional[DBTMetricInput]:
     if isinstance(value, dict):
         name = value.get("name")
         if isinstance(name, str) and name:
-            return DBTMetricInput(name=name)
+            return DBTMetricInput(name=name, filter=_metric_filter(value.get("filter")))
     return None
 
 
@@ -610,8 +610,6 @@ def extract_dbt_metrics(
                 filter=_metric_filter(metric_node.get("filter")),
                 tags=tags,
                 depends_on=depends_on_nodes,
-                dbt_package_name=metric_node.get("package_name"),
-                dbt_file_path=metric_node.get("original_file_path"),
             )
         )
     return metrics
@@ -664,8 +662,9 @@ def extract_semantic_models(
         )
         alias = node_relation.get("alias")
 
-        definition = parse_semantic_model_definition(sm_node)
-        if definition.discarded and report is not None:
+        parsed = parse_semantic_model(sm_node)
+        definition = parsed.definition
+        if parsed.discarded and report is not None:
             # Reported on the legacy path too: the dataset would otherwise be
             # emitted with a partial or empty schema and nothing saying why.
             report.warning(
@@ -673,7 +672,7 @@ def extract_semantic_models(
                 message="Some entities, dimensions or measures were skipped "
                 "because the manifest did not have the expected shape. The "
                 "emitted schema is incomplete.",
-                context=f"{key}: {'; '.join(definition.discarded)}",
+                context=f"{key}: {'; '.join(parsed.discarded)}",
             )
         columns = convert_semantic_model_fields_to_columns(definition)
 

@@ -8,7 +8,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTMetric,
     DBTNode,
     DBTSourceReport,
-    parse_semantic_model_definition,
+    parse_semantic_model,
 )
 from datahub.ingestion.source.dbt.dbt_core import extract_dbt_metrics
 from datahub.ingestion.source.dbt.dbt_semantic_model import DbtSemanticModelMapper
@@ -61,6 +61,7 @@ def _sm_node(
     upstreams: Optional[List[str]] = None,
     package_name: str = _PROJECT,
     description: str = "",
+    tags: Optional[List[str]] = None,
 ) -> DBTNode:
     return DBTNode(
         dbt_name=f"semantic_model.{package_name}.{name}",
@@ -81,13 +82,13 @@ def _sm_node(
         missing_from_catalog=False,
         meta={},
         query_tag={},
-        tags=[],
+        tags=tags or [],
         owner=None,
         language="yaml",
         columns=[],
         compiled_code=None,
         raw_code=None,
-        semantic_model_def=parse_semantic_model_definition(raw),
+        semantic_model_def=parse_semantic_model(raw).definition,
     )
 
 
@@ -1467,3 +1468,111 @@ def test_browse_path_folds_an_instance_equal_to_the_project_name():
     assert aspect.path[0].urn == (
         f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,{_PROJECT})"
     )
+
+
+def test_a_measure_without_an_agg_carries_no_aggregation_function():
+    # The parse layer defaults a missing `agg` to "unknown" so the legacy
+    # column strings stay byte-identical; that filler must not reach the
+    # first-class entities as if dbt had declared it.
+    node = _sm_node(
+        "orders",
+        {
+            "entities": [{"name": "order_id", "type": "primary"}],
+            "measures": [{"name": "total", "create_metric": True}],
+        },
+    )
+    workunits = _emit(_mapper(), [node])
+
+    assert _annotations(workunits)["total"].aggregationFunction is None
+    # And the derived metric gets no expression rather than "unknown(...)".
+    assert _one(workunits, MetricInfoClass).expression is None
+
+
+def test_semantic_model_dataset_carries_the_node_tags():
+    # dbt Cloud selects `tags` on a semanticModels node and the legacy dataset
+    # path emitted them, so the first-class dataset must too.
+    workunits = _emit(
+        _mapper(), [_sm_node("orders", _ORDERS, tags=["dbt:core", "dbt:daily"])]
+    )
+
+    urn, tags = _aspects(workunits, GlobalTagsClass)[0]
+    assert "semanticModelDataset" in urn or "dataset" in urn
+    assert [t.tag for t in tags.tags] == [
+        "urn:li:tag:dbt:core",
+        "urn:li:tag:dbt:daily",
+    ]
+
+
+_DUPLICATE_MEASURE_A = {
+    "entities": [{"name": "order_id", "type": "primary"}],
+    "measures": [{"name": "revenue", "agg": "sum"}],
+}
+_DUPLICATE_MEASURE_B = {
+    "entities": [{"name": "item_id", "type": "primary"}],
+    "measures": [{"name": "revenue", "agg": "max"}],
+}
+
+
+def test_metric_resolves_a_duplicated_measure_within_its_own_model():
+    # "revenue" exists in both models. The metric's depends_on names zz_items,
+    # which sorts last, so a project-wide lookup would resolve to aa_orders.
+    workunits = _emit(
+        _mapper(),
+        [
+            _sm_node("aa_orders", _DUPLICATE_MEASURE_A),
+            _sm_node("zz_items", _DUPLICATE_MEASURE_B),
+        ],
+        _metrics(
+            {
+                "metric.jaffle_shop.item_revenue": {
+                    "name": "item_revenue",
+                    "label": "Item revenue",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {"measure": {"name": "revenue"}},
+                    "depends_on": {"nodes": ["semantic_model.jaffle_shop.zz_items"]},
+                }
+            }
+        ),
+    )
+
+    info = _one(workunits, MetricInfoClass)
+    assert _expression_of(info.expression).expression == "max(zz_items.revenue)"
+    upstreams = _one(workunits, MetricUpstreamsClass)
+    assert _destinations(upstreams.datasetUpstreams) == [
+        f"urn:li:dataset:(urn:li:dataPlatform:dbt,{_PROJECT}.semantic_layer.zz_items,PROD)"
+    ]
+
+
+def test_a_filtered_measure_input_leaves_the_metric_expression_unset():
+    # The input's own filter has no home on MetricInfo, so the aggregation form
+    # would publish a broader metric than the author declared.
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.large_orders": {
+                    "name": "large_orders",
+                    "label": "Large orders",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {
+                        "measure": {
+                            "name": "revenue",
+                            "filter": {
+                                "where_filters": [
+                                    {"where_sql_template": "revenue > 100"}
+                                ]
+                            },
+                        }
+                    },
+                }
+            }
+        ),
+    )
+
+    info = dict(_aspects(workunits, MetricInfoClass))[
+        f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},large_orders)"
+    ]
+    assert info.expression is None

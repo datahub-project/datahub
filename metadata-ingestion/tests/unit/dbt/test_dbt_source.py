@@ -18,12 +18,13 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTEntitiesEnabled,
     DBTExposure,
     DBTNode,
+    DBTSemanticModelDefinition,
     DBTSourceReport,
     EmitDirective,
     NullTypeClass,
     convert_semantic_model_fields_to_columns,
     get_column_type,
-    parse_semantic_model_definition,
+    parse_semantic_model,
     parse_semantic_view_cll,
 )
 from datahub.ingestion.source.dbt.dbt_core import (
@@ -71,6 +72,13 @@ from datahub.utilities.mapping import Constants, OperationProcessor
 from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
     create_mock_dbt_node,
 )
+
+
+def parse_semantic_model_definition(
+    raw: Dict[str, Any],
+) -> DBTSemanticModelDefinition:
+    """The definition half of a parse, for tests that assert no diagnostics."""
+    return parse_semantic_model(raw).definition
 
 
 def create_owners_list_from_urn_list(
@@ -3758,8 +3766,8 @@ def test_parse_semantic_model_definition_tolerates_missing_and_empty_sections():
     assert definition.primary_entity is None
     assert definition.dimensions[0].time_granularity is None
     assert not definition.dimensions[0].is_time
-    assert not definition.is_empty()
-    assert parse_semantic_model_definition({}).is_empty()
+    assert not definition.has_no_fields()
+    assert parse_semantic_model({}).definition.has_no_fields()
 
 
 def test_extract_semantic_models_fallback_to_depends_on():
@@ -4799,12 +4807,24 @@ def test_unreadable_semantic_model_sections_are_reported_not_dropped():
 
 def test_a_semantic_model_field_without_a_name_does_not_abort_the_run():
     """Every neighbouring field is read defensively; this one raised KeyError."""
-    definition = parse_semantic_model_definition(
+    parsed = parse_semantic_model(
         {"entities": [{"type": "primary"}], "measures": [{"name": "m", "agg": "sum"}]}
     )
 
-    assert definition.entities[0].name == ""
-    assert definition.discarded == ["entities[0] has no usable name"]
+    assert parsed.definition.entities[0].name == ""
+    assert parsed.discarded == ["entities[0] has no usable name"]
+
+
+def test_a_malformed_type_params_is_reported_rather_than_dropped():
+    """Every other unusable shape lands in `discarded`; this one did not."""
+    parsed = parse_semantic_model(
+        {"dimensions": [{"name": "ordered_at", "type": "time", "type_params": "day"}]}
+    )
+
+    assert parsed.definition.dimensions[0].time_granularity is None
+    assert parsed.discarded == [
+        "dimensions[0] has a non-object type_params, so its time granularity was dropped"
+    ]
 
 
 def test_manifest_load_wires_the_report_into_semantic_model_extraction():

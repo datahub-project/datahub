@@ -657,6 +657,13 @@ tags, terms, documentation — is not carried across automatically.
   metric's `filter` is also represented: it is folded into the emitted expression
   (`sum(orders.revenue) FILTER (WHERE region = 'US')`), because a metric whose filter was dropped
   would publish a broader number than the dbt definition.
+- **A filter on a metric's measure input.** dbt lets a metric filter the single measure it reads
+  (`type_params.measure.filter`), which is distinct from the metric's own `filter` above and has no
+  place on `MetricInfo`. Such a metric is emitted with **no expression** rather than the unfiltered
+  aggregation, since `sum(orders.revenue)` would describe a broader number than the definition.
+- **Tags and `meta` on a dbt Core semantic model.** Manifest schema v11 gives a semantic model no
+  `tags` field and puts `meta` under `config`, so neither is available from a manifest. On dbt Cloud
+  the Discovery API does return `tags`, and those are emitted on the Semantic Model Dataset.
 - **`saved_queries` and `groups`.** Neither is ingested. A dbt saved query is a named
   metric-plus-group-by export definition and a dbt group is an ownership grouping; neither is a
   semantic model or a metric, so both are out of scope for this feature rather than missing from it.

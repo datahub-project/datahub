@@ -24,6 +24,7 @@ from datahub.ingestion.source.dbt.dbt_cloud_models import (
     DBTCloudEnvironment,
     DBTCloudJob,
 )
+from datahub.metadata.schema_classes import GlobalTagsClass
 
 
 @pytest.fixture
@@ -879,7 +880,7 @@ def mock_graphql_response_with_joined_semantic_models() -> Dict[str, Any]:
                     "database": "db",
                     "schema": "sc",
                     "meta": {},
-                    "tags": [],
+                    "tags": ["daily"],
                     "dependsOn": [],
                     "entities": [
                         {"name": "order_id", "type": "primary", "expr": None},
@@ -1013,6 +1014,43 @@ class TestDbtCloudSemanticModelEntities:
         assert source.report.num_semantic_model_datasets_emitted == 2
         assert source.report.num_semantic_model_relationships_emitted == 1
         assert source.report.num_metrics_from_measures == 1
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_semantic_model_dataset_keeps_the_node_tags(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+        mock_graphql_response_with_joined_semantic_models: Dict[str, Any],
+    ) -> None:
+        """The legacy dataset carried them, so the new one has to as well.
+
+        dbt Cloud selects `tags` on a semanticModels node; a dbt Core manifest
+        has no such field, so this is the only source that exercises it.
+        """
+        source = self._source(
+            mock_get_envs,
+            mock_get_jobs,
+            mock_graphql,
+            mock_graphql_response_with_joined_semantic_models,
+            emit_semantic_model_entities=True,
+        )
+
+        orders = (
+            "urn:li:dataset:"
+            "(urn:li:dataPlatform:dbt,test_project.semantic_layer.orders,PROD)"
+        )
+        tagged: Dict[str, GlobalTagsClass] = {}
+        for wu in source.get_workunits():
+            aspect = getattr(wu.metadata, "aspect", None)
+            urn = getattr(wu.metadata, "entityUrn", None)
+            if isinstance(aspect, GlobalTagsClass) and isinstance(urn, str):
+                tagged[urn] = aspect
+
+        # Prefixed with the configured tag_prefix, exactly as the legacy path did.
+        assert [t.tag for t in tagged[orders].tags] == ["urn:li:tag:dbt:daily"]
 
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")

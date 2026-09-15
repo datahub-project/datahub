@@ -160,10 +160,6 @@ from datahub.utilities.urns.urn import Urn
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
 
-# Fallback when the dbt project name cannot be determined; it becomes part of
-# the semanticModel / metric URNs, so it must be stable.
-DEFAULT_PROJECT_NAME = "dbt_project"
-
 
 class _TwoTierSchemaResolver(SchemaResolver):
     """SchemaResolver for dbt with include_database_name=False.
@@ -926,7 +922,16 @@ class DBTColumn:
 
 # dbt defaults applied at parse time so the legacy flattened-column
 # representation stays byte-identical to the pre-dataclass `.get(key, default)`
-# behavior. The semantic-model mapper re-normalizes these itself.
+# behavior: they are rendered into the `data_type` and description strings that
+# `convert_semantic_model_fields_to_columns` produces.
+#
+# They are display filler, not dbt values, so the first-class entities must not
+# repeat them. The two type sentinels are inert there -- `is_key`, `is_join_source`
+# and `is_time` all compare against real dbt type names, which "unknown" and
+# "categorical" are not -- but an agg of "unknown" would otherwise reach
+# `aggregationFunction` and be rendered into a metric expression as
+# `unknown(orders.revenue)`. `DBTSemanticMeasure.aggregation` is the reader that
+# keeps it out.
 SEMANTIC_ENTITY_TYPE_UNKNOWN = "unknown"
 SEMANTIC_DIMENSION_TYPE_CATEGORICAL = "categorical"
 SEMANTIC_MEASURE_AGG_UNKNOWN = "unknown"
@@ -976,6 +981,16 @@ class DBTSemanticMeasure:
     expr: Optional[str]
     create_metric: bool = False
 
+    @property
+    def aggregation(self) -> Optional[str]:
+        """The declared aggregation, or None when dbt did not declare one.
+
+        `agg` carries the legacy display default, so read it through here
+        wherever an absent aggregation has to stay absent.
+        """
+        agg = (self.agg or "").strip().lower()
+        return agg if agg and agg != SEMANTIC_MEASURE_AGG_UNKNOWN else None
+
 
 @dataclass
 class DBTSemanticModelDefinition:
@@ -985,11 +1000,14 @@ class DBTSemanticModelDefinition:
     # dbt allows declaring `primary_entity` on the semantic model instead of
     # listing an entity of type `primary`; MetricFlow joins on it either way.
     primary_entity: Optional[str] = None
-    # Parts of the raw node that could not be read, for the ingestion report.
-    # Empty for every well-formed manifest.
-    discarded: List[str] = field(default_factory=list)
 
-    def is_empty(self) -> bool:
+    def has_no_fields(self) -> bool:
+        """True when nothing here can become a schema field.
+
+        `primary_entity` is deliberately not counted: it names an entity rather
+        than declaring one, so a model carrying only that has no column to emit
+        and cannot be represented as a Semantic Model Dataset.
+        """
         return not (self.entities or self.dimensions or self.measures)
 
 
@@ -1020,9 +1038,20 @@ def _name_or_blank(
     return ""
 
 
-def parse_semantic_model_definition(
-    raw: Mapping[str, Any],
-) -> DBTSemanticModelDefinition:
+@dataclass
+class DBTSemanticModelParse:
+    """The outcome of parsing one raw semantic model node."""
+
+    definition: DBTSemanticModelDefinition
+    # Parts of the raw node that could not be read, for the ingestion report.
+    # Empty for every well-formed manifest. Held here rather than on the
+    # definition because it describes the parse, not the model: the caller
+    # reports it once, against the node key it alone knows, and nothing
+    # downstream of extraction has any use for it.
+    discarded: List[str] = field(default_factory=list)
+
+
+def parse_semantic_model(raw: Mapping[str, Any]) -> DBTSemanticModelParse:
     """Parse a raw semantic model node into a typed definition.
 
     Accepts either a manifest.json `semantic_models` entry or a dbt Cloud
@@ -1048,7 +1077,16 @@ def parse_semantic_model_definition(
         raw.get("dimensions"), "dimensions", discarded
     ):
         type_params = _first_present(raw_dimension, "type_params", "typeParams")
-        if not isinstance(type_params, Mapping):
+        if type_params is None:
+            type_params = {}
+        elif not isinstance(type_params, Mapping):
+            # Present but not an object, so the time granularity inside it is
+            # unreadable. Reported like every other malformed shape rather than
+            # silently costing the dimension its granularity.
+            discarded.append(
+                f"dimensions[{index}] has a non-object type_params, "
+                "so its time granularity was dropped"
+            )
             type_params = {}
         dimensions.append(
             DBTSemanticDimension(
@@ -1077,12 +1115,14 @@ def parse_semantic_model_definition(
         )
     ]
 
-    return DBTSemanticModelDefinition(
-        entities=entities,
-        dimensions=dimensions,
-        measures=measures,
-        primary_entity=_optional_str(
-            _first_present(raw, "primary_entity", "primaryEntity")
+    return DBTSemanticModelParse(
+        definition=DBTSemanticModelDefinition(
+            entities=entities,
+            dimensions=dimensions,
+            measures=measures,
+            primary_entity=_optional_str(
+                _first_present(raw, "primary_entity", "primaryEntity")
+            ),
         ),
         discarded=discarded,
     )
@@ -1536,6 +1576,10 @@ class DBTMetricInput:
     """
 
     name: str
+    # The predicate dbt applies to this input alone, distinct from the metric's
+    # own `filter`. Not emitted anywhere -- MetricInfo has no field for it --
+    # but read so a filtered input does not get an unfiltered expression.
+    filter: Optional[str] = None
 
 
 @dataclass
@@ -1560,8 +1604,6 @@ class DBTMetric:
     filter: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     depends_on: List[str] = field(default_factory=list)
-    dbt_package_name: Optional[str] = None
-    dbt_file_path: Optional[str] = None
 
     @property
     def display_name(self) -> str:
@@ -2122,6 +2164,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         """Return dbt metrics. Subclasses populate self._metrics during load."""
         return self._metrics
 
+    def report_metric_source_limitations(self) -> None:
+        """Report what this source cannot read from dbt's `metrics:` block.
+
+        Separate from `load_metrics` so the note is tied to a run that emits
+        semantic-model entities, rather than to the act of loading.
+        """
+
     def create_exposure_mcps(
         self,
         exposures: List[DBTExposure],
@@ -2493,6 +2542,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         metric_definitions = self.load_metrics()
         if not semantic_model_nodes and not metric_definitions:
             return
+        self.report_metric_source_limitations()
 
         unsupported = self._unsupported_semantic_model_config()
         if unsupported:
@@ -2518,6 +2568,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         project_name = self._resolve_semantic_model_project_name(semantic_model_nodes)
         if project_name is None:
+            # Reported as a failure, which makes this terminal by design: the
+            # project name is URN identity, so guessing one would mint entities
+            # under an address that changes on the next run. Nothing is lost by
+            # returning here -- a reported failure also makes the stale-entity
+            # handler skip soft-deletion, so previously ingested entities on
+            # either shape survive untouched.
             return
 
         mapper = DbtSemanticModelMapper(

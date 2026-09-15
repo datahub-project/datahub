@@ -222,6 +222,27 @@ class TestBuildMapping:
         assert mapping.pairs == {}
         assert "ambiguous" in mapping.unresolved[_LEGACY]
 
+    def test_two_legacy_datasets_may_not_share_one_destination(self):
+        # Pairing matches on the trailing name only, so a second legacy schema
+        # holding the same semantic model resolves to the same destination.
+        # migrate_entity is last-write-wins, so one would lose its governance
+        # while both reported success.
+        other_legacy = (
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,warehouse.staging.orders,PROD)"
+        )
+        graph = _graph({})
+        graph.get_urns_by_filter.return_value = [_NEW]
+        mapping = build_mapping(
+            graph,
+            MigrationDirection.DATASET_TO_SM,
+            [_LEGACY, other_legacy],
+            pair_by_name=True,
+        )
+        assert mapping.pairs == {}
+        for urn in (_LEGACY, other_legacy):
+            assert "governance would be overwritten" in mapping.unresolved[urn]
+        assert other_legacy in mapping.unresolved[_LEGACY]
+
     def test_pair_by_name_reports_a_missing_counterpart(self):
         graph = _graph({})
         graph.get_urns_by_filter.return_value = []

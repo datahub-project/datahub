@@ -482,7 +482,37 @@ def _mapping_by_name(
             )
             continue
         mapping.pairs[urn] = matches[0]
+
+    _reject_shared_destinations(mapping)
     return mapping
+
+
+def _reject_shared_destinations(mapping: DbtUrnMapping) -> None:
+    """Drop every pair whose destination another source also claims.
+
+    Name pairing matches on the trailing semantic-model name alone, so two
+    legacy datasets in different databases or schemas can carry the same name
+    and resolve to one destination. `migrate_entity` is last-write-wins with no
+    merge, so migrating both would silently keep only whichever ran last --
+    reported as two successes. Refusing the whole group is the only safe
+    outcome; `--mapping-file` is how an operator states the intent.
+    """
+    sources_by_destination: Dict[str, List[str]] = {}
+    for src, dst in mapping.pairs.items():
+        sources_by_destination.setdefault(dst, []).append(src)
+
+    for dst, sources in sources_by_destination.items():
+        if len(sources) < 2:
+            continue
+        for src in sorted(sources):
+            del mapping.pairs[src]
+            others = sorted(other for other in sources if other != src)
+            mapping.unresolved[src] = (
+                f"would migrate onto {dst}, which {len(others)} other legacy "
+                f"dataset(s) also claim ({', '.join(others)}); governance would "
+                "be overwritten rather than merged. Pass --mapping-file to "
+                "choose which one migrates."
+            )
 
 
 # --- Reporting ---

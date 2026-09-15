@@ -38,14 +38,13 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
     DBTExposure,
-    DBTMetric,
     DBTNode,
     DBTSemanticModelDefinition,
     DBTSourceBase,
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
-    parse_semantic_model_definition,
+    parse_semantic_model,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
@@ -872,7 +871,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             )
         return test_info, test_result
 
-    def load_metrics(self) -> List[DBTMetric]:
+    def report_metric_source_limitations(self) -> None:
         """dbt Cloud cannot supply top-level `metrics:` definitions yet.
 
         The Discovery API does not expose the semantic graph; metric
@@ -882,8 +881,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         from `create_metric` measures are unaffected -- those come from the
         semanticModels query, which already selects `createMetric`.
         """
-        # Only reached from behind the resolved gate, so no config check here:
-        # checking the raw value would also fire when the gate refused.
+        # Only reached from behind the resolved gate, and only once the caller
+        # knows semantic-model entities will be emitted, so no config check
+        # here: checking the raw value would also fire when the gate refused.
         self.report.info(
             title="dbt Cloud does not ingest top-level metric definitions",
             message="Metrics declared in a `metrics:` block are not ingested "
@@ -891,7 +891,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             "Metrics from measures with `create_metric: true` are ingested as "
             "normal. Use the dbt Core source if you need the `metrics:` block.",
         )
-        return super().load_metrics()
 
     def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
         key = node["uniqueId"]
@@ -973,14 +972,15 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         columns: List[DBTColumn] = []
         semantic_model_def: Optional[DBTSemanticModelDefinition] = None
         if resource_type == "semantic_model":
-            semantic_model_def = parse_semantic_model_definition(node)
-            if semantic_model_def.discarded:
+            parsed = parse_semantic_model(node)
+            semantic_model_def = parsed.definition
+            if parsed.discarded:
                 self.report.warning(
                     title="Could not read part of a dbt semantic model",
                     message="Some entities, dimensions or measures were skipped "
                     "because the Discovery API response did not have the "
                     "expected shape. The emitted schema is incomplete.",
-                    context=f"{key}: {'; '.join(semantic_model_def.discarded)}",
+                    context=f"{key}: {'; '.join(parsed.discarded)}",
                 )
             columns = convert_semantic_model_fields_to_columns(semantic_model_def)
         elif "columns" in node and node["columns"] is not None:

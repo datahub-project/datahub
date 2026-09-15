@@ -110,12 +110,26 @@ class _ResolvedMetricInputs:
     measure_names: List[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class _MeasureLocation:
+    """Where a measure lives, and how it aggregates."""
+
+    dataset_urn: str
+    expression: Optional[str]
+
+
 @dataclass
 class _MeasureIndex:
-    """Measure lookups a top-level metric needs, keyed by casefolded name."""
+    """Measure lookups a top-level metric needs, keyed by casefolded name.
 
-    dataset_urn_by_measure: Dict[str, str] = field(default_factory=dict)
-    expression_by_measure: Dict[str, str] = field(default_factory=dict)
+    Two levels, because a measure name is unique only within its semantic
+    model: `by_model` resolves a metric that names its owning model in
+    `depends_on` (dbt always does for a metric built on a measure), and
+    `by_name` is the project-wide fallback for anything that does not.
+    """
+
+    by_name: Dict[str, _MeasureLocation] = field(default_factory=dict)
+    by_model: Dict[str, Dict[str, _MeasureLocation]] = field(default_factory=dict)
     dataset_urn_by_dbt_name: Dict[str, str] = field(default_factory=dict)
 
 
@@ -360,6 +374,7 @@ class DbtSemanticModelMapper:
                         platform_instance=self.config.platform_instance,
                         env=self.config.env,
                         description=node.description or None,
+                        tags=[make_tag_urn(tag) for tag in node.tags] or None,
                         upstreams=self._upstreams(node, all_nodes_map) or None,
                         extra_aspects=self._common_aspects(),
                     ),
@@ -369,7 +384,7 @@ class DbtSemanticModelMapper:
 
     def _has_definition(self, node: DBTNode) -> bool:
         definition = node.semantic_model_def
-        if definition is None or definition.is_empty():
+        if definition is None or definition.has_no_fields():
             self.report.warning(
                 title="dbt semantic model has no definition",
                 message="Skipping this semantic model; its entities, dimensions "
@@ -567,13 +582,12 @@ class DbtSemanticModelMapper:
         )
 
     def _measure_field(self, measure: DBTSemanticMeasure) -> SemanticFieldInput:
-        agg = (measure.agg or "").strip().lower()
         return SemanticFieldInput(
             field_path=measure.name,
             type=_FIELD_TYPE_NUMBER,
             semantic_type=SemanticFieldTypeClass.MEASURE,
             description=measure.description or None,
-            aggregation_function=agg or None,
+            aggregation_function=measure.aggregation,
             expression=self._expression(measure.expr),
         )
 
@@ -698,20 +712,23 @@ class DbtSemanticModelMapper:
             index.dataset_urn_by_dbt_name[prepared.node.dbt_name] = dataset_urn
             for measure in prepared.definition.measures:
                 key = measure.name.casefold()
-                if key in index.dataset_urn_by_measure:
+                location = _MeasureLocation(
+                    dataset_urn=dataset_urn,
+                    expression=self._measure_expression(measure, prepared.alias),
+                )
+                index.by_model.setdefault(prepared.node.dbt_name, {})[key] = location
+                if key in index.by_name:
                     self.report.warning(
                         title="Ambiguous dbt measure name",
                         message="More than one semantic model declares a measure "
-                        "with this name, so a metric referencing it by name is "
-                        "ambiguous. Attributing it to the first model in name "
-                        "order.",
+                        "with this name. A metric naming its semantic model in "
+                        "`depends_on` still resolves to the right one; anything "
+                        "referencing the measure by name alone is attributed to "
+                        "the first model in name order.",
                         context=f"{prepared.node.dbt_name}.{measure.name}",
                     )
                     continue
-                index.dataset_urn_by_measure[key] = dataset_urn
-                expression = self._measure_expression(measure, prepared.alias)
-                if expression:
-                    index.expression_by_measure[key] = expression
+                index.by_name[key] = location
         return index
 
     def _metrics_from_measures(self, models: List[_PreparedModel]) -> Dict[str, Metric]:
@@ -808,6 +825,26 @@ class DbtSemanticModelMapper:
 
         return [metrics[key] for key in sorted(metrics)]
 
+    @staticmethod
+    def _locate_measure(
+        metric_definition: DBTMetric, index: _MeasureIndex, measure_name: str
+    ) -> Optional[_MeasureLocation]:
+        """Find a measure, preferring the semantic model the metric declares.
+
+        A measure name is unique per semantic model but not per project, so the
+        project-wide map can point at the wrong model -- which would both add a
+        bogus upstream edge and qualify the synthesized expression with the
+        wrong alias.
+        """
+        folded = measure_name.casefold()
+        for dbt_name in metric_definition.depends_on:
+            if not dbt_name.startswith(_SEMANTIC_MODEL_DEPENDS_ON_PREFIX):
+                continue
+            located = index.by_model.get(dbt_name, {}).get(folded)
+            if located:
+                return located
+        return index.by_name.get(folded)
+
     def _metric_urn(self, metric_id: str) -> str:
         return str(MetricUrn(platform=DBT_PLATFORM, path=self.path, id=metric_id))
 
@@ -815,7 +852,7 @@ class DbtSemanticModelMapper:
     def _measure_expression(measure: DBTSemanticMeasure, alias: str) -> Optional[str]:
         # No aggregation means we cannot say how the metric is computed, which
         # is more honest as an absent expression than as a fabricated one.
-        agg = (measure.agg or "").strip().lower()
+        agg = measure.aggregation
         return f"{agg}({alias}.{measure.name})" if agg else None
 
     def _metric_from_measure(
@@ -855,9 +892,9 @@ class DbtSemanticModelMapper:
         ]
         measure_names.extend(resolved.measure_names)
         for measure_name in measure_names:
-            dataset_urn = index.dataset_urn_by_measure.get(measure_name.casefold())
-            if dataset_urn and dataset_urn not in upstreams:
-                upstreams.append(dataset_urn)
+            located = self._locate_measure(metric_definition, index, measure_name)
+            if located and located.dataset_urn not in upstreams:
+                upstreams.append(located.dataset_urn)
         for dbt_name in metric_definition.depends_on:
             if not dbt_name.startswith(_SEMANTIC_MODEL_DEPENDS_ON_PREFIX):
                 continue
@@ -924,9 +961,15 @@ class DbtSemanticModelMapper:
         # A simple metric is just its measure's aggregation, so reuse it rather
         # than leaving the metric with no expression at all.
         if len(metric_definition.measures) == 1:
-            return index.expression_by_measure.get(
-                metric_definition.measures[0].name.casefold()
-            )
+            measure_input = metric_definition.measures[0]
+            if measure_input.filter:
+                # The input's own filter has no home on MetricInfo, and the
+                # aggregation form would read as the unfiltered measure. An
+                # absent expression is the honest answer until the filter can
+                # be carried.
+                return None
+            located = self._locate_measure(metric_definition, index, measure_input.name)
+            return located.expression if located else None
         return None
 
     @staticmethod
@@ -971,7 +1014,7 @@ class DbtSemanticModelMapper:
                 urn = self._metric_urn(canonical_id)
                 if urn not in resolved.metric_urns:
                     resolved.metric_urns.append(urn)
-            elif folded in index.dataset_urn_by_measure:
+            elif self._locate_measure(metric_definition, index, name) is not None:
                 if name not in resolved.measure_names:
                     resolved.measure_names.append(name)
             else:
