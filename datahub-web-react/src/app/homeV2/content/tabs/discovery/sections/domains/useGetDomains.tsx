@@ -11,6 +11,7 @@ const MAX_DOMAINS = 5;
 export const useGetDomains = (
     user?: CorpUser | null,
     fetchPolicy?: WatchQueryFetchPolicy,
+    count: number = MAX_DOMAINS,
 ): { domains: { entity: Domain; assetCount: number }[]; loading: boolean } => {
     const { localState } = useUserContext();
     const { selectedViewUrn } = localState;
@@ -21,7 +22,7 @@ export const useGetDomains = (
                 requestContext: {
                     scenario: ScenarioType.Home,
                 },
-                limit: 10,
+                limit: count,
                 viewUrn: selectedViewUrn,
             },
         },
@@ -38,6 +39,6 @@ export const useGetDomains = (
                 entity: content.entity as Domain,
                 assetCount: content.params?.contentParams?.count || 0,
             }))
-            ?.slice(0, MAX_DOMAINS) || [];
+            ?.slice(0, count) || [];
     return { domains, loading };
 };
