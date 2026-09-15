@@ -1052,6 +1052,7 @@ module.exports = {
         "metadata-ingestion/docs/dev_guides/sql_profiles",
         "metadata-ingestion/docs/dev_guides/profiling_ingestions",
         "metadata-ingestion/docs/dev_guides/lineage_urn_casing",
+        "metadata-ingestion/docs/dev_guides/probe_interface",
         "docs/iceberg-catalog",
       ],
     },

@@ -10,14 +10,17 @@ from functools import lru_cache
 from json import JSONDecodeError
 from typing import (
     Any,
+    Callable,
     Dict,
     Iterable,
     Iterator,
     List,
     Optional,
+    Protocol,
     Set,
     Tuple,
     Union,
+    cast,
 )
 
 import dateutil.parser as dp
@@ -32,9 +35,15 @@ from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import ConnectionError
 from requests.models import HTTPBasicAuth, HTTPError
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
+from typing_extensions import Annotated, Self
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Filters,
+    HiddenFromDocs,
+)
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
 )
@@ -46,6 +55,7 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.emitter.request_helper import make_curl_command
+from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -140,6 +150,43 @@ logger: logging.Logger = logging.getLogger(__name__)
 DEFAULT_API_ITEMS_PER_PAGE = 30
 MAX_API_ITEMS_PER_PAGE = 1000
 
+# Maps Mode's data-source "adapter" field (JDBC-driver-shaped) to the platform
+# name DataHub expects — see
+# https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
+# Shared with mode_probe.py's data_sources() probe method so both paths agree
+# on what a given adapter value maps to.
+MODE_ADAPTER_PLATFORM_MAP: Dict[str, str] = {
+    "jdbc:athena": "athena",
+    "jdbc:bigquery": "bigquery",
+    "jdbc:druid": "druid",
+    "jdbc:hive": "hive",
+    "jdbc:mysql": "mysql",
+    "jdbc:oracle": "oracle",
+    "jdbc:postgresql": "postgres",
+    "jdbc:presto": "presto",
+    "jdbc:redshift": "redshift",
+    "jdbc:snowflake": "snowflake",
+    "jdbc:spark": "spark",
+    "jdbc:trino": "trino",
+    "jdbc:sqlserver": "mssql",
+    "jdbc:teradata": "teradata",
+}
+
+
+def resolve_data_source_database(platform: str, database: str, host: str) -> str:
+    """Mode's own "database" field on a BigQuery data source is always the
+    literal string "default"; the real project id is only ever available in
+    "host". For lineage (and for reporting which database a data source
+    actually points at) we need project_id.db.table, so substitute it in
+    that one case. A pure function -- no data source dict, no self -- so
+    _get_platform_and_dbname (ingestion) and mode_probe.py's data_sources()
+    probe method can both call it and cannot drift on this derivation the
+    way they previously did (each carried its own copy of these two lines)."""
+    if platform == "bigquery" and database == "default":
+        return host
+    return database
+
+
 # Override Undefined.__str__ so that unresolved Liquid template variables
 # render as "NULL" instead of raising. Done at module level (once) rather
 # than per-call to avoid redundant global mutation from worker threads.
@@ -220,14 +267,28 @@ class ModeConfig(
         "default_schema", month="January", year=2025
     )
 
-    space_pattern: AllowDenyPattern = Field(
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Datasets and queries are reported whole; Mode filters above them.
+
+        Declared rather than left to silence. `probe filter --kind Dataset`
+        answers "included" for everything either way, but without this there is
+        no way to tell that from a filter whose annotation was dropped -- which
+        is exactly what happened to Teradata's database_pattern, and nothing
+        noticed because the two look identical from outside.
+        """
+        return {"Dataset", "Query"}
+
+    space_pattern: Annotated[AllowDenyPattern, Filters("Space")] = Field(
         default=AllowDenyPattern(
             deny=["^Personal$"],
         ),
         description="Regex patterns for mode spaces to filter in ingestion (Spaces named as 'Personal' are filtered by default.) Specify regex to only match the space name. e.g. to only ingest space named analytics, use the regex 'analytics'",
     )
 
-    report_pattern: AllowDenyPattern = Field(
+    report_pattern: Annotated[
+        AllowDenyPattern, Filters(BIAssetSubTypes.MODE_REPORT)
+    ] = Field(
         default_factory=AllowDenyPattern.allow_all,
         description="Regex patterns for Mode reports to filter in ingestion. "
         "Matched against the report name. "
@@ -285,6 +346,50 @@ class ModeConfig(
                 f"items_per_page must be between 1 and {MAX_API_ITEMS_PER_PAGE}"
             )
 
+    def get_mode_session(self) -> Tuple[requests.Session, str]:
+        """Build the authenticated session and workspace URI.
+
+        Single home for this construction, reused by ModeSource.__init__ and
+        the live recipe probe (mode_probe.py), so both go through one path.
+        """
+        session = requests.Session()
+        # Handling retry and backoff
+        retries = 3
+        backoff_factor = 10
+        retry = Retry(total=retries, backoff_factor=backoff_factor)
+        pool_size = self.max_threads + 10
+        adapter = HTTPAdapter(
+            max_retries=retry,
+            pool_connections=pool_size,
+            pool_maxsize=pool_size,
+        )
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+
+        session.auth = HTTPBasicAuth(self.token, self.password.get_secret_value())
+        session.headers.update(
+            {
+                "Content-Type": "application/json",
+                "Accept": "application/hal+json",
+            }
+        )
+
+        workspace_uri = f"{self.connect_uri}/api/{self.workspace}"
+        return session, workspace_uri
+
+    def space_filter_param(self) -> str:
+        """Mode's own ?filter=all/custom query param for the /spaces
+        endpoint, controlled by exclude_personal_collections. Shared by
+        _get_space_name_and_tokens (ingestion, below) and mode_probe.py's
+        probe, so this decision lives in exactly one place."""
+        return "custom" if self.exclude_personal_collections else "all"
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.mode_probe import ModeProbeSource
+
+        return ModeProbeSource
+
 
 class HTTPError429(HTTPError):
     pass
@@ -304,6 +409,106 @@ def _is_http_404(error: Exception) -> bool:
         and getattr(error, "response", None) is not None
         and error.response.status_code == 404
     )
+
+
+def is_restricted_space(space: dict) -> bool:
+    """Both "restricted" and "default_access_level" can independently signal
+    a space is restricted -- there is a known bug on Mode's side where
+    "restricted" sometimes returns False even when access is actually
+    restricted. Not underscore-prefixed: this is the one place that decides
+    what "restricted" means for a Mode space, shared by
+    _get_space_name_and_tokens (ingestion, below) and mode_probe.py's
+    probe, rather than each maintaining its own copy of this
+    check."""
+    return (
+        bool(space.get("restricted"))
+        or space.get("default_access_level") == "restricted"
+    )
+
+
+def is_archived_report(report: dict) -> bool:
+    """Shared by _get_reports (ingestion, below) and mode_probe.py's
+    probe, for the same reason as is_restricted_space above."""
+    return bool(report.get("archived", False))
+
+
+class ModeApiSession(Protocol):
+    """Structural session type satisfied by both requests.Session and the
+    duck-typed fakes used in tests (the probe's fakes, and the integration
+    test harness's MockResponse), so fetch_json and the probe don't need
+    `Any` just to accept a test double."""
+
+    def get(self, url: str, *, timeout: int) -> Any: ...
+
+    def close(self) -> None: ...
+
+
+def fetch_json(
+    session: ModeApiSession,
+    url: str,
+    *,
+    timeout: int,
+    rate_limiter: RateLimiter,
+    retry_backoff_multiplier: Union[int, float],
+    max_retry_interval: Union[int, float],
+    max_attempts: int,
+    on_rate_limited: Optional[Callable[[], None]] = None,
+    on_retried_after_timeout: Optional[Callable[[], None]] = None,
+) -> Dict:
+    """GET url as JSON honoring Mode's rate limit, request timeout, and
+    429/504 retry/backoff behavior. Used by ModeSource._get_request_json --
+    the live probe (mode_probe.py) no longer calls this directly; it fetches
+    through the same bound _get_request_json/_get_paged_request_json methods
+    a real ingestion run uses (see ModeSource.for_probe), so its retries
+    increment that shim's own ModeSourceReport the same way. The two
+    optional callbacks let a caller with a report (every current caller)
+    keep incrementing its own report counters on retry.
+    """
+    r = tenacity.Retrying(
+        wait=wait_exponential(
+            multiplier=retry_backoff_multiplier, max=max_retry_interval
+        ),
+        retry=retry_if_exception_type((HTTPError429, HTTPError504, ConnectionError)),
+        stop=stop_after_attempt(max_attempts),
+    )
+
+    @r.wraps
+    def get_request() -> Dict:
+        try:
+            with rate_limiter:
+                response = session.get(url, timeout=timeout)
+            if response.status_code == 204:  # No content, don't parse json
+                return {}
+
+            response.raise_for_status()
+            return response.json()
+        except HTTPError as http_error:
+            error_response = http_error.response
+            if error_response is None:
+                raise http_error
+            if error_response.status_code == 429:
+                if on_rate_limited is not None:
+                    on_rate_limited()
+                sleep_time = error_response.headers.get("retry-after")
+                if sleep_time is not None:
+                    time.sleep(float(sleep_time))
+                raise HTTPError429(
+                    str(http_error), response=error_response
+                ) from http_error
+            elif error_response.status_code == 504:
+                if on_retried_after_timeout is not None:
+                    on_retried_after_timeout()
+                time.sleep(0.1)
+                raise HTTPError504(
+                    str(http_error), response=error_response
+                ) from http_error
+
+            logger.debug(
+                f"Error response ({error_response.status_code}): {error_response.text}"
+            )
+            raise http_error
+
+    return get_request()
 
 
 @dataclass
@@ -392,6 +597,12 @@ class ModeSource(StatefulIngestionSourceBase):
     ctx: PipelineContext
     config: ModeConfig
     report: ModeSourceReport
+    # Declared here (not inferred from __init__'s assignment) so the
+    # attribute's static type is the structural Protocol, not the concrete
+    # requests.Session __init__ happens to assign -- both __init__'s real
+    # session and for_probe's shim (which may carry a duck-typed test
+    # session) type-check against it without a setattr/noqa escape hatch.
+    session: ModeApiSession
     platform = "mode"
 
     DIMENSION_TAG_URN = "urn:li:tag:Dimension"
@@ -422,32 +633,7 @@ class ModeSource(StatefulIngestionSourceBase):
             max_calls=self.config.api_options.requests_per_minute, period=60
         )
 
-        self.session = requests.Session()
-        # Handling retry and backoff
-        retries = 3
-        backoff_factor = 10
-        retry = Retry(total=retries, backoff_factor=backoff_factor)
-        pool_size = self.config.max_threads + 10
-        adapter = HTTPAdapter(
-            max_retries=retry,
-            pool_connections=pool_size,
-            pool_maxsize=pool_size,
-        )
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
-
-        self.session.auth = HTTPBasicAuth(
-            self.config.token,
-            self.config.password.get_secret_value(),
-        )
-        self.session.headers.update(
-            {
-                "Content-Type": "application/json",
-                "Accept": "application/hal+json",
-            }
-        )
-
-        self.workspace_uri = f"{self.config.connect_uri}/api/{self.config.workspace}"
+        self.session, self.workspace_uri = self.config.get_mode_session()
 
         # Test the connection
         try:
@@ -463,6 +649,58 @@ class ModeSource(StatefulIngestionSourceBase):
             return
 
         self.space_tokens = self._get_space_name_and_tokens()
+
+    @classmethod
+    def for_probe(
+        cls,
+        config: ModeConfig,
+        session: ModeApiSession,
+        workspace_uri: str,
+    ) -> Self:
+        """An uninitialized ModeSource carrying only the state
+        _get_request_json needs: config, session, workspace_uri, a fresh
+        ModeSourceReport (its rate-limit-retry counters are updated by
+        _get_request_json's callbacks), a rate limiter sized from the
+        recipe's own api_options, and the two lazy caches
+        _get_data_sources_by_id/_get_definitions_map read and populate on
+        first call. Returns Self (not "ModeSource"), since cls.__new__(cls)
+        below builds whichever class for_probe was called on -- so
+        mode_probe.py's ModeProbeSource.for_probe(...) both runs and
+        type-checks as returning a ModeProbeSource, with no override needed
+        to narrow it. Used by ModeProbeSource.for_config() (via
+        ModeProbeSource) so the probe's data_sources/definitions commands --
+        the connector's own _get_data_sources_by_id/_get_definitions_map,
+        annotated with @probe_method in place -- fetch through this exact
+        connector plumbing: same session/rate-limit/retry path, same debug
+        curl logging, same always-degrade-on-error policy, as a real
+        ingestion run, rather than a second probe-side reimplementation with
+        its own error-handling policy.
+
+        Built via __new__ (bypassing __init__ entirely) rather than calling
+        __init__ with a dummy PipelineContext: __init__ opens its own
+        session, hits /api/verify to test the connection, and resolves
+        space_tokens for ingestion -- all side effects a read-only probe
+        doesn't want repeated (for_config already built session/
+        workspace_uri once via config.get_mode_session()) and has no
+        PipelineContext to perform anyway.
+
+        Note for test doubles: _get_request_json logs a curl-equivalent via
+        make_curl_command before every request, which reads session.headers
+        and session.auth directly -- neither is part of ModeApiSession
+        (fetch_json itself never touches them), so a session fake needs both
+        attributes too, not just get()/close().
+        """
+        shim = cls.__new__(cls)
+        shim.config = config
+        shim.session = session
+        shim.workspace_uri = workspace_uri
+        shim.report = ModeSourceReport()
+        shim.rate_limiter = RateLimiter(
+            max_calls=config.api_options.requests_per_minute, period=60
+        )
+        shim._data_sources_by_id_cache = None
+        shim._definitions_map_cache = None
+        return shim
 
     def _browse_path_space(self) -> List[BrowsePathEntryClass]:
         # TODO: Use containers for the workspace?
@@ -688,45 +926,62 @@ class ModeSource(StatefulIngestionSourceBase):
             else user_json.get("email")
         )
 
+    def fetch_spaces(self) -> Iterator[dict]:
+        """Every space this recipe would see. Raises on HTTP failure.
+
+        Not "unfiltered", which this said until a reviewer read the next line:
+        the URL carries ?filter=<space_filter_param()>, which is `custom` when
+        exclude_personal_collections is set, and Mode drops personal spaces
+        server-side. What is unfiltered here is space_pattern -- a denied
+        space still comes back, so the probe can report it as excluded rather
+        than omitting it. exclude_personal_collections is the one narrowing
+        this cannot see past, and mode_probe.spaces says so in its result.
+
+        Failures stay raisable either way, so the probe can tell "no spaces"
+        from "could not list spaces".
+
+        A generator, and that is load-bearing rather than a style choice.
+        Extracting this from _get_space_name_and_tokens turned it into a
+        buffered list, and buffering silently dropped partial success: the
+        original populated space_info *inside* the page loop with the
+        `except ModeRequestError` outside it, so a workspace whose second
+        page 500s still ingested the first. Buffered, the exception escapes
+        before anything is returned, the caller catches it with an empty
+        dict, and the run emits no dashboards, charts or datasets at all --
+        an ingestion regression, not just a probe one. Yielding per space
+        restores it: whatever reached the caller before the failure has
+        already been consumed.
+        """
+        logger.debug(f"Retrieving spaces for {self.workspace_uri}")
+        with self.report.space_get_timer:
+            for spaces_page in self._get_paged_request_json(
+                f"{self.workspace_uri}/spaces?filter={self.config.space_filter_param()}",
+                "spaces",
+                self.config.items_per_page,
+            ):
+                self.report.space_get_api_called += 1
+                logger.debug(
+                    f"Read {len(spaces_page)} spaces records from workspace {self.workspace_uri}"
+                )
+                self.report.num_spaces_retrieved += len(spaces_page)
+                yield from spaces_page
+
     def _get_space_name_and_tokens(self) -> dict:
         space_info = {}
         try:
-            logger.debug(f"Retrieving spaces for {self.workspace_uri}")
-            with self.report.space_get_timer:
-                space_filter = (
-                    "custom" if self.config.exclude_personal_collections else "all"
-                )
-                for spaces_page in self._get_paged_request_json(
-                    f"{self.workspace_uri}/spaces?filter={space_filter}",
-                    "spaces",
-                    self.config.items_per_page,
-                ):
-                    self.report.space_get_api_called += 1
+            for s in self.fetch_spaces():
+                logger.debug(f"Space: {s.get('name')}")
+                space_name = s.get("name", "")
+                if self.config.exclude_restricted and is_restricted_space(s):
                     logger.debug(
-                        f"Read {len(spaces_page)} spaces records from workspace {self.workspace_uri}"
+                        f"Skipping space {space_name} due to exclude restricted"
                     )
-                    self.report.num_spaces_retrieved += len(spaces_page)
-                    for s in spaces_page:
-                        logger.debug(f"Space: {s.get('name')}")
-                        space_name = s.get("name", "")
-                        # Using both restricted and default_access_level because
-                        # there is a current bug with restricted returning False everytime
-                        # which has been reported to Mode team
-                        if self.config.exclude_restricted and (
-                            s.get("restricted")
-                            or s.get("default_access_level") == "restricted"
-                        ):
-                            logger.debug(
-                                f"Skipping space {space_name} due to exclude restricted"
-                            )
-                            continue
-                        if not self.config.space_pattern.allowed(space_name):
-                            self.report.report_dropped_space(space_name)
-                            logger.debug(
-                                f"Skipping space {space_name} due to space pattern"
-                            )
-                            continue
-                        space_info[s.get("token", "")] = s.get("name", "")
+                    continue
+                if not self.config.space_pattern.allowed(space_name):
+                    self.report.report_dropped_space(space_name)
+                    logger.debug(f"Skipping space {space_name} due to space pattern")
+                    continue
+                space_info[s.get("token", "")] = s.get("name", "")
         except ModeRequestError as e:
             self.report.failure(
                 title="Failed to Retrieve Spaces",
@@ -841,27 +1096,8 @@ class ModeSource(StatefulIngestionSourceBase):
         return custom_properties
 
     def _get_datahub_friendly_platform(self, adapter, platform):
-        # Map adaptor names to what datahub expects in
-        # https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
-
-        platform_mapping = {
-            "jdbc:athena": "athena",
-            "jdbc:bigquery": "bigquery",
-            "jdbc:druid": "druid",
-            "jdbc:hive": "hive",
-            "jdbc:mysql": "mysql",
-            "jdbc:oracle": "oracle",
-            "jdbc:postgresql": "postgres",
-            "jdbc:presto": "presto",
-            "jdbc:redshift": "redshift",
-            "jdbc:snowflake": "snowflake",
-            "jdbc:spark": "spark",
-            "jdbc:trino": "trino",
-            "jdbc:sqlserver": "mssql",
-            "jdbc:teradata": "teradata",
-        }
-        if adapter in platform_mapping:
-            return platform_mapping[adapter]
+        if adapter in MODE_ADAPTER_PLATFORM_MAP:
+            return MODE_ADAPTER_PLATFORM_MAP[adapter]
         else:
             self.report.warning(
                 title="Unrecognized Platform Found",
@@ -872,12 +1108,19 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return platform
 
+    @probe_method(name="data_sources")
     def _get_data_sources_by_id(self) -> Dict[int, dict]:
-        """Fetch data sources and index by ID for O(1) lookup.
-
-        Uses a manual cache that only stores successful results so transient
-        API failures are retried on the next call instead of being permanently
-        cached as empty.
+        """Warehouse connections this Mode workspace can query, as Mode's own
+        raw API records, keyed by the data source's integer id (arrives in
+        JSON output as a string key). Each record is Mode's payload verbatim
+        -- e.g. "adapter" is Mode's own connector string (like
+        "jdbc:postgresql"), not a DataHub platform name, and "database" is
+        Mode's raw value (for BigQuery this is always the literal "default",
+        not the real project id). Also carries fields you likely don't need,
+        including "host", "username", and "account_username". On a transient
+        API failure this returns an empty dict rather than raising, matching
+        what a real ingestion run does for the same failure -- run this again
+        to retry.
         """
         if self._data_sources_by_id_cache is not None:
             return self._data_sources_by_id_cache
@@ -931,11 +1174,9 @@ class ModeSource(StatefulIngestionSourceBase):
         platform = self._get_datahub_friendly_platform(
             data_source.get("adapter", ""), data_source.get("name", "")
         )
-        database = data_source.get("database", "")
-        # On bigquery, change the database from "default" to the host (project_id)
-        # For lineage we need project_id.db.table
-        if platform == "bigquery" and database == "default":
-            database = data_source.get("host", "")
+        database = resolve_data_source_database(
+            platform, data_source.get("database", ""), data_source.get("host", "")
+        )
         return platform, database
 
     def _replace_definitions(
@@ -1020,11 +1261,16 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return name, alias
 
+    @probe_method(name="definitions")
     def _get_definitions_map(self) -> Dict[str, str]:
-        """Fetch all definitions and return a {name: source} mapping.
-
-        Uses a manual cache that only stores successful results so transient
-        API failures are retried on the next call.
+        """Mode's reusable SQL definitions in this workspace, as a {name:
+        source} mapping -- "source" is the definition's raw SQL body. This is
+        the same cache `{{@name}}` template expansion uses, so it carries
+        only these two fields per definition; in particular there is no
+        description here, even though Mode's own API returns one. On a
+        transient API failure this returns an empty dict rather than
+        raising, matching what a real ingestion run does for the same
+        failure -- run this again to retry.
         """
         if self._definitions_map_cache is not None:
             return self._definitions_map_cache
@@ -1627,28 +1873,42 @@ class ModeSource(StatefulIngestionSourceBase):
         mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
         yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
+    def fetch_reports(self, space_token: str) -> Iterator[List[dict]]:
+        """Every report in one space, unfiltered, page by page. Raises on
+        HTTP failure.
+
+        A generator (not a buffered list like fetch_spaces) because
+        _get_reports' caller (_collect_space_work_items) feeds pages to
+        threaded per-report workers as they arrive -- buffering the whole
+        space here would hold every report in memory and delay the first
+        workunit on a large space. Shared with the live recipe probe for
+        the same reason as fetch_spaces.
+        """
+        with self.report.report_get_timer:
+            for reports_page in self._get_paged_request_json(
+                f"{self.workspace_uri}/spaces/{space_token}/reports?filter=all",
+                "reports",
+                self.config.items_per_page,
+            ):
+                self.report.report_get_api_called += 1
+                logger.debug(
+                    f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
+                )
+                yield reports_page
+
     def _get_reports(self, space_token: str) -> Iterator[List[dict]]:
         try:
-            with self.report.report_get_timer:
-                for reports_page in self._get_paged_request_json(
-                    f"{self.workspace_uri}/spaces/{space_token}/reports?filter=all",
-                    "reports",
-                    self.config.items_per_page,
-                ):
-                    self.report.report_get_api_called += 1
+            for reports_page in self.fetch_reports(space_token):
+                if self.config.exclude_archived:
                     logger.debug(
-                        f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
+                        f"Excluding archived reports since exclude_archived: {self.config.exclude_archived}"
                     )
-                    if self.config.exclude_archived:
-                        logger.debug(
-                            f"Excluding archived reports since exclude_archived: {self.config.exclude_archived}"
-                        )
-                        reports_page = [
-                            report
-                            for report in reports_page
-                            if not report.get("archived", False)
-                        ]
-                    yield reports_page
+                    reports_page = [
+                        report
+                        for report in reports_page
+                        if not is_archived_report(report)
+                    ]
+                yield reports_page
         except ModeRequestError as e:
             if _is_http_404(e):
                 self.report.warning(
@@ -1763,9 +2023,18 @@ class ModeSource(StatefulIngestionSourceBase):
     def _get_paged_request_json(
         self, url: str, key: str, per_page: int
     ) -> Iterator[List[Dict]]:
+        # Every current caller's url already has a "?" (e.g. "...?filter=all"),
+        # but appending "&" unconditionally to a url without one would produce
+        # "...&per_page=...&page=..." with no leading "?" -- the server parses
+        # no query params at all, so it returns the same (non-empty) first
+        # page forever and this generator never terminates. Detecting "?"
+        # keeps every existing call site byte-identical while making a
+        # bare-url caller (e.g. a future probe) paginate correctly instead of
+        # hanging.
+        sep = "&" if "?" in url else "?"
         page: int = 1
         while True:
-            page_url = f"{url}&per_page={per_page}&page={page}"
+            page_url = f"{url}{sep}per_page={per_page}&page={page}"
             response = self._get_request_json(page_url)
             data: List[Dict] = response.get("_embedded", {}).get(key, [])
             if not data:
@@ -1774,59 +2043,40 @@ class ModeSource(StatefulIngestionSourceBase):
             page += 1
 
     def _get_request_json(self, url: str) -> Dict:
-        r = tenacity.Retrying(
-            wait=wait_exponential(
-                multiplier=self.config.api_options.retry_backoff_multiplier,
-                max=self.config.api_options.max_retry_interval,
-            ),
-            retry=retry_if_exception_type(
-                (HTTPError429, HTTPError504, ConnectionError)
-            ),
-            stop=stop_after_attempt(self.config.api_options.max_attempts),
+        # self.session is declared ModeApiSession (a narrow structural
+        # Protocol so ModeSource.for_probe's shim and test doubles can supply
+        # a duck-typed session) -- make_curl_command is a shared utility used
+        # by several connectors and is typed against the concrete
+        # requests.Session it always receives everywhere else, so its
+        # signature is not the right place to widen for one connector. In
+        # production self.session always IS a real requests.Session; every
+        # test double that reaches this call already carries the
+        # headers/auth make_curl_command reads (see for_probe's docstring),
+        # so the cast documents that gap rather than hiding a real one.
+        curl_command = make_curl_command(
+            cast(requests.Session, self.session), "GET", url, ""
         )
+        logger.debug(f"Issuing request; curl equivalent: {curl_command}")
 
-        @r.wraps
-        def get_request():
-            curl_command = make_curl_command(self.session, "GET", url, "")
-            logger.debug(f"Issuing request; curl equivalent: {curl_command}")
+        def _on_rate_limited() -> None:
+            with self.report._lock:
+                self.report.num_requests_exceeding_rate_limit += 1
 
-            try:
-                with self.rate_limiter:
-                    response = self.session.get(
-                        url, timeout=self.config.api_options.timeout
-                    )
-                if response.status_code == 204:  # No content, don't parse json
-                    return {}
+        def _on_retried_after_timeout() -> None:
+            with self.report._lock:
+                self.report.num_requests_retried_on_timeout += 1
 
-                response.raise_for_status()
-                return response.json()
-            except HTTPError as http_error:
-                error_response = http_error.response
-                if error_response is None:
-                    raise http_error
-                if error_response.status_code == 429:
-                    with self.report._lock:
-                        self.report.num_requests_exceeding_rate_limit += 1
-                    sleep_time = error_response.headers.get("retry-after")
-                    if sleep_time is not None:
-                        time.sleep(float(sleep_time))
-                    raise HTTPError429(
-                        str(http_error), response=error_response
-                    ) from http_error
-                elif error_response.status_code == 504:
-                    with self.report._lock:
-                        self.report.num_requests_retried_on_timeout += 1
-                    time.sleep(0.1)
-                    raise HTTPError504(
-                        str(http_error), response=error_response
-                    ) from http_error
-
-                logger.debug(
-                    f"Error response ({error_response.status_code}): {error_response.text}"
-                )
-                raise http_error
-
-        return get_request()
+        return fetch_json(
+            self.session,
+            url,
+            timeout=self.config.api_options.timeout,
+            rate_limiter=self.rate_limiter,
+            retry_backoff_multiplier=self.config.api_options.retry_backoff_multiplier,
+            max_retry_interval=self.config.api_options.max_retry_interval,
+            max_attempts=self.config.api_options.max_attempts,
+            on_rate_limited=_on_rate_limited,
+            on_retried_after_timeout=_on_retried_after_timeout,
+        )
 
     @staticmethod
     def _get_process_memory():

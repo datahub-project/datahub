@@ -19,7 +19,7 @@ from typing import (
 import pymysql  # noqa: F401
 from pydantic import model_validator
 from pydantic.fields import Field
-from sqlalchemy import create_engine, event, inspect, text, util
+from sqlalchemy import create_engine, inspect, text, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
@@ -49,12 +49,11 @@ from datahub.ingestion.source.aws.aws_common import (
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.sql.rds_iam import RDSIAMConnectionMixin
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
-from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.models import (
     BaseProcedure,
 )
@@ -193,7 +192,7 @@ class MySQLUsageSource(StrEnum):
     GENERAL_LOG = "general_log"
 
 
-class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
+class MySQLConnectionConfig(RDSIAMConnectionMixin):
     # defaults
     host_port: str = Field(default="localhost:3306", description="MySQL host URL.")
     scheme: HiddenFromDocs[str] = "mysql+pymysql"
@@ -212,6 +211,21 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
         "If not explicitly configured, boto3 will automatically use the default credential chain and region from "
         "environment variables (AWS_DEFAULT_REGION, AWS_REGION), AWS config files (~/.aws/config), or IAM role metadata.",
     )
+
+    def rds_iam_enabled(self) -> bool:
+        return self.auth_mode == MySQLAuthMode.AWS_IAM
+
+    def rds_iam_default_port(self) -> int:
+        return 3306
+
+    def apply_rds_iam_ssl(self, cparams: Dict[str, Any]) -> None:
+        # PyMySQL requires SSL to be enabled for RDS IAM authentication.
+        # Preserve any existing SSL configuration, otherwise enable with default
+        # settings. The {"ssl": True} dict is a workaround to make PyMySQL
+        # recognize that SSL should be enabled, since the library requires a
+        # truthy value in the ssl parameter. See
+        # https://pymysql.readthedocs.io/en/latest/modules/connections.html#pymysql.connections.Connection
+        cparams["ssl"] = cparams.get("ssl") or {"ssl": True}
 
 
 class MySQLProfilingConfig(GEProfilingConfig):
@@ -255,6 +269,12 @@ class MySQLProfilingConfig(GEProfilingConfig):
 
 
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
+    def probe_prepare_engine(self, engine: Any) -> None:
+        # Without this, an AWS_IAM recipe cannot be probed at all: the password
+        # is a token injected per connection, so a bare create_engine() has no
+        # credential to connect with.
+        self.install_rds_iam_auth(engine)
+
     profiling: MySQLProfilingConfig = Field(
         default_factory=MySQLProfilingConfig,
         description="Configuration for profiling tables.",
@@ -350,7 +370,6 @@ class MySQLSource(TwoTierSQLAlchemySource):
         super().__init__(config, ctx, self.get_platform())
 
         self._discovered_lower_cache: Optional[Set[str]] = None
-        self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
         # Guardrail cache populated by add_profile_metadata's information_schema sweep
         # and consumed by generate_profile_candidates / is_dataset_eligible_for_profiling.
         # Kept on the source (not on the shared ProfileMetadata) so sql_common.py stays
@@ -371,20 +390,13 @@ class MySQLSource(TwoTierSQLAlchemySource):
         self._table_rows_available: bool = False
         # dataset_name -> "row" | "size": set while filtering, consumed to attribute skips.
         self._guardrail_skip: Dict[str, str] = {}
-        if config.auth_mode == MySQLAuthMode.AWS_IAM:
-            hostname, port = parse_host_port(config.host_port, default_port=3306)
-            if port is None:
-                raise ValueError("Port must be specified for RDS IAM authentication")
-
-            if not config.username:
-                raise ValueError("username is required for RDS IAM authentication")
-
-            self._rds_iam_token_manager = RDSIAMTokenManager(
-                endpoint=hostname,
-                username=config.username,
-                port=port,
-                aws_config=config.aws_config,
-            )
+        # Built by the config, not here, so `datahub recipe probe` gets the same
+        # token manager off the same object -- see RDSIAMConnectionMixin. Called
+        # eagerly so a recipe that asks for IAM without a port or username still
+        # fails at construction, as it did when this block lived here.
+        self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = (
+            config.rds_iam_token_manager()
+        )
 
     def get_platform(self):
         return "mysql"
@@ -444,25 +456,14 @@ class MySQLSource(TwoTierSQLAlchemySource):
     def _setup_rds_iam_event_listener(
         self, engine: "Engine", database_name: Optional[str] = None
     ) -> None:
-        """Setup SQLAlchemy event listener to inject RDS IAM tokens."""
-        if not (
-            self.config.auth_mode == MySQLAuthMode.AWS_IAM
-            and self._rds_iam_token_manager
-        ):
-            return
+        """Inject RDS IAM tokens on this engine's connections.
 
-        def do_connect_listener(_dialect, _conn_rec, _cargs, cparams):
-            if not self._rds_iam_token_manager:
-                raise RuntimeError("RDS IAM Token Manager is not initialized")
-            cparams["password"] = self._rds_iam_token_manager.get_token()
-            # PyMySQL requires SSL to be enabled for RDS IAM authentication.
-            # Preserve any existing SSL configuration, otherwise enable with default settings.
-            # The {"ssl": True} dict is a workaround to make PyMySQL recognize that SSL
-            # should be enabled, since the library requires a truthy value in the ssl parameter.
-            # See https://pymysql.readthedocs.io/en/latest/modules/connections.html#pymysql.connections.Connection
-            cparams["ssl"] = cparams.get("ssl") or {"ssl": True}
-
-        event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
+        One line, because the implementation is on the config: the probe builds
+        its own engines and can only reach setup that lives there. `database_name`
+        is unused and kept for the call sites -- the token is per host, not per
+        database.
+        """
+        self.config.install_rds_iam_auth(engine)
 
     def get_inspectors(self):
         url = self.config.get_sql_alchemy_url()

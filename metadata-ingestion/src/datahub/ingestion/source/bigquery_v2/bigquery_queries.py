@@ -7,7 +7,11 @@ from typing_extensions import Self
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import SupportStatus, support_status
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
@@ -52,6 +56,7 @@ class BigQueryQueriesSourceConfig(
 
 
 @support_status(SupportStatus.GA)
+@config_class(BigQueryQueriesSourceConfig)
 class BigQueryQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: BigQueryQueriesSourceConfig):
         self.ctx = ctx
