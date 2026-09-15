@@ -113,7 +113,7 @@ describe('useEditableSchemaFieldInfoMaps', () => {
             expect(result.current.v2NormalizedMap.get('fieldb')).toHaveLength(1);
         });
 
-        it('matches camelCase and lowercased paths under the same key (ING-2174)', () => {
+        it('matches camelCase and lowercased paths under the same key', () => {
             const metadata: EditableSchemaMetadata = {
                 editableSchemaFieldInfo: [
                     {
