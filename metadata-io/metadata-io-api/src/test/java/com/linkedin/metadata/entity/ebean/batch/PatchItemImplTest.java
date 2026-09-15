@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
+import static com.linkedin.metadata.Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
@@ -11,6 +12,8 @@ import static org.testng.Assert.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.assertion.AssertionRunSummary;
+import com.linkedin.assertion.AssertionStatus;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.Urn;
@@ -798,5 +801,66 @@ public class PatchItemImplTest {
             50);
     assertEquals(found.size(), 1);
     assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
+  }
+
+  @Test
+  public void testPatchAssertionRunSummaryWithNoExistingAspect() {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:test-assertion");
+
+    JsonPatch patch =
+        Json.createPatch(
+            Json.createReader(
+                    new StringReader(
+                        "[{\"op\":\"add\",\"path\":\"/lastPassedAtMillis\",\"value\":1700000000000},"
+                            + "{\"op\":\"add\",\"path\":\"/assertionStatus\",\"value\":\"PASSING\"}]"))
+                .readArray());
+
+    PatchItemImpl patchItem =
+        PatchItemImpl.builder()
+            .urn(assertionUrn)
+            .aspectName(ASSERTION_RUN_SUMMARY_ASPECT_NAME)
+            .auditStamp(auditStamp)
+            .patch(patch)
+            .build(entityRegistry);
+
+    // No existing aspect: this is the first run event for the assertion.
+    ChangeItemImpl result = patchItem.applyPatch(null, aspectRetriever);
+
+    AssertionRunSummary summary = (AssertionRunSummary) result.getRecordTemplate();
+    assertEquals(summary.getLastPassedAtMillis(), Long.valueOf(1700000000000L));
+    assertEquals(summary.getAssertionStatus(), AssertionStatus.PASSING);
+  }
+
+  @Test
+  public void testPatchAssertionRunSummaryWithExistingAspect() {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:test-assertion");
+
+    AssertionRunSummary existing = new AssertionRunSummary();
+    existing.setLastPassedAtMillis(1600000000000L);
+    existing.setAssertionStatus(AssertionStatus.PASSING);
+
+    JsonPatch patch =
+        Json.createPatch(
+            Json.createReader(
+                    new StringReader(
+                        "[{\"op\":\"add\",\"path\":\"/lastFailedAtMillis\",\"value\":1700000000000},"
+                            + "{\"op\":\"add\",\"path\":\"/assertionStatus\",\"value\":\"FAILING\"}]"))
+                .readArray());
+
+    PatchItemImpl patchItem =
+        PatchItemImpl.builder()
+            .urn(assertionUrn)
+            .aspectName(ASSERTION_RUN_SUMMARY_ASPECT_NAME)
+            .auditStamp(auditStamp)
+            .patch(patch)
+            .build(entityRegistry);
+
+    ChangeItemImpl result = patchItem.applyPatch(existing, aspectRetriever);
+
+    AssertionRunSummary summary = (AssertionRunSummary) result.getRecordTemplate();
+    assertEquals(summary.getAssertionStatus(), AssertionStatus.FAILING);
+    assertEquals(summary.getLastFailedAtMillis(), Long.valueOf(1700000000000L));
+    // the earlier field must survive the partial update
+    assertEquals(summary.getLastPassedAtMillis(), Long.valueOf(1600000000000L));
   }
 }
