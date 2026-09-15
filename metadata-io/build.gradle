@@ -393,6 +393,8 @@ task testOpenSearch3(type: Test) {
 }
 
 task testPostgresql(type: Test) {
+  testClassesDirs = sourceSets.test.output.classesDirs
+  classpath = sourceSets.test.runtimeClasspath
   doFirst {
     maxParallelForks = 1
   }
