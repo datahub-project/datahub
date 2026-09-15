@@ -116,6 +116,15 @@ TEMPORAL_PARTITION_TYPES: Set[str] = {
     "TIMESTAMP",
 }
 
+# Temporal partition types whose value carries a sub-day instant, so an equality to a
+# configured ISO string would match only that instant rather than the whole partition and
+# must be widened to a granularity-aware range. DATE is excluded: a DATE value already *is*
+# a whole-day partition, so a plain equality covers it.
+SUBDAY_TEMPORAL_PARTITION_TYPES: Set[str] = {
+    "DATETIME",
+    "TIMESTAMP",
+}
+
 # Time-unit partition granularities (BigQuery TimePartitioningType values).
 PARTITION_GRANULARITY_HOUR = "HOUR"
 PARTITION_GRANULARITY_DAY = "DAY"
