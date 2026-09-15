@@ -1281,8 +1281,9 @@ def snowflake_semantic_views(
     "--keep-source-fields/--delete-source-fields",
     default=False,
     help="After copying a stranded schemaField entity's aspects onto the new "
-    "field path, whether to keep (default) or soft-delete the old schemaField "
-    "entity. editableSchemaMetadata entries are always rewritten in place.",
+    "field path, whether to keep or soft-delete the old schemaField entity "
+    "(default: soft-delete). editableSchemaMetadata entries are always rewritten "
+    "in place.",
 )
 @click.option(
     "--include-soft-deleted/--exclude-soft-deleted",

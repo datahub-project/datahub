@@ -390,7 +390,7 @@ def test_full_reconciliation_across_scenarios() -> None:
     # connector-agnostic: oracle moved too
     assert g.store[sf(D_ORACLE, "First_Name")].get("documentation") is not None
 
-    assert report.results  # scanned all
+    assert {r.dataset_urn for r in report.results} == set(ALL)  # every input scanned
     total = sum(len(r.remaps) for r in report.results)
     assert (
         total == 6
@@ -493,3 +493,29 @@ def test_entity_merge_guard_scenarios() -> None:
         "urn:li:structuredProperty:p2",
     }
     assert sf(D_RICH, "col") in g.soft_deleted
+
+
+def test_include_soft_deleted_rediscovers_and_remigrates() -> None:
+    # A stale field left soft-deleted by an earlier run (or a prior connector
+    # delete) is invisible to default discovery, so its still-live aspects are
+    # stranded. --include-soft-deleted must find and re-anchor it.
+    ds = _ds("db.sch.reanchor")
+    old_sf = sf(ds, "product2id")
+    g = FakeGraph()
+    g.add(ds, _schema(ds, "Product2Id"))
+    g.add(old_sf, {"documentation": _doc("stranded on a soft-deleted field")})
+    g.soft_deleted.add(old_sf)
+
+    assert old_sf not in discover_schema_field_urns(g, ds, include_soft_deleted=False)  # type: ignore[arg-type]
+    assert old_sf in discover_schema_field_urns(g, ds, include_soft_deleted=True)  # type: ignore[arg-type]
+
+    run_migration(
+        g,  # type: ignore[arg-type]
+        [ds],
+        dry_run=False,
+        delete_source=True,
+        include_soft_deleted=True,
+    )
+    assert g.store[sf(ds, "Product2Id")]["documentation"] == _doc(
+        "stranded on a soft-deleted field"
+    )

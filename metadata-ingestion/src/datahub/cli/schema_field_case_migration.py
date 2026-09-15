@@ -27,6 +27,7 @@ from datahub.metadata.schema_classes import (
     GlossaryTermsClass,
     SchemaMetadataClass,
     StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
     _Aspect,
 )
@@ -270,22 +271,29 @@ def _union_association_aspect(
 
 
 def _merge_structured_properties(
-    dest: Optional[_Aspect], src: _Aspect
+    dest: Optional[_Aspect], src: _Aspect, *, prefer_src_on_conflict: bool = False
 ) -> Tuple[Optional[_Aspect], bool]:
     """Union structured-property assignments by ``propertyUrn``. Disjoint or
     identical assignments merge additively; the same property carrying different
     values on each side is a genuine conflict (returns ``(None, True)``) — we do
-    not guess which value wins."""
+    not guess which value wins.
+
+    ``prefer_src_on_conflict`` is the operator's "overwrite" choice: the stranded
+    (src) value wins on a conflicting property, but this is still a union — a
+    destination-only property that was never in conflict is kept, not dropped.
+    """
     dest_props = dest.properties if isinstance(dest, StructuredPropertiesClass) else []
     src_props = src.properties if isinstance(src, StructuredPropertiesClass) else []
-    merged: Dict[str, object] = {}
-    for prop in [*dest_props, *src_props]:
+    merged: Dict[str, StructuredPropertyValueAssignmentClass] = {
+        prop.propertyUrn: prop for prop in dest_props
+    }
+    for prop in src_props:
         prev = merged.get(prop.propertyUrn)
-        if prev is None:
+        if prev is None or prev.values == prop.values or prefer_src_on_conflict:
             merged[prop.propertyUrn] = prop
-        elif prev.values != prop.values:  # type: ignore[attr-defined]
+        else:
             return None, True
-    return StructuredPropertiesClass(properties=list(merged.values())), False  # type: ignore[arg-type]
+    return StructuredPropertiesClass(properties=list(merged.values())), False
 
 
 def _merge_aspect(
@@ -429,7 +437,15 @@ def _reconcile_schema_field_entities(
             to_emit, conflict = _merge_aspect(name, existing_dest.get(name), aspect)
             if conflict:
                 if resolver.resolve_conflict(old_path, new_path, name):
-                    to_emit = aspect  # operator chose the stranded value
+                    # Operator chose the stranded value. For structuredProperties
+                    # that means "src wins the conflicting property" — still a
+                    # union, so destination-only assignments are not dropped.
+                    if name == "structuredProperties":
+                        to_emit, _ = _merge_structured_properties(
+                            existing_dest.get(name), aspect, prefer_src_on_conflict=True
+                        )
+                    else:
+                        to_emit = aspect
                 else:
                     result.skipped.append(
                         f"schemaField '{old_path}' -> '{new_path}': destination "
@@ -573,6 +589,11 @@ def reconcile_dataset(
             resolver,
             dry_run=dry_run,
         )
+    except (click.Abort, KeyboardInterrupt):
+        # An operator hitting Ctrl-C at an --interactive prompt must stop the whole
+        # run, not be swallowed into a per-dataset error that lets the loop carry on
+        # rewriting and soft-deleting the remaining datasets unprompted.
+        raise
     except Exception as e:
         log.warning(f"Failed to reconcile {dataset_urn}: {e}")
         result.error = str(e)
@@ -660,6 +681,8 @@ def run_migration(
                 include_soft_deleted=include_soft_deleted,
                 resolver=resolver,
             )
+        except (click.Abort, KeyboardInterrupt):
+            raise  # propagate an interactive abort; stop the whole run
         except Exception as e:
             log.warning(f"Unexpected error reconciling {dataset_urn}: {e}")
             result = DatasetReconcileResult(dataset_urn=dataset_urn, error=str(e))

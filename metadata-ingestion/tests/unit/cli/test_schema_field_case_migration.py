@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Type
 from unittest.mock import MagicMock, patch
 
+import click
+import pytest
 from click.testing import CliRunner
 
 from datahub.cli.migrate import schema_field_case
@@ -861,6 +863,98 @@ class TestInteractiveResolver:
         assert resolver.conflict_calls == ["documentation"]
         assert old_sf in graph.soft_deleted
         assert not result.skipped
+
+    def test_structured_property_overwrite_keeps_destination_only(self):
+        # Overwriting a structuredProperties conflict lets the stranded value win
+        # the *conflicting* property, but it is still a union: a destination-only
+        # property that was never in conflict must survive, not be clobbered.
+        old_sf = _sf("product2id")
+        new_sf = _sf("Product2Id")
+        graph = FakeGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Product2Id")},
+                old_sf: {
+                    "structuredProperties": StructuredPropertiesClass(
+                        properties=[
+                            StructuredPropertyValueAssignmentClass(
+                                propertyUrn="urn:li:structuredProperty:tier",
+                                values=["silver"],
+                            ),
+                            StructuredPropertyValueAssignmentClass(
+                                propertyUrn="urn:li:structuredProperty:pii",
+                                values=["yes"],
+                            ),
+                        ]
+                    )
+                },
+                new_sf: {
+                    "structuredProperties": StructuredPropertiesClass(
+                        properties=[
+                            StructuredPropertyValueAssignmentClass(
+                                propertyUrn="urn:li:structuredProperty:tier",
+                                values=["gold"],
+                            ),
+                            StructuredPropertyValueAssignmentClass(
+                                propertyUrn="urn:li:structuredProperty:region",
+                                values=["us"],
+                            ),
+                        ]
+                    )
+                },
+            }
+        )
+        resolver = _FixedResolver(overwrite=True)
+        reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+            resolver=resolver,
+        )
+        emitted = [a for (u, a) in graph.emitted if u == new_sf][-1]
+        by_urn = {p.propertyUrn: p.values for p in emitted.properties}
+        assert by_urn == {
+            "urn:li:structuredProperty:tier": ["silver"],  # src won the conflict
+            "urn:li:structuredProperty:pii": ["yes"],  # src-only, carried
+            "urn:li:structuredProperty:region": ["us"],  # dest-only, preserved
+        }
+        assert old_sf in graph.soft_deleted
+
+    def test_abort_at_prompt_stops_whole_run(self):
+        # Ctrl-C at a prompt raises click.Abort; it must propagate out and halt the
+        # run, not be caught per-dataset and let later datasets be rewritten
+        # (and their source fields soft-deleted) without any prompt.
+        d2 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.d2,PROD)"
+        d1_old, d2_old = _sf("product2id"), make_schema_field_urn(d2, "amount")
+        graph = FakeGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Product2Id")},
+                _sf("product2id"): {"documentation": _doc("stranded")},
+                _sf("Product2Id"): {"documentation": _doc("destination")},  # conflict
+                d2: {"schemaMetadata": _schema("Amount")},
+                d2_old: {"documentation": _doc("simple remap")},
+            }
+        )
+
+        class _AbortingResolver(ClashResolver):
+            def resolve_conflict(
+                self, old_path: str, new_path: str, aspect_name: str
+            ) -> bool:
+                raise click.Abort()
+
+        with pytest.raises(click.Abort):
+            run_migration(
+                graph,  # type: ignore[arg-type]
+                [_DATASET, d2],
+                dry_run=False,
+                delete_source=True,
+                include_soft_deleted=False,
+                resolver=_AbortingResolver(),
+            )
+        # d1's conflicting source is kept, and d2 was never reached.
+        assert d1_old not in graph.soft_deleted
+        assert d2_old not in graph.soft_deleted
 
 
 class TestRunMigrationReport:
