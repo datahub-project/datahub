@@ -26,15 +26,20 @@ public class ResolvedEntitySpec {
   }
 
   /**
-   * Fetch the owners for an entity.
+   * Fetch the typed projection of a field (e.g. {@code Urn} or typed owners) without re-parsing the
+   * string {@link #getFieldValues} representation. The element type is determined by the field's
+   * resolver; callers must request the type the resolver populates (e.g. {@code Owner} for {@link
+   * EntityFieldType#OWNER}).
    *
-   * @return a set of owner urns, or empty set if none exist.
+   * @return the typed values, or an empty set if the field is unresolved or carries no typed data.
    */
-  public Set<String> getOwners() {
-    if (!fieldResolvers.containsKey(EntityFieldType.OWNER)) {
+  @SuppressWarnings("unchecked")
+  public <T> Set<T> getTypedValues(EntityFieldType entityFieldType) {
+    if (!fieldResolvers.containsKey(entityFieldType)) {
       return Collections.emptySet();
     }
-    return fieldResolvers.get(EntityFieldType.OWNER).getFieldValuesFuture().join().getValues();
+    return (Set<T>)
+        fieldResolvers.get(entityFieldType).getFieldValuesFuture().join().getTypedValues();
   }
 
   /**

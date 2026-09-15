@@ -10,7 +10,9 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
+import com.linkedin.policy.DataHubResourceFilter;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextAuthorizer;
@@ -18,6 +20,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -89,7 +92,7 @@ public class DataHubAuthorizer
     this.systemOpContext = systemOpContext;
     this.mode = Objects.requireNonNull(mode);
     this.groupService = Objects.requireNonNull(groupService);
-    policyEngine = new PolicyEngine(entityClient, groupService);
+    policyEngine = new PolicyEngine(groupService);
     if (refreshIntervalSeconds > 0) {
       policyRefreshRunnable =
           new PolicyRefreshRunnable(
@@ -548,6 +551,15 @@ public class DataHubAuthorizer
           }
         }
 
+        // Sort each privilege's list once at build time: cheapest actor predicates first.
+        // allUsers/allGroups short-circuit instantly; specific users/groups/roles are cheap and
+        // memoized; resourceOwners requires an ownership fetch and goes last.
+        newCache.replaceAll(
+            (privilege, policies) -> {
+              policies.sort(Comparator.comparingInt(PolicyRefreshRunnable::actorMatchCost));
+              return policies;
+            });
+
         writeLock.lock();
         try {
           policyCache.clear();
@@ -565,6 +577,25 @@ public class DataHubAuthorizer
       }
     }
 
+    /**
+     * Cost rank for a policy's actor predicate. Lower cost = earlier in the evaluation list.
+     * allUsers/allGroups can ALLOW without touching the resource or any resolved field. Specific
+     * users/groups/roles are cheap: groups and roles are memoized per request. resourceOwners
+     * requires an ownership fetch and is ranked last.
+     */
+    private static int actorMatchCost(DataHubPolicyInfo policy) {
+      final DataHubActorFilter actors = policy.getActors();
+      final DataHubResourceFilter resources = policy.getResources();
+      if (actors.isAllUsers() || actors.isAllGroups()) {
+        return resources == null ? 0 : 1;
+      }
+      boolean hasRoles = actors.getRoles() != null && !actors.getRoles().isEmpty();
+      if (!actors.isResourceOwners()) {
+        return hasRoles ? 2 : 1;
+      }
+      return 3;
+    }
+
     private void addPoliciesToCache(
         final Map<String, List<DataHubPolicyInfo>> cache,
         final List<PolicyFetcher.Policy> policies) {
@@ -573,6 +604,9 @@ public class DataHubAuthorizer
 
     private void addPolicyToCache(
         final Map<String, List<DataHubPolicyInfo>> cache, final DataHubPolicyInfo policy) {
+      if (!PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState())) {
+        return;
+      }
       final List<String> privileges = policy.getPrivileges();
       for (String privilege : privileges) {
         List<DataHubPolicyInfo> existingPolicies =
