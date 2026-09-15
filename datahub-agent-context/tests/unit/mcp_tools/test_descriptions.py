@@ -6,6 +6,7 @@ import pytest
 
 from datahub_agent_context.context import DataHubContext
 from datahub_agent_context.mcp_tools.descriptions import update_description
+from datahub_agent_context.mcp_tools.helpers import resolve_description
 
 
 @pytest.fixture
@@ -451,3 +452,36 @@ def test_update_description_remove_glossary_term(mock_client):
     # Verify empty description was sent
     call_args = mock_client._graph.execute_graphql.call_args
     assert call_args.kwargs["variables"]["input"]["description"] == ""
+
+
+def test_resolve_description_prefers_editable():
+    """The UI renders editableProperties, so a reader sees that one."""
+    entity = {
+        "editableProperties": {"description": "edited by a human"},
+        "properties": {"description": "from ingestion"},
+    }
+
+    assert resolve_description(entity) == "edited by a human"
+
+
+def test_resolve_description_falls_back_to_properties():
+    """Tags and glossary terms only ever have properties."""
+    entity = {"properties": {"description": "from ingestion"}}
+
+    assert resolve_description(entity) == "from ingestion"
+
+
+def test_resolve_description_falls_back_when_editable_is_empty():
+    """An empty editable description must not shadow the ingested one."""
+    entity = {
+        "editableProperties": {"description": ""},
+        "properties": {"description": "from ingestion"},
+    }
+
+    assert resolve_description(entity) == "from ingestion"
+
+
+def test_resolve_description_handles_missing_and_null_blocks():
+    """get_entities omits blocks entirely, and GraphQL can return null for them."""
+    assert resolve_description({}) == ""
+    assert resolve_description({"editableProperties": None, "properties": None}) == ""
