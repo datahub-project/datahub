@@ -122,7 +122,7 @@ public interface SearchClusterAccess {
   @Nonnull
   static SearchComponent componentForEntityIndex(
       @Nonnull IndexConvention convention, @Nonnull String indexName) {
-    if (convention.isSemanticEntityIndexType(indexName)) {
+    if (convention.isSemanticEntityIndexOrBackingType(indexName)) {
       return SearchComponent.SEMANTIC;
     }
     if (convention.isV3EntityIndexOrBackingType(indexName)) {

@@ -403,7 +403,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
   }
 
   @Test
-  public void testExecutable_SplitClusterScrollsToDest() throws Exception {
+  public void testExecutable_SplitClusterCopiesWithSearchAfter() throws Exception {
     String entityName = "dataset";
     SearchClientShim<?> sourceClient = mock(SearchClientShim.class);
     SearchClientShim<?> destClient = mock(SearchClientShim.class);
@@ -423,18 +423,18 @@ public class CopyDocumentsToSemanticIndexStepTest {
     SearchHit hit = mock(SearchHit.class);
     when(hit.getId()).thenReturn("urn:li:dataset:1");
     when(hit.getSourceAsString()).thenReturn("{\"urn\":\"urn:li:dataset:1\"}");
+    when(hit.getSortValues()).thenReturn(new Object[] {"urn:li:dataset:1"});
     org.opensearch.search.SearchHits firstHits = mock(org.opensearch.search.SearchHits.class);
     when(firstHits.getHits()).thenReturn(new SearchHit[] {hit});
     SearchResponse firstPage = mock(SearchResponse.class);
     when(firstPage.getHits()).thenReturn(firstHits);
-    when(firstPage.getScrollId()).thenReturn("scroll-1");
     org.opensearch.search.SearchHits emptyHits = mock(org.opensearch.search.SearchHits.class);
     when(emptyHits.getHits()).thenReturn(new SearchHit[0]);
     SearchResponse emptyPage = mock(SearchResponse.class);
     when(emptyPage.getHits()).thenReturn(emptyHits);
     when(sourceClient.search(any(), any(SearchRequest.class), any(RequestOptions.class)))
-        .thenReturn(firstPage);
-    when(sourceClient.scroll(any(), any(), any(RequestOptions.class))).thenReturn(emptyPage);
+        .thenReturn(firstPage)
+        .thenReturn(emptyPage);
 
     step =
         new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
@@ -443,6 +443,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     verify(sourceClient, never())
         .submitReindexTask(any(), any(ReindexRequest.class), any(RequestOptions.class));
+    verify(sourceClient, never()).scroll(any(), any(), any(RequestOptions.class));
     verify(destClient).indexDocument(any(), any(IndexRequest.class), any(RequestOptions.class));
   }
 }

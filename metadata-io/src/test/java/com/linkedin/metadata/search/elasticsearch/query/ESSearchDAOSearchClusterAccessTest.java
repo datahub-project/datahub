@@ -82,6 +82,25 @@ public class ESSearchDAOSearchClusterAccessTest {
   }
 
   @Test
+  public void testRawUsageIndexUsesUsageClient() throws Exception {
+    SearchClientShim<?> v2 = mock(SearchClientShim.class);
+    SearchClientShim<?> usage = mock(SearchClientShim.class);
+    SearchResponse searchResponse = emptySearchResponse();
+    when(usage.search(any(), any(), any())).thenReturn(searchResponse);
+
+    SearchClusterAccess access = component -> component == SearchComponent.USAGE ? usage : v2;
+    OperationContext opContext =
+        TestOperationContexts.withSearchClusterAccess(
+            TestOperationContexts.systemContextNoSearchAuthorization(), access);
+
+    ESSearchDAO dao = dao(v2, false);
+    dao.raw(opContext, "datahub_usage_event", "{\"query\":{\"match_all\":{}}}");
+
+    verify(usage).search(any(), any(), any());
+    verify(v2, never()).search(any(), any(), any());
+  }
+
+  @Test
   public void testPitScrollUsesV3ClientNotPrimary() throws Exception {
     SearchClientShim<?> primary = mock(SearchClientShim.class);
     SearchClientShim<?> v2 = mock(SearchClientShim.class);

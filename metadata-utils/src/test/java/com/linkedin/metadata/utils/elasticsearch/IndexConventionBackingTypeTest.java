@@ -33,10 +33,22 @@ public class IndexConventionBackingTypeTest {
   }
 
   @Test
-  public void testSemanticIndexIsNotMistakenForAV2Backing() {
-    // "datasetindex_v2_semantic" is a different family, not a timestamped backing index.
+  public void testSemanticBackingIsNotAV2Rebuild() {
     assertFalse(convention.isV2EntityIndexOrBackingType("datasetindex_v2_semantic"));
     assertTrue(convention.isSemanticEntityIndexType("datasetindex_v2_semantic"));
+    assertTrue(convention.isSemanticEntityIndexOrBackingType("datasetindex_v2_semantic"));
+    assertTrue(
+        convention.isSemanticEntityIndexOrBackingType("datasetindex_v2_semantic_1712345678"));
+    assertFalse(convention.isV2EntityIndexOrBackingType("datasetindex_v2_semantic_1712345678"));
+  }
+
+  @Test
+  public void testIncrementalRebuildNamesMatchTheirFamily() {
+    assertTrue(convention.isV2EntityIndexOrBackingType("datasetindex_v2_next_123"));
+    assertTrue(convention.isV3EntityIndexOrBackingType("datasetindex_v3_next_123"));
+    assertTrue(convention.isSemanticEntityIndexOrBackingType("datasetindex_v2_semantic_next_123"));
+    assertTrue(convention.isV2EntityIndexOrBackingType("datasetindex_v2_0_13_1-0_1712345678"));
+    assertFalse(convention.isV2EntityIndexOrBackingType("datasetindex_v2_draft"));
   }
 
   @Test
@@ -55,7 +67,11 @@ public class IndexConventionBackingTypeTest {
     assertTrue(IndexConvention.matchesV3EntityIndexFamily("*index_v3*"));
     assertTrue(IndexConvention.matchesV2EntityIndexFamily("*index_v2*"));
     assertTrue(IndexConvention.matchesSemanticEntityIndexFamily("*index_v2_semantic*"));
+    assertTrue(
+        IndexConvention.matchesSemanticEntityIndexFamily("datasetindex_v2_semantic_1712345678"));
     assertFalse(IndexConvention.matchesV2EntityIndexFamily("*index_v2_semantic*"));
+    assertFalse(IndexConvention.matchesV2EntityIndexFamily("datasetindex_v2_semantic_1712345678"));
+    assertTrue(IndexConvention.matchesV2EntityIndexFamily("datasetindex_v2_next_123"));
     assertFalse(IndexConvention.matchesV3EntityIndexFamily("datasetindex_v2"));
   }
 }

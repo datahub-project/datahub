@@ -9,6 +9,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SearchClusterUri;
 import com.linkedin.metadata.config.search.ShimSettings;
+import com.linkedin.metadata.config.search.SslContextSettings;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.ShimConfigurationBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es7CompatibilitySearchClientShim;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
@@ -117,17 +119,47 @@ public class SearchClientShimFactory {
 
   /**
    * Identity used to decide whether two cluster entries are really the same connection. Includes
-   * credentials because the same endpoint accessed as a different user is a different client.
+   * every client-affecting setting. Secrets are hashed so the key can be logged without leaking
+   * passwords.
    */
   static String connectionIdentity(
       @Nonnull String clusterName, @Nonnull SearchClusterSettings cluster) {
     SearchClusterUri uri = cluster.parsedUri(clusterName);
+    ShimSettings shim = cluster.getShim();
+    SslContextSettings ssl = cluster.getSslContext();
     return String.join(
         "|",
         uri.normalized(),
         String.valueOf(cluster.getUsername()),
+        hashedSecret(cluster.getPassword()),
         String.valueOf(cluster.isOpensearchUseAwsIamAuth()),
-        String.valueOf(cluster.getRegion()));
+        String.valueOf(cluster.getRegion()),
+        shim == null ? "auto" : String.valueOf(shim.getEngineType()),
+        shim == null ? "auto" : String.valueOf(shim.getAutoDetectEngine()),
+        sslIdentity(ssl));
+  }
+
+  @Nonnull
+  private static String sslIdentity(@Nullable SslContextSettings ssl) {
+    if (ssl == null || ssl.isEmpty()) {
+      return "ssl:default";
+    }
+    return String.join(
+        ",",
+        String.valueOf(ssl.getProtocol()),
+        String.valueOf(ssl.getSecureRandomImplementation()),
+        String.valueOf(ssl.getTrustStoreFile()),
+        String.valueOf(ssl.getTrustStoreType()),
+        hashedSecret(ssl.getTrustStorePassword()),
+        String.valueOf(ssl.getKeyStoreFile()),
+        String.valueOf(ssl.getKeyStoreType()),
+        hashedSecret(ssl.getKeyStorePassword()),
+        hashedSecret(ssl.getKeyPassword()));
+  }
+
+  @Nonnull
+  private static String hashedSecret(@Nullable String secret) {
+    return Integer.toHexString(Objects.hashCode(secret));
   }
 
   /**

@@ -15,6 +15,7 @@ import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -878,15 +879,15 @@ public class ESSearchDAO {
                         .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json);
                 SearchSourceBuilder searchSourceBuilder = SearchSourceBuilder.fromXContent(parser);
 
-                SearchRequest searchRequest =
-                    new SearchRequest(
-                        opContext
-                            .getSearchContext()
-                            .getIndexConvention()
-                            .getIndexName(opContext, indexName));
+                String resolvedIndex =
+                    opContext
+                        .getSearchContext()
+                        .getIndexConvention()
+                        .getIndexName(opContext, indexName);
+                SearchRequest searchRequest = new SearchRequest(resolvedIndex);
                 searchRequest.source(searchSourceBuilder);
 
-                return searchClient(opContext, searchRequest.indices())
+                return clientForRawIndex(opContext, indexName, resolvedIndex)
                     .search(opContext, searchRequest, RequestOptions.DEFAULT);
               } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -1011,6 +1012,21 @@ public class ESSearchDAO {
   private String entityIndexName(@Nonnull OperationContext opContext, @Nonnull String entityName) {
     return EntitySearchIndexResolver.indexName(
         opContext, entityName, searchConfiguration.getEntityIndex());
+  }
+
+  @Nonnull
+  private SearchClientShim<?> clientForRawIndex(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String resolvedIndex) {
+    if (isUsageEventIndex(indexName) || isUsageEventIndex(resolvedIndex)) {
+      return SearchClients.forComponent(opContext, SearchComponent.USAGE);
+    }
+    return searchClient(opContext, resolvedIndex);
+  }
+
+  private static boolean isUsageEventIndex(@Nonnull String name) {
+    return name.contains(Constants.DATAHUB_USAGE_EVENT_INDEX);
   }
 
   private void testLog(ObjectMapper mapper, SearchRequest searchRequest) {

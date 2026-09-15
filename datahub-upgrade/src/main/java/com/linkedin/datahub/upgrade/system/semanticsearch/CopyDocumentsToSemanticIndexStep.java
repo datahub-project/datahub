@@ -21,17 +21,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.reindex.ReindexRequest;
-import org.opensearch.search.Scroll;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.sort.SortOrder;
 import org.opensearch.tasks.TaskInfo;
 
 /**
@@ -47,7 +45,7 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
   private static final long TASK_POLL_INTERVAL_MS = 5000; // 5 seconds
   private static final long TASK_TIMEOUT_MS = 3600000; // 1 hour
 
-  private static final int CROSS_CLUSTER_SCROLL_SIZE = 500;
+  private static final int CROSS_CLUSTER_PAGE_SIZE = 500;
 
   private final OperationContext opContext;
   private final String entityName;
@@ -139,17 +137,16 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
       String baseIndexName,
       String semanticIndexName)
       throws IOException {
-    Scroll scroll = new Scroll(TimeValue.timeValueMinutes(5L));
-    SearchRequest searchRequest = new SearchRequest(baseIndexName);
-    searchRequest.scroll(scroll);
     SearchSourceBuilder source = new SearchSourceBuilder();
     source.query(org.opensearch.index.query.QueryBuilders.matchAllQuery());
-    source.size(CROSS_CLUSTER_SCROLL_SIZE);
+    source.size(CROSS_CLUSTER_PAGE_SIZE);
+    source.sort("_id", SortOrder.ASC);
+
+    SearchRequest searchRequest = new SearchRequest(baseIndexName);
     searchRequest.source(source);
 
     SearchResponse searchResponse =
         sourceClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
-    String scrollId = searchResponse.getScrollId();
     SearchHit[] hits = searchResponse.getHits().getHits();
     while (hits.length > 0) {
       for (SearchHit hit : hits) {
@@ -159,13 +156,9 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
                 .source(hit.getSourceAsString(), XContentType.JSON);
         destClient.indexDocument(opContext, indexRequest, RequestOptions.DEFAULT);
       }
-      if (scrollId == null) {
-        break;
-      }
-      SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
-      scrollRequest.scroll(scroll);
-      searchResponse = sourceClient.scroll(opContext, scrollRequest, RequestOptions.DEFAULT);
-      scrollId = searchResponse.getScrollId();
+      Object[] sortValues = hits[hits.length - 1].getSortValues();
+      source.searchAfter(sortValues);
+      searchResponse = sourceClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
       hits = searchResponse.getHits().getHits();
     }
   }

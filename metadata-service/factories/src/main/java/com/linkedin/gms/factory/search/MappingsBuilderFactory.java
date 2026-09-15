@@ -99,12 +99,17 @@ public class MappingsBuilderFactory {
     }
 
     SearchClientShim<?> semanticClient = searchClusterRegistry.clientFor(SearchComponent.SEMANTIC);
+    MappingsBuilder semanticMappingsBase =
+        new V2MappingsBuilder(
+            configProvider.getElasticSearch().getEntityIndex(),
+            semanticClient.partialNgramConfig(),
+            resolveKeywordMaxLength(configProvider));
     log.info(
         "Creating SemanticSearchMappingsBuilder bean for entities: {} engine: {}",
         semanticConfig.getEnabledEntities(),
         semanticClient.getEngineType());
     return new V2SemanticSearchMappingsBuilder(
-        v2MappingsBuilder, semanticConfig, indexConvention, semanticClient);
+        semanticMappingsBase, semanticConfig, indexConvention, semanticClient);
   }
 
   @Bean("mappingsBuilder")

@@ -69,6 +69,13 @@ public class SearchClusterRegistryTest {
     assertEquals(
         SearchClusterRegistry.componentForEntityIndex(CONVENTION, "datasetindex_v3_1712345678"),
         SearchComponent.SEARCH_V3);
+    assertEquals(
+        SearchClusterRegistry.componentForEntityIndex(
+            CONVENTION, "datasetindex_v2_semantic_1712345678"),
+        SearchComponent.SEMANTIC);
+    assertEquals(
+        SearchClusterRegistry.componentForEntityIndex(CONVENTION, "datasetindex_v2_next_123"),
+        SearchComponent.SEARCH_V2);
   }
 
   @Test
@@ -100,6 +107,26 @@ public class SearchClusterRegistryTest {
   }
 
   @Test
+  public void testAllEntityFamiliesOnSecondaryUseSecondaryBuilder() {
+    ElasticSearchConfiguration config =
+        config(
+            ComponentClusterConfiguration.builder()
+                .searchV2("secondary")
+                .searchV3("secondary")
+                .semantic("secondary")
+                .build());
+    ESIndexBuilder primary = mock(ESIndexBuilder.class);
+    ESIndexBuilder secondary = mock(ESIndexBuilder.class);
+    SearchClusterRegistry reg = registry(config, primary, secondary);
+
+    Function<String, ESIndexBuilder> resolver = reg.entityIndexBuilderResolver(CONVENTION);
+    assertNotNull(resolver);
+    assertSame(resolver.apply("datasetindex_v2"), secondary);
+    assertSame(resolver.apply("datasetindex_v3"), secondary);
+    assertSame(resolver.apply("datasetindex_v2_semantic"), secondary);
+  }
+
+  @Test
   public void testSemanticOnSecondaryRoutesOnlySemantic() {
     ElasticSearchConfiguration config =
         config(ComponentClusterConfiguration.builder().semantic("secondary").build());
@@ -110,6 +137,7 @@ public class SearchClusterRegistryTest {
     Function<String, ESIndexBuilder> resolver = reg.entityIndexBuilderResolver(CONVENTION);
     assertNotNull(resolver);
     assertSame(resolver.apply("datasetindex_v2_semantic"), secondary);
+    assertSame(resolver.apply("datasetindex_v2_semantic_1712345678"), secondary);
     assertSame(resolver.apply("datasetindex_v2"), primary);
     assertSame(resolver.apply("datasetindex_v3"), primary);
   }

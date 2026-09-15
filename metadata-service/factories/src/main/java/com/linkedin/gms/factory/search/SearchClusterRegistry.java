@@ -165,13 +165,15 @@ public class SearchClusterRegistry implements SearchClusterAccess, SearchWriteAc
 
   /**
    * Index-builder resolver for {@code ElasticSearchService}, or null when every entity search
-   * component shares one cluster and the existing single builder is already correct.
+   * component shares the primary cluster and the existing single builder is already correct.
    */
   @Nullable
   public Function<String, ESIndexBuilder> entityIndexBuilderResolver(
       @Nonnull IndexConvention convention) {
     if (sameCluster(SearchComponent.SEARCH_V2, SearchComponent.SEARCH_V3)
-        && sameCluster(SearchComponent.SEARCH_V2, SearchComponent.SEMANTIC)) {
+        && sameCluster(SearchComponent.SEARCH_V2, SearchComponent.SEMANTIC)
+        && ElasticSearchConfiguration.PRIMARY_CLUSTER.equals(
+            clusterNameFor(SearchComponent.SEARCH_V2))) {
       return null;
     }
     return indexName -> indexBuilderFor(componentForEntityIndex(convention, indexName));

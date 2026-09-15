@@ -6,6 +6,9 @@ import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.SearchClusterIndexSettings;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -116,9 +119,46 @@ public class SearchClusterRegistryFactory {
 
     return esConfig.toBuilder()
         .index(cluster.effectiveIndex(esConfig.getIndex()))
+        .entityIndex(withClusterMappingFiles(esConfig.getEntityIndex(), cluster.getIndex()))
         .bulkProcessor(bulkProcessor)
         .bulkDelete(bulkDelete)
         .buildIndices(buildIndices)
         .build();
+  }
+
+  /**
+   * Analyzer and mapping files live on {@code entityIndex.v2/v3}. A cluster overlay that sets them
+   * is copied onto that cluster's effective entity-index versions without mutating the shared
+   * defaults.
+   */
+  @Nullable
+  static EntityIndexConfiguration withClusterMappingFiles(
+      @Nullable EntityIndexConfiguration entityIndex,
+      @Nullable SearchClusterIndexSettings overlay) {
+    if (overlay == null
+        || (overlay.getAnalyzerConfig() == null && overlay.getMappingConfig() == null)) {
+      return entityIndex;
+    }
+    EntityIndexConfiguration base =
+        entityIndex == null ? EntityIndexConfiguration.builder().build() : entityIndex;
+    return base.toBuilder()
+        .v2(overlayVersion(base.getV2(), overlay))
+        .v3(overlayVersion(base.getV3(), overlay))
+        .build();
+  }
+
+  @Nonnull
+  private static EntityIndexVersionConfiguration overlayVersion(
+      @Nullable EntityIndexVersionConfiguration version,
+      @Nonnull SearchClusterIndexSettings overlay) {
+    EntityIndexVersionConfiguration.EntityIndexVersionConfigurationBuilder builder =
+        version == null ? EntityIndexVersionConfiguration.builder() : version.toBuilder();
+    if (overlay.getAnalyzerConfig() != null) {
+      builder.analyzerConfig(overlay.getAnalyzerConfig());
+    }
+    if (overlay.getMappingConfig() != null) {
+      builder.mappingConfig(overlay.getMappingConfig());
+    }
+    return builder.build();
   }
 }
