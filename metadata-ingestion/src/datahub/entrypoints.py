@@ -178,6 +178,9 @@ def _validate_init_inputs(
     token_duration: Optional[str],
     sso: bool = False,
     oauth: bool = False,
+    fresh_login: bool = False,
+    seed_profile: Optional[str] = None,
+    remember_session: Optional[bool] = None,
 ) -> None:
     """Validate init command inputs for consistency.
 
@@ -189,12 +192,30 @@ def _validate_init_inputs(
         token_duration: Token expiration duration (if provided)
         sso: Whether SSO browser login is requested
         oauth: Whether native OAuth2 PKCE login is requested
+        fresh_login: Whether to discard the saved --sso browser profile
+        seed_profile: Browser profile to copy in on first --sso use
+        remember_session: Explicit choice about storing and replaying the --sso
+            login cookies, or None when the user did not ask either way
 
     Raises:
         click.UsageError: If inputs are invalid or inconsistent
     """
     if oauth and sso:
         raise click.UsageError("--oauth and --sso cannot be used together.")
+
+    for flag, value in (
+        ("--fresh-login", fresh_login),
+        ("--seed-profile", seed_profile),
+    ):
+        if value and not sso:
+            raise click.UsageError(f"{flag} can only be used with --sso.")
+
+    # Remembering is on by default, so the falsy value here is a real choice
+    # rather than an absent flag, and `if value` would let it through.
+    if remember_session is not None and not sso:
+        raise click.UsageError(
+            "--remember-session/--no-remember-session can only be used with --sso."
+        )
 
     # OAuth PKCE is mutually exclusive with all credential options
     if oauth:
@@ -327,7 +348,10 @@ def _validate_init_inputs(
     "--sso",
     is_flag=True,
     default=False,
-    help="Open browser for SSO login (requires: pip install 'acryl-datahub[sso]' && playwright install chromium)",
+    help=(
+        "Open browser for SSO login, preferring the browser your OS defaults "
+        "to (requires: pip install 'acryl-datahub[sso]')"
+    ),
 )
 @click.option(
     "--oauth",
@@ -348,6 +372,36 @@ def _validate_init_inputs(
     help="Support ticket ID (required with --oauth --support)",
 )
 @click.option(
+    "--fresh-login",
+    is_flag=True,
+    default=False,
+    help=(
+        "Discard the saved browser profiles and the remembered session before "
+        "--sso login (use to switch user)"
+    ),
+)
+@click.option(
+    "--seed-profile",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    default=None,
+    help=(
+        "Copy this browser profile in on first --sso use, so an existing "
+        "identity provider session skips even the first login. Must be a copy, "
+        "not a profile the browser currently has open."
+    ),
+)
+@click.option(
+    "--remember-session/--no-remember-session",
+    default=None,
+    help=(
+        "Store the cookies the --sso login establishes and replay them next "
+        "time, so an identity provider that issues an in-memory session does "
+        "not ask for a fresh login. On by default; the session is written to "
+        "~/.datahub/sso-sessions as 0600. Pass --no-remember-session to keep "
+        "the session in the browser profile only."
+    ),
+)
+@click.option(
     "--agent-context",
     is_flag=True,
     default=False,
@@ -365,6 +419,9 @@ def init(
     oauth: bool = False,
     support: bool = False,
     ticket_id: Optional[str] = None,
+    fresh_login: bool = False,
+    seed_profile: Optional[str] = None,
+    remember_session: Optional[bool] = None,
     agent_context: bool = False,
 ) -> None:
     """Configure which DataHub instance to connect to.
@@ -455,7 +512,16 @@ def init(
 
     # Validate input combinations
     _validate_init_inputs(
-        use_password, token, username, password, token_duration, sso=sso, oauth=oauth
+        use_password,
+        token,
+        username,
+        password,
+        token_duration,
+        sso=sso,
+        oauth=oauth,
+        fresh_login=fresh_login,
+        seed_profile=seed_profile,
+        remember_session=remember_session,
     )
 
     # Handle overwrite confirmation: prompt only on interactive TTYs.
@@ -531,6 +597,9 @@ def init(
             effective_duration,
             support=support,
             ticket_id=ticket_id,
+            fresh_login=fresh_login,
+            seed_profile=seed_profile,
+            remember_session=remember_session is not False,
         )
         click.echo(f"✓ Generated token (expires: {effective_duration})")
     elif should_generate_token or use_password:

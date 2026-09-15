@@ -636,7 +636,13 @@ class TestSSOLogin:
 
         # Verify frontend URL derivation: 8080 -> 9002
         mock_browser_login.assert_called_once_with(
-            "http://localhost:9002", "ONE_MONTH", support=False, ticket_id=None
+            "http://localhost:9002",
+            "ONE_MONTH",
+            support=False,
+            ticket_id=None,
+            fresh_login=False,
+            seed_profile=None,
+            remember_session=True,
         )
 
     def test_sso_with_custom_duration(self, temp_config: Path, clean_env: None) -> None:
@@ -657,7 +663,13 @@ class TestSSOLogin:
 
         assert result.exit_code == 0
         mock_browser_login.assert_called_once_with(
-            "http://localhost:9002", "ONE_MONTH", support=False, ticket_id=None
+            "http://localhost:9002",
+            "ONE_MONTH",
+            support=False,
+            ticket_id=None,
+            fresh_login=False,
+            seed_profile=None,
+            remember_session=True,
         )
 
     def test_sso_with_acryl_cloud_url(self, temp_config: Path, clean_env: None) -> None:
@@ -681,6 +693,9 @@ class TestSSOLogin:
             "ONE_HOUR",
             support=False,
             ticket_id=None,
+            fresh_login=False,
+            seed_profile=None,
+            remember_session=True,
         )
 
     def test_sso_support_flag(self, temp_config: Path, clean_env: None) -> None:
@@ -700,8 +715,49 @@ class TestSSOLogin:
 
         assert result.exit_code == 0
         mock_browser_login.assert_called_once_with(
-            "https://customer.acryl.io", "ONE_HOUR", support=True, ticket_id=None
+            "https://customer.acryl.io",
+            "ONE_HOUR",
+            support=True,
+            ticket_id=None,
+            fresh_login=False,
+            seed_profile=None,
+            remember_session=True,
         )
+
+    def test_a_plain_init_is_not_blocked_by_the_session_default(
+        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+    ) -> None:
+        """Remembering is on by default, and the default is not a --sso request.
+
+        The guard that keeps the session flags behind --sso reads the flag
+        value, so a default of True would reject every non-SSO init.
+        """
+        runner = CliRunner()
+        result = runner.invoke(
+            init,
+            [
+                "--host",
+                "http://localhost:8080",
+                "--username",
+                "alice",
+                "--password",
+                "secret",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+
+    @pytest.mark.parametrize("flag", ["--remember-session", "--no-remember-session"])
+    def test_either_session_choice_without_sso_errors(
+        self, temp_config: Path, clean_env: None, flag: str
+    ) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            init, [flag, "--host", "http://localhost:8080", "--token", "my-token"]
+        )
+
+        assert result.exit_code != 0
+        assert "can only be used with --sso" in result.output
 
     def test_support_without_sso_errors(
         self, temp_config: Path, clean_env: None
