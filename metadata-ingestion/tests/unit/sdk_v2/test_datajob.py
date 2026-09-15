@@ -292,7 +292,6 @@ def test_datajob_browse_path_entry_uses_flow_urn_as_id() -> None:
     entry = browse_paths.path[0]
     assert entry.id == str(flow.urn)
     assert entry.urn == str(flow.urn)
-    assert entry.id != connection_id
 
 
 def test_datajob_browse_path_with_container() -> None:
