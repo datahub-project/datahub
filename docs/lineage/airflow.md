@@ -554,6 +554,27 @@ you intended.
 
 For extremely large Airflow deployments with thousands of tasks, you may see issues where the plugin interferes with the performance of the Airflow scheduler. In those cases, you can set the `DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT=0` environment variable. This makes the DataHub plugin run fully in background threads, but can cause us to miss some metadata if the scheduler shuts down soon after processing a task.
 
+Because that shutdown risk scales with how soon the process exits, it is usually best to set the timeout per component. A task runner exits as soon as its task finishes, so it almost always needs the wait in order to land its metadata. A long-lived scheduler usually has time to finish an emit on its own, so `0` there mostly buys reduced blocking — though metadata still in flight is lost if the scheduler is restarted or killed:
+
+```shell
+# scheduler
+export DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT=0
+# workers / task runners
+export DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT=10
+```
+
+#### Limiting concurrent emits
+
+The thread timeout bounds how long a hook _waits_, not how long the work _runs_ — a background thread keeps going until its HTTP request and retries finish. So if DataHub responds slowly, the number of live threads grows with your event rate, and each one holds an HTTP connection plus the lineage-extraction working set.
+
+`DATAHUB_AIRFLOW_PLUGIN_MAX_CONCURRENT_EMITS` caps how many emits may be in flight at once. It defaults to `0`, meaning no ceiling — the historical behaviour. Set a positive value to opt in; `10` is a reasonable starting point, since a healthy deployment runs roughly one concurrent emit. Past the limit the plugin drops the incoming event and logs a warning instead of starting another thread:
+
+```text
+Dropping on_dag_run_running: 10 emits already in flight (dropped so far: 3). DataHub may be slow to respond; raise DATAHUB_AIRFLOW_PLUGIN_MAX_CONCURRENT_EMITS if this is expected load.
+```
+
+If you see this warning, DataHub is responding slowly — grep for `already in flight` to gauge how much is being dropped. Dropped events are usually recoverable on their own, because DataHub upserts and a later event for the same entity supersedes the lost one. The trade-off is explicit: with no ceiling the plugin emits everything but its thread count follows DataHub's latency, and with a ceiling the thread count is bounded but some events are lost while DataHub is slow.
+
 ### Disabling the DataHub Plugin
 
 There are two ways to disable the DataHub Plugin:
