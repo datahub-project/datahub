@@ -421,6 +421,36 @@ public class AuthUtil {
         .collect(Collectors.toSet());
   }
 
+  /** Either {@code EDIT_ENTITY} or {@code EDIT_ENTITY_PROPERTIES} is sufficient. */
+  public static DisjunctivePrivilegeGroup structuredPropertyModificationPrivilegeGroup() {
+    return new DisjunctivePrivilegeGroup(
+        List.of(
+            new ConjunctivePrivilegeGroup(List.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())),
+            new ConjunctivePrivilegeGroup(
+                List.of(PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
+  }
+
+  public static boolean isAPIAuthorizedForStructuredPropertyModification(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Collection<Urn> propertyUrns) {
+    if (propertyUrns.isEmpty()) {
+      return true;
+    }
+    return isAPIAuthorized(
+        session,
+        structuredPropertyModificationPrivilegeGroup(),
+        new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()),
+        structuredPropertySubResourceSpecs(propertyUrns));
+  }
+
+  private static Set<EntitySpec> structuredPropertySubResourceSpecs(
+      @Nonnull final Collection<Urn> propertyUrns) {
+    return propertyUrns.stream()
+        .map(urn -> new EntitySpec(urn.getEntityType(), urn.toString()))
+        .collect(Collectors.toSet());
+  }
+
   public static boolean isAPIAuthorizedEntityType(
       @Nonnull final AuthorizationSession session,
       @Nonnull final ApiOperation apiOperation,

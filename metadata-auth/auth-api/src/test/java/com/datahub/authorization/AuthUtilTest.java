@@ -774,6 +774,48 @@ public class AuthUtilTest {
   }
 
   @Test
+  public void testIsAPIAuthorizedForStructuredPropertyModification() {
+    final Urn TEST_PROPERTY = UrnUtils.getUrn("urn:li:structuredProperty:test1");
+
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                TEST_AUTH_A.getActor().toUrnStr(),
+                Map.of("EDIT_ENTITY_PROPERTIES", Set.of(TEST_ENTITY_1))));
+
+    assertTrue(
+        AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+            TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
+            TEST_ENTITY_1,
+            List.of(TEST_PROPERTY)),
+        "Expected EDIT_ENTITY_PROPERTIES to authorize structured property modifications without EDIT_ENTITY");
+
+    assertFalse(
+        AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
+            TEST_ENTITY_1,
+            List.of(TEST_PROPERTY)),
+        "Expected user without EDIT_ENTITY_PROPERTIES to be denied");
+
+    assertTrue(
+        AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+            TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
+            TEST_ENTITY_1,
+            Collections.emptyList()),
+        "Expected empty property list to skip authorization");
+  }
+
+  @Test
+  public void testStructuredPropertyModificationPrivilegeGroup() {
+    assertEquals(
+        AuthUtil.structuredPropertyModificationPrivilegeGroup(),
+        new DisjunctivePrivilegeGroup(
+            List.of(
+                new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")),
+                new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY_PROPERTIES")))));
+  }
+
+  @Test
   public void testIsAPIAuthorizedSkipsWhenRestApiAuthorizationDisabled() throws Exception {
     final Urn TEST_TAG = UrnUtils.getUrn("urn:li:tag:Legacy");
     boolean previous = getRestApiAuthorizationEnabled();
