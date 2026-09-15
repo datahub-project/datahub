@@ -3830,6 +3830,38 @@ def test_extract_semantic_models_config_meta():
     assert node.tags == []
 
 
+def test_node_relation_schema_name_resolves_without_the_upstream_model():
+    """dbt writes `schema_name` in node_relation, never `schema`.
+
+    Reading only `schema` left this branch dead against every real manifest,
+    so resolution always deferred to depends_on -- which yields nothing when
+    the upstream model is not in the manifest (filtered out, or in a package
+    that was not parsed).
+    """
+    manifest_semantic_models: Dict[str, Any] = {
+        "semantic_model.my_project.order_metrics": {
+            "name": "order_metrics",
+            "node_relation": {
+                "alias": "order_metrics",
+                "schema_name": "analytics",
+                "database": "warehouse",
+            },
+            "depends_on": {"nodes": ["model.my_project.absent"]},
+            "entities": [{"name": "order_id", "type": "primary"}],
+            "measures": [{"name": "total", "agg": "sum"}],
+        }
+    }
+
+    nodes = extract_semantic_models(
+        manifest_semantic_models=manifest_semantic_models,
+        manifest_nodes={},
+        manifest_adapter="postgres",
+        tag_prefix="dbt:",
+    )
+
+    assert [(n.database, n.schema) for n in nodes] == [("warehouse", "analytics")]
+
+
 def test_extract_semantic_models_fallback_to_depends_on():
     """Test extracting semantic models when node_relation is missing db/schema."""
     manifest_semantic_models: Dict[str, Any] = {

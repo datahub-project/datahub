@@ -622,7 +622,12 @@ def _resolve_database_schema(
 ) -> Tuple[Optional[str], Optional[str]]:
     """Resolve database/schema from node_relation or upstream dependencies."""
     database = node_relation.get("database")
-    schema = node_relation.get("schema")
+    # dbt writes `schema_name` here, not `schema` -- NodeRelation in the
+    # manifest schema sets additionalProperties: false, so `schema` never
+    # appears in a real manifest and reading only it left this branch dead,
+    # silently deferring every semantic model to the depends_on fallback.
+    # `schema` is kept as a fallback for hand-written fixtures.
+    schema = node_relation.get("schema_name") or node_relation.get("schema")
 
     if database and schema:
         return database, schema
