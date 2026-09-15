@@ -320,12 +320,14 @@ public class AggregationQueryBuilder {
       Terms.Bucket bucket, Map<String, Long> aggResult, boolean includeZeroes) {
     final String key = bucket.getKeyAsString();
     String finalKey = key;
-    try {
-      // if the value is a date string, convert to milliseconds since epoch
-      OffsetDateTime time = OffsetDateTime.parse(key);
-      finalKey = String.valueOf(time.toEpochSecond() * 1000);
-    } catch (DateTimeParseException e) {
-      // do nothing, this is expected if the value is not a date
+    if (looksLikeIsoOffsetDateTime(key)) {
+      try {
+        // if the value is a date string, convert to milliseconds since epoch
+        OffsetDateTime time = OffsetDateTime.parse(key);
+        finalKey = String.valueOf(time.toEpochSecond() * 1000);
+      } catch (DateTimeParseException e) {
+        // do nothing, this is expected if the value is not a date
+      }
     }
     // Gets filtered sub aggregation doc count if exist
     Map<String, Long> subAggs = recursivelyAddNestedSubAggs(bucket.getAggregations());
@@ -337,6 +339,21 @@ public class AggregationQueryBuilder {
     if (includeZeroes || docCount > 0) {
       aggResult.put(finalKey, docCount);
     }
+  }
+
+  // Minimal valid OffsetDateTime.parse() input is "yyyy-MM-ddTHH:mm:ssZ" (20 chars).
+  private static final int MIN_ISO_OFFSET_DATE_TIME_LENGTH = "2000-01-01T00:00:00Z".length();
+
+  /**
+   * Cheap check for strings that cannot possibly be a valid {@link OffsetDateTime}, so that {@link
+   * #processTermBucket} avoids paying for a {@link DateTimeParseException} on every non-date bucket
+   * key (A very common case).
+   */
+  private static boolean looksLikeIsoOffsetDateTime(String value) {
+    return value.length() >= MIN_ISO_OFFSET_DATE_TIME_LENGTH
+        && value.charAt(4) == '-'
+        && value.charAt(7) == '-'
+        && value.charAt(10) == 'T';
   }
 
   private static void recurseMissingAgg(ParsedMissing missing, Map<String, Long> aggResult) {
