@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.search;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -34,22 +35,25 @@ public class MappingsBuilderFactory {
   @Bean
   @Nonnull
   protected StructuredPropertyMappingLookup structuredPropertyMappingLookup(
-      @Qualifier("searchClientShim") SearchClientShim<?> searchClient,
-      @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
-    return new SearchEngineStructuredPropertyMappingLookup(searchClient, indexConvention);
+      @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
+      SearchClusterRegistry searchClusterRegistry) {
+    return new SearchEngineStructuredPropertyMappingLookup(indexConvention, searchClusterRegistry);
   }
 
   @Bean("legacyMappingsBuilder")
   @ConditionalOnProperty(name = "elasticsearch.entityIndex.v2.enabled", havingValue = "true")
   @Nonnull
   protected MappingsBuilder createLegacyMappingsBuilder(
-      ConfigurationProvider configProvider,
-      @Qualifier("searchClientShim") SearchClientShim<?> searchClient) {
-    EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
+      ConfigurationProvider configProvider, SearchClusterRegistry searchClusterRegistry) {
+    EntityIndexConfiguration entityIndexConfig =
+        searchClusterRegistry.configFor(SearchComponent.SEARCH_V2).getEntityIndex();
     int keywordMaxLength = resolveKeywordMaxLength(configProvider);
-    log.info("Creating LegacyMappingsBuilder bean (engineType={})", searchClient.getEngineType());
+    SearchClientShim<?> v2Client = searchClusterRegistry.clientFor(SearchComponent.SEARCH_V2);
+    log.info(
+        "Creating LegacyMappingsBuilder bean (engineType={} is diagnostic only; V2 mappings are engine-agnostic)",
+        v2Client.getEngineType());
     return new V2MappingsBuilder(
-        entityIndexConfig, searchClient.partialNgramConfig(), keywordMaxLength);
+        entityIndexConfig, v2Client.partialNgramConfig(), keywordMaxLength);
   }
 
   @Bean("multiEntityMappingsBuilder")
@@ -57,10 +61,15 @@ public class MappingsBuilderFactory {
   @Nonnull
   protected MappingsBuilder createMultiEntityMappingsBuilder(
       ConfigurationProvider configProvider,
+      SearchClusterRegistry searchClusterRegistry,
       @Autowired(required = false) @Nullable List<V3MappingContributor> mappingContributors) {
-    EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
+    EntityIndexConfiguration entityIndexConfig =
+        searchClusterRegistry.configFor(SearchComponent.SEARCH_V3).getEntityIndex();
     int keywordMaxLength = resolveKeywordMaxLength(configProvider);
-    log.info("Creating MultiEntityMappingsBuilder bean");
+    SearchClientShim<?> v3Client = searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3);
+    log.info(
+        "Creating MultiEntityMappingsBuilder bean (engineType={} is diagnostic only; V3 mappings are engine-agnostic)",
+        v3Client.getEngineType());
     try {
       return new MultiEntityMappingsBuilder(
           entityIndexConfig,
@@ -81,9 +90,10 @@ public class MappingsBuilderFactory {
       ConfigurationProvider configProvider,
       @Qualifier("legacyMappingsBuilder") @Nullable MappingsBuilder v2MappingsBuilder,
       @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
-      SearchClientShim<?> searchClientShim) {
-    SemanticSearchConfiguration semanticConfig =
-        configProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
+      SearchClusterRegistry searchClusterRegistry) {
+    EntityIndexConfiguration semanticEntityIndex =
+        searchClusterRegistry.configFor(SearchComponent.SEMANTIC).getEntityIndex();
+    SemanticSearchConfiguration semanticConfig = semanticEntityIndex.getSemanticSearch();
 
     if (v2MappingsBuilder == null) {
       throw new IllegalStateException(
@@ -91,12 +101,18 @@ public class MappingsBuilderFactory {
               + "Please set elasticsearch.entityIndex.v2.enabled=true");
     }
 
+    SearchClientShim<?> semanticClient = searchClusterRegistry.clientFor(SearchComponent.SEMANTIC);
+    MappingsBuilder semanticMappingsBase =
+        new V2MappingsBuilder(
+            semanticEntityIndex,
+            semanticClient.partialNgramConfig(),
+            resolveKeywordMaxLength(configProvider));
     log.info(
         "Creating SemanticSearchMappingsBuilder bean for entities: {} engine: {}",
         semanticConfig.getEnabledEntities(),
-        searchClientShim.getEngineType());
+        semanticClient.getEngineType());
     return new V2SemanticSearchMappingsBuilder(
-        v2MappingsBuilder, semanticConfig, indexConvention, searchClientShim);
+        semanticMappingsBase, semanticConfig, indexConvention, semanticClient);
   }
 
   @Bean("mappingsBuilder")

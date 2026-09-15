@@ -7,17 +7,23 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexDeletionUtils;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.EnvironmentUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.function.Function;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
@@ -65,34 +71,13 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
     return (context) -> {
       OperationContext opContext = context.opContext();
       try {
-        SearchClientShim<?> client = esComponents.getSearchClient();
         IndexConvention convention = esComponents.getIndexConvention();
-        boolean isOpenSearch = client.getEngineType().isOpenSearch();
+        SearchClusterAccess access = opContext.getSearchContext().requireSearchClusterAccess();
 
-        // Entity search indices (V2/V3) — enumerate concrete names before deleting
-        for (String pattern : convention.getAllEntityIndicesPatterns(opContext)) {
-          deleteIndicesByPattern(opContext, client, pattern);
+        for (SearchClientShim<?> clusterClient : uniqueClients(access)) {
+          boolean isOpenSearch = clusterClient.getEngineType().isOpenSearch();
+          deleteOnCluster(opContext, clusterClient, convention, isOpenSearch);
         }
-
-        // Timeseries aspect indices
-        deleteIndicesByPattern(
-            opContext, client, convention.getAllTimeseriesAspectIndicesPattern(opContext));
-
-        // Well-known named indices
-        safeDeleteIndex(
-            opContext,
-            client,
-            convention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME));
-        safeDeleteIndex(
-            opContext,
-            client,
-            convention.getIndexName(opContext, ElasticSearchSystemMetadataService.INDEX_NAME));
-
-        // Usage event resources (data stream/alias, template, ILM/ISM policy)
-        deleteUsageEventResources(opContext, client, convention, isOpenSearch);
-
-        // Security roles and users created by the ES setup job
-        deleteSecurityResources(opContext, client, convention, isOpenSearch);
 
         log.info("Elasticsearch cleanup completed successfully");
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
@@ -101,6 +86,44 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
+  }
+
+  private void deleteOnCluster(
+      OperationContext opContext,
+      SearchClientShim<?> client,
+      IndexConvention convention,
+      boolean isOpenSearch) {
+    for (String pattern : convention.getAllEntityIndicesPatterns(opContext)) {
+      deleteIndicesByPattern(opContext, client, pattern);
+    }
+
+    deleteIndicesByPattern(
+        opContext, client, convention.getAllTimeseriesAspectIndicesPattern(opContext));
+
+    safeDeleteIndex(
+        opContext,
+        client,
+        convention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME));
+    safeDeleteIndex(
+        opContext,
+        client,
+        convention.getIndexName(opContext, ElasticSearchSystemMetadataService.INDEX_NAME));
+
+    deleteUsageEventResources(opContext, client, convention, isOpenSearch);
+    deleteSecurityResources(opContext, client, convention, isOpenSearch);
+  }
+
+  @Nonnull
+  private static List<SearchClientShim<?>> uniqueClients(@Nonnull SearchClusterAccess access) {
+    IdentityHashMap<SearchClientShim<?>, Boolean> seen = new IdentityHashMap<>();
+    List<SearchClientShim<?>> unique = new ArrayList<>();
+    for (SearchComponent component : SearchComponent.values()) {
+      SearchClientShim<?> client = access.clientFor(component);
+      if (seen.putIfAbsent(client, Boolean.TRUE) == null) {
+        unique.add(client);
+      }
+    }
+    return unique;
   }
 
   /**

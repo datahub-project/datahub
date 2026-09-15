@@ -552,7 +552,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       try {
         for (ReindexConfig config : service.buildReindexConfigs(opContext, structuredProperties)) {
           if (config.name().equals(indexName)) {
-            return Pair.of(service.getIndexBuilder(), config);
+            return Pair.of(service.getIndexBuilder(indexName), config);
           }
         }
       } catch (Exception e) {

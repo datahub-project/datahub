@@ -548,7 +548,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         List<ReindexConfig> configs = service.buildReindexConfigs(opContext, structuredProperties);
         for (ReindexConfig config : configs) {
           if (config.name().equals(indexName)) {
-            return service.getIndexBuilder();
+            return service.getIndexBuilder(indexName);
           }
         }
       } catch (Exception e) {

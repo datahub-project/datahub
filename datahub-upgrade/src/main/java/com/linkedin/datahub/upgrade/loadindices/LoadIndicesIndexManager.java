@@ -1,6 +1,9 @@
 package com.linkedin.datahub.upgrade.loadindices;
 
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
@@ -14,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.RequestOptions;
@@ -32,6 +36,7 @@ public class LoadIndicesIndexManager {
   private final SearchClientShim<?> searchClient;
   private final IndexConvention indexConvention;
   private final ESIndexBuilder indexBuilder;
+  @Nullable private final SearchClusterRegistry searchClusterRegistry;
   private List<ReindexConfig> managedIndexConfigs;
 
   /** -- GETTER -- Returns true if index settings are currently optimized for bulk operations. */
@@ -46,9 +51,18 @@ public class LoadIndicesIndexManager {
       SearchClientShim<?> searchClient,
       IndexConvention indexConvention,
       ESIndexBuilder indexBuilder) {
+    this(searchClient, indexConvention, indexBuilder, null);
+  }
+
+  public LoadIndicesIndexManager(
+      SearchClientShim<?> searchClient,
+      IndexConvention indexConvention,
+      ESIndexBuilder indexBuilder,
+      @Nullable SearchClusterRegistry searchClusterRegistry) {
     this.searchClient = searchClient;
     this.indexConvention = indexConvention;
     this.indexBuilder = indexBuilder;
+    this.searchClusterRegistry = searchClusterRegistry;
     // Delay index discovery until first use
     this.managedIndexConfigs = new ArrayList<>();
   }
@@ -74,14 +88,16 @@ public class LoadIndicesIndexManager {
     for (String entityPattern : entityPatterns) {
       GetIndexRequest entityRequest = new GetIndexRequest(entityPattern);
       GetIndexResponse entityResponse =
-          searchClient.getIndex(opContext, entityRequest, RequestOptions.DEFAULT);
+          clientFor(opContext, entityPattern)
+              .getIndex(opContext, entityRequest, RequestOptions.DEFAULT);
       String[] entityIndices = entityResponse.getIndices();
 
       for (String indexName : entityIndices) {
         try {
           ReindexConfig config =
-              indexBuilder.buildReindexState(
-                  opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
+              builderFor(opContext, indexName)
+                  .buildReindexState(
+                      opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
           configs.add(config);
           log.debug("Added entity index config: {}", indexName);
         } catch (IOException e) {
@@ -98,13 +114,15 @@ public class LoadIndicesIndexManager {
     GetIndexRequest graphRequest = new GetIndexRequest(graphIndexName);
     try {
       GetIndexResponse graphResponse =
-          searchClient.getIndex(opContext, graphRequest, RequestOptions.DEFAULT);
+          clientFor(opContext, graphIndexName)
+              .getIndex(opContext, graphRequest, RequestOptions.DEFAULT);
       String[] graphIndices = graphResponse.getIndices();
       for (String indexName : graphIndices) {
         try {
           ReindexConfig config =
-              indexBuilder.buildReindexState(
-                  opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
+              builderFor(opContext, indexName)
+                  .buildReindexState(
+                      opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
           configs.add(config);
           log.debug("Added graph service index config: {}", indexName);
         } catch (IOException e) {
@@ -126,13 +144,15 @@ public class LoadIndicesIndexManager {
     GetIndexRequest systemMetadataRequest = new GetIndexRequest(systemMetadataIndexName);
     try {
       GetIndexResponse systemMetadataResponse =
-          searchClient.getIndex(opContext, systemMetadataRequest, RequestOptions.DEFAULT);
+          clientFor(opContext, systemMetadataIndexName)
+              .getIndex(opContext, systemMetadataRequest, RequestOptions.DEFAULT);
       String[] systemMetadataIndices = systemMetadataResponse.getIndices();
       for (String indexName : systemMetadataIndices) {
         try {
           ReindexConfig config =
-              indexBuilder.buildReindexState(
-                  opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
+              builderFor(opContext, indexName)
+                  .buildReindexState(
+                      opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
           configs.add(config);
           log.debug("Added system metadata index config: {}", indexName);
         } catch (IOException e) {
@@ -175,10 +195,9 @@ public class LoadIndicesIndexManager {
 
     for (ReindexConfig config : managedIndexConfigs) {
       try {
-        // Disable refresh interval for bulk operations
-        indexBuilder.setIndexRefreshInterval(opContext, config.name(), DISABLED_REFRESH_INTERVAL);
-
-        indexBuilder.tweakReplicas(opContext, config, false);
+        ESIndexBuilder builder = builderFor(opContext, config.name());
+        builder.setIndexRefreshInterval(opContext, config.name(), DISABLED_REFRESH_INTERVAL);
+        builder.tweakReplicas(opContext, config, false);
 
         log.debug("Optimized settings for index: {}", config.name());
       } catch (IOException e) {
@@ -211,10 +230,9 @@ public class LoadIndicesIndexManager {
         Integer targetReplicaCount = (Integer) indexSettings.get(ESIndexBuilder.NUMBER_OF_REPLICAS);
 
         // Restore refresh interval to target value (includes per-index overrides)
-        indexBuilder.setIndexRefreshInterval(opContext, config.name(), targetRefreshInterval);
-
-        // Restore replica count to target value (includes per-index overrides)
-        indexBuilder.setIndexReplicaCount(opContext, config.name(), targetReplicaCount);
+        ESIndexBuilder builder = builderFor(opContext, config.name());
+        builder.setIndexRefreshInterval(opContext, config.name(), targetRefreshInterval);
+        builder.setIndexReplicaCount(opContext, config.name(), targetReplicaCount);
 
         log.debug(
             "Restored settings for index: {} to refresh: {}, replicas: {}",
@@ -229,5 +247,25 @@ public class LoadIndicesIndexManager {
 
     settingsOptimized = false;
     log.info("Successfully restored settings to configured values for all managed indices");
+  }
+
+  @Nonnull
+  private SearchClientShim<?> clientFor(
+      @Nonnull OperationContext opContext, @Nonnull String indexOrPattern) {
+    if (searchClusterRegistry == null) {
+      return searchClient;
+    }
+    return builderFor(opContext, indexOrPattern).getSearchClient();
+  }
+
+  @Nonnull
+  private ESIndexBuilder builderFor(
+      @Nonnull OperationContext opContext, @Nonnull String indexOrPattern) {
+    if (searchClusterRegistry == null) {
+      return indexBuilder;
+    }
+    SearchComponent component =
+        SearchClients.componentForManagedIndex(opContext, indexConvention, indexOrPattern);
+    return searchClusterRegistry.indexBuilderFor(component);
   }
 }

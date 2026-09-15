@@ -164,4 +164,105 @@ public interface IndexConvention {
     return indexName.endsWith("index_v2_semantic")
         && indexName.length() > "index_v2_semantic".length();
   }
+
+  /**
+   * True if {@code indexName} is a V2 entity index or one of its rebuild indices (ZDU timestamp,
+   * incremental {@code _next_}, or {@code getIncrementalNextIndexName} versioned names). Semantic
+   * names are excluded.
+   */
+  default boolean isV2EntityIndexOrBackingType(@Nonnull String indexName) {
+    return isV2EntityIndexType(indexName) || matchesRebuildIndex(indexName, "index_v2");
+  }
+
+  /**
+   * True if {@code indexName} is a V3 entity index or one of its rebuild indices ({@code
+   * datasetindex_v3_1712345678}, {@code datasetindex_v3_next_123}).
+   */
+  default boolean isV3EntityIndexOrBackingType(@Nonnull String indexName) {
+    return isV3EntityIndexType(indexName) || matchesRebuildIndex(indexName, "index_v3");
+  }
+
+  /**
+   * True if {@code indexName} is a semantic entity alias or one of its rebuild indices ({@code
+   * datasetindex_v2_semantic_1712345678}).
+   */
+  default boolean isSemanticEntityIndexOrBackingType(@Nonnull String indexName) {
+    return isSemanticEntityIndexType(indexName)
+        || matchesRebuildIndex(indexName, "index_v2_semantic");
+  }
+
+  /**
+   * True if {@code indexNameOrPattern} is a semantic entity index, including ES wildcards such as
+   * {@code *index_v2_semantic*} and timestamped backing names. Check this before {@link
+   * #matchesV2EntityIndexFamily} because semantic names share the {@code index_v2} marker.
+   */
+  static boolean matchesSemanticEntityIndexFamily(@Nonnull String indexNameOrPattern) {
+    String name = stripIndexWildcards(indexNameOrPattern);
+    return name.endsWith("index_v2_semantic") || matchesRebuildIndex(name, "index_v2_semantic");
+  }
+
+  /**
+   * True if {@code indexNameOrPattern} is a V3 entity index, a rebuild index, or a wildcard that
+   * still carries the V3 marker ({@code *index_v3*}).
+   */
+  static boolean matchesV3EntityIndexFamily(@Nonnull String indexNameOrPattern) {
+    String name = stripIndexWildcards(indexNameOrPattern);
+    return name.endsWith("index_v3") || matchesRebuildIndex(name, "index_v3");
+  }
+
+  /**
+   * True if {@code indexNameOrPattern} is a V2 entity index, a rebuild index, or a wildcard that
+   * still carries the V2 marker ({@code *index_v2*}). Semantic names are excluded.
+   */
+  static boolean matchesV2EntityIndexFamily(@Nonnull String indexNameOrPattern) {
+    if (matchesSemanticEntityIndexFamily(indexNameOrPattern)) {
+      return false;
+    }
+    String name = stripIndexWildcards(indexNameOrPattern);
+    return name.endsWith("index_v2") || matchesRebuildIndex(name, "index_v2");
+  }
+
+  /** Strips Elasticsearch {@code *} wildcards so family markers can be matched on the remainder. */
+  static String stripIndexWildcards(@Nonnull String indexNameOrPattern) {
+    return indexNameOrPattern.replace("*", "");
+  }
+
+  /**
+   * Rebuild index names for {@code marker}: ZDU {@code <marker>_<digits>}, incremental {@code
+   * <marker>_next_*}, or versioned incremental {@code <marker>_<version>_<digits>}.
+   */
+  private static boolean matchesRebuildIndex(@Nonnull String indexName, @Nonnull String marker) {
+    int markerAt = indexName.lastIndexOf(marker + "_");
+    if (markerAt <= 0) {
+      return false;
+    }
+    String suffix = indexName.substring(markerAt + marker.length() + 1);
+    if (suffix.isEmpty()) {
+      return false;
+    }
+    if ("index_v2".equals(marker)
+        && (suffix.equals("semantic") || suffix.startsWith("semantic_"))) {
+      return false;
+    }
+    if (isAllDigits(suffix) || suffix.startsWith("next_")) {
+      return true;
+    }
+    int lastUnderscore = suffix.lastIndexOf('_');
+    if (lastUnderscore < 0) {
+      return false;
+    }
+    return isAllDigits(suffix.substring(lastUnderscore + 1));
+  }
+
+  private static boolean isAllDigits(@Nonnull String value) {
+    if (value.isEmpty()) {
+      return false;
+    }
+    for (int i = 0; i < value.length(); i++) {
+      if (!Character.isDigit(value.charAt(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
 }
