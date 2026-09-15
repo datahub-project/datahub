@@ -165,6 +165,8 @@ Requirements:
 
 - #18987 **(GMS / GraphQL)** GraphQL entity hydration now fetches only the aspects a query's selection set requires (schema-driven aspect mapping), instead of each entity loader's full default aspect set. Reduces primary-store reads on search cards, entity profiles, and browse. **Action:** none; set `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED=false` to revert to legacy full-aspect hydration if a specific query or page regresses.
 
+- #18924 **(Ingestion / SDK)** DataJobs emitted through the Python SDK now set the parent DataFlow's browse-path entry `id` to the DataFlow URN instead of the raw flow id. This lets Browse (V2) resolve and show the flow's display name rather than an opaque id — most visibly, Airbyte connections that previously appeared as UUID folders now show their connection name. This affects every connector that emits DataJobs via the SDK (for example Airbyte, Fivetran, Azure Data Factory, Flink, Informatica, dlt). The change is to emitted metadata only; there is no model change and no reindex is required. **Action:** none is strictly required, but re-ingest the affected pipelines to refresh their browse paths and pick up the improved navigation.
+
 ### Environment Variables
 
 - `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED` (default `true`) — Schema-driven GraphQL aspect fetching. See Other Notable Changes above and [Environment Variables](../deploy/environment-vars.md).
