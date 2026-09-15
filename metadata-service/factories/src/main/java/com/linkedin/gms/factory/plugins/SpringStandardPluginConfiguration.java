@@ -670,7 +670,14 @@ public class SpringStandardPluginConfiguration {
                 .className(StructuredPropertyPrivilegeConstraintsValidator.class.getName())
                 .enabled(true)
                 .supportedOperations(
-                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                    List.of(
+                        "UPSERT",
+                        "UPDATE",
+                        "CREATE",
+                        "CREATE_ENTITY",
+                        "RESTATE",
+                        "PATCH",
+                        "DELETE"))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()

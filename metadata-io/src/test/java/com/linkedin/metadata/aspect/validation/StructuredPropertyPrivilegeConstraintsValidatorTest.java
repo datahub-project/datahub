@@ -296,6 +296,84 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
                 eq(Set.of(UrnUtils.getUrn("urn:li:structuredProperty:p1")))));
   }
 
+  // Deleting the whole aspect must authorize every currently-assigned property, not bypass the
+  // check entirely (DELETE previously wasn't dispatched to this validator at all).
+  @Test
+  public void testDeleteAspectAuthorizesAllCurrentProperties() {
+    StructuredProperties current =
+        props(
+            Map.of(
+                "urn:li:structuredProperty:p1", List.of("v1"),
+                "urn:li:structuredProperty:p2", List.of("v2")));
+    stubCurrentAspect(
+        TEST_DATASET_URN, STRUCTURED_PROPERTIES_ASPECT_NAME, new Aspect(current.data()));
+
+    BatchItem deleteItem = structuredPropertiesDelete(TEST_DATASET_URN);
+
+    Set<Urn> expected =
+        Set.of(
+            UrnUtils.getUrn("urn:li:structuredProperty:p1"),
+            UrnUtils.getUrn("urn:li:structuredProperty:p2"));
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+                    any(), any(), anyCollection()))
+        .thenReturn(true);
+
+    validator
+        .validateProposedAspectsWithAuth(
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(deleteItem),
+            retrieverContext,
+            mockAuthSession)
+        .forEach(e -> {});
+
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+                any(), eq(TEST_DATASET_URN), eq(expected)));
+  }
+
+  @Test
+  public void testDeleteAspectDeniedWhenUnauthorized() {
+    StructuredProperties current = props(Map.of("urn:li:structuredProperty:p1", List.of("v1")));
+    stubCurrentAspect(
+        TEST_DATASET_URN, STRUCTURED_PROPERTIES_ASPECT_NAME, new Aspect(current.data()));
+
+    BatchItem deleteItem = structuredPropertiesDelete(TEST_DATASET_URN);
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+                    any(), any(), anyCollection()))
+        .thenReturn(false);
+
+    AspectValidationException ex =
+        validator
+            .validateProposedAspectsWithAuth(
+                OperationFingerprint.EMPTY,
+                Collections.singletonList(deleteItem),
+                retrieverContext,
+                mockAuthSession)
+            .findFirst()
+            .orElse(null);
+    Assert.assertNotNull(ex);
+    Assert.assertTrue(ex.getMessage().contains("structured property"));
+  }
+
+  /** Builds a DELETE {@link BatchItem} removing the whole {@code structuredProperties} aspect. */
+  private BatchItem structuredPropertiesDelete(Urn entityUrn) {
+    return TestMCP.builder()
+        .urn(entityUrn)
+        .changeType(ChangeType.DELETE)
+        .entitySpec(TEST_REGISTRY.getEntitySpec(entityUrn.getEntityType()))
+        .aspectSpec(TEST_REGISTRY.getAspectSpecs().get(STRUCTURED_PROPERTIES_ASPECT_NAME))
+        .build();
+  }
+
   /**
    * Builds a PATCH {@link ProposedItem} (not a {@link
    * com.linkedin.metadata.entity.ebean.batch.PatchItemImpl}) removing a structured property, the

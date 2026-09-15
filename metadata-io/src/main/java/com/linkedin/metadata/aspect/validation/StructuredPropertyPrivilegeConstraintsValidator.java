@@ -103,25 +103,40 @@ public class StructuredPropertyPrivilegeConstraintsValidator
             ? null
             : RecordUtils.toRecordTemplate(StructuredProperties.class, currentAspect.data());
 
-    StructuredProperties newProps;
-    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
-      ProposedItem proposedItem = (ProposedItem) item;
-      PatchItemImpl patchItem =
-          PatchItemImpl.builder()
-              .build(
-                  proposedItem.getMetadataChangeProposal(),
-                  proposedItem.getAuditStamp(),
-                  aspectRetriever.getEntityRegistry());
-      newProps =
-          patchItem.applyPatch(currentProps, aspectRetriever).getAspect(StructuredProperties.class);
+    Set<Urn> difference;
+    if (ChangeType.DELETE.equals(item.getChangeType())) {
+      // The whole aspect is being removed, so every currently-assigned property is being
+      // removed too - each one must be authorized, or a constrained user could bypass the
+      // per-property removal check by deleting the aspect outright.
+      difference =
+          currentProps == null ? Collections.emptySet() : valuesByProperty(currentProps).keySet();
     } else {
-      newProps = item.getAspect(StructuredProperties.class);
+      StructuredProperties newProps;
+      if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
+        ProposedItem proposedItem = (ProposedItem) item;
+        PatchItemImpl patchItem =
+            PatchItemImpl.builder()
+                .build(
+                    proposedItem.getMetadataChangeProposal(),
+                    proposedItem.getAuditStamp(),
+                    aspectRetriever.getEntityRegistry());
+        newProps =
+            patchItem
+                .applyPatch(currentProps, aspectRetriever)
+                .getAspect(StructuredProperties.class);
+      } else {
+        newProps = item.getAspect(StructuredProperties.class);
+      }
+
+      if (newProps == null) {
+        return Collections.emptyList();
+      }
+      difference = extractPropertyDifference(newProps, currentProps);
     }
 
-    if (newProps == null) {
+    if (difference.isEmpty()) {
       return Collections.emptyList();
     }
-    Set<Urn> difference = extractPropertyDifference(newProps, currentProps);
     if (!AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
         session, item.getUrn(), difference)) {
       return List.of(
