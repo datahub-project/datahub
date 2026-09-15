@@ -9,11 +9,12 @@ to **DataHub Cloud** using the DataHub CLI. In this guide, we'll show you how.
 
 Before starting the upgrade process:
 
-1. **DataHub Cloud Account**: Ensure you have an active DataHub Cloud instance with an API token
-2. **Database Access**: You'll need read access to your DataHub Core MySQL or PostgreSQL database
-3. **DataHub CLI**: Install the DataHub CLI with `pip install acryl-datahub`
-4. **Network Connectivity**: Ensure your upgrade environment can access both your source database and DataHub Cloud
-5. **Database Index**: Verify that the `createdon` column is indexed in your source database (should by for newer versions by default)
+1. **Catalog Size**: [Count your DataHub Core assets](./count-assets-for-cloud-sizing.md) so that DataHub Cloud can be sized correctly
+2. **DataHub Cloud Account**: Ensure you have an active DataHub Cloud instance with an API token
+3. **Database Access**: You'll need read access to your DataHub Core MySQL or PostgreSQL database
+4. **DataHub CLI**: Install the DataHub CLI with `pip install acryl-datahub`
+5. **Network Connectivity**: Ensure your upgrade environment can access both your source database and DataHub Cloud
+6. **Database Index**: Verify that the `createdon` column is indexed in your source database (it is indexed by default in newer versions)
 
 ## Moving From Core To Cloud
 

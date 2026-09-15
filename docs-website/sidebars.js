@@ -727,6 +727,11 @@ module.exports = {
       },
     },
     {
+      label: "Count Assets for Cloud Sizing",
+      type: "doc",
+      id: "docs/managed-datahub/count-assets-for-cloud-sizing",
+    },
+    {
       label: "Upgrading from DataHub Core to Cloud",
       type: "doc",
       id: "docs/managed-datahub/upgrade_core_to_cloud",
