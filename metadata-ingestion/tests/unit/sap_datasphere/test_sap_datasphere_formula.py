@@ -81,6 +81,18 @@ def test_render_cast_as_first_class_key():
     assert render_cqn_expression(node) == "AMOUNT as DECIMAL"
 
 
+def test_render_nested_case_operand_parenthesized():
+    # A first-class ``case`` operand inside an infix xpr is wrapped, like a nested xpr.
+    node = {
+        "xpr": [
+            {"case": ["when", {"ref": ["X"]}, "then", {"val": 1}, "else", {"val": 0}]},
+            "*",
+            {"val": 10},
+        ]
+    }
+    assert render_cqn_expression(node) == "(when X then 1 else 0) * 10"
+
+
 def test_render_cast_type_only_dict_is_none():
     # A cast node carrying only type metadata (no renderable operand) is skipped.
     assert render_cqn_expression({"cast": {"type": "cds.Decimal"}}) is None
@@ -112,7 +124,7 @@ def test_render_nested_expression_parenthesized():
 
 def test_render_in_list():
     node = {"func": "IN", "args": [{"ref": ["C"]}, {"list": [{"val": 1}, {"val": 2}]}]}
-    assert render_cqn_expression(node) == "IN(C, (1, 2))"
+    assert render_cqn_expression(node) == "C IN (1, 2)"
 
 
 def test_render_unknown_shape_is_none():

@@ -24,6 +24,14 @@ from datahub.ingestion.source.sap_datasphere.constants import (
 _CALCULATION_KEYS = frozenset({CSN_XPR, CSN_FUNC, CSN_VAL})
 
 _SQL_NULL = "NULL"
+_SQL_TRUE = "TRUE"
+_SQL_FALSE = "FALSE"
+# ``IN`` is an infix membership test rendered as ``<expr> IN <list>``, not a call.
+_SQL_IN = "IN"
+
+# xpr operands that are themselves compound expressions and must be parenthesized
+# to keep infix precedence unambiguous.
+_NESTED_EXPR_KEYS = (CSN_XPR, CSN_CASE, CSN_CAST)
 
 
 def _render_ref(segments: List[object]) -> str:
@@ -39,7 +47,7 @@ def _render_literal(value: object) -> Optional[str]:
         return _SQL_NULL
     # bool is an int subclass, so it must be tested before int/float.
     if isinstance(value, bool):
-        return "TRUE" if value else "FALSE"
+        return _SQL_TRUE if value else _SQL_FALSE
     if isinstance(value, str):
         # Double embedded single quotes to keep the SQL-like quoting valid.
         return "'" + value.replace("'", "''") + "'"
@@ -76,6 +84,11 @@ def render_cqn_expression(node: object) -> Optional[str]:
         rendered_args = _render_operands(args)
         if rendered_args is None:
             return None
+        # ``IN`` is an infix membership test (``C IN (1, 2)``), not a call. In CDS
+        # CSN it is normally an ``xpr`` operator, so this rarely fires — but a
+        # ``func``-shaped IN must not render as ``IN(C, (1, 2))``.
+        if func.upper() == _SQL_IN and len(rendered_args) == 2:
+            return f"{rendered_args[0]} {_SQL_IN} {rendered_args[1]}"
         return f"{func}({', '.join(rendered_args)})"
     # All three keys carry a flat token stream. ``case``/``cast`` can arrive as
     # first-class keys (the shape lineage.py walks), not only as bare tokens
@@ -112,8 +125,10 @@ def _render_xpr(items: List[object]) -> Optional[str]:
         if text is None:
             # Reject rather than emit a dangling operator (``A +``).
             return None
-        # Parenthesize a nested infix expression to keep precedence unambiguous.
-        if isinstance(item, dict) and isinstance(item.get(CSN_XPR), list):
+        # Parenthesize a nested compound operand to keep precedence unambiguous.
+        if isinstance(item, dict) and any(
+            isinstance(item.get(key), list) for key in _NESTED_EXPR_KEYS
+        ):
             text = f"({text})"
         rendered.append(text)
     return " ".join(rendered) if rendered else None
