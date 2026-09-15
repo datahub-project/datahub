@@ -127,6 +127,29 @@ def test_render_in_list():
     assert render_cqn_expression(node) == "C IN (1, 2)"
 
 
+def test_render_in_parenthesizes_compound_left_operand():
+    # A compound left operand must be wrapped, not flattened to ``A + B IN (1)``.
+    node = {
+        "func": "IN",
+        "args": [
+            {"xpr": [{"ref": ["A"]}, "+", {"ref": ["B"]}]},
+            {"list": [{"val": 1}]},
+        ],
+    }
+    assert render_cqn_expression(node) == "(A + B) IN (1)"
+
+
+def test_render_in_parenthesizes_case_left_operand():
+    node = {
+        "func": "IN",
+        "args": [
+            {"case": ["when", {"ref": ["X"]}, "then", {"val": 1}, "else", {"val": 0}]},
+            {"list": [{"val": 1}]},
+        ],
+    }
+    assert render_cqn_expression(node) == "(when X then 1 else 0) IN (1)"
+
+
 def test_render_unknown_shape_is_none():
     assert render_cqn_expression({"mystery": 1}) is None
     assert render_cqn_expression(None) is None

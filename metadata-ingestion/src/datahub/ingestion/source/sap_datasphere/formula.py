@@ -34,6 +34,14 @@ _SQL_IN = "IN"
 _NESTED_EXPR_KEYS = (CSN_XPR, CSN_CASE, CSN_CAST)
 
 
+def _needs_parens(node: object) -> bool:
+    # A compound operand (xpr/case/cast token stream) is wrapped so infix
+    # precedence stays unambiguous when it sits beside an operator.
+    return isinstance(node, dict) and any(
+        isinstance(node.get(key), list) for key in _NESTED_EXPR_KEYS
+    )
+
+
 def _render_ref(segments: List[object]) -> str:
     parts = [str(seg) for seg in segments if isinstance(seg, (str, int))]
     # ``$projection.<col>`` points at a sibling output column; drop the internal alias.
@@ -89,13 +97,8 @@ def render_cqn_expression(node: object) -> Optional[str]:
         # ``func``-shaped IN must not render as ``IN(C, (1, 2))``.
         if func.upper() == _SQL_IN and len(rendered_args) == 2:
             infix_args = [
-                f"({text})"
-                if isinstance(arg, dict)
-                and any(
-                    isinstance(arg.get(key), list) for key in _NESTED_EXPR_KEYS
-                )
-                else text
-                for arg, text in zip(args, rendered_args)
+                f"({text})" if _needs_parens(arg) else text
+                for arg, text in zip(args, rendered_args, strict=True)
             ]
             return f"{infix_args[0]} {_SQL_IN} {infix_args[1]}"
         return f"{func}({', '.join(rendered_args)})"
@@ -135,9 +138,7 @@ def _render_xpr(items: List[object]) -> Optional[str]:
             # Reject rather than emit a dangling operator (``A +``).
             return None
         # Parenthesize a nested compound operand to keep precedence unambiguous.
-        if isinstance(item, dict) and any(
-            isinstance(item.get(key), list) for key in _NESTED_EXPR_KEYS
-        ):
+        if _needs_parens(item):
             text = f"({text})"
         rendered.append(text)
     return " ".join(rendered) if rendered else None
