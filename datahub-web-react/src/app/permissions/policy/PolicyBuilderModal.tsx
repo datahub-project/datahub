@@ -94,31 +94,40 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
         setActiveStepIndex(activeStepIndex - 1);
     };
 
-    // Filter out empty structured property rows
     const filterEmptyStructuredProperties = () => {
-        const cleanedPolicy = {
+        if (!policy.resources?.filter?.criteria) {
+            return policy;
+        }
+
+        const cleanedCriteria = policy.resources.filter.criteria
+            .map((criterion) => {
+                if (criterion.field !== FIELD_TYPES.STRUCTURED_PROPERTY) {
+                    return criterion;
+                }
+
+                return {
+                    ...criterion,
+                    structuredPropertyValues: criterion.structuredPropertyValues?.filter(
+                        (prop) => prop.propertyUrn?.trim() && Array.isArray(prop.values) && prop.values.length > 0,
+                    ),
+                };
+            })
+            .filter(
+                (criterion) =>
+                    criterion.field !== FIELD_TYPES.STRUCTURED_PROPERTY ||
+                    (criterion.structuredPropertyValues?.length ?? 0) > 0,
+            );
+
+        return {
             ...policy,
-            resources: policy.resources
-                ? {
-                      ...policy.resources,
-                      filter: policy.resources.filter
-                          ? {
-                                ...policy.resources.filter,
-                                criteria: policy.resources.filter.criteria?.map((c) => ({
-                                    ...c,
-                                    structuredPropertyValues: (c as any).structuredPropertyValues?.filter(
-                                        (prop) =>
-                                            prop.propertyUrn?.trim() &&
-                                            Array.isArray(prop.values) &&
-                                            prop.values.length > 0,
-                                    ),
-                                })),
-                            }
-                          : policy.resources.filter,
-                  }
-                : policy.resources,
+            resources: {
+                ...policy.resources,
+                filter: {
+                    ...policy.resources.filter,
+                    criteria: cleanedCriteria,
+                },
+            },
         };
-        return cleanedPolicy;
     };
 
     // Save or create a policy

@@ -130,16 +130,25 @@ export default function StructuredPropertyResourceSelect({
             .map((result) => result.entity)
             .filter((entity) => entity?.__typename === 'StructuredPropertyEntity') as StructuredPropertyDefinition[];
 
-        // Update cache with new search results
+        // Add new search results to cache (preserve existing definitions)
         searchResultDefs.forEach((def) => {
             if (def?.urn) {
                 definitionCacheRef.current.set(def.urn, def);
             }
         });
 
-        // Return cache + new results (cache ensures selected properties remain available after search)
+        // Also ensure selected properties are in cache
+        structuredProperties.forEach((prop) => {
+            if (prop.propertyUrn && !definitionCacheRef.current.has(prop.propertyUrn)) {
+                // Placeholder: selected but not yet fetched (will be fetched on next search)
+                definitionCacheRef.current.set(prop.propertyUrn, {
+                    urn: prop.propertyUrn,
+                } as StructuredPropertyDefinition);
+            }
+        });
+
         return Array.from(definitionCacheRef.current.values());
-    }, [propertiesData]);
+    }, [propertiesData, structuredProperties]);
 
     const propertyOptions = useMemo(() => {
         const optionsMap = new Map<string, { value: string; label: string }>();

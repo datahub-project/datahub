@@ -505,11 +505,11 @@
         "entityType" : "corpGroup",
         "fields" : [ {
           "doc" : "The name of the AD/LDAP group.",
-          "maxLength" : 250,
+          "maxLength" : 128,
           "name" : "groupName",
           "type" : "string"
         } ],
-        "maxLength" : 267,
+        "maxLength" : 145,
         "name" : "CorpGroup",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
@@ -6429,7 +6429,7 @@
         "type" : "array",
         "items" : "string"
       },
-      "doc" : "Elasticsearch _source include names copied onto SearchEntity.extraFields (Java / Rest.li\nonly — not a GraphQL SearchFlags input). Nested paths and wildcards are passed through to\nfetch_source; extraFields copies exact top-level _source keys. Empty or absent fetches no\nextra document fields — only the default urn include.",
+      "doc" : "Elasticsearch _source field names to include on each SearchEntity as extraFields.\nNames are passed through as-is (nested paths and wildcards allowed). Empty or absent\nfetches no extra document fields — only the default urn include.",
       "optional" : true
     }, {
       "name" : "rewriteQuery",

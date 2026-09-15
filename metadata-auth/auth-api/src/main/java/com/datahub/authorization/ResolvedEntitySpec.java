@@ -86,6 +86,7 @@ public class ResolvedEntitySpec {
    * Fetch the structured property values for an entity as a map.
    *
    * @return a map of propertyUrn -> Set of values, or empty map if none exist.
+   * @throws RuntimeException if resolution fails, to signal authorization must fail closed
    */
   public Map<String, Set<String>> getStructuredPropertyValues() {
     if (!fieldResolvers.containsKey(EntityFieldType.STRUCTURED_PROPERTY)) {
@@ -100,14 +101,22 @@ public class ResolvedEntitySpec {
               .getStructuredPropertyValues();
       return structuredPropertyValues != null ? structuredPropertyValues : Collections.emptyMap();
     } catch (TimeoutException e) {
-      log.warn("Timeout while resolving structured properties for entity spec: {}", spec, e);
-      return Collections.emptyMap();
+      log.error(
+          "Timeout while resolving structured properties for entity spec {}; failing closed for authorization",
+          spec,
+          e);
+      // Propagate timeout so authorization fails closed instead of treating as "no properties"
+      throw new RuntimeException("Timeout resolving structured properties: " + spec.getEntity(), e);
     } catch (Exception e) {
       if (e instanceof InterruptedException) {
         Thread.currentThread().interrupt();
       }
-      log.error("Error while resolving structured properties for entity spec: {}", spec, e);
-      return Collections.emptyMap();
+      log.error(
+          "Error while resolving structured properties for entity spec {}; failing closed for authorization",
+          spec,
+          e);
+      // Propagate error so authorization fails closed instead of treating as "no properties"
+      throw new RuntimeException("Failed to resolve structured properties: " + spec.getEntity(), e);
     }
   }
 }

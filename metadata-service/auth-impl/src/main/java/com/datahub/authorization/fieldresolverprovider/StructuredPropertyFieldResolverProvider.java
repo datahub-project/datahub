@@ -62,8 +62,14 @@ public class StructuredPropertyFieldResolverProvider implements EntityFieldResol
           response.getAspects().get(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
     } catch (Exception e) {
       log.error(
-          "Error while retrieving structured properties aspect for entitySpec {}", entitySpec, e);
-      return FieldResolver.emptyFieldValue();
+          "Error while retrieving structured properties aspect for entitySpec {}; failing closed for authorization",
+          entitySpec,
+          e);
+      // Fail closed: propagate exception so authorization denies access on resolution failure
+      throw new RuntimeException(
+          "Cannot resolve structured properties for authorization decision: "
+              + entitySpec.getEntity(),
+          e);
     }
 
     StructuredProperties structuredProperties =
