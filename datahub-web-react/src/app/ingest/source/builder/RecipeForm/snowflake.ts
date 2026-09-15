@@ -47,15 +47,17 @@ function setSnowflakeAuthTypeOnRecipe(recipe: any, value: string | undefined): a
  * @param recipe - The recipe configuration to inspect
  * @returns The inferred authentication type
  */
-function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
+export function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
+    const authType = get(recipe, authTypeFieldPath);
+    if (authType) {
+        return authType;
+    }
+    // The UI does not always write authentication_type.
     const hasPassword = !!get(recipe, passwordFieldPath);
     const hasPrivateKey = !!get(recipe, privateKeyFieldPath);
-
-    // If password is present (and no private key), infer DEFAULT_AUTHENTICATOR
     if (hasPassword && !hasPrivateKey) {
         return 'DEFAULT_AUTHENTICATOR';
     }
-    // Otherwise default to KEY_PAIR_AUTHENTICATOR (even if private key is not set yet)
     return 'KEY_PAIR_AUTHENTICATOR';
 }
 
