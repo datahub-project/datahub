@@ -1043,7 +1043,7 @@ Example Response:
 ```
 
 This command will attach one of each of the two properties to our test dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`
-Specically, this will set `io.acryl.privacy.retentionTime` as `60.0` and `io.acryl.privacy.retentionTime02` as `bar2`.
+Specifically, this will set `io.acryl.privacy.retentionTime` as `60.0` and `io.acryl.privacy.retentionTime02` as `bar2`.
 
 ```shell
 curl -X 'POST' -v \
