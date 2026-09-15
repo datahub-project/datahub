@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { notification } from '@components';
+import i18next from 'i18next';
+import { useEffect, useRef, useState } from 'react';
 
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
@@ -22,6 +24,16 @@ import { useSearchAcrossLineageStructureLazyQuery } from '@graphql/search.genera
 import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput } from '@types';
 
 const PER_HOP_LIMIT = 2;
+
+// Fail a stalled lineage fetch visibly instead of spinning forever (e.g. a slow time-filtered query
+// at scale). useResetLineageGraph zeroes nodeVersion on a time-range change, so a request that never
+// returns would otherwise leave the graph stuck behind the "initialized && nodeVersion > 0" gate.
+// Backstop only: the backend bounds the graph query at `elasticsearch.search.graph.timeoutSeconds`
+// (default 50s) and returns a DEADLINE_EXCEEDED/504 that onError already handles, so a genuine
+// server timeout surfaces well before this fires. Keep this above that budget so a slow-but-
+// successful traversal isn't aborted client-side; it only catches stalls the server guardrail can't
+// (network/gateway death, or a request that never returns at all).
+const LINEAGE_FETCH_TIMEOUT_MS = 60_000;
 
 export const DEFAULT_SEARCH_FLAGS = {
     groupingSpec: { groupingCriteria: [] },
@@ -83,10 +95,32 @@ export default function useSearchAcrossLineage(
 
     const [processed] = useState(new Set<string>());
 
-    const [fetchLineage] = useSearchAcrossLineageStructureLazyQuery({
+    // Marks the current fetch resolved (success, error, or timeout) so a stalled request that later
+    // errors — or vice versa — is handled only once.
+    const settledRef = useRef(false);
+
+    const handleFetchFailure = () => {
+        if (settledRef.current) return;
+        settledRef.current = true;
+        // Reuse existing states: mark the fetch terminal so the node stops showing a spinner, and bump
+        // the versions to release the loading gate (useResetLineageGraph zeroed nodeVersion).
+        const node = nodes.get(urn);
+        if (node) {
+            node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
+        }
+        processed.add(urn);
+        setNodeVersion((version) => version + 1);
+        setDisplayVersion(([version]) => [version + 1, []]);
+        notification.error({ message: i18next.t('lineage:timeSelector.loadError') });
+    };
+    const handleFetchFailureRef = useRef(handleFetchFailure);
+    handleFetchFailureRef.current = handleFetchFailure;
+
+    const [fetchLineage, { loading }] = useSearchAcrossLineageStructureLazyQuery({
         variables: { input },
         fetchPolicy: skipCache ? 'no-cache' : undefined,
         onCompleted: (data) => {
+            settledRef.current = true;
             const smallContext = { nodes, edges, adjacencyList, setDisplayVersion, rootType };
             let addedNode = false;
 
@@ -131,6 +165,7 @@ export default function useSearchAcrossLineage(
                 setDisplayVersion(([version]) => [version + 1, nodesToZoom]);
             }
         },
+        onError: () => handleFetchFailureRef.current(),
     });
 
     useEffect(() => {
@@ -138,6 +173,15 @@ export default function useSearchAcrossLineage(
             fetchLineage();
         }
     }, [fetchLineage, lazy]);
+
+    // Guard against a stalled fetch hanging the graph indefinitely: if the request is still in flight
+    // after the timeout, fail it visibly instead of spinning forever.
+    useEffect(() => {
+        if (!loading) return undefined;
+        settledRef.current = false;
+        const timer = setTimeout(() => handleFetchFailureRef.current(), LINEAGE_FETCH_TIMEOUT_MS);
+        return () => clearTimeout(timer);
+    }, [loading]);
 
     return { fetchLineage, processed: processed.has(urn) };
 }
