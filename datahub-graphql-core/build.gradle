@@ -5,6 +5,16 @@ plugins {
 
 apply from: '../gradle/coverage/java-coverage.gradle'
 
+sourceSets {
+    incidentSdlGen {
+        java.srcDir 'src/incidentSdlGen/java'
+    }
+}
+
+configurations.matching { it.name.startsWith('incidentSdlGen') }.configureEach {
+    resolutionStrategy.deactivateDependencyLocking()
+}
+
 dependencies {
     implementation project(':metadata-service:restli-client-api')
     implementation project(':metadata-service:auth-impl')
@@ -37,6 +47,9 @@ dependencies {
     testImplementation externalDependency.testng
     testImplementation externalDependency.opentelemetrySdk
     testImplementation externalDependency.opentelemetrySdkTesting
+    testImplementation sourceSets.incidentSdlGen.output
+
+    incidentSdlGenImplementation externalDependency.graphqlJava
 }
 
 graphqlCodegen {
@@ -74,9 +87,32 @@ graphqlCodegen {
     ]
 }
 
+def incidentTypesJavaDir = layout.buildDirectory.dir("generated/sources/incidentTypes/java")
+def incidentGraphqlSdl = layout.projectDirectory.file("src/main/resources/incident.graphql")
+def incidentTypesFile = incidentTypesJavaDir.map {
+    it.file("com/linkedin/datahub/graphql/generated/IncidentEntityTypes.java")
+}
+
+tasks.register('generateIncidentEntityTypes', JavaExec) {
+    dependsOn compileIncidentSdlGenJava
+    classpath = sourceSets.incidentSdlGen.runtimeClasspath
+    mainClass = 'com.linkedin.datahub.graphql.codegen.GenerateIncidentEntityTypes'
+    inputs.file incidentGraphqlSdl
+    outputs.file incidentTypesFile
+    doFirst {
+        def outFile = incidentTypesFile.get().asFile
+        outFile.parentFile.mkdirs()
+        args = [
+            incidentGraphqlSdl.asFile.absolutePath,
+            outFile.absolutePath
+        ]
+    }
+}
+
 clean {
     delete 'src/mainGeneratedGraphQL'
 }
 
-compileJava.dependsOn 'graphqlCodegen'
+compileJava.dependsOn 'graphqlCodegen', 'generateIncidentEntityTypes'
 sourceSets.main.java.srcDir "$projectDir/src/mainGeneratedGraphQL/java"
+sourceSets.main.java.srcDir incidentTypesJavaDir
