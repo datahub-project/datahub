@@ -331,6 +331,39 @@ def test_mongodb_native_bson_types_are_mapped(
         assert isinstance(fields[field_path].type.type, type_class)
 
 
+@pytest.mark.parametrize(
+    "subtype",
+    [
+        pytest.param(0, id="generic"),
+        pytest.param(1, id="function"),
+        pytest.param(2, id="old-binary"),
+        pytest.param(3, id="old-uuid"),
+        pytest.param(4, id="uuid"),
+        pytest.param(5, id="md5"),
+        pytest.param(6, id="encrypted"),
+        pytest.param(7, id="compressed-column"),
+        pytest.param(8, id="sensitive"),
+        pytest.param(9, id="vector"),
+        pytest.param(128, id="user-defined"),
+    ],
+)
+def test_mongodb_binary_subtypes_are_mapped_after_bson_decoding(
+    mock_mongo_client: MagicMock,
+    pipeline_context: PipelineContext,
+    subtype: int,
+) -> None:
+    # UUID subtypes require 16 bytes. Non-UUID payloads remain opaque to inference.
+    payload = uuid.UUID("12345678-1234-5678-1234-567812345678").bytes
+    document: Dict[str, object] = bson.decode(
+        bson.encode({"value": bson.Binary(payload, subtype)})
+    )
+    assert type(document["value"]) is (bytes if subtype == 0 else bson.Binary)
+
+    fields = infer_mongodb_fields(mock_mongo_client, pipeline_context, document)
+    assert fields["value"].nativeDataType == "binary"
+    assert isinstance(fields["value"].type.type, BytesTypeClass)
+
+
 @pytest.mark.parametrize("subtype", [3, 4])
 @pytest.mark.parametrize(
     "uuid_representation,decoded_uuid_subtype",
