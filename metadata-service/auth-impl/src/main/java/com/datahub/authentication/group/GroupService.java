@@ -383,7 +383,9 @@ public class GroupService implements ActorGroupMembershipService {
   }
 
   /**
-   * Strips {@code groupUrn} from each listed user's {@code nativeGroupMembership}.
+   * Revokes membership held through <em>either</em> aspect. Members of an unmigrated group hold
+   * only {@code groupMembership}, so stripping just {@code nativeGroupMembership} would report
+   * success and leave them in the group.
    *
    * <p>Best-effort: one batched read and one batched synchronously indexed write, with no retry.
    * The entity client partitions a large batch, so a failure part-way through leaves earlier
@@ -392,8 +394,9 @@ public class GroupService implements ActorGroupMembershipService {
    * <p>This is the explicit "remove these members" path, which applies the list unconditionally.
    * Cleanup after a group delete goes through {@link #removeStaleNativeGroupMembership} instead,
    * because there the list predates the delete and may since have been legitimately restored.
+   * {@link #removeExistingGroupMembers} is migration-internal and revokes only the legacy aspect.
    */
-  public void removeExistingNativeGroupMembers(
+  public void removeGroupMembers(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn groupUrn,
       @Nonnull final List<Urn> userUrnList)
@@ -408,16 +411,26 @@ public class GroupService implements ActorGroupMembershipService {
 
     final Map<Urn, EntityResponse> entityResponses =
         batchGetUserAspectsNoCache(
-            opContext, userUrns, Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
+            opContext,
+            userUrns,
+            Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, GROUP_MEMBERSHIP_ASPECT_NAME));
 
     final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (Urn userUrn : userUrns) {
-      final NativeGroupMembership nativeGroupMembership =
-          toNativeGroupMembership(entityResponses.get(userUrn));
+      final EntityResponse entityResponse = entityResponses.get(userUrn);
+
+      final NativeGroupMembership nativeGroupMembership = toNativeGroupMembership(entityResponse);
       if (nativeGroupMembership.getNativeGroups().remove(groupUrn)) {
         proposals.add(
             buildSynchronousMetadataChangeProposal(
                 userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership));
+      }
+
+      final GroupMembership groupMembership = toGroupMembership(entityResponse);
+      if (groupMembership.getGroups().remove(groupUrn)) {
+        proposals.add(
+            buildSynchronousMetadataChangeProposal(
+                userUrn, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership));
       }
     }
     if (!proposals.isEmpty()) {
@@ -441,10 +454,10 @@ public class GroupService implements ActorGroupMembershipService {
    * nobody re-added, and because authorization reads this aspect rather than the graph, each of
    * them keeps the recreated group's privileges while appearing in no member list at all.
    *
-   * <p>Best-effort by contract, like {@link #removeExistingNativeGroupMembers}: the caller has
-   * already reported the delete itself as successful, so no failure here is surfaced. Unlike that
-   * method, the captured list is partitioned into fixed-size batches and one failing batch does not
-   * abandon the rest.
+   * <p>Best-effort by contract, like {@link #removeGroupMembers}: the caller has already reported
+   * the delete itself as successful, so no failure here is surfaced. Unlike that method, the
+   * captured list is partitioned into fixed-size batches and one failing batch does not abandon the
+   * rest.
    */
   public void removeStaleNativeGroupMembership(
       @Nonnull OperationContext opContext,
