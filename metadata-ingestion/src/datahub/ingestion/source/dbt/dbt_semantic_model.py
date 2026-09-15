@@ -984,6 +984,12 @@ class DbtSemanticModelMapper:
         ]
         if not predicates:
             return self._expression(computation.expression)
+        if len(predicates) > 1:
+            # AND binds tighter than OR, so joining `a OR b` to `c OR d` bare
+            # yields `a OR (b AND c) OR d` -- a different set of rows than dbt
+            # applying both predicates. A lone predicate needs no grouping,
+            # since nothing is joined to it.
+            predicates = [f"({predicate})" for predicate in predicates]
         return self._expression(
             f"{computation.expression} FILTER (WHERE {' AND '.join(predicates)})"
         )
@@ -1005,6 +1011,11 @@ class DbtSemanticModelMapper:
             and len(metric_definition.input_metrics) == 2
         ):
             numerator, denominator = metric_definition.input_metrics
+            # A filter on either input is not carried. These are metric names,
+            # not aggregates, and SQL FILTER attaches only to an aggregate
+            # call, so there is nowhere in `a / b` to put a predicate that
+            # constrains just `a`. Folding it at the top level would be worse
+            # than omitting it: `(a / b) FILTER (WHERE p)` constrains both.
             return _MetricComputation(f"{numerator.name} / {denominator.name}")
         # A simple metric is just its measure's aggregation, so reuse it rather
         # than leaving the metric with no expression at all.

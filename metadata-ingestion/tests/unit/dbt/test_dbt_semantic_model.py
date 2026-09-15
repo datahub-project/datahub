@@ -1616,7 +1616,76 @@ def test_both_filter_kinds_land_in_one_filter_clause():
         f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},us_large_orders)"
     ]
     assert _expression_of(info.expression).expression == (
-        "count(orders.order_count) FILTER (WHERE order_total > 100 AND country = 'US')"
+        "count(orders.order_count) FILTER (WHERE (order_total > 100) "
+        "AND (country = 'US'))"
+    )
+
+
+def test_joined_predicates_are_parenthesised_so_or_keeps_its_scope():
+    # AND binds tighter than OR, so joining two disjunctions bare would give
+    # `a OR (b AND c) OR d` -- a different set of rows than dbt computes.
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.either": {
+                    "name": "either",
+                    "label": "Either",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {
+                        "measure": {
+                            "name": "order_count",
+                            "filter": {
+                                "where_filters": [
+                                    {"where_sql_template": "a = 1 OR b = 2"}
+                                ]
+                            },
+                        }
+                    },
+                    "filter": {
+                        "where_filters": [{"where_sql_template": "c = 3 OR d = 4"}]
+                    },
+                }
+            }
+        ),
+    )
+
+    info = dict(_aspects(workunits, MetricInfoClass))[
+        f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},either)"
+    ]
+    assert _expression_of(info.expression).expression == (
+        "count(orders.order_count) FILTER (WHERE (a = 1 OR b = 2) AND (c = 3 OR d = 4))"
+    )
+
+
+def test_a_single_predicate_is_not_parenthesised():
+    # Nothing is joined to it, so grouping would only add noise.
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.us": {
+                    "name": "us",
+                    "label": "US",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {"measure": {"name": "order_count"}},
+                    "filter": {
+                        "where_filters": [{"where_sql_template": "c = 3 OR d = 4"}]
+                    },
+                }
+            }
+        ),
+    )
+
+    info = dict(_aspects(workunits, MetricInfoClass))[
+        f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},us)"
+    ]
+    assert _expression_of(info.expression).expression == (
+        "count(orders.order_count) FILTER (WHERE c = 3 OR d = 4)"
     )
 
 

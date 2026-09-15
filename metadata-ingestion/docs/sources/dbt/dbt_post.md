@@ -639,8 +639,16 @@ through as authored:
 sum(payments.payment_amount) FILTER (WHERE {{ Dimension('payment__payment_amount') }} > 100)
 ```
 
+Two predicates are parenthesized before being joined, so a disjunction in either keeps its scope.
+
 Treat the expression as documentation rather than runnable SQL. The leading aggregation is a real
 column reference, so it stays useful for tracing what a metric reads.
+
+A filter on an input of a **ratio or derived** metric is the one filter not carried. Those inputs are
+metric names rather than aggregations (`revenue / order_count`), and a SQL `FILTER` clause attaches
+only to an aggregate call, so there is nowhere in the expression to put a predicate that constrains
+one side. Folding it at the top level would misdescribe the metric by constraining both, so it is
+omitted — the expression still names both inputs.
 
 ##### Relationships
 
