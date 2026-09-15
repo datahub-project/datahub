@@ -1,4 +1,4 @@
-import { get } from 'lodash';
+import { get, omit, set } from 'lodash';
 
 import {
     FieldType,
@@ -94,6 +94,33 @@ const authenticationMethodFieldPath = 'source.config.authentication_method';
 const authenticationMethodFieldName = 'authentication_method';
 const authenticationMethodPAT = 'PAT';
 const authenticationMethodPassword = 'password';
+const usernameFieldPath = 'source.config.username';
+
+/**
+ * Writes the chosen authentication method into the recipe and clears the username when
+ * switching to PAT — PAT auth uses only the `password` field as the token and the
+ * connector silently ignores any leftover `username`, so dropping it keeps the YAML
+ * unambiguous.
+ */
+export function setDremioAuthenticationMethodOnRecipe(recipe: any, value: string | undefined): any {
+    let updatedRecipe = set({ ...recipe }, authenticationMethodFieldPath, value);
+    if (value === authenticationMethodPAT) {
+        updatedRecipe = omit(updatedRecipe, [usernameFieldPath]);
+    }
+    return updatedRecipe;
+}
+
+/**
+ * Defaults the form to PAT when the recipe doesn't pin an authentication method, matching
+ * the Python connector's `authentication_method` default of "PAT".
+ */
+export function getDremioAuthenticationMethodFromRecipe(recipe: any): string {
+    const explicit = get(recipe, authenticationMethodFieldPath);
+    if (explicit) return explicit;
+    if (get(recipe, usernameFieldPath)) return authenticationMethodPassword;
+    return authenticationMethodPAT;
+}
+
 export const DREMIO_AUTHENTICATION_METHOD: RecipeField = {
     name: authenticationMethodFieldName,
     label: 'Authentication Method',
@@ -106,9 +133,10 @@ export const DREMIO_AUTHENTICATION_METHOD: RecipeField = {
     fieldPath: authenticationMethodFieldPath,
     required: true,
     rules: null,
+    setValueOnRecipeOverride: setDremioAuthenticationMethodOnRecipe,
+    getValueFromRecipeOverride: getDremioAuthenticationMethodFromRecipe,
 };
 
-const usernameFieldPath = 'source.config.username';
 export const DREMIO_USERNAME: RecipeField = {
     name: 'username',
     label: 'Username',
@@ -117,6 +145,7 @@ export const DREMIO_USERNAME: RecipeField = {
     fieldPath: usernameFieldPath,
     placeholder: 'dremio_user',
     dynamicRequired: (values) => get(values, authenticationMethodFieldName) === authenticationMethodPassword,
+    dynamicHidden: (values) => get(values, authenticationMethodFieldName) === authenticationMethodPAT,
     rules: null,
 };
 
