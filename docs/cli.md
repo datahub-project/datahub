@@ -1339,7 +1339,14 @@ The `schema-field-case` command re-anchors column-level metadata after a connect
 [`preserve_column_case`](https://docs.datahub.com/docs/generated/ingestion/sources/snowflake), or on
 any connector that historically lowercased identifiers (e.g. Oracle). The dataset URN is unchanged;
 only the field paths move (`product2id` → `Product2Id`), which strands the UI/API-authored metadata
-that was keyed on the old paths.
+that was keyed on the old paths. Matching is purely case-insensitive, so it works in **either
+direction** — enabling case preservation (`product2id` → `Product2Id`) or the reverse, turning
+lowercasing on for a source whose fields were mixed-case (`Product2Id` → `product2id`).
+
+> **Not for dataset-URN casing changes.** Toggling `convert_urns_to_lowercase` re-cases the **dataset
+> URN itself** (and the dataset portion of every `schemaField` URN), not the field paths — the whole
+> dataset moves to a new URN. That is a dataset-level remap; use
+> [`urns-mapping`](#urns-mapping) for it, not this command.
 
 Unlike the other `migrate` commands, this does **not** rewrite entity URNs or use the migration
 engine. It reconciles, per dataset, against the freshly re-ingested `schemaMetadata` (the source of

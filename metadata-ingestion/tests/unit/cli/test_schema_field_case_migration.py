@@ -282,6 +282,33 @@ class TestReconcileDataset:
         assert result.remaps[0].old_path == "product2id"
         assert result.remaps[0].new_path == "Product2Id"
 
+    def test_reverse_direction_mixed_to_lowercase(self):
+        # The mirror image of the Snowflake case: a connector that used to
+        # preserve case is switched to lowercasing (e.g. convert_urns_to_lowercase
+        # flipped on for a source whose field paths were mixed-case). Matching is
+        # casefold-based, so re-anchoring is fully bidirectional.
+        old_sf = _sf("Product2Id")
+        new_sf = _sf("product2id")
+        graph = FakeGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("product2id", "amount")},
+                old_sf: {"globalTags": _tags("urn:li:tag:sensitive")},
+            }
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        assert {a.ASPECT_NAME for (u, a) in graph.emitted if u == new_sf} == {
+            "globalTags"
+        }
+        assert old_sf in graph.soft_deleted
+        assert result.remaps[0].old_path == "Product2Id"
+        assert result.remaps[0].new_path == "product2id"
+
     def test_v2_schema_field_entity_moved_to_new_v2_urn(self):
         old_path = "[version=2.0].[type=struct].[type=string].product2id"
         new_path = "[version=2.0].[type=struct].[type=string].Product2Id"
