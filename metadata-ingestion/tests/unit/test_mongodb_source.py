@@ -1,9 +1,11 @@
 import uuid
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 from unittest.mock import MagicMock, patch
 
 import bson
 import pytest
+from bson.binary import UuidRepresentation
+from bson.codec_options import CodecOptions
 from pydantic import ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -20,6 +22,7 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    SchemaFieldClass,
     SchemaMetadataClass,
     StringTypeClass,
     TimeTypeClass,
@@ -267,30 +270,42 @@ def test_mongodb_schema_inference_with_deeply_nested_structures(
     assert field_paths == expected_paths
 
 
-def test_mongodb_native_bson_types_are_mapped(mock_mongo_client, pipeline_context):
-    """
-    Test that BSON native types map to real DataHub types.
-
-    Binary/binData (incl. UUID), Regex, Code, MinKey/MaxKey and DatetimeMS
-    previously fell back to nativeDataType="unknown" / NullType with
-    "Unrecognized column type" warnings (#18571).
-    """
+def infer_mongodb_fields(
+    mock_mongo_client: MagicMock,
+    pipeline_context: PipelineContext,
+    document: Dict[str, object],
+) -> Dict[str, SchemaFieldClass]:
     mock_mongo_client.list_database_names.return_value = ["test_db"]
-
-    mock_database = MagicMock()
-    mock_mongo_client.__getitem__.return_value = mock_database
+    mock_mongo_client.server_info.return_value = {"versionArray": [8, 0, 0]}
+    mock_database = mock_mongo_client["test_db"]
     mock_database.list_collection_names.return_value = ["typed"]
+    mock_database["typed"].aggregate.return_value = [document]
 
-    mock_collection = MagicMock()
-    mock_database.__getitem__.return_value = mock_collection
+    source = MongoDBSource(
+        ctx=pipeline_context,
+        config=MongoDBConfig(connect_uri="mongodb://localhost:27017"),
+    )
+    schema_metadata_aspects = get_schema_metadata_aspects(
+        list(source.get_workunits_internal())
+    )
+    assert len(schema_metadata_aspects) == 1
+    assert not source.report.warnings
+    return {f.fieldPath: f for f in schema_metadata_aspects[0].fields}
 
-    mock_collection.aggregate.return_value = [
+
+def test_mongodb_native_bson_types_are_mapped(
+    mock_mongo_client: MagicMock, pipeline_context: PipelineContext
+) -> None:
+    """Cover added BSON mappings and preserve existing binary/date behavior."""
+    fields = infer_mongodb_fields(
+        mock_mongo_client,
+        pipeline_context,
         {
             "_id": bson.ObjectId("507f1f77bcf86cd799439011"),
-            # pymongo decodes binData subtype 0 to plain bytes, other subtypes
-            # (e.g. UUID's subtype 4) to bson.binary.Binary.
             "raw": b"\x00\x01",
-            "raw_subtyped": bson.Binary(b"\x00\x01", 4),
+            "raw_subtyped": bson.Binary(
+                uuid.UUID("12345678-1234-5678-1234-567812345678").bytes, 4
+            ),
             "uid": uuid.UUID("12345678-1234-5678-1234-567812345678"),
             "pattern": bson.Regex("^foo", "i"),
             "js": bson.Code("function() { return 1; }"),
@@ -299,20 +314,8 @@ def test_mongodb_native_bson_types_are_mapped(mock_mongo_client, pipeline_contex
             # BSON Date beyond Python's datetime range, as returned by pymongo
             # with datetime_conversion=DATETIME_AUTO (year 10000).
             "far_future": bson.DatetimeMS(253402300800000),
-        }
-    ]
-
-    config = MongoDBConfig(
-        connect_uri="mongodb://localhost:27017", enableSchemaInference=True
+        },
     )
-    source = MongoDBSource(ctx=pipeline_context, config=config)
-
-    workunits = list(source.get_workunits_internal())
-
-    schema_metadata_aspects = get_schema_metadata_aspects(workunits)
-    assert len(schema_metadata_aspects) == 1
-
-    fields = {f.fieldPath: f for f in schema_metadata_aspects[0].fields}
     expected = {
         "raw": ("binary", BytesTypeClass),
         "raw_subtyped": ("binary", BytesTypeClass),
@@ -327,8 +330,39 @@ def test_mongodb_native_bson_types_are_mapped(mock_mongo_client, pipeline_contex
         assert fields[field_path].nativeDataType == native_type
         assert isinstance(fields[field_path].type.type, type_class)
 
-    # No "Unrecognized column type" warnings should be reported.
-    assert not source.report.warnings
+
+@pytest.mark.parametrize("subtype", [3, 4])
+@pytest.mark.parametrize(
+    "uuid_representation,decoded_uuid_subtype",
+    [
+        pytest.param(UuidRepresentation.UNSPECIFIED, None, id="unspecified"),
+        pytest.param(UuidRepresentation.STANDARD, 4, id="standard"),
+        pytest.param(UuidRepresentation.PYTHON_LEGACY, 3, id="python-legacy"),
+        pytest.param(UuidRepresentation.JAVA_LEGACY, 3, id="java-legacy"),
+        pytest.param(UuidRepresentation.CSHARP_LEGACY, 3, id="csharp-legacy"),
+    ],
+)
+def test_mongodb_uuid_representations_are_mapped_after_bson_decoding(
+    mock_mongo_client: MagicMock,
+    pipeline_context: PipelineContext,
+    subtype: int,
+    uuid_representation: int,
+    decoded_uuid_subtype: Optional[int],
+) -> None:
+    payload = uuid.UUID("12345678-1234-5678-1234-567812345678").bytes
+    document: Dict[str, object] = bson.decode(
+        bson.encode({"value": bson.Binary(payload, subtype)}),
+        codec_options=CodecOptions(uuid_representation=uuid_representation),
+    )
+    fields = infer_mongodb_fields(mock_mongo_client, pipeline_context, document)
+    if subtype == decoded_uuid_subtype:
+        assert isinstance(document["value"], uuid.UUID)
+        assert fields["value"].nativeDataType == "uuid"
+        assert isinstance(fields["value"].type.type, StringTypeClass)
+    else:
+        assert isinstance(document["value"], bson.Binary)
+        assert fields["value"].nativeDataType == "binary"
+        assert isinstance(fields["value"].type.type, BytesTypeClass)
 
 
 def test_mongodb_schema_inference_disabled(mock_mongo_client, pipeline_context):

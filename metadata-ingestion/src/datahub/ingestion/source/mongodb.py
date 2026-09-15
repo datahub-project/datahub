@@ -222,10 +222,11 @@ PYMONGO_TYPE_TO_MONGO_TYPE = {
     bson.dbref.DBRef: "dbref",
     bson.objectid.ObjectId: "oid",
     bson.Decimal128: "numberDecimal",
-    # pymongo decodes binData subtype 0 to plain bytes, other subtypes to Binary;
-    # both share the existing "binary" native type string.
+    # With the default UUID representation (UNSPECIFIED), PyMongo decodes subtype
+    # 0 to bytes and other binary subtypes to Binary. Preserve the "binary" name.
     bytes: "binary",
     bson.binary.Binary: "binary",
+    # Explicit UUID representations can decode subtype 3 or 4 to uuid.UUID.
     uuid.UUID: "uuid",
     bson.regex.Regex: "regex",
     bson.code.Code: "javascript",
