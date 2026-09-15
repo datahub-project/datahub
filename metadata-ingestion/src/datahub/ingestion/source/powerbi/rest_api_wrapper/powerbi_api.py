@@ -113,8 +113,81 @@ class PowerBiAPI:
             tablename="dataset_registry",
         )
 
+        self._check_permissions()
+
     def close(self) -> None:
         self._file_backed_conn.close()
+
+    def _check_regular_api_permission(self) -> None:
+        try:
+            self.__regular_api_resolver.ping(
+                self.__regular_api_resolver.get_groups_endpoint()
+            )
+        except Exception:
+            e = self.log_http_error(
+                message="Permission check: unable to call the PowerBI public API."
+            )
+            if data_resolver.is_permission_error(cast(Exception, e)):
+                self.reporter.warning(
+                    title="Missing PowerBI Public API Permission",
+                    message=(
+                        "The configured service principal cannot call the PowerBI "
+                        "public API (GET /groups returned 403). Dashboards, reports, "
+                        "and datasets will not be ingested. In the Power BI Admin "
+                        "Portal, under Tenant settings -> Developer settings, enable "
+                        "'Service principals can call Fabric Public APIs' (or 'Allow "
+                        "service principals to use Power BI APIs') for this "
+                        "application's security group, and add the service principal "
+                        "as a member of each workspace you want to ingest."
+                    ),
+                )
+
+    def _check_admin_api_permission(self) -> None:
+        try:
+            self.__admin_api_resolver.ping(
+                self.__admin_api_resolver.get_apps_endpoint()
+            )
+        except Exception:
+            e = self.log_http_error(
+                message="Permission check: unable to call the PowerBI Admin API."
+            )
+            if data_resolver.is_permission_error(cast(Exception, e)):
+                self.reporter.warning(
+                    title="Missing PowerBI Admin API Permission",
+                    message=(
+                        "The configured service principal cannot call the PowerBI "
+                        "Admin API (GET /admin/apps returned 403). Lineage, dataset "
+                        "schema, ownership, and endorsement tags will not be "
+                        "ingested, and datasets will be missing their upstream data "
+                        "sources. In the Power BI Admin Portal, under Tenant "
+                        "settings -> Developer settings, enable 'Service principals "
+                        "can access read-only admin APIs' for this application's "
+                        "security group and grant admin consent; also enable the "
+                        "two 'Enhance admin APIs responses...' options to get full "
+                        "dataset schema and lineage detail in the scan result."
+                    ),
+                )
+
+    def _check_permissions(self) -> None:
+        """Run a cheap pre-flight check, before the main ingestion loop
+        starts, of the PowerBI API access this recipe's enabled features
+        require. This surfaces a single clear, actionable warning up front
+        instead of the same permission gap resurfacing as dozens of scattered
+        per-workspace/per-report warnings partway through a long run. Never
+        raises: a genuine permission gap is reported via `self.reporter` and
+        ingestion continues with whatever metadata remains reachable, exactly
+        as it did before this check existed.
+        """
+        if not self.__config.admin_apis_only:
+            self._check_regular_api_permission()
+
+        if (
+            self.__config.admin_apis_only
+            or self.__config.extract_lineage
+            or self.__config.extract_ownership
+            or self.__config.extract_endorsements_to_tags
+        ):
+            self._check_admin_api_permission()
 
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)

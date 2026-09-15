@@ -200,6 +200,20 @@ class DataResolverBase(ABC):
     def get_authorization_header(self):
         return {Constant.Authorization: self.get_access_token()}
 
+    def ping(self, endpoint: str) -> None:
+        """Issue a minimal, unpaginated GET against `endpoint` purely to
+        verify the current credential is authorized to call it. The response
+        body is discarded; callers only care whether this raises. Raises
+        `requests.HTTPError` on a non-2xx response, so callers can inspect it
+        with `is_permission_error`.
+        """
+        response = self._request_session.get(
+            endpoint,
+            headers=self.get_authorization_header(),
+            params={"$top": 1},
+        )
+        response.raise_for_status()
+
     def get_access_token(self) -> str:
         if self._access_token is not None and not self._is_access_token_expired():
             return self._access_token
@@ -847,6 +861,10 @@ class AdminAPIResolver(DataResolverBase):
 
     def get_groups_endpoint(self) -> str:
         return f"{self._admin_base_url}/groups"
+
+    def get_apps_endpoint(self) -> str:
+        apps_endpoint: str = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP]
+        return apps_endpoint.format(POWERBI_ADMIN_BASE_URL=self._admin_base_url)
 
     def get_dashboards_endpoint(self, workspace: Workspace) -> str:
         dashboard_list_endpoint: str = self.API_ENDPOINTS[Constant.DASHBOARD_LIST]

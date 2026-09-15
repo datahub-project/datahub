@@ -73,6 +73,10 @@ If you have granted your Entra application permissions to the Admin APIs, then t
 - Report Pages
 - App
 
+#### Permission checks
+
+Before ingestion starts, the source runs a couple of cheap, read-only calls to confirm the configured service principal can actually reach the APIs your recipe needs: the public API (unless `admin_apis_only: true`) and, if any of `extract_lineage`, `extract_ownership`, or `extract_endorsements_to_tags` are enabled, the Admin API. If either check gets a 403, ingestion still proceeds using whatever metadata remains reachable, but the ingestion report includes an upfront **Missing PowerBI Public API Permission** or **Missing PowerBI Admin API Permission** warning that names the exact tenant setting to enable, rather than only surfacing as scattered per-workspace/per-report warnings partway through the run.
+
 #### Authentication
 
 The source authenticates as the Entra application (service principal) using either a client secret or a certificate:
