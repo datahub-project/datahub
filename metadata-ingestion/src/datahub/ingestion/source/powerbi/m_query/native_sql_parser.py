@@ -202,14 +202,17 @@ def contains_external_query_call(query: str, platform: str) -> bool:
     tables for the same unparseable SQL — so returning ``False`` here would drop the query's
     lineage with no warning and no counter. Handing the failure back lets the caller report
     it as a federation failure instead of failing silently.
+
+    Raises:
+        SqlglotError: if the query cannot be tokenized (e.g. an unterminated comment or
+            string literal). The caller is expected to report this as a federation failure.
     """
     dialect = _resolve_dialect(platform)
     try:
         tokens = (dialect or sqlglot.Dialect()).tokenize(query)
     except SqlglotError:
-        # Hand the failure back so the caller can report it (see docstring); swallowing it
-        # into a False loses the query's lineage silently. Narrowed to SqlglotError so an
-        # unexpected non-sqlglot error still surfaces as a real bug rather than being hidden.
+        # Narrowed to SqlglotError so an unexpected non-sqlglot error still surfaces as a
+        # real bug rather than being hidden.
         logger.debug("EXTERNAL_QUERY tokenization failed: %s", query, exc_info=True)
         raise
 

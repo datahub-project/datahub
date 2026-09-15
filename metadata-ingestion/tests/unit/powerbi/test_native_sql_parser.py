@@ -576,6 +576,18 @@ def test_contains_external_query_call_unterminated_comment_raises():
         )
 
 
+def test_contains_external_query_call_unterminated_string_raises():
+    # Sibling of the unterminated-comment case: an unterminated string literal is the other
+    # trigger the docstring documents. It also raises SqlglotError from the tokenizer and
+    # must be handed back (not swallowed into False) so the caller reports a federation
+    # failure rather than dropping the query's lineage silently.
+    with pytest.raises(sqlglot.errors.SqlglotError):
+        native_sql_parser.contains_external_query_call(
+            "select 'unterminated from my_project.my_dataset.native_table",
+            "bigquery",
+        )
+
+
 def test_get_tables_blank_query_returns_empty():
     """sqlparse yields no statements at all for blank input, which a native query
     can become once the M-Query escape sequences are stripped."""
