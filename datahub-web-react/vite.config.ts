@@ -226,6 +226,12 @@ export default defineConfig(async ({ mode }) => {
                     // splits cut import cycles and cause "cannot access X before initialization"
                     // TDZ crashes at load).
                     sourcemapExcludeSources: true,
+                    // Locale splitting is handled by i18nLocaleBundlesPlugin's virtual dynamic
+                    // imports, so nothing is assigned here. The hook is kept as an extension
+                    // point for builds that layer on their own chunk assignments.
+                    manualChunks() {
+                        return undefined;
+                    },
                 },
             },
         },
