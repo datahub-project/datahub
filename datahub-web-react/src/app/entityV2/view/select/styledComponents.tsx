@@ -47,16 +47,16 @@ export const ViewContainer = styled.div<{
 `;
 
 export const ViewIcon = styled.div<{ $selected?: boolean }>`
-    border: 1px solid ${(props) => props.theme.colors.border};
+    border: 1px solid
+        ${(props) => (props.$selected ? `${props.theme.colors.borderWhite} !important` : props.theme.colors.border)};
     display: flex;
     align-items: center;
     border-radius: 10px;
     padding: 20px;
     position: relative;
-    border: ${(props) => (props.$selected ? `1px solid ${props.theme.colors.bg} !important` : '')};
     background: ${(props) => (props.$selected ? props.theme.colors.buttonFillBrand : props.theme.colors.bgHover)};
     &.static {
-        border: 1px solid ${(props) => props.theme.colors.bg};
+        border: 1px solid ${(props) => props.theme.colors.borderWhite};
     }
 `;
 

@@ -473,11 +473,7 @@ def query_parent_container_urns_on_container(
     return [entry["urn"] for entry in parents["containers"]]
 
 
-@with_test_retry()
-def query_container_child_urns(auth_session, container_urn: str) -> List[str]:
-    result = execute_graphql(
-        auth_session, CONTAINER_CHILD_RELATIONSHIPS_QUERY, {"urn": container_urn}
-    )
+def _parse_container_child_urns(result: dict) -> List[str]:
     relationships = result["data"]["container"]["relationships"]
     assert relationships is not None
     return [
@@ -485,6 +481,47 @@ def query_container_child_urns(auth_session, container_urn: str) -> List[str]:
         for entry in relationships["relationships"]
         if entry.get("entity") and entry["entity"].get("urn")
     ]
+
+
+@with_test_retry()
+def query_container_child_urns(auth_session, container_urn: str) -> List[str]:
+    result = execute_graphql(
+        auth_session, CONTAINER_CHILD_RELATIONSHIPS_QUERY, {"urn": container_urn}
+    )
+    return _parse_container_child_urns(result)
+
+
+def query_container_child_urns_immediate(auth_session, container_urn: str) -> List[str]:
+    """Single-shot incoming IsPartOf children — no retry, no post-query sync wait."""
+    result = execute_graphql_no_sync_wait(
+        auth_session, CONTAINER_CHILD_RELATIONSHIPS_QUERY, {"urn": container_urn}
+    )
+    return _parse_container_child_urns(result)
+
+
+def wait_for_container_child(
+    auth_session,
+    parent_urn: str,
+    child_urn: str,
+    timeout_seconds: float = 60.0,
+    poll_interval_seconds: float = 1.0,
+) -> List[str]:
+    """Poll incoming IsPartOf until ``child_urn`` is listed under ``parent_urn``.
+
+    GraphQL ``relationships`` is graph-index backed. ``wait_for_writes_to_sync``
+    reaching lag zero does not mean the edge is queryable yet.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    last: List[str] = []
+    while time.monotonic() < deadline:
+        last = query_container_child_urns_immediate(auth_session, parent_urn)
+        if child_urn in last:
+            return last
+        time.sleep(poll_interval_seconds)
+    raise AssertionError(
+        "Timed out waiting for container child relationship: "
+        f"parent={parent_urn}, expected_child={child_urn}, last={last}"
+    )
 
 
 @with_test_retry()

@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.validation;
 import static com.linkedin.metadata.Constants.LOGICAL_PARENT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.eq;
 
 import com.datahub.context.OperationFingerprint;
@@ -26,7 +27,10 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -46,6 +50,8 @@ public class LogicalParentFieldPathValidatorTest {
   private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
 
+  private final Map<Urn, Aspect> schemaAspects = new HashMap<>();
+
   @BeforeMethod
   public void setup() {
     validator =
@@ -58,6 +64,22 @@ public class LogicalParentFieldPathValidatorTest {
                     .supportedEntityAspectNames(List.of())
                     .build());
     mockAspectRetriever = Mockito.mock(CachingAspectRetriever.class);
+    schemaAspects.clear();
+    Mockito.doAnswer(
+            invocation -> {
+              Set<Urn> requested = invocation.getArgument(1);
+              Map<Urn, Map<String, Aspect>> result = new HashMap<>();
+              requested.stream()
+                  .filter(schemaAspects::containsKey)
+                  .forEach(
+                      urn ->
+                          result.put(
+                              urn, Map.of(SCHEMA_METADATA_ASPECT_NAME, schemaAspects.get(urn))));
+              return result;
+            })
+        .when(mockAspectRetriever)
+        .getLatestAspectObjects(
+            any(OperationFingerprint.class), anySet(), eq(Set.of(SCHEMA_METADATA_ASPECT_NAME)));
     retrieverContext =
         io.datahubproject.metadata.context.RetrieverContext.builder()
             .searchRetriever(Mockito.mock(SearchRetriever.class))
@@ -72,10 +94,7 @@ public class LogicalParentFieldPathValidatorTest {
       fields.add(new SchemaField().setFieldPath(path));
     }
     SchemaMetadata schema = new SchemaMetadata().setFields(fields);
-    Mockito.doReturn(new Aspect(schema.data()))
-        .when(mockAspectRetriever)
-        .getLatestAspectObject(
-            any(OperationFingerprint.class), eq(datasetUrn), eq(SCHEMA_METADATA_ASPECT_NAME));
+    schemaAspects.put(datasetUrn, new Aspect(schema.data()));
   }
 
   private BatchItem columnLink(String childField, String parentField) {
@@ -169,6 +188,25 @@ public class LogicalParentFieldPathValidatorTest {
 
     // parent field "id" does not exist on the parent schema
     Assert.assertFalse(exceptions.isEmpty());
+  }
+
+  @Test
+  public void testBatchReadsEachSchemaOnce() {
+    stubSchema(CHILD_DATASET, "id", "name");
+    stubSchema(PARENT_DATASET, "id", "name");
+
+    List<AspectValidationException> exceptions =
+        validator
+            .validateProposedAspects(
+                OperationFingerprint.EMPTY,
+                List.of(columnLink("id", "id"), columnLink("name", "name")),
+                retrieverContext)
+            .toList();
+
+    Assert.assertTrue(exceptions.isEmpty());
+    Mockito.verify(mockAspectRetriever, Mockito.times(1))
+        .getLatestAspectObjects(
+            any(OperationFingerprint.class), anySet(), eq(Set.of(SCHEMA_METADATA_ASPECT_NAME)));
   }
 
   @Test

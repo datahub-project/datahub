@@ -114,16 +114,25 @@ public class SearchClientShimUtilTest extends AbstractTestNGSpringContextTests {
     assertFalse(SearchEngineType.ELASTICSEARCH_8.isOpenSearch());
     assertFalse(SearchEngineType.ELASTICSEARCH_9.isOpenSearch());
     assertTrue(SearchEngineType.OPENSEARCH_2.isOpenSearch());
+    assertTrue(SearchEngineType.OPENSEARCH_3.isOpenSearch());
 
     // Test client compatibility
     assertTrue(SearchEngineType.ELASTICSEARCH_7.supportsEs7HighLevelClient());
     assertTrue(SearchEngineType.OPENSEARCH_2.supportsEs7HighLevelClient());
     assertFalse(SearchEngineType.ELASTICSEARCH_8.supportsEs7HighLevelClient());
     assertFalse(SearchEngineType.ELASTICSEARCH_9.supportsEs7HighLevelClient());
+    assertFalse(SearchEngineType.OPENSEARCH_3.supportsEs7HighLevelClient());
 
     assertFalse(SearchEngineType.ELASTICSEARCH_7.requiresEs8JavaClient());
     assertTrue(SearchEngineType.ELASTICSEARCH_8.requiresEs8JavaClient());
     assertTrue(SearchEngineType.ELASTICSEARCH_9.requiresEs8JavaClient());
     assertFalse(SearchEngineType.OPENSEARCH_2.requiresEs8JavaClient());
+    assertFalse(SearchEngineType.OPENSEARCH_3.requiresEs8JavaClient());
+
+    assertTrue(SearchEngineType.OPENSEARCH_2.requiresOpenSearchClient());
+    assertTrue(SearchEngineType.OPENSEARCH_3.requiresOpenSearchClient());
+    assertFalse(SearchEngineType.ELASTICSEARCH_7.requiresOpenSearchClient());
+    assertFalse(SearchEngineType.ELASTICSEARCH_8.requiresOpenSearchClient());
+    assertFalse(SearchEngineType.ELASTICSEARCH_9.requiresOpenSearchClient());
   }
 }

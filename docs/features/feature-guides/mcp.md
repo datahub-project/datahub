@@ -180,25 +180,29 @@ On first connection, the page prompts you for your **DataHub domain** (e.g. `<te
 If you'd rather skip the domain prompt at `mcp.datahub.com`, you can point clients directly at your tenant:
 
 ```
-https://<tenant>.acryl.io/integrations/ai/mcp
+https://<tenant>.acryl.io/mcp
 ```
 
 This endpoint also supports OAuth2 + DCR. The only difference is that `mcp.datahub.com/mcp` is a single shared URL you can hand out without knowing the tenant ahead of time — handy for marketplace listings or shared docs.
 
-For on-premises DataHub Cloud, use your DataHub FQDN, e.g. `https://datahub.example.com/integrations/ai/mcp`.
+For on-premises DataHub Cloud, use your DataHub FQDN, e.g. `https://datahub.example.com/mcp`.
 
 </details>
 
 ### Configure Your Client
 
-<details>
-  <summary>Claude (web, desktop, mobile)</summary>
+:::note Using a scoped MCP server?
+Substitute the scoped server's **Connection URL** wherever these steps use `https://mcp.datahub.com/mcp` — that shared endpoint always resolves to your tenant's **default** server. See [Connect a client to a scoped server](./scoped-mcp-servers.md#connect-a-client-to-a-scoped-server).
+:::
 
-1. In claude.ai or Claude Desktop, open **Settings → Connectors** (Team/Enterprise: **Organization settings → Connectors**).
-2. Click **Add custom connector**.
-3. Name: `DataHub`. Remote MCP server URL: `https://mcp.datahub.com/mcp`. Leave the **Advanced settings** (OAuth Client ID / Secret) empty — DataHub registers the client automatically via DCR.
-4. Click **Add**, then **Connect**. Claude opens a browser window for the DataHub OAuth flow.
-5. Enter your DataHub domain when prompted (e.g. `<tenant>`), sign in, and approve the connection.
+<details>
+  <summary>Claude (web and desktop)</summary>
+
+1. Open **Customize → Connectors**. On Team/Enterprise, an owner adds it under **Organization settings → Connectors** and members connect individually.
+2. Click **+**, then **Add custom connector**.
+3. Name: `DataHub`. Remote MCP server URL: `https://mcp.datahub.com/mcp`. Leave **Advanced settings** empty — DataHub registers the client via DCR.
+4. Click **Add**, then **Connect**.
+5. Enter your DataHub domain when prompted (e.g. `<tenant>`), sign in, and approve.
 
 :::note
 Remote MCP connectors are configured via the Claude UI, not `claude_desktop_config.json` — that file is reserved for local stdio servers. For older Claude Desktop versions without remote MCP support, fall back to the [`mcp-remote` bridge with a PAT](#managed-mcp-server-usage).
@@ -220,7 +224,7 @@ The first time you invoke a DataHub tool, the server responds `401 Unauthorized`
 To use your tenant URL directly:
 
 ```bash
-claude mcp add --transport http datahub https://<tenant>.acryl.io/integrations/ai/mcp
+claude mcp add --transport http datahub https://<tenant>.acryl.io/mcp
 ```
 
 </details>
@@ -297,7 +301,7 @@ Snowflake exposes external MCP servers to Cortex Agents through an **API Integra
 4. In Snowsight, navigate to **AI & ML → Agents**, select your agent, choose **MCP Connectors**, and add the DataHub connector.
 5. In Snowflake CoWork (formerly Snowflake Intelligence), open the sources panel, select **Connectors**, then **Connect** next to DataHub — Snowflake walks each user through the DataHub OAuth flow and reuses the credential on subsequent calls.
 
-See the [Snowflake agent context guide](../../dev-guides/agent-context/snowflake.md) for end-to-end setup. To point at your tenant instead of the global endpoint, use `https://<tenant>.acryl.io` for both `API_ALLOWED_PREFIXES` and `OAUTH_RESOURCE_URL`, and `https://<tenant>.acryl.io/integrations/ai/mcp` for the MCP server `URL`.
+See the [Snowflake agent context guide](../../dev-guides/agent-context/snowflake.md) for end-to-end setup. To point at your tenant instead of the global endpoint, use `https://<tenant>.acryl.io` for both `API_ALLOWED_PREFIXES` and `OAUTH_RESOURCE_URL`, and `https://<tenant>.acryl.io/mcp` for the MCP server `URL`.
 
 </details>
 
@@ -307,7 +311,7 @@ See the [Snowflake agent context guide](../../dev-guides/agent-context/snowflake
 Databricks registers external MCP servers as **Unity Catalog HTTP connections** behind a managed proxy. The connection then becomes available to Agent Bricks, Genie Code, and AI Playground at `https://<workspace>/api/2.0/mcp/external/<connection_name>`.
 
 1. In your workspace, open **Catalog → External Data → Connections → Create connection** (requires `CREATE CONNECTION` on the metastore).
-2. Connection type: **HTTP**. Name: `datahub`. URL: `https://<tenant>.acryl.io/integrations/ai/mcp` (your tenant URL is required here — the global `https://mcp.datahub.com/mcp` endpoint is not yet supported by Databricks).
+2. Connection type: **HTTP**. Name: `datahub`. URL: `https://<tenant>.acryl.io/mcp` (your tenant URL is required here — the global `https://mcp.datahub.com/mcp` endpoint is not yet supported by Databricks).
 3. Check the **Is MCP connection** box.
 4. For **Auth type**, select **Dynamic Client Registration** (DCR per RFC 7591) — Databricks registers a client with DataHub automatically and stores refresh tokens.
 5. Save. The first time the agent uses a DataHub tool, each operator authorizes DataHub via the workspace's managed OAuth flow.
@@ -350,7 +354,7 @@ DataHub's managed MCP server uses the [streamable HTTP transport](https://modelc
 Your managed MCP server URL is:
 
 ```
-https://<tenant>.acryl.io/integrations/ai/mcp/
+https://<tenant>.acryl.io/mcp
 ```
 
 Authenticate by passing your token as a Bearer token in the `Authorization` header:
@@ -369,7 +373,7 @@ send the header for you.
 <details>
   <summary>On-Premises DataHub Cloud</summary>
 
-For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQDN, e.g. `https://datahub.example.com/integrations/ai/mcp/`.
+For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQDN, e.g. `https://datahub.example.com/mcp`.
 
 </details>
 
@@ -389,7 +393,7 @@ For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQD
       "args": [
         "-y",
         "mcp-remote",
-        "https://<tenant>.acryl.io/integrations/ai/mcp/",
+        "https://<tenant>.acryl.io/mcp",
         "--header",
         "Authorization: Bearer <token>"
       ]
@@ -409,7 +413,7 @@ Run the following command, replacing `<tenant>` and `<token>` with your own valu
 
 ```bash
 claude mcp add --transport http datahub-cloud \
-  "https://<tenant>.acryl.io/integrations/ai/mcp/" \
+  "https://<tenant>.acryl.io/mcp" \
   --header "Authorization: Bearer <token>"
 ```
 
@@ -428,7 +432,7 @@ For a detailed walkthrough, see the [Claude integration guide](../../dev-guides/
 {
   "mcpServers": {
     "datahub-cloud": {
-      "url": "https://<tenant>.acryl.io/integrations/ai/mcp/",
+      "url": "https://<tenant>.acryl.io/mcp",
       "headers": {
         "Authorization": "Bearer <token>"
       }
@@ -450,7 +454,7 @@ For a detailed walkthrough, see the [Cursor integration guide](../../dev-guides/
 gemini mcp add --transport http \
   --header "Authorization: Bearer <token>" \
   datahub-cloud \
-  "https://<tenant>.acryl.io/integrations/ai/mcp/"
+  "https://<tenant>.acryl.io/mcp"
 ```
 
 For a detailed walkthrough, see the [Gemini CLI integration guide](../../dev-guides/agent-context/gemini-cli.md).
@@ -463,7 +467,7 @@ For a detailed walkthrough, see the [Gemini CLI integration guide](../../dev-gui
 Most AI tools support remote MCP servers. Provide the hosted MCP server URL:
 
 ```
-https://<tenant>.acryl.io/integrations/ai/mcp/
+https://<tenant>.acryl.io/mcp
 ```
 
 with the header `Authorization: Bearer <token>`.
@@ -473,7 +477,7 @@ Make sure authentication mode is _not_ set to "OAuth" (if applicable).
 For clients that don't yet support remote MCP servers, use `mcp-remote`:
 
 - Command: `npx`
-- Args: `-y mcp-remote https://<tenant>.acryl.io/integrations/ai/mcp/ --header "Authorization: Bearer <token>"`
+- Args: `-y mcp-remote https://<tenant>.acryl.io/mcp --header "Authorization: Bearer <token>"`
 
 </details>
 
