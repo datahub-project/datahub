@@ -22,8 +22,11 @@ from datahub.cli.dbt_semantic_model_migration import (
     run_migration,
 )
 from datahub.cli.semantic_model_migration_common import (
+    FieldGovernance,
     MigrationDirection,
     collect_dataset_field_governance,
+    merge_field_governance_into_editable_schema,
+    simple_column_name,
 )
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.source.dbt.dbt_common import DBTCommonConfig, DBTSourceReport
@@ -242,6 +245,53 @@ class TestBuildMapping:
         for urn in (_LEGACY, other_legacy):
             assert "governance would be overwritten" in mapping.unresolved[urn]
         assert other_legacy in mapping.unresolved[_LEGACY]
+
+    def test_project_name_rejects_two_sources_sharing_a_destination(self):
+        # --project-name synthesizes destinations from the trailing name, so
+        # two legacy schemas holding the same semantic model collide here too.
+        other_legacy = (
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,warehouse.staging.orders,PROD)"
+        )
+        mapping = build_mapping(
+            _graph({}),
+            MigrationDirection.DATASET_TO_SM,
+            [_LEGACY, other_legacy],
+            project_name="jaffle_shop",
+            pair_by_name=False,
+        )
+        assert mapping.pairs == {}
+        for urn in (_LEGACY, other_legacy):
+            assert "governance would be overwritten" in mapping.unresolved[urn]
+
+    def test_project_name_rejects_names_that_differ_only_by_case(self):
+        # Destinations are lowercased by default, so Orders and orders fold
+        # onto one urn even though the legacy urns are distinct.
+        mixed_case = (
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,warehouse.staging.Orders,PROD)"
+        )
+        mapping = build_mapping(
+            _graph({}),
+            MigrationDirection.DATASET_TO_SM,
+            [_LEGACY, mixed_case],
+            project_name="jaffle_shop",
+            pair_by_name=False,
+        )
+        assert mapping.pairs == {}
+        assert "governance would be overwritten" in mapping.unresolved[mixed_case]
+
+    def test_a_mapping_file_may_not_name_one_destination_twice(self):
+        # The escape hatch chooses which source migrates; it does not license
+        # migrating two onto one, which migrate_entity cannot merge.
+        other_legacy = (
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,warehouse.staging.orders,PROD)"
+        )
+        mapping = build_mapping(
+            _graph({}),
+            MigrationDirection.DATASET_TO_SM,
+            [_LEGACY, other_legacy],
+            explicit_pairs={_LEGACY: _NEW, other_legacy: _NEW},
+        )
+        assert mapping.pairs == {}
 
     def test_pair_by_name_reports_a_missing_counterpart(self):
         graph = _graph({})
@@ -688,11 +738,18 @@ class TestBatchIsolation:
             }
         )
         graph.exists.side_effect = lambda urn: _raise_boom() if urn == _LEGACY else True
+        # Distinct destinations: one destination for both would now be refused
+        # by the shared-destination guard, which is a different failure than
+        # the one under test.
+        other_new = (
+            "urn:li:dataset:"
+            "(urn:li:dataPlatform:dbt,jaffle_shop.semantic_layer.customers,PROD)"
+        )
         mapping = build_mapping(
             graph,
             MigrationDirection.DATASET_TO_SM,
             [_LEGACY, other],
-            explicit_pairs={_LEGACY: _NEW, other: _NEW},
+            explicit_pairs={_LEGACY: _NEW, other: other_new},
         )
 
         report = run_migration(
@@ -866,3 +923,48 @@ class TestEnvMismatch:
 
     def test_an_unparseable_urn_is_left_to_the_mapping_step(self):
         assert env_mismatches("not-a-urn", "PROD") is None
+
+
+def test_a_malformed_stored_field_path_does_not_abort_the_migration() -> None:
+    """The fallback existed but was dead: `.split` re-raised on the same value.
+
+    A non-string path cannot join to a real column either way, so the point is
+    only that one malformed row does not take the whole batch down.
+    """
+    assert simple_column_name("[version=2.0].[type=struct].col_a") == "col_a"
+    assert simple_column_name(7) == "7"  # type: ignore[arg-type]
+    assert simple_column_name(None) == "None"  # type: ignore[arg-type]
+
+
+def test_a_cleared_source_description_clears_the_destination() -> None:
+    """An empty editable description is someone having cleared it.
+
+    Reported as migrated either way, so keeping the destination's old text
+    would make the report disagree with what was written.
+    """
+    graph = MagicMock()
+    emitted: List[EditableSchemaMetadataClass] = []
+    graph.emit_mcp.side_effect = lambda mcp: emitted.append(mcp.aspect)
+    prior = EditableSchemaMetadataClass(
+        created=None,
+        lastModified=None,
+        editableSchemaFieldInfo=[
+            EditableSchemaFieldInfoClass(fieldPath="col_a", description="stale")
+        ],
+    )
+    graph.get_aspects_for_entity.return_value = {"editableSchemaMetadata": prior}
+
+    merge_field_governance_into_editable_schema(
+        graph,
+        _NEW,
+        [
+            FieldGovernance(
+                column_name="col_a", is_metric=False, editable_description=""
+            )
+        ],
+        lambda column_name, _paths: (column_name, None),
+        False,
+    )
+
+    assert emitted
+    assert emitted[-1].editableSchemaFieldInfo[0].description == ""

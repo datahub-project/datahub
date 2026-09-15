@@ -1618,3 +1618,96 @@ def test_both_filter_kinds_land_in_one_filter_clause():
     assert _expression_of(info.expression).expression == (
         "count(orders.order_count) FILTER (WHERE order_total > 100 AND country = 'US')"
     )
+
+
+def test_derived_from_points_at_the_metric_that_was_actually_emitted():
+    # Two top-level metrics whose names differ only by case collide on one
+    # project-flat URN. The canonical id used for derivedFrom has to be the
+    # accepted definition's, or the edge points at a URN never emitted.
+    def simple(unique_id: str, name: str) -> Dict[str, Any]:
+        return {
+            "name": name,
+            "label": name,
+            "description": "",
+            "type": "simple",
+            "type_params": {"measure": {"name": "order_total"}},
+        }
+
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                # a_ sorts first, so "Revenue" is the one emitted
+                "metric.jaffle_shop.a_rev": simple("a_rev", "Revenue"),
+                "metric.jaffle_shop.z_rev": simple("z_rev", "revenue"),
+                "metric.jaffle_shop.doubled": {
+                    "name": "doubled",
+                    "label": "Doubled",
+                    "description": "",
+                    "type": "derived",
+                    "expr": "revenue * 2",
+                    "type_params": {"metrics": [{"name": "revenue"}]},
+                },
+            }
+        ),
+    )
+
+    emitted = {urn for urn, _ in _aspects(workunits, MetricInfoClass)}
+    edges = dict(_aspects(workunits, MetricRelationshipsClass))
+    doubled = edges[f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},doubled)"]
+    assert _destinations(doubled.derivedFrom) == [
+        f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},Revenue)"
+    ]
+    assert set(_destinations(doubled.derivedFrom)) <= emitted
+
+
+def test_a_project_level_failure_counts_everything_it_built_as_dropped(monkeypatch):
+    # The report documents from_measures + from_manifest == emitted + dropped,
+    # so the path that abandons a whole project has to close the books. The
+    # metric counters are incremented while building, before the point that
+    # fails.
+    def raise_sdk_error(self):
+        raise SdkUsageError("bad alias")
+
+    monkeypatch.setattr(SemanticModel, "as_workunits", raise_sdk_error)
+    mapper = _mapper()
+    workunits = _emit(
+        mapper,
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.revenue": {
+                    "name": "revenue",
+                    "label": "Revenue",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {"measure": {"name": "order_total"}},
+                }
+            }
+        ),
+    )
+
+    assert workunits == []
+    report = mapper.report
+    built = report.num_metrics_from_measures + report.num_metrics_from_manifest
+    assert built > 0
+    assert built == report.num_metrics_emitted + report.num_metrics_dropped
+    assert report.num_metrics_emitted == 0
+    assert report.num_semantic_model_datasets_dropped == 1
+
+
+def test_a_non_string_agg_does_not_abort_emission():
+    # A manifest can hold anything; the legacy path rendered it into a string
+    # and never minded, so the first-class path must not crash on it either.
+    node = _sm_node(
+        "orders",
+        {
+            "entities": [{"name": "order_id", "type": "primary"}],
+            "measures": [{"name": "total", "agg": 7, "create_metric": True}],
+        },
+    )
+    workunits = _emit(_mapper(), [node])
+
+    assert _annotations(workunits)["total"].aggregationFunction is None
+    assert _one(workunits, MetricInfoClass).expression is None

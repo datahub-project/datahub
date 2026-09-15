@@ -987,8 +987,13 @@ class DBTSemanticMeasure:
 
         `agg` carries the legacy display default, so read it through here
         wherever an absent aggregation has to stay absent.
+
+        The isinstance guard is not redundant with the annotation: a manifest
+        can put anything here, and the raw value is left uncoerced so the
+        legacy `measure:<agg>` column string stays byte-identical. The parse
+        reports such a value; this keeps it from reaching `.strip()`.
         """
-        agg = (self.agg or "").strip().lower()
+        agg = self.agg.strip().lower() if isinstance(self.agg, str) else ""
         return agg if agg and agg != SEMANTIC_MEASURE_AGG_UNKNOWN else None
 
 
@@ -1103,7 +1108,7 @@ def parse_semantic_model(raw: Mapping[str, Any]) -> DBTSemanticModelParse:
     measures = [
         DBTSemanticMeasure(
             name=_name_or_blank(raw_measure, "measures", index, discarded),
-            agg=raw_measure.get("agg", SEMANTIC_MEASURE_AGG_UNKNOWN),
+            agg=_agg_or_default(raw_measure, index, discarded),
             description=raw_measure.get("description", ""),
             expr=_optional_str(raw_measure.get("expr")),
             create_metric=bool(
@@ -1126,6 +1131,24 @@ def parse_semantic_model(raw: Mapping[str, Any]) -> DBTSemanticModelParse:
         ),
         discarded=discarded,
     )
+
+
+def _agg_or_default(
+    raw_measure: Mapping[str, Any], index: int, discarded: List[str]
+) -> Any:
+    """Read a measure's `agg`, reporting a value that is not a string.
+
+    Returned uncoerced so the legacy `measure:<agg>` column string is
+    unchanged; `DBTSemanticMeasure.aggregation` is what keeps a non-string
+    out of the first-class entities.
+    """
+    agg = raw_measure.get("agg", SEMANTIC_MEASURE_AGG_UNKNOWN)
+    if not isinstance(agg, str):
+        discarded.append(
+            f"measures[{index}] has a non-string agg, so it is emitted "
+            "without an aggregation function"
+        )
+    return agg
 
 
 def _iter_mappings(

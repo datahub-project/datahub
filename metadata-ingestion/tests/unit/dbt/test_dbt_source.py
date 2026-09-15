@@ -1,3 +1,5 @@
+import json
+import pathlib
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, TypedDict, Union
 from unittest import mock
@@ -4827,17 +4829,50 @@ def test_a_malformed_type_params_is_reported_rather_than_dropped():
     ]
 
 
-def test_manifest_load_wires_the_report_into_semantic_model_extraction():
+def test_manifest_load_wires_the_report_into_semantic_model_extraction(
+    tmp_path: pathlib.Path,
+) -> None:
     """The report kwarg was added to the function but not to the call site.
 
-    Asserting through loadManifestAndCatalog rather than by calling
-    extract_semantic_models directly, which is what let the dead wiring pass.
+    Driven through loadManifestAndCatalog with a real manifest, because every
+    other test for this passes `report=` itself -- which is exactly what let
+    the dead wiring pass unnoticed.
     """
-    import inspect
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "metadata": {
+                    "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json",
+                    "project_name": "p",
+                    "adapter_type": "postgres",
+                },
+                "nodes": {},
+                "sources": {},
+                "exposures": {},
+                "metrics": {},
+                "semantic_models": {
+                    "semantic_model.p.broken": {
+                        "name": "broken",
+                        "entities": "not-a-list",
+                        "node_relation": {"database": "d", "schema": "s"},
+                    }
+                },
+            }
+        )
+    )
+    catalog = tmp_path / "catalog.json"
+    catalog.write_text(json.dumps({"nodes": {}, "sources": {}}))
+    source = _semantic_model_source(
+        manifest_path=str(manifest), catalog_path=str(catalog), sources_path=None
+    )
 
-    source_lines = inspect.getsource(DBTCoreSource.loadManifestAndCatalog)
-    call = source_lines.split("extract_semantic_models(")[1].split(")")[0]
-    assert "report=self.report" in call
+    source.loadManifestAndCatalog()
+
+    assert any(
+        w.title == "Could not read part of a dbt semantic model"
+        for w in source.report.warnings
+    )
 
 
 def test_two_top_level_metrics_sharing_a_name_emit_one_metric():

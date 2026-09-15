@@ -255,6 +255,11 @@ class DbtSemanticModelMapper:
                 context=f"dbt project {self.project_name}",
                 exc=e,
             )
+            # Everything built for this project is now dropped. Counted so the
+            # report still reconciles: from_measures + from_manifest ==
+            # emitted + dropped.
+            self.report.num_semantic_model_datasets_dropped += len(models)
+            self.report.num_metrics_dropped += len(metrics)
             return
 
         emitted_datasets = 0
@@ -781,22 +786,40 @@ class DbtSemanticModelMapper:
         index = self._index_measures(models)
         metrics = self._metrics_from_measures(models)
         self.report.num_metrics_from_measures += len(metrics)
-        # unique_id of the definition that claimed each name, for collision
-        # reporting.
-        from_manifest: Dict[str, str] = {}
+        accepted = self._accepted_metric_definitions(metric_definitions, set(metrics))
 
         # Canonical id per folded name, so a derivedFrom edge is built from the
         # case the metric was actually emitted with rather than the case the
-        # reference happened to use.
+        # reference happened to use. Built from the accepted definitions only:
+        # two names differing just by case collide on one URN, and taking the
+        # skipped one's case would point every edge at a URN never emitted.
         canonical_id_by_name = {key: metric.urn.id for key, metric in metrics.items()}
         canonical_id_by_name.update(
-            {
-                definition.name.casefold(): definition.name
-                for definition in metric_definitions
-                if definition.name
-            }
+            {definition.name.casefold(): definition.name for definition in accepted}
         )
 
+        for metric_definition in accepted:
+            metrics[metric_definition.name.casefold()] = self._metric_from_definition(
+                metric_definition=metric_definition,
+                index=index,
+                canonical_id_by_name=canonical_id_by_name,
+            )
+
+        return [metrics[key] for key in sorted(metrics)]
+
+    def _accepted_metric_definitions(
+        self, metric_definitions: List[DBTMetric], measure_metric_keys: Set[str]
+    ) -> List[DBTMetric]:
+        """The top-level definitions that will be emitted, in build order.
+
+        Resolved before any metric is built, because a metric's `derivedFrom`
+        edges are built from the id its target was emitted with -- so which of
+        two colliding definitions wins has to be settled first.
+        """
+        accepted: List[DBTMetric] = []
+        # unique_id of the definition that claimed each name, for collision
+        # reporting.
+        claimed: Dict[str, str] = {}
         for metric_definition in sorted(metric_definitions, key=lambda m: m.unique_id):
             if not metric_definition.name:
                 self.report.warning(
@@ -806,7 +829,7 @@ class DbtSemanticModelMapper:
                 )
                 continue
             key = metric_definition.name.casefold()
-            if key in from_manifest:
+            if key in claimed:
                 # Two top-level definitions, not a measure collision: the
                 # earlier one would be silently replaced.
                 self.report.warning(
@@ -814,10 +837,10 @@ class DbtSemanticModelMapper:
                     message="Two top-level metrics resolve to the same name, so "
                     "they would collide on one metric URN. Only the first is "
                     "emitted.",
-                    context=f"{from_manifest[key]} and {metric_definition.unique_id}",
+                    context=f"{claimed[key]} and {metric_definition.unique_id}",
                 )
                 continue
-            if key in metrics:
+            if key in measure_metric_keys:
                 self.report.warning(
                     title="dbt metric shadows a create_metric measure",
                     message="A measure with create_metric and a top-level metric "
@@ -828,15 +851,10 @@ class DbtSemanticModelMapper:
                 # It is a manifest metric now, not a measure one, so move the
                 # count rather than dropping it.
                 self.report.num_metrics_from_measures -= 1
-            from_manifest[key] = metric_definition.unique_id
+            claimed[key] = metric_definition.unique_id
             self.report.num_metrics_from_manifest += 1
-            metrics[key] = self._metric_from_definition(
-                metric_definition=metric_definition,
-                index=index,
-                canonical_id_by_name=canonical_id_by_name,
-            )
-
-        return [metrics[key] for key in sorted(metrics)]
+            accepted.append(metric_definition)
+        return accepted
 
     @staticmethod
     def _locate_measure(

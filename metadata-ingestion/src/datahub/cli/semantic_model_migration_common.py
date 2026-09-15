@@ -154,7 +154,10 @@ def simple_column_name(field_path: str) -> str:
             "as-is, which may not match any column on the destination",
             exc_info=True,
         )
-        simple = field_path
+        # str() not the raw value: the fallback exists to keep a malformed
+        # stored path from aborting the migration, and `.split` below would
+        # raise on a non-string just as the helper did.
+        simple = str(field_path)
     return simple.split(".")[-1]
 
 
@@ -506,7 +509,14 @@ def merge_field_governance_into_editable_schema(
             # Source first so a human-authored description travels, destination
             # second so one authored only here is not wiped. Only ever an
             # editable description on either side -- see FieldGovernance.
-            description=field_gov.editable_description or prior_description,
+            # `is not None`, not `or`: an empty description is someone having
+            # cleared it, which has to travel as a clear -- and the migrated
+            # list below reports it as migrated either way.
+            description=(
+                field_gov.editable_description
+                if field_gov.editable_description is not None
+                else prior_description
+            ),
             globalTags=union_global_tags(prior_tags, field_gov.global_tags),
             glossaryTerms=union_glossary_terms(prior_terms, field_gov.glossary_terms),
         )

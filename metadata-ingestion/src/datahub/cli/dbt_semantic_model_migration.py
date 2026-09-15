@@ -359,6 +359,37 @@ def build_mapping(
     convert_urns_to_lowercase: bool = True,
 ) -> DbtUrnMapping:
     """Resolve destination urns, highest-precedence source first."""
+    mapping = _resolve_mapping(
+        graph,
+        direction,
+        src_urns,
+        project_name=project_name,
+        explicit_pairs=explicit_pairs,
+        pair_by_name=pair_by_name,
+        platform_instance=platform_instance,
+        env=env,
+        convert_urns_to_lowercase=convert_urns_to_lowercase,
+    )
+    # Applied to every strategy, not just name pairing: --project-name
+    # synthesizes destinations from the trailing name alone (and lowercases
+    # it), so two legacy schemas can collide there too, and a mapping file can
+    # simply name one destination twice.
+    _reject_shared_destinations(mapping)
+    return mapping
+
+
+def _resolve_mapping(
+    graph: DataHubGraph,
+    direction: MigrationDirection,
+    src_urns: Sequence[str],
+    *,
+    project_name: Optional[str],
+    explicit_pairs: Optional[Dict[str, str]],
+    pair_by_name: bool,
+    platform_instance: Optional[str],
+    env: str,
+    convert_urns_to_lowercase: bool,
+) -> DbtUrnMapping:
     if explicit_pairs is not None:
         return DbtUrnMapping(
             pairs={
@@ -482,8 +513,6 @@ def _mapping_by_name(
             )
             continue
         mapping.pairs[urn] = matches[0]
-
-    _reject_shared_destinations(mapping)
     return mapping
 
 

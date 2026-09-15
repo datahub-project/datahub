@@ -1554,8 +1554,10 @@ def dbt_semantic_models(
             click.secho(f"  {urn}: {reason}", fg="yellow", err=True)
         # Not gated on --force: that flag exists to skip the subtype check and
         # the prompt, and folding a safety guard into it would silently disarm
-        # the guard for every automated run.
-        if not allow_cross_env:
+        # the guard for every automated run. A dry run does pass, since it
+        # writes nothing and seeing the cross-env pairs is how an operator
+        # discovers the wrong --env in the first place.
+        if not allow_cross_env and not dry_run:
             raise click.ClickException(
                 "Refusing to migrate across envs. Pass --env matching the "
                 "sources, or --allow-cross-env to proceed deliberately."
@@ -1572,6 +1574,28 @@ def dbt_semantic_models(
         env=env,
         convert_urns_to_lowercase=convert_urns_to_lowercase,
     )
+    # Synthesized destinations are built with --env so they always match, but a
+    # mapping file states its destinations outright and can name another env.
+    dst_env_mismatched = [
+        (src, dst)
+        for src, dst in mapping.pairs.items()
+        if dbt_migration.env_mismatches(dst, env) is not None
+    ]
+    if dst_env_mismatched:
+        click.secho(
+            f"{len(dst_env_mismatched)} mapped destination(s) are in a different "
+            f"env than --env {env}:",
+            fg="yellow",
+            err=True,
+        )
+        for src, dst in dst_env_mismatched[:10]:
+            click.secho(f"  {src} -> {dst}", fg="yellow", err=True)
+        if not allow_cross_env and not dry_run:
+            raise click.ClickException(
+                "Refusing to migrate across envs. Fix the mapping file, or pass "
+                "--allow-cross-env to proceed deliberately."
+            )
+
     if not mapping.pairs:
         click.echo(
             f"Found {len(urns_to_process)} entities, but no destination urn could "
