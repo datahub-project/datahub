@@ -64,7 +64,7 @@ const Content = styled.div<{
     overflow: ${(props) => (props.$isShowNavBarRedesign ? 'hidden' : 'auto')};
 `;
 
-const FIFTH_SECOND_IN_MS = 100;
+const FIFTH_SECOND_IN_MS = 200;
 
 type Props = React.PropsWithChildren<{
     hideSearchBar?: boolean;
