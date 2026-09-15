@@ -11,6 +11,8 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
@@ -26,8 +28,12 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.DataProvider;
@@ -43,6 +49,10 @@ public class AuthorizationUtilsTest {
   private static final Urn TEST_SCHEMA_FIELD_URN =
       UrnUtils.getUrn(
           "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD),field_foo)");
+  private static final Urn TEST_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
+  private static final Urn TEST_STRUCTURED_PROPERTY_URN =
+      UrnUtils.getUrn("urn:li:structuredProperty:test.property");
 
   @Test
   public void testRestrictedViewProperties() {
@@ -120,6 +130,65 @@ public class AuthorizationUtilsTest {
   public void testCanManageDocuments() {
     QueryContext mockContext = getMockAllowContext();
     assertTrue(AuthorizationUtils.canManageDocuments(mockContext));
+  }
+
+  @Test
+  public void testCanEditPropertiesWithStructuredPropertyUrnsAllowed() {
+    QueryContext context = getMockAllowContext();
+    assertTrue(
+        AuthorizationUtils.canEditProperties(
+            TEST_DATASET_URN, context, List.of(TEST_STRUCTURED_PROPERTY_URN)));
+  }
+
+  @Test
+  public void testCanEditPropertiesWithStructuredPropertyUrnsDenied() {
+    QueryContext context = getMockDenyContext();
+    assertFalse(
+        AuthorizationUtils.canEditProperties(
+            TEST_DATASET_URN, context, List.of(TEST_STRUCTURED_PROPERTY_URN)));
+  }
+
+  @Test
+  public void testCanEditPropertiesWithEmptyStructuredPropertyUrnsMatchesSingleArgOverload() {
+    QueryContext allowContext = getMockAllowContext();
+    QueryContext denyContext = getMockDenyContext();
+    assertTrue(
+        AuthorizationUtils.canEditProperties(
+            TEST_DATASET_URN, allowContext, Collections.emptyList()));
+    assertEquals(
+        AuthorizationUtils.canEditProperties(
+            TEST_DATASET_URN, allowContext, Collections.emptyList()),
+        AuthorizationUtils.canEditProperties(TEST_DATASET_URN, allowContext));
+    assertFalse(
+        AuthorizationUtils.canEditProperties(
+            TEST_DATASET_URN, denyContext, Collections.emptyList()));
+  }
+
+  // getMockAllowContext/getMockDenyContext allow or deny regardless of privilege or resource, so
+  // the tests above would pass even if the structured property urns were never forwarded to the
+  // authorizer. This test asserts the urns actually reach the authorizer as sub-resources.
+  @Test
+  public void testCanEditPropertiesForwardsStructuredPropertyUrnsAsSubResources() {
+    QueryContext context = getMockAllowContext();
+    Urn propertyUrn1 = UrnUtils.getUrn("urn:li:structuredProperty:test.p1");
+    Urn propertyUrn2 = UrnUtils.getUrn("urn:li:structuredProperty:test.p2");
+
+    AuthorizationUtils.canEditProperties(
+        TEST_DATASET_URN, context, List.of(propertyUrn1, propertyUrn2));
+
+    ArgumentCaptor<AuthorizationRequest> requestCaptor =
+        ArgumentCaptor.forClass(AuthorizationRequest.class);
+    Mockito.verify(context.getAuthorizer(), Mockito.atLeastOnce())
+        .authorize(requestCaptor.capture());
+
+    Set<String> subResourceEntities =
+        requestCaptor.getAllValues().stream()
+            .flatMap(request -> request.getSubResources().stream())
+            .map(EntitySpec::getEntity)
+            .collect(Collectors.toSet());
+
+    assertTrue(subResourceEntities.contains(propertyUrn1.toString()));
+    assertTrue(subResourceEntities.contains(propertyUrn2.toString()));
   }
 
   @Test

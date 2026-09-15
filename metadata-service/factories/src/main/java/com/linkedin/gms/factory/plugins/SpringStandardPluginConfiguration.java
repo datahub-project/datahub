@@ -37,6 +37,7 @@ import com.linkedin.metadata.aspect.validation.LogicalParentPlatformValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
+import com.linkedin.metadata.aspect.validation.StructuredPropertyPrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.TagPrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.UrlValidator;
@@ -654,6 +655,34 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.privilegeConstraints.enabled",
+      havingValue = "true")
+  public AspectPayloadValidator structuredPropertyPrivilegeConstraintsValidator() {
+    return new StructuredPropertyPrivilegeConstraintsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(StructuredPropertyPrivilegeConstraintsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of(
+                        "UPSERT",
+                        "UPDATE",
+                        "CREATE",
+                        "CREATE_ENTITY",
+                        "RESTATE",
+                        "PATCH",
+                        "DELETE"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(STRUCTURED_PROPERTIES_ASPECT_NAME)
                             .build()))
                 .build());
   }

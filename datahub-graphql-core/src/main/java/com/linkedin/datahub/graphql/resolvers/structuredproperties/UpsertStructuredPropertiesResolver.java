@@ -66,10 +66,12 @@ public class UpsertStructuredPropertiesResolver
         () -> {
           try {
             // check authorization first
-            if (!AuthorizationUtils.canEditProperties(assetUrn, context)) {
+            final List<Urn> propertyUrns =
+                updateMap.keySet().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+            if (!AuthorizationUtils.canEditProperties(assetUrn, context, propertyUrns)) {
               throw new AuthorizationException(
                   String.format(
-                      "Not authorized to update properties on the gives urn %s", assetUrn));
+                      "Not authorized to update properties on the given urn %s", assetUrn));
             }
 
             final AuditStamp auditStamp =

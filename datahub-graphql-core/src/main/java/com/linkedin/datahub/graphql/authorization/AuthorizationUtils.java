@@ -28,6 +28,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -184,6 +185,18 @@ public class AuthorizationUtils {
   }
 
   public static boolean canEditProperties(@Nonnull Urn targetUrn, @Nonnull QueryContext context) {
+    return canEditProperties(targetUrn, context, Collections.emptyList());
+  }
+
+  /**
+   * Same as {@link #canEditProperties(Urn, QueryContext)}, but additionally scopes the check to the
+   * specific structured properties being modified, so per-property privilege constraints (see
+   * {@link #isAuthorizedForStructuredProperties}) are enforced.
+   */
+  public static boolean canEditProperties(
+      @Nonnull Urn targetUrn,
+      @Nonnull QueryContext context,
+      @Nonnull Collection<Urn> structuredPropertyUrns) {
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -193,8 +206,27 @@ public class AuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
 
-    return AuthorizationUtils.isAuthorized(
-        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
+    return isAuthorizedForStructuredProperties(
+        context,
+        targetUrn.getEntityType(),
+        targetUrn.toString(),
+        orPrivilegeGroups,
+        structuredPropertyUrns);
+  }
+
+  public static boolean isAuthorizedForStructuredProperties(
+      @Nonnull QueryContext context,
+      @Nonnull String resourceType,
+      @Nonnull String resource,
+      @Nonnull DisjunctivePrivilegeGroup privilegeGroup,
+      @Nonnull Collection<Urn> structuredPropertyUrns) {
+    final EntitySpec resourceSpec = new EntitySpec(resourceType, resource);
+    final Set<EntitySpec> subResources =
+        structuredPropertyUrns.stream()
+            .map(propUrn -> new EntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME, propUrn.toString()))
+            .collect(Collectors.toSet());
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), privilegeGroup, resourceSpec, subResources);
   }
 
   public static boolean canEditEntityQueries(
