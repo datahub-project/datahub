@@ -2,11 +2,18 @@ from unittest.mock import patch
 
 import pytest
 
+from datahub.emitter.mce_builder import make_container_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.grafana.grafana_config import GrafanaSourceConfig
 from datahub.ingestion.source.grafana.grafana_source import GrafanaSource
-from datahub.ingestion.source.grafana.models import Dashboard, Folder, Panel
+from datahub.ingestion.source.grafana.models import (
+    Dashboard,
+    DashboardContainerKey,
+    Folder,
+    FolderKey,
+    Panel,
+)
 
 
 @pytest.fixture
@@ -86,6 +93,46 @@ def test_process_dashboard_with_folder(mock_api, mock_source, mock_dashboard):
     # Verify folder container relationship is created
     container_workunits = [wu for wu in workunit_list if "container" in wu.id]
     assert len(container_workunits) > 0
+
+
+@patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
+def test_process_dashboard_general_folder(mock_api, mock_source):
+    dashboard = Dashboard(
+        uid="dash1",
+        title="Test Dashboard",
+        description="Test Description",
+        version="1",
+        panels=[],
+        schemaVersion="1.0",
+        meta={"folderId": "0"},
+    )
+
+    workunit_list = list(mock_source._process_dashboard(dashboard))
+
+    general_folder_urn = make_container_urn(
+        FolderKey(
+            platform=mock_source.config.platform,
+            instance=mock_source.config.platform_instance,
+            folder_id="0",
+        )
+    )
+    dashboard_container_urn = make_container_urn(
+        DashboardContainerKey(
+            platform=mock_source.config.platform,
+            instance=mock_source.config.platform_instance,
+            dashboard_id=dashboard.uid,
+            folder_id=dashboard.folder_id,
+        )
+    )
+
+    assert any(
+        workunit.metadata.entityUrn == dashboard_container_urn
+        for workunit in workunit_list
+    )
+    assert all(
+        getattr(workunit.metadata.aspect, "container", None) != general_folder_urn
+        for workunit in workunit_list
+    )
 
 
 @patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
