@@ -88,7 +88,16 @@ def render_cqn_expression(node: object) -> Optional[str]:
         # CSN it is normally an ``xpr`` operator, so this rarely fires — but a
         # ``func``-shaped IN must not render as ``IN(C, (1, 2))``.
         if func.upper() == _SQL_IN and len(rendered_args) == 2:
-            return f"{rendered_args[0]} {_SQL_IN} {rendered_args[1]}"
+            infix_args = [
+                f"({text})"
+                if isinstance(arg, dict)
+                and any(
+                    isinstance(arg.get(key), list) for key in _NESTED_EXPR_KEYS
+                )
+                else text
+                for arg, text in zip(args, rendered_args)
+            ]
+            return f"{infix_args[0]} {_SQL_IN} {infix_args[1]}"
         return f"{func}({', '.join(rendered_args)})"
     # All three keys carry a flat token stream. ``case``/``cast`` can arrive as
     # first-class keys (the shape lineage.py walks), not only as bare tokens
