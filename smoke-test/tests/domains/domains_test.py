@@ -52,6 +52,7 @@ def _ensure_domain_readable(
     return domain
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 def test_create_list_get_domain(auth_session):
     # Run-unique id so parallel workers never collide on urn:li:domain:test id.

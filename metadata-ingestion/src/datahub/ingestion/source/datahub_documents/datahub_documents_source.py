@@ -518,12 +518,21 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # semanticText aspect, so fetch it.
             raw_contents = aspect_dict.get("contents")
             if raw_contents is None:
-                # Partial aspect with no contents: skip silently (mirroring batch mode)
-                # rather than stamping a skip marker from content we could not read.
-                logger.debug(
-                    f"documentInfo event for {entity_urn} has null contents, skipping"
-                )
-                return
+                # Partial event payload with no contents: fall back to fetching the full
+                # aspect (mirroring the semanticText branch) so a document whose only
+                # event was partial is not silently dropped until some later event.
+                info_dict = self._fetch_document_info_dict(entity_urn)
+                raw_contents = info_dict.get("contents") if info_dict else None
+                if info_dict is None or raw_contents is None:
+                    # Genuinely unreadable body: skip without stamping a skip marker from
+                    # content we could not read.
+                    logger.debug(
+                        f"documentInfo event for {entity_urn} has null contents and no "
+                        f"readable fallback, skipping"
+                    )
+                    return
+                # Downstream source-type filtering reads from the documentInfo shape.
+                aspect_dict = info_dict
             contents = dict(raw_contents)
             contents["semanticText"] = self._fetch_semantic_text(entity_urn)
 

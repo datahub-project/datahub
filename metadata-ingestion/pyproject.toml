@@ -783,6 +783,11 @@ omni = [
     "tenacity>=8.0.1,<9.0.0",
 ]
 
+onnx-embeddings = [
+    "onnxruntime>=1.19.0,<1.24",
+    "tokenizers>=0.20.0,<1.0.0",
+]
+
 oracle = [
     "cachetools<6.0.0",
     "greenlet<4.0.0",
@@ -935,6 +940,7 @@ s3-slim = [
 
 sac = [
     "Authlib>=1.6.11,<2.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "requests<3.0.0",
 ]
 
@@ -1157,7 +1163,7 @@ vertica = [
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
 ]
 
-# All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc, sqlmesh)
+# All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc, onnx-embeddings, sqlmesh)
 all = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",

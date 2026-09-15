@@ -374,7 +374,7 @@ services:
     healthcheck:
       test:
       - CMD-SHELL
-      - curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
+      - curl -sS --fail "http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s"
       timeout: 15s
       interval: 5s
       retries: 10
