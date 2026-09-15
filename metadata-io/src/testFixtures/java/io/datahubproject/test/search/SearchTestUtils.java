@@ -22,11 +22,14 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.EntityTypeListConfig;
+import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.ImpactConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
+import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -74,12 +77,46 @@ public class SearchTestUtils {
   public static StructuredPropertiesConfiguration TEST_ES_STRUCT_PROPS_DISABLED =
       StructuredPropertiesConfiguration.builder().enabled(false).systemUpdateEnabled(false).build();
 
+  private static ExactMatchConfiguration testExactMatchConfiguration() {
+    ExactMatchConfiguration config = new ExactMatchConfiguration();
+    config.setExclusive(false);
+    config.setWithPrefix(true);
+    config.setExactFactor(16.0f);
+    config.setPrefixFactor(1.1f);
+    config.setCaseSensitivityFactor(0.0f);
+    config.setEnableStructured(true);
+    return config;
+  }
+
+  private static WordGramConfiguration testWordGramConfiguration() {
+    WordGramConfiguration config = new WordGramConfiguration();
+    config.setTwoGramFactor(1.2f);
+    config.setThreeGramFactor(1.5f);
+    config.setFourGramFactor(1.8f);
+    return config;
+  }
+
+  private static PartialConfiguration testPartialConfiguration() {
+    PartialConfiguration config = new PartialConfiguration();
+    config.setUrnFactor(0.5f);
+    config.setFactor(0.4f);
+    return config;
+  }
+
   // Base configuration for tests
   private static final ElasticSearchConfiguration BASE_TEST_CONFIG =
       ElasticSearchConfiguration.builder()
           .search(
               SearchConfiguration.builder()
                   .pointInTimeCreationEnabled(false) // Disable PIT for search entities by default
+                  // The query/aggregation builders read these without null guards or defaults;
+                  // leaving them unset fails any test that builds a query. Values mirror
+                  // application.yaml defaults; SearchCommonTestConfiguration overrides them with
+                  // its own tuned boosts for the Spring-based search tests.
+                  .maxTermBucketSize(60)
+                  .exactMatch(testExactMatchConfiguration())
+                  .wordGram(testWordGramConfiguration())
+                  .partial(testPartialConfiguration())
                   .graph(
                       GraphQueryConfiguration.builder()
                           .batchSize(1000)

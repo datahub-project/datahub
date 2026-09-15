@@ -147,6 +147,15 @@ export class LineageBasePage extends BasePage {
     return this.page.getByTestId(`lineage-node-${nodeUrn}`);
   }
 
+  /**
+   * Bounding-box header and wrapper can share lineage-node-${urn}; prefer the first match
+   * for visibility assertions on Semantic Model / Data Product graphs.
+   */
+  getPrimaryNode(nodeUrn: string): Locator {
+    // eslint-disable-next-line playwright/no-nth-methods -- box header + wrapper share the same testid
+    return this.getNode(nodeUrn).first();
+  }
+
   /** Get the ReactFlow canvas node element for a given entity URN. */
   getReactFlowNode(urn: string): Locator {
     return this.page.getByTestId(`rf__node-${urn}`);
