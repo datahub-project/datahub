@@ -496,6 +496,18 @@
     "duration": "5.611s"
   },
   {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-semantic-model-entities-platform-instance]",
+    "duration": "0.400s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-semantic-model-entities]",
+    "duration": "0.400s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-semantic-models-legacy]",
+    "duration": "0.600s"
+  },
+  {
     "testId": "tests.integration.delta_lake.test_delta_lake_minio::test_delta_lake_ingest",
     "duration": "34.921s"
   },
