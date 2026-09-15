@@ -4,6 +4,7 @@ import { Modal } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
+import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import {
     DEFAULT_PAGE_SIZE,
     removeFromListPoliciesCache,
@@ -30,7 +31,7 @@ type PrivilegeOptionType = {
 };
 
 export function usePolicy(
-    policiesConfig,
+    policyPrivileges: PolicyPrivilegesConfig | undefined,
     focusPolicyUrn,
     policiesRefetch,
     setShowViewPolicyModal,
@@ -42,8 +43,8 @@ export function usePolicy(
     const client = useApolloClient();
 
     // Construct privileges
-    const platformPrivileges = policiesConfig?.platformPrivileges || [];
-    const resourcePrivileges = policiesConfig?.resourcePrivileges || [];
+    const platformPrivileges = policyPrivileges?.platformPrivileges || [];
+    const resourcePrivileges = policyPrivileges?.resourcePrivileges || [];
 
     // Any time a policy is removed, edited, or created, refetch the list.
     const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation();
