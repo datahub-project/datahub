@@ -643,16 +643,14 @@ class SQLAlchemyProfiler:
                         # Convert to HistogramClass format
                         # boundaries: bucket boundaries (k+1 values for k buckets)
                         # heights: counts per bucket (k values)
+                        # Boundaries are interpolated floats (min + i * bucket_size),
+                        # so always format as float regardless of column type.
                         boundaries = [
-                            format_profile_value(start, col_type) or str(start)
-                            for start, _, _ in histogram
+                            _format_as_float(start) for start, _, _ in histogram
                         ]
                         # Add the last bucket end as final boundary
                         if histogram:
-                            boundaries.append(
-                                format_profile_value(histogram[-1][1], col_type)
-                                or str(histogram[-1][1])
-                            )
+                            boundaries.append(_format_as_float(histogram[-1][1]))
                         heights = [float(count) for _, _, count in histogram]
                         column_profile.histogram = HistogramClass(
                             boundaries=boundaries, heights=heights
