@@ -25,15 +25,22 @@ import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
+import com.linkedin.metadata.config.search.QueryCanonicalizationConfiguration;
+import com.linkedin.metadata.config.search.TimeCanonicalizationConfiguration;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer;
 import graphql.GraphQLContext;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -282,18 +289,45 @@ public class ResolverUtilsTest {
 
   @Test
   public void testGetLineageEndTimeMillis_endProvided() {
-    assertEquals(getLineageEndTimeMillis(1000L, 2000L), Long.valueOf(2000L));
+    assertEquals(getLineageEndTimeMillis(null, 1000L, 2000L), Long.valueOf(2000L));
   }
 
   @Test
   public void testGetLineageEndTimeMillis_startOnly() {
-    Long result = getLineageEndTimeMillis(1000L, null);
+    Long result = getLineageEndTimeMillis(null, 1000L, null);
     assertNotNull(result);
     assertTrue(result >= 1000L);
   }
 
   @Test
   public void testGetLineageEndTimeMillis_bothNull() {
-    assertNull(getLineageEndTimeMillis(null, null));
+    assertNull(getLineageEndTimeMillis(null, null, null));
+  }
+
+  @Test
+  public void testGetLineageEndTimeMillis_defaultIsCanonicalized() {
+    // A defaulted end time is rounded onto the bucket; a caller-supplied one is not.
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization()
+            .withQueryTimeCanonicalizer(
+                QueryTimeCanonicalizer.fromConfig(
+                    QueryCanonicalizationConfiguration.builder()
+                        .enabled(true)
+                        .time(
+                            TimeCanonicalizationConfiguration.builder()
+                                .enabled(true)
+                                .bucketSize(5)
+                                .bucketSizeUnit("MINUTES")
+                                .timezone("UTC")
+                                .rounding("EXPAND")
+                                .build())
+                        .build(),
+                    null,
+                    Clock.fixed(Instant.parse("2026-08-16T19:03:42Z"), ZoneOffset.UTC)));
+
+    assertEquals(
+        getLineageEndTimeMillis(opContext, 1000L, null),
+        Long.valueOf(Instant.parse("2026-08-16T19:05:00Z").toEpochMilli()));
+    assertEquals(getLineageEndTimeMillis(opContext, 1000L, 2000L), Long.valueOf(2000L));
   }
 }
