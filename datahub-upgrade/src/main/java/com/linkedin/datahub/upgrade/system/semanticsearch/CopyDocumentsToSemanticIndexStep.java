@@ -140,7 +140,8 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
     SearchSourceBuilder source = new SearchSourceBuilder();
     source.query(org.opensearch.index.query.QueryBuilders.matchAllQuery());
     source.size(CROSS_CLUSTER_PAGE_SIZE);
-    source.sort("_id", SortOrder.ASC);
+    // `_id` is not a sortable field on OpenSearch/ES 7+. V2 entity documents have unique `urn`.
+    source.sort("urn", SortOrder.ASC);
 
     SearchRequest searchRequest = new SearchRequest(baseIndexName);
     searchRequest.source(source);

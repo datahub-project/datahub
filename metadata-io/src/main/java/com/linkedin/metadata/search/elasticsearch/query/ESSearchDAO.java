@@ -1019,14 +1019,25 @@ public class ESSearchDAO {
       @Nonnull OperationContext opContext,
       @Nonnull String indexName,
       @Nonnull String resolvedIndex) {
-    if (isUsageEventIndex(indexName) || isUsageEventIndex(resolvedIndex)) {
+    if (isUsageEventIndex(opContext, indexName, resolvedIndex)) {
       return SearchClients.forComponent(opContext, SearchComponent.USAGE);
     }
     return searchClient(opContext, resolvedIndex);
   }
 
-  private static boolean isUsageEventIndex(@Nonnull String name) {
-    return name.contains(Constants.DATAHUB_USAGE_EVENT_INDEX);
+  private static boolean isUsageEventIndex(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String resolvedIndex) {
+    if (indexName.equals(Constants.DATAHUB_USAGE_EVENT_INDEX)) {
+      return true;
+    }
+    String canonical =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getIndexName(opContext, Constants.DATAHUB_USAGE_EVENT_INDEX);
+    return resolvedIndex.equals(canonical);
   }
 
   private void testLog(ObjectMapper mapper, SearchRequest searchRequest) {

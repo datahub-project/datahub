@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
@@ -98,6 +99,26 @@ public class ESSearchDAOSearchClusterAccessTest {
 
     verify(usage).search(any(), any(), any());
     verify(v2, never()).search(any(), any(), any());
+  }
+
+  @Test
+  public void testRawUsageSubstringDoesNotUseUsageClient() throws Exception {
+    SearchClientShim<?> v2 = mock(SearchClientShim.class);
+    SearchClientShim<?> usage = mock(SearchClientShim.class);
+    SearchClusterAccess access = component -> component == SearchComponent.USAGE ? usage : v2;
+    OperationContext opContext =
+        TestOperationContexts.withSearchClusterAccess(
+            TestOperationContexts.systemContextNoSearchAuthorization(), access);
+
+    ESSearchDAO dao = dao(v2, false);
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            dao.raw(
+                opContext,
+                "datahub_usage_event_index_template",
+                "{\"query\":{\"match_all\":{}}}"));
+    verify(usage, never()).search(any(), any(), any());
   }
 
   @Test
