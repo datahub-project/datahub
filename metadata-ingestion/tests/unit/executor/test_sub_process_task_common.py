@@ -815,10 +815,16 @@ class TestUnprotectableDisclosedSecrets:
                 SubProcessTaskUtil._resolve_recipe(
                     recipe, execution_ctx=ctx, executor_ctx=executor_ctx
                 )
-            except Exception:
-                # A malformed recipe raises at the JSON parse, which happens
+            except json.JSONDecodeError:
+                # ONE test passes a truncated recipe, and the parse happens
                 # AFTER registration on purpose -- so what was registered by
-                # then is exactly what the caller wants to inspect.
+                # then is exactly what that test inspects.
+                #
+                # Narrowed from `except Exception`, which also swallowed any
+                # unrelated failure. That matters most for the NEGATIVE
+                # assertions here: "the exempted value is not registered" is
+                # satisfied just as well by a resolution that fell over
+                # before registering anything at all.
                 pass
         return set(seen.values())
 

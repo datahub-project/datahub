@@ -266,24 +266,57 @@ def test_the_switch_is_checked_before_anything_connects(monkeypatch):
     )
 
 
+def _only_these(monkeypatch, *specs):
+    """Pin what the connector is said to expose, instead of asking the registry.
+
+    _refuse_withheld_passthrough calls list_probe_methods(source_type) to
+    decide whether to promise "other probe commands still work", and that
+    resolves through the live source registry. Two problems with letting it:
+
+    a minimal environment cannot import the snowflake or mode config, so
+    config_class_for raises ValueError("unknown or unloadable source
+    type...") -- a ValueError, which pytest.raises catches, whose message
+    then fails the regex and blames the caller's source type for a missing
+    extra;
+
+    and the premise "snowflake exposes sql and nothing else" is registry
+    state, so the day snowflake gains a second probe command this test
+    quietly starts exercising the other branch while keeping its name.
+
+    Pinning the list tests the message logic, which is what these are about.
+    """
+    import datahub.ingestion.agent.probe_methods as _pm
+
+    monkeypatch.setattr(_pm, "list_probe_methods", lambda source_type: list(specs))
+
+
 def test_the_refusal_does_not_promise_commands_the_connector_lacks(monkeypatch):
     """Snowflake and BigQuery expose `sql` as their ONLY probe command, so
     "this connector's other probe commands still work" was false exactly
     where the switch matters most."""
     monkeypatch.setenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "true")
     provider = FakeSqlProvider()
+    sql_spec = _spec(provider, "sql")
+    listing_spec = _spec(FakeListingProvider(), "containers")
+
+    # A connector whose only command is the passthrough.
+    _only_these(monkeypatch, sql_spec)
     with pytest.raises(ValueError, match="fully withheld"):
-        _refuse_withheld_passthrough(_spec(provider, "sql"), "snowflake")
-    # And a connector that does have others still says so.
+        _refuse_withheld_passthrough(sql_spec, "snowflake")
+
+    # And one that does have others still says so.
+    _only_these(monkeypatch, sql_spec, listing_spec)
     with pytest.raises(ValueError, match="other probe commands still work"):
-        _refuse_withheld_passthrough(_spec(provider, "sql"), "postgres")
+        _refuse_withheld_passthrough(sql_spec, "postgres")
 
 
 def test_the_switch_covers_api_passthrough_too(monkeypatch):
     monkeypatch.setenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "true")
     provider = FakeApiProvider()
+    api_spec = _spec(provider, "api")
+    _only_these(monkeypatch, api_spec)
     with pytest.raises(ValueError, match="DATAHUB_PROBE_DISABLE_RAW_ACCESS"):
-        _refuse_withheld_passthrough(_spec(provider, "api"), "mode")
+        _refuse_withheld_passthrough(api_spec, "mode")
 
 
 def test_the_switch_leaves_typed_getters_working(monkeypatch):
