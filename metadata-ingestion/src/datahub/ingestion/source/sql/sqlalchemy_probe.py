@@ -38,19 +38,32 @@ def _pinned_containers(config: object, container_kind: str) -> FrozenSet[str]:
     so narrowing to it there would hide every other schema in the very
     database being probed.
 
-    Both the singular and the plural field, because a connector may offer
-    either -- Teradata offers both.
+    Singular first, plural as the fallback -- the precedence ingestion uses,
+    not a union of the two. TeradataSource.get_inspectors is explicit about
+    it:
+
+        if self.config.database and self.config.database != "":
+            databases = [self.config.database]
+        elif self.config.databases:
+            databases = list(self.config.databases)
+        else:
+            databases = <everything>
+
+    So a recipe that sets both -- a connection default plus an ingest list --
+    walks only the singular one, and unioning them reported databases
+    ingestion never opens: the same mismatch this pin exists to close, one
+    size smaller. Teradata is the only connector offering both, and for the
+    ones offering just `database` the two rules agree.
     """
     if str(container_kind) != str(DatasetContainerSubTypes.DATABASE):
         return frozenset()
-    named: set[str] = set()
     single = getattr(config, "database", None)
     if single:
-        named.add(str(single))
+        return frozenset({str(single)})
     several = getattr(config, "databases", None)
     if isinstance(several, (list, tuple, set, frozenset)):
-        named.update(str(one) for one in several if one)
-    return frozenset(named)
+        return frozenset(str(one) for one in several if one)
+    return frozenset()
 
 
 class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):

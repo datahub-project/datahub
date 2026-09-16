@@ -99,37 +99,38 @@ def test_an_absent_or_null_config_still_means_no_config(recipe_config):
     assert "must be a mapping" not in str(result["errors"])
 
 
-def test_scaffold_does_not_overwrite_a_connectors_deny_defaults():
+@pytest.mark.parametrize(
+    ("source_type", "field"),
+    [("snowflake", "database_pattern"), ("kafka", "topic_patterns")],
+)
+def test_scaffold_does_not_overwrite_a_connectors_deny_defaults(source_type, field):
     """It emitted {"allow": [".*"], "deny": []} for every pattern field, which
     is not a helpful default but an override: the scaffolded recipe ingested
     MORE than the same recipe without the line. Snowflake stopped denying
     ^SNOWFLAKE_SAMPLE_DATA$, Kafka stopped denying ^_.* so __consumer_offsets
-    became a dataset. This is the first command an agent runs."""
+    became a dataset. This is the first command an agent runs.
+
+    Parametrized rather than looped, because pytest.skip() RAISES: a guard
+    inside a loop ends the whole test at the first missing extra, so a
+    machine without snowflake never checked kafka either. One case per
+    connector is what makes the guard per-connector.
+    """
+    _require_connector(source_type)
     from datahub.ingestion.agent.probe_methods import config_class_for
     from datahub.ingestion.agent.recipe import scaffold
 
-    for source_type, field in (
-        ("snowflake", "database_pattern"),
-        ("kafka", "topic_patterns"),
-    ):
-        # Inside the loop, not before it: a guard on the first connector
-        # skips the second's assertion when the first extra is missing, and
-        # does nothing at all when the second's is. Each iteration guards
-        # what it is about to touch.
-        _require_connector(source_type)
-        source = scaffold(source_type)["source"]
-        assert isinstance(source, dict)
-        config = source["config"]
-        assert isinstance(config, dict)
-        assert field not in config, (
-            f"{source_type}.{field} in the scaffold overrides the connector's "
-            f"own deny list"
-        )
-        # And the connector's default really does carry denies worth keeping,
-        # so the assertion above is protecting something.
-        model_field = config_class_for(source_type).model_fields[field]
-        default = model_field.get_default(call_default_factory=True)
-        assert default.deny, f"{source_type}.{field} has no deny default"
+    source = scaffold(source_type)["source"]
+    assert isinstance(source, dict)
+    config = source["config"]
+    assert isinstance(config, dict)
+    assert field not in config, (
+        f"{source_type}.{field} in the scaffold overrides the connector's own deny list"
+    )
+    # And the connector's default really does carry denies worth keeping,
+    # so the assertion above is protecting something.
+    model_field = config_class_for(source_type).model_fields[field]
+    default = model_field.get_default(call_default_factory=True)
+    assert default.deny, f"{source_type}.{field} has no deny default"
 
 
 def test_scaffold_still_emits_secrets_and_required_fields():

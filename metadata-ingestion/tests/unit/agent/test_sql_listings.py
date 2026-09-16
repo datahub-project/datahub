@@ -242,6 +242,14 @@ def test_the_pin_reads_both_the_singular_and_the_plural_field():
         _pinned_containers(SimpleNamespace(database=None, databases=None), two_tier)
         == frozenset()
     )
+    # Both set: the singular wins. That is the precedence
+    # TeradataSource.get_inspectors applies -- `[self.config.database]` when
+    # it is set, the plural list only otherwise -- so unioning the two
+    # reported databases ingestion never opens, which is this pin's own bug
+    # one size smaller.
+    assert _pinned_containers(
+        SimpleNamespace(database="one", databases=["a", "b"]), two_tier
+    ) == frozenset({"one"})
     # Three-tier: `database` names the connection's database, not a filter
     # over the schemas `containers` returns, so nothing is pinned there.
     assert (
