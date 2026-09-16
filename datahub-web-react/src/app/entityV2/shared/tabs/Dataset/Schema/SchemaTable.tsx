@@ -21,6 +21,7 @@ import {
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
 import CellSkeleton from '@app/entityV2/shared/tabs/Dataset/Schema/components/CellSkeleton';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
+import MetadataUnavailable from '@app/entityV2/shared/tabs/Dataset/Schema/components/MetadataUnavailable';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
 import useBusinessAttributeRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useBusinessAttributeRenderer';
@@ -168,6 +169,7 @@ type Props = {
     refetch?: () => void;
     visibleColumns?: string[];
     fullMetadataLoading?: boolean;
+    fullMetadataError?: boolean;
 };
 
 const EMPTY_SET: Set<string> = new Set();
@@ -190,6 +192,7 @@ export default function SchemaTable({
     refetch,
     visibleColumns,
     fullMetadataLoading,
+    fullMetadataError,
 }: Props): JSX.Element {
     const { t } = useTranslation('entity.profile.schema');
     const { t: tc } = useTranslation('common.labels');
@@ -242,7 +245,11 @@ export default function SchemaTable({
     const businessAttributesFlag = useBusinessAttributesFlag();
 
     const tableColumnStructuredProps = useGetTableColumnProperties(entityData?.platform?.urn);
-    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps, fullMetadataLoading);
+    const structuredPropColumns = useGetStructuredPropColumns(
+        tableColumnStructuredProps,
+        fullMetadataLoading,
+        fullMetadataError,
+    );
 
     const fieldColumn = useMemo(
         () => ({
@@ -273,12 +280,15 @@ export default function SchemaTable({
     );
 
     // One shared wrapper for every Phase 2 metadata column (description/tags/terms): skeleton
-    // while full metadata loads, real content otherwise. On Phase 2 failure the tab-level
-    // error banner (SchemaTab) signals it and cells fall back to structural content.
+    // while full metadata loads, an explicit "unavailable" marker when the full query failed
+    // (a blank cell would read as "no tags"), real content otherwise.
     const renderMetadataCell = useCallback(
-        (width: number, content: () => React.ReactNode): React.ReactNode =>
-            fullMetadataLoading ? <CellSkeleton $width={width} /> : content(),
-        [fullMetadataLoading],
+        (width: number, content: () => React.ReactNode): React.ReactNode => {
+            if (fullMetadataLoading) return <CellSkeleton $width={width} />;
+            if (fullMetadataError) return <MetadataUnavailable />;
+            return content();
+        },
+        [fullMetadataLoading, fullMetadataError],
     );
 
     const descriptionColumn = useMemo(
@@ -548,6 +558,26 @@ export default function SchemaTable({
         const sortedrows = sortData(displayedRows, sorter);
         setSortedDisplayedRows(sortedrows);
     };
+
+    // sortedDataSource is a snapshot taken when the user last clicked a column header. The
+    // rows are rebuilt when Phase 2 metadata lands (and on any later refetch), so re-sort the
+    // new rows with the active sorter or the sorted view keeps showing the old Phase 1 rows,
+    // with metadata-column ordering computed before there were any tags/descriptions.
+    useEffect(() => {
+        if (!schemaSorter?.order) return;
+        const column = finalColumns.find((col) => col.key === schemaSorter.columnKey);
+        const sorterFunction = typeof column?.sorter === 'function' ? column.sorter : undefined;
+        if (!sorterFunction) return;
+        const sortTree = (data: ExtendedSchemaFields[]): ExtendedSchemaFields[] => {
+            const sorted = data.slice().sort((a, b) => sorterFunction(a, b, schemaSorter.order));
+            if (schemaSorter.order === 'descend') sorted.reverse();
+            return sorted.map((row) => (row.children ? { ...row, children: sortTree(row.children) } : row));
+        };
+        setSortedDataSource(sortTree(dataSource));
+        // Only the row payload and sort state matter here; finalColumns is derived from them plus
+        // stable renderers, and depending on it would re-sort on every render.
+        /* eslint-disable-next-line react-hooks/exhaustive-deps */
+    }, [dataSource, schemaSorter, fullMetadataLoading]);
 
     return (
         <>

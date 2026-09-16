@@ -504,6 +504,7 @@ fragment datasetStructuralSchema on Dataset {
 
 query getDatasetSchemaStructural($urn: String!, $skipSiblingsSearch: Boolean = false) {
     dataset(urn: $urn) {
+        urn
         ...datasetStructuralSchema
         siblings {
             isPrimary

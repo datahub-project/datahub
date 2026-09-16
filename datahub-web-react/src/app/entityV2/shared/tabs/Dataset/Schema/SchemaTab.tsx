@@ -41,9 +41,13 @@ const NoSchema = styled(Empty)`
     padding-top: 60px;
 `;
 
+// Fills whatever height the (flex-column) tab pane leaves after the header and any
+// metadata banners, instead of claiming 100% of the pane and pushing the table's
+// bottom rows out of view whenever a banner is shown.
 const SchemaTableContainer = styled.div`
     position: relative;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     box-sizing: border-box;
     overflow: hidden;
 `;
@@ -106,7 +110,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
         fullMetadataError,
         structuralSchemaError,
         refetch,
-    } = useGetEntityWithSchema();
+    } = useGetEntityWithSchema(undefined, undefined, true);
     // Use full metadata (tags/terms/descriptions) when the full query has resolved.
     // Fall back to structural schema so the table renders immediately on first load.
     let schemaMetadata: any = entityWithSchema?.schemaMetadata || structuralSchemaMetadata || undefined;
@@ -373,6 +377,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                     setOpenTimelineDrawer={setOpenTimelineDrawer}
                                     refetch={refetch}
                                     fullMetadataLoading={fullMetadataLoading}
+                                    fullMetadataError={!!fullMetadataError}
                                 />
                             </SchemaEditableContext.Provider>
                         ) : (

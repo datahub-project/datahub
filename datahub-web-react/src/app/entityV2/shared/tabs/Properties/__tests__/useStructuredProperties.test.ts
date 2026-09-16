@@ -65,11 +65,11 @@ const entityRegistry = new EntityRegistry();
 
 const FIELD_PATH = 'fieldA';
 
-function buildStructuredPropertiesEntry(qualifiedName: string, value: string, propagated = false) {
+function buildStructuredPropertiesEntry(qualifiedName: string, value: string, propagated = false, exists = true) {
     return {
         structuredProperty: {
             urn: `urn:li:structuredProperty:${qualifiedName}`,
-            exists: true,
+            exists,
             definition: {
                 displayName: qualifiedName,
                 qualifiedName,
@@ -116,6 +116,24 @@ describe('useStructuredProperties', () => {
             values: [{ value: 'value1', entity: null }],
             type: { type: 'string', nativeDataType: 'text' },
         });
+    });
+
+    it('drops fieldEntity-derived rows whose property definition no longer exists', () => {
+        const fieldEntity = {
+            structuredProperties: {
+                properties: [
+                    buildStructuredPropertiesEntry('deletedProp', 'orphanValue', false, false),
+                    buildStructuredPropertiesEntry('liveProp', 'value1'),
+                ],
+            },
+        } as any;
+
+        const { result } = renderHook(() =>
+            useStructuredProperties(entityRegistry, FIELD_PATH, undefined, fieldEntity),
+        );
+
+        expect(result.current.structuredPropertyRowsRaw).toHaveLength(1);
+        expect(result.current.structuredPropertyRowsRaw[0]).toMatchObject({ qualifiedName: 'liveProp' });
     });
 
     it('dedupes fieldEntity-derived rows by property urn, preferring direct over propagated', () => {

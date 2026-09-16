@@ -2,7 +2,8 @@
  * Tests the two-phase schema loading hooks against real Apollo queries (MockedProvider),
  * complementing SchemaTab.twophase.test.tsx which mocks the hook away to test the tab:
  * - useGetEntityWithSchema: Phase 1 (structural) resolves first; Phase 2 (full metadata)
- *   fires only after Phase 1 delivers data; structuralOnly suppresses Phase 2 entirely.
+ *   fires only after Phase 1 delivers data for the current urn; structuralOnly suppresses
+ *   Phase 2 entirely; `loading` covers both phases unless the caller opts into structuralFirst.
  * - useGetColumnTabCount: undefined while loading, then the structural field count.
  */
 import { MockedProvider } from '@apollo/client/testing';
@@ -74,6 +75,10 @@ const fullMock = {
     result: { data: fullDataset },
 };
 
+// MockedProvider resolves mocks on the next tick, so without a delay Phase 2 completes before
+// waitFor can observe the Phase 1 window that the sequencing tests assert on.
+const slowFullMock = { ...fullMock, delay: 300 };
+
 const wrapperWith =
     (mocks: any[]) =>
     ({ children }: { children: React.ReactNode }) => (
@@ -84,16 +89,18 @@ const wrapperWith =
 
 describe('useGetEntityWithSchema two-phase sequencing', () => {
     it('resolves the structural phase first, then loads full metadata', async () => {
-        const { result } = renderHook(() => useGetEntityWithSchema(), {
-            wrapper: wrapperWith([structuralMock, fullMock]),
+        const { result } = renderHook(() => useGetEntityWithSchema(undefined, undefined, true), {
+            wrapper: wrapperWith([structuralMock, slowFullMock]),
         });
 
         expect(result.current.loading).toBe(true);
         expect(result.current.structuralSchemaMetadata).toBeNull();
 
-        // Phase 1: structural rows available, full metadata still in flight.
+        // Phase 1: structural rows available, full metadata still in flight. structuralFirst
+        // callers see loading=false here so they can render the rows already.
         await waitFor(() => expect(result.current.structuralSchemaMetadata).not.toBeNull());
         expect(result.current.loading).toBe(false);
+        expect(result.current.fullMetadataLoading).toBe(true);
         expect(result.current.structuralSchemaMetadata?.fields?.map((f) => f.fieldPath)).toEqual([
             'user_id',
             'user_name',
@@ -107,6 +114,37 @@ describe('useGetEntityWithSchema two-phase sequencing', () => {
         );
         expect(result.current.fullMetadataError).toBeUndefined();
         expect(result.current.structuralSchemaError).toBeUndefined();
+    });
+
+    it('default callers stay loading until full metadata has settled', async () => {
+        // Consumers other than SchemaTab read entityWithSchema, which never exposes structural
+        // data, so loading=false with only Phase 1 done would hand them the empty fallback.
+        const { result } = renderHook(() => useGetEntityWithSchema(), {
+            wrapper: wrapperWith([structuralMock, slowFullMock]),
+        });
+
+        await waitFor(() => expect(result.current.structuralSchemaMetadata).not.toBeNull());
+        expect(result.current.loading).toBe(true);
+
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(result.current.entityWithSchema?.schemaMetadata?.fields).toHaveLength(2);
+    });
+
+    it('does not start the full query when the structural result names another dataset', async () => {
+        // Simulates the render where Apollo still reports the previous dataset's result after
+        // the urn changed. No fullMock: firing Phase 2 would surface a missing-mock error.
+        const staleStructuralMock = {
+            request: structuralMock.request,
+            result: { data: { dataset: { ...structuralDataset.dataset, urn: 'urn:li:dataset:other' } } },
+        };
+        const { result } = renderHook(() => useGetEntityWithSchema(), {
+            wrapper: wrapperWith([staleStructuralMock]),
+        });
+
+        await waitFor(() => expect(result.current.structuralSchemaMetadata).not.toBeNull());
+        expect(result.current.fullMetadataLoading).toBe(false);
+        expect(result.current.fullMetadataError).toBeUndefined();
+        expect(result.current.entityWithSchema).toBeNull();
     });
 
     it('structuralOnly never fires the full metadata query', async () => {
