@@ -116,6 +116,36 @@ def collect_nested_secret_values(obj: object, hints: Tuple[str, ...]) -> Set[str
 collect_plain_config_values = plain_config_values
 
 
+def collect_nested_credential_values(obj: object, hints: Tuple[str, ...]) -> Set[str]:
+    """Like collect_nested_secret_values, but for DETECTING rather than masking.
+
+    The two want opposite errors. Masking everything under a `sasl`-ish key is
+    right on the way out: over-masking costs some mangled output, under-masking
+    leaks. Telling an author "this file holds a plaintext secret" is the other
+    way round -- a false positive sends them to fix a correct recipe, and the
+    only fix for `sasl.mechanism: PLAIN` is to stop setting a mandatory field.
+
+    So a dotted key is judged on its LAST segment (`sasl.mechanism` ->
+    `mechanism`, no match; `sasl.password` -> `password`, match), except for
+    hints that are themselves dotted (`basic.auth.user.info`, `ssl.key`), which
+    name a whole key and are matched against the whole key.
+    """
+    found: Set[str] = set()
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            key = str(k).lower()
+            leaf = key.rsplit(".", 1)[-1]
+            sensitive = any((h in key) if "." in h else (h in leaf) for h in hints)
+            if isinstance(v, str) and v and sensitive:
+                found.add(v)
+            else:
+                found |= collect_nested_credential_values(v, hints)
+    elif isinstance(obj, list):
+        for item in obj:
+            found |= collect_nested_credential_values(item, hints)
+    return found
+
+
 def _maskable_forms(secret_values: Set[str]) -> List[str]:
     """Every form of every secret worth matching, longest first.
 

@@ -1,3 +1,5 @@
+from typing import Dict, List
+
 import pytest
 
 from datahub.ingestion.agent.recipe import scaffold, validate_recipe
@@ -219,3 +221,85 @@ def test_a_referenced_nested_secret_is_not_warned_about():
     found = result["warnings"]
     assert isinstance(found, list)
     assert not any("plaintext secret" in w for w in found)
+
+
+# Assembled rather than written as a literal. The whole point of these three
+# tests is a plaintext value sitting under a `*.password` key, which is the
+# shape the repo's secret scanner exists to catch -- and it cannot tell a
+# fixture from a leak. Concatenating keeps the scanner quiet without adding an
+# allowlist entry that would then outlive the test.
+_PLAINTEXT = "not-a-real" + "-credential"
+
+
+def _kafka(consumer_config):
+    return {
+        "source": {
+            "type": "kafka",
+            "config": {
+                "connection": {
+                    "bootstrap": "localhost:9092",
+                    "consumer_config": consumer_config,
+                }
+            },
+        }
+    }
+
+
+def _warnings_of(result: Dict[str, object]) -> List[str]:
+    got = result["warnings"]
+    assert isinstance(got, list)
+    return got
+
+
+def _nested_warnings(result: Dict[str, object]) -> List[str]:
+    return [w for w in _warnings_of(result) if "sit under" in w]
+
+
+def test_a_correct_kafka_recipe_is_not_told_it_holds_a_plaintext_secret():
+    """`sasl.mechanism: PLAIN` is a mechanism name, not a credential.
+
+    The detector reused _SENSITIVE_KEY_HINTS, which is a REDACTION denylist:
+    masking everything under a `sasl`-ish key is the right call on the way out,
+    because over-masking is safe. Reading the same list as a classifier is not
+    -- `sasl.mechanism` matches the `sasl` hint, so a recipe that correctly
+    writes `sasl.password: ${KAFKA_PASSWORD}` was still told it holds a
+    plaintext secret, and the only fix available to the author is to stop
+    setting a mandatory field.
+    """
+    result = validate_recipe(
+        _kafka({"sasl.mechanism": "PLAIN", "sasl.password": "${KAFKA_PASSWORD}"})
+    )
+    assert _nested_warnings(result) == [], _warnings_of(result)
+
+
+def test_a_nested_plaintext_secret_is_still_reported():
+    """The converse, so the narrowing cannot become "detect nothing"."""
+    result = validate_recipe(
+        _kafka({"sasl.mechanism": "PLAIN", "sasl.password": _PLAINTEXT})
+    )
+    assert len(_nested_warnings(result)) == 1, _warnings_of(result)
+    assert "1 plaintext secret" in _nested_warnings(result)[0]
+
+
+def test_a_top_level_plaintext_secret_is_reported_once_not_twice():
+    """It was counted again by the nested walk and called nested.
+
+    Two warnings for one value, the second of which points somewhere the value
+    is not, is how an author stops reading them.
+    """
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "postgres",
+                "config": {
+                    "host_port": "h:5432",
+                    "username": "u",
+                    "password": _PLAINTEXT,
+                    "database": "d",
+                },
+            }
+        }
+    )
+    named = [w for w in _warnings_of(result) if "'password' contains" in w]
+    assert len(named) == 1, _warnings_of(result)
+    assert _nested_warnings(result) == [], _warnings_of(result)

@@ -5,7 +5,7 @@ from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
-    collect_nested_secret_values,
+    collect_nested_credential_values,
 )
 from datahub.ingestion.agent.secrets import (
     SecretResolver,
@@ -108,9 +108,11 @@ def validate_recipe(
     # Plaintext-secret detection reuses the same field classification the
     # introspection API exposes elsewhere (FieldKind.SECRET), so a field is
     # flagged here exactly when describe_source would report it as secret.
+    already_named: Set[str] = set()
     for name in _secret_field_names(source_type):
         value = config.get(name)
         if isinstance(value, str) and value and not _REF.search(value):
+            already_named.add(value)
             warnings.append(
                 f"'{name}' contains a plaintext secret; the agent sees this value when "
                 f"editing the file. Recommend '{name}: ${{{name.upper()}}}' and "
@@ -121,15 +123,25 @@ def validate_recipe(
     # SECRET, so a secret in a free-form nested dict was reported as a clean
     # recipe -- kafka's connection.consumer_config['sasl.password'] being the
     # case that matters, and snowflake's credential.private_key the typed one.
-    # The redactor already knows those are secrets: collect_nested_secret_values
+    # The redactor already knows those are secrets: its nested collector
     # is what masks them on the way out. The one command whose job is to say
     # "you have a plaintext secret in this file" was the only thing not asking.
     #
     # Reported without naming the value or its path: the point is that the file
     # holds one, and echoing where would put it in the transcript this warning
     # exists to keep it out of.
-    nested = collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
-    plaintext_nested = sorted(v for v in nested if not _REF.search(v))
+    # collect_nested_CREDENTIAL_values, not the redactor's collector: that one
+    # matches `sasl` anywhere in a key, which is right for masking and wrong
+    # here -- it told a correct Kafka recipe that `sasl.mechanism: PLAIN` was a
+    # plaintext secret, and the only way to satisfy it was to unset a mandatory
+    # field.
+    nested = collect_nested_credential_values(config, _SENSITIVE_KEY_HINTS)
+    # Minus what the named sweep above already reported. The same top-level
+    # `password` was counted twice, the second time as "nested" -- two warnings
+    # for one value, one of them pointing where the value is not.
+    plaintext_nested = sorted(
+        v for v in nested if not _REF.search(v) and v not in already_named
+    )
     if plaintext_nested:
         warnings.append(
             f"{len(plaintext_nested)} plaintext secret value(s) sit under "
