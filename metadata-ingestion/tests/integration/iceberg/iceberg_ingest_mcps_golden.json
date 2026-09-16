@@ -214,6 +214,7 @@
                     "nativeDataType": "timestamptz",
                     "recursive": false,
                     "isPartOfKey": false,
+                    "isPartitioningKey": true,
                     "jsonProps": "{\"logicalType\": \"timestamp-micros\"}"
                 },
                 {
