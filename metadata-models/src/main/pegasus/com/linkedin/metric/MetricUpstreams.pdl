@@ -9,16 +9,16 @@ import com.linkedin.common.Edge
  * Point `datasetUpstreams` and `fieldUpstreams` at the metric's direct
  * upstreams. For a semantic-model-backed metric those are Semantic Model
  * Dataset URNs and their schemaFields. For a standalone metric they are
- * physical dataset and schemaField URNs. Do not copy the SMD-to-physical
- * column mapping here; that lives on the SMD's
- * `upstreamLineage.fineGrainedLineages`.
+ * physical dataset and schemaField URNs. Do not copy the Semantic Model
+ * Dataset-to-physical column mapping here; that lives on the Semantic Model
+ * Dataset's `upstreamLineage.fineGrainedLineages`.
  *
  * If `fieldUpstreams` is non-empty, every destination's SchemaFieldUrn parent
  * must also appear in `datasetUpstreams`. Dataset-only writes (absent or empty
  * `fieldUpstreams`) are valid. Column writes without those parents are not.
  * MetricUpstreamsValidator enforces this.
  *
- * LineageRegistry.getSchemaFieldRelationships lists Consumes incoming from metric 
+ * LineageRegistry.getSchemaFieldRelationships lists Consumes incoming from metric
  * so a schema-field downstream walk finds the metric.
  *
  * Always write `fieldUpstreams`. Use an empty array when there are no columns
