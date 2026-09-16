@@ -22,6 +22,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjects;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -60,7 +61,35 @@ public final class EntityAspectAuthorizationUtils {
               new ConjunctivePrivilegeGroup(
                   ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE.getType()))));
 
+  private static final DisjunctivePrivilegeGroup MANAGE_ASSET_SUMMARY_PRIVILEGES =
+      new DisjunctivePrivilegeGroup(
+          ImmutableList.of(
+              ALL_ENTITY_PRIVILEGES,
+              new ConjunctivePrivilegeGroup(
+                  ImmutableList.of(PoliciesConfig.MANAGE_ASSET_SUMMARY_PRIVILEGE.getType()))));
+
   private EntityAspectAuthorizationUtils() {}
+
+  /**
+   * Returns true when the actor may write the {@code assetSettings} aspect of {@code assetUrn}.
+   * Requires {@code EDIT_ENTITY} or {@code MANAGE_ASSET_SUMMARY} on the asset itself.
+   */
+  public static boolean isAuthorizedToEditAssetSettings(
+      @Nonnull AuthorizationSession session, @Nonnull Urn assetUrn) {
+    EntitySpec assetSpec = new EntitySpec(assetUrn.getEntityType(), assetUrn.toString());
+    return com.datahub.authorization.AuthUtil.isAuthorized(
+        session, MANAGE_ASSET_SUMMARY_PRIVILEGES, assetSpec);
+  }
+
+  /**
+   * Returns true when the actor may change which forms are assigned to assets, i.e. holds the
+   * platform-level {@code MANAGE_DOCUMENTATION_FORMS} privilege. Matches the GraphQL {@code
+   * canManageForms} check used by the form CRUD mutations.
+   */
+  public static boolean isAuthorizedToManageForms(@Nonnull AuthorizationSession session) {
+    return com.datahub.authorization.AuthUtil.isAuthorized(
+        session, PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
+  }
 
   /**
    * Authorization candidates for a {@code logicalParent} write on {@code urn}, ordered for
@@ -208,12 +237,37 @@ public final class EntityAspectAuthorizationUtils {
         proposedProductDomainsAspects);
   }
 
+  /**
+   * Like {@link #filterUnauthorizedToManageDataProductMembership(OperationFingerprint,
+   * AuthorizationSession, AspectRetriever, Map, Map)} but uses caller-supplied persisted {@code
+   * domains} aspects (avoids a redundant read when membership and rename checks share one fetch).
+   */
+  @Nonnull
+  public static Set<Urn> filterUnauthorizedToManageDataProductMembership(
+      @Nonnull AuthorizationSession session,
+      @Nonnull Map<Urn, Set<Urn>> changedAssetsByProduct,
+      @Nonnull Map<Urn, Map<String, Aspect>> persistedProductDomainsAspects,
+      @Nonnull Map<Urn, Aspect> proposedProductDomainsAspects) {
+    if (changedAssetsByProduct.isEmpty()) {
+      return Set.of();
+    }
+
+    Map<Urn, Boolean> assetAuthCache = new HashMap<>();
+    return filterUnauthorizedToManageDataProductMembership(
+        session,
+        changedAssetsByProduct,
+        persistedProductDomainsAspects,
+        proposedProductDomainsAspects,
+        assetAuthCache);
+  }
+
   @Nonnull
   private static Set<Urn> filterUnauthorizedToManageDataProductMembership(
       @Nonnull AuthorizationSession session,
       @Nonnull Map<Urn, Set<Urn>> changedAssetsByProduct,
       @Nonnull Map<Urn, Map<String, Aspect>> persistedProductDomainsAspects,
-      @Nonnull Map<Urn, Aspect> proposedProductDomainsAspects) {
+      @Nonnull Map<Urn, Aspect> proposedProductDomainsAspects,
+      @Nonnull Map<Urn, Boolean> assetAuthCache) {
     Set<Urn> unauthorized = new HashSet<>();
     for (Map.Entry<Urn, Set<Urn>> entry : changedAssetsByProduct.entrySet()) {
       Urn dataProductUrn = entry.getKey();
@@ -228,7 +282,8 @@ public final class EntityAspectAuthorizationUtils {
       }
       Set<Urn> productDomainUrns = resolveUniqueDomainUrns(productDomainsAspect);
 
-      if (!isAuthorizedToChangeDataProductMembership(session, productDomainUrns, changedAssets)) {
+      if (!isAuthorizedToChangeDataProductMembership(
+          session, productDomainUrns, changedAssets, assetAuthCache)) {
         unauthorized.add(dataProductUrn);
       }
     }
@@ -271,6 +326,27 @@ public final class EntityAspectAuthorizationUtils {
             new HashSet<>(dataProductUrnsWithNameChange),
             Set.of(DOMAINS_ASPECT_NAME));
 
+    return filterUnauthorizedToRenameDataProduct(
+        session,
+        dataProductUrnsWithNameChange,
+        persistedProductDomainsAspects,
+        proposedProductDomainsAspects);
+  }
+
+  /**
+   * Like {@link #filterUnauthorizedToRenameDataProduct(OperationFingerprint, AuthorizationSession,
+   * AspectRetriever, Set, Map)} but uses caller-supplied persisted {@code domains} aspects.
+   */
+  @Nonnull
+  public static Set<Urn> filterUnauthorizedToRenameDataProduct(
+      @Nonnull AuthorizationSession session,
+      @Nonnull Set<Urn> dataProductUrnsWithNameChange,
+      @Nonnull Map<Urn, Map<String, Aspect>> persistedProductDomainsAspects,
+      @Nonnull Map<Urn, Aspect> proposedProductDomainsAspects) {
+    if (dataProductUrnsWithNameChange.isEmpty()) {
+      return Set.of();
+    }
+
     Set<Urn> unauthorized = new HashSet<>();
     for (Urn dataProductUrn : dataProductUrnsWithNameChange) {
       Aspect productDomainsAspect = proposedProductDomainsAspects.get(dataProductUrn);
@@ -307,19 +383,29 @@ public final class EntityAspectAuthorizationUtils {
       @Nonnull AuthorizationSession session,
       @Nonnull Set<Urn> productDomainUrns,
       @Nonnull Set<Urn> changedAssetUrns) {
+    return isAuthorizedToChangeDataProductMembership(
+        session, productDomainUrns, changedAssetUrns, new HashMap<>());
+  }
+
+  static boolean isAuthorizedToChangeDataProductMembership(
+      @Nonnull AuthorizationSession session,
+      @Nonnull Set<Urn> productDomainUrns,
+      @Nonnull Set<Urn> changedAssetUrns,
+      @Nonnull Map<Urn, Boolean> assetAuthCache) {
     if (changedAssetUrns.isEmpty()) {
       return false;
     }
 
-    boolean productSide =
-        !productDomainUrns.isEmpty()
-            && isAuthorizedToManageDataProductsOnAnyDomain(session, productDomainUrns);
+    if (!productDomainUrns.isEmpty()
+        && isAuthorizedToManageDataProductsOnAnyDomain(session, productDomainUrns)) {
+      return true;
+    }
 
-    boolean assetSide =
-        changedAssetUrns.stream()
-            .allMatch(asset -> isAuthorizedToEditDataProductMembershipOnAsset(session, asset));
-
-    return productSide || assetSide;
+    return changedAssetUrns.stream()
+        .allMatch(
+            asset ->
+                assetAuthCache.computeIfAbsent(
+                    asset, key -> isAuthorizedToEditDataProductMembershipOnAsset(session, key)));
   }
 
   /**

@@ -505,7 +505,7 @@ datahub init --username alice --password secret --token-duration ONE_WEEK
 
 #### DataHub Cloud Example
 
-For DataHub Cloud (Acryl-hosted) instances, you can use an existing token:
+For DataHub Cloud instances, you can use an existing token:
 
 ```shell
 # Interactive
@@ -882,7 +882,7 @@ An example of `group.yaml` would look like as in [foo.group.dhub.yaml](https://g
 ```yaml
 id: foogroup@acryl.io
 display_name: Foo Group
-admins:
+owners:
   - datahub
 members:
   - bar@acryl.io # refer to a user either by id or by urn

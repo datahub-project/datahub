@@ -4,7 +4,13 @@ import time
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.knowledge.document_helpers import execute_graphql, unique_id
+from tests.knowledge.document_helpers import (
+    create_unique_dataset,
+    delete_unique_dataset,
+    execute_graphql,
+    fetch_related_documents,
+    unique_id,
+)
 from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
@@ -407,171 +413,105 @@ class TestDocumentHierarchyAndSettings:
         )
         execute_graphql(auth_session, delete_mutation, {"urn": unpublished_urn})
 
-    def test_context_documents_for_dataset(self, auth_session):
+    def test_context_documents_for_dataset(self, auth_session, graph_client):
         """
         Test fetching context documents for a dataset entity.
         1. Create a document.
-        2. Get or use an existing dataset (using bootstrap sample data).
+        2. Create a run-unique dataset (not SampleKafkaDataset, which other
+           modules also mutate under xdist).
         3. Update the document to relate to the dataset.
         4. Query the dataset's relatedDocuments field to verify it returns the document.
         5. Clean up.
         """
         document_id = unique_id("smoke-doc-context")
+        dataset_urn = create_unique_dataset(graph_client, document_id)
+        document_urn = None
 
-        # Create a document
-        create_mutation = """
-            mutation CreateDoc($input: CreateDocumentInput!) {
-              createDocument(input: $input)
-            }
-        """
-        variables = {
-            "input": {
-                "id": document_id,
-                "subType": "guide",
-                "title": f"Context Test {document_id}",
-                "contents": {"text": "Document related to dataset"},
-            }
-        }
-        create_res = execute_graphql(auth_session, create_mutation, variables)
-        document_urn = create_res["data"]["createDocument"]
-
-        # Use bootstrap sample dataset (commonly available in test environments)
-        # If this doesn't exist, the test will fail gracefully
-        dataset_urn = (
-            "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"
-        )
-
-        # Verify dataset exists first
-        dataset_query = """
-            query GetDataset($urn: String!) {
-              dataset(urn: $urn) {
-                urn
-                name
-              }
-            }
-        """
-        dataset_res = execute_graphql(auth_session, dataset_query, {"urn": dataset_urn})
-
-        # If dataset doesn't exist, skip the test
-        if "errors" in dataset_res or not dataset_res.get("data", {}).get("dataset"):
-            # Cleanup document and skip
-            delete_mutation = """
-                mutation DeleteDoc($urn: String!) { deleteDocument(urn: $urn) }
+        try:
+            create_mutation = """
+                mutation CreateDoc($input: CreateDocumentInput!) {
+                  createDocument(input: $input)
+                }
             """
-            execute_graphql(auth_session, delete_mutation, {"urn": document_urn})
-            pytest.skip(f"Dataset {dataset_urn} not available for testing")
-            return
-
-        # Update document to relate to the dataset
-        update_mutation = """
-            mutation UpdateRelated($input: UpdateDocumentRelatedEntitiesInput!) {
-              updateDocumentRelatedEntities(input: $input)
+            variables = {
+                "input": {
+                    "id": document_id,
+                    "subType": "guide",
+                    "title": f"Context Test {document_id}",
+                    "contents": {"text": "Document related to dataset"},
+                }
             }
-        """
-        update_vars = {
-            "input": {
-                "urn": document_urn,
-                "relatedAssets": [dataset_urn],
+            create_res = execute_graphql(auth_session, create_mutation, variables)
+            document_urn = create_res["data"]["createDocument"]
+
+            update_mutation = """
+                mutation UpdateRelated($input: UpdateDocumentRelatedEntitiesInput!) {
+                  updateDocumentRelatedEntities(input: $input)
+                }
+            """
+            update_vars = {
+                "input": {
+                    "urn": document_urn,
+                    "relatedAssets": [dataset_urn],
+                }
             }
-        }
-        update_res = execute_graphql(auth_session, update_mutation, update_vars)
-        assert update_res["data"]["updateDocumentRelatedEntities"] is True
+            update_res = execute_graphql(auth_session, update_mutation, update_vars)
+            assert update_res["data"]["updateDocumentRelatedEntities"] is True
 
-        wait_for_writes_to_sync(mae_only=True)
+            wait_for_writes_to_sync(mae_only=True)
 
-        # Wait for search indexing
-        time.sleep(5)
+            context_docs = fetch_related_documents(
+                auth_session, dataset_urn, document_urn
+            )
+            assert context_docs["total"] >= 1, (
+                f"Expected at least 1 context document, got {context_docs['total']}"
+            )
 
-        # Query relatedDocuments on the dataset entity
-        context_query = """
-            query GetRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
-              dataset(urn: $urn) {
-                urn
-                relatedDocuments(input: $input) {
-                  start
-                  count
-                  total
-                  documents {
+            our_doc = next(
+                (
+                    doc
+                    for doc in context_docs["documents"]
+                    if doc["urn"] == document_urn
+                ),
+                None,
+            )
+            assert our_doc is not None
+            assert our_doc["info"]["title"] == f"Context Test {document_id}"
+
+            context_query_filtered = """
+                query GetRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
+                  dataset(urn: $urn) {
                     urn
-                    info {
-                      title
+                    relatedDocuments(input: $input) {
+                      start
+                      count
+                      total
+                      documents {
+                        urn
+                      }
                     }
                   }
                 }
-              }
+            """
+            context_vars_filtered = {
+                "urn": dataset_urn,
+                "input": {
+                    "start": 0,
+                    "count": 100,
+                    "rootOnly": True,
+                },
             }
-        """
-        context_vars = {
-            "urn": dataset_urn,
-            "input": {
-                "start": 0,
-                "count": 100,
-            },
-        }
-        context_res = execute_graphql(auth_session, context_query, context_vars)
-
-        # Verify no errors
-        assert "errors" not in context_res, (
-            f"GraphQL errors: {context_res.get('errors')}"
-        )
-
-        # Verify relatedDocuments result
-        context_docs = context_res["data"]["dataset"]["relatedDocuments"]
-        assert context_docs is not None
-        assert context_docs["total"] >= 1, (
-            f"Expected at least 1 context document, got {context_docs['total']}"
-        )
-
-        # Verify our document is in the results
-        document_urns = [doc["urn"] for doc in context_docs["documents"]]
-        assert document_urn in document_urns, (
-            f"Expected document {document_urn} to be in context documents, "
-            f"but got: {document_urns}"
-        )
-
-        # Verify the document has the expected title
-        our_doc = next(
-            (doc for doc in context_docs["documents"] if doc["urn"] == document_urn),
-            None,
-        )
-        assert our_doc is not None
-        assert our_doc["info"]["title"] == f"Context Test {document_id}"
-
-        # Test with filters - query with rootOnly filter
-        context_query_filtered = """
-            query GetRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
-              dataset(urn: $urn) {
-                urn
-                relatedDocuments(input: $input) {
-                  start
-                  count
-                  total
-                  documents {
-                    urn
-                  }
-                }
-              }
-            }
-        """
-        context_vars_filtered = {
-            "urn": dataset_urn,
-            "input": {
-                "start": 0,
-                "count": 100,
-                "rootOnly": True,
-            },
-        }
-        context_res_filtered = execute_graphql(
-            auth_session, context_query_filtered, context_vars_filtered
-        )
-        assert "errors" not in context_res_filtered
-        # Our document should still be there (it's root-level)
-        filtered_docs = context_res_filtered["data"]["dataset"]["relatedDocuments"]
-        filtered_urns = [doc["urn"] for doc in filtered_docs["documents"]]
-        assert document_urn in filtered_urns
-
-        # Cleanup
-        delete_mutation = """
-            mutation DeleteDoc($urn: String!) { deleteDocument(urn: $urn) }
-        """
-        execute_graphql(auth_session, delete_mutation, {"urn": document_urn})
+            context_res_filtered = execute_graphql(
+                auth_session, context_query_filtered, context_vars_filtered
+            )
+            assert "errors" not in context_res_filtered
+            filtered_docs = context_res_filtered["data"]["dataset"]["relatedDocuments"]
+            filtered_urns = [doc["urn"] for doc in filtered_docs["documents"]]
+            assert document_urn in filtered_urns
+        finally:
+            if document_urn is not None:
+                delete_mutation = """
+                    mutation DeleteDoc($urn: String!) { deleteDocument(urn: $urn) }
+                """
+                execute_graphql(auth_session, delete_mutation, {"urn": document_urn})
+            delete_unique_dataset(graph_client, dataset_urn)

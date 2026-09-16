@@ -39,6 +39,9 @@ public class FeatureFlags {
   private boolean themeV2Enabled = false;
   private boolean themeV2Default = false;
   private boolean themeV2Toggleable = false;
+  // Gates the user-facing light/dark mode toggle and applying the dark color theme.
+  // Default OFF until dark mode is ready to ship. Preference is still stored locally when enabled.
+  private boolean themeDarkModeEnabled = false;
   private boolean showSeparateSiblings = false;
   private boolean alternateMCPValidation = false;
   private boolean showManageStructuredProperties = false;
@@ -89,4 +92,12 @@ public class FeatureFlags {
   private boolean browserWebVitalsEnabled = false;
   private boolean datasetStatsSummaryBatchLoadEnabled = true;
   private boolean entityHealthBatchLoadEnabled = true;
+  private boolean siblingsSearchBatchLoadEnabled = true;
+  private boolean entityExistsBatchLoadEnabled = true;
+  private boolean parentContainersBatchLoadEnabled = true;
+  private boolean parentNodesBatchLoadEnabled = true;
+  // Kill switch for schema-driven GraphQL aspect optimization. When true, entity hydration fetches
+  // only the aspects required by the selected fields. When false, every loader falls back to
+  // fetching its full default aspect set (legacy behavior). Default ON.
+  private boolean graphQLAspectOptimizationEnabled = true;
 }

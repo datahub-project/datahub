@@ -5,7 +5,7 @@ import logging
 import os
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import pytest
 import requests
@@ -233,6 +233,34 @@ def pytest_configure(config: pytest.Config) -> None:
         raise pytest.UsageError(str(exc)) from exc
 
 
+# Test modules this PR touches, from CI. Read once: the environment is fixed for
+# the life of the process.
+_CHANGED_TESTS: List[str] = env_vars.get_smoke_changed_tests()
+_CHANGED_MATCHED: Set[str] = set()
+
+
+def pytest_itemcollected(item: Item) -> None:
+    """Mark tests from modules this PR touches as p0.
+
+    Runs per item during collection, before any ``pytest_collection_modifyitems``
+    hook, so pytest's own ``-m`` deselection then keeps them. This is the
+    marker-injection pattern from pytest's docs, and it is what lets a PR's own
+    new or edited tests run under ``-m p0`` without a second selection mechanism.
+
+    ``_CHANGED_TESTS`` holds repo-relative paths while ``item.fspath`` is
+    absolute, so match by suffix -- the same approach the FILTERED_TESTS retry
+    path uses.
+    """
+    if not _CHANGED_TESTS:
+        return
+    module_path = str(item.fspath)
+    for path in _CHANGED_TESTS:
+        if module_path.endswith(path):
+            _CHANGED_MATCHED.add(path)
+            item.add_marker(pytest.mark.p0)
+            break
+
+
 def _apply_domain_filter(config: pytest.Config, items: List[Item]) -> None:
     """Deselect tests outside the domains requested with --domain."""
     requested = parse_requested_domains(config.getoption("--domain"))
@@ -437,11 +465,25 @@ def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
     logger.warning("Unknown SMOKE_POLICY_PHASE=%r; running all collected tests", phase)
 
 
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: List[Item]
 ) -> None:
     # Runs before every early return below, and before the weight-based batching,
     # so batches are packed from the selected tests only.
+    if _CHANGED_TESTS:
+        unmatched = [p for p in _CHANGED_TESTS if p not in _CHANGED_MATCHED]
+        if unmatched:
+            # Deleted test files land here harmlessly, but so would a change in
+            # the path format CI emits -- which would silently stop a PR's own
+            # tests being marked p0, the exact failure this injection prevents.
+            logger.warning(
+                "SMOKE_CHANGED_TESTS: %s of %s path(s) matched no collected module: %s",
+                len(unmatched),
+                len(_CHANGED_TESTS),
+                ", ".join(sorted(unmatched)[:5]),
+            )
+
     _apply_domain_filter(config, items)
 
     # Check if FILTERED_TESTS is set (for retry logic)

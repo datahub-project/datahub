@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
@@ -72,6 +73,7 @@ import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.ReindexRequest;
 import org.opensearch.index.reindex.UpdateByQueryRequest;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 /**
  * Shim interface that abstracts different Elasticsearch/OpenSearch client implementations. This
@@ -86,6 +88,7 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
     ELASTICSEARCH_8("elasticsearch", "8"),
     ELASTICSEARCH_9("elasticsearch", "9"),
     OPENSEARCH_2("opensearch", "2"),
+    OPENSEARCH_3("opensearch", "3"),
     UNKNOWN("unsupported", "none");
 
     private final String engine;
@@ -122,9 +125,12 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
       return this == ELASTICSEARCH_8 || this == ELASTICSEARCH_9;
     }
 
-    /** Determine if this engine type requires OpenSearch specific client */
+    /**
+     * Determine if this engine type is served by the unified OpenSearch shim (low-level RestClient
+     * transport; the REST high-level client is retained only as a type library).
+     */
     public boolean requiresOpenSearchClient() {
-      return false; // OpenSearch 3.x support not yet implemented
+      return this == OPENSEARCH_2 || this == OPENSEARCH_3;
     }
   }
 
@@ -155,6 +161,12 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
     Integer getSocketTimeout();
 
     SSLContext getSSLContext();
+
+    /** Shared AWS credentials for IAM request signing (OpenSearch). Null uses no IAM auth. */
+    @Nullable
+    default AwsCredentialsProvider getAwsCredentialsProvider() {
+      return null;
+    }
 
     /** Whether the engine type was auto-detected rather than explicitly configured. */
     default boolean isEngineTypeAutoDetected() {

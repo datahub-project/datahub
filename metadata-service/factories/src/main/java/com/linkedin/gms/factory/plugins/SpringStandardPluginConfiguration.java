@@ -21,6 +21,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
+import com.linkedin.metadata.aspect.validation.AssetSettingsAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
@@ -28,11 +29,13 @@ import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizatio
 import com.linkedin.metadata.aspect.validation.DomainWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
+import com.linkedin.metadata.aspect.validation.FormAssignmentAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentFieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentPlatformValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
+import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.TagPrivilegeConstraintsValidator;
@@ -42,6 +45,7 @@ import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
+import com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffect;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.entity.AspectSizePayloadValidator;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
@@ -53,6 +57,7 @@ import com.linkedin.metadata.ingestion.IngestionMetricsEmitter;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
 import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
@@ -66,6 +71,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -258,6 +264,44 @@ public class SpringStandardPluginConfiguration {
     return new DataProductUnsetSideEffect().setConfig(config);
   }
 
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.dataProductAssets.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public MCPSideEffect dataProductAssetsSideEffect(
+      @Value("${metadataChangeProposal.sideEffects.dataProductAssets.maxFanoutPerCommit:500}")
+          final int maxFanoutPerCommit) {
+    // Mirrors Data Product membership onto each member asset's dataProducts aspect so assets are
+    // filterable/facetable by Data Product in search. Enabled regardless of the
+    // multipleDataProductsPerAsset flag. Uses post-commit MCL before/after to emit patches.
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(DataProductAssetsSideEffect.class.getName())
+            .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE", "DELETE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATA_PRODUCT_ENTITY_NAME)
+                        .aspectName(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+                        .build(),
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATA_PRODUCT_ENTITY_NAME)
+                        .aspectName(Constants.DATA_PRODUCT_KEY_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    log.info(
+        "Initialized {} with maxFanoutPerCommit={}",
+        DataProductAssetsSideEffect.class.getName(),
+        maxFanoutPerCommit);
+    return new DataProductAssetsSideEffect()
+        .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
+        .setConfig(config);
+  }
+
+  // Returns null when MeterRegistry/ObjectMapper unavailable
   @Bean
   @ConditionalOnProperty(name = "ingestionMetrics.enabled", havingValue = "true")
   public MCPObserver ingestionMetricsEmitter(
@@ -534,6 +578,57 @@ public class SpringStandardPluginConfiguration {
                 .build());
   }
 
+  /**
+   * Aspect-level privilege floor on role, group membership, and group ownership writes. API
+   * authorization keys on entity type alone, so without this an entity-level edit privilege is
+   * enough to write a role grant on any user or group.
+   */
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.privilegeGrant.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator privilegeGrantAuthorizationValidator() {
+    return new PrivilegeGrantAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(PrivilegeGrantAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
+                // Entity names and aspect names are matched in two independent passes, so these
+                // entries select the cartesian product rather than the listed pairs. That is fine
+                // and intended here: the extra combinations are aspects the entity does not carry
+                // (no ownership on corpuser, no group membership on corpGroup), so they are
+                // unreachable, and should one ever become reachable, guarding it is what we want.
+                // Do not narrow this to exact pairs - it would only shrink a security control.
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(ROLE_MEMBERSHIP_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_GROUP_ENTITY_NAME)
+                            .aspectName(ROLE_MEMBERSHIP_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(GROUP_MEMBERSHIP_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)
+                            .build(),
+                        // corpGroup only: the Asset Owners policy grants EDIT_ENTITY and
+                        // EDIT_GROUP_MEMBERS on owned resources, and corpGroup is the only
+                        // privilege-bearing entity with an ownership aspect.
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_GROUP_ENTITY_NAME)
+                            .aspectName(OWNERSHIP_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
   @Bean
   @ConditionalOnProperty(
       name = "metadataChangeProposal.validation.privilegeConstraints.enabled",
@@ -603,6 +698,54 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(LOGICAL_PARENT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.assetSettings.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator assetSettingsAuthorizationValidator() {
+    return new AssetSettingsAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(AssetSettingsAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(ASSET_SETTINGS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.formAssignment.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator formAssignmentAuthorizationValidator() {
+    return new FormAssignmentAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(FormAssignmentAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(FORMS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(FORM_ENTITY_NAME)
+                            .aspectName(DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME)
                             .build()))
                 .build());
   }
@@ -816,15 +959,19 @@ public class SpringStandardPluginConfiguration {
   public AspectPayloadValidator structuredPropertiesValidator(
       @Nonnull ConfigurationProvider configurationProvider) {
     StructuredPropertiesConfiguration structuredPropertiesConfiguration =
-        configurationProvider.getStructuredProperties();
+        Objects.requireNonNull(
+            configurationProvider.getStructuredProperties(),
+            "structuredProperties configuration is required");
+    int keywordMaxLength = structuredPropertiesConfiguration.getKeywordMaxLength();
+    if (keywordMaxLength <= 0) {
+      keywordMaxLength = ESUtils.KEYWORD_MAXLENGTH;
+    }
     return new StructuredPropertiesValidator()
         .setDropMissingPropertyValuesWithWarning(
-            structuredPropertiesConfiguration != null
-                && structuredPropertiesConfiguration.isDropMissingPropertyValuesWithWarning())
-        .setKeywordMaxLength(
-            structuredPropertiesConfiguration != null
-                ? structuredPropertiesConfiguration.getKeywordMaxLength()
-                : 0)
+            structuredPropertiesConfiguration.isDropMissingPropertyValuesWithWarning())
+        .setKeywordMaxLength(keywordMaxLength)
+        .setDropOversizedKeywordValuesFromIndex(
+            structuredPropertiesConfiguration.isDropOversizedKeywordValuesFromIndex())
         .setConfig(
             AspectPluginConfig.builder()
                 .className(StructuredPropertiesValidator.class.getName())

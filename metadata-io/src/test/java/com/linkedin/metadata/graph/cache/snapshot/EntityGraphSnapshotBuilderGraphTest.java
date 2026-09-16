@@ -140,6 +140,49 @@ public class EntityGraphSnapshotBuilderGraphTest {
   }
 
   @Test
+  public void fullGraphBuildSkipsUnparsableEndpoints() {
+    when(graphRetriever.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                2,
+                2,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "IsPartOf",
+                        "urn:li:foo:child",
+                        "urn:li:foo:parent",
+                        RelationshipDirection.OUTGOING,
+                        null),
+                    new RelatedEntities(
+                        "IsPartOf",
+                        "urn:li:foo:other",
+                        "null",
+                        RelationshipDirection.OUTGOING,
+                        null))));
+
+    BuildResult result =
+        builder.build(opContext, fullGraphDefinition, GraphSnapshotSource.GRAPH, null);
+
+    assertEquals(result.getStatus(), CacheStatus.ACTIVE);
+    assertNotNull(result.getSnapshot());
+    assertEquals(result.getSnapshot().getEdges().size(), 1);
+    assertEquals(result.getSnapshot().getEdges().get(0).getSourceUrn(), "urn:li:foo:child");
+    assertEquals(result.getSnapshot().getEdges().get(0).getDestinationUrn(), "urn:li:foo:parent");
+  }
+
+  @Test
   public void fullGraphBuildSucceedsFromGraphScroll() {
     when(graphRetriever.scrollRelatedEntities(
             any(),

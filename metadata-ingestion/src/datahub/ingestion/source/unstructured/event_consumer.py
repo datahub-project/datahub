@@ -49,6 +49,11 @@ class DocumentEventConsumer:
         self.poll_limit = poll_limit
         self.state_handler = state_handler
         self.aspect_names = tuple(aspect_names)
+        # When True, offsets are NOT committed on exit/close. Set by the driving
+        # source when a document in the polled window failed to process, so the
+        # window is re-polled and the document retried on the next run instead of
+        # its event being acknowledged and lost.
+        self.suppress_offset_commits = False
 
         # Base URL for events API
         self.base_url = f"{graph.config.server}/openapi"
@@ -336,18 +341,27 @@ class DocumentEventConsumer:
                     continue
 
         # Commit all offsets before exiting
-        for topic in self.topics:
-            offset_id = self.offset_ids.get(topic)
-            if offset_id:
-                self._save_offset(topic, offset_id)
+        self._commit_offsets()
 
         logger.info(
             f"Event consumption complete. Total events processed: {total_events_processed}"
         )
 
-    def close(self) -> None:
-        """Close the consumer and commit offsets."""
+    def _commit_offsets(self) -> None:
+        if self.suppress_offset_commits:
+            # ponytail: re-polls the whole window next run; a permanently failing
+            # document stalls offset advance (loud per-run warnings) — upgrade to a
+            # per-document retry queue if that ever bites.
+            logger.warning(
+                "Offset commit suppressed because a document in this window failed "
+                "to process; the window will be re-polled next run."
+            )
+            return
         for topic in self.topics:
             offset_id = self.offset_ids.get(topic)
             if offset_id:
                 self._save_offset(topic, offset_id)
+
+    def close(self) -> None:
+        """Close the consumer and commit offsets."""
+        self._commit_offsets()

@@ -1,7 +1,7 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BaseSettingsPage, type PageOptions } from './base.settings.page';
 import { TOAST_MESSAGES } from './constants';
-import { WAIT_TIMEOUT, SHORT_TIMEOUT } from '../../utils/constants';
+import { WAIT_TIMEOUT, SHORT_TIMEOUT, TIMEOUTS } from '../../utils/constants';
 
 export class PoliciesPage extends BaseSettingsPage {
   private readonly searchInput: Locator;
@@ -10,11 +10,11 @@ export class PoliciesPage extends BaseSettingsPage {
   private readonly addPolicyButton: Locator;
   private readonly policyNameInput: Locator;
   private readonly policyDescInput: Locator;
-  private readonly privilegesInput: Locator;
-  private readonly usersInput: Locator;
-  private readonly groupsInput: Locator;
-  private readonly nextButton: Locator;
-  private readonly saveButton: Locator;
+  readonly privilegesInput: Locator;
+  readonly usersInput: Locator;
+  readonly groupsInput: Locator;
+  readonly nextButton: Locator;
+  readonly saveButton: Locator;
   private readonly policyFilterBase: Locator;
   private readonly policyFilterAll: Locator;
   private readonly confirmButton: Locator;
@@ -22,10 +22,18 @@ export class PoliciesPage extends BaseSettingsPage {
   private readonly metadataTypeButton: Locator;
   private readonly platformTypeButton: Locator;
   private readonly tableRows: Locator;
-  private readonly allPrivilegesOption: Locator;
-  private readonly allUsersOption: Locator;
-  private readonly allGroupsOption: Locator;
+  readonly allPrivilegesOption: Locator;
+  readonly allUsersOption: Locator;
+  readonly allGroupsOption: Locator;
   private readonly allUsersRows: Locator;
+  readonly resourceTypeBase: Locator;
+  readonly datasetOption: Locator;
+  readonly successToastMessage: Locator;
+  readonly resourceTypeConditionSelect: Locator;
+  readonly resourceConditionSelect: Locator;
+  readonly tagConditionSelect: Locator;
+  readonly domainConditionSelect: Locator;
+  readonly containerConditionSelect: Locator;
 
   constructor(page: Page, options?: PageOptions) {
     super(page, options);
@@ -36,20 +44,29 @@ export class PoliciesPage extends BaseSettingsPage {
     this.addPolicyButton = page.getByTestId('add-policy-button');
     this.policyNameInput = page.getByTestId('policy-name');
     this.policyDescInput = page.getByTestId('policy-description');
-    this.privilegesInput = page.getByTestId('privileges');
-    this.usersInput = page.getByTestId('users');
-    this.groupsInput = page.getByTestId('groups');
+    this.privilegesInput = page.getByTestId('privileges-base');
+    this.usersInput = page.getByTestId('users-base');
+    this.groupsInput = page.getByTestId('groups-base');
     this.nextButton = page.getByTestId('next-button');
     this.saveButton = page.getByTestId('save-button');
     this.policyFilterBase = page.getByTestId('policy-filter-base');
     this.policyFilterAll = page.getByTestId('option-ALL');
-    this.policyTypeSelector = page.getByTestId('policy-type');
-    this.metadataTypeButton = this.policyTypeSelector.getByTitle('Metadata');
-    this.platformTypeButton = page.getByTestId('platform');
-    this.allPrivilegesOption = page.getByTestId('option-all-privileges');
-    this.allUsersOption = page.getByTestId('option-all-users');
-    this.allGroupsOption = page.getByTestId('option-all-groups');
+    this.policyTypeSelector = page.getByTestId('policy-type-base');
+    this.metadataTypeButton = page.getByTestId('option-METADATA');
+    this.platformTypeButton = page.getByTestId('option-PLATFORM');
+    this.allPrivilegesOption = page.getByTestId('privileges-dropdown').getByTestId('option-All');
+    this.allUsersOption = page.getByTestId('users-dropdown').getByTestId('option-All');
+    this.allGroupsOption = page.getByTestId('groups-dropdown').getByTestId('option-All');
     this.allUsersRows = this.tableBody.getByRole('row').filter({ hasText: 'All Users' });
+    this.resourceTypeBase = page.getByTestId('resource-type-base');
+    this.datasetOption = page.getByTestId('option-dataset');
+    this.successToastMessage = page.getByText('Successfully saved policy.');
+    // Condition selects for resource filtering (using actual field type enum values)
+    this.resourceTypeConditionSelect = page.getByTestId('condition-TYPE-base');
+    this.resourceConditionSelect = page.getByTestId('condition-URN-base');
+    this.tagConditionSelect = page.getByTestId('condition-TAG-base');
+    this.domainConditionSelect = page.getByTestId('condition-DOMAIN-base');
+    this.containerConditionSelect = page.getByTestId('condition-CONTAINER-base');
     // Policy deletion uses Ant Design's Modal.confirm, which renders a plain "Yes" button
     this.confirmButton = page.getByRole('dialog').getByRole('button', { name: 'Yes' });
   }
@@ -89,6 +106,15 @@ export class PoliciesPage extends BaseSettingsPage {
   async searchForPolicy(policyName: string): Promise<void> {
     await this.searchInput.clear();
     await this.searchInput.fill(policyName);
+    // The policies search box is debounced, so the table keeps rendering the previous result set
+    // for a moment after the last keystroke. Callers open a row menu immediately after searching,
+    // and the debounced refetch then unmounts the table rows — silently closing that open menu.
+    // Wait for the debounce to fire and its refetch to finish before handing control back.
+    // A fixed wait is required here: repeat searches for the same term short-circuit in the UI
+    // (no refetch is issued), so there is no network response or DOM change to wait on.
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    await this.page.waitForLoadState('networkidle');
   }
 
   async openRowMenu(policyName: string): Promise<void> {
@@ -119,9 +145,7 @@ export class PoliciesPage extends BaseSettingsPage {
 
   async selectPlatformType(): Promise<void> {
     await this.policyTypeSelector.waitFor({ state: 'visible' });
-    if (await this.metadataTypeButton.isVisible({ timeout: SHORT_TIMEOUT })) {
-      await this.metadataTypeButton.click();
-    }
+    await this.policyTypeSelector.click();
     await this.platformTypeButton.waitFor({ state: 'visible' });
     await this.platformTypeButton.click();
   }
@@ -130,27 +154,31 @@ export class PoliciesPage extends BaseSettingsPage {
     await expect(this.policyDescInput).toBeVisible();
     await this.policyDescInput.clear();
     await this.policyDescInput.fill(description);
-    await this.nextButton.waitFor({ state: 'visible' });
     await this.nextButton.click();
+    await this.page.waitForLoadState('networkidle');
 
-    await expect(this.privilegesInput).toBeVisible();
+    // Wait for the privileges form to load and be in viewport for IntersectionObserver
+    await this.page.getByTestId('privileges').scrollIntoViewIfNeeded();
+    await this.privilegesInput.waitFor({ state: 'visible', timeout: 10000 });
     await this.privilegesInput.click();
-    await this.page.keyboard.type('All');
-    await this.allPrivilegesOption.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
     await this.allPrivilegesOption.click();
-    await this.nextButton.waitFor({ state: 'visible' });
     await this.nextButton.click();
+    await this.page.waitForLoadState('networkidle');
 
-    await expect(this.usersInput).toBeVisible();
+    await this.usersInput.waitFor({ state: 'visible' });
+    await this.usersInput.scrollIntoViewIfNeeded();
     await this.usersInput.click();
-    await this.page.keyboard.type('All');
-    await this.allUsersOption.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
     await this.allUsersOption.click();
+    await this.usersInput.click();
+
+    await this.groupsInput.waitFor({ state: 'visible' });
+    await this.groupsInput.scrollIntoViewIfNeeded();
     await this.groupsInput.click();
-    await this.page.keyboard.type('All');
-    await this.allGroupsOption.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
     await this.allGroupsOption.click();
+    await this.groupsInput.click();
+
     await this.saveButton.waitFor({ state: 'visible' });
+    await this.saveButton.scrollIntoViewIfNeeded();
     await this.saveButton.click();
 
     await this.toast.expectVisibleThenHidden(TOAST_MESSAGES.SUCCESSFULLY_SAVED_POLICY);
@@ -222,5 +250,34 @@ export class PoliciesPage extends BaseSettingsPage {
         await this.toast.expectVisibleThenHidden(TOAST_MESSAGES.SUCCESSFULLY_DEACTIVATED_POLICY);
       }
     }
+  }
+
+  // ── Condition Select Helpers ────────────────────────────────────────────────
+  // Helpers for testing condition selection on resource filters
+
+  async setResourceTypeCondition(condition: string): Promise<void> {
+    await this.resourceTypeConditionSelect.scrollIntoViewIfNeeded();
+    await this.resourceTypeConditionSelect.waitFor({ state: 'visible', timeout: 10000 });
+    await this.resourceTypeConditionSelect.click();
+    const dropdown = this.page.getByTestId('condition-TYPE-dropdown');
+    await dropdown.waitFor({ state: 'visible', timeout: 10000 });
+    // Convert condition label to enum value (e.g., NotEquals -> NOT_EQUALS)
+    const conditionValue = condition.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase();
+    const option = dropdown.getByTestId(`option-${conditionValue}`);
+    await option.waitFor({ state: 'visible', timeout: 10000 });
+    await option.click({ delay: 100 });
+    await this.resourceTypeConditionSelect.click();
+  }
+
+  async scrollConditionIntoView(fieldType: string): Promise<void> {
+    // Scroll the wrapper (without -base) to trigger IntersectionObserver rendering
+    await this.page.getByTestId(`condition-${fieldType}`).scrollIntoViewIfNeeded();
+  }
+
+  async fillDescriptionAndMoveToPrivilegeForm(description: string): Promise<void> {
+    await this.policyDescInput.clear();
+    await this.policyDescInput.fill(description);
+    await this.nextButton.click();
+    await this.page.waitForLoadState('networkidle');
   }
 }

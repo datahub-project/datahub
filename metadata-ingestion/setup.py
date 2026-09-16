@@ -99,11 +99,20 @@ framework_common = {
     # Snappy-compatible codec for pgQueue payload decompression (Java Snappy); not Kafka-specific.
     "cramjam>=2.8.0,<3.0.0",
     # The ingestion executor bootstraps per-source venvs by shelling out to
-    # `python -m pip download` (see acryl.executor). uv-created venvs omit pip
+    # `python -m pip download` (see datahub.executor). uv-created venvs omit pip
     # by default, so pip must be present in the base environment. This was
     # previously pulled in transitively via the classification extra; declare it
     # explicitly here. No upper bound: pip is a system tool.
     "pip",
+    # Logging backend used by the ingestion executor's subprocess runner
+    # (datahub.executor.execution.runner). Adds no runtime deps on Linux/macOS -
+    # colorama and win32-setctime are win32-only.
+    "loguru>=0.5.0,<1.0.0",
+    # Structured concurrency primitives (task groups, cancel scopes, byte/text
+    # streams) used to supervise ingestion subprocesses in
+    # datahub.executor.execution.runner. Previously only available transitively
+    # via httpx/openai/starlette; declare it explicitly.
+    "anyio>=3.0.0,<5.0.0",
 }
 
 rest_common = {
@@ -143,7 +152,10 @@ kafka_protobuf = {
 }
 
 usage_common = {
-    "sqlparse<0.6.0",
+    # 0.6.0 fixes CVE-2026-59893, CVE-2026-54284, CVE-2026-71491, CVE-2026-59894 and a
+    # quadratic-CPU DoS in format(reindent=...). Airflow constraints pin sqlparse lower,
+    # but the airflow-plugin pulls no sqlparse-bearing extra, so it is unaffected.
+    "sqlparse>=0.6.0,<1.0.0",
 }
 
 sqlglot_lib = {
@@ -183,8 +195,9 @@ sqlalchemy_lib = {
     # Required for all SQL sources.
     # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
     "sqlalchemy>=1.4.39,<2",
-    # greenlet is imported directly by datahub.utilities.sqlalchemy_query_combiner, which
-    # is used by both the SQLAlchemy and GE profilers (via sql_report.py).
+    # greenlet is imported directly by
+    # datahub.ingestion.source.sqlalchemy_profiler.query_combiner, which is used
+    # by the SQLAlchemy profiler (and surfaced in sql_report.py).
     "greenlet<4.0.0",
 }
 sql_common = (
@@ -219,7 +232,7 @@ looker_common = {
     # See https://github.com/joshtemple/lkml/issues/73.
     "lkml>=1.3.4,<2.0.0",
     *sqlglot_lib,
-    "GitPython>2,<4.0.0",
+    "GitPython>=3.1.58,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
     "deepmerge>=1.1.1,<3.0.0",
 }
@@ -251,9 +264,22 @@ datacatalog_lineage_common = {
     "protobuf>=5.0.0,<7.0.0",
 }
 
+bigquery_sharing_common = {
+    # Only reached when `extract_subscriptions_from_analytics_hub` is enabled. It is
+    # not part of bigquery_common because bigquery-slim, bigquery-queries and fivetran
+    # all pull that set and none of them use this code path.
+    # The floor is set by the newest symbol the handler touches, not the oldest:
+    # list_subscriptions/Subscription.listing/state land in 0.4.3, SharedResourceType
+    # in 0.4.18, and Subscription.destination_dataset in 0.4.19. Below that last one
+    # subscription matching silently finds nothing.
+    "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
+}
+
 dataplex_common = {
     "google-cloud-dataplex<3.0.0",
     "google-cloud-resource-manager<2.0.0",
+    # Reads metadata EXPORT job output (extraction_method: export) from GCS.
+    "google-cloud-storage>=2.10.0,<4.0.0",
     *datacatalog_lineage_common,
     "tenacity>=8.0.1,<9.0.0",
 }
@@ -297,9 +323,9 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    # >=49.0.0 for CVE-2026-69249 (path-building DoS); <51 aligns with pyOpenSSL/msal.
-    # Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf / CVE-2026-26007.
-    "cryptography>=49.0.0,<51.0.0",
+    # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
+    # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.
+    "cryptography>=50.0.0,<51.0.0",
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -354,7 +380,10 @@ iceberg_common = {
 mssql_common = {
     # Note: sqlalchemy-pytds>=1.0 requires SQLAlchemy>=2, so constrained to 0.x automatically
     "sqlalchemy-pytds>=0.3,<2.0.0",
-    "pyOpenSSL>=26.0.0,<27.0.0",
+    # >=26.4.0: pyOpenSSL 26.0-26.3 crash on import against cryptography>=49
+    # (AttributeError: module 'lib' has no attribute 'GEN_EMAIL'), which the
+    # cryptography>=49.0.0,<51.0.0 range above can resolve to.
+    "pyOpenSSL>=26.4.0,<27.0.0",
 }
 
 postgres_common = {
@@ -445,6 +474,9 @@ databricks_common = {
     # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
     # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
     # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
+    # TODO: When upgrading to >=3.0.0, also drop the get_columns type-map patch in
+    # src/datahub/ingestion/source/sqlalchemy_profiler/adapters/databricks.py -- v2 of
+    # the dialect replaced the local _type_map with parse_column_info_from_tgetcolumnsresponse.
     "databricks-sql-connector>=2.8.0,<3.0.0",
 }
 
@@ -462,6 +494,8 @@ sac = {
     "requests<3.0.0",
     # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
     "Authlib>=1.6.11,<2.0.0",
+    # Safe XML parsing for Data Export Service $metadata (shared sap_common.edmx).
+    "defusedxml>=0.7.1,<0.8.0",
 }
 
 superset_common = {
@@ -477,6 +511,19 @@ embedding_common = {
     # google-auth handles ADC / OAuth refresh for Vertex AI; the Vertex
     # :predict call itself goes over plain HTTP.
     "google-auth>=2.0.0,<3.0.0",
+}
+
+# In-process ONNX document embedding (mirrors the GMS built-in query-side
+# provider). Kept as a separate extra so the common embedding path doesn't pull
+# onnxruntime for users who embed via a cloud provider. `tokenizers` gives the
+# same HuggingFace tokenizer the Java side uses via DJL, for token-level parity.
+# onnxruntime capped below 1.24: 1.24+ dropped cp310 wheels, and ingestion
+# still supports Python 3.10. The library version is independent of the Java
+# query-side onnxruntime; vector parity comes from the shared model + tokenizer,
+# not the runtime version (inference is deterministic across versions).
+onnx_embeddings = {
+    "onnxruntime>=1.19.0,<1.24",
+    "tokenizers>=0.20.0,<1.0.0",
 }
 
 unstructured_lib = {
@@ -544,11 +591,10 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         f"acryl-datahub-airflow-plugin{_self_pin}",
     },
-    "circuit-breaker": {
-        # In gql v4, the execute() method's signature changed. Since we've updated
-        # our code to use the new signature, we need to pin to gql v4.
-        "gql[requests]>=4.0.0",
-    },
+    # The circuit breakers query GMS through DataHubGraph, so this needs no
+    # extra dependencies. Kept as an empty extra so existing installs that
+    # pin acryl-datahub[circuit-breaker] keep resolving.
+    "circuit-breaker": set(),
     # TODO: Eventually we should reorganize our imports so that this depends on sqlalchemy_lib
     # but not the full sql_common.
     "datahub": sql_common | mysql | kafka_common,
@@ -589,7 +635,11 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | usage_common,
     "bigid": {"requests>=2.28.0,<3.0"},
-    "bigquery": sql_common | bigquery_common | sqlglot_lib | datacatalog_lineage_common,
+    "bigquery": sql_common
+    | bigquery_common
+    | sqlglot_lib
+    | datacatalog_lineage_common
+    | bigquery_sharing_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
@@ -685,6 +735,9 @@ plugins: Dict[str, Set[str]] = {
         # (blocks billion-laughs / external-entity attacks).
         "defusedxml>=0.7.1,<0.8.0",
     },
+    # sqlglot_lib: view lineage reuses datahub.sql_parsing (sqlglot), which is not
+    # in the base install; JPype1/jdk4py bridge to the JDBC driver (no SQLAlchemy).
+    "informix": sqlglot_lib | {"JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common
@@ -707,6 +760,10 @@ plugins: Dict[str, Set[str]] = {
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-gc": set(),
     "datahub-documents": unstructured_lib,
+    # Optional add-on: embed documents in-process with ONNX instead of a cloud
+    # provider, matching the GMS built-in query-side provider. Install alongside
+    # datahub-documents (e.g. acryl-datahub[datahub-documents,onnx-embeddings]).
+    "onnx-embeddings": onnx_embeddings,
     "mode": {"requests<3.0.0", "python-liquid>=2.0.0,<3.0.0", "tenacity>=8.0.1,<9.0.0"}
     | sqlglot_lib
     | cachetools_lib,
@@ -717,7 +774,7 @@ plugins: Dict[str, Set[str]] = {
     "mariadb": mysql_common,
     "tidb": mysql_common,
     "doris": mysql_common,
-    "odcs": aws_common | {"GitPython>2,<4.0.0"},
+    "odcs": aws_common | {"GitPython>=3.1.58,<4.0.0"},
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0", "flatdict!=4.0.1"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
@@ -733,7 +790,7 @@ plugins: Dict[str, Set[str]] = {
         "kerberos>=1.3.0,<2.0.0",
     },
     "pulsar": {"requests<3.0.0"},
-    "redash": {"redash-toolbelt<0.2.0", "sql-metadata<3.0.0"} | sqlglot_lib,
+    "redash": {"redash-toolbelt<0.2.0"} | sqlglot_lib,
     "rdf": {"rdflib==6.3.2", "requests==2.32.5", "requests_file==3.0.1"},
     "redshift": sql_common
     | redshift_common
@@ -765,6 +822,14 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowplow": snowplow,
+    # Floor at 0.235.2: first release pinning sqlglot~=30.8.0. Cap at <0.237 after
+    # vetting 0.236. Excluded from the pyproject/uv lock and from the "all" extra
+    # because DataHub pins sqlglot[c]==30.12.0 and no released sqlmesh accepts that
+    # yet — install with ``pip install 'acryl-datahub[sqlmesh]'`` (setuptools path)
+    # in a dedicated environment. Re-vet and restore to the lock when sqlmesh bumps.
+    "sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib}
+    | aws_common
+    | {"GitPython>=3.1.58,<4.0.0"},
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib
@@ -791,7 +856,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
-        | {"sqlparse<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
+        | {"sqlparse>=0.6.0,<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
         | sqlglot_lib
         | threading_timeout_common
     ),
@@ -819,9 +884,11 @@ plugins: Dict[str, Set[str]] = {
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
     "quicksight": aws_common | sqlglot_lib,
-    # sqlparse: transitive runtime dep of SqlParsingAggregator (imported by sigma.py).
-    # Not directly imported by the sigma source; revisit if SqlParsingAggregator use is removed.
-    "sigma": sqlglot_lib | {"sqlparse<0.6.0", "requests<3.0.0"},
+    # usage_common: sigma emits no usage itself, but SqlParsingAggregator imports
+    # usage_common, which pulls sqlparse in via sql_formatter.
+    "sigma": sqlglot_lib | usage_common | {"requests<3.0.0"},
+    # pycarlo is Monte Carlo's official sgqlc-based GraphQL client over the MCD API.
+    "montecarlo": {"pycarlo>=0.15.262,<1.0.0", "tenacity>=8.0.1,!=8.4.0,<9.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
@@ -863,8 +930,15 @@ all_exclude_plugins: Set[str] = {
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
+    # SQLMesh pins sqlglot~=30.8.0; DataHub pins sqlglot[c]==30.12.0. Until
+    # sqlmesh widens its pin, keep it out of "all" so lock resolution succeeds.
+    "sqlmesh",
     # Debug recording is an optional debugging tool.
     "debug-recording",
+    # onnxruntime is a large native binary; in-process ONNX embedding is a niche
+    # opt-in feature, so keep it out of "all" (and the bundled ingestion image).
+    # Install explicitly with acryl-datahub[onnx-embeddings].
+    "onnx-embeddings",
 }
 
 mypy_stubs = {
@@ -1080,6 +1154,7 @@ full_test_dev_requirements = {
             "starrocks",
             "vertica",
             "vertexai",
+            "montecarlo",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -1167,6 +1242,7 @@ entry_points = {
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
         "sap-datasphere = datahub.ingestion.source.sap_datasphere.source:SapDatasphereSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
+        "sqlmesh = datahub.ingestion.source.sqlmesh.sqlmesh_source:SqlmeshSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
@@ -1175,7 +1251,7 @@ entry_points = {
         "preset = datahub.ingestion.source.preset:PresetSource",
         "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
-        "metabase = datahub.ingestion.source.metabase:MetabaseSource",
+        "metabase = datahub.ingestion.source.metabase.source:MetabaseSource",
         "microstrategy = datahub.ingestion.source.microstrategy.source:MicroStrategySource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
         "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",
@@ -1187,6 +1263,7 @@ entry_points = {
         "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "informatica = datahub.ingestion.source.informatica.source:InformaticaSource",
+        "informix = datahub.ingestion.source.informix.source:InformixSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         # This is only here for backward compatibility. Use the `hive-metastore` source instead.
@@ -1205,6 +1282,7 @@ entry_points = {
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "quicksight = datahub.ingestion.source.quicksight.quicksight:QuickSightSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
+        "montecarlo = datahub.ingestion.source.montecarlo.source:MonteCarloSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",

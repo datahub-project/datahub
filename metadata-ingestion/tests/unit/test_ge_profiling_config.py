@@ -1,9 +1,17 @@
+import logging
+import subprocess
+import sys
+import textwrap
+
 import pytest
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.source.ge_profiling_config import (
     GEProfilingConfig,
     ProfilingIsolationLevel,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    DEFAULT_MAX_DISTINCT_PER_STATEMENT,
 )
 
 
@@ -106,3 +114,78 @@ def test_profiling_isolation_level_json_schema_has_default():
     # Field(default=None) emits that key; default_factory does not.
     schema = GEProfilingConfig.model_json_schema()
     assert "default" in schema["properties"]["profiling_isolation_level"]
+
+
+def test_max_distinct_per_statement_default_matches_combiner_constant() -> None:
+    # Drift guard: the config duplicates the literal rather than importing
+    # the combiner, so the two must be kept in lockstep.
+    config = GEProfilingConfig()
+    assert config.max_distinct_per_statement == DEFAULT_MAX_DISTINCT_PER_STATEMENT
+
+
+def test_flatten_is_off_by_default() -> None:
+    # The flag ships off. Flipping the default is a separate, deliberate PR.
+    assert GEProfilingConfig().query_combiner_flatten_enabled is False
+
+
+def test_flatten_without_query_combiner_warns_but_does_not_raise(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Warn rather than raise: turning the combiner off is a legitimate way
+    # to troubleshoot a run.
+    config = GEProfilingConfig.model_validate(
+        {"query_combiner_enabled": False, "query_combiner_flatten_enabled": True}
+    )
+    assert config.query_combiner_flatten_enabled
+
+    with caplog.at_level(logging.WARNING):
+        GEProfilingConfig.model_validate(
+            {"query_combiner_enabled": False, "query_combiner_flatten_enabled": True}
+        )
+    assert any("has no effect" in r.message for r in caplog.records)
+
+
+def test_ge_profiling_and_kafka_config_import_without_sqlalchemy_or_greenlet() -> None:
+    # kafka, cassandra, and excel configs import ge_profiling_config at module
+    # scope, and none of those extras ship sqlalchemy. Importing either module
+    # must not pull sqlalchemy or greenlet at module scope. Running in a
+    # subprocess gives a cold interpreter — what a `pip install
+    # acryl-datahub[kafka]` user actually hits — and avoids mutating this
+    # process's sys.modules, which previously left a stale duplicate of
+    # kafka_config reachable by attribute traversal and broke order-dependent
+    # tests that patched it.
+    script = textwrap.dedent(
+        """
+        import sys
+
+
+        class _BlockFinder:
+            def find_spec(self, name, path, target=None):
+                if name.split(".")[0] in ("sqlalchemy", "greenlet"):
+                    raise ImportError(
+                        f"import of {name!r} is blocked for this test"
+                    )
+                return None
+
+
+        sys.meta_path.insert(0, _BlockFinder())
+
+        import datahub.ingestion.source.ge_profiling_config  # noqa: F401
+        import datahub.ingestion.source.kafka.kafka_config  # noqa: F401
+
+        for blocked in ("sqlalchemy", "greenlet"):
+            assert blocked not in sys.modules, (
+                f"{blocked} was imported at module scope"
+            )
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, (
+        f"subprocess exited {result.returncode}\n"
+        f"stdout: {result.stdout.decode()}\n"
+        f"stderr: {result.stderr.decode()}"
+    )

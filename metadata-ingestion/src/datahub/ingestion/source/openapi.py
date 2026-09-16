@@ -227,7 +227,7 @@ class ApiWorkUnit(MetadataWorkUnit):
 
 @platform_name("OpenAPI", id="openapi")
 @config_class(OpenApiConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(
     SourceCapability.SCHEMA_METADATA,
     "Extracts schemas from OpenAPI specifications for GET, POST, PUT, and PATCH methods",

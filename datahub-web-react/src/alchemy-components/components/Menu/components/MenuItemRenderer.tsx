@@ -111,7 +111,11 @@ export default function MenuItemRenderer({ item }: MenuItemRendererProps) {
     );
 
     if (item.tooltip) {
-        return <Tooltip title={item.tooltip}>{content}</Tooltip>;
+        return (
+            <Tooltip title={item.tooltip} placement={item.tooltipPlacement}>
+                {content}
+            </Tooltip>
+        );
     }
 
     return content;

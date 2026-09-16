@@ -9,7 +9,7 @@ from datahub.metadata.schema_classes import DatasetProfileClass
 from tests.utilities.domains import Domain
 from tests.utils import ingest_file_via_rest, run_datahub_cmd, sync_elastic
 
-pytestmark = pytest.mark.domain(Domain.INGESTION)
+pytestmark = [pytest.mark.domain(Domain.INGESTION), pytest.mark.p0]
 
 
 def datahub_rollback(auth_session, run_id: str) -> None:

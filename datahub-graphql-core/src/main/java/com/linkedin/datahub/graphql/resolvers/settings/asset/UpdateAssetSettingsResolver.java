@@ -5,7 +5,9 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AssetSettings;
 import com.linkedin.datahub.graphql.generated.UpdateAssetSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateAssetSummaryInput;
@@ -41,7 +43,10 @@ public class UpdateAssetSettingsResolver implements DataFetcher<CompletableFutur
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          // TODO: check permissions
+          if (!AuthorizationUtils.canManageAssetSummary(context, assetUrn)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
           try {
             Aspect aspect =
                 _entityClient.getLatestAspectObject(
@@ -68,7 +73,7 @@ public class UpdateAssetSettingsResolver implements DataFetcher<CompletableFutur
             return AssetSettingsMapper.map(assetSettings);
           } catch (Exception e) {
             throw new RuntimeException(
-                String.format("Failed to update action settings! %s", input), e);
+                String.format("Failed to update asset settings! %s", input), e);
           }
         },
         this.getClass().getSimpleName(),

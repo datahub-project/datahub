@@ -69,12 +69,42 @@ rest_emitter = DatahubRestEmitter(gms_server=gms_server, token=token)
 
 ### 2. Exit with Proper Codes
 
-Examples should use proper exit codes:
+Exit code is the whole contract these tests rely on, so examples own it:
 
 - **Exit 0**: Success (implicitly done by Python)
 - **Exit 1**: Failure (happens automatically on unhandled exceptions)
 
-No special handling needed - Python does this by default!
+Usually no special handling is needed -- Python does this by default. The one case that
+needs a deliberate line is **a lookup that finds nothing**. `graph.get_aspect()` returns
+`None` for a missing entity or aspect rather than raising, so this pattern exits 0 while
+telling you nothing:
+
+```python
+# WRONG: prints "not found" and exits 0, so a broken example looks like a passing one
+props = graph.get_aspect(entity_urn=str(urn), aspect_type=TagPropertiesClass)
+if props is not None:
+    print(f"Tag name: {props.name}")
+else:
+    print(f"Tag not found: {urn}")
+```
+
+Fail loudly instead. `raise SystemExit(msg)` prints to stderr and exits 1:
+
+```python
+# RIGHT
+props = graph.get_aspect(entity_urn=str(urn), aspect_type=TagPropertiesClass)
+if props is None:
+    raise SystemExit(f"Tag not found: {urn}")
+
+print(f"Tag name: {props.name}")
+```
+
+This applies to the **primary** thing the example is about. Genuinely optional aspects --
+ownership, tags, glossary terms on an entity that may legitimately have none -- keep the
+`if x is not None:` guard and stay quiet.
+
+(`client.entities.get()` already raises `ItemNotFoundError`, so SDK-based examples get
+this for free.)
 
 ### 3. Be Self-Contained or Have Dependencies Met
 

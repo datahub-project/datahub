@@ -1,9 +1,11 @@
 name: AI Smoke Tests (Local Embeddings)
 
-# Runs the full quickstart-ai stack (DataHub + Ollama) and validates that
-# semantic search works end-to-end using the local embedding provider.
+# Runs the quickstart stack and validates that semantic search works end-to-end
+# with an in-process or locally served embedding provider, one matrix leg each:
+#   local     — DataHub + Ollama, the `local` provider over the OpenAI-compatible API
+#   classical — DataHub only, the deterministic hashing provider (no model, no endpoint)
 #
-# Triggered by changes to any of the moving parts: Java provider, Python
+# Triggered by changes to any of the moving parts: Java providers, Python
 # ingestion pipeline, Docker Compose Ollama config, or the smoke tests
 # themselves.  Also runs nightly to catch regressions.
 
@@ -23,28 +25,42 @@ on:
       - releases/**
     paths:
       - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/Local*"
+      - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/Classical*"
       - "metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/EmbeddingProvider*"
       - "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/semantic/EmbeddingProvider*"
       - "metadata-service/configuration/src/main/resources/application.yaml"
       - "docker/profiles/docker-compose.ollama.yml"
       - "docker/profiles/docker-compose.gms.yml"
       - "docker/build.gradle"
+      - "docker/datahub-actions/Dockerfile"
+      - "metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/indexbuilder/**"
       - "metadata-ingestion/src/datahub/ingestion/source/unstructured/chunking_*.py"
+      - "metadata-ingestion/src/datahub/ingestion/source/unstructured/embedding_providers/classical.py"
+      - "metadata-ingestion/src/datahub/ingestion/source/unstructured/embedding_providers/factory.py"
+      - "metadata-ingestion/src/datahub/ingestion/source/unstructured/embedding_providers/base.py"
       - "smoke-test/tests/semantic/test_local_embedding_provider.py"
+      - "smoke-test/tests/semantic/test_classical_embedding_provider.py"
       - "smoke-test/tests/semantic/test_semantic_search.py"
       - ".github/workflows/docker-quickstart-ai.yml"
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/Local*"
+      - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/Classical*"
       - "metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/EmbeddingProvider*"
       - "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/semantic/EmbeddingProvider*"
       - "metadata-service/configuration/src/main/resources/application.yaml"
       - "docker/profiles/docker-compose.ollama.yml"
       - "docker/profiles/docker-compose.gms.yml"
       - "docker/build.gradle"
+      - "docker/datahub-actions/Dockerfile"
+      - "metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/indexbuilder/**"
       - "metadata-ingestion/src/datahub/ingestion/source/unstructured/chunking_*.py"
+      - "metadata-ingestion/src/datahub/ingestion/source/unstructured/embedding_providers/classical.py"
+      - "metadata-ingestion/src/datahub/ingestion/source/unstructured/embedding_providers/factory.py"
+      - "metadata-ingestion/src/datahub/ingestion/source/unstructured/embedding_providers/base.py"
       - "smoke-test/tests/semantic/test_local_embedding_provider.py"
+      - "smoke-test/tests/semantic/test_classical_embedding_provider.py"
       - "smoke-test/tests/semantic/test_semantic_search.py"
       - ".github/workflows/docker-quickstart-ai.yml"
 
@@ -58,9 +74,16 @@ env:
 
 jobs:
   ai-smoke-test:
-    name: "Quickstart AI + Semantic Search Smoke Test"
+    name: "Quickstart AI + Semantic Search Smoke Test (${{ matrix.provider }})"
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        # local: Ollama-served neural model over the OpenAI-compatible API.
+        # classical: in-process deterministic hashing, no model and no endpoint; the leg that
+        # proves the chunk -> embed -> kNN -> query pipeline with zero external dependencies.
+        provider: [local, classical]
 
     steps:
       # -----------------------------------------------------------------------
@@ -82,7 +105,7 @@ jobs:
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       # -----------------------------------------------------------------------
       # Build DataHub Docker images from source
@@ -101,7 +124,8 @@ jobs:
       # it via the mapped port at localhost:11434.
       # -----------------------------------------------------------------------
 
-      - name: Write GMS AI env file
+      - name: Write GMS AI env file (local)
+        if: matrix.provider == 'local'
         run: |
           printf '%s\n' \
             "EMBEDDING_PROVIDER_TYPE=local" \
@@ -111,6 +135,19 @@ jobs:
             "LOCAL_EMBEDDING_MODEL=${LOCAL_EMBEDDING_MODEL}" \
             > /tmp/ai-gms.env
 
+      # The classical provider is lexical hashing, not semantic search; GMS refuses it without
+      # the explicit opt-in. system-update reads the same env file, which is what adds the
+      # hash_v1_2048 field to the semantic index before GMS starts.
+      - name: Write GMS AI env file (classical)
+        if: matrix.provider == 'classical'
+        run: |
+          printf '%s\n' \
+            "EMBEDDING_PROVIDER_TYPE=classical" \
+            "CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true" \
+            "ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true" \
+            "SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true" \
+            > /tmp/ai-gms.env
+
       # -----------------------------------------------------------------------
       # Start DataHub + Ollama
       # Activates two profiles simultaneously:
@@ -118,10 +155,15 @@ jobs:
       #   quickstart-ai        — Ollama server + one-shot model-pull + warmup
       # -----------------------------------------------------------------------
 
-      - name: Start DataHub with Ollama (quickstart-consumers + quickstart-ai)
+      - name: Start DataHub (quickstart-consumers, plus quickstart-ai Ollama on the local leg)
         run: |
           SIGNING_KEY=$(openssl rand -base64 32)
           SIGNING_SALT=$(openssl rand -base64 32)
+          # Only the local leg needs the Ollama server; classical embeds in-process.
+          AI_PROFILE=()
+          if [ "${{ matrix.provider }}" = "local" ]; then
+            AI_PROFILE=(--profile quickstart-ai)
+          fi
 
           DATAHUB_VERSION=${{ env.DATAHUB_VERSION }} \
           DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${SIGNING_KEY} \
@@ -142,7 +184,7 @@ jobs:
             -p datahub \
             --project-directory docker/profiles \
             --profile quickstart-consumers \
-            --profile quickstart-ai \
+            "${AI_PROFILE[@]}" \
             up -d --quiet-pull
 
       # -----------------------------------------------------------------------
@@ -184,6 +226,7 @@ jobs:
       # -----------------------------------------------------------------------
 
       - name: Wait for Ollama model readiness
+        if: matrix.provider == 'local'
         run: |
           MODEL="${{ env.LOCAL_EMBEDDING_MODEL }}"
           echo "Waiting for Ollama model '${MODEL}' to respond at localhost:11434..."
@@ -212,7 +255,8 @@ jobs:
       # Run AI smoke tests
       # -----------------------------------------------------------------------
 
-      - name: Run AI embedding smoke tests
+      - name: Run AI embedding smoke tests (local)
+        if: matrix.provider == 'local'
         working-directory: smoke-test
         run: |
           source venv/bin/activate
@@ -227,6 +271,20 @@ jobs:
           LOCAL_EMBEDDING_MODEL: ${{ env.LOCAL_EMBEDDING_MODEL }}
           EMBEDDING_WAIT_SECONDS: "30"
 
+      - name: Run AI embedding smoke tests (classical)
+        if: matrix.provider == 'classical'
+        working-directory: smoke-test
+        run: |
+          source venv/bin/activate
+          pytest tests/semantic/test_classical_embedding_provider.py \
+            -v \
+            --junit-xml=junit.smoke-ai.xml \
+            --timeout=120
+        env:
+          DATAHUB_GMS_URL: "http://localhost:8080"
+          CLASSICAL_EMBEDDING_PROVIDER_TESTS: "true"
+          EMBEDDING_WAIT_SECONDS: "30"
+
       # -----------------------------------------------------------------------
       # Artifacts
       # -----------------------------------------------------------------------
@@ -235,14 +293,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: ai-smoke-test-results-${{ github.run_id }}
+          name: ai-smoke-test-results-${{ matrix.provider }}-${{ github.run_id }}
           path: smoke-test/junit.smoke-ai.xml
           retention-days: 30
 
       - name: Collect Docker logs on failure
         if: failure()
         env:
-          TARGET_DIR: docker_logs/${{ github.job }}
+          TARGET_DIR: docker_logs/${{ github.job }}-${{ matrix.provider }}
           COMPOSE_PROJECT_NAME: datahub
         run: |
           docker ps -a
@@ -252,6 +310,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: docker-logs-ai-${{ github.run_id }}
-          path: docker_logs/${{ github.job }}/
+          name: docker-logs-ai-${{ matrix.provider }}-${{ github.run_id }}
+          path: docker_logs/${{ github.job }}-${{ matrix.provider }}/
           retention-days: 5

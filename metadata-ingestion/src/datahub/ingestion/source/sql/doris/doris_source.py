@@ -19,7 +19,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.doris.doris_dialect import (
     AGG_STATE,
     BITMAP,
@@ -35,7 +34,11 @@ from datahub.ingestion.source.sql.doris.doris_dialect import (
     VARIANT,
     DorisDialect,
 )
-from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
+from datahub.ingestion.source.sql.mysql import (
+    MySQLConfig,
+    MySQLProfilingConfig,
+    MySQLSource,
+)
 from datahub.ingestion.source.sql.sql_common import register_custom_type
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
@@ -109,8 +112,8 @@ class DorisConfig(MySQLConfig):
         ),
     )
 
-    profiling: GEProfilingConfig = Field(
-        default_factory=GEProfilingConfig,
+    profiling: MySQLProfilingConfig = Field(
+        default_factory=MySQLProfilingConfig,
         description=(
             "Configuration for profiling Doris tables. "
             "Note: Doris types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are automatically "
@@ -166,7 +169,7 @@ class DorisSourceReport(SQLSourceReport):
 
 @platform_name("Apache Doris", id="doris")
 @config_class(DorisConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")

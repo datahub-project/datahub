@@ -14,8 +14,6 @@ from tests.test_helpers.docker_helpers import wait_for_port
 FROZEN_TIME = "2020-04-14 07:00:00"
 FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
 TIDB_PORT = 4000
-# Host port the container's 4000 is mapped to in docker-compose.yml.
-TIDB_HOST_PORT = 54000
 
 
 @pytest.fixture(scope="module")
@@ -34,7 +32,7 @@ def is_tidb_up(container_name: str) -> bool:
     return ret.returncode == 0
 
 
-def load_setup_sql(setup_sql_path: str) -> None:
+def load_setup_sql(setup_sql_path: str, host_port: int) -> None:
     """Load the fixture schema into the running TiDB container.
 
     TiDB has no equivalent of MySQL's /docker-entrypoint-initdb.d hook, so the
@@ -46,7 +44,7 @@ def load_setup_sql(setup_sql_path: str) -> None:
     statements = [s.strip() for s in script.split(";") if s.strip()]
     connection = pymysql.connect(
         host="localhost",
-        port=TIDB_HOST_PORT,
+        port=host_port,
         user="root",
         password="",
     )
@@ -60,7 +58,7 @@ def load_setup_sql(setup_sql_path: str) -> None:
 
 
 @pytest.fixture(scope="module")
-def tidb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+def tidb_runner(docker_compose_runner, pytestconfig, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "tidb"
     ) as docker_services:
@@ -71,8 +69,15 @@ def tidb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             timeout=120,
             checker=lambda: is_tidb_up("testtidb"),
         )
-        load_setup_sql(str(test_resources_dir / "setup" / "setup.sql"))
-        yield docker_services
+        # The compose file exposes the MySQL protocol port ephemerally, so a
+        # leaked container from a prior run can never hold onto the port a
+        # fresh run needs. tidb_to_file.yml picks it up via ${TIDB_PORT}.
+        host_port = docker_services.port_for("testtidb", TIDB_PORT)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("TIDB_PORT", str(host_port))
+        request.addfinalizer(mp.undo)
+        load_setup_sql(str(test_resources_dir / "setup" / "setup.sql"), host_port)
+        yield host_port
 
 
 @time_machine.travel(FROZEN_TIME_DT, tick=False)
@@ -98,7 +103,7 @@ def test_tidb_ingest(
     [
         (
             {
-                "host_port": f"localhost:{TIDB_HOST_PORT}",
+                "host_port": None,  # filled in from tidb_runner's ephemeral port below
                 "database": "datahub_test",
                 "username": "root",
                 "password": "",
@@ -119,6 +124,8 @@ def test_tidb_ingest(
 @time_machine.travel(FROZEN_TIME_DT, tick=False)
 @pytest.mark.integration
 def test_tidb_test_connection(tidb_runner, config_dict, is_success):
+    if config_dict["host_port"] is None:
+        config_dict = {**config_dict, "host_port": f"localhost:{tidb_runner}"}
     report = test_connection_helpers.run_test_connection(TiDBSource, config_dict)
     if is_success:
         test_connection_helpers.assert_basic_connectivity_success(report)

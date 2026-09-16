@@ -12,11 +12,13 @@
 import { test, expect } from '../../fixtures/login-test';
 import { WelcomeModalPage } from '../../pages/welcome-modal.page';
 import { users } from '../../data/users';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.describe('Welcome to DataHub Modal', () => {
   let welcomeModalPage: WelcomeModalPage;
 
-  test.beforeEach(async ({ page, loginPage, logger, logDir }) => {
+  test.beforeEach(async ({ page, loginPage, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     welcomeModalPage = new WelcomeModalPage(page, logger, logDir);
     const { username, password } = users.admin;
     await loginPage.navigateToLogin();

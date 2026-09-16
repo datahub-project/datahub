@@ -130,6 +130,15 @@ import {
     HIVE_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/hive';
 import {
+    INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
+    INFORMIX_DATABASE,
+    INFORMIX_HOST_PORT,
+    INFORMIX_INCLUDE_VIEW_LINEAGE,
+    INFORMIX_PASSWORD,
+    INFORMIX_SERVER,
+    INFORMIX_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/informix';
+import {
     KAFKA_BOOTSTRAP,
     KAFKA_SASL_MECHANISM,
     KAFKA_SASL_PASSWORD,
@@ -300,6 +309,23 @@ import {
     SNOWFLAKE_WAREHOUSE,
 } from '@app/ingest/source/builder/RecipeForm/snowflake';
 import {
+    SQLMESH_AUDIT_RESULTS_PATH,
+    SQLMESH_DEFAULT_CATALOG,
+    SQLMESH_ENV,
+    SQLMESH_ENVIRONMENT,
+    SQLMESH_GATEWAY,
+    SQLMESH_INCLUDE_COLUMN_LINEAGE,
+    SQLMESH_INCLUDE_LINEAGE,
+    SQLMESH_INCLUDE_SCHEMA,
+    SQLMESH_MODEL_ALLOW,
+    SQLMESH_MODEL_DENY,
+    SQLMESH_PROJECT_PATH,
+    SQLMESH_REMOVE_STALE_METADATA,
+    SQLMESH_TARGET_PLATFORM,
+    SQLMESH_TARGET_PLATFORM_INSTANCE,
+    SQLMESH_TOBIKO_CLOUD_TOKEN,
+} from '@app/ingest/source/builder/RecipeForm/sqlmesh';
+import {
     TABLEAU_CONNECTION_URI,
     TABLEAU_PASSWORD,
     TABLEAU_PROJECT,
@@ -352,6 +378,7 @@ import {
     CUBE,
     DATABRICKS,
     DBT_CLOUD,
+    INFORMIX,
     MATILLION_DPC,
     MICROSTRATEGY,
     MYSQL,
@@ -359,6 +386,7 @@ import {
     OKTA,
     POWER_BI,
     SAC,
+    SQLMESH,
     VERTICA,
 } from '@app/ingest/source/builder/constants';
 import { BIGQUERY } from '@app/ingest/source/conf/bigquery/bigquery';
@@ -572,6 +600,19 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific Databases, Schemas, Tables and Views from ingestion.',
+    },
+    [INFORMIX]: {
+        fields: [
+            INFORMIX_HOST_PORT,
+            INFORMIX_SERVER,
+            INFORMIX_DATABASE,
+            INFORMIX_USERNAME,
+            INFORMIX_PASSWORD,
+            INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
+        ],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [INCLUDE_TABLES, INCLUDE_VIEWS, INFORMIX_INCLUDE_VIEW_LINEAGE, STATEFUL_INGESTION_ENABLED],
+        filterSectionTooltip: 'Include or exclude specific Schemas (owners), Tables and Views from ingestion.',
     },
     [HIVE]: {
         fields: [HIVE_HOST_PORT, HIVE_USERNAME, HIVE_PASSWORD, HIVE_DATABASE],
@@ -794,6 +835,27 @@ export const RECIPE_FIELDS: RecipeFields = {
             TABLE_PROFILING_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables, Views and Projections from ingestion.',
+    },
+    [SQLMESH]: {
+        fields: [
+            SQLMESH_PROJECT_PATH,
+            SQLMESH_ENVIRONMENT,
+            SQLMESH_GATEWAY,
+            SQLMESH_TARGET_PLATFORM,
+            SQLMESH_TARGET_PLATFORM_INSTANCE,
+            SQLMESH_DEFAULT_CATALOG,
+            SQLMESH_TOBIKO_CLOUD_TOKEN,
+        ],
+        filterFields: [SQLMESH_MODEL_ALLOW, SQLMESH_MODEL_DENY],
+        advancedFields: [
+            SQLMESH_ENV,
+            SQLMESH_INCLUDE_SCHEMA,
+            SQLMESH_INCLUDE_LINEAGE,
+            SQLMESH_INCLUDE_COLUMN_LINEAGE,
+            SQLMESH_AUDIT_RESULTS_PATH,
+            SQLMESH_REMOVE_STALE_METADATA,
+        ],
+        filterSectionTooltip: 'Include or exclude specific SQLMesh models from ingestion by name pattern.',
     },
     [CSV]: {
         fields: [CSV_FILE_URL],

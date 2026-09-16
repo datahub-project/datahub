@@ -17,6 +17,7 @@ import requests
 from typing_extensions import deprecated
 
 from datahub._codegen.aspect import _Aspect
+from datahub.configuration.common import OperationalError
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.graph.filters import RawSearchFilter, RawSearchFilterRule
@@ -581,22 +582,29 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         self,
     ) -> dict:
         """
-        Get Kafka consumer offsets from the DataHub API.
+        Get consumer offsets and lag from the DataHub API.
 
-        Args:
-            graph (DataHubGraph): The DataHub graph client
-
+        Tries the transport-neutral messaging endpoints first; falls back to the
+        deprecated kafka endpoints on servers that do not have them.
         """
-        urls = {
-            "mcp": f"{self.config.server}/openapi/operations/kafka/mcp/consumer/offsets",
-            "mcl": f"{self.config.server}/openapi/operations/kafka/mcl/consumer/offsets",
-            "mcl-timeseries": f"{self.config.server}/openapi/operations/kafka/mcl-timeseries/consumer/offsets",
-        }
-
         params = {"skipCache": "true", "detailed": "true"}
         results = {}
-        for key, url in urls.items():
-            response = self._get_generic(url=url, params=params)
+        for key in ("mcp", "mcl", "mcl-timeseries"):
+            url = (
+                f"{self.config.server}/openapi/operations/messaging/{key}/consumer/lag"
+            )
+            try:
+                response = self._get_generic(url=url, params=params)
+            except OperationalError as e:
+                cause = e.__cause__
+                status = getattr(getattr(cause, "response", None), "status_code", None)
+                if status not in (404, 405):
+                    raise
+                legacy_url = f"{self.config.server}/openapi/operations/kafka/{key}/consumer/offsets"
+                logger.debug(
+                    f"Messaging endpoint {url} returned {status}; falling back to {legacy_url}"
+                )
+                response = self._get_generic(url=legacy_url, params=params)
             results[key] = response
             if "errors" in response:
                 logger.error(f"Error: {response['errors']}")

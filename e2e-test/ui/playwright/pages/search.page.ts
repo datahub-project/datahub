@@ -2,6 +2,7 @@ import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { retryOnFail } from '@utils/retry';
+import { TIMEOUTS } from '../utils/constants';
 
 export class SearchPage extends BasePage {
   readonly searchInput: Locator;
@@ -44,7 +45,6 @@ export class SearchPage extends BasePage {
       localStorage.setItem('skipOnboardingTour', 'true');
     });
     await this.navigate('/');
-    await this.page.waitForLoadState('networkidle');
     await this.searchInput.waitFor({ state: 'visible', timeout: 10000 });
     // Dismiss any remaining dialog (e.g. "Narrow your search" welcome modal).
     await this.dismissOnboardingOverlays();
@@ -101,12 +101,34 @@ export class SearchPage extends BasePage {
   }
 
   async expectNoResults(): Promise<void> {
-    await expect(this.page.getByText('of 0 results')).toBeVisible();
+    await retryOnFail(
+      async () => {
+        await expect(this.page.getByText('of 0 results')).toBeVisible();
+      },
+      {
+        onRetry: async () => {
+          await this.page.reload();
+          await this.page.waitForLoadState('networkidle');
+          await this.dismissOnboardingOverlays();
+        },
+      },
+    );
   }
 
   async expectHasResults(): Promise<void> {
-    await expect(this.page.getByText('of 0 results')).toBeHidden();
-    await expect(this.page.getByText(/of [0-9]+ result/)).toBeVisible();
+    await retryOnFail(
+      async () => {
+        await expect(this.page.getByText('of 0 results')).toBeHidden();
+        await expect(this.page.getByText(/of [0-9]+ result/)).toBeVisible();
+      },
+      {
+        onRetry: async () => {
+          await this.page.reload();
+          await this.page.waitForLoadState('networkidle');
+          await this.dismissOnboardingOverlays();
+        },
+      },
+    );
   }
 
   async getResultCount(): Promise<number> {
@@ -475,6 +497,17 @@ export class SearchPage extends BasePage {
 
   getEntityPreviewLocator(entityUrn: string): Locator {
     return this.page.getByTestId(`preview-${entityUrn}`);
+  }
+
+  /**
+   * Open a search result by URN. Card click only selects the preview pane —
+   * navigate via the entity name link inside the preview card.
+   */
+  async openResultByUrn(entityUrn: string): Promise<void> {
+    this.logger?.step('openResultByUrn', { entityUrn });
+    const preview = this.getEntityPreviewLocator(entityUrn);
+    await expect(preview).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await preview.getByRole('link').first().click();
   }
 
   async searchByTag(tagUrn: string): Promise<void> {

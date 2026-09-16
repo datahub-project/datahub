@@ -157,6 +157,12 @@ The `status` aspect indicates whether a schema field is active or has been soft-
 
 The `testResults` aspect can store results of data quality tests run on specific fields, linking test outcomes directly to the columns they validate.
 
+### Incidents
+
+Schema fields participate in the shared incidents subsystem, which lets a data quality problem be tracked against the specific column it affects rather than the whole dataset. Incidents are raised on a field with the `raiseIncident` GraphQL mutation (or the Python SDK) and read back through the `incidents` field on the `SchemaFieldEntity` GraphQL type. The field carries a rolled-up `incidentsSummary` aspect that is maintained automatically as incidents are raised and resolved. Because a single incident can reference several entities, one incident can link the affected column, its parent dataset, and a downstream model under a single lifecycle.
+
+Reading incidents on a field follows the same rule as reading any other field metadata through GraphQL, so it depends on the `schemaFieldEntityFetchEnabled` feature flag described under [Feature Flag Dependency](#feature-flag-dependency). Raising and resolving incidents is unaffected by that flag.
+
 ### SubTypes
 
 The `subTypes` aspect allows categorization of schema fields beyond their data type, enabling custom classification schemes.

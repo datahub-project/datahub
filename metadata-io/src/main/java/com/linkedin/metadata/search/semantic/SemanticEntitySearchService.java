@@ -281,6 +281,19 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             finalFilterMap,
             fieldsToFetch);
 
+    // Apply relevance floor: drop hits scoring below minScore so a caller (e.g. an agent) can
+    // abstain rather than surface weak matches. Post-kNN filtering keeps this engine-agnostic
+    // across the ES8 and OpenSearch shims.
+    final com.linkedin.metadata.query.SearchFlags searchFlags =
+        opContext.getSearchContext().getSearchFlags();
+    final Float minScore = searchFlags != null ? searchFlags.getMinScore() : null;
+    if (minScore != null) {
+      hits =
+          hits.stream()
+              .filter(h -> h.getScore() != null && h.getScore() >= minScore)
+              .collect(Collectors.toList());
+    }
+
     // 9) Slice [from, from+pageSize)
     if (from >= hits.size()) {
       return emptyResult(from, normalizedPageSize);

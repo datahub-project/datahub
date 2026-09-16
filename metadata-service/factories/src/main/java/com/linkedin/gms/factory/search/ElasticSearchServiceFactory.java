@@ -8,10 +8,12 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import java.io.IOException;
 import javax.annotation.Nonnull;
@@ -21,9 +23,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 @Slf4j
 @Configuration
+@Import(EntityDocumentIdHasherFactory.class)
 public class ElasticSearchServiceFactory {
 
   @Autowired
@@ -60,7 +64,8 @@ public class ElasticSearchServiceFactory {
       final ConfigurationProvider configurationProvider,
       final QueryFilterRewriteChain queryFilterRewriteChain,
       final ElasticSearchConfiguration elasticSearchConfiguration,
-      @Nullable final CustomSearchConfiguration customSearchConfiguration) {
+      @Nullable final CustomSearchConfiguration customSearchConfiguration,
+      final EntityDocumentIdHasher entityDocumentIdHasher) {
 
     return new ESSearchDAO(
         components.getSearchClient(),
@@ -68,7 +73,9 @@ public class ElasticSearchServiceFactory {
         elasticSearchConfiguration,
         customSearchConfiguration,
         queryFilterRewriteChain,
-        configurationProvider.getSearchService());
+        false,
+        configurationProvider.getSearchService(),
+        entityDocumentIdHasher);
   }
 
   @Bean
@@ -95,6 +102,8 @@ public class ElasticSearchServiceFactory {
       @Qualifier("settingsBuilder") final SettingsBuilder settingsBuilder)
       throws IOException {
 
+    warnOpenSearch3DocIdRisk(elasticSearchConfiguration, components.getSearchClient());
+
     return new ElasticSearchService(
         components.getIndexBuilder(),
         configurationProvider.getSearchService(),
@@ -109,5 +118,36 @@ public class ElasticSearchServiceFactory {
             queryFilterRewriteChain,
             configurationProvider.getSearchService()),
         esWriteDAO);
+  }
+
+  /**
+   * OpenSearch 3.x enforces the 512-byte {@code _id} limit on bulk writes (2.x did not). Schema
+   * field URNs are exempt from URN length validation and, with doc-ID hashing disabled, are used
+   * URL-encoded as document ids, so long schema-field URNs that indexed fine on 2.x become rejected
+   * bulk items on 3.x. Surfaced as a startup warning rather than a failure so existing 2.x-migrated
+   * deployments can start; the rejected items themselves are logged at ERROR by the bulk listener.
+   */
+  static void warnOpenSearch3DocIdRisk(
+      @Nonnull final ElasticSearchConfiguration configuration,
+      @Nullable final SearchClientShim<?> searchClient) {
+    // Null in Spring tests that mock the components holder; nothing to warn about.
+    if (searchClient == null
+        || searchClient.getEngineType() != SearchClientShim.SearchEngineType.OPENSEARCH_3) {
+      return;
+    }
+    final boolean hashIdEnabled =
+        configuration.getIndex() != null
+            && configuration.getIndex().getDocIds() != null
+            && configuration.getIndex().getDocIds().getSchemaField() != null
+            && configuration.getIndex().getDocIds().getSchemaField().isHashIdEnabled();
+    if (!hashIdEnabled) {
+      log.warn(
+          "OpenSearch 3.x enforces a 512-byte _id limit on bulk writes, and schema-field document"
+              + " ids use the URL-encoded URN while"
+              + " elasticsearch.index.docIds.schemaField.hashIdEnabled is false. Long schema-field"
+              + " URNs will be rejected at index time (logged as bulk failures). Enable"
+              + " ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED for new OpenSearch 3.x"
+              + " deployments.");
+    }
   }
 }
