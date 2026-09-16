@@ -18,7 +18,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -125,20 +124,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
     // Create slice-based search requests
     String pitId = null;
-    // Derive keepAlive from the query budget so the PIT always outlives the traversal + drain;
-    // otherwise slices near the deadline lose their search context (search_context_missing).
-    // sliceFutureDrainTimeoutSeconds is required (cancelAndDrainSliceFutures drains for this long
-    // before deleting the PIT and requireNonNull's it) — resolve it the same way here instead of
-    // silently treating a missing value as 0, which would under-size the keepAlive.
-    int drainTimeoutSeconds =
-        Objects.requireNonNull(
-            config.getSearch().getGraph().getSliceFutureDrainTimeoutSeconds(),
-            "elasticsearch.search.graph.sliceFutureDrainTimeoutSeconds must be configured");
-    String keepAlive =
-        GraphQueryTimeouts.computeEffectiveKeepAlive(
-            config.getSearch().getGraph().getImpact().getKeepAlive(),
-            config.getSearch().getGraph().getTimeoutSeconds(),
-            drainTimeoutSeconds);
+    String keepAlive = config.getSearch().getGraph().getImpact().getKeepAlive();
     List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
     try {
       pitId =

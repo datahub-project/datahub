@@ -18,7 +18,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -158,19 +157,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
 
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
     String scrollId = null;
-    // Derive keepAlive from the query budget so the scroll context always outlives the traversal +
-    // drain, mirroring the PIT DAO; otherwise a long scroll can lose its context during the
-    // post-timeout drain (search_context_missing). sliceFutureDrainTimeoutSeconds is required
-    // (cancelAndDrainSliceFutures requireNonNull's it).
-    int drainTimeoutSeconds =
-        Objects.requireNonNull(
-            config.getSearch().getGraph().getSliceFutureDrainTimeoutSeconds(),
-            "elasticsearch.search.graph.sliceFutureDrainTimeoutSeconds must be configured");
-    String keepAlive =
-        GraphQueryTimeouts.computeEffectiveKeepAlive(
-            config.getSearch().getGraph().getImpact().getKeepAlive(),
-            config.getSearch().getGraph().getTimeoutSeconds(),
-            drainTimeoutSeconds);
+    String keepAlive = config.getSearch().getGraph().getImpact().getKeepAlive();
     long deadline = System.currentTimeMillis() + remainingTime;
 
     try {
