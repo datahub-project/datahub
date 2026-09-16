@@ -346,3 +346,40 @@ def test_a_copy_that_switches_aws_config_does_not_reuse_the_credentials(
 
     assert len(built) == 2, "the copy kept a manager holding the old credentials"
     assert built[1]["aws_config"].aws_region == "eu-central-1"
+
+
+def test_the_token_is_minted_for_the_username_the_engine_will_use():
+    """host and port already come from the effective URL; the username did not.
+
+    rds_iam_endpoint() parses get_sql_alchemy_url() and takes url.host and
+    url.port from it, precisely so a `sqlalchemy_uri` that points somewhere
+    else is honoured. The username kept coming from the config field, so a URI
+    naming a different user had its token signed for the wrong one -- and an
+    RDS IAM token is scoped to the user it was minted for, so the connection
+    is rejected with an authentication error that names neither the URI nor
+    the config.
+    """
+    config = _postgres(
+        sqlalchemy_uri="postgresql://uri_user@db.rds.amazonaws.com:5432/db",
+        **_IAM,
+    )
+    manager = config.rds_iam_token_manager()
+    assert manager is not None
+    assert manager.username == "uri_user"
+
+
+def test_the_config_username_is_used_when_the_uri_names_none():
+    """The fallback, so reading the URI cannot become requiring one."""
+    config = _postgres(**_IAM)
+    manager = config.rds_iam_token_manager()
+    assert manager is not None
+    assert manager.username == "u"
+
+
+def test_a_whitespace_only_username_is_rejected():
+    """`not self.username` passes for "   ", which then signs a token for a
+    user that cannot exist -- an IAM configuration error worth failing at
+    rather than sending to AWS."""
+    config = _postgres(username="   ", **_IAM)
+    with pytest.raises(ValueError, match="username is required"):
+        config.rds_iam_token_manager()

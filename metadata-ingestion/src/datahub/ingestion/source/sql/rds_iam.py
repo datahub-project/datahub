@@ -75,6 +75,25 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
             )
         return url.host, url.port or self.rds_iam_default_port()
 
+    def rds_iam_username(self) -> Optional[str]:
+        """The user the engine will connect as.
+
+        Read from the effective URL for the same reason rds_iam_endpoint reads
+        host and port from it: a `sqlalchemy_uri` may point somewhere other
+        than host_port, and an RDS IAM token is scoped to the user it was
+        minted for. Signing for the config field while connecting as the URI's
+        user is rejected by RDS with an authentication error that names
+        neither.
+
+        Falls back to the config field when the URL will not parse or carries
+        no user, which is the ordinary recipe.
+        """
+        try:
+            url = make_url(self.get_sql_alchemy_url())
+        except Exception:
+            return self.username
+        return url.username or self.username
+
     def rds_iam_token_manager(self) -> Optional[RDSIAMTokenManager]:
         """The shared token manager, or None when IAM auth is not selected.
 
@@ -84,6 +103,7 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
         if not self.rds_iam_enabled():
             return None
         hostname, port = self.rds_iam_endpoint()
+        username = self.rds_iam_username()
         # Reused only while it still describes this config. Both model_copy()
         # and model_copy(deep=True) carry PrivateAttrs, so a copy that changed
         # host_port or username would otherwise go on presenting a token minted
@@ -95,7 +115,7 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
             cached is not None
             and cached.endpoint == hostname
             and cached.port == port
-            and cached.username == self.username
+            and cached.username == username
             # aws_config too: it decides which credentials sign the token, so a
             # copy that switched region or assumed role would otherwise keep
             # signing with the old one.
@@ -108,14 +128,17 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
                 "Please provide host_port in the format 'hostname:port' "
                 "(e.g., 'mydb.rds.amazonaws.com:5432')."
             )
-        if not self.username:
+        # `.strip()` too: "   " passes a bare falsiness check and then signs a
+        # token for a user that cannot exist, turning a configuration typo
+        # into an AWS round trip and an authentication error.
+        if not username or not username.strip():
             raise ValueError(
                 "username is required for RDS IAM authentication. "
                 "Please add 'username: <your_db_username>' to your configuration."
             )
         self._rds_iam_manager = RDSIAMTokenManager(
             endpoint=hostname,
-            username=self.username,
+            username=username,
             port=port,
             aws_config=self.aws_config,  # type: ignore[attr-defined]
         )
