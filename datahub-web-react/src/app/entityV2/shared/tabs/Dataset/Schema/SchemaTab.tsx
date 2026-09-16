@@ -43,13 +43,12 @@ const NoSchema = styled(Empty)`
     padding-top: 60px;
 `;
 
-// Fills whatever height the (flex-column) tab pane leaves after the header and any
-// metadata banners, instead of claiming 100% of the pane and pushing the table's
-// bottom rows out of view whenever a banner is shown.
+// height: 100% on purpose. The tab pane does not give this container a definite flex
+// height, so `flex: 1; min-height: 0` collapsed it to the header's 45px with a 0px body:
+// rows stayed in the DOM but were never visible, and every row click timed out.
 const SchemaTableContainer = styled.div`
     position: relative;
-    flex: 1;
-    min-height: 0;
+    height: 100%;
     box-sizing: border-box;
     overflow: hidden;
 `;

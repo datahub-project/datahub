@@ -87,15 +87,10 @@ export class SchemaScalePage extends BasePage {
     return this.page.getByTestId(`schema-field-${fieldPath}`);
   }
 
-  /**
-   * Open a column's drawer. The row's onClick (SchemaTable onRow) toggles the drawer, so a
-   * dispatched click is enough. A pointer click is deliberately avoided: the row is wider
-   * than the viewport and Playwright's scroll-into-view fights the virtualiser, leaving the
-   * target under the sticky header until the action times out.
-   */
+  /** Open a column's drawer with a real pointer click on its name in the fixed left column. */
   async clickRow(fieldPath: string, timeout: number): Promise<void> {
     this.logger?.step('clickRow', { fieldPath });
-    await this.row(fieldPath).dispatchEvent('click', undefined, { timeout });
+    await this.row(fieldPath).getByText(fieldPath, { exact: true }).click({ timeout });
   }
 
   description(fieldPath: string): Locator {
