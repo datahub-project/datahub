@@ -2302,6 +2302,83 @@ public class GraphQueryPITDAOTest {
     }
   }
 
+  @Test(timeOut = 10000)
+  public void testSliceSearchServerSideTimeoutPartialModeKeepsCollectedResults() throws Exception {
+    // Partial mode: when a later page reports timedOut=true, the slice must keep the relationships
+    // it
+    // already collected on earlier pages instead of throwing them away. Before the fix the slice
+    // threw, and processSliceFutures' partial branch retrieved zero for it — silent data loss, so
+    // the
+    // whole response came back empty (getTotal 0) despite a full page having been fetched.
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
+
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .timeoutSeconds(
+                                30) // ample budget; the timeout is server-side, not wall
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .maxRelations(-1)
+                                    .partialResults(true) // keep partial results on timeout
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+
+    // First search call returns a full page of relationships; the next one reports a server-side
+    // timeout. Only the first slice to run consumes the real page; the rest see the timed-out page.
+    SearchResponse page1 =
+        createFakeSearchResponse(
+            createFakeLineageHits(
+                3,
+                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                "dest",
+                "DownstreamOf"),
+            3);
+    SearchResponse timedOutPage =
+        createFakeSearchResponse(
+            createFakeLineageHits(
+                2,
+                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                "late",
+                "DownstreamOf"),
+            2);
+    when(timedOutPage.isTimedOut()).thenReturn(true);
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(page1)
+        .thenReturn(timedOutPage);
+
+    LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+    Assert.assertNotNull(response, "Response must not be null in partial mode");
+    Assert.assertTrue(
+        response.getTotal() >= 1,
+        "Partial mode must keep the relationships collected before the server-side timeout instead of"
+            + " discarding them (pre-fix this was 0). Got: "
+            + response.getTotal());
+  }
+
   @Test
   public void testGetImpactLineageSearchQueryTimeReservationValidationDefaultsToZeroPointTwo()
       throws Exception {

@@ -21,7 +21,7 @@ public final class GraphQueryTimeouts {
    * @param drainSeconds the post-timeout slice drain budget (0 if unset)
    * @return a TimeValue-parseable keepAlive string that is at least timeout + drain + margin
    */
-  public static String computeEffectiveKeepAlive(
+  static String computeEffectiveKeepAlive(
       String configuredKeepAlive, long timeoutSeconds, int drainSeconds) {
     long minSeconds = timeoutSeconds + Math.max(0, drainSeconds) + KEEP_ALIVE_MARGIN_SECONDS;
     long configuredSeconds =

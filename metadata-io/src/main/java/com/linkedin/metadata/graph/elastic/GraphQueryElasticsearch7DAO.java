@@ -9,6 +9,7 @@ import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -29,6 +30,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.slice.SliceBuilder;
@@ -176,6 +178,14 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       // Add slice configuration for parallel processing
       searchSourceBuilder.slice(new SliceBuilder(sliceId, totalSlices));
 
+      // Bound the initial shard search server-side at the remaining wall-clock budget so ES aborts
+      // rather than returning truncated hits we would treat as complete (mirrors the PIT DAO).
+      // Scroll continuations cannot carry a per-search timeout, but the deadline check and the
+      // isTimedOut guard below still bound them.
+      long remainingSeconds =
+          Math.max(1L, (long) Math.ceil((deadline - System.currentTimeMillis()) / 1000.0));
+      searchSourceBuilder.timeout(TimeValue.timeValueSeconds(remainingSeconds));
+
       // Set scroll keepAlive using configured value
       searchRequest.scroll(keepAlive);
 
@@ -186,6 +196,14 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       // Execute initial search to get scroll ID
       SearchResponse response = executeSearch(opContext, searchRequest);
       scrollId = response.getScrollId();
+
+      // Do not treat a server-side-timed-out initial page as "no results" (see
+      // handleSearchTimeout):
+      // strict mode throws DEADLINE_EXCEEDED; partial mode returns what was collected (nothing
+      // yet).
+      if (handleSearchTimeout(response, sliceId, allowPartialResults, remainingSeconds)) {
+        return sliceRelationships;
+      }
 
       if (response == null
           || response.getHits() == null
@@ -254,6 +272,15 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
                 MetricUtils.DROPWIZARD_NAME,
                 MetricUtils.name(this.getClass(), "esScrollQuery"));
 
+        // Same server-side-timeout guard as the initial search: a timed-out continuation must not
+        // be
+        // treated as "no more results". Keep the batches already collected.
+        long remainingSecs =
+            Math.max(1L, (long) Math.ceil((deadline - System.currentTimeMillis()) / 1000.0));
+        if (handleSearchTimeout(response, sliceId, allowPartialResults, remainingSecs)) {
+          break;
+        }
+
         if (response == null
             || response.getHits() == null
             || response.getHits().getHits().length == 0) {
@@ -286,6 +313,10 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
         }
       }
 
+    } catch (LineageTimeoutException e) {
+      // Preserve the distinct timeout type so processSliceFutures/GraphQL map it to
+      // DEADLINE_EXCEEDED instead of the generic wrapper below (which would surface SERVER_ERROR).
+      throw e;
     } catch (Exception e) {
       log.error("Failed to execute scroll search for slice {}", sliceId, e);
       throw new RuntimeException("Failed to execute scroll search for slice " + sliceId, e);

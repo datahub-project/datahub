@@ -1836,13 +1836,16 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         }
 
       } catch (TimeoutException e) {
+        // Meter in both strict and partial mode so the slice-timeout rate is observable regardless
+        // of partialResults. Same {phase} tag key as the other timeout sites (Prometheus rejects a
+        // metric name reused with a different set of tag keys).
+        if (metricUtils != null) {
+          metricUtils.incrementMicrometer(
+              GraphQueryConstants.LINEAGE_TIMEOUT_METRIC, 1, "phase", "slice");
+        }
         if (!allowPartialResults) {
           log.error("Slice {} timed out after {} seconds", i, futureTimeout);
           sliceFutures.forEach(f -> f.cancel(true));
-          if (metricUtils != null) {
-            metricUtils.incrementMicrometer(
-                GraphQueryConstants.LINEAGE_TIMEOUT_METRIC, 1, "phase", "slice");
-          }
           throw new LineageTimeoutException(
               "Slice " + i + " timed out after " + futureTimeout + " seconds", e);
         }
@@ -1899,6 +1902,48 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     }
 
     return new LineageSliceFetchResult(allRelationships, slicePartial);
+  }
+
+  /**
+   * Guard against treating a server-side-timed-out search page as a completed slice. When ES aborts
+   * a shard search at the wall-clock budget it returns truncated (possibly empty) hits with {@code
+   * timedOut=true}; extracting from that page and stopping would report incomplete lineage as
+   * complete. In strict mode this throws the distinct {@link LineageTimeoutException} so the
+   * GraphQL layer surfaces DEADLINE_EXCEEDED; in partial mode the caller keeps whatever the slice
+   * already collected on prior pages and stops paginating (returns {@code true}) rather than
+   * throwing those results away. Metered in both modes with the shared {@code phase} tag key so the
+   * timeout rate is observable regardless of partialResults.
+   *
+   * @param appliedTimeoutSeconds the per-search timeout actually applied (the remaining wall-clock
+   *     budget), used only for the strict-mode message
+   * @return {@code true} when the page timed out and the slice should stop (partial mode); throws
+   *     in strict mode
+   */
+  protected boolean handleSearchTimeout(
+      @Nullable SearchResponse response,
+      int sliceId,
+      boolean allowPartialResults,
+      long appliedTimeoutSeconds) {
+    if (response == null || !response.isTimedOut()) {
+      return false;
+    }
+    if (metricUtils != null) {
+      metricUtils.incrementMicrometer(
+          GraphQueryConstants.LINEAGE_TIMEOUT_METRIC, 1, "phase", "slice_search");
+    }
+    if (!allowPartialResults) {
+      throw new LineageTimeoutException(
+          "Slice "
+              + sliceId
+              + " search timed out server-side after "
+              + appliedTimeoutSeconds
+              + " seconds");
+    }
+    log.warn(
+        "Slice {} search timed out server-side after {}s; keeping already-collected relationships and stopping pagination",
+        sliceId,
+        appliedTimeoutSeconds);
+    return true;
   }
 
   @Override

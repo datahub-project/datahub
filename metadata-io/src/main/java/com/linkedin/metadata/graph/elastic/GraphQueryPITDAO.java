@@ -18,6 +18,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -125,13 +126,18 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
     String pitId = null;
     // Derive keepAlive from the query budget so the PIT always outlives the traversal + drain;
     // otherwise slices near the deadline lose their search context (search_context_missing).
+    // sliceFutureDrainTimeoutSeconds is required (cancelAndDrainSliceFutures drains for this long
+    // before deleting the PIT and requireNonNull's it) — resolve it the same way here instead of
+    // silently treating a missing value as 0, which would under-size the keepAlive.
+    int drainTimeoutSeconds =
+        Objects.requireNonNull(
+            config.getSearch().getGraph().getSliceFutureDrainTimeoutSeconds(),
+            "elasticsearch.search.graph.sliceFutureDrainTimeoutSeconds must be configured");
     String keepAlive =
         GraphQueryTimeouts.computeEffectiveKeepAlive(
             config.getSearch().getGraph().getImpact().getKeepAlive(),
             config.getSearch().getGraph().getTimeoutSeconds(),
-            config.getSearch().getGraph().getSliceFutureDrainTimeoutSeconds() == null
-                ? 0
-                : config.getSearch().getGraph().getSliceFutureDrainTimeoutSeconds());
+            drainTimeoutSeconds);
     List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
     try {
       pitId =
@@ -260,14 +266,13 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         searchSourceBuilder.query(query);
         searchSourceBuilder.size(pageSize);
         // Bound the shard search server-side so ES aborts at our wall-clock budget instead of
-        // running on (and holding the PIT) after we stop waiting. Clamp to the time actually left
-        // on this slice's deadline so a page started late cannot run for the full configured
-        // timeout past the deadline. Best-effort per-search timeout; see isTimedOut handling below.
+        // running on (and holding the PIT) after we stop waiting. remainingSeconds is the time left
+        // on this slice's deadline, which is always <= the global timeout budget, so it is the
+        // effective per-search bound. Best-effort per-search timeout; see handleSearchTimeout
+        // below.
         long remainingSeconds =
             Math.max(1L, (long) Math.ceil((deadline - System.currentTimeMillis()) / 1000.0));
-        searchSourceBuilder.timeout(
-            TimeValue.timeValueSeconds(
-                Math.min(config.getSearch().getGraph().getTimeoutSeconds(), remainingSeconds)));
+        searchSourceBuilder.timeout(TimeValue.timeValueSeconds(remainingSeconds));
 
         // Add sorting for consistent results and search_after using Edge sort fields
         ESUtils.buildSortOrder(searchSourceBuilder, Edge.EDGE_SORT_CRITERION, List.of(), false);
@@ -298,22 +303,11 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                 MetricUtils.DROPWIZARD_NAME,
                 MetricUtils.name(this.getClass(), "esQuery"));
 
-        // A server-side timeout returns truncated (possibly empty) hits with timedOut=true. Do NOT
-        // treat that page as a completed slice — otherwise incomplete lineage is returned as
-        // complete. Throw the distinct timeout so strict mode surfaces DEADLINE_EXCEEDED and
-        // partial mode marks the hop partial (via processSliceFutures' exception handling). Metered
-        // with the same {phase} tag key as the other timeout sites.
-        if (response != null && response.isTimedOut()) {
-          if (metricUtils != null) {
-            metricUtils.incrementMicrometer(
-                GraphQueryConstants.LINEAGE_TIMEOUT_METRIC, 1, "phase", "slice_search");
-          }
-          throw new LineageTimeoutException(
-              "Slice "
-                  + sliceId
-                  + " search timed out server-side after "
-                  + config.getSearch().getGraph().getTimeoutSeconds()
-                  + " seconds");
+        // A server-side timeout returns truncated (possibly empty) hits with timedOut=true. Strict
+        // mode throws DEADLINE_EXCEEDED; partial mode keeps the pages this slice already collected
+        // and stops paginating (rather than discarding them). See handleSearchTimeout.
+        if (handleSearchTimeout(response, sliceId, allowPartialResults, remainingSeconds)) {
+          break;
         }
 
         if (response == null
