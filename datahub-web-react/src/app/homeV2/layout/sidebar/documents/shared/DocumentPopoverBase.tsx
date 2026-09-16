@@ -186,23 +186,23 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
         [searchResults, filterSearchResults],
     );
 
-    const handleDocumentTreeSelect = (urn: string) => {
+    const handleDocumentTreeSelect = (urn: string, title?: string) => {
         if (multiSelect) {
             onToggleUrn?.(urn, !checkedUrns?.has(urn));
             return;
         }
         if (onSelectDocument) {
-            onSelectDocument(urn);
+            onSelectDocument(urn, title);
         }
     };
 
-    const handleSearchResultSelect = (urn: string) => {
+    const handleSearchResultSelect = (urn: string, title?: string) => {
         if (multiSelect) {
             onToggleUrn?.(urn, !checkedUrns?.has(urn));
             return;
         }
         if (onSelectSearchResult) {
-            onSelectSearchResult(urn);
+            onSelectSearchResult(urn, title);
         }
     };
 
@@ -248,7 +248,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
                                         isExpanded={false}
                                         isLoading={false}
                                         breadcrumb={breadcrumb}
-                                        onSelect={() => handleSearchResultSelect(doc.urn)}
+                                        onSelect={() => handleSearchResultSelect(doc.urn, doc.info?.title ?? undefined)}
                                         onToggleExpand={() => {}}
                                         onCreateChild={onCreateChild}
                                         multiSelect={multiSelect}
