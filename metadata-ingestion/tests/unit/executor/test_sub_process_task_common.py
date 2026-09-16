@@ -636,6 +636,33 @@ class TestSharedRecipeTaskSkeleton:
         assert "a log line" not in shipped_logs
         assert "withheld" in shipped_logs
 
+    def test_an_empty_run_is_not_reported_as_a_masking_failure(
+        self, tmp_path: Path
+    ) -> None:
+        """Nothing to show and could-not-show are different answers.
+
+        _masked returns None when masking fails and the masked text when it
+        works -- and the call sites joined the two with `or`, so an empty log
+        stream or an empty report produced "withheld: they could not be
+        masked, and showing them unmasked could leak a credential."
+
+        That is false, and it is the expensive kind of false: an operator who
+        sees it on every quiet run learns to skip the message that means a
+        credential nearly escaped.
+        """
+        report_file = tmp_path / "report.json"
+        report_file.write_text("")
+        ctx = Mock()
+        report = Mock()
+        ctx.get_report.return_value = report
+
+        SubProcessTaskUtil.finalize_task_output(
+            str(report_file), str(tmp_path), [], ctx
+        )
+
+        assert report.set_structured_report.call_args[0][0] == ""
+        assert report.set_logs.call_args[0][0] == ""
+
 
 class TestUnprotectableDisclosedSecrets:
     """A resolved secret equal to a value the recipe states in the clear.

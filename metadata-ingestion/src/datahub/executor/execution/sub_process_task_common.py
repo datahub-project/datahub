@@ -559,8 +559,15 @@ class SubProcessTaskUtil:
             try:
                 with open(report_file) as fp:
                     report_content = fp.read()
+                # `is None`, not `or`: _masked returns None ONLY when masking
+                # failed, and an empty report is a legitimate result. Joining
+                # them with `or` told an operator their quiet run's report was
+                # "withheld ... could leak a credential", which is both false
+                # and the fastest way to teach them to ignore the message when
+                # it is true.
+                masked_report = _masked(report_content)
                 ctx.get_report().set_structured_report(
-                    _masked(report_content) or MASKING_FAILED_REPORT
+                    MASKING_FAILED_REPORT if masked_report is None else masked_report
                 )
             except Exception:
                 logger.exception(
@@ -569,7 +576,12 @@ class SubProcessTaskUtil:
 
         try:
             log_text = SubProcessTaskUtil._format_log_lines(log_lines)
-            ctx.get_report().set_logs(_masked(log_text) or MASKING_FAILED_LOGS)
+            # Same distinction as the report above: a run that printed nothing
+            # is not a run whose logs had to be withheld.
+            masked_logs = _masked(log_text)
+            ctx.get_report().set_logs(
+                MASKING_FAILED_LOGS if masked_logs is None else masked_logs
+            )
         except Exception:
             logger.exception("Failed to set logs on execution report")
 
