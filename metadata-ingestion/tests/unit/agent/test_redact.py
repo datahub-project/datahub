@@ -8,6 +8,7 @@ from datahub.ingestion.agent.redact import (
     collect_secret_values,
     redact,
 )
+from datahub.masking.secret_registry import plain_config_values
 
 
 def test_redacts_exact_and_embedded_values():
@@ -158,3 +159,43 @@ def test_ordinary_keys_are_untouched_by_the_collision_handling():
 
     out = redact({"host": "h", "port": 5432}, {"secret"})
     assert out == {"host": "h", "port": 5432}
+
+
+def test_a_secret_under_a_sensitive_parent_is_not_treated_as_disclosed():
+    """The disclosure exemption must not reach INTO a sensitive subtree.
+
+    plain_config_values exempts values a recipe states in the clear under a
+    non-sensitive key, because masking one of those only corrupts output. It
+    decided that per key while walking, but forgot the decision on the way
+    down: a sensitive key whose value was a mapping recursed without carrying
+    `sensitive`, so `token: {access: ...}` was judged by the inner key
+    `access` -- which no hint matches -- and the credential came back as
+    "already disclosed", meaning it would not be masked anywhere.
+
+    Nothing under a sensitive key is public, whatever the child keys are
+    called, so the subtree is skipped entirely.
+    """
+    assert (
+        plain_config_values(
+            {"token": {"access": "acc3ssvalue", "refresh": "r3freshvalue"}},
+            _SENSITIVE_KEY_HINTS,
+        )
+        == set()
+    )
+
+    assert (
+        plain_config_values(
+            {"secret": {"outer": {"inner": "deepvalue"}}}, _SENSITIVE_KEY_HINTS
+        )
+        == set()
+    )
+
+    # The converse, so the fix cannot become "exempt nothing": a plain
+    # identifier under a plain key is still disclosed, which is the whole
+    # point of the exemption.
+    assert plain_config_values({"database": "analytics"}, _SENSITIVE_KEY_HINTS) == {
+        "analytics"
+    }
+    assert plain_config_values(
+        {"connection": {"database": "analytics"}}, _SENSITIVE_KEY_HINTS
+    ) == {"analytics"}

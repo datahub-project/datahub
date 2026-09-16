@@ -69,7 +69,14 @@ def plain_config_values(
             if isinstance(v, str):
                 if v and not sensitive and "${" not in v:
                     found.add(v)
-            else:
+            elif not sensitive:
+                # The subtree under a sensitive key is skipped whole. Recursing
+                # into it dropped `sensitive`, so the decision was re-made from
+                # the CHILD key -- and `token: {access: ...}` was judged by
+                # `access`, which no hint matches, so the credential came back
+                # "already disclosed" and was exempted from masking everywhere.
+                # Nothing under a sensitive key is public, whatever its
+                # children are called.
                 found |= plain_config_values(v, hints)
     elif isinstance(obj, list):
         for item in obj:

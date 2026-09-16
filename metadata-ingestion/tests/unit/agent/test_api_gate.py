@@ -306,3 +306,23 @@ def test_declaring_no_parameters_permits_no_query_at_all():
     """Default deny: an entry that names none vouches for none."""
     with pytest.raises(ApiScopeError, match="query parameter"):
         check_api_request("GET", "/spaces?limit=1", ALLOWLIST)
+
+
+def test_a_semicolon_cannot_smuggle_an_undeclared_parameter():
+    """Some servers still split query strings on ';' as well as '&'.
+
+    Python's parse_qsl dropped ';' support in 3.10 for exactly this reason, so
+    the gate saw ONE parameter named `include` whose value happened to contain
+    "secret=2" -- while a server that splits on ';' sees two. The gate has to
+    assume the wider reading: counting ';' as a separator can only make it
+    refuse more, which is the safe direction for an allowlist.
+    """
+    with pytest.raises(ApiScopeError, match="query parameter"):
+        check_api_request(
+            "GET", "/projects?include=1;secret=2", ("GET /projects?include",)
+        )
+
+    # A declared parameter on both sides of the separator is still fine.
+    check_api_request(
+        "GET", "/projects?include=1;limit=2", ("GET /projects?include&limit",)
+    )

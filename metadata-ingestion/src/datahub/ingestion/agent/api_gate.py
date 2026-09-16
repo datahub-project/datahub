@@ -120,8 +120,18 @@ def _effective_path(base_url: str, path: str) -> Tuple[str, FrozenSet[str]]:
     # keep_blank_values so "?include" counts as the parameter "include" rather
     # than vanishing, and so a bare "?/../x" is seen as the (undeclared)
     # parameter it is instead of passing as no query at all.
+    #
+    # Split on ';' as well as '&'. Python dropped ';' as a separator in 3.10
+    # (bpo-42967, a web-cache-poisoning fix), but servers that still honour it
+    # exist -- and the gate has to assume whatever reading the SERVER will
+    # take. Seen as one separator, "?include=1;secret=2" is a single parameter
+    # named `include`, so an undeclared `secret` rides through on a declared
+    # name. Counting ';' too can only surface more parameters, which for an
+    # allowlist can only refuse more: the safe direction.
     params = frozenset(
-        name for name, _ in parse_qsl(split.query, keep_blank_values=True)
+        name
+        for field in re.split(r"[&;]", split.query)
+        for name, _ in parse_qsl(field, keep_blank_values=True)
     )
     base_path = unquote(urlsplit(base_url).path).rstrip("/")
     if not base_path:

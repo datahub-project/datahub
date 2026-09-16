@@ -563,7 +563,6 @@ def test_rejects_a_server_or_session_variable(sql):
 @pytest.mark.parametrize(
     "sql",
     [
-        "SELECT VERSION()",
         "SELECT 1",
         "SELECT 'x' AS literal",
         "SELECT CURRENT_DATE",
@@ -573,7 +572,13 @@ def test_rejects_a_query_that_reads_no_catalog_relation(sql):
     """A row-returning query with no FROM reads server state rather than the
     catalog. Requiring one relation closes the whole no-table disclosure
     class, including built-in functions sqlglot models as first-class nodes
-    (not Anonymous) that the function check cannot see."""
+    (not Anonymous) that the function check cannot see.
+
+    `SELECT VERSION()` used to be the headline case here and has moved to
+    test_server_state_cannot_ride_in_on_a_real_table: it is refused by name
+    now, which this rule could never do once the query also names a table.
+    CURRENT_DATE stays, because it is refused ONLY by this rule -- it
+    discloses nothing, so it is allowed alongside a real relation."""
     with pytest.raises(SqlScopeError, match="catalog relation"):
         check_query_scope(sql, platform="mysql")
 
@@ -673,5 +678,44 @@ def test_a_cte_over_a_real_relation_still_works():
     """The converse, so the fix above cannot be 'refuse every WITH'."""
     check_query_scope(
         "WITH t AS (SELECT table_name FROM information_schema.tables) SELECT * FROM t",
+        platform="postgres",
+    )
+
+
+@pytest.mark.parametrize(
+    ("platform", "sql"),
+    [
+        ("postgres", "SELECT VERSION() FROM information_schema.tables"),
+        ("postgres", "SELECT CURRENT_SCHEMA FROM information_schema.tables"),
+        ("postgres", "SELECT SESSION_USER FROM information_schema.tables"),
+        ("mysql", "SELECT VERSION() FROM information_schema.tables"),
+        # And in a UNION branch, where the relation rule is satisfied by the
+        # other branch.
+        (
+            "postgres",
+            "SELECT table_name FROM information_schema.tables "
+            "UNION ALL SELECT VERSION()",
+        ),
+    ],
+)
+def test_server_state_cannot_ride_in_on_a_real_table(platform, sql):
+    """`@@version` is refused but `VERSION()` was not, which is the same fact.
+
+    The must-read-a-relation rule cannot reach these: a real catalog table IS
+    present, so the rule is satisfied and the tableless expression comes along.
+    And _check_functions only sees exp.Anonymous, while sqlglot models these as
+    first-class nodes -- which is exactly the gap that rule's own comment says
+    it exists to cover, and cannot when the query also names a table.
+    """
+    with pytest.raises(SqlScopeError, match="state"):
+        check_query_scope(sql, platform=platform)
+
+
+def test_a_harmless_builtin_is_still_allowed():
+    """The fix is about identity and configuration, not about every builtin.
+    CURRENT_DATE discloses nothing and a catalog query may legitimately filter
+    on it."""
+    check_query_scope(
+        "SELECT table_name FROM information_schema.tables WHERE created > CURRENT_DATE",
         platform="postgres",
     )

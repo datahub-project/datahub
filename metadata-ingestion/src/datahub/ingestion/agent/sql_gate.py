@@ -370,6 +370,29 @@ def _check_functions(statement: exp.Expr) -> None:
         )
 
 
+# Server and session state that sqlglot models as FIRST-CLASS nodes, so
+# _check_functions -- which only sees exp.Anonymous -- cannot refuse them, and
+# the must-read-a-relation rule cannot either once the query also names a real
+# table. `@@version` was refused while `VERSION()` was not, which is the same
+# fact spelled two ways.
+#
+# CURRENT_DATE and the other clock builtins are deliberately absent: they
+# disclose nothing, and a catalog query may legitimately filter on one.
+_SERVER_STATE_NODES: Dict[type, str] = {
+    node: label
+    for node, label in (
+        (getattr(exp, name, None), label)
+        for name, label in (
+            ("CurrentUser", "CURRENT_USER"),
+            ("SessionUser", "SESSION_USER"),
+            ("CurrentVersion", "VERSION()"),
+            ("CurrentSchema", "CURRENT_SCHEMA"),
+        )
+    )
+    if node is not None
+}
+
+
 def _check_server_state(statement: exp.Expr) -> None:
     """Refuse a reference to server or session identity (`@@name`, CURRENT_USER).
 
@@ -380,11 +403,11 @@ def _check_server_state(statement: exp.Expr) -> None:
     one smuggled into a UNION branch alongside a real catalog table, which the
     "must name a relation" rule alone would not catch.
 
-    CURRENT_USER is here for that last reason. It discloses the identity the
-    recipe connects as, and sqlglot models it as its own node rather than an
-    Anonymous function, so _check_functions cannot see it either. Riding along
-    with a real catalog table is exactly the case the relation rule cannot
-    reach, so the node itself is refused.
+    _SERVER_STATE_NODES is here for that last reason. Each discloses identity,
+    version or session configuration, and sqlglot models each as its own node
+    rather than an Anonymous function, so _check_functions cannot see them
+    either. Riding along with a real catalog table is exactly the case the
+    relation rule cannot reach, so the nodes themselves are refused.
     """
     for param in statement.find_all(exp.SessionParameter):
         raise SqlScopeError(
@@ -392,11 +415,12 @@ def _check_server_state(statement: exp.Expr) -> None:
             f"state rather than catalog metadata; only SELECTs over catalog "
             f"tables are permitted"
         )
-    for _ in statement.find_all(exp.CurrentUser):
+    for node_type, label in _SERVER_STATE_NODES.items():
+        if next(statement.find_all(node_type), None) is None:
+            continue
         raise SqlScopeError(
-            "CURRENT_USER reads the identity this recipe connects as, which is "
-            "session state rather than catalog metadata; only SELECTs over "
-            "catalog tables are permitted"
+            f"'{label}' reads server or session state rather than catalog "
+            f"metadata; only SELECTs over catalog tables are permitted"
         )
 
 
