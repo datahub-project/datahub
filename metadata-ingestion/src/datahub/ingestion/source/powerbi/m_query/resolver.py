@@ -16,6 +16,10 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     FunctionName,
     IdentifierAccessor,
 )
+from datahub.ingestion.source.powerbi.m_query.shared_expressions import (
+    SharedExpressions,
+    StopReason,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +34,15 @@ Scopes = Tuple[Tuple[int, dict], ...]
 def resolve_to_data_access_functions(
     node_map: NodeIdMap,
     parameters: Optional[Dict[str, str]] = None,
+    *,
+    shared: SharedExpressions,
 ) -> List[DataAccessFunctionDetail]:
     """
     Entry point: walk the NodeIdMap and return all DataAccessFunctionDetail entries
     for recognized data-access function calls in the expression.
+
+    ``shared`` carries the dataset's other queries, so a name this expression
+    does not define can still be followed into the query that does.
     """
     parameters = parameters or {}
     let_nodes = [
@@ -66,6 +75,7 @@ def resolve_to_data_access_functions(
         results=results,
         seen=seen,
         parameters=parameters,
+        shared=shared,
     )
     return results
 
@@ -77,7 +87,8 @@ def _walk(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
-    parameters: Optional[Dict[str, str]] = None,
+    parameters: Optional[Dict[str, str]],
+    shared: SharedExpressions,
 ) -> None:
     if node is None:
         return
@@ -99,6 +110,7 @@ def _walk(
             results,
             seen,
             parameters,
+            shared,
         )
         return
 
@@ -115,6 +127,7 @@ def _walk(
             results,
             seen,
             parameters,
+            shared,
         )
         return
 
@@ -130,6 +143,7 @@ def _walk(
             results,
             seen,
             parameters,
+            shared,
         )
         return
 
@@ -145,6 +159,7 @@ def _walk(
             results,
             seen,
             parameters,
+            shared,
         )
         return
 
@@ -164,6 +179,7 @@ def _walk(
                     results,
                     seen.copy(),
                     parameters,
+                    shared,
                 )
         return
 
@@ -179,6 +195,7 @@ def _walk(
                 results,
                 seen,
                 parameters,
+                shared,
             )
         return
 
@@ -194,6 +211,7 @@ def _walk(
             results,
             seen,
             parameters,
+            shared,
         )
         return
 
@@ -207,6 +225,7 @@ def _walk(
             results,
             seen,
             parameters,
+            shared,
         )
         _walk(
             node_map,
@@ -216,6 +235,7 @@ def _walk(
             results,
             seen.copy(),
             parameters,
+            shared,
         )
         return
 
@@ -229,7 +249,8 @@ def _walk_recursive_primary(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
-    parameters: Optional[Dict[str, str]] = None,
+    parameters: Optional[Dict[str, str]],
+    shared: SharedExpressions,
 ) -> None:
     head = node.get("head")  # embedded IdentifierExpression
     rec_exprs = node.get("recursiveExpressions", {})
@@ -244,6 +265,7 @@ def _walk_recursive_primary(
             results,
             seen,
             parameters,
+            shared,
         )
         return
 
@@ -260,6 +282,7 @@ def _walk_recursive_primary(
             results,
             seen,
             parameters,
+            shared,
         )
         return
 
@@ -283,6 +306,7 @@ def _walk_recursive_primary(
             results,
             seen,
             parameters,
+            shared,
         )
         return
 
@@ -295,6 +319,7 @@ def _walk_recursive_primary(
         results,
         seen,
         parameters,
+        shared,
     )
 
 
@@ -306,7 +331,8 @@ def _walk_invoke(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
-    parameters: Optional[Dict[str, str]] = None,
+    parameters: Optional[Dict[str, str]],
+    shared: SharedExpressions,
 ) -> None:
     callee = None
     if isinstance(head, dict) and head.get("kind") == "IdentifierExpression":
@@ -339,6 +365,7 @@ def _walk_invoke(
                     results,
                     seen,
                     parameters,
+                    shared,
                 )
                 return  # only first arg
 
@@ -350,6 +377,65 @@ def _unwrap_csv(elem: object) -> Optional[dict]:
     if isinstance(elem, dict):
         return elem
     return None
+
+
+def _walk_shared_expression(
+    name: str,
+    accessor_chain: Optional[IdentifierAccessor],
+    results: List[DataAccessFunctionDetail],
+    parameters: Optional[Dict[str, str]],
+    shared: SharedExpressions,
+) -> None:
+    """Continue the walk into another of the dataset's queries."""
+    if shared.would_repeat(name):
+        shared.stopped(
+            name, StopReason.CYCLE, " -> ".join(shared.chain + (name.casefold(),))
+        )
+        return
+
+    if shared.exhausted():
+        shared.stopped(
+            name, StopReason.TOO_DEEP, " -> ".join(shared.chain + (name.casefold(),))
+        )
+        return
+
+    text = shared.lookup(name)
+    if text is None:
+        logger.debug("Nothing in this dataset defines '%s'", name)
+        return
+
+    sub_map = shared.parsed(name, text)
+    if sub_map is None:
+        # Recorded on `shared` so the caller can report it rather than the table
+        # quietly ending up short of lineage.
+        return
+
+    sub_lets = [(k, v) for k, v in sub_map.items() if v.get("kind") == "LetExpression"]
+    if not sub_lets:
+        # Reported under its own reason: this query parsed cleanly, so calling it
+        # a parse failure would send the operator hunting for malformed M. The
+        # root path declines the same shape, so lineage is unchanged either way.
+        shared.stopped(name, StopReason.NO_LET)
+        return
+
+    sub_let_id, sub_let = min(sub_lets, key=lambda kv: kv[0])
+    output_node = sub_let.get("expression")
+    if output_node is None:
+        logger.debug("Referenced query '%s' has a let with no output expression", name)
+        return
+
+    # A fresh `seen` because let ids are only unique within one parsed
+    # expression; the reference chain on `shared` is what guards this level.
+    _walk(
+        sub_map,
+        output_node,
+        ((sub_let_id, sub_let),),
+        accessor_chain,
+        results,
+        set(),
+        parameters,
+        shared.entered(name),
+    )
 
 
 def _resolve_in_scopes(
@@ -382,7 +468,8 @@ def _walk_identifier_name(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
-    parameters: Optional[Dict[str, str]] = None,
+    parameters: Optional[Dict[str, str]],
+    shared: SharedExpressions,
 ) -> None:
     """Resolve a variable name against the enclosing scopes and keep walking."""
     if not name:
@@ -390,7 +477,10 @@ def _walk_identifier_name(
 
     found = _resolve_in_scopes(node_map, scopes, name)
     if found is None:
-        logger.debug("No enclosing let binds '%s', stopping this branch", name)
+        # Nothing in this expression binds the name, so it may belong to another
+        # query in the model -- one that is not loaded and therefore has no
+        # entity of its own to point an edge at.
+        _walk_shared_expression(name, accessor_chain, results, parameters, shared)
         return
     binding_let_id, resolved, binding_scopes = found
 
@@ -411,4 +501,5 @@ def _walk_identifier_name(
         results,
         seen,
         parameters,
+        shared,
     )
