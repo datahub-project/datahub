@@ -22,7 +22,6 @@ Have you ever been frustrated by slow and unreliable data pipelines or unexpecte
 
 A data pipeline is a series of processes that move data from one system to another - a key component in the supply chain for data. Think of it like a conveyor belt in a factory, transporting raw materials to different stations where they are processed into the final product. In the context of data, pipelines extract, transform, and load data (ETL) from various sources to destinations like data warehouses, ensuring the data is ready for analysis and use in applications such as machine learning models and business intelligence dashboards.
 
-
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-pipeline/pipeline-lineage.png"/>
  <br />
@@ -33,7 +32,7 @@ A data pipeline is a series of processes that move data from one system to anoth
 
 ### The Problem
 
-Over time, data pipelines can slow down or become unreliable due to new dependencies, application code bugs, and poorly optimized queries, leading to missed data freshness SLAs and increased cloud costs. For data engineers, this means more time spent on manual debugging and  justifying costs to your executives. 
+Over time, data pipelines can slow down or become unreliable due to new dependencies, application code bugs, and poorly optimized queries, leading to missed data freshness SLAs and increased cloud costs. For data engineers, this means more time spent on manual debugging and justifying costs to your executives.
 
 ### Importance
 
@@ -82,8 +81,6 @@ DataHub Cloud offers comprehensive features designed to optimize data pipelines:
 - **Cost Management Tooling:** Monitor and optimize cloud costs associated with your data pipelines to improve cost-efficiency.
 
 By implementing these solutions, you can ensure that your data pipelines are running efficiently, meeting delivery SLAs, and staying within budget.
-
-
 
 ## Conclusion
 

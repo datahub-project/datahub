@@ -562,9 +562,16 @@ public class OpenLineageToDataHub {
         && (event.getJob().getFacets().getOwnership() != null)) {
       for (OpenLineage.OwnershipJobFacetOwners ownerFacet :
           event.getJob().getFacets().getOwnership().getOwners()) {
+        // A blank name would mint urn:li:corpuser: with no identity behind it, which is a
+        // catalog entry nobody can act on. The dataset path already guards this; the job path
+        // did not.
+        if (ownerFacet.getName() == null || ownerFacet.getName().trim().isEmpty()) {
+          log.warn("Skipping OpenLineage job owner with no name");
+          continue;
+        }
         Owner owner = new Owner();
         try {
-          owner.setOwner(Urn.createFromString(URN_LI_CORPUSER + ownerFacet.getName()));
+          owner.setOwner(Urn.createFromString(URN_LI_CORPUSER + ownerFacet.getName().trim()));
           owner.setType(mapOwnershipType(ownerFacet.getType()));
           OwnershipSource source = new OwnershipSource();
           source.setType(OwnershipSourceType.SERVICE);
