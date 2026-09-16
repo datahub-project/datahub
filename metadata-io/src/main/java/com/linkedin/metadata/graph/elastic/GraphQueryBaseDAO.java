@@ -1448,7 +1448,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         } catch (LineageTimeoutException e) {
           // Strict-mode slice timeouts surface here; record them on the same cascade so every
           // timeout, whichever site detected it, lands on graph_walk.errors{error_type=timeout}.
-          // ponytail: partial-mode slice timeouts on the final hop are only visible via isPartial;
+          // Partial-mode slice timeouts on the final hop are only visible via isPartial;
           // add a reason to LineageSliceFetchResult if that rate ever needs its own series.
           cascade.recordError("timeout");
           throw e;
