@@ -8,10 +8,12 @@ it before invoking -- a connector cannot forget a check it does not perform.
 
 import datetime
 import decimal
+import inspect as _inspect
 from typing import Dict, List, Sequence
 
 import pytest
 
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.agent.api_gate import ApiScopeError
 from datahub.ingestion.agent.probe_methods import (
     MAX_PROBE_ITEMS,
@@ -256,10 +258,42 @@ def test_the_switch_is_checked_before_anything_connects(monkeypatch):
     after the provider has authenticated. On a source that was slow or down
     the operator's refusal never appeared: the caller got a connection error
     and went off to fix credentials for a command that was never going to
-    run. Nothing in this check needs a provider, so it takes none."""
-    import inspect as _inspect
+    run.
+
+    Asserted through run_probe_method against a source that cannot be
+    reached, because that is the situation the bug was about. The earlier
+    version of this test only checked that _refuse_withheld_passthrough
+    takes no `provider` argument, which is a property of the signature:
+    it stays true if someone moves the CALL back inside the `with`, which
+    is the regression itself.
+    """
+    import datahub.ingestion.agent.probe_methods as _pm
 
     monkeypatch.setenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "true")
+
+    built: List[object] = []
+
+    class Unreachable(FakeSqlProvider):
+        @classmethod
+        def for_config(cls, config: object) -> "Unreachable":
+            built.append(config)
+            raise OSError("connection refused: the source is down")
+
+    class _Config(ConfigModel):
+        pass
+
+    monkeypatch.setattr(_pm, "_provider_class", lambda source_type: Unreachable)
+    monkeypatch.setattr(_pm, "config_class_for", lambda source_type: _Config)
+
+    with pytest.raises(ValueError, match="DATAHUB_PROBE_DISABLE_RAW_ACCESS"):
+        _pm.run_probe_method("postgres", {}, "sql", {"query": "SELECT 1"})
+
+    # Not merely "a ValueError surfaced first" -- the connection was never
+    # attempted at all, so a slow source cannot delay the refusal either.
+    assert built == [], "the provider was built before the operator's switch"
+
+    # And the check still needs no provider to perform, which is what lets
+    # it sit this early.
     params = _inspect.signature(_refuse_withheld_passthrough).parameters
     assert "provider" not in params, (
         "taking a provider is what put this behind authentication"
