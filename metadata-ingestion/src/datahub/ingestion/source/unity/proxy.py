@@ -9,13 +9,25 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Protocol,
+    Sequence,
+    Union,
+    cast,
+)
 from unittest.mock import patch
 
 import cachetools
 import yaml
 from cachetools import cached
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.errors import NotFound
 from databricks.sdk.service.catalog import (
     CatalogInfo,
     ColumnInfo,
@@ -291,6 +303,14 @@ def _optional_row_field(
             report.num_lineage_row_field_read_errors += 1
         return None
     return value
+
+
+class DataProfilingConfig(Protocol):
+    profile_metrics_table_name: Optional[str]
+
+
+class QualityMonitor(Protocol):
+    data_profiling_config: Optional[DataProfilingConfig]
 
 
 class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
@@ -1718,6 +1738,39 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         except Exception as e:
             self._report_sql_query_failure(e, query, params)
             return []
+
+    def run_sql_query(self, query: str) -> List[Row]:
+        # Unlike _execute_sql_query, this raises on failure instead of returning an
+        # empty list, so the data-quality extractor can tell a query error (missing
+        # SELECT, wrong table) apart from a monitor with no rows in the window.
+        sql_connection_params = get_sql_connection_params(self._workspace_client)
+        with (
+            connect(**sql_connection_params) as connection,
+            connection.cursor() as cursor,
+        ):
+            cursor.execute(query)
+            return cursor.fetchall()
+
+    def data_quality_available(self) -> bool:
+        # The data_quality client was added in databricks-sdk 0.68.0; the Unity
+        # connector supports older SDKs, so callers must feature-detect.
+        return getattr(self._workspace_client, "data_quality", None) is not None
+
+    def get_quality_monitor(self, table_id: str) -> Optional[QualityMonitor]:
+        # A missing monitor is the common case (most tables are unmonitored) and the
+        # SDK surfaces it as NotFound, so we degrade only that to None. Auth, rate
+        # limit, and transient errors propagate so the caller can report them rather
+        # than silently treating the table as unmonitored.
+        dq = getattr(self._workspace_client, "data_quality", None)
+        if dq is None:
+            return None
+        try:
+            return cast(
+                QualityMonitor,
+                dq.get_monitor(object_type="table", object_id=table_id),
+            )
+        except NotFound:
+            return None
 
     def _execute_sql_query_streaming(
         self,

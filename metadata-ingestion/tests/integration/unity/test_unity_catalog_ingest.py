@@ -1,7 +1,7 @@
 import uuid
 from collections import namedtuple
 from datetime import datetime, timezone
-from typing import Iterable
+from typing import Dict, Iterable
 from unittest import mock
 from unittest.mock import patch
 
@@ -699,6 +699,120 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
             output_path=f"/{tmp_path}/{output_file_name}",
             golden_path=f"{test_resources_dir}/{mce_golden_file}",
         )
+
+
+class _DataProfilingConfig:
+    def __init__(self, profile_metrics_table_name: str) -> None:
+        self.profile_metrics_table_name = profile_metrics_table_name
+
+
+class _QualityMonitor:
+    def __init__(self, data_profiling_config: _DataProfilingConfig) -> None:
+        self.data_profiling_config = data_profiling_config
+
+
+class _MetricRow:
+    """Mimics a databricks.sql Row: the extractor only calls asDict()."""
+
+    def __init__(self, values: Dict[str, object]) -> None:
+        self._values = values
+
+    def asDict(self) -> Dict[str, object]:
+        return self._values
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_data_quality_ingestion(pytestconfig, tmp_path, requests_mock):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+    register_mock_api(request_mock=requests_mock)
+
+    output_file_name = "unity_catalog_data_quality_mcps.json"
+
+    # A monitored column with no nulls passes completeness; one with nulls fails.
+    # window_end must fall inside the extractor's query window
+    # [FROZEN_TIME - max_window_days, FROZEN_TIME] so it mirrors a real row.
+    window_end = datetime(2021, 12, 6, 8, tzinfo=timezone.utc)
+    metric_rows = [
+        _MetricRow(
+            {
+                "window_end": window_end,
+                "column_name": "columnA",
+                "monitor_version": 1,
+                "row_count": 10,
+                "num_nulls": 0,
+                "percent_null": 0.0,
+            }
+        ),
+        _MetricRow(
+            {
+                "window_end": window_end,
+                "column_name": "columnB",
+                "monitor_version": 1,
+                "row_count": 10,
+                "num_nulls": 2,
+                "percent_null": 0.2,
+            }
+        ),
+    ]
+    monitor = _QualityMonitor(
+        _DataProfilingConfig(
+            "quickstart_catalog.quickstart_schema.quickstart_table_profile_metrics"
+        )
+    )
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(UnityCatalogApiProxy, "run_sql_query", return_value=metric_rows),
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+        workspace_client.data_quality.get_monitor.return_value = monitor
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-dq-test",
+            "pipeline_name": "unity-catalog-dq-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "warehouse_id": "test",
+                    "include_hive_metastore": False,
+                    "include_ownership": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "include_ml_models": False,
+                    "include_notebooks": False,
+                    "profiling": {"enabled": False},
+                    "catalog_pattern": {"allow": ["quickstart_catalog"]},
+                    "table_pattern": {
+                        "allow": [
+                            r"quickstart_catalog\.quickstart_schema\.quickstart_table$"
+                        ]
+                    },
+                    "data_quality": {"enabled": True, "max_window_days": 1},
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": f"{tmp_path}/{output_file_name}"},
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/{output_file_name}",
+        golden_path=f"{test_resources_dir}/unity_catalog_data_quality_mces_golden.json",
+    )
 
 
 @time_machine.travel(

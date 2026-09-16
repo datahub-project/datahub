@@ -4,6 +4,8 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.errors import NotFound
 
 from datahub.ingestion.source.unity.proxy import (
     ExternalUpstream,
@@ -16,23 +18,20 @@ from datahub.ingestion.source.unity.proxy_patch import _basic_proxy_auth_header
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 
+@pytest.fixture
+def mock_proxy():
+    """A UnityCatalogApiProxy backed by a mocked WorkspaceClient."""
+    mock_workspace_client = MagicMock(spec=WorkspaceClient)
+    mock_workspace_client.config.host = "https://test.databricks.com"
+    mock_workspace_client.config.token = "test_token"
+    mock_workspace_client.config.warehouse_id = "test_warehouse"
+    return UnityCatalogApiProxy(
+        workspace_client=mock_workspace_client,
+        report=UnityCatalogReport(),
+    )
+
+
 class TestUnityCatalogProxy:
-    @pytest.fixture
-    def mock_proxy(self):
-        """Create a mock UnityCatalogApiProxy for testing."""
-        from databricks.sdk import WorkspaceClient
-
-        mock_workspace_client = MagicMock(spec=WorkspaceClient)
-        mock_workspace_client.config.host = "https://test.databricks.com"
-        mock_workspace_client.config.token = "test_token"
-        mock_workspace_client.config.warehouse_id = "test_warehouse"
-
-        proxy = UnityCatalogApiProxy(
-            workspace_client=mock_workspace_client,
-            report=UnityCatalogReport(),
-        )
-        return proxy
-
     def test_build_datetime_where_conditions_empty(self, mock_proxy):
         """Test datetime conditions with no start/end time."""
         result = mock_proxy._build_datetime_where_conditions()
@@ -1658,22 +1657,6 @@ class TestUnityCatalogProxyAuthentication:
 class TestUnityCatalogProxyUsageSystemTables:
     """Test suite for system tables query history functionality."""
 
-    @pytest.fixture
-    def mock_proxy(self):
-        """Create a mock UnityCatalogApiProxy for testing."""
-        from databricks.sdk import WorkspaceClient
-
-        mock_workspace_client = MagicMock(spec=WorkspaceClient)
-        mock_workspace_client.config.host = "https://test.databricks.com"
-        mock_workspace_client.config.token = "test_token"
-        mock_workspace_client.config.warehouse_id = "test_warehouse"
-
-        proxy = UnityCatalogApiProxy(
-            workspace_client=mock_workspace_client,
-            report=UnityCatalogReport(),
-        )
-        return proxy
-
     @patch(
         "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
@@ -2017,3 +2000,50 @@ class TestQueryFilterWithStatementTypesSerialisation:
 
         result_types = f.as_dict()["statement_types"]
         assert result_types == [t.value for t in types_in]
+
+
+class TestUnityCatalogDataQualityProxy:
+    """Direct tests for the data-quality proxy seams: only NotFound degrades to
+    None, and run_sql_query raises (rather than returning []) on failure."""
+
+    def test_get_quality_monitor_returns_monitor(self, mock_proxy):
+        monitor = object()
+        mock_proxy._workspace_client.data_quality.get_monitor.return_value = monitor
+        assert mock_proxy.get_quality_monitor("table-id") is monitor
+
+    def test_get_quality_monitor_missing_api_returns_none(self, mock_proxy):
+        # Older databricks-sdk without the data_quality client.
+        mock_proxy._workspace_client.data_quality = None
+        assert mock_proxy.get_quality_monitor("table-id") is None
+
+    def test_get_quality_monitor_not_found_returns_none(self, mock_proxy):
+        mock_proxy._workspace_client.data_quality.get_monitor.side_effect = NotFound(
+            "no monitor"
+        )
+        assert mock_proxy.get_quality_monitor("table-id") is None
+
+    def test_get_quality_monitor_other_error_raises(self, mock_proxy):
+        mock_proxy._workspace_client.data_quality.get_monitor.side_effect = (
+            RuntimeError("boom")
+        )
+        with pytest.raises(RuntimeError):
+            mock_proxy.get_quality_monitor("table-id")
+
+    def test_run_sql_query_returns_rows(self, mock_proxy):
+        with patch("datahub.ingestion.source.unity.proxy.connect") as mock_connect:
+            cursor = MagicMock()
+            cursor.fetchall.return_value = ["row-a", "row-b"]
+            connection = MagicMock()
+            connection.cursor.return_value.__enter__.return_value = cursor
+            mock_connect.return_value.__enter__.return_value = connection
+
+            assert mock_proxy.run_sql_query("SELECT 1") == ["row-a", "row-b"]
+            cursor.execute.assert_called_once_with("SELECT 1")
+
+    def test_run_sql_query_raises_on_failure(self, mock_proxy):
+        with patch(
+            "datahub.ingestion.source.unity.proxy.connect",
+            side_effect=RuntimeError("db down"),
+        ):
+            with pytest.raises(RuntimeError):
+                mock_proxy.run_sql_query("SELECT 1")
