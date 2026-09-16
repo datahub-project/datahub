@@ -2226,12 +2226,9 @@ public class GraphQueryPITDAOTest {
 
   @Test(timeOut = 10000)
   public void testSliceSearchServerSideTimeoutPartialModeKeepsCollectedResults() throws Exception {
-    // Partial mode: when a page reports timedOut=true, the slice must keep the relationships it
-    // already collected on earlier pages instead of throwing them away, and the hop must be marked
-    // partial so incomplete lineage is not reported as complete. Before the fix the slice threw and
-    // processSliceFutures' partial branch retrieved zero for it (silent data loss); a naive break
-    // would keep the data but leave isPartial=false. Bind responses per slice id so slice 0
-    // deterministically fetches a page and then times out on its next page.
+    // Before the timedOut guard, the timed-out page was extracted as a normal page and the hop was
+    // reported complete (total=5, isPartial=false). The regression this pins is "truncated lineage
+    // reported as complete", not data loss.
     Urn sourceUrn =
         Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
 
@@ -2310,9 +2307,9 @@ public class GraphQueryPITDAOTest {
     Assert.assertNotNull(response, "Response must not be null in partial mode");
     Assert.assertEquals(
         response.getTotal(),
-        3,
-        "Partial mode must keep the 3 relationships collected before the server-side timeout (pre-fix"
-            + " this was 0)");
+        5,
+        "Partial mode keeps the 3 relationships from the completed page AND the 2 valid hits on the"
+            + " timed-out page (they were collected before the shard budget ran out)");
     Assert.assertTrue(
         response.isPartial(),
         "A server-side timeout must mark the hop partial so truncated lineage is not reported as"

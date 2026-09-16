@@ -3301,4 +3301,69 @@ public class GraphQueryElasticsearch7DAOTest {
               + e.getMessage());
     }
   }
+
+  @Test(timeOut = 10000)
+  public void testScrollContinuationServerSideTimeoutPartialModeKeepsCollectedResults()
+      throws Exception {
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .timeoutSeconds(30)
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .maxRelations(-1)
+                                    .partialResults(true)
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+    GraphQueryElasticsearch7DAO dao =
+        new GraphQueryElasticsearch7DAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, null);
+
+    SearchResponse initialPage =
+        createFakeSearchResponse(
+            createFakeLineageHits(
+                3,
+                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                "dest",
+                "DownstreamOf"),
+            3,
+            "scroll_id_1");
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(initialPage);
+    SearchResponse timedOutScroll =
+        createFakeSearchResponse(
+            createFakeLineageHits(
+                2,
+                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                "late",
+                "DownstreamOf"),
+            2,
+            "scroll_id_1");
+    when(timedOutScroll.isTimedOut()).thenReturn(true);
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(timedOutScroll);
+
+    LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+    Assert.assertEquals(
+        response.getTotal(),
+        5,
+        "partial mode keeps the initial page and the valid hits on the timed-out continuation");
+    Assert.assertTrue(
+        response.isPartial(), "a timed-out continuation must mark the hop partial (ES7 path)");
+  }
 }

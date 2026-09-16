@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -156,5 +157,26 @@ public class ProcessSliceFuturesPartialResultsTest {
     assertTrue(
         futures.get(1).isCompletedExceptionally(),
         "slice 1 failed before fail-fast cancel-all ran");
+  }
+
+  @Test(timeOut = 15_000)
+  public void testDisallowPartial_budgetExhaustedAfterSlice_throwsLineageTimeout()
+      throws Exception {
+    Harness harness = new Harness(TEST_OS_SEARCH_CONFIG);
+    List<CompletableFuture<List<LineageRelationship>>> futures = new ArrayList<>();
+    futures.add(
+        CompletableFuture.completedFuture(
+            List.of(rel("urn:li:dataset:(urn:li:dataPlatform:test,a,PROD)"))));
+    futures.add(new CompletableFuture<>()); // never read: the hop budget is gone after slice 0
+
+    // remainingTime=0: slice 0 returns instantly but the budget is exhausted with slice 1 unread.
+    // Strict mode must fail rather than report the hop complete.
+    LineageTimeoutException thrown =
+        Assert.expectThrows(
+            LineageTimeoutException.class,
+            () -> harness.invokeProcessSliceFutures(futures, 0, false));
+
+    assertTrue(thrown.getMessage().contains("timed out"), thrown.getMessage());
+    assertTrue(futures.get(1).isCancelled(), "unread slices are cancelled on strict timeout");
   }
 }

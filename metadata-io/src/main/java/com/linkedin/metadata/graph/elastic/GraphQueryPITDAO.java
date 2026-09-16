@@ -155,10 +155,9 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
       // One budget shared across all slices of this hop (see GraphQueryBaseDAO); null == unlimited.
       final AtomicInteger sharedRemaining = newSharedRelationshipBudget(maxRelations);
-      // Set by any slice that stops early on a server-side timeout so the hop is marked partial
-      // even
-      // when the wall-clock budget was not exhausted (see markPartialIfSliceSearchTimedOut).
-      final AtomicBoolean sliceSearchTimedOut = new AtomicBoolean(false);
+      // Set by any slice that stops on a timeout in partial mode so the hop is marked partial
+      // (see stopSliceOnTimeout / markPartialIfSliceTimedOut).
+      final AtomicBoolean sliceTimedOut = new AtomicBoolean(false);
 
       for (int sliceId = 0; sliceId < slices; sliceId++) {
         final int currentSliceId = sliceId;
@@ -185,7 +184,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                       allowPartialResults,
                       tempPitId,
                       keepAlive,
-                      sliceSearchTimedOut);
+                      sliceTimedOut);
                 },
                 pitExecutor); // Use dedicated thread pool with CallerRunsPolicy for backpressure
         sliceFutures.add(sliceFuture);
@@ -194,14 +193,13 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       // Reuse the common slice coordination logic. If the shared budget ended exhausted, the hop
       // was truncated at maxRelations — report partial explicitly, since the outer unique-entity
       // limit check can miss it when cross-slice duplicates merge away. Likewise mark partial when
-      // a
-      // slice stopped on a server-side timeout (its collected results are incomplete).
-      return markPartialIfSliceSearchTimedOut(
+      // a slice stopped on a server-side timeout (its collected results are incomplete).
+      return markPartialIfSliceTimedOut(
           markPartialIfSharedBudgetExhausted(
               processSliceFutures(sliceFutures, remainingTime, allowPartialResults),
               sharedRemaining,
               allowPartialResults),
-          sliceSearchTimedOut,
+          sliceTimedOut,
           allowPartialResults);
     } finally {
       // Cancel any still-running slice futures, then wait (bounded, see GraphQueryConstants) before
@@ -238,7 +236,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       boolean allowPartialResults,
       String pitId,
       String keepAlive,
-      AtomicBoolean sliceSearchTimedOut) {
+      AtomicBoolean sliceTimedOut) {
 
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
     Object[] searchAfter = null;
@@ -259,8 +257,9 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         }
 
         // Check timeout before processing
+        // Hop deadline passed between pages: same policy as a server-side timed_out page.
         if (System.currentTimeMillis() >= deadline) {
-          log.warn("Slice {} timed out, stopping PIT search", sliceId);
+          stopSliceOnTimeout(sliceId, "hop deadline passed", allowPartialResults, sliceTimedOut);
           break;
         }
 
@@ -277,14 +276,12 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(query);
         searchSourceBuilder.size(pageSize);
-        // Bound the shard search server-side so ES aborts at our wall-clock budget instead of
-        // running on (and holding the PIT) after we stop waiting. remainingSeconds is the time left
-        // on this slice's deadline, which is always <= the global timeout budget, so it is the
-        // effective per-search bound. Best-effort per-search timeout; see handleSearchTimeout
-        // below.
-        long remainingSeconds =
-            Math.max(1L, (long) Math.ceil((deadline - System.currentTimeMillis()) / 1000.0));
-        searchSourceBuilder.timeout(TimeValue.timeValueSeconds(remainingSeconds));
+        // Ask each shard to stop collecting once the remaining hop budget elapses and return what
+        // it has with timedOut=true. Best-effort: this bounds the query phase only. It does not
+        // cancel the task, does not count threadpool queue time, and has no effect on PIT lifetime
+        // (that is keepAlive, refreshed on every page request).
+        searchSourceBuilder.timeout(
+            TimeValue.timeValueMillis(Math.max(1L, deadline - System.currentTimeMillis())));
 
         // Add sorting for consistent results and search_after using Edge sort fields
         ESUtils.buildSortOrder(searchSourceBuilder, Edge.EDGE_SORT_CRITERION, List.of(), false);
@@ -315,20 +312,20 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                 MetricUtils.DROPWIZARD_NAME,
                 MetricUtils.name(this.getClass(), "esQuery"));
 
-        // A server-side timeout returns truncated (possibly empty) hits with timedOut=true. Strict
-        // mode throws DEADLINE_EXCEEDED; partial mode keeps the pages this slice already collected
-        // and stops paginating (rather than discarding them). See handleSearchTimeout.
-        if (handleSearchTimeout(response, sliceId, allowPartialResults, remainingSeconds)) {
-          // Partial mode: flag the hop partial so the incomplete results are not reported as
-          // complete (strict mode already threw inside handleSearchTimeout).
-          sliceSearchTimedOut.set(true);
-          break;
-        }
+        // A timed-out page still carries the hits collected before the shard budget ran out.
+        // Extract them first, then stop; an empty timed-out page must not read as "no more
+        // results".
+        boolean pageTimedOut = response != null && response.isTimedOut();
 
         if (response == null
             || response.getHits() == null
             || response.getHits().getHits().length == 0) {
-          log.debug("Slice {} completed, no more results", sliceId);
+          if (pageTimedOut) {
+            stopSliceOnTimeout(
+                sliceId, "server-side timed_out", allowPartialResults, sliceTimedOut);
+          } else {
+            log.debug("Slice {} completed, no more results", sliceId);
+          }
           break;
         }
 
@@ -359,6 +356,11 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
           break; // shared budget exhausted; partial results
         }
 
+        if (pageTimedOut) {
+          stopSliceOnTimeout(sliceId, "server-side timed_out", allowPartialResults, sliceTimedOut);
+          break;
+        }
+
         // Get search_after for next page
         SearchHit[] hits = response.getHits().getHits();
         if (hits.length > 0) {
@@ -368,8 +370,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         }
       }
     } catch (LineageTimeoutException e) {
-      // Preserve the distinct timeout type so processSliceFutures/GraphQL map it to
-      // DEADLINE_EXCEEDED instead of the generic wrapper below (which would surface SERVER_ERROR).
+      // Expected and already logged: rethrow untouched so the generic wrapper below does not add an
+      // error-level stack trace for a timeout.
       throw e;
     } catch (Exception e) {
       log.error("Failed to execute PIT search for slice {}", sliceId, e);

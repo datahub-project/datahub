@@ -1200,8 +1200,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         Set<Urn> discoveredEntities =
             entitiesPerInputUrn.computeIfAbsent(inputUrn, k -> new HashSet<>());
 
-        // If we're not exploring multiple paths and we've already seen this entity for this input,
-        // skip
+        // If we're not exploring multiple paths and we've already seen this entity for this
+        // input, skip
         if (!exploreMultiplePaths && discoveredEntities.contains(newEntityUrn)) {
           continue;
         }
@@ -1764,18 +1764,15 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
   }
 
   /**
-   * Mark a hop partial when a slice stopped early on a server-side search timeout ({@code
-   * timedOut=true}) in partial mode. The slice keeps and returns the relationships it already
-   * collected, but it cannot flag itself partial through {@link #processSliceFutures} (which infers
-   * partial only from an exception or an exhausted wait budget). So the slice sets a shared flag
-   * and the hop is marked partial here — otherwise a server-side timeout could return truncated
-   * lineage as complete ({@code isPartial=false}).
+   * Mark a hop partial when any slice stopped on a timeout in partial mode (see {@link
+   * #stopSliceOnTimeout}). The slice keeps and returns what it collected but cannot flag itself
+   * partial through {@link #processSliceFutures}, which infers partial only from an exception or an
+   * exhausted wait budget; the shared flag closes that gap so truncated lineage is never reported
+   * with {@code isPartial=false}.
    */
-  static LineageSliceFetchResult markPartialIfSliceSearchTimedOut(
-      LineageSliceFetchResult fetch,
-      AtomicBoolean sliceSearchTimedOut,
-      boolean allowPartialResults) {
-    if (!allowPartialResults || fetch.isPartial() || !sliceSearchTimedOut.get()) {
+  static LineageSliceFetchResult markPartialIfSliceTimedOut(
+      LineageSliceFetchResult fetch, AtomicBoolean sliceTimedOut, boolean allowPartialResults) {
+    if (!allowPartialResults || fetch.isPartial() || !sliceTimedOut.get()) {
       return fetch;
     }
     return new LineageSliceFetchResult(fetch.getLineageRelationships(), true);
@@ -1851,10 +1848,17 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                 i + 1,
                 allRelationships.size());
             slicePartial = true;
-          } else {
-            log.warn("Out of time, stopping slice processing after {} slices", i + 1);
+            break;
           }
-          break;
+          // Strict mode: the hop budget is gone with later slices unread. Returning what we have
+          // would report truncated lineage as complete; fail exactly like a timed-out slice.
+          log.error(
+              "Out of time after {} of {} slices; failing strict lineage query",
+              i + 1,
+              sliceFutures.size());
+          sliceFutures.forEach(f -> f.cancel(true));
+          throw new LineageTimeoutException(
+              "Lineage hop timed out after " + (i + 1) + " of " + sliceFutures.size() + " slices");
         }
 
       } catch (TimeoutException e) {
@@ -1920,40 +1924,23 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
   }
 
   /**
-   * Guard against treating a server-side-timed-out search page as a completed slice. When ES aborts
-   * a shard search at the wall-clock budget it returns truncated (possibly empty) hits with {@code
-   * timedOut=true}; extracting from that page and stopping would report incomplete lineage as
-   * complete. In strict mode this throws the distinct {@link LineageTimeoutException} so the
-   * GraphQL layer surfaces DEADLINE_EXCEEDED; in partial mode the caller keeps whatever the slice
-   * already collected on prior pages and stops paginating (returns {@code true}) rather than
-   * throwing those results away.
-   *
-   * @param appliedTimeoutSeconds the per-search timeout actually applied (the remaining wall-clock
-   *     budget), used only for the strict-mode message
-   * @return {@code true} when the page timed out and the slice should stop (partial mode); throws
-   *     in strict mode
+   * A slice ran out of time: either the shared hop deadline passed between pages, or a page came
+   * back with {@code timedOut=true} because the shard stopped collecting at the per-request
+   * timeout. One policy for both, so strict mode can never report a truncated slice as complete and
+   * partial mode never throws away what the slice already collected: strict mode throws the
+   * distinct {@link LineageTimeoutException}; partial mode flags the hop partial and logs. Callers
+   * stop paginating immediately after this returns.
    */
-  protected boolean handleSearchTimeout(
-      @Nullable SearchResponse response,
-      int sliceId,
-      boolean allowPartialResults,
-      long appliedTimeoutSeconds) {
-    if (response == null || !response.isTimedOut()) {
-      return false;
-    }
+  protected void stopSliceOnTimeout(
+      int sliceId, String reason, boolean allowPartialResults, AtomicBoolean sliceTimedOut) {
     if (!allowPartialResults) {
-      throw new LineageTimeoutException(
-          "Slice "
-              + sliceId
-              + " search timed out server-side after "
-              + appliedTimeoutSeconds
-              + " seconds");
+      throw new LineageTimeoutException("Slice " + sliceId + " timed out (" + reason + ")");
     }
+    sliceTimedOut.set(true);
     log.warn(
-        "Slice {} search timed out server-side after {}s; keeping already-collected relationships and stopping pagination",
+        "Slice {} timed out ({}); keeping collected relationships and stopping pagination",
         sliceId,
-        appliedTimeoutSeconds);
-    return true;
+        reason);
   }
 
   @Override
