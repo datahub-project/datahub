@@ -1129,3 +1129,49 @@ def test_a_malformed_envelope_is_a_user_error_not_an_internal_one(monkeypatch):
 
     with pytest.raises(ValueError, match="__recipe_yaml__"):
         rc._recipe_from_stdin()
+
+
+def test_the_cli_hands_over_a_valueless_flag_without_guessing(monkeypatch, tmp_path):
+    """The CLI's half of the bare-flag contract.
+
+    `--schema` with no value is a token the parser cannot type-check: it sees
+    tokens, not the declared parameter. Its job is therefore to hand over the
+    BARE_FLAG sentinel and let the spec decide, rather than guess "true" and
+    send a plausible-looking schema name to the driver. _coerce's refusal of
+    that sentinel is tested directly above; this pins the half that would
+    otherwise regress silently -- a CLI that guessed would still satisfy the
+    _coerce test, because _coerce would never see a sentinel.
+
+    Note what this test must NOT do: stub run_probe_method and then assert
+    exit 2. Coercion happens inside run_probe_method, so stubbing it removes
+    the very refusal being checked -- the first draft of this test did that
+    and "failed", which was the stub talking, not the code.
+    """
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+    seen: dict = {}
+
+    def fake_run(st, cfg, cmd, kwargs):
+        seen.update(kwargs)
+        return ProbeMethodResult(st, cmd, kwargs, [])
+
+    monkeypatch.setattr(rc, "run_probe_method", fake_run)
+
+    CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "run",
+            "foreign_keys",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--schema",
+            "--table",
+            "orders",
+        ],
+    )
+
+    assert seen["schema"] is BARE_FLAG, seen
+    assert seen["schema"] != "true"
+    # The neighbouring value is untouched -- the sentinel is for the flag that
+    # was given none, not for everything after it.
+    assert seen["table"] == "orders", seen

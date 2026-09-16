@@ -170,6 +170,30 @@ def test_a_row_limit_within_range_is_left_alone():
     assert bounded["limit"] == 50
 
 
+def test_an_omitted_row_limit_is_filled_from_the_getters_own_default():
+    """Both shapes, because the +1 is what differs and only one of them had
+    a test.
+
+    _bounded_kwargs fills an omitted limit from the getter's signature so the
+    clamp and the report describe the same number the getter will use. The
+    explicit-limit cases above cover the clamping; this is the default-fill,
+    and the shapes_own_result half of it lost its only coverage when
+    test_an_omitted_row_limit_is_left_to_the_getter_default was deleted.
+    """
+    # `sql` owns its envelope and does its own +1, so it gets exactly its
+    # declared default -- a second +1 here would hand back one row more than
+    # asked for and compute `truncated` against the wrong number.
+    assert (
+        _bounded_kwargs(_spec(FakeSqlProvider(), "sql"), {"query": "SELECT 1"})["limit"]
+        == 50
+    )
+    # A listing returns a bare list, so the framework owns the +1 and asks for
+    # one past the getter's default.
+    assert (
+        _bounded_kwargs(_spec(FakeListingProvider(), "containers"), {})["limit"] == 201
+    )
+
+
 def test_a_listing_is_asked_for_one_past_its_limit():
     """The other half of the same contract. A listing returns a bare list, so
     the framework owns the +1 -- without it a getter returning exactly `limit`
