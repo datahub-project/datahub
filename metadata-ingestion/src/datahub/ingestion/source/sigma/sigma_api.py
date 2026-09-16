@@ -72,12 +72,12 @@ class SigmaAPI:
         # report summary readable on large tenants with repeated unknown
         # node types.
         self._unknown_lineage_node_types_warned: Set[str] = set()
-        # Sigma's dataset API is deprecated; once /datasets/{id}/sources
-        # answers 404/410 the endpoint is treated as removed for the rest of
-        # the run rather than retried once per dataset.
+        # Sigma's dataset API is deprecated. Once the endpoint is concluded
+        # removed -- a 410, or a 404/409 a re-probe confirms -- it is not called
+        # again for the rest of the run rather than retried per dataset.
         self._dataset_sources_endpoint_gone = False
         # Set once any /sources call returns 200, which proves the endpoint
-        # exists and downgrades a later 404 to a per-dataset miss.
+        # exists and downgrades a later not-found to a per-dataset miss.
         self._dataset_sources_succeeded = False
         # A dataset whose /sources answered 200 this run, re-queried to tell
         # "endpoint removed" from "this dataset is gone".
