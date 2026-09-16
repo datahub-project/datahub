@@ -452,8 +452,24 @@ def test_an_ordinary_cte_query_still_works(sql):
     ],
 )
 def test_a_statement_that_is_not_a_read_is_refused(dialect, sql):
-    with pytest.raises(SqlScopeError):
+    with pytest.raises(SqlScopeError) as refusal:
         check_query_scope(sql, platform=dialect, scope=_postgres_scope())
+    # Refused for what the statement DOES, not for where it points.
+    #
+    # The tsql, mysql, snowflake and bigquery rows run against the Postgres
+    # scope, which looks like an oversight and is not: statement type is
+    # decided before scope, so none of these rows reaches the scope check.
+    # Verified twice -- re-running each against its own connector's
+    # probe_catalog_scope() produces a byte-identical message, and replacing
+    # the scope with one that permits nothing at all leaves every row still
+    # refused for its statement type.
+    #
+    # So this assertion cannot fire today; it pins the ordering rather than
+    # discriminating between two live outcomes. It is here because the
+    # ordering is the load-bearing part -- if scope were ever consulted
+    # first, every row above would start refusing for the wrong reason and
+    # a bare pytest.raises(SqlScopeError) would not notice.
+    assert "outside the catalog metadata" not in str(refusal.value)
 
 
 @pytest.mark.parametrize(

@@ -119,6 +119,15 @@ def test_is_telemetry_wrapped_sees_through_wraps():
     def target() -> None:
         pass
 
+    # Pinned rather than inherited. This function's __module__ is
+    # "test_auto_decorator_detection" only because tests/unit/telemetry has no
+    # __init__.py; add one, or move the file, and it becomes
+    # "tests.unit.telemetry.test_auto_decorator_detection" -- which contains
+    # "telemetry" and breaks the assertion below for a reason that has nothing
+    # to do with the code under test. The assertion is about what @wraps
+    # copies, so the module it copies should be one this test chose.
+    target.__module__ = "datahub.ingestion.source.example"
+
     wrapped = telemetry.with_telemetry()(target)
 
     assert wrapped.__name__ == target.__name__

@@ -829,7 +829,11 @@ def test_no_sql_source_falls_back_to_the_bare_fqn():
     that is the drift the shim exists to prevent.
     """
     from datahub.ingestion.agent.verdicts import ClassifyContext
-    from datahub.ingestion.source.sql.sql_probe import _identifier_target
+    from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+    from datahub.ingestion.source.sql.sql_probe import (
+        _identifier_target,
+        _source_class_for,
+    )
 
     # Enough of a config for a get_identifier to read; unset required fields
     # would make the shim raise for reasons that are about this test rather
@@ -872,9 +876,27 @@ def test_no_sql_source_falls_back_to_the_bare_fqn():
             # Druid legitimately matches the bare name, and says so by
             # overriding get_identifier -- that is not a degrade. A source
             # reaching the fqn WITHOUT an override is.
+            #
+            # Both mechanisms count, because the shim reaches get_identifier
+            # two ways: the deprecated config-level hook that
+            # SQLAlchemySource.get_identifier routes through (druid, mysql,
+            # trino, oracle and their aliases) and a Source-class override
+            # that _source_class_for resolves (postgres, db2, mssql,
+            # teradata, vertica, starrocks, cockroachdb, timescaledb).
+            #
+            # Checking only the config MRO would call the second group
+            # degraded for doing deliberately what the first group is
+            # exempted for. Only druid returns a bare name today, so that was
+            # a latent false positive rather than a live one -- and checking
+            # only the Source MRO instead would swap it for the opposite bug,
+            # since druid's override is the config-level kind.
             has_override = "get_identifier" in {
                 k for c in type(config).__mro__ for k in vars(c)
-            }
+            } or any(
+                "get_identifier" in vars(klass)
+                for klass in _source_class_for(config).__mro__
+                if klass is not SQLAlchemySource
+            )
             if not has_override:
                 degraded[source_type] = f"bare fqn {target!r} with no override"
 

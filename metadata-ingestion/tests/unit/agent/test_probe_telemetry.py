@@ -115,15 +115,34 @@ class _Result:
         return self._d
 
 
-def test_a_method_that_could_not_reach_the_source_is_still_counted(pings, tmp_path):
+def test_a_method_that_could_not_reach_the_source_is_still_counted(
+    pings, tmp_path, monkeypatch
+):
     """Recorded before the call, deliberately. "Which methods do agents reach
     for" has to include the ones that did not work -- otherwise a command that
-    always fails looks like a command nobody wants."""
+    always fails looks like a command nobody wants.
+
+    The failure is forced rather than real. This used to let the CLI actually
+    dial localhost:5432 and assert on the exit code, which only held because
+    nothing happened to be listening there with user 'u' and database 'my_db';
+    a developer running postgres locally got a different code, and every run
+    paid a connection timeout for it.
+
+    RuntimeError because it is NOT in recipe_cli._USER_ERRORS, so it reaches
+    the `except Exception` arm and becomes the command's declared fallback --
+    `probe run` uses _exit_codes(fallback=EXIT_CONNECTION) -- which is the
+    same exit 3 a real unreachable source produces.
+    """
+
+    def _unreachable(source_type, config, command, kwargs):
+        raise RuntimeError("connection refused")
+
+    monkeypatch.setattr("datahub.cli.recipe_cli.run_probe_method", _unreachable)
+
     res = CliRunner().invoke(
         recipe,
         ["probe", "run", "tables", "--recipe", _recipe(tmp_path), "--schema", "public"],
     )
-    # No server on localhost:5432 in CI, so this is a connection failure.
     assert res.exit_code == 3, res.output
     assert _probe_props(pings) == [
         {"command": "run", "probe_command": "tables", "source_type": "postgres"}

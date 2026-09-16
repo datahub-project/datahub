@@ -703,6 +703,47 @@ class TestSharedRecipeTaskSkeleton:
         assert "Setting up venv for plugin 'mysql'" in captured
         assert "Venv setup failed: boom" in captured
 
+    @pytest.mark.asyncio
+    async def test_the_setup_log_describes_the_venv_that_is_actually_built(
+        self,
+    ) -> None:
+        """The mode line consulted `args`; the venv is built from the override.
+
+        setup_task_venv takes `version` precisely so a task can run somewhere
+        other than args.version -- the probe task asks for the executor
+        image's own libraries. resolved_version feeds VenvConfig, but the
+        branch choosing between "Bundled" and "dynamic" called
+        args.should_use_bundled_venv(), which is `args.version == "bundled"`.
+        So an override inverted the log: setup diagnostics named the mode the
+        run did not use, which is the one thing they exist to tell you.
+        """
+        logs = LogHolder()
+        captured_config = {}
+
+        async def _fake_setup_venv(venv_config, **kwargs):
+            captured_config["version"] = venv_config.version
+            ref = Mock()
+            ref.venv_loc = "/tmp/venv"
+            return ref
+
+        with patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            side_effect=_fake_setup_venv,
+        ):
+            await SubProcessTaskUtil.setup_task_venv(
+                self._args(version="bundled"),
+                "mysql",
+                tempfile.mkdtemp(),
+                version="native",
+                logs=logs,
+            )
+
+        captured = logs.get_logs()
+        # What was built, and what the log said about it, have to agree.
+        assert captured_config["version"] == "native"
+        assert "Creating dynamic venv" in captured
+        assert "Bundled" not in captured
+
     def test_logs_that_cannot_be_masked_are_withheld_like_the_report(
         self, tmp_path: Path
     ) -> None:

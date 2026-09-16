@@ -426,7 +426,9 @@ class SubProcessTaskUtil:
         )
         logger.info(message)
         holder.append(f"{message}\n")
-        if args.should_use_bundled_venv():
+        # resolved_version, not args: `version` overrides args.version, and
+        # consulting args here described the mode the run did not use.
+        if venv_utils.should_use_bundled_venv(resolved_version):
             holder.append("Using Bundled startup (pre-built) venv\n")
         else:
             holder.append("Creating dynamic venv - this may take a few minutes...\n")

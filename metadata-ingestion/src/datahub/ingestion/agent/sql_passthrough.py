@@ -143,10 +143,19 @@ class SqlCatalogPassthrough:
     # Declaring it here does NOT bound a provider that ignores it -- an earlier
     # version of this comment said it made such a provider "still bounded",
     # which is exactly the kind of claim QueryBudget's own docstring warns
-    # about. What the default actually buys is that the ceiling is *stated*:
-    # describe() reports it, so a provider silently applying nothing is
-    # visible to the reader rather than merely absent. Enforcing it would take
-    # a hook every adapter must route through, which this does not have.
+    # about. A later version claimed "describe() reports it", which overstates
+    # the other way: describe() has no production caller, and query_budget
+    # reaches neither SourceSpec nor the CLI, so nothing surfaces the ceiling
+    # to a caller at runtime.
+    #
+    # What the default actually buys is narrower than either claim. Providers
+    # that do route through effective_budget() get a bounded ceiling without
+    # their author having thought about it, which is the common case the
+    # docstring above is written for; and the number lives in one declared
+    # place instead of being spelled out per adapter. A provider that applies
+    # nothing is bounded by nothing, and only reading it tells you so.
+    # Enforcing it would take a hook every adapter must route through, which
+    # this does not have.
     query_budget: QueryBudget = QueryBudget()
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:

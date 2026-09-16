@@ -28,16 +28,23 @@ class FieldSpec:
     type_name: str
     default: Optional[object]
     description: Optional[str]
-    # For an AllowDenyPattern field, the hierarchy level it filters, when the
-    # config declares one via Filters(...). None means either "not a pattern" or
-    # "a pattern that does not gate a level" -- profile_pattern and
-    # user_email_pattern are real filters but not levels, and a caller walking a
-    # Resolved through the explicit Filters(...) annotation where there is one,
-    # and otherwise through the `<kind>_pattern` name convention -- but only for
-    # kinds the source actually declares, so `procedure_pattern` is never
-    # reported as a level. An earlier version of this comment said the field was
-    # never guessed from the name; that stopped being true when describe was
-    # made to resolve the way `probe filter` does.
+    # For an AllowDenyPattern field, the hierarchy level it filters.
+    #
+    # None means either "not a pattern" or "a pattern that gates no level":
+    # profile_pattern and user_email_pattern are real filters but not levels,
+    # so a caller walking the hierarchy must skip them rather than treat them
+    # as a tier.
+    #
+    # Resolved through the explicit Filters(...) annotation where there is
+    # one, and otherwise through the `<kind>_pattern` name convention -- but
+    # the convention is only inverted across kinds the source actually
+    # declares, which is what keeps `procedure_pattern` from being reported as
+    # a level. An earlier version of this comment said the field was never
+    # guessed from the name; that stopped being true when describe was made to
+    # resolve the way `probe filter` does, because reading only the annotation
+    # made the two commands contradict each other about the same field
+    # (Teradata redeclares database_pattern and pydantic v2 drops the
+    # inherited Filters metadata). See _filter_kinds_by_field in introspect.
     filters: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
