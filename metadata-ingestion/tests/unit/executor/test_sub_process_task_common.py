@@ -589,6 +589,33 @@ class TestSharedRecipeTaskSkeleton:
 
         assert (exec_out_dir / "caller_artifact.json").exists()
 
+    def test_a_caller_extension_cannot_switch_masking_off(self) -> None:
+        """`extra` is for task-specific additions, not for this key.
+
+        The merge put `extra` last, so a caller passing
+        DATAHUB_ENABLE_SECRET_MASKING=false turned masking off in the child --
+        and the child reads that flag to decide whether to register secrets at
+        all, so every later mask in that process becomes a no-op. A knob that
+        can be turned off by accident is not a guarantee.
+
+        The user's own extra_env_vars were never able to do this (they merge
+        first, and the flag is set after them); this closes the same door on
+        the internal extension point.
+        """
+        venv_ref = Mock()
+        venv_ref.venv_loc = "/tmp/venv"
+
+        env = SubProcessTaskUtil.build_subprocess_env(
+            self._args(),
+            venv_ref,
+            extra={"DATAHUB_ENABLE_SECRET_MASKING": "false", "TASK_THING": "kept"},
+        )
+
+        assert env["DATAHUB_ENABLE_SECRET_MASKING"] == "true"
+        # And the rest of `extra` still arrives -- the point is one key, not
+        # a neutered extension point.
+        assert env["TASK_THING"] == "kept"
+
     def test_a_store_sourced_secret_rides_the_envelope_and_not_the_environment(
         self,
     ) -> None:

@@ -469,8 +469,17 @@ class SubProcessTaskUtil:
         return {
             **args.get_combined_env_vars(),
             "VENV_PATH": str(venv_ref.venv_loc),
-            "DATAHUB_ENABLE_SECRET_MASKING": "true",
             **(extra or {}),
+            # Last, so nothing can turn it off. The child reads this flag to
+            # decide whether to register secrets at all, so a caller passing
+            # DATAHUB_ENABLE_SECRET_MASKING=false in `extra` made every later
+            # mask in that process a no-op. A guarantee that an extension
+            # point can switch off by accident is not one.
+            #
+            # The user's extra_env_vars were never able to reach it -- they
+            # merge first -- so this closes the same door on the internal
+            # extension point. Everything else in `extra` still arrives.
+            "DATAHUB_ENABLE_SECRET_MASKING": "true",
         }
 
     @staticmethod
