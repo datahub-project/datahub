@@ -862,6 +862,32 @@ public class AggregationQueryBuilderTest {
   }
 
   @Test
+  public void testProcessTermAggregationsConvertsMinutePrecisionDateStringKeysToEpochMillis() {
+    final Terms.Bucket dateBucket = mock(Terms.Bucket.class);
+    final String dateKey = "2023-01-01T00:00Z";
+    when(dateBucket.getKeyAsString()).thenReturn(dateKey);
+    when(dateBucket.getDocCount()).thenReturn(5L);
+    when(dateBucket.getAggregations()).thenReturn(null);
+
+    final ParsedTerms terms = mock(ParsedTerms.class);
+    Mockito.doReturn(ImmutableList.of(dateBucket)).when(terms).getBuckets();
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(Map.entry("myDateField", terms), aggregationMetadataList);
+
+    Map<String, Long> aggregations = aggregationMetadataList.get(0).getAggregations();
+    String expectedEpochMillisKey =
+        String.valueOf(OffsetDateTime.parse(dateKey).toEpochSecond() * 1000);
+    Assert.assertEquals(aggregations.get(expectedEpochMillisKey), Long.valueOf(5));
+  }
+
+  @Test
   public void testAddFiltersToMetadataWithStructuredPropsNoResults() {
     final Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test_me.one");
 

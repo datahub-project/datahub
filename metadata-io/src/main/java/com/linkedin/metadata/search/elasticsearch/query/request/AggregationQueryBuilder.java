@@ -341,8 +341,8 @@ public class AggregationQueryBuilder {
     }
   }
 
-  // Minimal valid OffsetDateTime.parse() input is "yyyy-MM-ddTHH:mm:ssZ" (20 chars).
-  private static final int MIN_ISO_OFFSET_DATE_TIME_LENGTH = "2000-01-01T00:00:00Z".length();
+  // Minimal valid OffsetDateTime.parse() input is "yyyy-MM-ddTHH:mmZ" (17 chars)
+  private static final int MIN_ISO_OFFSET_DATE_TIME_LENGTH = "2000-01-01T00:00Z".length();
 
   /**
    * Cheap check for strings that cannot possibly be a valid {@link OffsetDateTime}, so that {@link

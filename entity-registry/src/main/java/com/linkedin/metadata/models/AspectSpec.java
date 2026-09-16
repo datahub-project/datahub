@@ -5,6 +5,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -158,7 +159,7 @@ public class AspectSpec {
   public List<SearchableFieldSpec> getSearchableFieldSpecs() {
     List<SearchableFieldSpec> list = _searchableFieldSpecsList;
     if (list == null) {
-      list = new ArrayList<>(_searchableFieldSpecs.values());
+      list = Collections.unmodifiableList(new ArrayList<>(_searchableFieldSpecs.values()));
       _searchableFieldSpecsList = list;
     }
     return list;
@@ -172,7 +173,7 @@ public class AspectSpec {
   public List<SearchableRefFieldSpec> getSearchableRefFieldSpecs() {
     List<SearchableRefFieldSpec> list = _searchableRefFieldSpecsList;
     if (list == null) {
-      list = new ArrayList<>(_searchableRefFieldSpecs.values());
+      list = Collections.unmodifiableList(new ArrayList<>(_searchableRefFieldSpecs.values()));
       _searchableRefFieldSpecsList = list;
     }
     return list;
@@ -186,7 +187,7 @@ public class AspectSpec {
   public List<SearchScoreFieldSpec> getSearchScoreFieldSpecs() {
     List<SearchScoreFieldSpec> list = _searchScoreFieldSpecsList;
     if (list == null) {
-      list = new ArrayList<>(_searchScoreFieldSpecs.values());
+      list = Collections.unmodifiableList(new ArrayList<>(_searchScoreFieldSpecs.values()));
       _searchScoreFieldSpecsList = list;
     }
     return list;
@@ -200,7 +201,7 @@ public class AspectSpec {
   public List<RelationshipFieldSpec> getRelationshipFieldSpecs() {
     List<RelationshipFieldSpec> list = _relationshipFieldSpecsList;
     if (list == null) {
-      list = new ArrayList<>(_relationshipFieldSpecs.values());
+      list = Collections.unmodifiableList(new ArrayList<>(_relationshipFieldSpecs.values()));
       _relationshipFieldSpecsList = list;
     }
     return list;
@@ -213,7 +214,7 @@ public class AspectSpec {
   public List<TimeseriesFieldSpec> getTimeseriesFieldSpecs() {
     List<TimeseriesFieldSpec> list = _timeseriesFieldSpecsList;
     if (list == null) {
-      list = new ArrayList<>(_timeseriesFieldSpecs.values());
+      list = Collections.unmodifiableList(new ArrayList<>(_timeseriesFieldSpecs.values()));
       _timeseriesFieldSpecsList = list;
     }
     return list;
@@ -227,7 +228,8 @@ public class AspectSpec {
   public List<TimeseriesFieldCollectionSpec> getTimeseriesFieldCollectionSpecs() {
     List<TimeseriesFieldCollectionSpec> list = _timeseriesFieldCollectionSpecsList;
     if (list == null) {
-      list = new ArrayList<>(_timeseriesFieldCollectionSpecs.values());
+      list =
+          Collections.unmodifiableList(new ArrayList<>(_timeseriesFieldCollectionSpecs.values()));
       _timeseriesFieldCollectionSpecsList = list;
     }
     return list;
