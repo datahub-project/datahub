@@ -235,26 +235,35 @@ def test_the_gate_and_the_sender_agree_on_the_url():
 # through the listed endpoint.
 
 _QUERY_ALLOWLIST = ["GET /projects?include&limit", "GET /data-connections"]
-_BASE = "https://app.example.com/api/ws"
+_QUERY_BASE = "https://app.example.com/api/ws"
 
 
 def test_an_undeclared_query_parameter_is_refused_on_a_listed_path():
     with pytest.raises(ApiScopeError, match="query parameter"):
         check_api_request(
-            "GET", "/data-connections?include=cells", _QUERY_ALLOWLIST, base_url=_BASE
+            "GET",
+            "/data-connections?include=cells",
+            _QUERY_ALLOWLIST,
+            base_url=_QUERY_BASE,
         )
 
 
 def test_a_declared_query_parameter_is_permitted():
     check_api_request(
-        "GET", "/projects?include=cells&limit=10", _QUERY_ALLOWLIST, base_url=_BASE
+        "GET",
+        "/projects?include=cells&limit=10",
+        _QUERY_ALLOWLIST,
+        base_url=_QUERY_BASE,
     )
 
 
 def test_one_undeclared_parameter_spoils_an_otherwise_declared_query():
     with pytest.raises(ApiScopeError, match="'secret'"):
         check_api_request(
-            "GET", "/projects?include=cells&secret=1", _QUERY_ALLOWLIST, base_url=_BASE
+            "GET",
+            "/projects?include=cells&secret=1",
+            _QUERY_ALLOWLIST,
+            base_url=_QUERY_BASE,
         )
 
 
@@ -262,10 +271,12 @@ def test_a_parameter_declared_on_one_endpoint_does_not_widen_another():
     """The names live on the entry that declared them, not in a shared pool.
     `include` is vouched for on /projects; that says nothing about
     /data-connections."""
-    check_api_request("GET", "/projects?include=x", _QUERY_ALLOWLIST, base_url=_BASE)
+    check_api_request(
+        "GET", "/projects?include=x", _QUERY_ALLOWLIST, base_url=_QUERY_BASE
+    )
     with pytest.raises(ApiScopeError, match="query parameter"):
         check_api_request(
-            "GET", "/data-connections?include=x", _QUERY_ALLOWLIST, base_url=_BASE
+            "GET", "/data-connections?include=x", _QUERY_ALLOWLIST, base_url=_QUERY_BASE
         )
 
 
@@ -276,7 +287,7 @@ def test_a_bare_question_mark_traversal_is_seen_as_the_parameter_it_is():
     include=cells through."""
     with pytest.raises(ApiScopeError, match="query parameter"):
         check_api_request(
-            "GET", "/projects?/../../../other", _QUERY_ALLOWLIST, base_url=_BASE
+            "GET", "/projects?/../../../other", _QUERY_ALLOWLIST, base_url=_QUERY_BASE
         )
 
 
@@ -285,8 +296,10 @@ def test_a_listed_path_with_no_query_is_unaffected():
     suite's first run of the fix did exactly that -- the allowlist entries were
     written without the "GET " prefix, so _allowed_paths filtered them all out
     and every case 'passed' by being denied."""
-    check_api_request("GET", "/projects", _QUERY_ALLOWLIST, base_url=_BASE)
-    check_api_request("GET", "/data-connections", _QUERY_ALLOWLIST, base_url=_BASE)
+    check_api_request("GET", "/projects", _QUERY_ALLOWLIST, base_url=_QUERY_BASE)
+    check_api_request(
+        "GET", "/data-connections", _QUERY_ALLOWLIST, base_url=_QUERY_BASE
+    )
 
 
 def test_declaring_no_parameters_permits_no_query_at_all():
