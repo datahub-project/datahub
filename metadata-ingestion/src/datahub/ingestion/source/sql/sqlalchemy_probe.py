@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, FrozenSet, List, Optional
 
 from sqlalchemy import inspect
 from sqlalchemy.engine import Engine
@@ -30,6 +30,29 @@ def sqlglot_dialect_for(sqlalchemy_dialect_name: str) -> str:
     )
 
 
+def _pinned_containers(config: object, container_kind: str) -> FrozenSet[str]:
+    """Which containers this recipe reads, if it names them.
+
+    Two-tier only: on a three-tier source `database` names the database the
+    connection opens on, not a filter over the schemas `containers` returns,
+    so narrowing to it there would hide every other schema in the very
+    database being probed.
+
+    Both the singular and the plural field, because a connector may offer
+    either -- Teradata offers both.
+    """
+    if str(container_kind) != str(DatasetContainerSubTypes.DATABASE):
+        return frozenset()
+    named: set[str] = set()
+    single = getattr(config, "database", None)
+    if single:
+        named.add(str(single))
+    several = getattr(config, "databases", None)
+    if isinstance(several, (list, tuple, set, frozenset)):
+        named.update(str(one) for one in several if one)
+    return frozenset(named)
+
+
 class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     """Metadata-only probe methods backed by the SQLAlchemy Inspector.
 
@@ -46,10 +69,16 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     # primed in for_config and read back by run_probe_method.
     kind_overrides: Dict[str, str] = {}
 
-    # The single container this recipe reads, when it names one -- primed in
-    # for_config, since only the config knows. None on a three-tier source,
+    # The containers this recipe reads, when it names any -- primed in
+    # for_config, since only the config knows. Empty on a three-tier source,
     # and on a two-tier one that enumerates every database.
-    pinned_container: Optional[str] = None
+    #
+    # A set rather than one name because naming several is a supported shape:
+    # Teradata's `databases` is documented as "List of databases to ingest",
+    # and reading only the singular `database` left such a recipe unpinned --
+    # so `containers` reported every database on the server while ingestion
+    # enumerated the configured two.
+    pinned_containers: FrozenSet[str] = frozenset()
 
     @classmethod
     def for_config(cls, config: SQLCommonConfig) -> "SqlAlchemyMetadataProbe":
@@ -91,13 +120,9 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # per dialect.
         probe.catalog_scope = config.probe_catalog_scope()
         probe.kind_overrides = cls.probe_kind_overrides(config)
-        # Two-tier only: on a three-tier source `database` names the database
-        # the connection opens on, not a filter over the schemas `containers`
-        # returns, so narrowing to it there would hide every other schema in
-        # the very database being probed.
-        if str(config.probe_container_kind()) == str(DatasetContainerSubTypes.DATABASE):
-            pinned = getattr(config, "database", None)
-            probe.pinned_container = str(pinned) if pinned else None
+        probe.pinned_containers = _pinned_containers(
+            config, str(config.probe_container_kind())
+        )
         return probe
 
     def __exit__(self, *exc: object) -> None:
@@ -146,16 +171,16 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         `probe filter` can explain them, and comes from the connector's own Inspector
         rather than a catalog query, so it is the list ingestion itself enumerates.
 
-        A two-tier recipe naming a single `database` gets that one back rather
-        than every database on the server: ingestion connects to the one the
-        recipe names, so listing the rest reports containers it will never
-        read. The name is checked against the server's own listing rather than
+        A two-tier recipe naming its databases gets those back rather than
+        every database on the server: ingestion reads the ones the recipe
+        names, so listing the rest reports containers it will never read.
+        Singular `database` and plural `databases` both count. The name is checked against the server's own listing rather than
         echoed back, so a typo still shows as absent instead of being
         confirmed."""
         names = self._insp.get_schema_names()
-        pinned = self.pinned_container
-        if pinned is not None:
-            names = [n for n in names if n == pinned]
+        pinned = self.pinned_containers
+        if pinned:
+            names = [n for n in names if n in pinned]
         return names[:limit]
 
     @probe_method(

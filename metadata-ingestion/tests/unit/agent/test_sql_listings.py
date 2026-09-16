@@ -188,3 +188,63 @@ def test_passthrough_sql_is_not_reparsed_for_bind_parameters():
     sql = "SELECT * FROM information_schema.columns WHERE column_default = '{\"k\":v}'"
     probe.execute_catalog_query(sql, limit=10)
     assert sent == [sql], "the driver must receive the query verbatim"
+
+
+def test_a_two_tier_recipe_lists_only_the_databases_it_reads():
+    """The pin is the promise that `containers` matches what ingestion reads.
+
+    It was taken from the singular `database` only, and Teradata's documented
+    way to name several is the plural `databases` list -- "List of databases
+    to ingest. If not specified, all databases will be ingested." A recipe
+    using it left the pin empty, so `containers` reported every database on
+    the server while TeradataSource.get_inspectors() enumerated two. The
+    probe advertised containers ingestion would never read, which is the one
+    thing this command exists not to do.
+    """
+    from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
+
+    probe = _probe("mysql")
+
+    # Nothing pinned: every container the server shows, which is right for a
+    # recipe that names none.
+    probe.pinned_containers = frozenset()
+    assert probe.containers() == ["analytics", "information_schema"]
+
+    # One named, singular or plural -- same answer either way.
+    probe.pinned_containers = frozenset({"analytics"})
+    assert probe.containers() == ["analytics"]
+
+    # Several named: all of them, and nothing else.
+    probe.pinned_containers = frozenset({"analytics", "information_schema"})
+    assert probe.containers() == ["analytics", "information_schema"]
+
+    # A typo is still absent rather than echoed back, which is why the pin
+    # filters the server's listing instead of replacing it.
+    probe.pinned_containers = frozenset({"analytcis"})
+    assert probe.containers() == []
+    assert SqlAlchemyMetadataProbe.pinned_containers == frozenset()
+
+
+def test_the_pin_reads_both_the_singular_and_the_plural_field():
+    """for_config's half of the same contract, without building an engine."""
+    from types import SimpleNamespace
+
+    from datahub.ingestion.source.sql.sqlalchemy_probe import _pinned_containers
+
+    two_tier = "Database"
+    assert _pinned_containers(
+        SimpleNamespace(database="one", databases=None), two_tier
+    ) == frozenset({"one"})
+    assert _pinned_containers(
+        SimpleNamespace(database=None, databases=["a", "b"]), two_tier
+    ) == frozenset({"a", "b"})
+    assert (
+        _pinned_containers(SimpleNamespace(database=None, databases=None), two_tier)
+        == frozenset()
+    )
+    # Three-tier: `database` names the connection's database, not a filter
+    # over the schemas `containers` returns, so nothing is pinned there.
+    assert (
+        _pinned_containers(SimpleNamespace(database="one", databases=None), "Schema")
+        == frozenset()
+    )
