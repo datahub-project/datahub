@@ -614,11 +614,30 @@ class SubProcessTaskUtil:
             args.recipe, execution_ctx=execution_ctx, executor_ctx=executor_ctx
         )
         plugin = SubProcessTaskUtil._get_plugin_from_recipe(recipe)
+        # Whether THIS call brings the directory into being, which decides
+        # whether it is ours to remove below.
+        ours = not Path(exec_out_dir).exists()
         Path(exec_out_dir).mkdir(0o755, parents=True, exist_ok=True)
 
-        venv_ref = await SubProcessTaskUtil.setup_task_venv(
-            args, plugin, exec_out_dir, version=venv_version, logs=venv_logs
-        )
+        try:
+            venv_ref = await SubProcessTaskUtil.setup_task_venv(
+                args, plugin, exec_out_dir, version=venv_version, logs=venv_logs
+            )
+        except Exception:
+            # setup_venv writes an EXPANDED requirements file in here -- env-var
+            # templates resolved, so a private index URL carries its token in
+            # clear text on disk. The only caller invokes this outside the try
+            # whose finally calls finalize_task_output, so nothing else was
+            # scheduled to remove it and a failed run left the credential
+            # behind.
+            #
+            # Only what this call created. exec_out_dir may already exist
+            # because a caller laid artifact directories out under it first,
+            # and deleting someone else's directory while unwinding a failure
+            # is a worse bug than the one being fixed.
+            if ours:
+                SubProcessTaskUtil._remove_directory(exec_out_dir)
+            raise
         return PreparedRun(
             recipe=recipe,
             plugin=plugin,

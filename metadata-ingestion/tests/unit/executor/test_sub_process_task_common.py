@@ -518,6 +518,77 @@ class TestSharedRecipeTaskSkeleton:
         assert env["VENV_PATH"] == "/tmp/venv"
         assert env["DATAHUB_ENABLE_SECRET_MASKING"] == "true"
 
+    @pytest.mark.asyncio
+    async def test_a_venv_failure_does_not_leave_the_run_directory_behind(
+        self, tmp_path: Path
+    ) -> None:
+        """What is in that directory is why this matters.
+
+        prepare_recipe_run mkdirs exec_out_dir and then builds the venv inside
+        it, and setup_venv writes an EXPANDED requirements file -- env-var
+        templates resolved, so a private index URL carries its token in clear
+        text on disk. The only caller invokes prepare_recipe_run outside the
+        try whose finally calls finalize_task_output, so a venv failure left
+        that file behind with nothing scheduled to remove it.
+
+        Only what this function created: exec_out_dir may already exist
+        because a caller laid artifact directories out under it first, and
+        removing someone else's directory on the way out of a failure is a
+        worse bug than the one being fixed.
+        """
+        exec_out_dir = tmp_path / "exec-123"
+
+        with (
+            patch.object(
+                SubProcessTaskUtil,
+                "_resolve_recipe",
+                return_value=({"source": {"type": "mysql"}}, {}),
+            ),
+            patch.object(
+                SubProcessTaskUtil,
+                "setup_task_venv",
+                side_effect=RuntimeError("uv could not resolve dependencies"),
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="uv could not resolve"):
+                await SubProcessTaskUtil.prepare_recipe_run(
+                    self._args(),
+                    execution_ctx=Mock(),
+                    executor_ctx=Mock(),
+                    exec_out_dir=str(exec_out_dir),
+                )
+
+        assert not exec_out_dir.exists(), "the run directory outlived the failure"
+
+    @pytest.mark.asyncio
+    async def test_a_directory_the_caller_already_made_is_left_alone(
+        self, tmp_path: Path
+    ) -> None:
+        """The converse, so the cleanup cannot grow into deleting a caller's work."""
+        exec_out_dir = tmp_path / "exec-456"
+        exec_out_dir.mkdir()
+        (exec_out_dir / "caller_artifact.json").write_text("{}")
+
+        with (
+            patch.object(
+                SubProcessTaskUtil,
+                "_resolve_recipe",
+                return_value=({"source": {"type": "mysql"}}, {}),
+            ),
+            patch.object(
+                SubProcessTaskUtil, "setup_task_venv", side_effect=RuntimeError("boom")
+            ),
+        ):
+            with pytest.raises(RuntimeError):
+                await SubProcessTaskUtil.prepare_recipe_run(
+                    self._args(),
+                    execution_ctx=Mock(),
+                    executor_ctx=Mock(),
+                    exec_out_dir=str(exec_out_dir),
+                )
+
+        assert (exec_out_dir / "caller_artifact.json").exists()
+
     def test_a_store_sourced_secret_rides_the_envelope_and_not_the_environment(
         self,
     ) -> None:
