@@ -8,8 +8,10 @@ dataPlatformInstance).
 """
 
 import json
-from typing import Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 from unittest import mock
+
+import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -40,25 +42,51 @@ def make_graph(
     browse_path: Optional[BrowsePathsV2Class] = None,
     containers: Optional[Dict[str, str]] = None,
     dataset_properties: Optional[DatasetPropertiesClass] = None,
+    entities_error: Optional[Exception] = None,
 ) -> mock.MagicMock:
-    """A graph that answers each aspect read independently.
+    """A graph that answers both the batched per-entity prefetch (``get_entities``)
+    and the per-ancestor container walk (``get_aspect``).
 
-    ``containers`` maps an entity/container urn to its parent container urn.
+    ``containers`` maps an entity/container urn to its parent container urn -
+    it backs an entity's own container (read via the prefetch) as well as any
+    ancestor container's parent (read individually, one hop at a time).
     """
     parents = containers or {}
 
     def get_aspect(urn: str, aspect_type: Type) -> Optional[object]:
-        if aspect_type is BrowsePathsV2Class:
-            return browse_path
-        if aspect_type is DatasetPropertiesClass:
-            return dataset_properties
         if aspect_type is ContainerClass:
             parent = parents.get(urn)
             return ContainerClass(container=parent) if parent else None
         return None
 
+    def get_entities(
+        entity_name: str, urns: List[str], aspects: List[str]
+    ) -> Dict[str, Dict[str, Tuple[Any, None]]]:
+        if entities_error is not None:
+            raise entities_error
+        result: Dict[str, Dict[str, Tuple[Any, None]]] = {}
+        for urn in urns:
+            entity_aspects: Dict[str, Tuple[Any, None]] = {}
+            if browse_path is not None:
+                entity_aspects[BrowsePathsV2Class.ASPECT_NAME] = (browse_path, None)
+            parent = parents.get(urn)
+            if parent:
+                entity_aspects[ContainerClass.ASPECT_NAME] = (
+                    ContainerClass(container=parent),
+                    None,
+                )
+            if dataset_properties is not None:
+                entity_aspects[DatasetPropertiesClass.ASPECT_NAME] = (
+                    dataset_properties,
+                    None,
+                )
+            if entity_aspects:
+                result[urn] = entity_aspects
+        return result
+
     graph = mock.MagicMock()
     graph.get_aspect.side_effect = get_aspect
+    graph.get_entities.side_effect = get_entities
     return graph
 
 
@@ -270,25 +298,30 @@ def test_skips_browse_path_without_graph_connection() -> None:
     assert get_aspect(aspects, BrowsePathsV2Class) is None
 
 
-def test_skips_browse_path_when_aspect_read_fails() -> None:
-    graph = mock.MagicMock()
-    graph.get_aspect.side_effect = RuntimeError("connection reset")
-    source = create_dbt_source(graph=graph)
+def test_skips_browse_path_and_display_name_when_prefetch_fails() -> None:
+    # A failed batched read is indistinguishable from an empty one (no browse
+    # path, no container, no properties), which the per-entity code reads as
+    # "stub the warehouse never ingested" - so a failure must skip outright
+    # rather than risk overwriting a warehouse-owned entity it simply failed
+    # to see.
+    graph = make_graph(entities_error=RuntimeError("connection reset"))
+    source = create_dbt_source(
+        config_overrides=DISPLAY_NAME_ENABLED,
+        graph=graph,
+    )
     aspects = target_platform_workunit_aspects(source, create_dbt_node())
 
     assert get_aspect(aspects, DataPlatformInstanceClass) is not None
     assert get_aspect(aspects, BrowsePathsV2Class) is None
+    assert dataset_properties_patch_ops(source, create_dbt_node()) == []
     assert len(source.report.warnings) == 1
 
 
-def test_skips_browse_path_when_container_read_fails() -> None:
-    def get_aspect_impl(urn: str, aspect_type: Type) -> Optional[object]:
-        if aspect_type is ContainerClass:
-            raise RuntimeError("connection reset")
-        return None
-
-    graph = mock.MagicMock()
-    graph.get_aspect.side_effect = get_aspect_impl
+def test_skips_browse_path_when_ancestor_container_read_fails() -> None:
+    # The entity's own container resolves fine (via the prefetch); it's an
+    # ancestor hop above that - read individually, not batched - that fails.
+    graph = make_graph(containers={NODE_URN: SCHEMA_CONTAINER_URN})
+    graph.get_aspect.side_effect = RuntimeError("connection reset")
     source = create_dbt_source(graph=graph)
     aspects = target_platform_workunit_aspects(source, create_dbt_node())
 
@@ -318,7 +351,7 @@ def test_cyclic_container_chain_terminates() -> None:
     ]
 
 
-def test_container_ancestors_are_read_once_across_nodes() -> None:
+def test_target_platform_aspects_are_prefetched_in_one_batch() -> None:
     node = create_dbt_node()
     other_node = create_dbt_node(name="other_table")
     other_urn = other_node.get_urn("postgres", "PROD", TARGET_INSTANCE)
@@ -332,18 +365,24 @@ def test_container_ancestors_are_read_once_across_nodes() -> None:
     source = create_dbt_source(graph=graph)
     list(source.create_target_platform_mces([node, other_node]))
 
+    # Both datasets' own browsePathsV2/container/datasetProperties come from
+    # one batched call...
+    assert graph.get_entities.call_count == 1
+    assert sorted(graph.get_entities.call_args.kwargs["urns"]) == sorted(
+        [NODE_URN, other_urn]
+    )
+
+    # ...and only shared ANCESTOR containers are read individually, one hop at
+    # a time, once each for the whole run - never the datasets' own urns.
     container_reads = [
         call.args[0]
         for call in graph.get_aspect.call_args_list
         if call.args[1] is ContainerClass
     ]
-    # Shared ancestors are resolved once for the whole run...
     assert container_reads.count(SCHEMA_CONTAINER_URN) == 1
     assert container_reads.count(DB_CONTAINER_URN) == 1
-    # ...while each dataset still gets its own lookup.
-    assert sorted(u for u in container_reads if u.startswith("urn:li:dataset")) == (
-        sorted([NODE_URN, other_urn])
-    )
+    assert NODE_URN not in container_reads
+    assert other_urn not in container_reads
 
 
 DISPLAY_NAME_ENABLED = {"emit_target_platform_display_name": True}
@@ -438,3 +477,23 @@ def test_upgrades_instance_only_path_once_containers_exist() -> None:
         BrowsePathEntryClass(id=INSTANCE_URN, urn=INSTANCE_URN),
         BrowsePathEntryClass(id=SCHEMA_CONTAINER_URN, urn=SCHEMA_CONTAINER_URN),
     ]
+
+
+def test_display_name_requires_target_platform_instance() -> None:
+    with pytest.raises(ValueError, match="emit_target_platform_display_name"):
+        create_dbt_source(
+            config_overrides={
+                **DISPLAY_NAME_ENABLED,
+                "target_platform_instance": None,
+            }
+        )
+
+
+def test_display_name_requires_instance_aspects_enabled() -> None:
+    with pytest.raises(ValueError, match="emit_target_platform_display_name"):
+        create_dbt_source(
+            config_overrides={
+                **DISPLAY_NAME_ENABLED,
+                "emit_target_platform_instance_aspects": False,
+            }
+        )
