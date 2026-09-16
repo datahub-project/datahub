@@ -68,6 +68,7 @@ When Structured Properties are added or modified on a BigQuery asset in DataHub,
 1. Fetches all structured property assignments for the entity from DataHub
 2. Resolves display names from structured property definitions
 3. Writes all properties as a single `datahub` custom aspect map on the Knowledge Catalog entry
+4. When all structured properties are removed in DataHub (or the automation is rolled back), the `datahub` aspect map is cleared to an empty map on the Knowledge Catalog entry
 
 ## Prerequisites
 
