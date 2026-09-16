@@ -4907,19 +4907,60 @@ def test_a_semantic_model_field_without_a_name_does_not_abort_the_run():
     assert parsed.discarded == ["entities[0] has no usable name"]
 
 
+def test_one_unreadable_metric_does_not_drop_the_others() -> None:
+    """The semantic-model sections already isolate unreadable entries."""
+    report = DBTSourceReport()
+    # Deliberately mistyped: the point is a manifest that violates the type.
+    manifest: Dict[str, Any] = {
+        "metric.p.good": {
+            "name": "good",
+            "label": "Good",
+            "description": "",
+            "type": "simple",
+            "type_params": {"measure": {"name": "m"}},
+        },
+        "metric.p.broken": "not-an-object",
+    }
+    metrics = extract_dbt_metrics(manifest, "dbt:", report)
+
+    assert [m.name for m in metrics] == ["good"]
+    assert any(w.title == "Could not read a dbt metric" for w in report.warnings)
+
+
+def test_a_non_string_metric_expr_does_not_crash_emission() -> None:
+    """`_metric_computation` strips it, so a manifest value must be coerced."""
+    metrics = extract_dbt_metrics(
+        {
+            "metric.p.x": {
+                "name": "x",
+                "label": "X",
+                "description": "",
+                "type": "simple",
+                "type_params": {"expr": 7, "measure": {"name": "m"}},
+            }
+        },
+        "dbt:",
+    )
+
+    assert metrics[0].expr is None
+
+
 def test_multiple_where_filters_keep_their_own_scope():
     """dbt applies each where_filter in turn, so they are ANDed -- but AND
     binds tighter than OR, and a bare join silently reassociates them."""
     from datahub.ingestion.source.dbt.dbt_core import _metric_filter
 
-    assert _metric_filter(
-        {
-            "where_filters": [
-                {"where_sql_template": "a = 1 OR b = 2"},
-                {"where_sql_template": "c = 3 OR d = 4"},
-            ]
-        }
-    ) == "(a = 1 OR b = 2) AND (c = 3 OR d = 4)"
+    assert (
+        _metric_filter(
+            {
+                "where_filters": [
+                    {"where_sql_template": "a = 1 OR b = 2"},
+                    {"where_sql_template": "c = 3 OR d = 4"},
+                ]
+            }
+        )
+        == "(a = 1 OR b = 2) AND (c = 3 OR d = 4)"
+    )
     # A lone template has nothing joined to it, so it is left alone.
     assert (
         _metric_filter({"where_filters": [{"where_sql_template": "a = 1 OR b = 2"}]})

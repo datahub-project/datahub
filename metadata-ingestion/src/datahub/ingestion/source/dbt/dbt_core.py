@@ -528,6 +528,11 @@ def _dedupe_metric_inputs(inputs: List[DBTMetricInput]) -> List[DBTMetricInput]:
     return deduped
 
 
+def _optional_str_value(value: Any) -> Optional[str]:
+    """Keep a non-string manifest value out of the typed model."""
+    return value if isinstance(value, str) else None
+
+
 def _metric_filter(value: Any) -> Optional[str]:
     """Flatten a dbt metric filter into a single SQL predicate.
 
@@ -559,66 +564,86 @@ def _metric_filter(value: Any) -> Optional[str]:
 def extract_dbt_metrics(
     manifest_metrics: Dict[str, Dict[str, Any]],
     tag_prefix: str,
+    report: Optional[DBTSourceReport] = None,
 ) -> List[DBTMetric]:
     """Extract dbt metrics from the manifest.json metrics section (dbt 1.6+)."""
     metrics: List[DBTMetric] = []
     for key, metric_node in manifest_metrics.items():
-        type_params = metric_node.get("type_params")
-        if not isinstance(type_params, dict):
-            type_params = {}
-
-        metric_type = metric_node.get("type") or METRIC_TYPE_SIMPLE
-
-        measures = _metric_inputs(type_params.get("input_measures"))
-        single_measure = _metric_input(type_params.get("measure"))
-        if single_measure:
-            measures.append(single_measure)
-
-        input_metrics = _metric_inputs(type_params.get("metrics"))
-        # A ratio's numerator/denominator name metrics in modern dbt but named
-        # measures in early 1.6. Collect both; the emitter resolves against the
-        # known metric names first and falls back to measures.
-        for ratio_key in ("numerator", "denominator"):
-            ratio_input = _metric_input(type_params.get(ratio_key))
-            if ratio_input:
-                input_metrics.append(ratio_input)
-
-        # dbt 1.9 moved conversion/cumulative inputs into their own blocks.
-        for nested_key, measure_keys in (
-            ("conversion_type_params", ("base_measure", "conversion_measure")),
-            ("cumulative_type_params", ("measure",)),
-        ):
-            nested = type_params.get(nested_key)
-            if not isinstance(nested, dict):
-                continue
-            for measure_key in measure_keys:
-                nested_measure = _metric_input(nested.get(measure_key))
-                if nested_measure:
-                    measures.append(nested_measure)
-
-        depends_on = metric_node.get("depends_on")
-        depends_on_nodes = (
-            depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
-        )
-
-        tags = [tag_prefix + tag for tag in metric_node.get("tags") or []]
-
-        metrics.append(
-            DBTMetric(
-                name=metric_node.get("name", ""),
-                unique_id=key,
-                label=metric_node.get("label"),
-                description=metric_node.get("description"),
-                type=metric_type,
-                measures=_dedupe_metric_inputs(measures),
-                input_metrics=_dedupe_metric_inputs(input_metrics),
-                expr=type_params.get("expr"),
-                filter=_metric_filter(metric_node.get("filter")),
-                tags=tags,
-                depends_on=depends_on_nodes,
-            )
-        )
+        # Per entry: one unreadable metric must not cost the project every
+        # other one, which is how the semantic-model sections already behave.
+        try:
+            parsed = _parse_metric(key, metric_node, tag_prefix)
+        except Exception as e:
+            if report is not None:
+                report.warning(
+                    title="Could not read a dbt metric",
+                    message="Skipping this metric; the manifest entry did not "
+                    "have the expected shape. Every other metric is still "
+                    "ingested.",
+                    context=key,
+                    exc=e,
+                )
+            continue
+        metrics.append(parsed)
     return metrics
+
+
+def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBTMetric:
+    type_params = metric_node.get("type_params")
+    if not isinstance(type_params, dict):
+        type_params = {}
+
+    metric_type = metric_node.get("type") or METRIC_TYPE_SIMPLE
+
+    measures = _metric_inputs(type_params.get("input_measures"))
+    single_measure = _metric_input(type_params.get("measure"))
+    if single_measure:
+        measures.append(single_measure)
+
+    input_metrics = _metric_inputs(type_params.get("metrics"))
+    # A ratio's numerator/denominator name metrics in modern dbt but named
+    # measures in early 1.6. Collect both; the emitter resolves against the
+    # known metric names first and falls back to measures.
+    for ratio_key in ("numerator", "denominator"):
+        ratio_input = _metric_input(type_params.get(ratio_key))
+        if ratio_input:
+            input_metrics.append(ratio_input)
+
+    # dbt 1.9 moved conversion/cumulative inputs into their own blocks.
+    for nested_key, measure_keys in (
+        ("conversion_type_params", ("base_measure", "conversion_measure")),
+        ("cumulative_type_params", ("measure",)),
+    ):
+        nested = type_params.get(nested_key)
+        if not isinstance(nested, dict):
+            continue
+        for measure_key in measure_keys:
+            nested_measure = _metric_input(nested.get(measure_key))
+            if nested_measure:
+                measures.append(nested_measure)
+
+    depends_on = metric_node.get("depends_on")
+    depends_on_nodes = (
+        depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+    )
+
+    tags = [tag_prefix + tag for tag in metric_node.get("tags") or []]
+
+    return DBTMetric(
+        name=metric_node.get("name", ""),
+        unique_id=key,
+        label=metric_node.get("label"),
+        description=metric_node.get("description"),
+        type=metric_type,
+        measures=_dedupe_metric_inputs(measures),
+        input_metrics=_dedupe_metric_inputs(input_metrics),
+        # Coerced: `_metric_computation` calls .strip() on it, and a manifest
+        # can hold anything. Same guard as measure `agg`.
+        expr=_optional_str_value(type_params.get("expr")),
+        filter=_metric_filter(metric_node.get("filter")),
+        tags=tags,
+        depends_on=depends_on_nodes,
+    )
 
 
 def _resolve_database_schema(
@@ -1122,6 +1147,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         self._metrics = extract_dbt_metrics(
             manifest_metrics=manifest_metrics,
             tag_prefix=self.config.tag_prefix,
+            report=self.report,
         )
 
         # Extract semantic models from manifest (dbt 1.6+)
