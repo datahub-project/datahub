@@ -66,6 +66,15 @@ public class SearchClientShimFactory {
     int socketMs = mergeRestClientSocketTimeoutMs(esConfig.getSocketTimeout(), mae);
     int connMs =
         mergeRestClientConnectionRequestTimeoutMs(esConfig.getConnectionRequestTimeout(), mae);
+    long graphBudgetMs = esConfig.getSearch().getGraph().getTimeoutSeconds() * 1000L;
+    if (socketMs < graphBudgetMs) {
+      log.warn(
+          "elasticsearch.socketTimeout ({} ms) is below elasticsearch.search.graph.timeoutSeconds ({} ms): "
+              + "long lineage pages will abort client-side as a generic error before the lineage "
+              + "timeout guardrail can classify them; raise ELASTICSEARCH_SOCKET_TIMEOUT or lower the graph budget",
+          socketMs,
+          graphBudgetMs);
+    }
     if (Boolean.TRUE.equals(mae != null ? mae.getEnabled() : null)
         && mae.getElasticsearch() != null) {
       log.info(
