@@ -7784,3 +7784,104 @@ def test_sigma_ingest_workbook_customsql(pytestconfig, tmp_path, requests_mock):
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_workbook_customsql.json",
     )
+
+@pytest.mark.integration
+def test_dataset_warehouse_upstream_survives_empty_element_sql(
+    pytestconfig, tmp_path, requests_mock
+):
+    """A dataset-backed element's /query returns empty SQL, and the edge survives.
+
+    Sigma retired datasets as a data source on 2026-09-15. A workbook element
+    reading through a dataset still answers ``/elements/{id}/query`` with HTTP
+    200, but the body no longer carries SQL -- so the dataset's url id cannot be
+    found in a query string any more, and that string match was the only way the
+    Sigma Dataset -> warehouse table edge was derived.
+
+    ``/datasets/{id}/sources`` still names the source table by inode and
+    ``/files/{inodeId}`` still resolves it, so the edge is recoverable
+    structurally rather than textually. Shapes below are the ones the live API
+    returns.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"  # noqa: F841
+    output_path = f"{tmp_path}/sigma_dataset_inode_mces.json"
+
+    override_data: Dict[str, Dict] = {
+        # Post-deprecation: 200 with no SQL, for EVERY element whose lineage
+        # names the dataset. Emptying only one leaves the other's SQL to supply
+        # the warehouse side, and the edge resolves for the wrong reason.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/Ml9C5ezT5W/query": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/tQJu5N1l81/query": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {},
+        },
+        # The structural route that still works.
+        "https://aws-api.sigmacomputing.com/v2/datasets/8891fd40-5470-4ff2-a74f-6e61ee44d3fc/sources": {
+            "method": "GET",
+            "status_code": 200,
+            "json": [
+                {"type": "table", "inodeId": "14139218-f19c-408f-bcb5-be88ee9f3659"}
+            ],
+        },
+        "https://aws-api.sigmacomputing.com/v2/files/14139218-f19c-408f-bcb5-be88ee9f3659": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": "14139218-f19c-408f-bcb5-be88ee9f3659",
+                "urlId": "BSN0bEB8oOABQN653C1wR",
+                "name": "PETS",
+                "type": "table",
+                "parentId": "0be1e9ae-af29-4e8d-8a1d-e23f135e047b",
+                "path": "Connection Root/LONG_TAIL_COMPANIONS/ADOPTION",
+                "isArchived": False,
+            },
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "chart_sources_platform_mapping": {
+                        "Acryl Data/Acryl Workbook": {
+                            "data_source_platform": "snowflake"
+                        },
+                    },
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    sigma_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sigma,49HFLTr6xytgrPly3PFsNC,PROD)"
+    )
+    expected_upstream = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "long_tail_companions.adoption.pets,PROD)"
+    )
+    upstreams = [
+        u["dataset"]
+        for mce in mces
+        if mce.get("entityUrn") == sigma_dataset_urn
+        and mce.get("aspectName") == "upstreamLineage"
+        for u in mce["aspect"]["json"]["upstreams"]
+    ]
+    assert expected_upstream in upstreams, (
+        "Sigma Dataset -> warehouse edge must be derived from "
+        "/datasets/{id}/sources + /files/{inodeId} when the element SQL is empty"
+    )
