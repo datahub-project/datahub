@@ -116,6 +116,39 @@ def collect_nested_secret_values(obj: object, hints: Tuple[str, ...]) -> Set[str
     return found
 
 
+def collect_plain_config_values(obj: object, hints: Tuple[str, ...]) -> Set[str]:
+    """String values a recipe states in the clear under a non-sensitive key.
+
+    The counterpart to collect_nested_secret_values, for subtracting rather
+    than adding. A secret whose resolved value equals one of these cannot be
+    protected by masking: the value is a plain part of the recipe, the report
+    has to be able to print it (a verdict's `target` is a qualified
+    identifier), and blanking it is what tells a reader that the secret equals
+    the identifier they can already see. Same reasoning as
+    _MIN_SUBSTRING_SECRET_LEN below -- masking that cannot protect anything
+    only corrupts output.
+
+    Reads the RAW recipe, never the resolved config. A resolved config holds
+    ${ref}-sourced secrets, including under keys no hint matches
+    (``options.some_odd_key: ${PW}``), and collecting those here would exempt
+    from masking the very values the ${ref} sweep exists to catch. A raw value
+    still carrying ``${`` is skipped for the same reason.
+    """
+    found: Set[str] = set()
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            sensitive = any(h in str(k).lower() for h in hints)
+            if isinstance(v, str):
+                if v and not sensitive and "${" not in v:
+                    found.add(v)
+            else:
+                found |= collect_plain_config_values(v, hints)
+    elif isinstance(obj, list):
+        for item in obj:
+            found |= collect_plain_config_values(item, hints)
+    return found
+
+
 def _maskable_forms(secret_values: Set[str]) -> List[str]:
     """Every form of every secret worth matching, longest first.
 

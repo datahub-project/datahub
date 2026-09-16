@@ -15,7 +15,7 @@ from datahub.ingestion.agent.probe_methods import (
     ProbeParam,
     _coerce,
 )
-from datahub.ingestion.agent.redact import collect_nested_secret_values
+from datahub.ingestion.agent.redact import collect_nested_secret_values, redact
 from datahub.ingestion.agent.verdicts import ProbeSoftError
 
 
@@ -880,3 +880,117 @@ def test_an_empty_envelope_secret_does_not_fall_through_to_the_environment(
 
     _t, config, _s = rc._resolve_for_probe(rc._load_recipe("-"))
     assert config["password"] == ""
+
+
+# A secret whose value collides with a plain, non-secret config value is not
+# protectable: the recipe already states it, the report legitimately has to
+# print it (`target` is a qualified identifier), and masking it is what tells
+# a reader the secret equals the identifier they can already see.
+
+
+def test_a_secret_equal_to_a_plain_config_value_is_not_masked(monkeypatch):
+    """A password that happens to equal the database name must not blank the
+    database name out of every verdict.
+
+    `target` exists to report the string a pattern matched. Masking the
+    container turns "datahub.orders" into "***.orders", which is unreadable
+    AND discloses the collision -- the recipe plainly says `database: datahub`,
+    so the mask is the only new information in the output.
+    """
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(
+        "sys.stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "__recipe_yaml__": (
+                        "source:\n"
+                        "  type: mysql\n"
+                        "  config:\n"
+                        "    host_port: h:3306\n"
+                        "    database: datahub\n"
+                        "    username: u\n"
+                        "    password: ${PROBE_TEST_REF}\n"
+                    ),
+                    "__secrets__": {"PROBE_TEST_REF": "datahub"},
+                }
+            )
+        ),
+    )
+
+    _t, config, secret_values = rc._resolve_for_probe(rc._load_recipe("-"))
+
+    assert config["password"] == "datahub"
+    assert "datahub" not in secret_values
+    # and so a verdict can still name what it matched
+    assert redact({"target": "datahub.orders"}, secret_values) == {
+        "target": "datahub.orders"
+    }
+
+
+def test_a_secret_matching_an_inline_secret_field_is_still_masked(monkeypatch):
+    """The exemption is for NON-secret config values only.
+
+    The trap: a recipe with `password: p` AND `database: p` makes the value
+    both an inline secret and a plain config value. An unconditional
+    exemption unmasks the credential -- the report travels further than the
+    recipe does, to GMS, the logs and an LLM. Only a value the raw recipe does
+    not carry under a sensitive key is exempt.
+    """
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(
+        "sys.stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "__recipe_yaml__": (
+                        "source:\n"
+                        "  type: mysql\n"
+                        "  config:\n"
+                        "    host_port: h:3306\n"
+                        "    username: u\n"
+                        "    password: hunter2\n"
+                        "    database: hunter2\n"
+                    ),
+                    "__secrets__": {},
+                }
+            )
+        ),
+    )
+
+    _t, _config, secret_values = rc._resolve_for_probe(rc._load_recipe("-"))
+    assert "hunter2" in secret_values
+
+
+def test_a_ref_under_an_unrecognised_key_is_still_masked(monkeypatch):
+    """The exemption reads the RAW recipe, not the resolved config.
+
+    Reading the resolved config would collect a ${ref}-sourced secret living
+    under a key no sensitivity hint matches, and then exempt it from masking --
+    unmasking the very secret the ${ref} collection exists to catch. A raw
+    plain literal cannot be a resolved secret, so raw-only is safe.
+    """
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(
+        "sys.stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "__recipe_yaml__": (
+                        "source:\n"
+                        "  type: mysql\n"
+                        "  config:\n"
+                        "    host_port: h:3306\n"
+                        "    username: u\n"
+                        "    password: p\n"
+                        "    options:\n"
+                        "      some_odd_key: ${PROBE_TEST_REF}\n"
+                    ),
+                    "__secrets__": {"PROBE_TEST_REF": "not-a-database-name"},
+                }
+            )
+        ),
+    )
+
+    _t, _config, secret_values = rc._resolve_for_probe(rc._load_recipe("-"))
+    assert "not-a-database-name" in secret_values

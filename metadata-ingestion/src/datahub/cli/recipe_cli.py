@@ -21,6 +21,7 @@ from datahub.ingestion.agent.recipe import scaffold, validate_recipe
 from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
     collect_nested_secret_values,
+    collect_plain_config_values,
     collect_secret_values,
     redact,
 )
@@ -295,6 +296,25 @@ def _resolve_for_probe(
     # the recipe happened to reference it (it may have arrived already
     # substituted). Mirrors what load_config_file does for `ingest -c -`.
     secret_values |= {v for v in _stdin_secrets.values() if v}
+    # Finally, drop what masking cannot protect. A secret equal to a value the
+    # recipe states in the clear -- a password the same as the database name --
+    # is not made safer by blanking it: the recipe already says the identifier,
+    # `target` has to print it, and the mask itself is what reveals the
+    # collision to a reader who can see the identifier but not the ${ref}.
+    #
+    # Exempt only what the raw recipe does NOT also carry as an inline secret
+    # literal. A recipe with `password: p` and `database: p` discloses the
+    # credential itself, and the report travels further than the recipe does --
+    # to GMS, the logs and an LLM -- so that one keeps its mask. Everything is
+    # read off the RAW config: resolved values put the ${ref}-sourced secret
+    # under `password` too, which would exempt every colliding secret and
+    # defeat the distinction.
+    raw_inline_secrets = collect_secret_values(
+        config, secret_fields
+    ) | collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+    secret_values -= (
+        collect_plain_config_values(config, _SENSITIVE_KEY_HINTS) - raw_inline_secrets
+    )
     return source_type, resolved.config, secret_values
 
 
