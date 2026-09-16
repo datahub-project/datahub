@@ -342,8 +342,10 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       }
 
     } catch (LineageTimeoutException e) {
-      // Expected and already logged: rethrow untouched so the generic wrapper below does not add an
-      // error-level stack trace for a timeout.
+      // Rethrow untouched: processSliceFutures rethrows a bare RuntimeException cause as-is, so the
+      // distinct type reaches getImpactLineage's catch (which records the timeout on the cascade)
+      // and the GraphQL/Rest.li mappers without a wrapper. The generic catch below would also log
+      // an error-level stack trace for an expected outcome.
       throw e;
     } catch (Exception e) {
       log.error("Failed to execute scroll search for slice {}", sliceId, e);

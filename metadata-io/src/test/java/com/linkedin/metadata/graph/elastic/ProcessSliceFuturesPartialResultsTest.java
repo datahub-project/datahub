@@ -179,4 +179,21 @@ public class ProcessSliceFuturesPartialResultsTest {
     assertTrue(thrown.getMessage().contains("timed out"), thrown.getMessage());
     assertTrue(futures.get(1).isCancelled(), "unread slices are cancelled on strict timeout");
   }
+
+  @Test(timeOut = 15_000)
+  public void testDisallowPartial_budgetSpentButAllSlicesReturned_returnsCompleteResult()
+      throws Exception {
+    Harness harness = new Harness(TEST_OS_SEARCH_CONFIG);
+    List<CompletableFuture<List<LineageRelationship>>> futures = new ArrayList<>();
+    futures.add(
+        CompletableFuture.completedFuture(
+            List.of(rel("urn:li:dataset:(urn:li:dataPlatform:test,a,PROD)"))));
+
+    // remainingTime=0 but the only slice has returned: nothing is unread, so strict mode must
+    // return the complete hop rather than throw.
+    LineageSliceFetchResult result = harness.invokeProcessSliceFutures(futures, 0, false);
+
+    assertEquals(result.getLineageRelationships().size(), 1);
+    assertTrue(!result.isPartial(), "all slices returned: the hop is complete");
+  }
 }
