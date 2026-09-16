@@ -86,16 +86,19 @@ public class PgQueueBatchAccumulatorTest {
 
     acc.addAll(List.of(message(10)));
     assertFalse(acc.isExpired());
+    assertEquals(acc.millisUntilExpire(), 200L);
 
     clock.advance(199);
     assertFalse(acc.isExpired());
 
     clock.advance(1);
     assertTrue(acc.isExpired());
+    assertEquals(acc.millisUntilExpire(), 0L);
     assertTrue(acc.shouldFlush());
 
     acc.drain();
     assertFalse(acc.isExpired());
+    assertEquals(acc.millisUntilExpire(), Long.MAX_VALUE);
     assertFalse(acc.shouldFlush());
   }
 

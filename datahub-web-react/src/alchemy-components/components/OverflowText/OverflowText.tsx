@@ -12,9 +12,10 @@ const TextWrapper = styled.span`
 
 interface Props {
     text: string;
+    className?: string;
 }
 
-export const OverflowText = ({ text }: Props) => {
+export const OverflowText = ({ text, className }: Props) => {
     const textRef = useRef<HTMLSpanElement>(null);
     const [isTruncated, setIsTruncated] = useState(false);
 
@@ -27,7 +28,9 @@ export const OverflowText = ({ text }: Props) => {
 
     return (
         <Tooltip title={isTruncated ? text : undefined}>
-            <TextWrapper ref={textRef}>{text}</TextWrapper>
+            <TextWrapper ref={textRef} className={className}>
+                {text}
+            </TextWrapper>
         </Tooltip>
     );
 };

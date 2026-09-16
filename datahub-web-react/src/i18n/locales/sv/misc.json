@@ -22,6 +22,7 @@
     "applications.noCreatePermissionTooltip": "Du har inte behörighet att skapa applikationer",
     "applications.pageSubtitle": "Skapa och redigera applikationer",
     "applications.pageTitle": "Hantera applikationer",
+    "applications.searchMinCharsHint": "Ange minst {{minLength}} tecken för att söka",
     "applications.searchPlaceholder": "Sök applikationer...",
     "authorization.unauthorizedSubtitle": "Du har tyvärr inte behörighet att komma åt den här sidan.",
     "authorization.unauthorizedTitle": "Obehörig",

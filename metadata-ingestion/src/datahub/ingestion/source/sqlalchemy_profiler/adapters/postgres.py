@@ -4,13 +4,13 @@ import logging
 from typing import Any, List, Optional
 
 import sqlalchemy as sa
-from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
+    ProfilingConnection,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class PostgresAdapter(PlatformAdapter):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         """
@@ -100,7 +100,7 @@ class PostgresAdapter(PlatformAdapter):
                     f"PERCENTILE_DISC({q}) WITHIN GROUP (ORDER BY {quoted_column} ASC)"
                 ).label("percentile")
                 query = sa.select([percentile_expr]).select_from(table)
-                result = conn.execute(query).scalar()
+                result = conn.execute_rows(query).scalar()
                 results.append(float(result) if result is not None else None)
             except SQLAlchemyError as e:
                 logger.warning(
@@ -124,7 +124,7 @@ class PostgresAdapter(PlatformAdapter):
         return True
 
     def get_estimated_row_count(
-        self, table: sa.Table, conn: Connection
+        self, table: sa.Table, conn: ProfilingConnection
     ) -> Optional[int]:
         """
         Get fast row count estimate using pg_class.reltuples.
@@ -170,7 +170,9 @@ class PostgresAdapter(PlatformAdapter):
                 .where(pg_class.c.relname == table_name)
             )
 
-            result = conn.execute(query).scalar()
+            # Deliberately not single-row: filtered on schema+table, so a table
+            # absent from the catalog yields zero rows.
+            result = conn.execute_rows(query).scalar()
             return int(result) if result is not None else None
 
         except SQLAlchemyError as e:

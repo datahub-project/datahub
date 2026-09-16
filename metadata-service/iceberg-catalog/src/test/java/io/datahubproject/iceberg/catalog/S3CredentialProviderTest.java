@@ -14,8 +14,6 @@ import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
@@ -31,8 +29,6 @@ public class S3CredentialProviderTest {
 
   private S3CredentialProvider credentialProvider;
 
-  @Mock private StsClientBuilder stsClientBuilder;
-
   @BeforeMethod
   public void setUp() {
 
@@ -40,11 +36,7 @@ public class S3CredentialProviderTest {
 
     storageProviderCreds =
         new CredentialProvider.StorageProviderCredentials(
-            "testClientId",
-            "testClientSecret",
-            "arn:aws:iam::123456789012:role/test-role",
-            "us-east-1",
-            null);
+            null, null, "arn:aws:iam::123456789012:role/test-role", "us-east-1", null);
 
     cacheKey =
         new CredentialProvider.CredentialsCacheKey(
@@ -52,59 +44,152 @@ public class S3CredentialProviderTest {
             PoliciesConfig.DATA_READ_ONLY_PRIVILEGE,
             Set.of("s3://test-bucket/path/to/data"));
 
-    credentialProvider = new S3CredentialProvider();
+    credentialProvider = new S3CredentialProvider(stsClient);
+  }
+
+  private void stubAssumeRole() {
+    stubAssumeRole(stsClient);
+  }
+
+  private static void stubAssumeRole(StsClient client) {
+    when(client.assumeRole(any(AssumeRoleRequest.class))).thenReturn(assumeRoleResponse());
+  }
+
+  private static AssumeRoleResponse assumeRoleResponse() {
+    return AssumeRoleResponse.builder()
+        .credentials(
+            Credentials.builder()
+                .accessKeyId("testAccessId-temp")
+                .secretAccessKey("testSecretKey-temp")
+                .sessionToken("testSessionToken-temp")
+                .expiration(java.time.Instant.now().plusSeconds(900))
+                .build())
+        .build();
   }
 
   @Test
   public void testGetCredentials() {
-    StsClientBuilder builderMock = mock(StsClientBuilder.class);
-    StsClient clientMock = mock(StsClient.class);
+    stubAssumeRole();
 
-    // Mock the builder chain
-    when(builderMock.region(any(Region.class))).thenReturn(builderMock);
-    when(builderMock.credentialsProvider(any(StaticCredentialsProvider.class)))
-        .thenReturn(builderMock);
-    when(builderMock.build()).thenReturn(clientMock);
+    Map<String, String> creds = credentialProvider.getCredentials(cacheKey, storageProviderCreds);
+    assertNotNull(creds);
+    assertEquals(creds.get("client.region"), "us-east-1");
+    assertEquals(creds.get("s3.access-key-id"), "testAccessId-temp");
+    assertEquals(creds.get("s3.secret-access-key"), "testSecretKey-temp");
+    assertEquals(creds.get("s3.session-token"), "testSessionToken-temp");
+    credentialProvider.close();
+    verify(stsClient, never()).close();
+  }
 
-    AssumeRoleResponse assumeRoleResponse =
-        AssumeRoleResponse.builder()
-            .credentials(
-                Credentials.builder()
-                    .accessKeyId("testAccessId-temp")
-                    .secretAccessKey("testSecretKey-temp")
-                    .sessionToken("testSessionToken-temp")
-                    .expiration(java.time.Instant.now().plusSeconds(900))
-                    .build())
-            .build();
-    when(clientMock.assumeRole(any(AssumeRoleRequest.class))).thenReturn(assumeRoleResponse);
+  @Test
+  public void testGetCredentialsReusesInjectedStsClient() {
+    stubAssumeRole();
+    credentialProvider.getCredentials(cacheKey, storageProviderCreds);
+    credentialProvider.getCredentials(cacheKey, storageProviderCreds);
+    credentialProvider.close();
+    verify(stsClient, times(2)).assumeRole(any(AssumeRoleRequest.class));
+    verify(stsClient, never()).close();
+  }
 
-    try (MockedStatic<StsClient> stsClientMockedStatic = mockStatic(StsClient.class)) {
-      // Mock the static builder() method
-      stsClientMockedStatic.when(StsClient::builder).thenReturn(builderMock);
+  @Test
+  public void warehouseStaticKeysReuseAndCloseOwnedStsClient() {
+    StsClient warehouseClient = mock(StsClient.class);
+    stubAssumeRole(warehouseClient);
+    StsClientBuilder builder = mock(StsClientBuilder.class, RETURNS_SELF);
+    when(builder.build()).thenReturn(warehouseClient);
 
-      /*        "client.region",
-       REGION.id(),
-       "s3.access-key-id",
-       response.credentials().accessKeyId(),
-       "s3.secret-access-key",
-       response.credentials().secretAccessKey(),
-       "s3.session-token",
-       response.credentials().sessionToken());
+    CredentialProvider.StorageProviderCredentials keyed =
+        new CredentialProvider.StorageProviderCredentials(
+            "client-id",
+            "client-secret",
+            "arn:aws:iam::123456789012:role/test-role",
+            "us-east-1",
+            null);
 
-      */
-
-      Map<String, String> creds = credentialProvider.getCredentials(cacheKey, storageProviderCreds);
-      assertNotNull(creds);
-      assertEquals(creds.get("client.region"), Region.of("us-east-1").id());
-      assertEquals(creds.get("s3.access-key-id"), "testAccessId-temp");
-      assertEquals(creds.get("s3.secret-access-key"), "testSecretKey-temp");
-      assertEquals(creds.get("s3.session-token"), "testSessionToken-temp");
+    try (MockedStatic<StsClient> stsStatic = mockStatic(StsClient.class)) {
+      stsStatic.when(StsClient::builder).thenReturn(builder);
+      try (S3CredentialProvider provider = new S3CredentialProvider()) {
+        provider.getCredentials(cacheKey, keyed);
+        provider.getCredentials(cacheKey, keyed);
+      }
     }
+
+    verify(builder, times(1)).build();
+    verify(warehouseClient, times(2)).assumeRole(any(AssumeRoleRequest.class));
+    verify(warehouseClient).close();
+  }
+
+  @Test
+  public void warehouseStaticKeysDifferentSecretsDoNotShareStsClient() {
+    StsClient firstClient = mock(StsClient.class);
+    StsClient secondClient = mock(StsClient.class);
+    stubAssumeRole(firstClient);
+    stubAssumeRole(secondClient);
+    StsClientBuilder builder = mock(StsClientBuilder.class, RETURNS_SELF);
+    when(builder.build()).thenReturn(firstClient, secondClient);
+
+    CredentialProvider.StorageProviderCredentials firstKeys =
+        new CredentialProvider.StorageProviderCredentials(
+            "client-id", "secret-a", "arn:aws:iam::123456789012:role/test-role", "us-east-1", null);
+    CredentialProvider.StorageProviderCredentials rotatedKeys =
+        new CredentialProvider.StorageProviderCredentials(
+            "client-id", "secret-b", "arn:aws:iam::123456789012:role/test-role", "us-east-1", null);
+
+    try (MockedStatic<StsClient> stsStatic = mockStatic(StsClient.class)) {
+      stsStatic.when(StsClient::builder).thenReturn(builder);
+      try (S3CredentialProvider provider = new S3CredentialProvider()) {
+        provider.getCredentials(cacheKey, firstKeys);
+        provider.getCredentials(cacheKey, rotatedKeys);
+        verify(firstClient).close();
+      }
+    }
+
+    verify(builder, times(2)).build();
+    verify(secondClient).close();
+  }
+
+  @Test
+  public void warehouseSecretRotationDoesNotCloseInFlightStsClient() {
+    StsClient firstClient = mock(StsClient.class);
+    StsClient secondClient = mock(StsClient.class);
+    stubAssumeRole(secondClient);
+    StsClientBuilder builder = mock(StsClientBuilder.class, RETURNS_SELF);
+    when(builder.build()).thenReturn(firstClient, secondClient);
+
+    CredentialProvider.StorageProviderCredentials firstKeys =
+        new CredentialProvider.StorageProviderCredentials(
+            "client-id", "secret-a", "arn:aws:iam::123456789012:role/test-role", "us-east-1", null);
+    CredentialProvider.StorageProviderCredentials rotatedKeys =
+        new CredentialProvider.StorageProviderCredentials(
+            "client-id", "secret-b", "arn:aws:iam::123456789012:role/test-role", "us-east-1", null);
+
+    try (MockedStatic<StsClient> stsStatic = mockStatic(StsClient.class)) {
+      stsStatic.when(StsClient::builder).thenReturn(builder);
+      try (S3CredentialProvider provider = new S3CredentialProvider()) {
+        when(firstClient.assumeRole(any(AssumeRoleRequest.class)))
+            .thenAnswer(
+                invocation -> {
+                  provider.getCredentials(cacheKey, rotatedKeys);
+                  verify(firstClient, never()).close();
+                  return assumeRoleResponse();
+                });
+        provider.getCredentials(cacheKey, firstKeys);
+        verify(firstClient).close();
+      }
+    }
+
+    verify(secondClient).close();
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testGetCredentialsRequiresKeysOrSharedClient() {
+    S3CredentialProvider provider = new S3CredentialProvider();
+    provider.getCredentials(cacheKey, storageProviderCreds);
   }
 
   @Test(expectedExceptions = IllegalStateException.class)
   public void testGetWithUnsupportedPrivilege() {
-    S3CredentialProvider provider = new S3CredentialProvider();
+    S3CredentialProvider provider = new S3CredentialProvider(stsClient);
     CredentialProvider.CredentialsCacheKey keyWithUnsupportedPrivilege =
         new CredentialProvider.CredentialsCacheKey(
             "testPlatform",
@@ -116,7 +201,7 @@ public class S3CredentialProviderTest {
 
   @Test(expectedExceptions = BadRequestException.class)
   public void testGetWithEmptyLocations() {
-    S3CredentialProvider provider = new S3CredentialProvider();
+    S3CredentialProvider provider = new S3CredentialProvider(stsClient);
     CredentialProvider.CredentialsCacheKey keyWithEmptyLocations =
         new CredentialProvider.CredentialsCacheKey(
             "testPlatform", PoliciesConfig.DATA_READ_ONLY_PRIVILEGE, Set.of());

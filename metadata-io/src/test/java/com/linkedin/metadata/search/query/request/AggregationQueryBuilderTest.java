@@ -34,6 +34,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,6 +46,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -823,6 +826,65 @@ public class AggregationQueryBuilderTest {
 
     builder.updateAggregationEntity(aggregationMetadata);
     Assert.assertNull(aggregationMetadata.getEntity());
+  }
+
+  @Test
+  public void testProcessTermAggregationsConvertsDateStringKeysToEpochMillis() {
+    final Terms.Bucket dateBucket = mock(Terms.Bucket.class);
+    final String dateKey = "2023-01-01T00:00:00Z";
+    when(dateBucket.getKeyAsString()).thenReturn(dateKey);
+    when(dateBucket.getDocCount()).thenReturn(5L);
+    when(dateBucket.getAggregations()).thenReturn(null);
+
+    final Terms.Bucket nonDateBucket = mock(Terms.Bucket.class);
+    final String nonDateKey = "not-a-date";
+    when(nonDateBucket.getKeyAsString()).thenReturn(nonDateKey);
+    when(nonDateBucket.getDocCount()).thenReturn(3L);
+    when(nonDateBucket.getAggregations()).thenReturn(null);
+
+    final ParsedTerms terms = mock(ParsedTerms.class);
+    Mockito.doReturn(ImmutableList.of(dateBucket, nonDateBucket)).when(terms).getBuckets();
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(Map.entry("myDateField", terms), aggregationMetadataList);
+
+    Map<String, Long> aggregations = aggregationMetadataList.get(0).getAggregations();
+    String expectedEpochMillisKey =
+        String.valueOf(OffsetDateTime.parse(dateKey).toEpochSecond() * 1000);
+    Assert.assertEquals(aggregations.get(expectedEpochMillisKey), Long.valueOf(5));
+    Assert.assertEquals(aggregations.get(nonDateKey), Long.valueOf(3));
+  }
+
+  @Test
+  public void testProcessTermAggregationsConvertsMinutePrecisionDateStringKeysToEpochMillis() {
+    final Terms.Bucket dateBucket = mock(Terms.Bucket.class);
+    final String dateKey = "2023-01-01T00:00Z";
+    when(dateBucket.getKeyAsString()).thenReturn(dateKey);
+    when(dateBucket.getDocCount()).thenReturn(5L);
+    when(dateBucket.getAggregations()).thenReturn(null);
+
+    final ParsedTerms terms = mock(ParsedTerms.class);
+    Mockito.doReturn(ImmutableList.of(dateBucket)).when(terms).getBuckets();
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(Map.entry("myDateField", terms), aggregationMetadataList);
+
+    Map<String, Long> aggregations = aggregationMetadataList.get(0).getAggregations();
+    String expectedEpochMillisKey =
+        String.valueOf(OffsetDateTime.parse(dateKey).toEpochSecond() * 1000);
+    Assert.assertEquals(aggregations.get(expectedEpochMillisKey), Long.valueOf(5));
   }
 
   @Test

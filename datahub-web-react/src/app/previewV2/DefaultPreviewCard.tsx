@@ -31,7 +31,6 @@ import {
 } from '@app/previewV2/utils';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
-import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
@@ -69,6 +68,7 @@ const PreviewContainer = styled.div`
     width: 100%;
     justify-content: space-between;
     align-items: start;
+
     .entityCount {
         margin-bottom: 2px;
     }
@@ -173,7 +173,6 @@ interface Props {
     statsSummary?: any;
     actions?: EntityMenuActions;
     browsePaths?: BrowsePathV2 | undefined;
-    propagationDetails?: AttributionDetails;
     refetchDeprecation?: (formData?: DeprecationFormData) => void;
 }
 
@@ -221,7 +220,6 @@ export default function DefaultPreviewCard({
     actions,
     browsePaths,
     description,
-    propagationDetails,
     refetchDeprecation,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
@@ -238,7 +236,9 @@ export default function DefaultPreviewCard({
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
-    const previewData = usePreviewData();
+    // Passing previewType via context because not all entities pass it via props
+    // But not using previewContextType everywhere to avoid regressions... sorry
+    const { previewData, propagationDetails } = usePreviewData();
     const insightViews: Array<ReactNode> =
         insights?.map((insight) => (
             <>
@@ -412,7 +412,7 @@ function useRemoveRelationship(entityType: EntityType) {
     const { removeDataProduct } = useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch);
     const { removeApplication } = useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch);
 
-    const previewData = usePreviewData();
+    const { previewData } = usePreviewData();
     const entityData = useEntityData();
     const pageEntityType = entityData.entityType;
 

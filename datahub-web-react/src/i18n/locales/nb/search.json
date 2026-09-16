@@ -155,6 +155,7 @@
     "searchBar.sections.bestMatches": "Beste treff",
     "searchBar.sections.recentlySearched": "Nylig søkt",
     "searchBar.sections.recentlyViewed": "Nylig vist",
+    "searchBar.viewAll": "Vis alle →",
     "searchBar.viewAllResults": "Vis alle resultater for <bold>{{query}}</bold>",
     "searchHeader.discover": "Oppdag",
     "sidebar.loadingError": "Sidepanelet kunne ikke lastes.",

@@ -50,6 +50,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTableSnapshot,
     BigqueryView,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+    BigQuerySharingHandler,
+)
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_EXTERNAL_DATASET_URL_TEMPLATE,
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
@@ -224,6 +227,7 @@ class BigQuerySchemaGenerator:
         filters: BigQueryFilter,
         shard_matcher: BigQueryShardPatternMatcher,
         graph: Optional[DataHubGraph] = None,
+        sharing_handler: Optional[BigQuerySharingHandler] = None,
     ):
         self.config = config
         self.report = report
@@ -235,6 +239,7 @@ class BigQuerySchemaGenerator:
         self.filters = filters
         self.shard_matcher = shard_matcher
         self.graph = graph
+        self.sharing_handler = sharing_handler
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
         self.data_reader: Optional[BigQueryDataReader] = None
@@ -245,7 +250,6 @@ class BigQuerySchemaGenerator:
 
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
-
         # Dataset locations seen during schema extraction; consumed downstream
         # to auto-extend region_qualifiers and avoid silent INFORMATION_SCHEMA misses.
         self.discovered_locations: Set[str] = set()
@@ -356,6 +360,7 @@ class BigQuerySchemaGenerator:
         extra_properties: Optional[Dict[str, str]] = None,
         created: Optional[int] = None,
         last_modified: Optional[int] = None,
+        is_linked_dataset: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(project_id, dataset)
 
@@ -390,7 +395,11 @@ class BigQuerySchemaGenerator:
             database=project_id,
             schema=dataset,
             qualified_name=f"{project_id}.{dataset}",
-            sub_types=[DatasetContainerSubTypes.BIGQUERY_DATASET],
+            sub_types=[
+                DatasetContainerSubTypes.BIGQUERY_LINKED_DATASET
+                if is_linked_dataset
+                else DatasetContainerSubTypes.BIGQUERY_DATASET
+            ],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             schema_container_key=schema_container_key,
@@ -470,6 +479,13 @@ class BigQuerySchemaGenerator:
         self.report.num_project_datasets_to_scan[project_id] = len(
             bigquery_project.datasets
         )
+        if self.sharing_handler is not None and self.config.include_schema_metadata:
+            # Must precede the fan-out: it writes the shared lookup the per-dataset workers
+            # read. Gated on include_schema_metadata, without which its get_dataset calls
+            # would buy nothing.
+            self.sharing_handler.populate_for_project(
+                project_id, bigquery_project.datasets
+            )
         yield from self._process_project_datasets(bigquery_project, db_tables)
 
         if self.config.is_profiling_enabled():
@@ -577,10 +593,12 @@ class BigQuerySchemaGenerator:
                 dataset=dataset_name,
                 project_id=project_id,
                 tags=bigquery_dataset.labels,
-                extra_properties=(
-                    {"location": bigquery_dataset.location}
-                    if bigquery_dataset.location
-                    else None
+                extra_properties=self._dataset_container_properties(
+                    project_id, dataset_name, bigquery_dataset
+                ),
+                is_linked_dataset=(
+                    self.config.include_linked_dataset_lineage
+                    and bigquery_dataset.is_linked_dataset()
                 ),
                 description=bigquery_dataset.comment,
                 created=make_ts_millis(bigquery_dataset.created)
@@ -744,6 +762,21 @@ class BigQuerySchemaGenerator:
                     project_id=project_id,
                     dataset_name=dataset_name,
                 )
+
+    def _dataset_container_properties(
+        self, project_id: str, dataset_name: str, bigquery_dataset: BigqueryDataset
+    ) -> Optional[Dict[str, str]]:
+        properties: Dict[str, str] = {}
+        if bigquery_dataset.location:
+            properties["location"] = bigquery_dataset.location
+        sharing_info = (
+            self.sharing_handler.get_info(project_id, dataset_name)
+            if self.sharing_handler is not None
+            else None
+        )
+        if sharing_info is not None:
+            properties.update(sharing_info.to_extra_properties())
+        return properties or None
 
     def _process_table(
         self,
@@ -1308,6 +1341,15 @@ class BigQuerySchemaGenerator:
         )
         return schema_fields
 
+    def _linked_copy_needs_schema(self, dataset_name: BigqueryTableIdentifier) -> bool:
+        # The linked-dataset COPY edge builds identity column lineage from this schema, so
+        # it is needed even with the SQL parser off: the copy is verbatim, not parsed.
+        if self.sharing_handler is None:
+            return False
+        return self.sharing_handler.needs_schema_for_copy_lineage(
+            dataset_name.project_id, dataset_name.dataset
+        )
+
     def gen_schema_metadata(
         self,
         dataset_urn: str,
@@ -1342,7 +1384,9 @@ class BigQuerySchemaGenerator:
             foreignKeys=foreign_keys if foreign_keys else None,
         )
 
-        if self.config.lineage_use_sql_parser:
+        if self.config.lineage_use_sql_parser or self._linked_copy_needs_schema(
+            dataset_name
+        ):
             self.sql_parser_schema_resolver.add_schema_metadata(
                 dataset_urn, schema_metadata
             )

@@ -26,4 +26,5 @@ export const REMIRROR_LOCALE_LOADERS: Record<string, () => Promise<{ default: Me
     ja: () => import('@src/i18n/remirror/ja.json'),
     'zh-CN': () => import('@src/i18n/remirror/zh-CN.json'),
     'zh-TW': () => import('@src/i18n/remirror/zh-TW.json'),
+    ru: () => import('@src/i18n/remirror/ru.json'),
 };

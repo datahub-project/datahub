@@ -29,6 +29,7 @@ from datahub.executor.common.config import PermissiveConfigModel
 from datahub.executor.context.execution_context import ExecutionContext
 from datahub.executor.context.executor_context import ExecutorContext
 from datahub.executor.execution import venv_utils
+from datahub.executor.execution.runner import referenced_env_values
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -88,14 +89,16 @@ class SubProcessTaskUtil:
         return text
 
     @staticmethod
-    def _resolve_secrets(secret_names: list[str], ctx: ExecutorContext) -> dict:
+    def _resolve_secrets(
+        secret_names: list[str], ctx: ExecutorContext
+    ) -> dict[str, str]:
         # Attempt to resolve secret using by checking each configured secret store.
         secret_stores = ctx.get_secret_stores()
         store_ids = [s.get_id() for s in secret_stores]
         logger.info(
             f"Resolving {len(secret_names)} secret(s) across {len(secret_stores)} store(s): {store_ids}"
         )
-        final_secret_values = dict({})
+        final_secret_values: dict[str, str] = {}
 
         for secret_store in secret_stores:
             try:
@@ -185,23 +188,15 @@ class SubProcessTaskUtil:
                     )
                     secret_values_dict[secret_name] = ""
 
-        # Set up secret masking in the executor process (for masking logs/reports)
         if secrets_to_resolve:
-            try:
-                initialize_secret_masking()
-                registry = SecretRegistry.get_instance()
-                for secret_name in secrets_to_resolve:
-                    secret_value = secret_values_dict.get(secret_name)
-                    if secret_value:
-                        registry.register_secret(secret_name, secret_value)
-
-                logger.info(
-                    f"Secret masking enabled for {registry.get_count()} secret(s)"
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Failed to set up secret masking: {e}. Continuing without masking."
-                )
+            initialize_secret_masking()
+            SecretRegistry.get_instance().register_secrets_batch(
+                {
+                    name: secret_values_dict[name]
+                    for name in secrets_to_resolve
+                    if secret_values_dict.get(name)
+                }
+            )
 
         # Validate secret values and warn on potential issues
         if secret_matches:
@@ -220,6 +215,20 @@ class SubProcessTaskUtil:
     def _get_plugin_from_recipe(recipe: dict) -> str:
         # The source type -- ASSUMPTION ALERT: This should always correspond to the plugin name.
         return recipe["source"]["type"]
+
+    @staticmethod
+    def subprocess_env_secrets(args: "SubProcessRecipeTaskArgs") -> dict[str, str]:
+        """Env values referenced in pip requirements, for the subprocess stdin
+        envelope. Names the user overrides via extra_env_vars are excluded so
+        recipe resolution keeps get_combined_env_vars precedence (user value
+        wins); setup_venv registers all referenced values for masking."""
+        return {
+            name: value
+            for name, value in referenced_env_values(
+                args.extra_pip_requirements
+            ).items()
+            if name not in args.extra_env_vars
+        }
 
     @staticmethod
     def _remove_directory(dir_path: str) -> None:

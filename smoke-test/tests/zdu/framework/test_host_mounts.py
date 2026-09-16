@@ -13,11 +13,13 @@ pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _make_worktree(root: pathlib.Path, side: str) -> pathlib.Path:
-    """Materialize a fake worktree skeleton with all three mount-source dirs."""
+    """Materialize a fake worktree skeleton with every mount-source dir."""
     wt = root / side
     (wt / "datahub-upgrade" / "build" / "libs").mkdir(parents=True)
     (wt / "metadata-models" / "src" / "main" / "resources").mkdir(parents=True)
     (wt / "metadata-service" / "war" / "build" / "libs").mkdir(parents=True)
+    (wt / "metadata-jobs" / "mae-consumer-job" / "build" / "libs").mkdir(parents=True)
+    (wt / "metadata-jobs" / "mce-consumer-job" / "build" / "libs").mkdir(parents=True)
     return wt
 
 
@@ -41,6 +43,16 @@ class TestWorktreeMountEnv:
         )
         assert (
             env["DATAHUB_GMS_WAR_HOST_DIR"] == f"{wt}/metadata-service/war/build/libs/"
+        )
+        # The consumer jars matter on the *-consumers profiles, where the MCL /
+        # MCP write paths run in their own containers rather than inside GMS.
+        assert (
+            env["DATAHUB_MAE_BIN_HOST_DIR"]
+            == f"{wt}/metadata-jobs/mae-consumer-job/build/libs/"
+        )
+        assert (
+            env["DATAHUB_MCE_BIN_HOST_DIR"]
+            == f"{wt}/metadata-jobs/mce-consumer-job/build/libs/"
         )
 
     def test_returns_none_when_worktree_missing(self, tmp_path: pathlib.Path) -> None:
