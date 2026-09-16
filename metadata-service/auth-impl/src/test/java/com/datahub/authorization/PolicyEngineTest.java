@@ -2729,7 +2729,7 @@ public class PolicyEngineTest {
     criterion.setField("STRUCTURED_PROPERTY");
     criterion.setCondition(PolicyMatchCondition.EQUALS);
     final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
-    propValue.setPropertyUrn("urn:li:structuredProperty:data_classification");
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:data_classification"));
     propValue.setValues(new StringArray("high"));
     final StructuredPropertyCriterionValueArray propValues =
         new StructuredPropertyCriterionValueArray();
@@ -2790,7 +2790,7 @@ public class PolicyEngineTest {
     criterion.setField("STRUCTURED_PROPERTY");
     criterion.setCondition(PolicyMatchCondition.EQUALS);
     final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
-    propValue.setPropertyUrn("urn:li:structuredProperty:data_classification");
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:data_classification"));
     propValue.setValues(new StringArray("high"));
     final StructuredPropertyCriterionValueArray propValues =
         new StructuredPropertyCriterionValueArray();
@@ -2851,7 +2851,7 @@ public class PolicyEngineTest {
     criterion.setField("STRUCTURED_PROPERTY");
     criterion.setCondition(PolicyMatchCondition.STARTS_WITH);
     final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
-    propValue.setPropertyUrn("urn:li:structuredProperty:expiration_date");
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:expiration_date"));
     propValue.setValues(new StringArray("2025-"));
     final StructuredPropertyCriterionValueArray propValues =
         new StructuredPropertyCriterionValueArray();
@@ -2912,7 +2912,7 @@ public class PolicyEngineTest {
     criterion.setField("STRUCTURED_PROPERTY");
     criterion.setCondition(PolicyMatchCondition.NOT_EQUALS);
     final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
-    propValue.setPropertyUrn("urn:li:structuredProperty:data_classification");
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:data_classification"));
     propValue.setValues(new StringArray("open"));
     final StructuredPropertyCriterionValueArray propValues =
         new StructuredPropertyCriterionValueArray();
@@ -2974,11 +2974,12 @@ public class PolicyEngineTest {
     criterion.setCondition(PolicyMatchCondition.EQUALS);
 
     final StructuredPropertyCriterionValue propValue1 = new StructuredPropertyCriterionValue();
-    propValue1.setPropertyUrn("urn:li:structuredProperty:data_classification");
+    propValue1.setPropertyUrn(
+        Urn.createFromString("urn:li:structuredProperty:data_classification"));
     propValue1.setValues(new StringArray("high"));
 
     final StructuredPropertyCriterionValue propValue2 = new StructuredPropertyCriterionValue();
-    propValue2.setPropertyUrn("urn:li:structuredProperty:owner_team");
+    propValue2.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:owner_team"));
     propValue2.setValues(new StringArray("data-eng"));
 
     final StructuredPropertyCriterionValueArray propValues =
@@ -3043,11 +3044,12 @@ public class PolicyEngineTest {
     criterion.setCondition(PolicyMatchCondition.EQUALS);
 
     final StructuredPropertyCriterionValue propValue1 = new StructuredPropertyCriterionValue();
-    propValue1.setPropertyUrn("urn:li:structuredProperty:data_classification");
+    propValue1.setPropertyUrn(
+        Urn.createFromString("urn:li:structuredProperty:data_classification"));
     propValue1.setValues(new StringArray("high"));
 
     final StructuredPropertyCriterionValue propValue2 = new StructuredPropertyCriterionValue();
-    propValue2.setPropertyUrn("urn:li:structuredProperty:owner_team");
+    propValue2.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:owner_team"));
     propValue2.setValues(new StringArray("data-eng"));
 
     final StructuredPropertyCriterionValueArray propValues =
@@ -3286,6 +3288,131 @@ public class PolicyEngineTest {
       Set<String> tags) {
     return buildEntityResolversWithStructuredProperties(
         entityType, entityUrn, owners, domains, containers, groups, tags, Collections.emptyMap());
+  }
+
+  @Test
+  public void testEvaluatePolicyStructuredPropertyNumericEquals() throws Exception {
+    // Test: numeric values should match even if string representation differs (42 vs 42.0)
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Numeric Structured Property Policy");
+    dataHubPolicyInfo.setDescription("Policy matching numeric structured properties");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    // Create policy with numeric value criterion
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setCondition(PolicyMatchCondition.EQUALS);
+    final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:priority_score"));
+    // User enters integer 42
+    propValue.setValues(new StringArray("42"));
+    final StructuredPropertyCriterionValueArray propValues =
+        new StructuredPropertyCriterionValueArray();
+    propValues.add(propValue);
+    criterion.setStructuredPropertyValues(propValues);
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Build resource with double value 42.0 (as stored from database)
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            ImmutableMap.of("urn:li:structuredProperty:priority_score", ImmutableSet.of("42.0")));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    // Should match: 42 (integer criterion) equals 42.0 (double resource value)
+    assertTrue(result.isGranted(), "42 should match 42.0 when comparing numeric values");
+  }
+
+  @Test
+  public void testEvaluatePolicyStructuredPropertyNumericNotEquals() throws Exception {
+    // Test: NOT_EQUALS should return false when numeric values match (42 == 42.0)
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Numeric NOT_EQUALS Policy");
+    dataHubPolicyInfo.setDescription("Policy with NOT_EQUALS on numeric structured property");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    // Create policy with NOT_EQUALS condition
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setCondition(PolicyMatchCondition.NOT_EQUALS);
+    final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:priority_score"));
+    propValue.setValues(new StringArray("42"));
+    final StructuredPropertyCriterionValueArray propValues =
+        new StructuredPropertyCriterionValueArray();
+    propValues.add(propValue);
+    criterion.setStructuredPropertyValues(propValues);
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Resource has 42.0, which numerically equals 42
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            ImmutableMap.of("urn:li:structuredProperty:priority_score", ImmutableSet.of("42.0")));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    // Should NOT match: 42.0 numerically equals 42, so NOT_EQUALS should be false
+    assertFalse(result.isGranted(), "42.0 should match 42 numerically, so NOT_EQUALS should fail");
   }
 
   public static ResolvedEntitySpec buildEntityResolversWithStructuredProperties(

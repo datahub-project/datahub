@@ -148,27 +148,10 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
         return new Map(sources.map((source) => [source.urn, source.name]));
     }, [sourceNamesData]);
 
-    // Normalize structured properties: filter nonexistent, deduplicate by propertyUrn
-    const normalizedStructuredProperties = useMemo(() => {
-        if (!structuredProperties?.length) return [];
-        const seen = new Set<string>();
-        return structuredProperties.filter((prop) => {
-            const propertyUrn = prop?.propertyUrn;
-            if (!propertyUrn || typeof propertyUrn !== 'string' || !propertyUrn.trim()) {
-                return false;
-            }
-            if (seen.has(propertyUrn)) {
-                return false;
-            }
-            seen.add(propertyUrn);
-            return true;
-        });
-    }, [structuredProperties]);
-
-    // Extract property URNs from the normalized properties
+    // Extract property URNs for fetching property definitions
     const propertyUrns = useMemo(() => {
-        return normalizedStructuredProperties.map((prop) => prop?.propertyUrn).filter(Boolean) as string[];
-    }, [normalizedStructuredProperties]);
+        return (structuredProperties?.map((prop) => prop?.propertyUrn).filter(Boolean) as string[]) || [];
+    }, [structuredProperties]);
 
     // Fetch only the structured properties used in this policy
     const { data: structuredPropertiesData } = useGetEntitiesQuery({
@@ -418,11 +401,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                     structuredPropertyCondition,
                                 )}
                                 <ThinDivider />
-                                {(normalizedStructuredProperties?.length > 0 && (
+                                {(structuredProperties?.length > 0 && (
                                     <>
-                                        {normalizedStructuredProperties.map((prop) => {
-                                            // Use propertyUrn as key - now guaranteed unique by normalization
-                                            const rowKey = prop?.propertyUrn;
+                                        {structuredProperties.map((prop, index) => {
+                                            // Use index as key since same property can appear multiple times with different values
+                                            const rowKey = `structured-property-${index}`;
                                             return (
                                                 <PropertyRow key={rowKey}>
                                                     <Text type="span" color="textSecondary">
@@ -443,8 +426,8 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                                             const entity = isEntityUrn
                                                                 ? entityValueMap.get(value)
                                                                 : null;
-                                                            // propertyUrn is unique (normalized), valueIndex ensures uniqueness within property values
-                                                            const valueKey = `${prop.propertyUrn}-${value}-${valueIndex}`;
+                                                            // Combine property row index, value, and value index for uniqueness
+                                                            const valueKey = `structured-property-${index}-${value}-${valueIndex}`;
 
                                                             if (entity) {
                                                                 return (

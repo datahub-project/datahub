@@ -1,5 +1,7 @@
 namespace com.linkedin.policy
 
+import com.linkedin.common.Urn
+
 /**
  * Represents a criterion value for structured property matching in policies.
  * Contains a structured property URN and values to match against.
@@ -9,7 +11,7 @@ record StructuredPropertyCriterionValue {
   /**
    * The URN of the structured property to match against
    */
-  propertyUrn: string
+  propertyUrn: Urn
 
   /**
    * Values to match for this structured property.

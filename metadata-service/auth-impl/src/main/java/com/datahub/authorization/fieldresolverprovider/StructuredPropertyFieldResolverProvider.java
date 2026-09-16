@@ -62,14 +62,10 @@ public class StructuredPropertyFieldResolverProvider implements EntityFieldResol
           response.getAspects().get(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
     } catch (Exception e) {
       log.error(
-          "Error while retrieving structured properties aspect for entitySpec {}; failing closed for authorization",
+          "Error while retrieving structured properties aspect for entitySpec {}; returning empty field value for this policy criterion",
           entitySpec,
           e);
-      // Fail closed: propagate exception so authorization denies access on resolution failure
-      throw new RuntimeException(
-          "Cannot resolve structured properties for authorization decision: "
-              + entitySpec.getEntity(),
-          e);
+      return FieldResolver.emptyFieldValue();
     }
 
     StructuredProperties structuredProperties =
@@ -94,13 +90,13 @@ public class StructuredPropertyFieldResolverProvider implements EntityFieldResol
                                 } else {
                                   log.warn(
                                       "Unexpected union type for structured property value: {}",
-                                      property.getPropertyUrn());
+                                      property.getPropertyUrn().toString());
                                   return null;
                                 }
                               } catch (Exception e) {
                                 log.warn(
                                     "Failed to extract value from structured property: {}",
-                                    property.getPropertyUrn(),
+                                    property.getPropertyUrn().toString(),
                                     e);
                                 return null;
                               }
@@ -109,7 +105,10 @@ public class StructuredPropertyFieldResolverProvider implements EntityFieldResol
                         .collect(Collectors.toSet());
                 propertyMap.put(property.getPropertyUrn().toString(), values);
               } catch (Exception e) {
-                log.warn("Failed to process structured property: {}", property.getPropertyUrn(), e);
+                log.warn(
+                    "Failed to process structured property: {}",
+                    property.getPropertyUrn().toString(),
+                    e);
               }
             });
 

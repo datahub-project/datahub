@@ -126,9 +126,7 @@ export default function StructuredPropertyResourceSelect({
 
     const propertyDefinitions = useMemo(() => {
         const results = propertiesData?.searchAcrossEntities?.searchResults || [];
-        const searchResultDefs = results
-            .map((result) => result.entity)
-            .filter((entity) => entity?.__typename === 'StructuredPropertyEntity') as StructuredPropertyDefinition[];
+        const searchResultDefs = results.map((result) => result.entity) as StructuredPropertyDefinition[];
 
         // Add new search results to cache (preserve existing definitions)
         searchResultDefs.forEach((def) => {

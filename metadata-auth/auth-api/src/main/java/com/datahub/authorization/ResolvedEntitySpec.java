@@ -3,8 +3,6 @@ package com.datahub.authorization;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +18,6 @@ import org.slf4j.LoggerFactory;
 @ToString
 public class ResolvedEntitySpec {
   private static final Logger log = LoggerFactory.getLogger(ResolvedEntitySpec.class);
-  private static final int FIELD_RESOLUTION_TIMEOUT_SECONDS = 5;
 
   @Getter private final EntitySpec spec;
   @Getter private final Map<EntityFieldType, FieldResolver> fieldResolvers;
@@ -98,16 +95,9 @@ public class ResolvedEntitySpec {
           fieldResolvers
               .get(EntityFieldType.STRUCTURED_PROPERTY)
               .getFieldValuesFuture()
-              .get(FIELD_RESOLUTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+              .join()
               .getStructuredPropertyValues();
       return structuredPropertyValues != null ? structuredPropertyValues : Collections.emptyMap();
-    } catch (TimeoutException e) {
-      log.warn(
-          "Timeout while resolving structured properties for entity spec {}; skipping structured property evaluation for this criterion",
-          spec,
-          e);
-      // Return empty map on timeout; this criterion will be skipped
-      return Collections.emptyMap();
     } catch (Exception e) {
       if (e instanceof InterruptedException) {
         Thread.currentThread().interrupt();

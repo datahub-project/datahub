@@ -7,7 +7,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeoutException;
 import org.testng.annotations.Test;
 
 class ResolvedEntitySpecTest {
@@ -35,26 +34,6 @@ class ResolvedEntitySpecTest {
     Map<String, Set<String>> result = resolvedSpec.getStructuredPropertyValues();
 
     assertEquals(expectedProperties, result);
-  }
-
-  @Test
-  void testGetStructuredPropertyValues_TimeoutReturnsEmpty() {
-    // Test: timeout should return empty map, not throw
-    CompletableFuture<FieldResolver.FieldValue> future = new CompletableFuture<>();
-    future.completeExceptionally(new TimeoutException("Timeout resolving properties"));
-
-    FieldResolver fieldResolver = new FieldResolver(() -> future);
-
-    final EntitySpec spec = new EntitySpec("dataset", "urn:li:dataset:test");
-    final ResolvedEntitySpec resolvedSpec =
-        new ResolvedEntitySpec(
-            spec, ImmutableMap.of(EntityFieldType.STRUCTURED_PROPERTY, fieldResolver));
-
-    // Should not throw, should return empty map
-    Map<String, Set<String>> result = resolvedSpec.getStructuredPropertyValues();
-
-    assertNotNull(result);
-    assertTrue(result.isEmpty(), "Should return empty map on timeout, not throw exception");
   }
 
   @Test

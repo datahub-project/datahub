@@ -126,7 +126,7 @@ public class PolicyUpdateInputInfoMapper
                   .map(
                       propValue ->
                           new StructuredPropertyCriterionValue()
-                              .setPropertyUrn(propValue.getPropertyUrn())
+                              .setPropertyUrn(createUrn(propValue.getPropertyUrn()))
                               .setValues(new StringArray(propValue.getValues())))
                   .collect(Collectors.toList()));
       result.setStructuredPropertyValues(structuredPropValues);

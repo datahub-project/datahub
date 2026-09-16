@@ -219,34 +219,29 @@ public class DataHubAuthorizer
       final Optional<EntitySpec> resourceSpec,
       @Nonnull final OperationContext opContext) {
 
-    try {
-      Urn actorUrn = UrnUtils.getUrn(actor);
+    Urn actorUrn = UrnUtils.getUrn(actor);
 
-      // 1. Fetch all policies
-      final List<DataHubPolicyInfo> policiesToEvaluate =
-          new LinkedList<>(getOrDefault(ALL, new ArrayList<>()));
-      policiesToEvaluate.addAll(PoliciesConfig.getDefaultPolicies(actorUrn));
+    // 1. Fetch all policies
+    final List<DataHubPolicyInfo> policiesToEvaluate =
+        new LinkedList<>(getOrDefault(ALL, new ArrayList<>()));
+    policiesToEvaluate.addAll(PoliciesConfig.getDefaultPolicies(actorUrn));
 
-      final ResolvedEntitySpec resolvedActorSpec =
-          resolveActorEntitySpec(new EntitySpec(actorUrn.getEntityType(), actor), opContext);
+    final ResolvedEntitySpec resolvedActorSpec =
+        resolveActorEntitySpec(new EntitySpec(actorUrn.getEntityType(), actor), opContext);
 
-      Optional<ResolvedEntitySpec> resolvedResourceSpec =
-          resourceSpec.map(entitySpecResolver::resolve);
+    Optional<ResolvedEntitySpec> resolvedResourceSpec =
+        resourceSpec.map(entitySpecResolver::resolve);
 
-      final PolicyEngine.PolicyEvaluationContext evaluationContext =
-          buildActorEvaluationContext(opContext, actorUrn, null, null, null);
+    final PolicyEngine.PolicyEvaluationContext evaluationContext =
+        buildActorEvaluationContext(opContext, actorUrn, null, null, null);
 
-      return policyEngine.getGrantedPrivileges(
-          opContext,
-          policiesToEvaluate,
-          resolvedActorSpec,
-          resolvedResourceSpec,
-          Collections.emptyList(),
-          evaluationContext);
-    } catch (RuntimeException e) {
-      log.error("Error while evaluating granted privileges for actor {}", actor, e);
-      return PolicyEngine.PolicyGrantedPrivileges.empty();
-    }
+    return policyEngine.getGrantedPrivileges(
+        opContext,
+        policiesToEvaluate,
+        resolvedActorSpec,
+        resolvedResourceSpec,
+        Collections.emptyList(),
+        evaluationContext);
   }
 
   @Override

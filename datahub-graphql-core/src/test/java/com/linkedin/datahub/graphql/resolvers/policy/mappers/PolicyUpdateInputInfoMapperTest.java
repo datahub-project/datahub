@@ -136,7 +136,7 @@ public class PolicyUpdateInputInfoMapperTest {
     assertEquals(1, criterion.getStructuredPropertyValues().size());
     assertEquals(
         "urn:li:structuredProperty:data_classification",
-        criterion.getStructuredPropertyValues().get(0).getPropertyUrn());
+        criterion.getStructuredPropertyValues().get(0).getPropertyUrn().toString());
     assertEquals(2, criterion.getStructuredPropertyValues().get(0).getValues().size());
     assertEquals("high", criterion.getStructuredPropertyValues().get(0).getValues().get(0));
     assertEquals("sensitive", criterion.getStructuredPropertyValues().get(0).getValues().get(1));
@@ -164,13 +164,13 @@ public class PolicyUpdateInputInfoMapperTest {
     // Verify first property
     assertEquals(
         "urn:li:structuredProperty:dept",
-        criterion.getStructuredPropertyValues().get(0).getPropertyUrn());
+        criterion.getStructuredPropertyValues().get(0).getPropertyUrn().toString());
     assertEquals(2, criterion.getStructuredPropertyValues().get(0).getValues().size());
 
     // Verify second property
     assertEquals(
         "urn:li:structuredProperty:data_classification",
-        criterion.getStructuredPropertyValues().get(1).getPropertyUrn());
+        criterion.getStructuredPropertyValues().get(1).getPropertyUrn().toString());
     assertEquals(1, criterion.getStructuredPropertyValues().get(1).getValues().size());
   }
 

@@ -438,7 +438,7 @@ public class PolicyEngine {
     return structuredPropertyValues.stream()
         .allMatch(
             propertyValue -> {
-              String propertyUrn = propertyValue.getPropertyUrn();
+              String propertyUrn = propertyValue.getPropertyUrn().toString();
               List<String> criterionValues = propertyValue.getValues();
 
               // Get values for this specific property from the resource
@@ -446,8 +446,55 @@ public class PolicyEngine {
                   resourceProperties.getOrDefault(propertyUrn, java.util.Collections.emptySet());
 
               // Check if the condition is satisfied for this property
-              return checkCondition(resourcePropertyValues, criterionValues, condition);
+              return checkStructuredPropertyCondition(
+                  resourcePropertyValues, criterionValues, condition);
             });
+  }
+
+  // Numeric equality for structured properties: 42 matches 42.0 (resource doubles vs user input)
+  private boolean checkStructuredPropertyCondition(
+      java.util.Set<String> resourceValues,
+      java.util.List<String> criterionValues,
+      PolicyMatchCondition condition) {
+    switch (condition) {
+      case EQUALS:
+        return criterionValues.stream()
+            .anyMatch(
+                criterionValue ->
+                    resourceValues.stream()
+                        .anyMatch(
+                            resourceValue ->
+                                structuredPropertyValuesMatch(resourceValue, criterionValue)));
+      case STARTS_WITH:
+        return criterionValues.stream()
+            .anyMatch(
+                criterionValue ->
+                    resourceValues.stream().anyMatch(v -> v.startsWith(criterionValue)));
+      case NOT_EQUALS:
+        return criterionValues.stream()
+            .noneMatch(
+                criterionValue ->
+                    resourceValues.stream()
+                        .anyMatch(
+                            resourceValue ->
+                                structuredPropertyValuesMatch(resourceValue, criterionValue)));
+      default:
+        log.error("Unsupported condition {}", condition);
+        return false;
+    }
+  }
+
+  // Try numeric comparison first (for doubles); fall back to string comparison
+  private boolean structuredPropertyValuesMatch(String resourceValue, String criterionValue) {
+    if (resourceValue.equals(criterionValue)) {
+      return true;
+    }
+    try {
+      return Double.compare(Double.parseDouble(resourceValue), Double.parseDouble(criterionValue))
+          == 0;
+    } catch (NumberFormatException e) {
+      return false;
+    }
   }
 
   /**

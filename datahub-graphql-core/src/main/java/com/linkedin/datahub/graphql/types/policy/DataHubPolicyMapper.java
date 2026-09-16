@@ -155,7 +155,7 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
   private StructuredPropertyCriterionValue mapStructuredPropertyValue(
       final com.linkedin.policy.StructuredPropertyCriterionValue value) {
     final StructuredPropertyCriterionValue result = new StructuredPropertyCriterionValue();
-    result.setPropertyUrn(value.getPropertyUrn());
+    result.setPropertyUrn(value.getPropertyUrn().toString());
     result.setValues(value.getValues());
     return result;
   }
