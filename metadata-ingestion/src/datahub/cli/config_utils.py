@@ -82,12 +82,15 @@ def persist_raw_datahub_config(config: dict) -> None:
 
 
 def get_raw_client_config() -> Optional[dict]:
-    with open(DATAHUB_CONFIG_PATH) as stream:
-        try:
-            return yaml.safe_load(stream)
-        except yaml.YAMLError as exc:
-            click.secho(f"{DATAHUB_CONFIG_PATH} malformed, error: {exc}", bold=True)
-            return None
+    try:
+        with open(DATAHUB_CONFIG_PATH) as stream:
+            try:
+                return yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                click.secho(f"{DATAHUB_CONFIG_PATH} malformed, error: {exc}", bold=True)
+                return None
+    except FileNotFoundError:
+        return None
 
 
 class OAuthSessionConfig(BaseModel):
