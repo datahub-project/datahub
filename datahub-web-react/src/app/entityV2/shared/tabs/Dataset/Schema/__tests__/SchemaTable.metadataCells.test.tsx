@@ -57,8 +57,24 @@ const fields = [
         recursive: false,
         description: 'Display name',
         globalTags: null,
+        glossaryTerms: {
+            terms: [
+                {
+                    term: {
+                        urn: 'urn:li:glossaryTerm:Confidential',
+                        type: 'GLOSSARY_TERM',
+                        name: 'Confidential',
+                        hierarchicalName: 'Confidential',
+                        properties: { name: 'Confidential' },
+                    },
+                },
+            ],
+        },
     },
 ] as any[];
+
+// description + tags + terms columns, two rows.
+const METADATA_CELLS = 3 * fields.length;
 
 const schemaMetadata = { name: 'cells_ds', fields } as any;
 
@@ -84,10 +100,10 @@ describe('SchemaTable metadata cells across the two loading phases', () => {
 
         await waitFor(() => expect(screen.getByTestId('schema-field-user_id')).toBeInTheDocument());
         expect(screen.getByTestId('schema-field-user_name')).toBeInTheDocument();
-        // description + tags + terms per row, two rows.
-        expect(screen.getAllByTestId('metadata-cell-skeleton').length).toBeGreaterThanOrEqual(6);
+        expect(screen.getAllByTestId('metadata-cell-skeleton')).toHaveLength(METADATA_CELLS);
         expect(screen.queryByText('Primary identifier')).not.toBeInTheDocument();
         expect(screen.queryByText('pii')).not.toBeInTheDocument();
+        expect(screen.queryByText('Confidential')).not.toBeInTheDocument();
     });
 
     it('fills the metadata columns with real values once full metadata has loaded', async () => {
@@ -112,6 +128,7 @@ describe('SchemaTable metadata cells across the two loading phases', () => {
         await waitFor(() => expect(screen.getByText('Primary identifier')).toBeInTheDocument());
         expect(screen.getByText('Display name')).toBeInTheDocument();
         expect(screen.getByText('pii')).toBeInTheDocument();
+        expect(screen.getByText('Confidential')).toBeInTheDocument();
         expect(screen.queryAllByTestId('metadata-cell-skeleton')).toHaveLength(0);
     });
 
@@ -119,7 +136,8 @@ describe('SchemaTable metadata cells across the two loading phases', () => {
         renderTable({ fullMetadataLoading: false, fullMetadataError: true });
 
         await waitFor(() => expect(screen.getByTestId('schema-field-user_id')).toBeInTheDocument());
-        expect(screen.getAllByTestId('metadata-unavailable').length).toBeGreaterThanOrEqual(6);
+        expect(screen.getAllByTestId('metadata-unavailable')).toHaveLength(METADATA_CELLS);
+        expect(screen.queryByText('Confidential')).not.toBeInTheDocument();
         expect(screen.queryAllByTestId('metadata-cell-skeleton')).toHaveLength(0);
         expect(screen.queryByText('Primary identifier')).not.toBeInTheDocument();
     });

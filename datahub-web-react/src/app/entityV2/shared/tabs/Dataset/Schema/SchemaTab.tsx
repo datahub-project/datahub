@@ -16,6 +16,7 @@ import { isLogicalModel } from '@app/entityV2/shared/logicalModels/logicalModels
 import CompactSchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/CompactSchemaTable';
 import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
+import MetadataErrorBanner from '@app/entityV2/shared/tabs/Dataset/Schema/components/MetadataErrorBanner';
 import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import useSchemaVersioning from '@app/entityV2/shared/tabs/Dataset/Schema/useSchemaVersioning';
@@ -57,27 +58,6 @@ const SchemaScrollArea = styled.div`
     overflow: auto;
 `;
 
-const MetadataBanner = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 16px;
-    font-size: 12px;
-    color: ${(props) => props.theme.colors.textDisabled};
-    background: ${(props) => props.theme.colors.bgSurface};
-    border-bottom: 1px solid ${(props) => props.theme.colors.border};
-`;
-
-const RetryLink = styled.button`
-    background: none;
-    border: none;
-    padding: 0;
-    font-size: inherit;
-    color: ${(props) => props.theme.colors.hyperlinks};
-    cursor: pointer;
-    text-decoration: underline;
-`;
-
 const LoadingWrapper = styled.div`
     display: flex;
     align-items: center;
@@ -95,7 +75,6 @@ const DEFAULT_SCHEMA_FILTER_TYPES = [
 
 export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderType; properties?: any }) => {
     const { t } = useTranslation('entity.profile.schema');
-    const { t: ta } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const { urn, entityType, entityData } = useEntityData();
     const { logicalModelsEnabled } = useAppConfig().config.featureFlags;
@@ -273,13 +252,11 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
             // Provided here as well as below: the compact table renders the same field drawer, whose
             // actions reach the schema refetch through the context rather than through props.
             <SchemaContext.Provider value={{ refetch }}>
+                {structuralSchemaError && !schemaMetadata && (
+                    <MetadataErrorBanner message={t('schemaTab.structuralLoadError')} onRetry={refetch} />
+                )}
                 {fullMetadataError && !fullMetadataLoading && (
-                    <MetadataBanner>
-                        {t('schemaTab.fullMetadataLoadError')}{' '}
-                        <RetryLink type="button" onClick={refetch}>
-                            {ta('retry')}
-                        </RetryLink>
-                    </MetadataBanner>
+                    <MetadataErrorBanner message={t('schemaTab.fullMetadataLoadError')} onRetry={refetch} />
                 )}
                 <CompactSchemaTable
                     rows={rows}
@@ -347,20 +324,10 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
             ) : (
                 <>
                     {structuralSchemaError && !schemaMetadata && !showRaw && (
-                        <MetadataBanner>
-                            {t('schemaTab.structuralLoadError')}{' '}
-                            <RetryLink type="button" onClick={refetch}>
-                                {ta('retry')}
-                            </RetryLink>
-                        </MetadataBanner>
+                        <MetadataErrorBanner message={t('schemaTab.structuralLoadError')} onRetry={refetch} />
                     )}
                     {fullMetadataError && !fullMetadataLoading && !showRaw && (
-                        <MetadataBanner>
-                            {t('schemaTab.fullMetadataLoadError')}{' '}
-                            <RetryLink type="button" onClick={refetch}>
-                                {ta('retry')}
-                            </RetryLink>
-                        </MetadataBanner>
+                        <MetadataErrorBanner message={t('schemaTab.fullMetadataLoadError')} onRetry={refetch} />
                     )}
                     <SchemaTableContainer>
                         {/* eslint-disable-next-line no-nested-ternary */}

@@ -71,6 +71,12 @@ vi.mock('@app/entityV2/dataset/profile/schema/components/SchemaHeader', () => ({
     ),
 }));
 
+vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/CompactSchemaTable', () => ({
+    default: ({ rows }: { rows: Array<{ fieldPath: string }> }) => (
+        <div data-testid="compact-schema-table" data-row-count={String(rows.length)} />
+    ),
+}));
+
 vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar', () => ({
     default: () => null,
 }));
@@ -140,10 +146,10 @@ const phase2ErrorState = (fieldCount: number) => ({
     refetch: vi.fn(),
 });
 
-const Tab = () => (
+const Tab = ({ renderType = TabRenderType.DEFAULT }: { renderType?: TabRenderType }) => (
     <MockedProvider mocks={[]} addTypename={false}>
         <TestPageContainer>
-            <SchemaTab renderType={TabRenderType.DEFAULT} />
+            <SchemaTab renderType={renderType} />
         </TestPageContainer>
     </MockedProvider>
 );
@@ -261,5 +267,78 @@ describe('SchemaTab two-phase loading', () => {
         expect(retryButton).toBeInTheDocument();
         fireEvent.click(retryButton);
         expect(mockRefetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('recovers from a Phase 1 failure after retry: banner gone, rows rendered', async () => {
+        const mockRefetch = vi.fn();
+        mockUseGetEntityWithSchema.mockReturnValue({ ...phase1ErrorState(), refetch: mockRefetch });
+        const { rerender } = render(<Tab />);
+        await waitFor(() => expect(screen.getByText(/Could not load schema/)).toBeInTheDocument());
+
+        fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+        expect(mockRefetch).toHaveBeenCalledTimes(1);
+
+        // The retried queries succeed: both phases complete.
+        mockUseGetEntityWithSchema.mockReturnValue(phase2State(5));
+        rerender(<Tab />);
+
+        await waitFor(() => expect(screen.getByTestId('schema-table')).toHaveAttribute('data-row-count', '5'));
+        expect(screen.queryByText(/Could not load schema/)).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument();
+    });
+
+    it('recovers from a Phase 2 failure after retry: banner gone, metadata no longer loading', async () => {
+        mockUseGetEntityWithSchema.mockReturnValue(phase2ErrorState(5));
+        const { rerender } = render(<Tab />);
+        await waitFor(() => expect(screen.getByText(/Could not load field metadata/)).toBeInTheDocument());
+
+        fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+        // Retry in flight: Phase 2 loading again, banner hidden while it loads.
+        mockUseGetEntityWithSchema.mockReturnValue(phase1State(5));
+        rerender(<Tab />);
+        await waitFor(() => expect(screen.queryByText(/Could not load field metadata/)).not.toBeInTheDocument());
+        expect(screen.getByTestId('schema-table')).toHaveAttribute('data-metadata-loading', 'true');
+
+        mockUseGetEntityWithSchema.mockReturnValue(phase2State(5, 'full'));
+        rerender(<Tab />);
+        await waitFor(() => expect(screen.getByTestId('schema-table')).toHaveAttribute('data-first-key', 'full_0000'));
+        expect(screen.getByTestId('schema-table')).toHaveAttribute('data-metadata-loading', 'false');
+        expect(screen.queryByText(/Could not load field metadata/)).not.toBeInTheDocument();
+    });
+
+    describe('compact mode', () => {
+        it('shows the Phase 1 error banner with retry instead of an empty table', async () => {
+            const mockRefetch = vi.fn();
+            mockUseGetEntityWithSchema.mockReturnValue({ ...phase1ErrorState(), refetch: mockRefetch });
+            render(<Tab renderType={TabRenderType.COMPACT} />);
+
+            await waitFor(() => expect(screen.getByText(/Could not load schema/)).toBeInTheDocument());
+            fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+            expect(mockRefetch).toHaveBeenCalledTimes(1);
+        });
+
+        it('shows the Phase 2 error banner with retry above the structural rows', async () => {
+            const mockRefetch = vi.fn();
+            mockUseGetEntityWithSchema.mockReturnValue({ ...phase2ErrorState(5), refetch: mockRefetch });
+            render(<Tab renderType={TabRenderType.COMPACT} />);
+
+            await waitFor(() =>
+                expect(screen.getByTestId('compact-schema-table')).toHaveAttribute('data-row-count', '5'),
+            );
+            expect(screen.getByText(/Could not load field metadata/)).toBeInTheDocument();
+            fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+            expect(mockRefetch).toHaveBeenCalledTimes(1);
+        });
+
+        it('shows no banner when both phases succeeded', async () => {
+            mockUseGetEntityWithSchema.mockReturnValue(phase2State(5));
+            render(<Tab renderType={TabRenderType.COMPACT} />);
+
+            await waitFor(() =>
+                expect(screen.getByTestId('compact-schema-table')).toHaveAttribute('data-row-count', '5'),
+            );
+            expect(screen.queryByTestId('metadata-error-banner')).not.toBeInTheDocument();
+        });
     });
 });

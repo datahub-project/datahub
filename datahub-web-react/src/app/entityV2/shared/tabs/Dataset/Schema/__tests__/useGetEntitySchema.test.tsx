@@ -8,7 +8,7 @@
  */
 import { MockedProvider } from '@apollo/client/testing';
 import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
+import { act, renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { vi } from 'vitest';
 
@@ -182,6 +182,46 @@ describe('useGetEntityWithSchema two-phase sequencing', () => {
         // rendering skeletons forever; the tab-level banner is the error indicator.
         expect(result.current.fullMetadataLoading).toBe(false);
         expect(result.current.structuralSchemaMetadata?.fields).toHaveLength(2);
+    });
+
+    it('retry after a structural failure reloads Phase 1 and then runs Phase 2', async () => {
+        // Mocks are consumed in order: the first structural request fails, the refetch succeeds,
+        // and the full query (never fired before) starts on its own once Phase 1 has data.
+        const errorMock = { request: structuralMock.request, error: new Error('boom') };
+        const { result } = renderHook(() => useGetEntityWithSchema(), {
+            wrapper: wrapperWith([errorMock, structuralMock, fullMock]),
+        });
+        await waitFor(() => expect(result.current.structuralSchemaError).toBeTruthy());
+        expect(result.current.structuralSchemaMetadata).toBeNull();
+
+        await act(async () => {
+            await result.current.refetch();
+        });
+
+        await waitFor(() => expect(result.current.structuralSchemaMetadata?.fields).toHaveLength(2));
+        await waitFor(() => expect(result.current.entityWithSchema?.schemaMetadata?.fields).toHaveLength(2));
+        expect(result.current.structuralSchemaError).toBeUndefined();
+        expect(result.current.fullMetadataError).toBeUndefined();
+        expect(result.current.loading).toBe(false);
+    });
+
+    it('retry after a full-metadata failure re-runs both phases in order and clears the error', async () => {
+        const fullErrorMock = { request: fullMock.request, error: new Error('metadata boom') };
+        const { result } = renderHook(() => useGetEntityWithSchema(), {
+            wrapper: wrapperWith([structuralMock, fullErrorMock, structuralMock, fullMock]),
+        });
+        await waitFor(() => expect(result.current.fullMetadataError).toBeTruthy());
+
+        await act(async () => {
+            await result.current.refetch();
+        });
+
+        await waitFor(() => expect(result.current.entityWithSchema?.schemaMetadata?.fields).toHaveLength(2));
+        expect(result.current.fullMetadataError).toBeUndefined();
+        expect(result.current.fullMetadataLoading).toBe(false);
+        expect(result.current.entityWithSchema?.schemaMetadata?.fields?.[1]?.description).toEqual(
+            'user_name description',
+        );
     });
 
     it('surfaces a structural query failure via structuralSchemaError', async () => {
