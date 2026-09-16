@@ -466,15 +466,9 @@ fragment datasetStructuralSchema on Dataset {
         version
         cluster
         hash
-        platformSchema {
-            ... on TableSchema {
-                schema
-            }
-            ... on KeyValueSchema {
-                keySchema
-                valueSchema
-            }
-        }
+        # platformSchema intentionally excluded: the native schema text (DDL/Avro) can be as
+        # large as the field list itself and is already fetched by the full fragment in
+        # Phase 2. The Raw toggle therefore appears once full metadata has loaded.
         fields {
             fieldPath
             label

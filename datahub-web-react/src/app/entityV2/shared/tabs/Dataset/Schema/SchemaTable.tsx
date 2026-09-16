@@ -534,29 +534,26 @@ export default function SchemaTable({
         updateDisplayedRows();
     }, [expandedRows, dataSource, sortedDataSource, schemaSorter]);
 
-    const sortData = (data, sorter) => {
-        if (sorter.order) {
-            const { field, order } = sorter;
-
-            const column = finalColumns.find((col) => col.key === field);
-
-            if (column && column.sorter) {
-                const sortedRows = data.slice().sort((a, b) => {
-                    const sorterFunction = typeof column.sorter === 'function' ? column.sorter : undefined;
-
-                    return sorterFunction ? sorterFunction(a, b) : 0;
-                });
-                return order === 'ascend' ? sortedRows : sortedRows.reverse();
-            }
-        }
-        return data;
+    // Single sorter used by the header-click handler and the metadata-refresh effect below:
+    // resolves the active column by key, applies its sorter at every tree level (children
+    // sort within their parent, matching antd), and reverses for descending order.
+    const sortRows = (data: ExtendedSchemaFields[], sorter?: SorterResult<any>): ExtendedSchemaFields[] => {
+        if (!sorter?.order) return data;
+        const column = finalColumns.find((col) => col.key === sorter.columnKey);
+        const sorterFunction = typeof column?.sorter === 'function' ? column.sorter : undefined;
+        if (!sorterFunction) return data;
+        const sortTree = (rows_: ExtendedSchemaFields[]): ExtendedSchemaFields[] => {
+            const sorted = rows_.slice().sort((a, b) => sorterFunction(a, b, sorter.order));
+            if (sorter.order === 'descend') sorted.reverse();
+            return sorted.map((row) => (row.children ? { ...row, children: sortTree(row.children) } : row));
+        };
+        return sortTree(data);
     };
 
     const handleTableChange = (_, __, sorter, { currentDataSource }) => {
         setSchemaSorter(sorter as SorterResult<ExtendedSchemaFields>);
         setSortedDataSource(currentDataSource);
-        const sortedrows = sortData(displayedRows, sorter);
-        setSortedDisplayedRows(sortedrows);
+        setSortedDisplayedRows(sortRows(displayedRows, sorter));
     };
 
     // sortedDataSource is a snapshot taken when the user last clicked a column header. The
@@ -565,17 +562,9 @@ export default function SchemaTable({
     // with metadata-column ordering computed before there were any tags/descriptions.
     useEffect(() => {
         if (!schemaSorter?.order) return;
-        const column = finalColumns.find((col) => col.key === schemaSorter.columnKey);
-        const sorterFunction = typeof column?.sorter === 'function' ? column.sorter : undefined;
-        if (!sorterFunction) return;
-        const sortTree = (data: ExtendedSchemaFields[]): ExtendedSchemaFields[] => {
-            const sorted = data.slice().sort((a, b) => sorterFunction(a, b, schemaSorter.order));
-            if (schemaSorter.order === 'descend') sorted.reverse();
-            return sorted.map((row) => (row.children ? { ...row, children: sortTree(row.children) } : row));
-        };
-        setSortedDataSource(sortTree(dataSource));
-        // Only the row payload and sort state matter here; finalColumns is derived from them plus
-        // stable renderers, and depending on it would re-sort on every render.
+        setSortedDataSource(sortRows(dataSource, schemaSorter));
+        // Only the row payload and sort state matter here; sortRows/finalColumns are derived from
+        // them plus stable renderers, and depending on them would re-sort on every render.
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
     }, [dataSource, schemaSorter, fullMetadataLoading]);
 

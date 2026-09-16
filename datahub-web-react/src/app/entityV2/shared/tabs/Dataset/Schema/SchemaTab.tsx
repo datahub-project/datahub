@@ -254,14 +254,16 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
     // Wait for both queries to complete before clearing: the structural query has no
     // tag or description data, so a tag-based filter returns 0 matches until the full
     // metadata query resolves. Clearing too early would silently discard a valid filter.
+    // Likewise when Phase 2 failed: the rows have no metadata to match against, so zero
+    // matches says nothing about the filter -- keep it for the retry.
     useEffect(() => {
-        if (!loading && !fullMetadataLoading && matchesLengthRef.current === 0) {
+        if (!loading && !fullMetadataLoading && !fullMetadataError && matchesLengthRef.current === 0) {
             setFilterText('');
             setSchemaFilterTypes(DEFAULT_SCHEMA_FILTER_TYPES);
             setSearchResetCount((c) => c + 1);
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
-    }, [loading, fullMetadataLoading]);
+    }, [loading, fullMetadataLoading, fullMetadataError]);
 
     if (renderType === TabRenderType.COMPACT) {
         if (loading && !schemaMetadata) {
@@ -271,6 +273,14 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
             // Provided here as well as below: the compact table renders the same field drawer, whose
             // actions reach the schema refetch through the context rather than through props.
             <SchemaContext.Provider value={{ refetch }}>
+                {fullMetadataError && !fullMetadataLoading && (
+                    <MetadataBanner>
+                        {t('schemaTab.fullMetadataLoadError')}{' '}
+                        <RetryLink type="button" onClick={refetch}>
+                            {ta('retry')}
+                        </RetryLink>
+                    </MetadataBanner>
+                )}
                 <CompactSchemaTable
                     rows={rows}
                     schemaMetadata={schemaMetadata}
