@@ -690,6 +690,13 @@ public class AutocompleteRequestHandlerTest {
         AutocompleteRequestHandler.prefixMatchTokens("a b c d e f g h").size(),
         AutocompleteRequestHandler.MAX_PREFIX_MATCH_TOKENS);
     assertEquals(AutocompleteRequestHandler.prefixMatchTokens(" - , "), List.of());
+    // Any non letter/digit run is a separator, like the standard tokenizer: "John!K" is two tokens.
+    assertEquals(AutocompleteRequestHandler.prefixMatchTokens("John!K"), List.of("John", "K"));
+    assertEquals(
+        AutocompleteRequestHandler.prefixMatchTokens("john/k;doe&x"),
+        List.of("john", "k", "doe", "x"));
+    assertEquals(
+        AutocompleteRequestHandler.prefixMatchTokens("Zoë Müller"), List.of("Zoë", "Müller"));
   }
 
   @Test

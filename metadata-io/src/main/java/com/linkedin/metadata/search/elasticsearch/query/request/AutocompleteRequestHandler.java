@@ -341,13 +341,14 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
     Optional<QueryBuilder> result = Optional.empty();
 
     if (customConfig == null || customConfig.isDefaultQuery()) {
-      result = Optional.of(defaultQuery(autocompleteFields, query, mode));
+      result = Optional.of(defaultQuery(customConfig, autocompleteFields, query, mode));
     }
 
     return result;
   }
 
   private BoolQueryBuilder defaultQuery(
+      @Nullable AutocompleteConfiguration customConfig,
       List<Pair<String, String>> autocompleteFields,
       @Nonnull String query,
       @Nonnull QueryMode mode) {
@@ -384,7 +385,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
         });
     finalQuery.should(multiMatchQueryBuilder);
     if (mode == QueryMode.STRICT_ALL_TOKENS) {
-      perTokenPrefixMusts(autocompleteFields, query).forEach(finalQuery::must);
+      perTokenPrefixMusts(customConfig, autocompleteFields, query).forEach(finalQuery::must);
     }
     return finalQuery;
   }
@@ -392,17 +393,19 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   /** Never more MUST clauses than this, however long the pasted string is. */
   public static final int MAX_PREFIX_MATCH_TOKENS = 6;
 
-  // Characters the standard tokenizer also breaks on; apostrophes stay inside a token
-  // ("O'Brien" is indexed as one term), periods and quotes are trimmed off the ends ("J.K." ->
-  // "J.K", "\"Bob\"" -> "Bob").
-  private static final Pattern TOKEN_SEPARATORS = Pattern.compile("[\\s\\-_/,;:()\\[\\]{}<>|+*&]+");
-  private static final Pattern TOKEN_TRIM = Pattern.compile("^[.'\"`]+|[.'\"`]+$");
+  // The standard tokenizer (UAX#29 word boundaries) that analyzes the indexed names breaks on
+  // everything that is not a letter or digit, except an apostrophe or period BETWEEN letters
+  // ("O'Brien", "J.K" stay one term). Approximate that: split on any run of characters that are
+  // neither letters, digits, apostrophes nor periods, then trim apostrophes/periods off the ends.
+  // "John!K" -> [John, K]; "Mary-Jane O'Brien" -> [Mary, Jane, O'Brien]; "J.K. Rowling" ->
+  // [J.K, Rowling]. Any residual mismatch is harmless: the strict pass then matches nothing and the
+  // RANKING_ONLY fallback pass answers.
+  private static final Pattern TOKEN_SEPARATORS = Pattern.compile("[^\\p{L}\\p{N}'.]+");
+  private static final Pattern TOKEN_TRIM = Pattern.compile("^[.']+|[.']+$");
 
   /**
-   * Tokens of an autocomplete query the way the index side sees them: split on whitespace AND on
-   * the punctuation the standard tokenizer splits on, trimmed of surrounding punctuation, empties
-   * dropped, capped at {@link #MAX_PREFIX_MATCH_TOKENS}. "Mary-Jane O'Brien" -> [Mary, Jane,
-   * O'Brien]; "Smith, John" -> [Smith, John]; "J.K. Rowling" -> [J.K, Rowling].
+   * Tokens of an autocomplete query the way the index side sees them (see {@link
+   * #TOKEN_SEPARATORS}), empties dropped, capped at {@link #MAX_PREFIX_MATCH_TOKENS}.
    */
   @VisibleForTesting
   public static List<String> prefixMatchTokens(@Nonnull String query) {
@@ -430,12 +433,33 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   }
 
   /**
-   * True when the {@link QueryMode#STRICT_ALL_TOKENS} pass actually narrows this query (a listed
-   * entity, two or more tokens) — i.e. when a zero-result strict pass is worth a {@link
-   * QueryMode#RANKING_ONLY} fallback pass. False means both modes build the same query.
+   * The ONE place that decides whether the strict pass narrows a query: the tokens that get a MUST
+   * clause each, or an empty list when the strict and ranking-only passes build the same query
+   * (entity not listed, fewer than two tokens, or a custom autocomplete config that replaces the
+   * default query). Both {@link #perTokenPrefixMusts} and {@link #strictPassApplies} go through
+   * here so fallback eligibility and clause construction cannot diverge.
+   */
+  private List<String> strictPassTokens(
+      @Nullable AutocompleteConfiguration customConfig, @Nonnull String query) {
+    if (customConfig != null && !customConfig.isDefaultQuery()) {
+      return List.of(); // the default query (and its MUST clauses) is not built at all
+    }
+    if (!allTokensMustPrefixMatchEnabled()) {
+      return List.of();
+    }
+    List<String> tokens = prefixMatchTokens(query);
+    return tokens.size() >= 2 ? tokens : List.of();
+  }
+
+  /**
+   * True when the {@link QueryMode#STRICT_ALL_TOKENS} pass actually narrows this query — i.e. when
+   * a zero-result strict pass is worth a {@link QueryMode#RANKING_ONLY} fallback pass. False means
+   * both modes build the same query, so a retry would just repeat it.
    */
   public boolean strictPassApplies(@Nonnull String query) {
-    return allTokensMustPrefixMatchEnabled() && prefixMatchTokens(query).size() >= 2;
+    AutocompleteConfiguration customConfig =
+        customizedQueryHandler.lookupAutocompleteConfig(query).orElse(null);
+    return !strictPassTokens(customConfig, query).isEmpty();
   }
 
   /**
@@ -459,9 +483,11 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
    * #strictPassApplies}): ranking improves wherever it can, results never disappear.
    */
   private List<QueryBuilder> perTokenPrefixMusts(
-      List<Pair<String, String>> autocompleteFields, @Nonnull String query) {
-    List<String> tokens = prefixMatchTokens(query);
-    if (!allTokensMustPrefixMatchEnabled() || tokens.size() < 2) {
+      @Nullable AutocompleteConfiguration customConfig,
+      List<Pair<String, String>> autocompleteFields,
+      @Nonnull String query) {
+    List<String> tokens = strictPassTokens(customConfig, query);
+    if (tokens.isEmpty()) {
       return List.of();
     }
     List<QueryBuilder> musts = new ArrayList<>();

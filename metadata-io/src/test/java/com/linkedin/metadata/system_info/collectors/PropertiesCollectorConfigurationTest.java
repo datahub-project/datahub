@@ -117,6 +117,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].configs.guestUser",
           // Spring autoconfigure exclusions with dynamic indices
           "spring.autoconfigure.exclude[*]",
+          // Entity types whose people autocomplete requires every typed token to prefix-match
+          "elasticsearch.search.autocomplete.allTokensMustPrefixMatchEntities[*]",
           // Cache configuration with dynamic entity/aspect combinations
           "cache.client.entityClient.entityAspectTTLSeconds.*.*",
           // Gradle test worker properties (Java system properties)
@@ -742,6 +744,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.pathPrefix",
           "elasticsearch.port",
           "elasticsearch.region",
+          "elasticsearch.search.autocomplete.allTokensMustPrefixMatchEntities",
           "elasticsearch.search.custom.autoCompleteFieldConfigDefault",
           "elasticsearch.search.custom.enabled",
           "elasticsearch.search.custom.file",

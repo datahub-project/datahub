@@ -71,9 +71,6 @@ public abstract class OwnerAutocompleteRankingTestBase extends AbstractTestNGSpr
   protected abstract ESIndexBuilder getIndexBuilder();
 
   @Nonnull
-  protected abstract String getElasticSearchImplementation();
-
-  @Nonnull
   protected abstract SearchConfiguration getSearchConfiguration();
 
   protected OperationContext operationContext;
