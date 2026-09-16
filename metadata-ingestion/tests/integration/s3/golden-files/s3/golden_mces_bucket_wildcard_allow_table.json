@@ -27,7 +27,7 @@
                 "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/part3.csv",
                 "number_of_partitions": "1"
             },
-            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=",
+            "externalUrl": "https://s3.console.aws.amazon.com/s3/buckets/my-test-bucket?region=us-east-1&prefix=",
             "name": "my-test-bucket",
             "description": "",
             "created": {
@@ -338,7 +338,7 @@
                 "schema_inferred_from": "s3://my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_csv/part3.csv",
                 "number_of_partitions": "1"
             },
-            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket-2?prefix=",
+            "externalUrl": "https://s3.console.aws.amazon.com/s3/buckets/my-test-bucket-2?region=us-east-1&prefix=",
             "name": "my-test-bucket-2",
             "description": "",
             "created": {
