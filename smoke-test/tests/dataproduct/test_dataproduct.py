@@ -445,6 +445,7 @@ def _assert_data_product_profile_loads(graph_client, data_product_urn: str) -> N
         GET_DATA_PRODUCT_QUERY, {"urn": data_product_urn}
     )
     assert result["dataProduct"]["urn"] == data_product_urn
+    assert result["dataProduct"].get("domain") is None
 
 
 def test_delete_domain_with_associated_data_product(graph_client):
@@ -475,6 +476,7 @@ def test_delete_domain_with_associated_data_product(graph_client):
         )
         data_product_urn = created_product["createDataProduct"]["urn"]
         assert data_product_urn
+        wait_for_writes_to_sync()
 
         deleted = graph_client.execute_graphql(DELETE_DOMAIN_QUERY, {"urn": domain_urn})
         assert deleted["deleteDomain"] is True

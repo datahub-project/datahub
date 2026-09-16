@@ -85,7 +85,9 @@ public class DataProductAuthorizationUtils {
     try {
       AspectRetriever aspectRetriever = context.getOperationContext().getAspectRetriever();
       if (aspectRetriever == null) {
-        return domainUrns;
+        log.warn(
+            "AspectRetriever unavailable; treating listed domains as missing for data product auth");
+        return Set.of();
       }
       Map<Urn, Boolean> exists =
           aspectRetriever.entityExists(context.getOperationContext(), domainUrns);
@@ -93,8 +95,10 @@ public class DataProductAuthorizationUtils {
           .filter(urn -> Boolean.TRUE.equals(exists.get(urn)))
           .collect(Collectors.toSet());
     } catch (RuntimeException e) {
-      log.debug("Could not resolve live domains for data product auth; using listed URNs", e);
-      return domainUrns;
+      log.warn(
+          "Could not resolve live domains for data product auth; treating listed domains as missing",
+          e);
+      return Set.of();
     }
   }
 
@@ -105,7 +109,7 @@ public class DataProductAuthorizationUtils {
       @Nonnull Urn dataProductUrn) {
     Domains domains =
         dataProductService.getDataProductDomains(context.getOperationContext(), dataProductUrn);
-    return isAuthorizedToManageDataProductsOnAnyDomain(context, domains);
+    return isAuthorizedToManageDataProduct(context, dataProductUrn, domains);
   }
 
   public static boolean isAuthorizedToEditDataProduct(

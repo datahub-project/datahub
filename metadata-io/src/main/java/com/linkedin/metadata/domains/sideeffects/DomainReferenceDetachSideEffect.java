@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -60,6 +62,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DomainReferenceDetachSideEffect extends MCPSideEffect {
 
   public static final int DEFAULT_MAX_FANOUT_PER_COMMIT = 500;
+  public static final int MAX_PAGE_ATTEMPTS = 3;
   public static final String DOMAINS_SEARCH_FIELD = "domains";
 
   private int maxFanoutPerCommit = DEFAULT_MAX_FANOUT_PER_COMMIT;
@@ -107,61 +110,73 @@ public class DomainReferenceDetachSideEffect extends MCPSideEffect {
     Filter filter =
         FilterUtils.createValuesFilter(DOMAINS_SEARCH_FIELD, List.of(missingDomain.toString()));
     List<MCPItem> patches = new ArrayList<>();
-    try {
-      String scrollId = null;
-      do {
-        if (patches.size() >= maxFanoutPerCommit) {
-          log.warn(
-              "Detached {} reference(s) to deleted domain {} in this commit; more may remain",
-              patches.size(),
-              missingDomain);
-          break;
-        }
-        int pageSize = Math.min(maxFanoutPerCommit, maxFanoutPerCommit - patches.size());
-        ScrollResult scrollResult =
-            searchRetriever.scroll(
-                entities,
-                filter,
-                scrollId,
-                pageSize,
-                List.of(),
-                SearchRetriever.RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS_INCLUDE_SOFT_DELETED);
+    String scrollId = null;
+    do {
+      if (patches.size() >= maxFanoutPerCommit) {
+        log.warn(
+            "Detached {} reference(s) to deleted domain {} in this commit; more may remain",
+            patches.size(),
+            missingDomain);
+        break;
+      }
+      int pageSize = Math.min(maxFanoutPerCommit, maxFanoutPerCommit - patches.size());
+      final String currentScrollId = scrollId;
+      ScrollResult scrollResult =
+          withBoundedRetry(
+              "scroll for domain references to " + missingDomain,
+              () ->
+                  searchRetriever.scroll(
+                      entities,
+                      filter,
+                      currentScrollId,
+                      pageSize,
+                      List.of(),
+                      SearchRetriever
+                          .RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS_INCLUDE_SOFT_DELETED));
 
-        if (scrollResult.getEntities() == null || scrollResult.getEntities().isEmpty()) {
-          break;
-        }
+      if (scrollResult.getEntities() == null || scrollResult.getEntities().isEmpty()) {
+        break;
+      }
 
-        List<Urn> candidates =
-            scrollResult.getEntities().stream()
-                .map(SearchEntity::getEntity)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-        Map<Urn, Map<String, Aspect>> persisted =
-            latestDomains(operationContext, candidates, retrieverContext);
+      List<Urn> candidates =
+          scrollResult.getEntities().stream()
+              .map(SearchEntity::getEntity)
+              .filter(Objects::nonNull)
+              .collect(Collectors.toList());
+      Map<Urn, Map<String, Aspect>> persisted =
+          latestDomains(operationContext, candidates, retrieverContext);
 
-        for (Urn entityUrn : candidates) {
-          if (!stillReferences(persisted.get(entityUrn), missingDomain)) {
-            continue;
-          }
-          MCPItem patch = removalPatch(entityUrn, missingDomain, mclItem, retrieverContext);
-          if (patch != null) {
-            patches.add(patch);
-          }
+      for (Urn entityUrn : candidates) {
+        if (!stillReferences(persisted.get(entityUrn), missingDomain)) {
+          continue;
         }
+        MCPItem patch = removalPatch(entityUrn, missingDomain, mclItem, retrieverContext);
+        if (patch != null) {
+          patches.add(patch);
+        }
+      }
 
-        String nextScrollId = scrollResult.getScrollId();
-        if (nextScrollId == null || nextScrollId.equals(scrollId)) {
-          break;
-        }
-        scrollId = nextScrollId;
-      } while (true);
-    } catch (RuntimeException e) {
-      log.warn(
-          "Unable to scroll for domains references to {}; skipping detach this commit",
-          missingDomain,
-          e);
-    }
+      String nextScrollId = scrollResult.getScrollId();
+      if (nextScrollId == null || nextScrollId.equals(scrollId)) {
+        break;
+      }
+      scrollId = nextScrollId;
+    } while (true);
     return patches.stream();
+  }
+
+  @Nonnull
+  private static <T> T withBoundedRetry(@Nonnull String what, @Nonnull Supplier<T> action) {
+    RuntimeException last = null;
+    for (int attempt = 1; attempt <= MAX_PAGE_ATTEMPTS; attempt++) {
+      try {
+        return action.get();
+      } catch (RuntimeException e) {
+        last = e;
+        log.warn("{} failed (attempt {}/{})", what, attempt, MAX_PAGE_ATTEMPTS, e);
+      }
+    }
+    throw new RuntimeException("Exhausted retries: " + what, last);
   }
 
   @Nonnull
@@ -187,20 +202,17 @@ public class DomainReferenceDetachSideEffect extends MCPSideEffect {
     if (entities.isEmpty()) {
       return Map.of();
     }
-    try {
-      Map<Urn, Map<String, Aspect>> existing =
-          retrieverContext
-              .getAspectRetriever()
-              .getLatestAspectObjects(
-                  operationContext, new HashSet<>(entities), Set.of(DOMAINS_ASPECT_NAME));
-      return existing != null ? existing : Map.of();
-    } catch (RuntimeException e) {
-      log.warn(
-          "Unable to read persisted domains aspects for {} entit(y/ies); skipping confirmation",
-          entities.size(),
-          e);
-      return Map.of();
-    }
+    return withBoundedRetry(
+        "read persisted domains aspects for " + entities.size() + " entit(y/ies)",
+        () -> {
+          Map<Urn, Map<String, Aspect>> existing =
+              AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
+                  retrieverContext.getAspectRetriever(),
+                  operationContext,
+                  new HashSet<>(entities),
+                  Set.of(DOMAINS_ASPECT_NAME));
+          return existing != null ? existing : Map.of();
+        });
   }
 
   private static boolean stillReferences(

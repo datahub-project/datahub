@@ -57,6 +57,21 @@ public class DomainAssociationMapper {
   }
 
   private static boolean domainEntityExists(@Nonnull QueryContext context, @Nonnull Urn domainUrn) {
+    Map<Urn, Boolean> cache = context.getDomainExistenceCache();
+    if (cache != null) {
+      Boolean cached = cache.get(domainUrn);
+      if (cached != null) {
+        return cached;
+      }
+    }
+    boolean exists = probeDomainExists(context, domainUrn);
+    if (cache != null) {
+      cache.put(domainUrn, exists);
+    }
+    return exists;
+  }
+
+  private static boolean probeDomainExists(@Nonnull QueryContext context, @Nonnull Urn domainUrn) {
     try {
       AspectRetriever aspectRetriever = context.getOperationContext().getAspectRetriever();
       if (aspectRetriever == null) {
