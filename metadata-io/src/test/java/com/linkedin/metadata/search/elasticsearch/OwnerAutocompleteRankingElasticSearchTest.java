@@ -1,7 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch;
 
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
-
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.search.OwnerAutocompleteRankingTestBase;
@@ -47,12 +45,6 @@ public class OwnerAutocompleteRankingElasticSearchTest extends OwnerAutocomplete
   @Override
   protected ESIndexBuilder getIndexBuilder() {
     return _esIndexBuilder;
-  }
-
-  @NotNull
-  @Override
-  protected String getElasticSearchImplementation() {
-    return ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
   }
 
   @NotNull
