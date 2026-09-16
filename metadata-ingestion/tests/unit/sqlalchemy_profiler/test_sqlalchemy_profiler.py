@@ -1481,6 +1481,13 @@ class TestFormatProfileValue:
             == "2024-01-01"
         )
 
+    def test_datetime_unparseable_string_returned_as_is(self) -> None:
+        # Non-ISO strings that fromisoformat can't parse are returned unchanged
+        assert (
+            format_profile_value("2024/01/02 10:30", ProfilerDataType.DATETIME)
+            == "2024/01/02 10:30"
+        )
+
     # -- STRING type --
 
     def test_string_type(self) -> None:

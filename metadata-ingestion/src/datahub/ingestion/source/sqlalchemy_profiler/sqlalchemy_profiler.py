@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import threading
+from datetime import date, datetime
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -216,10 +217,18 @@ def _format_as_float(value: Any) -> str:
 def _format_as_datetime(value: Any) -> str:
     if hasattr(value, "isoformat"):
         return value.isoformat()
+    # Some DBAPI drivers return strings instead of datetime objects.
+    # Parse and re-emit to guarantee ISO 8601 output.
     s = str(value)
-    if " " in s and len(s) >= 10:
-        return s.replace(" ", "T", 1)
-    return s
+    try:
+        # date.fromisoformat handles "YYYY-MM-DD" without expanding to
+        # "YYYY-MM-DDTHH:MM:SS"; datetime.fromisoformat handles the rest
+        # including the space-separated "YYYY-MM-DD HH:MM:SS" form.
+        if len(s) == 10:
+            return date.fromisoformat(s).isoformat()
+        return datetime.fromisoformat(s).isoformat()
+    except (ValueError, TypeError):
+        return s
 
 
 @dataclasses.dataclass(init=False)
