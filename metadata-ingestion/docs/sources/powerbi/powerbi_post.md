@@ -86,6 +86,27 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 
 Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, `Oracle`, and ODBC data sources.
 
+#### Semantic Model and Metric Entities (opt-in)
+
+By default each Power BI dataset is ingested as a `Semantic Model` **container** whose tables are `Table` datasets, and measures are exposed as schema fields on those tables.
+
+Setting `emit_semantic_model_entities: true` instead maps each Power BI dataset to first-class semantic entities:
+
+- the dataset becomes a **`semanticModel`** entity,
+- each table becomes a logical dataset with subtype **`Semantic Model Dataset`** (keeping the same dataset URN, so downstream references and warehouse lineage are preserved), with its columns annotated as dimensions and its measures as measures, and
+- each measure becomes a **`metric`** entity carrying its DAX expression.
+
+Lineage resolves end to end as `Metric -> Semantic Model Dataset -> physical table`: the metric points at the logical dataset it reads from, and the logical dataset keeps the M-Query warehouse `upstreamLineage` (and column-level lineage) it would have had in the classic shape.
+
+This requires a DataHub server that registers the `semanticModel`/`metric` model (DataHub Cloud >= 2.1.0, or OSS with `METRICS_ENABLED=true`). Because the dataset's container is replaced by a `semanticModel`, re-ingest with stateful ingestion enabled so the previous container is cleaned up.
+
+```yaml
+source:
+  type: powerbi
+  config:
+    emit_semantic_model_entities: true
+```
+
 #### Oracle TNS Aliases and Inline Native Queries
 
 PowerBI users can connect to Oracle via a TNS alias (any `tnsnames.ora`-based deployment) and embed SQL inline using a `Query=` argument:
