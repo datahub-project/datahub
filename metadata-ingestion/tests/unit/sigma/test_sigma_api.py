@@ -2983,6 +2983,54 @@ class TestGetDatasetSources:
             assert api.get_dataset_sources("ds-4") == []
         assert api.report.dataset_sources_endpoint_removed == 0
 
+    def test_reprobe_of_a_known_good_dataset_detects_removal(self) -> None:
+        api = _create_sigma_api()
+        responses = [
+            _response(200, []),  # ds-a resolves; remembered as known-good
+            _response(404),  # ds-b not found
+            _response(404),  # re-probe of ds-a now fails too -> endpoint gone
+        ]
+        with patch.object(api, "_get_api_call", side_effect=responses):
+            assert api.get_dataset_sources("ds-a") == []
+            assert api.get_dataset_sources("ds-b") is None
+            assert api.get_dataset_sources("ds-c") is None  # skipped, latched
+        assert api.report.dataset_sources_endpoint_removed == 1
+        assert api.report.dataset_sources_skipped_endpoint_gone == 1
+
+    def test_every_dataset_not_found_escalates_to_a_warning(self) -> None:
+        # Nothing ever succeeds, so there is no known-good dataset to re-probe
+        # and the dataset API keeps answering. Without escalation this is all
+        # infos, which collapse to a single entry.
+        api = _create_sigma_api()
+        with patch.object(
+            api,
+            "_get_api_call",
+            side_effect=lambda url: (
+                _response(409) if url.endswith("/sources") else _response(200, {})
+            ),
+        ):
+            for i in range(_DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD):
+                assert api.get_dataset_sources(f"ds-{i}") is None
+        assert api.report.dataset_sources_not_found == (
+            _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD
+        )
+        assert len(api.report.warnings) == 1
+
+    def test_409_is_treated_as_not_found(self) -> None:
+        # Verified live: Sigma answers 409 inode_archived, not 404, for a dataset
+        # it cannot resolve.
+        api = _create_sigma_api()
+        with patch.object(
+            api,
+            "_get_api_call",
+            side_effect=lambda url: (
+                _response(409) if url.endswith("/sources") else _response(200, {})
+            ),
+        ):
+            assert api.get_dataset_sources("ds-1") is None
+        assert api.report.dataset_sources_not_found == 1
+        assert api.report.dataset_sources_endpoint_removed == 0
+
 
 class TestGetConnectionPath:
     """/connections/paths/{inodeId}: the connectionId + split path."""
@@ -3034,64 +3082,6 @@ class TestGetConnectionPath:
         assert api.report.connection_path_lookup_failed == 1
 
 
-class TestDatasetSourcesPiecemealRemoval:
-    """/sources removed while /datasets/{id} still answers.
-
-    The route's own shutdown path: every dataset not-found, so the probe against
-    the dataset API says "alive" and each dataset logs an info. Identical infos
-    collapse into one entry, so the run looked clean while losing all dataset
-    lineage.
-    """
-
-    def test_reprobe_of_a_known_good_dataset_detects_removal(self) -> None:
-        api = _create_sigma_api()
-        responses = [
-            _response(200, []),  # ds-a resolves; remembered as known-good
-            _response(404),  # ds-b not found
-            _response(404),  # re-probe of ds-a now fails too -> endpoint gone
-        ]
-        with patch.object(api, "_get_api_call", side_effect=responses):
-            assert api.get_dataset_sources("ds-a") == []
-            assert api.get_dataset_sources("ds-b") is None
-            assert api.get_dataset_sources("ds-c") is None  # skipped, latched
-        assert api.report.dataset_sources_endpoint_removed == 1
-        assert api.report.dataset_sources_skipped_endpoint_gone == 1
-
-    def test_every_dataset_not_found_escalates_to_a_warning(self) -> None:
-        # Nothing ever succeeds, so there is no known-good dataset to re-probe
-        # and the dataset API keeps answering. Without escalation this is all
-        # infos, which collapse to a single entry.
-        api = _create_sigma_api()
-        with patch.object(
-            api,
-            "_get_api_call",
-            side_effect=lambda url: _response(409)
-            if url.endswith("/sources")
-            else _response(200, {}),
-        ):
-            for i in range(_DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD):
-                assert api.get_dataset_sources(f"ds-{i}") is None
-        assert api.report.dataset_sources_not_found == (
-            _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD
-        )
-        assert len(api.report.warnings) == 1
-
-    def test_409_is_treated_as_not_found(self) -> None:
-        # Verified live: Sigma answers 409 inode_archived, not 404, for a dataset
-        # it cannot resolve.
-        api = _create_sigma_api()
-        with patch.object(
-            api,
-            "_get_api_call",
-            side_effect=lambda url: _response(409)
-            if url.endswith("/sources")
-            else _response(200, {}),
-        ):
-            assert api.get_dataset_sources("ds-1") is None
-        assert api.report.dataset_sources_not_found == 1
-        assert api.report.dataset_sources_endpoint_removed == 0
-
-
 class TestConnectionPathBodyShape:
     def test_non_object_body_is_reported_as_a_shape_problem(self) -> None:
         api = _create_sigma_api()
@@ -3120,6 +3110,48 @@ class TestConnectionPathBodyShape:
             assert api.get_dataset_sources("ds-bad") is None
         assert calls[-1].endswith("/datasets/ds-good/sources"), calls
         assert api.report.dataset_sources_endpoint_removed == 1
+
+    def test_410_on_the_reprobe_counts_as_removal(self) -> None:
+        # 410 is the strongest removal signal the endpoint can give, so a
+        # re-probe returning it must not be read as "this dataset is fine".
+        api = _create_sigma_api()
+
+        def by_url(url: str) -> MagicMock:
+            if url.endswith("/ds-good/sources"):
+                return (
+                    _response(200, [])
+                    if not api._dataset_sources_succeeded
+                    else _response(410)
+                )
+            return _response(404)
+
+        with patch.object(api, "_get_api_call", side_effect=by_url):
+            assert api.get_dataset_sources("ds-good") == []
+            assert api.get_dataset_sources("ds-bad") is None
+        assert api.report.dataset_sources_endpoint_removed == 1
+
+    def test_reprobe_exception_is_reported_not_just_logged(self) -> None:
+        # The probe could not answer, so the route stays on. That has to be
+        # visible, or missing lineage has no accompanying signal at all.
+        api = _create_sigma_api()
+
+        def by_url(url: str) -> MagicMock:
+            if url.endswith("/ds-good/sources") and api._dataset_sources_succeeded:
+                raise requests.RequestException("boom")
+            return (
+                _response(200, [])
+                if url.endswith("/ds-good/sources")
+                else _response(404)
+            )
+
+        with patch.object(api, "_get_api_call", side_effect=by_url):
+            assert api.get_dataset_sources("ds-good") == []
+            assert api.get_dataset_sources("ds-bad") is None
+        assert api.report.dataset_sources_endpoint_removed == 0
+        assert any(
+            "re-probe failed" in (w.title or "")
+            for w in api.report.warnings  # type: ignore[attr-defined]
+        )
 
     def test_reprobe_success_leaves_the_route_enabled(self) -> None:
         # Inverse: the known-good dataset still resolves, so the not-found was

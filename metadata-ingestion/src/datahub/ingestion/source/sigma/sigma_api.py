@@ -1267,16 +1267,31 @@ class SigmaAPI:
         data_model.elements = elements
 
     def _dataset_sources_gone_for(self, dataset_id: str) -> bool:
-        """Whether /sources now fails for a dataset that answered 200 earlier."""
+        """Whether /sources now fails for a dataset that answered 200 earlier.
+
+        410 counts as well as the not-found statuses: it is the strongest
+        removal signal the endpoint can give, so a re-probe that returns it must
+        not be read as "this dataset is fine".
+        """
         url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}/sources"
         try:
-            return (
-                self._get_api_call(url).status_code
-                in _DATASET_SOURCES_NOT_FOUND_STATUSES
+            return self._get_api_call(url).status_code in (
+                _DATASET_SOURCES_NOT_FOUND_STATUSES | {410}
             )
-        except Exception:
-            logger.debug(
-                "Re-probe of /sources failed for %r; assuming alive.", dataset_id
+        except Exception as e:
+            # Reported, not just logged: a probe that cannot answer leaves the
+            # route on, so an operator seeing missing lineage needs to know the
+            # check itself failed rather than concluded "alive".
+            self.report.warning(
+                title="Sigma dataset sources re-probe failed",
+                message=(
+                    "Could not re-check /datasets/{id}/sources for a dataset that "
+                    "resolved earlier this run, so the endpoint is assumed still "
+                    "available. If Sigma has removed it, lineage will be missing "
+                    "without the 'endpoint unavailable' warning."
+                ),
+                context=f"dataset_id={dataset_id}",
+                exc=e,
             )
             return False
 
@@ -1305,11 +1320,14 @@ class SigmaAPI:
             self.report.dataset_sources_endpoint_removed += 1
             self.report.warning(
                 title="Sigma dataset sources endpoint unavailable",
+                # Constant: StructuredLogs keys entries on title+message, and an
+                # interpolated status would make each one distinct. The status
+                # belongs in context.
                 message=(
-                    f"/datasets/{{id}}/sources returned {status}. Sigma retired the "
-                    "dataset API on 2026-09-15, so it has most likely been removed. "
-                    "No Sigma Dataset will get warehouse upstreamLineage for the "
-                    "rest of this run; migrate datasets to Data Models."
+                    "/datasets/{id}/sources is no longer answering. Sigma retired "
+                    "the dataset API on 2026-09-15, so it has most likely been "
+                    "removed. No Sigma Dataset will get warehouse upstreamLineage "
+                    "for the rest of this run; migrate datasets to Data Models."
                 ),
                 context=f"dataset_id={dataset_id}, http_status={status}",
             )
