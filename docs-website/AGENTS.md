@@ -46,18 +46,18 @@ processed output to `genDocs/`. Key behaviors:
 
 ## Key files
 
-| File                    | Purpose                                           |
-| ----------------------- | ------------------------------------------------- |
-| `docusaurus.config.js`  | Site config — plugins, navbar, footer, docs path  |
-| `sidebars.js`           | Sidebar navigation tree                           |
-| `generateDocsDir.ts`    | Markdown discovery, transformation, and assembly  |
-| `build.gradle`          | Gradle tasks (`yarnGenerate`, `yarnBuild`, etc.)  |
-| `sphinx/`               | Python SDK doc generation (Sphinx → Markdown)     |
-| `graphql/`              | GraphQL schema combination + doc generation       |
-| `genJsonSchema/`        | Combines connector config schemas into one file   |
-| `src/pages/`            | Custom React pages (not markdown docs)            |
-| `src/learn/`            | Blog / learning articles (served at `/learn`)     |
-| `static/`               | Images, logos, static assets                      |
+| File                   | Purpose                                          |
+| ---------------------- | ------------------------------------------------ |
+| `docusaurus.config.js` | Site config — plugins, navbar, footer, docs path |
+| `sidebars.js`          | Sidebar navigation tree                          |
+| `generateDocsDir.ts`   | Markdown discovery, transformation, and assembly |
+| `build.gradle`         | Gradle tasks (`yarnGenerate`, `yarnBuild`, etc.) |
+| `sphinx/`              | Python SDK doc generation (Sphinx → Markdown)    |
+| `graphql/`             | GraphQL schema combination + doc generation      |
+| `genJsonSchema/`       | Combines connector config schemas into one file  |
+| `src/pages/`           | Custom React pages (not markdown docs)           |
+| `src/learn/`           | Blog / learning articles (served at `/learn`)    |
+| `static/`              | Images, logos, static assets                     |
 
 ## Generated directories (gitignored — never edit)
 

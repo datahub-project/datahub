@@ -177,7 +177,7 @@ You can format all files by running:
 
 or by allowing pre-commit hooks to run when you commit your changes.
 
-Warning: When using [admonitions](https://docusaurus.io/docs/markdown-features/admonitions#usage-with-prettier) (e.g. `:::note`), 
+Warning: When using [admonitions](https://docusaurus.io/docs/markdown-features/admonitions#usage-with-prettier) (e.g. `:::note`),
 you may need to add newlines around the inner text to avoid formatting issues. See the link for details.
 
 ## Docs site generation process

@@ -1,7 +1,8 @@
 ---
 title: "What is a Data Mesh and How to Implement It in Your Organization"
 description: Learn how a data mesh aligns data management with domain expertise, enhancing overall organizational agility.
-tags: ["Data Mesh", "Use Case", "For Data Architects", "For Data Platform Leads"]
+tags:
+  ["Data Mesh", "Use Case", "For Data Architects", "For Data Platform Leads"]
 image: /img/learn/use-case-data-mesh.png
 hide_table_of_contents: false
 audience: ["Data Architects", "Data Platform Leads"]
@@ -20,7 +21,7 @@ Have you faced challenges in managing decentralized data across various business
 
 ## What is Data Mesh?
 
-Data Mesh is a decentralized data architecture that shifts the responsibility of data management from a central team to individual business units, or "domains." Each domain in turn produces “data products”, or consumable data artifacts, ensuring that data management is closely aligned with domain-specific expertise. This approach promotes agility, scalability, and the ability to generate insights more effectively. 
+Data Mesh is a decentralized data architecture that shifts the responsibility of data management from a central team to individual business units, or "domains." Each domain in turn produces “data products”, or consumable data artifacts, ensuring that data management is closely aligned with domain-specific expertise. This approach promotes agility, scalability, and the ability to generate insights more effectively.
 
 If you’re familiar with [Service-Oriented Architectures](https://en.wikipedia.org/wiki/Service-oriented_architecture), i.e. micro-services, this might sound familiar. Data Mesh is a somewhat analogous concept, but applied to data!
 
@@ -30,13 +31,12 @@ If you’re familiar with [Service-Oriented Architectures](https://en.wikipedia.
   <i style={{color:"grey"}}>4 Principles of Data Mesh</i>
 </p>
 
-
-| Principle | Explanation | 
-| --- | --- |
-| Domain Data Ownership | Organizing data into explicit domains based on the structure of your organization, and then assigning clear accountability to each. This enables you to more easily increase the number of sources of data, variety of use cases, and diversity of access models to the data increases.  |
-| Data as a product | Domain data should be highly accessible and highly reliable by default. It should be easy to discover, easy to understand, easy to access securely, and high quality.  |
-| Self-Service | Domain teams should be able to independently create, consume, and manage data products on top of a general-purpose platform that can hide the complexity of building, executing and maintaining secure and interoperable data products. |
-| Federated Governance | Consistent standards that are enforced by process and technology around interoperability, compliance, and quality. This makes it easy for data consumers to interact with data products across domains in familiar way and ensures quality is maintained uniformly.  |
+| Principle             | Explanation                                                                                                                                                                                                                                                                             |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Domain Data Ownership | Organizing data into explicit domains based on the structure of your organization, and then assigning clear accountability to each. This enables you to more easily increase the number of sources of data, variety of use cases, and diversity of access models to the data increases. |
+| Data as a product     | Domain data should be highly accessible and highly reliable by default. It should be easy to discover, easy to understand, easy to access securely, and high quality.                                                                                                                   |
+| Self-Service          | Domain teams should be able to independently create, consume, and manage data products on top of a general-purpose platform that can hide the complexity of building, executing and maintaining secure and interoperable data products.                                                 |
+| Federated Governance  | Consistent standards that are enforced by process and technology around interoperability, compliance, and quality. This makes it easy for data consumers to interact with data products across domains in familiar way and ensures quality is maintained uniformly.                     |
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-mesh/data-mesh-arc.png"/>
@@ -44,15 +44,13 @@ If you’re familiar with [Service-Oriented Architectures](https://en.wikipedia.
   <i style={{color:"grey"}}>Logical architecture of data mesh approach, Image Credit: <a href="https://dddeurope.academy/data-mesh-zhamak-dheghani/">Zhamak Dehghani</a></i>
 </p>
 
-
-
 ## Why Implement Data Mesh?
 
-For data architects and data platform leads, implementing a Data Mesh can resolve various challenges associated with managing decentralized data, particularly as you try to scale up. 
+For data architects and data platform leads, implementing a Data Mesh can resolve various challenges associated with managing decentralized data, particularly as you try to scale up.
 
-Traditional data lakes or warehouses can become central bottlenecks, impairing access, understanding, accountability, and quality of data - ultimately, its usability. These architectures can struggle to meet the diverse needs of different business units, leading to inefficiencies. 
+Traditional data lakes or warehouses can become central bottlenecks, impairing access, understanding, accountability, and quality of data - ultimately, its usability. These architectures can struggle to meet the diverse needs of different business units, leading to inefficiencies.
 
-Data Mesh addresses these issues by formally dividing data into decentralized domains, which are owned by the individual teams who are experts in those domains. This approach allows each business unit or domain to manage its own data, enabling independent creation and consumption of data and increasing the agility, reliability, scalability of an organization’s data practice.  
+Data Mesh addresses these issues by formally dividing data into decentralized domains, which are owned by the individual teams who are experts in those domains. This approach allows each business unit or domain to manage its own data, enabling independent creation and consumption of data and increasing the agility, reliability, scalability of an organization’s data practice.
 
 ### Key Considerations for Your Organization
 
@@ -86,7 +84,7 @@ Adopt a federated governance model to balance autonomy and control. While domain
 
 ### Alternatives
 
-While a centralized data lake or warehouse can simplify data governance by virtue of keeping everything in one place, it can become a bottleneck as your data organization grows. Decentralized Data Mesh can provide a more scalable and agile approach, by distributing day-to-day responsibility for accessing, producing, and validating data while enforcing a centralized set of standards and processes. 
+While a centralized data lake or warehouse can simplify data governance by virtue of keeping everything in one place, it can become a bottleneck as your data organization grows. Decentralized Data Mesh can provide a more scalable and agile approach, by distributing day-to-day responsibility for accessing, producing, and validating data while enforcing a centralized set of standards and processes.
 
 ### Our Solution
 
@@ -95,7 +93,6 @@ DataHub Cloud offers a comprehensive set of features designed to support the imp
 - **[Data Domains](https://docs.datahub.com/docs/domains)**: Clearly define and manage data products within each business unit.
 - **[Data Products](https://docs.datahub.com/docs/dataproducts):** Ensure each domain owns and manages its data products, promoting autonomy and agility.
 - **[Data Contracts](https://docs.datahub.com/docs/managed-datahub/observe/data-contract)**: Establish clear agreements between domains to ensure consistency and reliability.
-    
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-mesh/data-contract.png"/> 
@@ -103,18 +100,13 @@ DataHub Cloud offers a comprehensive set of features designed to support the imp
   <i style={{color:"grey"}}>Data Contracts in DataHub Cloud UI</i>
 </p>
 
-
-
 - **[Assertions](https://docs.datahub.com/docs/managed-datahub/observe/assertions)** Monitor data quality using freshness, volume, column validity, schema, and custom SQL checks to get notified first when things go wrong
-
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-mesh/assertion-results.png"/>
  <br />
   <i style={{color:"grey"}}>Assertion Results</i>
 </p>
-
-
 
 - **[Metadata Tests](https://docs.datahub.com/docs/tests/metadata-tests)**: Monitor and enforce a central set of standards or policies across all of your data assets, e.g. to ensure data documentation, data ownership, and data classification.
 

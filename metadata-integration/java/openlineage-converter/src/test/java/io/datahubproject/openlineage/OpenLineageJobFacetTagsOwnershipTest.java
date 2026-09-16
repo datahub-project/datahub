@@ -1,5 +1,6 @@
 package io.datahubproject.openlineage;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.FabricType;
@@ -78,6 +79,47 @@ public class OpenLineageJobFacetTagsOwnershipTest {
             .build();
 
     return OpenLineageToDataHub.convertRunEventToJob(event, config());
+  }
+
+  /**
+   * A producer that sends an owner with no name -- redaction, or an unset Airflow owner -- would
+   * otherwise mint urn:li:corpuser: with no identity behind it. The dataset ownership path already
+   * skipped these; the job path did not.
+   */
+  @Test
+  public void jobOwnersWithoutANameAreSkipped() throws Exception {
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    OpenLineage.OwnershipJobFacet ownershipFacet =
+        ol.newOwnershipJobFacetBuilder()
+            .owners(
+                Arrays.asList(
+                    ol.newOwnershipJobFacetOwnersBuilder().name("  ").type("DEVELOPER").build(),
+                    ol.newOwnershipJobFacetOwnersBuilder()
+                        .name(" jdoe ")
+                        .type("DEVELOPER")
+                        .build()))
+            .build();
+    OpenLineage.RunEvent event =
+        ol.newRunEventBuilder()
+            .eventTime(ZonedDateTime.now())
+            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
+            .run(ol.newRunBuilder().runId(UUID.randomUUID()).build())
+            .job(
+                ol.newJobBuilder()
+                    .namespace("open_lineage_examples")
+                    .name("minimal_job")
+                    .facets(ol.newJobFacetsBuilder().ownership(ownershipFacet).build())
+                    .build())
+            .inputs(Collections.emptyList())
+            .outputs(Collections.emptyList())
+            .build();
+
+    DatahubJob job = OpenLineageToDataHub.convertRunEventToJob(event, config());
+
+    assertEquals(job.getJobOwnership().getOwners().size(), 1, "the blank owner should be dropped");
+    // The surviving name is also trimmed, so it matches the same user written by any other source.
+    assertEquals(
+        job.getJobOwnership().getOwners().get(0).getOwner().toString(), "urn:li:corpuser:jdoe");
   }
 
   private static String aspectOn(

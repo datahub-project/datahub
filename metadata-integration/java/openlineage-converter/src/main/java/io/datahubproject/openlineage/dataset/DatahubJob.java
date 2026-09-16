@@ -8,6 +8,8 @@ import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Operation;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
@@ -28,6 +30,8 @@ import com.linkedin.dataprocess.DataProcessInstanceOutput;
 import com.linkedin.dataprocess.DataProcessInstanceProperties;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
 import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
+import com.linkedin.dataset.DatasetProfile;
+import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.dataset.Upstream;
@@ -35,6 +39,7 @@ import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.domain.Domains;
 import com.linkedin.metadata.aspect.patch.builder.DataJobInputOutputPatchBuilder;
+import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.OwnershipPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.UpstreamLineagePatchBuilder;
@@ -81,6 +86,7 @@ public class DatahubJob {
   DataJobUrn jobUrn;
   DataJobInfo jobInfo;
   Ownership jobOwnership;
+  InstitutionalMemory jobInstitutionalMemory;
   GlobalTags flowGlobalTags;
   GlobalTags jobGlobalTags;
   Domains flowDomains;
@@ -155,6 +161,9 @@ public class DatahubJob {
     generateGlobalTagsAspect(flowUrn, DATA_FLOW_ENTITY_TYPE, flowGlobalTags, config, mcps);
     generateGlobalTagsAspect(jobUrn, DATAJOB_ENTITY_TYPE, jobGlobalTags, config, mcps);
     generateOwnershipAspect(jobUrn, DATAJOB_ENTITY_TYPE, jobOwnership, config, mcps);
+    if (jobInstitutionalMemory != null) {
+      addAspectToMcps(jobUrn, DATAJOB_ENTITY_TYPE, jobInstitutionalMemory, mcps);
+    }
 
     // Generate and add domain Aspect
     generateDomainsAspect(flowUrn, DATA_FLOW_ENTITY_TYPE, flowDomains, mcps);
@@ -386,6 +395,8 @@ public class DatahubJob {
                 dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
           }
 
+          addDatasetFacetAspects(dataset, config, mcps);
+
           // Remove lineage which was added by older plugin that set lineage on Datasets and not on
           // DataJobs
           if (config.isRemoveLegacyLineage()) {
@@ -423,6 +434,8 @@ public class DatahubJob {
             addAspectToMcps(
                 dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
           }
+
+          addDatasetFacetAspects(dataset, config, mcps);
         });
     return Pair.of(inputUrnArray, inputEdges);
   }
@@ -478,6 +491,59 @@ public class DatahubJob {
   private void generateStatus(Urn entityUrn, String entityType, List<MetadataChangeProposal> mcps) {
     Status statusInfo = new Status().setRemoved(false);
     addAspectToMcps(entityUrn, entityType, statusInfo, mcps);
+  }
+
+  /**
+   * Emits the dataset aspects derived from OpenLineage dataset facets. {@code operation} and {@code
+   * profile} are timeseries aspects, so repeated events append points rather than overwriting and
+   * need no patch handling; the rest are written whole, matching how schema is handled.
+   */
+  private void addDatasetFacetAspects(
+      DatahubDataset dataset, DatahubOpenlineageConfig config, List<MetadataChangeProposal> mcps) {
+    // operation and profile are timeseries aspects: each event appends a point, so a full write
+    // is already the correct semantic and there is nothing to clobber.
+    // One MCP per point: these are timeseries aspects, so a coalesced job that saw several
+    // executions of the same dataset emits each of them rather than only the last.
+    for (Operation operation : dataset.getOperations()) {
+      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, operation, mcps);
+    }
+    for (DatasetProfile profile : dataset.getProfiles()) {
+      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, profile, mcps);
+    }
+
+    // Tags and ownership are shared with every other source that writes to this dataset, so they
+    // go through the same patch-aware helpers the job-level facets use. A full write here would
+    // erase tags and owners an unrelated connector had set.
+    generateGlobalTagsAspect(
+        dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getTags(), config, mcps);
+    generateOwnershipAspect(
+        dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getOwnership(), config, mcps);
+    generateDatasetPropertiesAspect(dataset.getUrn(), dataset.getProperties(), mcps);
+  }
+
+  /**
+   * OpenLineage only ever describes a few of a dataset's properties, so the description and each
+   * custom property are set individually rather than replacing the whole aspect and dropping
+   * whatever another source recorded.
+   */
+  private void generateDatasetPropertiesAspect(
+      Urn datasetUrn, DatasetProperties properties, List<MetadataChangeProposal> mcps) {
+    if (properties == null) {
+      return;
+    }
+    // Unconditionally a patch, unlike the job-level aspects above. usePatch governs whether a
+    // terminal event may replace the lineage an earlier event declared, which is a question about
+    // edges; it has no analogue here. OpenLineage never carries a dataset's full property set, so a
+    // whole-aspect write would clear name, qualifiedName and everything another connector recorded
+    // no matter how the flag is set.
+    DatasetPropertiesPatchBuilder builder = new DatasetPropertiesPatchBuilder().urn(datasetUrn);
+    if (properties.getDescription() != null) {
+      builder.setDescription(properties.getDescription());
+    }
+    if (properties.getCustomProperties() != null) {
+      properties.getCustomProperties().forEach(builder::addCustomProperty);
+    }
+    mcps.add(builder.build());
   }
 
   private void addAspectToMcps(
