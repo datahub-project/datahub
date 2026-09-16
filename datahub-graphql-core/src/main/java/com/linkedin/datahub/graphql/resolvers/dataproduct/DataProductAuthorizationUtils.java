@@ -7,9 +7,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.domain.Domains;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.DataProductService;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -55,6 +59,43 @@ public class DataProductAuthorizationUtils {
       @Nonnull QueryContext context, @Nullable Domains domains) {
     return EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(domains).stream()
         .anyMatch(domainUrn -> isAuthorizedToManageDataProducts(context, domainUrn));
+  }
+
+  /**
+   * Domain-scoped manage when the product still lists a live Domain; product {@code EDIT_ENTITY} or
+   * platform {@code MANAGE_DOMAINS} when every listed Domain is missing or the aspect is empty.
+   */
+  public static boolean isAuthorizedToManageDataProduct(
+      @Nonnull QueryContext context, @Nonnull Urn dataProductUrn, @Nullable Domains domains) {
+    Set<Urn> liveDomainUrns = liveDomainUrns(context, domains);
+    if (!liveDomainUrns.isEmpty()) {
+      return liveDomainUrns.stream()
+          .anyMatch(domainUrn -> isAuthorizedToManageDataProducts(context, domainUrn));
+    }
+    return isAuthorizedToEditDataProduct(context, dataProductUrn)
+        || AuthorizationUtils.canManageDomains(context);
+  }
+
+  @Nonnull
+  private static Set<Urn> liveDomainUrns(@Nonnull QueryContext context, @Nullable Domains domains) {
+    Set<Urn> domainUrns = EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(domains);
+    if (domainUrns.isEmpty()) {
+      return Set.of();
+    }
+    try {
+      AspectRetriever aspectRetriever = context.getOperationContext().getAspectRetriever();
+      if (aspectRetriever == null) {
+        return domainUrns;
+      }
+      Map<Urn, Boolean> exists =
+          aspectRetriever.entityExists(context.getOperationContext(), domainUrns);
+      return domainUrns.stream()
+          .filter(urn -> Boolean.TRUE.equals(exists.get(urn)))
+          .collect(Collectors.toSet());
+    } catch (RuntimeException e) {
+      log.debug("Could not resolve live domains for data product auth; using listed URNs", e);
+      return domainUrns;
+    }
   }
 
   /** Product-side membership changes require manage privilege on at least one product domain. */

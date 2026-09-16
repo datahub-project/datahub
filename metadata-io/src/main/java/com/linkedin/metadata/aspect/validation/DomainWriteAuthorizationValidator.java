@@ -86,6 +86,9 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
       boolean domainsAspectExists = Boolean.TRUE.equals(domainsExists.get(urn));
       Domains beforeDomains =
           proposedSoFar.containsKey(urn) ? proposedSoFar.get(urn) : persistedDomains.get(urn);
+      beforeDomains =
+          DomainWriteAuthorizationUtils.existingDomainsOnly(
+              operationContext, aspectRetriever, beforeDomains);
 
       Domains afterDomains =
           DomainWriteAuthorizationUtils.resolveAndAccumulateProposedDomains(
@@ -182,7 +185,9 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
     List<AspectValidationException> failures = new ArrayList<>();
     for (ChangeMCP item : domainsItems) {
       Urn urn = item.getUrn();
-      Domains before = item.getPreviousAspect(Domains.class);
+      Domains before =
+          DomainWriteAuthorizationUtils.existingDomainsOnly(
+              operationContext, aspectRetriever, item.getPreviousAspect(Domains.class));
       Domains after = item.getAspect(Domains.class);
 
       if (DomainWriteAuthorizationUtils.hasDomainMembership(before)) {
