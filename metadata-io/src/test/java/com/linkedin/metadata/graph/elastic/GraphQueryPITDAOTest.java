@@ -54,6 +54,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URL;
@@ -2169,7 +2170,10 @@ public class GraphQueryPITDAOTest {
                     .build())
             .build();
 
-    GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, metricUtils);
+    createdDAOs.add(dao);
 
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
@@ -2210,6 +2214,14 @@ public class GraphQueryPITDAOTest {
           timeout.getMessage() != null && timeout.getMessage().contains("timed out"),
           "Message should indicate a server-side timeout. Got: " + timeout.getMessage());
     }
+
+    // A slice-level timeout must reach the cascade error meter too (recorded at the BFS hop call).
+    ArgumentCaptor<String[]> tags = ArgumentCaptor.forClass(String[].class);
+    verify(metricUtils)
+        .incrementMicrometer(eq("datahub.lineage.graph_walk.errors"), eq(1.0), tags.capture());
+    Assert.assertTrue(
+        java.util.Arrays.asList(tags.getValue()).containsAll(List.of("error_type", "timeout")),
+        "tags: " + java.util.Arrays.toString(tags.getValue()));
   }
 
   @Test(timeOut = 10000)

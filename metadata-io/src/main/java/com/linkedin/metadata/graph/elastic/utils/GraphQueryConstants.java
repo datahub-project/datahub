@@ -16,7 +16,6 @@ public final class GraphQueryConstants {
   public static final String DESTINATION_TYPE = DESTINATION + ".entityType";
   public static final String DESTINATION_URN = DESTINATION + ".urn";
   public static final String SEARCH_EXECUTIONS_METRIC = "num_elasticSearch_reads";
-  public static final String LINEAGE_TIMEOUT_METRIC = "datahub.lineage.query_timeout";
   public static final String CREATED_ON = "createdOn";
   public static final String CREATED_ACTOR = "createdActor";
   public static final String UPDATED_ON = "updatedOn";

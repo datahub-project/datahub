@@ -1394,14 +1394,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         }
 
         if (remainingTime < 0) {
-          // Meter both the strict (throw) and partial (degraded) timeout so the timeout rate is
-          // observable regardless of partialResults. Keep the tag keys identical to the slice
-          // sites ({phase} only) — Micrometer's Prometheus registry rejects the same metric name
-          // registered with a different set of tag keys.
-          if (metricUtils != null) {
-            metricUtils.incrementMicrometer(
-                GraphQueryConstants.LINEAGE_TIMEOUT_METRIC, 1, "phase", "graph_walk");
-          }
+          cascade.recordError("timeout"); // datahub.lineage.graph_walk.errors{error_type=timeout}
           if (allowPartialResults) {
             log.warn(
                 "Timed out while fetching lineage for {} with direction {}, maxHops {}. Returning partial results. {} ms reserved for second query phase.",
@@ -1436,20 +1429,30 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         // Do one hop on the lineage graph
         // Note: maxRelations is the original total limit, but we pass the remaining capacity
         // to the scroll methods to ensure accurate limit checking at each level
-        ImpactHopResult hopResult =
-            processOneHopLineageWithMaxRelations(
-                opContext,
-                currentLevel,
-                remainingTime,
-                maxHops,
-                lineageGraphFilters,
-                visitedEntities,
-                viaEntities,
-                existingPaths,
-                result,
-                i,
-                maxRelations,
-                allowPartialResults);
+        ImpactHopResult hopResult;
+        try {
+          hopResult =
+              processOneHopLineageWithMaxRelations(
+                  opContext,
+                  currentLevel,
+                  remainingTime,
+                  maxHops,
+                  lineageGraphFilters,
+                  visitedEntities,
+                  viaEntities,
+                  existingPaths,
+                  result,
+                  i,
+                  maxRelations,
+                  allowPartialResults);
+        } catch (LineageTimeoutException e) {
+          // Strict-mode slice timeouts surface here; record them on the same cascade so every
+          // timeout, whichever site detected it, lands on graph_walk.errors{error_type=timeout}.
+          // ponytail: partial-mode slice timeouts on the final hop are only visible via isPartial;
+          // add a reason to LineageSliceFetchResult if that rate ever needs its own series.
+          cascade.recordError("timeout");
+          throw e;
+        }
         currentLevel = hopResult.getNextLevelUrns();
         isPartial |= hopResult.isSlicePartial();
         cascade.recordEntitiesProcessed(result.size() - sizeBefore);
@@ -1855,13 +1858,6 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         }
 
       } catch (TimeoutException e) {
-        // Meter in both strict and partial mode so the slice-timeout rate is observable regardless
-        // of partialResults. Same {phase} tag key as the other timeout sites (Prometheus rejects a
-        // metric name reused with a different set of tag keys).
-        if (metricUtils != null) {
-          metricUtils.incrementMicrometer(
-              GraphQueryConstants.LINEAGE_TIMEOUT_METRIC, 1, "phase", "slice");
-        }
         if (!allowPartialResults) {
           log.error("Slice {} timed out after {} seconds", i, futureTimeout);
           sliceFutures.forEach(f -> f.cancel(true));
@@ -1930,8 +1926,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
    * complete. In strict mode this throws the distinct {@link LineageTimeoutException} so the
    * GraphQL layer surfaces DEADLINE_EXCEEDED; in partial mode the caller keeps whatever the slice
    * already collected on prior pages and stops paginating (returns {@code true}) rather than
-   * throwing those results away. Metered in both modes with the shared {@code phase} tag key so the
-   * timeout rate is observable regardless of partialResults.
+   * throwing those results away.
    *
    * @param appliedTimeoutSeconds the per-search timeout actually applied (the remaining wall-clock
    *     budget), used only for the strict-mode message
@@ -1945,10 +1940,6 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       long appliedTimeoutSeconds) {
     if (response == null || !response.isTimedOut()) {
       return false;
-    }
-    if (metricUtils != null) {
-      metricUtils.incrementMicrometer(
-          GraphQueryConstants.LINEAGE_TIMEOUT_METRIC, 1, "phase", "slice_search");
     }
     if (!allowPartialResults) {
       throw new LineageTimeoutException(
