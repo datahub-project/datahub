@@ -664,3 +664,45 @@ def test_a_kind_nothing_declares_is_left_alone_and_still_warns():
         names=["orders"],
     )
     assert result.warnings
+
+
+def test_a_hypothetical_pattern_is_normalized_the_way_the_recipe_would_be():
+    """--try-allow has to answer "what if I wrote this in the recipe".
+
+    It installed the pattern with model_copy(update=...), which does not rerun
+    validators -- and BigQuery's after-validator rewrites an unqualified
+    dataset_pattern entry to match `project.dataset`. So the recipe's own
+    `^analytics$` became `^.*\\.analytics$` and INCLUDED analytics, while the
+    identical pattern passed to --try-allow stayed raw and EXCLUDED it. The
+    command answered the opposite of the edit it was simulating, on the config
+    BigQuery ships by default (match_fully_qualified_names is True).
+    """
+    in_recipe = check_filters(
+        source_type="bigquery",
+        config_dict={
+            "project_ids": ["proj1"],
+            "dataset_pattern": {"allow": ["^analytics$"]},
+        },
+        kind="Schema",
+        parent_path=[],
+        names=["analytics", "other"],
+    )
+    hypothetical = check_filters(
+        source_type="bigquery",
+        config_dict={"project_ids": ["proj1"], "dataset_pattern": {"allow": [".*"]}},
+        kind="Schema",
+        parent_path=[],
+        names=["analytics", "other"],
+        try_allow=["^analytics$"],
+    )
+
+    assert [(v.name, v.included) for v in hypothetical.results] == [
+        (v.name, v.included) for v in in_recipe.results
+    ]
+    # And the verdict is the useful one, not merely a matching pair of wrongs.
+    assert [(v.name, v.included) for v in hypothetical.results] == [
+        ("analytics", True),
+        ("other", False),
+    ]
+    # `tried` still echoes what the caller asked for, not the rewritten form.
+    assert hypothetical.tried == {"allow": ["^analytics$"], "deny": []}

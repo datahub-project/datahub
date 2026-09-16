@@ -13,7 +13,7 @@ import subprocess
 import sys
 from collections.abc import Generator, Iterator
 from datetime import datetime, timezone
-from typing import Annotated, Any, Optional, Union
+from typing import Annotated, Any, Mapping, Optional, Union
 from urllib.parse import urlparse
 
 # Note: BaseExceptionGroup handling removed for Python 3.9 compatibility
@@ -64,12 +64,20 @@ def _expand_pip_req(req: str) -> str:
         ) from e
 
 
-def referenced_env_values(reqs: list[str]) -> dict[str, str]:
-    """Values of only the env vars the user references in pip requirements."""
+def referenced_env_values(
+    reqs: list[str], env: Optional[Mapping[str, str]] = None
+) -> dict[str, str]:
+    """Values of only the env vars the user references in pip requirements.
+
+    `env` defaults to the ambient environment. Callers that build with a
+    different one -- setup_venv applies extra_env_vars on top -- pass it, so
+    the value actually used is the value registered for masking.
+    """
+    source = os.environ if env is None else env
     values: dict[str, str] = {}
     for req in reqs:
         for name in _extract_env_var_names(req):
-            value = os.environ.get(name)
+            value = source.get(name)
             if value is not None:
                 values[name] = value
     return values
@@ -527,8 +535,27 @@ async def setup_venv(
         )
 
     # Handle dynamic venvs
-    SecretRegistry.get_instance().register_secrets_batch(
+    #
+    # Both the ambient value and the one extra_env_vars overrides it with. The
+    # venv below is built from {**os.environ, **extra_env_vars}, so the
+    # override is what pip receives and what a failing index URL echoes back --
+    # and registering only os.environ left exactly that value maskable
+    # nowhere. The stdin envelope cannot cover it either: subprocess_env_secrets
+    # excludes overridden names on purpose, to keep get_combined_env_vars
+    # precedence in the child.
+    #
+    # Two calls rather than one merged dict: both values live under the same
+    # NAME, and the registry keeps MAX_SECRET_VERSIONS of those, so merging
+    # would silently keep only the last.
+    _registry = SecretRegistry.get_instance()
+    _registry.register_secrets_batch(
         referenced_env_values(venv_config.extra_pip_requirements)
+    )
+    _registry.register_secrets_batch(
+        referenced_env_values(
+            venv_config.extra_pip_requirements,
+            {**os.environ, **venv_config.extra_env_vars},
+        )
     )
 
     # Expand env-var templates once so that the venv cache key and the

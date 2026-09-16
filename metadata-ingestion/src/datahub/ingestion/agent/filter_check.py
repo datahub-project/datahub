@@ -471,6 +471,33 @@ def check_filters(
             # A shallow copy on purpose: model_copy(deep=True) would clone the
             # cached RDS IAM token manager along with its minted token.
             config = config.model_copy(update={pattern_field: pattern})
+            # ...and then re-validated, because model_copy does NOT rerun
+            # validators and some connectors normalize the pattern there.
+            # BigQuery's after-validator rewrites an unqualified
+            # `dataset_pattern` entry to match `project.dataset`, so the
+            # recipe's own `^analytics$` becomes `^.*\.analytics$` and
+            # includes `analytics`, while the same string given to --try-allow
+            # stayed raw and excluded it. The command answered the opposite of
+            # the edit it exists to simulate, on BigQuery's default config.
+            #
+            # validate_assignment rather than a full model_validate: it reruns
+            # the model's after-validators against the instance we already
+            # have, so nothing is reconstructed and the token manager above is
+            # still shared rather than cloned.
+            try:
+                type(config).__pydantic_validator__.validate_assignment(
+                    config, pattern_field, pattern
+                )
+            except Exception:
+                # A connector whose validator rejects the hypothetical is
+                # answering the question: the caller cannot write that in the
+                # recipe either. Reported rather than silently judged against
+                # the un-normalized pattern.
+                warn(
+                    "this source could not accept that pattern as written, so "
+                    "the verdicts below judge it exactly as given; the recipe "
+                    "may normalize it differently"
+                )
     else:
         pattern = recipe_pattern
 
