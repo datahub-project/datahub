@@ -1,0 +1,172 @@
+[ {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,cl_i_test_application,default)",
+  "aspectName" : "dataFlowInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "spark.master" : "local",
+      "openlineageAdapterVersion" : "1.23.0",
+      "processingEngineVersion" : "3.5.1",
+      "spark.app.name" : "CLI test application",
+      "processingEngine" : "spark"
+    },
+    "name" : "cl_i_test_application"
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,cl_i_test_application,default)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,cl_i_test_application,default),cl_i_test_application.drop_table)",
+  "aspectName" : "dataJobInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "spark.master" : "local",
+      "processingType" : "BATCH",
+      "openlineageAdapterVersion" : "1.23.0",
+      "processingEngineVersion" : "3.5.1",
+      "integration" : "SPARK",
+      "spark.app.name" : "CLI test application",
+      "processingEngine" : "spark",
+      "jobType" : "SQL_JOB"
+    },
+    "created" : {
+      "time" : 1729156691500
+    },
+    "name" : "drop_table",
+    "flowUrn" : "urn:li:dataFlow:(spark,cl_i_test_application,default)",
+    "type" : {
+      "string" : "spark"
+    }
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,cl_i_test_application,default),cl_i_test_application.drop_table)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.t1,PROD)",
+  "aspectName" : "datasetKey",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "default.t1",
+    "platform" : "urn:li:dataPlatform:hive",
+    "origin" : "PROD"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.t1,PROD)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.t1,PROD)",
+  "aspectName" : "schemaMetadata",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "platformSchema" : {
+      "com.linkedin.schema.MySqlDDL" : {
+        "tableSchema" : "[]"
+      }
+    },
+    "schemaName" : "",
+    "fields" : [ ],
+    "version" : 1,
+    "hash" : "",
+    "platform" : "urn:li:dataPlatform:hdfs"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.t1,PROD)",
+  "aspectName" : "operation",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "actor" : "urn:li:corpuser:datahub",
+    "lastUpdatedTimestamp" : 1729156691500,
+    "timestampMillis" : 1729156691500,
+    "customProperties" : {
+      "lifecycleStateChange" : "DROP"
+    },
+    "operationType" : "DROP"
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,cl_i_test_application,default),cl_i_test_application.drop_table)",
+  "aspectName" : "dataJobInputOutput",
+  "changeType" : "PATCH",
+  "aspect" : [ {
+    "op" : "add",
+    "path" : "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:hive,default.t1,PROD)",
+    "value" : {
+      "destinationUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.t1,PROD)",
+      "lastModified" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      },
+      "created" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      }
+    }
+  } ]
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019299c5-364c-79a9-9d83-659761b84279",
+  "aspectName" : "dataProcessInstanceInput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "inputs" : [ ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019299c5-364c-79a9-9d83-659761b84279",
+  "aspectName" : "dataProcessInstanceOutput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "outputs" : [ "urn:li:dataset:(urn:li:dataPlatform:hive,default.t1,PROD)" ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019299c5-364c-79a9-9d83-659761b84279",
+  "aspectName" : "dataProcessInstanceProperties",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "019299c5-364c-79a9-9d83-659761b84279",
+    "created" : {
+      "actor" : "urn:li:corpuser:datahub",
+      "time" : 1729156691500
+    }
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019299c5-364c-79a9-9d83-659761b84279",
+  "aspectName" : "dataProcessInstanceRunEvent",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "timestampMillis" : 1729156691500,
+    "status" : "STARTED"
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019299c5-364c-79a9-9d83-659761b84279",
+  "aspectName" : "dataProcessInstanceRelationships",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "parentTemplate" : "urn:li:dataJob:(urn:li:dataFlow:(spark,cl_i_test_application,default),cl_i_test_application.drop_table)",
+    "upstreamInstances" : [ ]
+  }
+} ]

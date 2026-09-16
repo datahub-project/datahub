@@ -1,0 +1,193 @@
+[ {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage)",
+  "aspectName" : "dataFlowInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "spark.master" : "local",
+      "openlineageAdapterVersion" : "1.19.0-SNAPSHOT",
+      "spark.logicalPlan" : "{\"plan\":[{\"class\":\"org.apache.spark.sql.execution.command.CreateTableCommand\",\"ignoreIfExists\":false,\"table\":{\"schema\":{\"type\":\"struct\",\"fields\":[{\"name\":\"a\",\"metadata\":{},\"type\":\"integer\",\"nullable\":true},{\"name\":\"c\",\"metadata\":{},\"type\":\"integer\",\"nullable\":true}]},\"owner\":\"\",\"createVersion\":\"\",\"identifier\":{\"table\":\"cll_source2\",\"database\":\"default\",\"product-class\":\"org.apache.spark.sql.catalyst.TableIdentifier\"},\"lastAccessTime\":-1,\"unsupportedFeatures\":[],\"schemaPreservesCase\":true,\"storage\":{\"compressed\":false,\"inputFormat\":\"org.apache.hadoop.mapred.TextInputFormat\",\"outputFormat\":\"org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat\",\"serde\":\"org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\",\"product-class\":\"org.apache.spark.sql.catalyst.catalog.CatalogStorageFormat\"},\"tableType\":{\"name\":\"MANAGED\",\"product-class\":\"org.apache.spark.sql.catalyst.catalog.CatalogTableType\"},\"partitionColumnNames\":[],\"provider\":\"hive\",\"createTime\":1722950813469,\"tracksPartitionsInCatalog\":false,\"product-class\":\"org.apache.spark.sql.catalyst.catalog.CatalogTable\"},\"num-children\":0}]}",
+      "processingEngineVersion" : "3.3.4",
+      "spark.app.name" : "Open Lineage Integration Create Table",
+      "processingEngine" : "spark"
+    },
+    "name" : "open_lineage_integration_create_table"
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage),open_lineage_integration_create_table.execute_create_table_command.cll_test_cll_source2)",
+  "aspectName" : "dataJobInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "spark.master" : "local",
+      "processingType" : "BATCH",
+      "openlineageAdapterVersion" : "1.19.0-SNAPSHOT",
+      "processingEngineVersion" : "3.3.4",
+      "integration" : "SPARK",
+      "spark.app.name" : "Open Lineage Integration Create Table",
+      "processingEngine" : "spark",
+      "jobType" : "SQL_JOB"
+    },
+    "created" : {
+      "time" : 1722950813511
+    },
+    "name" : "execute_create_table_command.cll_test_cll_source2",
+    "flowUrn" : "urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage)",
+    "type" : {
+      "string" : "spark"
+    }
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage),open_lineage_integration_create_table.execute_create_table_command.cll_test_cll_source2)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)",
+  "aspectName" : "datasetKey",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "default.cll_source2",
+    "platform" : "urn:li:dataPlatform:hive",
+    "origin" : "PROD"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)",
+  "aspectName" : "schemaMetadata",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "platformSchema" : {
+      "com.linkedin.schema.MySqlDDL" : {
+        "tableSchema" : "[{\"name\":\"a\",\"type\":\"integer\"},{\"name\":\"c\",\"type\":\"integer\"}]"
+      }
+    },
+    "schemaName" : "",
+    "fields" : [ {
+      "fieldPath" : "a",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "integer"
+    }, {
+      "fieldPath" : "c",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "integer"
+    } ],
+    "version" : 1,
+    "hash" : "",
+    "platform" : "urn:li:dataPlatform:file"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)",
+  "aspectName" : "operation",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "actor" : "urn:li:corpuser:datahub",
+    "lastUpdatedTimestamp" : 1722950813511,
+    "timestampMillis" : 1722950813511,
+    "customProperties" : {
+      "lifecycleStateChange" : "CREATE"
+    },
+    "operationType" : "CREATE"
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage),open_lineage_integration_create_table.execute_create_table_command.cll_test_cll_source2)",
+  "aspectName" : "dataJobInputOutput",
+  "changeType" : "PATCH",
+  "aspect" : [ {
+    "op" : "add",
+    "path" : "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)",
+    "value" : {
+      "destinationUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)",
+      "lastModified" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      },
+      "created" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      }
+    }
+  } ]
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127df-074d-7d1b-b8d8-8a2c16a2fe60",
+  "aspectName" : "dataProcessInstanceInput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "inputs" : [ ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127df-074d-7d1b-b8d8-8a2c16a2fe60",
+  "aspectName" : "dataProcessInstanceOutput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "outputs" : [ "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)" ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127df-074d-7d1b-b8d8-8a2c16a2fe60",
+  "aspectName" : "dataProcessInstanceProperties",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "019127df-074d-7d1b-b8d8-8a2c16a2fe60",
+    "created" : {
+      "actor" : "urn:li:corpuser:datahub",
+      "time" : 1722950813511
+    }
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127df-074d-7d1b-b8d8-8a2c16a2fe60",
+  "aspectName" : "dataProcessInstanceRunEvent",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "result" : {
+      "type" : "SUCCESS",
+      "nativeResultType" : "COMPLETE"
+    },
+    "timestampMillis" : 1722950813511,
+    "status" : "COMPLETE"
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127df-074d-7d1b-b8d8-8a2c16a2fe60",
+  "aspectName" : "dataProcessInstanceRelationships",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "parentTemplate" : "urn:li:dataJob:(urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage),open_lineage_integration_create_table.execute_create_table_command.cll_test_cll_source2)",
+    "upstreamInstances" : [ ]
+  }
+} ]

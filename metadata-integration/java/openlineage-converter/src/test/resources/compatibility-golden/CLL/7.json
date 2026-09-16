@@ -1,0 +1,389 @@
+[ {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage)",
+  "aspectName" : "dataFlowInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "spark.master" : "local",
+      "openlineageAdapterVersion" : "1.19.0-SNAPSHOT",
+      "spark.logicalPlan" : "{\"plan\":[{\"class\":\"org.apache.spark.sql.hive.execution.CreateHiveTableAsSelectCommand\",\"tableDesc\":{\"schema\":{\"type\":\"struct\",\"fields\":[]},\"owner\":\"\",\"createVersion\":\"\",\"identifier\":{\"table\":\"tbl1\",\"database\":\"default\",\"product-class\":\"org.apache.spark.sql.catalyst.TableIdentifier\"},\"lastAccessTime\":-1,\"unsupportedFeatures\":[],\"schemaPreservesCase\":true,\"storage\":{\"compressed\":false,\"inputFormat\":\"org.apache.hadoop.mapred.TextInputFormat\",\"outputFormat\":\"org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat\",\"serde\":\"org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\",\"product-class\":\"org.apache.spark.sql.catalyst.catalog.CatalogStorageFormat\"},\"tableType\":{\"name\":\"EXTERNAL\",\"product-class\":\"org.apache.spark.sql.catalyst.catalog.CatalogTableType\"},\"partitionColumnNames\":[],\"provider\":\"hive\",\"createTime\":1722950813630,\"tracksPartitionsInCatalog\":false,\"product-class\":\"org.apache.spark.sql.catalyst.catalog.CatalogTable\"},\"outputColumnNames\":\"[ident, trans, agg]\",\"num-children\":1,\"query\":0},{\"groupingExpressions\":[[{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":\"[t1]\",\"name\":\"a\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":5},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}],[{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"string\",\"qualifier\":\"[t1]\",\"name\":\"b\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":6},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}]],\"class\":\"org.apache.spark.sql.catalyst.plans.logical.Aggregate\",\"aggregateExpressions\":[[{\"nonInheritableMetadataKeys\":[],\"num-children\":1,\"qualifier\":[],\"name\":\"ident\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":0},\"class\":\"org.apache.spark.sql.catalyst.expressions.Alias\",\"child\":0},{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":\"[t1]\",\"name\":\"a\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":5},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}],[{\"nonInheritableMetadataKeys\":[],\"num-children\":1,\"qualifier\":[],\"name\":\"trans\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":1},\"class\":\"org.apache.spark.sql.catalyst.expressions.Alias\",\"child\":0},{\"class\":\"org.apache.spark.sql.catalyst.expressions.Concat\",\"children\":[0,1],\"num-children\":2},{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"string\",\"qualifier\":\"[t1]\",\"name\":\"b\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":6},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"},{\"class\":\"org.apache.spark.sql.catalyst.expressions.Literal\",\"value\":\"test\",\"num-children\":0,\"dataType\":\"string\"}],[{\"nonInheritableMetadataKeys\":[],\"num-children\":1,\"qualifier\":[],\"name\":\"agg\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":2},\"class\":\"org.apache.spark.sql.catalyst.expressions.Alias\",\"child\":0},{\"mode\":{\"object\":\"org.apache.spark.sql.catalyst.expressions.aggregate.Complete$\"},\"isDistinct\":false,\"aggregateFunction\":0,\"resultId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":7},\"class\":\"org.apache.spark.sql.catalyst.expressions.aggregate.AggregateExpression\",\"num-children\":1},{\"useAnsiAdd\":false,\"class\":\"org.apache.spark.sql.catalyst.expressions.aggregate.Sum\",\"num-children\":1,\"child\":0},{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":\"[t2]\",\"name\":\"c\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":4},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}]],\"num-children\":1,\"child\":0},{\"projectList\":[[{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":[],\"name\":\"c\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":4},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}],[{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":[],\"name\":\"a\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":5},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}],[{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"string\",\"qualifier\":[],\"name\":\"b\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":6},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}]],\"class\":\"org.apache.spark.sql.catalyst.plans.logical.Project\",\"num-children\":1,\"child\":0},{\"condition\":[{\"right\":1,\"class\":\"org.apache.spark.sql.catalyst.expressions.EqualTo\",\"left\":0,\"num-children\":2},{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":\"[t1]\",\"name\":\"a\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":5},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"},{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":\"[t2]\",\"name\":\"a\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":3},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}],\"right\":1,\"class\":\"org.apache.spark.sql.catalyst.plans.logical.Join\",\"left\":0,\"num-children\":2,\"joinType\":{\"object\":\"org.apache.spark.sql.catalyst.plans.Inner$\"}},{\"condition\":[{\"right\":1,\"class\":\"org.apache.spark.sql.catalyst.expressions.And\",\"left\":0,\"num-children\":2},{\"class\":\"org.apache.spark.sql.catalyst.expressions.IsNotNull\",\"num-children\":1,\"child\":0},{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":\"[spark_catalog, default, cll_source2]\",\"name\":\"a\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":3},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"},{\"right\":1,\"class\":\"org.apache.spark.sql.catalyst.expressions.GreaterThan\",\"left\":0,\"num-children\":2},{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":\"[spark_catalog, default, cll_source2]\",\"name\":\"a\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":3},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"},{\"class\":\"org.apache.spark.sql.catalyst.expressions.Literal\",\"value\":\"1\",\"num-children\":0,\"dataType\":\"integer\"}],\"class\":\"org.apache.spark.sql.catalyst.plans.logical.Filter\",\"num-children\":1,\"child\":0},{\"partitionCols\":[],\"class\":\"org.apache.spark.sql.catalyst.catalog.HiveTableRelation\",\"tableMeta\":{\"schema\":{\"type\":\"struct\",\"fields\":[{\"name\":\"a\",\"metadata\":{},\"type\":\"integer\",\"nullable\":true},{\"name\":\"c\",\"metadata\":{},\"type\":\"integer\",\"nullable\":true}]},\"owner\":\"spark\",\"createVersion\":\"3.3.4\",\"identifier\":{\"table\":\"cll_source2\",\"database\":\"default\",\"product-class\":\"org.apache.spark.sql.catalyst.TableIdentifier\"},\"lastAccessTime\":0,\"unsupportedFeatures\":[],\"schemaPreservesCase\":true,\"storage\":{\"compressed\":false,\"inputFormat\":\"org.apache.hadoop.mapred.TextInputFormat\",\"outputFormat\":\"org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat\",\"serde\":\"org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\",\"product-class\":\"org.apache.spark.sql.catalyst.catalog.CatalogStorageFormat\"},\"tableType\":{\"name\":\"MANAGED\",\"product-class\":\"org.apache.spark.sql.catalyst.catalog.CatalogTableType\"},\"partitionColumnNames\":[],\"provider\":\"hive\",\"createTime\":1722950813000,\"tracksPartitionsInCatalog\":true,\"product-class\":\"org.apache.spark.sql.catalyst.catalog.CatalogTable\"},\"dataCols\":[[{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":[],\"name\":\"a\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":3},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}],[{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":[],\"name\":\"c\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":4},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}]],\"num-children\":0},{\"condition\":[{\"right\":1,\"class\":\"org.apache.spark.sql.catalyst.expressions.And\",\"left\":0,\"num-children\":2},{\"right\":1,\"class\":\"org.apache.spark.sql.catalyst.expressions.GreaterThan\",\"left\":0,\"num-children\":2},{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":\"[t1]\",\"name\":\"a\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":5},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"},{\"class\":\"org.apache.spark.sql.catalyst.expressions.Literal\",\"value\":\"1\",\"num-children\":0,\"dataType\":\"integer\"},{\"class\":\"org.apache.spark.sql.catalyst.expressions.IsNotNull\",\"num-children\":1,\"child\":0},{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":\"[t1]\",\"name\":\"a\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":5},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}],\"class\":\"org.apache.spark.sql.catalyst.plans.logical.Filter\",\"num-children\":1,\"child\":0},{\"partitionCols\":[],\"class\":\"org.apache.spark.sql.catalyst.catalog.HiveTableRelation\",\"tableMeta\":{\"schema\":{\"type\":\"struct\",\"fields\":[{\"name\":\"a\",\"metadata\":{},\"type\":\"integer\",\"nullable\":true},{\"name\":\"b\",\"metadata\":{},\"type\":\"string\",\"nullable\":true}]},\"owner\":\"spark\",\"createVersion\":\"3.3.4\",\"identifier\":{\"table\":\"cll_source1\",\"database\":\"default\",\"product-class\":\"org.apache.spark.sql.catalyst.TableIdentifier\"},\"lastAccessTime\":0,\"unsupportedFeatures\":[],\"schemaPreservesCase\":true,\"storage\":{\"compressed\":false,\"inputFormat\":\"org.apache.hadoop.mapred.TextInputFormat\",\"outputFormat\":\"org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat\",\"serde\":\"org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\",\"product-class\":\"org.apache.spark.sql.catalyst.catalog.CatalogStorageFormat\"},\"tableType\":{\"name\":\"MANAGED\",\"product-class\":\"org.apache.spark.sql.catalyst.catalog.CatalogTableType\"},\"partitionColumnNames\":[],\"provider\":\"hive\",\"createTime\":1722950813000,\"tracksPartitionsInCatalog\":true,\"product-class\":\"org.apache.spark.sql.catalyst.catalog.CatalogTable\"},\"dataCols\":[[{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"integer\",\"qualifier\":[],\"name\":\"a\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":5},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}],[{\"metadata\":{},\"nullable\":true,\"num-children\":0,\"dataType\":\"string\",\"qualifier\":[],\"name\":\"b\",\"exprId\":{\"jvmId\":\"20c7eddf-cc84-4b90-8cd7-6bb02673e892\",\"product-class\":\"org.apache.spark.sql.catalyst.expressions.ExprId\",\"id\":6},\"class\":\"org.apache.spark.sql.catalyst.expressions.AttributeReference\"}]],\"num-children\":0}]}",
+      "processingEngineVersion" : "3.3.4",
+      "spark.app.name" : "Open Lineage Integration Create Table",
+      "processingEngine" : "spark"
+    },
+    "name" : "open_lineage_integration_create_table"
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage),open_lineage_integration_create_table.execute_create_hive_table_as_select_command.default_tbl1)",
+  "aspectName" : "dataJobInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "spark.master" : "local",
+      "processingType" : "BATCH",
+      "openlineageAdapterVersion" : "1.19.0-SNAPSHOT",
+      "processingEngineVersion" : "3.3.4",
+      "integration" : "SPARK",
+      "spark.app.name" : "Open Lineage Integration Create Table",
+      "processingEngine" : "spark",
+      "jobType" : "SQL_JOB"
+    },
+    "created" : {
+      "time" : 1722950814268
+    },
+    "name" : "execute_create_hive_table_as_select_command.default_tbl1",
+    "flowUrn" : "urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage)",
+    "type" : {
+      "string" : "spark"
+    }
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage),open_lineage_integration_create_table.execute_create_hive_table_as_select_command.default_tbl1)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD)",
+  "aspectName" : "datasetKey",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "default.cll_source1",
+    "platform" : "urn:li:dataPlatform:hive",
+    "origin" : "PROD"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD)",
+  "aspectName" : "schemaMetadata",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "platformSchema" : {
+      "com.linkedin.schema.MySqlDDL" : {
+        "tableSchema" : "[{\"name\":\"a\",\"type\":\"integer\"},{\"name\":\"b\",\"type\":\"string\"}]"
+      }
+    },
+    "schemaName" : "",
+    "fields" : [ {
+      "fieldPath" : "a",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "integer"
+    }, {
+      "fieldPath" : "b",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.StringType" : { }
+        }
+      },
+      "nativeDataType" : "string"
+    } ],
+    "version" : 1,
+    "hash" : "",
+    "platform" : "urn:li:dataPlatform:file"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)",
+  "aspectName" : "datasetKey",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "default.cll_source2",
+    "platform" : "urn:li:dataPlatform:hive",
+    "origin" : "PROD"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)",
+  "aspectName" : "schemaMetadata",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "platformSchema" : {
+      "com.linkedin.schema.MySqlDDL" : {
+        "tableSchema" : "[{\"name\":\"a\",\"type\":\"integer\"},{\"name\":\"c\",\"type\":\"integer\"}]"
+      }
+    },
+    "schemaName" : "",
+    "fields" : [ {
+      "fieldPath" : "a",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "integer"
+    }, {
+      "fieldPath" : "c",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "integer"
+    } ],
+    "version" : 1,
+    "hash" : "",
+    "platform" : "urn:li:dataPlatform:file"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD)",
+  "aspectName" : "datasetKey",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "default.tbl1",
+    "platform" : "urn:li:dataPlatform:hive",
+    "origin" : "PROD"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD)",
+  "aspectName" : "schemaMetadata",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "platformSchema" : {
+      "com.linkedin.schema.MySqlDDL" : {
+        "tableSchema" : "[{\"name\":\"ident\",\"type\":\"integer\"},{\"name\":\"trans\",\"type\":\"string\"},{\"name\":\"agg\",\"type\":\"long\"}]"
+      }
+    },
+    "schemaName" : "",
+    "fields" : [ {
+      "fieldPath" : "ident",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "integer"
+    }, {
+      "fieldPath" : "trans",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.StringType" : { }
+        }
+      },
+      "nativeDataType" : "string"
+    }, {
+      "fieldPath" : "agg",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "long"
+    } ],
+    "version" : 1,
+    "hash" : "",
+    "platform" : "urn:li:dataPlatform:file"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD)",
+  "aspectName" : "operation",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "actor" : "urn:li:corpuser:datahub",
+    "lastUpdatedTimestamp" : 1722950814268,
+    "timestampMillis" : 1722950814268,
+    "customProperties" : {
+      "sizeInBytes" : "0",
+      "lifecycleStateChange" : "CREATE"
+    },
+    "numAffectedRows" : 0,
+    "operationType" : "CREATE"
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage),open_lineage_integration_create_table.execute_create_hive_table_as_select_command.default_tbl1)",
+  "aspectName" : "dataJobInputOutput",
+  "changeType" : "PATCH",
+  "aspect" : [ {
+    "op" : "add",
+    "path" : "/inputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD)",
+    "value" : {
+      "destinationUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD)",
+      "lastModified" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      },
+      "created" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      }
+    }
+  }, {
+    "op" : "add",
+    "path" : "/inputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)",
+    "value" : {
+      "destinationUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)",
+      "lastModified" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      },
+      "created" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      }
+    }
+  }, {
+    "op" : "add",
+    "path" : "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD)",
+    "value" : {
+      "destinationUrn" : "urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD)",
+      "lastModified" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      },
+      "created" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      }
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:IDENTITY,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),ident)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),a)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:IDENTITY,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),ident)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),b)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:IDENTITY,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),ident)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD),a)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:TRANSFORMATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),trans)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),a)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:TRANSFORMATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),trans)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),b)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:TRANSFORMATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),trans)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD),a)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:AGGREGATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),agg)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),a)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:AGGREGATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),agg)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),b)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:AGGREGATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),agg)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD),a)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:AGGREGATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),agg)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD),c)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  } ]
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127df-0850-72bc-b214-b255290588a6",
+  "aspectName" : "dataProcessInstanceInput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "inputs" : [ "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD)", "urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD)" ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127df-0850-72bc-b214-b255290588a6",
+  "aspectName" : "dataProcessInstanceOutput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "outputs" : [ "urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD)" ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127df-0850-72bc-b214-b255290588a6",
+  "aspectName" : "dataProcessInstanceProperties",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "019127df-0850-72bc-b214-b255290588a6",
+    "created" : {
+      "actor" : "urn:li:corpuser:datahub",
+      "time" : 1722950814268
+    }
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127df-0850-72bc-b214-b255290588a6",
+  "aspectName" : "dataProcessInstanceRunEvent",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "timestampMillis" : 1722950814268,
+    "status" : "STARTED"
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127df-0850-72bc-b214-b255290588a6",
+  "aspectName" : "dataProcessInstanceRelationships",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "parentTemplate" : "urn:li:dataJob:(urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage),open_lineage_integration_create_table.execute_create_hive_table_as_select_command.default_tbl1)",
+    "upstreamInstances" : [ ]
+  }
+} ]

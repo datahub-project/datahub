@@ -1,0 +1,190 @@
+[ {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,shakespeare_on_spark,default)",
+  "aspectName" : "dataFlowInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "spark.master" : "yarn",
+      "openlineageAdapterVersion" : "1.23.0",
+      "processingEngineVersion" : "3.5.1",
+      "spark.app.name" : "Shakespeare on Spark",
+      "processingEngine" : "spark"
+    },
+    "name" : "shakespeare_on_spark"
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,shakespeare_on_spark,default)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,shakespeare_on_spark,default),shakespeare_on_spark.adaptive_spark_plan)",
+  "aspectName" : "dataJobInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "spark.master" : "yarn",
+      "processingType" : "BATCH",
+      "openlineageAdapterVersion" : "1.23.0",
+      "processingEngineVersion" : "3.5.1",
+      "integration" : "SPARK",
+      "spark.app.name" : "Shakespeare on Spark",
+      "processingEngine" : "spark",
+      "jobType" : "SQL_JOB"
+    },
+    "created" : {
+      "time" : 1729097613451
+    },
+    "name" : "adaptive_spark_plan",
+    "flowUrn" : "urn:li:dataFlow:(spark,shakespeare_on_spark,default)",
+    "type" : {
+      "string" : "spark"
+    }
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,shakespeare_on_spark,default),shakespeare_on_spark.adaptive_spark_plan)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.samples.shakespeare,PROD)",
+  "aspectName" : "datasetKey",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "bigquery-public-data.samples.shakespeare",
+    "platform" : "urn:li:dataPlatform:bigquery",
+    "origin" : "PROD"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.samples.shakespeare,PROD)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.samples.shakespeare,PROD)",
+  "aspectName" : "schemaMetadata",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "platformSchema" : {
+      "com.linkedin.schema.MySqlDDL" : {
+        "tableSchema" : "[{\"name\":\"word\",\"type\":\"string\",\"description\":\"A single unique word (where whitespace is the delimiter) extracted from a corpus.\"},{\"name\":\"word_count\",\"type\":\"long\",\"description\":\"The number of times this word appears in this corpus.\"},{\"name\":\"corpus\",\"type\":\"string\",\"description\":\"The work from which this word was extracted.\"},{\"name\":\"corpus_date\",\"type\":\"long\",\"description\":\"The year in which this corpus was published.\"}]"
+      }
+    },
+    "schemaName" : "",
+    "fields" : [ {
+      "fieldPath" : "word",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.StringType" : { }
+        }
+      },
+      "nativeDataType" : "string"
+    }, {
+      "fieldPath" : "word_count",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "long"
+    }, {
+      "fieldPath" : "corpus",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.StringType" : { }
+        }
+      },
+      "nativeDataType" : "string"
+    }, {
+      "fieldPath" : "corpus_date",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "long"
+    } ],
+    "version" : 1,
+    "hash" : "",
+    "platform" : "urn:li:dataPlatform:bigquery"
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,shakespeare_on_spark,default),shakespeare_on_spark.adaptive_spark_plan)",
+  "aspectName" : "dataJobInputOutput",
+  "changeType" : "PATCH",
+  "aspect" : [ {
+    "op" : "add",
+    "path" : "/inputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.samples.shakespeare,PROD)",
+    "value" : {
+      "destinationUrn" : "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.samples.shakespeare,PROD)",
+      "lastModified" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      },
+      "created" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      }
+    }
+  } ]
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:0192963f-c099-7dff-8d04-a90a16c16859",
+  "aspectName" : "dataProcessInstanceInput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "inputs" : [ "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.samples.shakespeare,PROD)" ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:0192963f-c099-7dff-8d04-a90a16c16859",
+  "aspectName" : "dataProcessInstanceOutput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "outputs" : [ ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:0192963f-c099-7dff-8d04-a90a16c16859",
+  "aspectName" : "dataProcessInstanceProperties",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "0192963f-c099-7dff-8d04-a90a16c16859",
+    "created" : {
+      "actor" : "urn:li:corpuser:datahub",
+      "time" : 1729097613451
+    }
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:0192963f-c099-7dff-8d04-a90a16c16859",
+  "aspectName" : "dataProcessInstanceRunEvent",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "timestampMillis" : 1729097613451,
+    "status" : "STARTED"
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:0192963f-c099-7dff-8d04-a90a16c16859",
+  "aspectName" : "dataProcessInstanceRelationships",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "parentTemplate" : "urn:li:dataJob:(urn:li:dataFlow:(spark,shakespeare_on_spark,default),shakespeare_on_spark.adaptive_spark_plan)",
+    "upstreamInstances" : [ ]
+  }
+} ]

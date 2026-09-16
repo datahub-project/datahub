@@ -78,6 +78,28 @@ Non-standard vendor facets (`gcp_*`, `airflowDagRun`, `airflowState`, `spark_app
 `sourceCode` are the two worth revisiting: both are widely emitted and both have somewhere obvious
 to land.
 
+## Golden comparison
+
+`CompatibilityGoldenTest` writes everything the converter emits for each event — every proposal,
+URN, change type and aspect field — to `src/test/resources/compatibility-golden/`, mirroring the
+scenario layout. `CompatibilityCorpusTest` says what we _meant_ by naming a few facets and the
+aspects they become; the goldens say what we _produce_, including the parts nobody thought to
+assert.
+
+Regenerate after an intentional change, then read the diff:
+
+```bash
+./gradlew :metadata-integration:java:openlineage-converter:test \
+    --tests "*CompatibilityGoldenTest*" -Dopenlineage.golden.regenerate=true
+```
+
+The task deliberately fails after rewriting, so a regeneration cannot be mistaken for a passing
+run. A golden nobody reads is a golden that has stopped catching anything.
+
+Edge audit stamps come from the wall clock and would differ on every run, so any timestamp within a
+day of now is written as `<WALL_CLOCK>`. Timestamps the event itself supplied are left intact and
+are real assertions — the corpus is from 2024, so the two never collide.
+
 ## What the converted output actually looks like
 
 Checked by converting the corpus and reading the proposals, not only by asserting that conversion

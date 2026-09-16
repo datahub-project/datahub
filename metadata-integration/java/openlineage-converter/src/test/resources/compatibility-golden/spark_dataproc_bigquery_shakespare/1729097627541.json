@@ -1,0 +1,200 @@
+[ {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,shakespeare_on_spark,default)",
+  "aspectName" : "dataFlowInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "jobId" : "2",
+      "spark.master" : "yarn",
+      "openlineageAdapterVersion" : "1.23.0",
+      "processingEngineVersion" : "3.5.1",
+      "spark.app.name" : "Shakespeare on Spark",
+      "processingEngine" : "spark"
+    },
+    "name" : "shakespeare_on_spark"
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,shakespeare_on_spark,default)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,shakespeare_on_spark,default),shakespeare_on_spark.adaptive_spark_plan.outputs_1729097570970)",
+  "aspectName" : "dataJobInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "jobId" : "2",
+      "spark.master" : "yarn",
+      "processingType" : "BATCH",
+      "openlineageAdapterVersion" : "1.23.0",
+      "processingEngineVersion" : "3.5.1",
+      "integration" : "SPARK",
+      "spark.app.name" : "Shakespeare on Spark",
+      "processingEngine" : "spark",
+      "jobType" : "SQL_JOB"
+    },
+    "created" : {
+      "time" : 1729097627541
+    },
+    "name" : "adaptive_spark_plan.outputs_1729097570970",
+    "flowUrn" : "urn:li:dataFlow:(spark,shakespeare_on_spark,default)",
+    "type" : {
+      "string" : "spark"
+    }
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,shakespeare_on_spark,default),shakespeare_on_spark.adaptive_spark_plan.outputs_1729097570970)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/outputs/1729097570970,PROD)",
+  "aspectName" : "datasetKey",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "/tmp/outputs/1729097570970",
+    "platform" : "urn:li:dataPlatform:file",
+    "origin" : "PROD"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/outputs/1729097570970,PROD)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/outputs/1729097570970,PROD)",
+  "aspectName" : "schemaMetadata",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "platformSchema" : {
+      "com.linkedin.schema.MySqlDDL" : {
+        "tableSchema" : "[{\"name\":\"word\",\"type\":\"string\",\"description\":\"A single unique word (where whitespace is the delimiter) extracted from a corpus.\"},{\"name\":\"sum(word_count)\",\"type\":\"long\"}]"
+      }
+    },
+    "schemaName" : "",
+    "fields" : [ {
+      "fieldPath" : "word",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.StringType" : { }
+        }
+      },
+      "nativeDataType" : "string"
+    }, {
+      "fieldPath" : "sum(word_count)",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "long"
+    } ],
+    "version" : 1,
+    "hash" : "",
+    "platform" : "urn:li:dataPlatform:file"
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,shakespeare_on_spark,default),shakespeare_on_spark.adaptive_spark_plan.outputs_1729097570970)",
+  "aspectName" : "dataJobInputOutput",
+  "changeType" : "PATCH",
+  "aspect" : [ {
+    "op" : "add",
+    "path" : "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:file,~1tmp~1outputs~11729097570970,PROD)",
+    "value" : {
+      "destinationUrn" : "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/outputs/1729097570970,PROD)",
+      "lastModified" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      },
+      "created" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      }
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:IDENTITY,INDIRECT:FILTER,INDIRECT:GROUP_BY/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:file,~1tmp~1outputs~11729097570970,PROD),word)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.samples.shakespeare,PROD),word)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:IDENTITY,INDIRECT:FILTER,INDIRECT:GROUP_BY/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:file,~1tmp~1outputs~11729097570970,PROD),word)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.samples.shakespeare,PROD),word_count)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:AGGREGATION,INDIRECT:FILTER,INDIRECT:GROUP_BY/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:file,~1tmp~1outputs~11729097570970,PROD),sum(word_count))/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.samples.shakespeare,PROD),word)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/DIRECT:AGGREGATION,INDIRECT:FILTER,INDIRECT:GROUP_BY/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:file,~1tmp~1outputs~11729097570970,PROD),sum(word_count))/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.samples.shakespeare,PROD),word_count)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  } ]
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:0192963f-f6f8-71c0-8380-500bc70883ee",
+  "aspectName" : "dataProcessInstanceInput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "inputs" : [ ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:0192963f-f6f8-71c0-8380-500bc70883ee",
+  "aspectName" : "dataProcessInstanceOutput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "outputs" : [ "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/outputs/1729097570970,PROD)" ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:0192963f-f6f8-71c0-8380-500bc70883ee",
+  "aspectName" : "dataProcessInstanceProperties",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "0192963f-f6f8-71c0-8380-500bc70883ee",
+    "created" : {
+      "actor" : "urn:li:corpuser:datahub",
+      "time" : 1729097627541
+    }
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:0192963f-f6f8-71c0-8380-500bc70883ee",
+  "aspectName" : "dataProcessInstanceRunEvent",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "timestampMillis" : 1729097627541,
+    "status" : "STARTED"
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:0192963f-f6f8-71c0-8380-500bc70883ee",
+  "aspectName" : "dataProcessInstanceRelationships",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "parentTemplate" : "urn:li:dataJob:(urn:li:dataFlow:(spark,shakespeare_on_spark,default),shakespeare_on_spark.adaptive_spark_plan.outputs_1729097570970)",
+    "upstreamInstances" : [ ]
+  }
+} ]

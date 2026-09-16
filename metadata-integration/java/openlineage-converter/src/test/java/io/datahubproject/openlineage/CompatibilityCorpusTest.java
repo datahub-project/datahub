@@ -42,7 +42,7 @@ public class CompatibilityCorpusTest {
    * requires a UUID and the OpenLineage client enforces it, so it is excluded here and asserted
    * separately.
    */
-  private static final String NON_CONFORMANT = "simple_run_event/simple_run_event.json";
+  static final String NON_CONFORMANT = "simple_run_event/simple_run_event.json";
 
   @Test
   public void everyConformantEventConverts() throws Exception {

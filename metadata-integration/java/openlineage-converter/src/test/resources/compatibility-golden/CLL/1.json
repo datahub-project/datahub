@@ -1,0 +1,103 @@
+[ {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage)",
+  "aspectName" : "dataFlowInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "spark.master" : "local",
+      "openlineageAdapterVersion" : "1.19.0-SNAPSHOT",
+      "processingEngineVersion" : "3.3.4",
+      "spark.app.name" : "Open Lineage Integration Create Table",
+      "processingEngine" : "spark"
+    },
+    "name" : "open_lineage_integration_create_table"
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage),open_lineage_integration_create_table)",
+  "aspectName" : "dataJobInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "spark.master" : "local",
+      "processingType" : "NONE",
+      "openlineageAdapterVersion" : "1.19.0-SNAPSHOT",
+      "processingEngineVersion" : "3.3.4",
+      "integration" : "SPARK",
+      "spark.app.name" : "Open Lineage Integration Create Table",
+      "processingEngine" : "spark",
+      "jobType" : "APPLICATION"
+    },
+    "created" : {
+      "time" : 1722950809980
+    },
+    "name" : "open_lineage_integration_create_table",
+    "flowUrn" : "urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage)",
+    "type" : {
+      "string" : "spark"
+    }
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage),open_lineage_integration_create_table)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127de-fd25-7707-bfa4-3ec02693a531",
+  "aspectName" : "dataProcessInstanceInput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "inputs" : [ ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127de-fd25-7707-bfa4-3ec02693a531",
+  "aspectName" : "dataProcessInstanceOutput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "outputs" : [ ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127de-fd25-7707-bfa4-3ec02693a531",
+  "aspectName" : "dataProcessInstanceProperties",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "019127de-fd25-7707-bfa4-3ec02693a531",
+    "created" : {
+      "actor" : "urn:li:corpuser:datahub",
+      "time" : 1722950809980
+    }
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127de-fd25-7707-bfa4-3ec02693a531",
+  "aspectName" : "dataProcessInstanceRunEvent",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "timestampMillis" : 1722950809980,
+    "status" : "STARTED"
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019127de-fd25-7707-bfa4-3ec02693a531",
+  "aspectName" : "dataProcessInstanceRelationships",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "parentTemplate" : "urn:li:dataJob:(urn:li:dataFlow:(spark,open_lineage_integration_create_table,testColumnLevelLineage),open_lineage_integration_create_table)",
+    "upstreamInstances" : [ ]
+  }
+} ]

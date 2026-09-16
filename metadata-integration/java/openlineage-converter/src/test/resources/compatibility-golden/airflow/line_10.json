@@ -1,0 +1,157 @@
+[ {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(airflow,dag,airflow)",
+  "aspectName" : "dataFlowInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "owner" : "airflow",
+      "openlineageAdapterVersion" : "1.14.0",
+      "processingEngineVersion" : "3.0.0.dev0",
+      "processingEngine" : "Airflow",
+      "dag_id" : "dag",
+      "fileloc" : "/files/dags/dag.py",
+      "timetable_summary" : "None",
+      "start_date" : "2024-07-03T00:00:00+00:00",
+      "tags" : "[]"
+    },
+    "name" : "dag"
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(airflow,dag,airflow)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,airflow),dag.task_0)",
+  "aspectName" : "dataJobInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "ignore_first_depends_on_past" : "false",
+      "processingType" : "BATCH",
+      "trigger_rule" : "all_success",
+      "outlets" : "[]",
+      "retry_exponential_backoff" : "false",
+      "task_id" : "task_0",
+      "type" : "operator",
+      "operator_class_path" : "***.providers.standard.operators.bash.BashOperator",
+      "jobType" : "TASK",
+      "priority_weight" : "1",
+      "owner" : "***",
+      "wait_for_past_depends_before_skipping" : "false",
+      "openlineageAdapterVersion" : "1.14.0",
+      "depends_on_past" : "false",
+      "processingEngineVersion" : "3.0.0.dev0",
+      "processingEngine" : "Airflow",
+      "downstream_task_ids" : "[]",
+      "inlets" : "[]",
+      "operator_class" : "BashOperator",
+      "retries" : "0",
+      "upstream_task_ids" : "[]",
+      "integration" : "AIRFLOW",
+      "name" : "BashOperator",
+      "mapped" : "false",
+      "multiple_outputs" : "false",
+      "wait_for_downstream" : "false",
+      "queue" : "default",
+      "weight_rule" : "<<non-serializable: _DownstreamPriorityWeightStrategy>>"
+    },
+    "created" : {
+      "time" : 1732626369459
+    },
+    "name" : "task_0",
+    "flowUrn" : "urn:li:dataFlow:(airflow,dag,airflow)",
+    "type" : {
+      "string" : "airflow"
+    }
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,airflow),dag.task_0)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(airflow,dag,airflow)",
+  "aspectName" : "globalTags",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "tags" : [ ]
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,airflow),dag.task_0)",
+  "aspectName" : "ownership",
+  "changeType" : "PATCH",
+  "aspect" : {
+    "arrayPrimaryKeys" : {
+      "owners" : [ "owner", "type", "typeUrn", "attribution␟source" ]
+    },
+    "patch" : [ {
+      "op" : "add",
+      "path" : "/owners/urn:li:corpuser:***/TECHNICAL_OWNER//",
+      "value" : {
+        "owner" : "urn:li:corpuser:***",
+        "type" : "TECHNICAL_OWNER"
+      }
+    } ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936894-494e-7c48-be1c-4a3656eb1868",
+  "aspectName" : "dataProcessInstanceInput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "inputs" : [ ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936894-494e-7c48-be1c-4a3656eb1868",
+  "aspectName" : "dataProcessInstanceOutput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "outputs" : [ ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936894-494e-7c48-be1c-4a3656eb1868",
+  "aspectName" : "dataProcessInstanceProperties",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "01936894-494e-7c48-be1c-4a3656eb1868",
+    "customProperties" : {
+      "nominalEndTime" : "2024-11-26T13:06:08.846147Z",
+      "nominalStartTime" : "2024-11-26T13:06:08.846147Z"
+    },
+    "created" : {
+      "actor" : "urn:li:corpuser:datahub",
+      "time" : 1732626369459
+    }
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936894-494e-7c48-be1c-4a3656eb1868",
+  "aspectName" : "dataProcessInstanceRunEvent",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "timestampMillis" : 1732626369459,
+    "status" : "STARTED"
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936894-494e-7c48-be1c-4a3656eb1868",
+  "aspectName" : "dataProcessInstanceRelationships",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "parentTemplate" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,airflow),dag.task_0)",
+    "upstreamInstances" : [ ]
+  }
+} ]

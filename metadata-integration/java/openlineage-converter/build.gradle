@@ -34,6 +34,12 @@ test {
 test {
     useJUnit()
     useTestNG()
+    // Gradle does not forward -D to the test JVM, and CompatibilityGoldenTest reads this to
+    // decide between comparing against the goldens and rewriting them.
+    if (System.getProperty('openlineage.golden.regenerate') != null) {
+        systemProperty 'openlineage.golden.regenerate',
+                System.getProperty('openlineage.golden.regenerate')
+    }
 }
 
 shadowJar {
