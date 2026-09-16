@@ -29,6 +29,7 @@ from datahub.ingestion.source.sigma.data_classes import (
 )
 from datahub.ingestion.source.sigma.sigma import (
     SigmaSource,
+    _normalize_warehouse_identifier,
     _WarehouseTableRef,
 )
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
@@ -602,3 +603,51 @@ class TestDatasetListingFailure:
         with patch.object(source.reporter, "info") as spy:
             assert source._get_dataset_warehouse_refs("unknown-url-id") == []
             assert "workspace_pattern" in spy.call_args.kwargs["message"]
+
+
+class TestIdentifierCasing:
+    """convert_urns_to_lowercase, and the table/column mirror.
+
+    The flag is a no-op outside _WAREHOUSE_LOWERCASE_PLATFORMS unless the
+    operator sets it, which is the only way back to the spelling the
+    pre-deprecation SQL route produced. Table and column identifiers must always
+    agree, or a schemaField URN pairs a lower-cased table with a mixed-case
+    column.
+    """
+
+    REF = _WarehouseTableRef(
+        connection_id="c", db="Analytics", schema="Public", table="Orders"
+    )
+
+    @pytest.mark.parametrize(
+        ("platform", "lowercase", "explicit", "expected"),
+        [
+            # Untouched defaults: Snowflake lower-cases, others do not.
+            ("snowflake", True, False, "analytics.public.orders"),
+            ("postgres", True, False, "Analytics.Public.Orders"),
+            # Explicitly set: the operator's choice wins on any platform.
+            ("postgres", True, True, "analytics.public.orders"),
+            ("postgres", False, True, "Analytics.Public.Orders"),
+            ("snowflake", False, True, "Analytics.Public.Orders"),
+        ],
+    )
+    def test_table_casing(
+        self, platform: str, lowercase: bool, explicit: bool, expected: str
+    ) -> None:
+        assert (
+            self.REF.fq_name(platform, lowercase=lowercase, explicit=explicit)
+            == expected
+        )
+
+    @pytest.mark.parametrize("platform", ["snowflake", "postgres", "redshift"])
+    @pytest.mark.parametrize(
+        ("lowercase", "explicit"), [(True, False), (True, True), (False, True)]
+    )
+    def test_column_casing_mirrors_table_casing(
+        self, platform: str, lowercase: bool, explicit: bool
+    ) -> None:
+        table = self.REF.fq_name(platform, lowercase=lowercase, explicit=explicit)
+        column = _normalize_warehouse_identifier(
+            "Order_Id", platform, lowercase, explicit=explicit
+        )
+        assert table.islower() == column.islower()

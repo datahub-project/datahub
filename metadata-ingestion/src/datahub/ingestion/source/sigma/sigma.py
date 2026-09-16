@@ -37,6 +37,7 @@ from datahub.ingestion.source.sigma.config import (
     PlatformDetail,
     SigmaSourceConfig,
     SigmaSourceReport,
+    WarehouseConnectionConfig,
     WorkspaceCounts,
 )
 from datahub.ingestion.source.sigma.connection_registry import (
@@ -220,13 +221,47 @@ _FILES_PATH_ROOT = "Connection Root"
 _DEFAULT_PLATFORM_DETAIL_ENV = PlatformDetail.model_fields["env"].default
 
 
-def _normalize_warehouse_identifier(name: str, platform: str, lowercase: bool) -> str:
+def _case_flag_is_explicit(conn_override: Optional[WarehouseConnectionConfig]) -> bool:
+    """Whether this connection's recipe entry set convert_urns_to_lowercase itself.
+
+    The field carries a default of True, so presence of an override entry does
+    not mean the operator chose a casing.
+    """
+    return (
+        conn_override is not None
+        and "convert_urns_to_lowercase" in conn_override.model_fields_set
+    )
+
+
+def _should_lowercase_identifiers(
+    platform: str, *, lowercase: bool, explicit: bool
+) -> bool:
+    """Whether to lower-case warehouse identifiers for this platform.
+
+    ``lowercase`` is the per-connection ``convert_urns_to_lowercase`` value and
+    ``explicit`` says whether the operator actually set it.
+
+    ``lowercase`` is a veto: False always preserves case. ``explicit`` only
+    *enables* lower-casing on a platform the default would skip -- the flag is
+    otherwise a no-op outside ``_WAREHOUSE_LOWERCASE_PLATFORMS``, leaving no way
+    back to the spelling the pre-deprecation SQL route produced (it lower-cased
+    every platform except bigquery/db2). Keeping the veto separate matters:
+    `lowercase=False` must hold even when nothing was set explicitly.
+    """
+    return lowercase and (
+        explicit or platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS
+    )
+
+
+def _normalize_warehouse_identifier(
+    name: str, platform: str, lowercase: bool, *, explicit: bool = False
+) -> str:
     """Apply platform-appropriate casing to a warehouse identifier (table or column).
 
-    Mirrors _WarehouseTableRef.fq_name's casing logic so table and column
-    identifiers in schemaField URNs use the same convention.
+    Shares _should_lowercase_identifiers with _WarehouseTableRef.fq_name so table
+    and column identifiers in schemaField URNs keep the same convention.
     """
-    if platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
+    if _should_lowercase_identifiers(platform, lowercase=lowercase, explicit=explicit):
         return name.lower()
     return name
 
@@ -245,7 +280,7 @@ class _WarehouseTableRef:
     table: str
 
     def fq_name(
-        self, platform: str, *, lowercase: bool = True, force: bool = False
+        self, platform: str, *, lowercase: bool = True, explicit: bool = False
     ) -> str:
         # db is None for platforms with a 2-segment path (e.g. Redshift:
         # "Connection Root/<SCHEMA>"). Emit schema.table (never "None.schema.table")
@@ -257,9 +292,9 @@ class _WarehouseTableRef:
             if self.db is None
             else f"{self.db}.{self.schema}.{self.table}"
         )
-        # ``force`` means the operator set convert_urns_to_lowercase explicitly,
-        # so honour it on platforms outside _WAREHOUSE_LOWERCASE_PLATFORMS too.
-        if lowercase and (force or platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS):
+        if _should_lowercase_identifiers(
+            platform, lowercase=lowercase, explicit=explicit
+        ):
             return name.lower()
         return name
 
@@ -1251,15 +1286,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # where the connector was run with that flag set to False.  Default=True
         # matches both the Snowflake connector default and most other platforms.
         lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
-        # fq_name only lowercases platforms in _WAREHOUSE_LOWERCASE_PLATFORMS, so
-        # the flag is otherwise a no-op. The pre-deprecation SQL route lowercased
-        # every platform except bigquery/db2, so honour an explicitly-set flag on
-        # any platform -- that is the only way back to the old spelling.
-        force_case = (
-            conn_override is not None
-            and "convert_urns_to_lowercase" in conn_override.model_fields_set
+        explicit_case = _case_flag_is_explicit(conn_override)
+        fq = ref.fq_name(
+            record.datahub_platform, lowercase=lowercase, explicit=explicit_case
         )
-        fq = ref.fq_name(record.datahub_platform, lowercase=lowercase, force=force_case)
         # Use per-connection env / platform_instance overrides so the emitted
         # URN matches what the warehouse connector actually produced.  Falls
         # back to the Sigma recipe's own env + platform_instance=None, which
@@ -2391,7 +2421,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         conn_override = self.config.connection_to_platform_map.get(wh_ref.connection_id)
         lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
         normalized_col = _normalize_warehouse_identifier(
-            warehouse_col, record.datahub_platform, lowercase
+            warehouse_col,
+            record.datahub_platform,
+            lowercase,
+            explicit=_case_flag_is_explicit(conn_override),
         )
         upstream_field = builder.make_schema_field_urn(parent_urn, normalized_col)
         return FineGrainedLineageClass(
