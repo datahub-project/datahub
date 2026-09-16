@@ -20,6 +20,7 @@ from datahub.executor.execution.runner import LogHolder
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
     SubProcessTaskUtil,
+    unprotectable_disclosed_values,
 )
 from datahub.executor.execution.task import TaskError
 from datahub.masking.secret_registry import SecretRegistry
@@ -742,3 +743,37 @@ class TestUnprotectableDisclosedSecrets:
         """
         truncated = '{"source": {"config": {"password": "${PW}"'
         assert "hunter2" in self._registered(truncated, {"PW": "hunter2"})
+
+
+class TestDisclosedValues:
+    """What the executor treats as "the recipe already states this in the clear"."""
+
+    def test_a_credential_under_a_sensitive_parent_is_not_disclosed(self) -> None:
+        """Same defect as secret_registry.plain_config_values had, second copy.
+
+        `sensitive` is decided per key and then dropped at the recursion, so a
+        sensitive key holding a MAPPING had its children judged by their own
+        names. `token: {access: ...}` was read as plainly disclosed and
+        exempted from registration -- which on this side means the parent's
+        own logs and structured report stop masking it.
+        """
+        disclosed = unprotectable_disclosed_values(
+            json.dumps(
+                {
+                    "source": {
+                        "type": "mysql",
+                        "config": {
+                            "database": "analytics",
+                            "token": {"access": "acc3ssvalue"},
+                            "credential": {"private_key": {"pem": "p3mvalue"}},
+                        },
+                    }
+                }
+            )
+        )
+
+        assert "acc3ssvalue" not in disclosed, disclosed
+        assert "p3mvalue" not in disclosed, disclosed
+        # The converse: a plain identifier under a plain key is still
+        # disclosed, which is the whole reason this function exists.
+        assert "analytics" in disclosed, disclosed

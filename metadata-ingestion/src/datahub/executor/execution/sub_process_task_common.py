@@ -95,28 +95,43 @@ _SENSITIVE_KEY_HINTS: tuple[str, ...] = (
 )
 
 
-def _plain_and_inline_secret_values(obj: object) -> tuple[set[str], set[str]]:
+def _plain_and_inline_secret_values(
+    obj: object, under_sensitive: bool = False
+) -> tuple[set[str], set[str]]:
     """Split a raw recipe's string scalars into (plain, inline-secret).
 
     "Plain" means stated under a key no sensitivity hint matches, with no
     ``${`` left in it. Those are the values the recipe discloses in the clear.
+
+    ``under_sensitive`` carries the parent's verdict down, and it has to:
+    sensitivity was decided per key and then dropped at the recursion, so a
+    sensitive key holding a MAPPING had its children judged by their own
+    names. ``token: {access: ...}`` and ``credential: {private_key: {pem:
+    ...}}`` both came back as plainly disclosed, and a disclosed value is
+    exempted from registration -- so the parent's logs and structured report
+    stopped masking the credential. Nothing under a sensitive key is
+    disclosed, whatever its children are called.
     """
     plain: set[str] = set()
     inline: set[str] = set()
     if isinstance(obj, dict):
         for k, v in obj.items():
-            sensitive = any(h in str(k).lower() for h in _SENSITIVE_KEY_HINTS)
+            sensitive = under_sensitive or any(
+                h in str(k).lower() for h in _SENSITIVE_KEY_HINTS
+            )
             if isinstance(v, str):
                 if not v or "${" in v:
                     continue
                 (inline if sensitive else plain).add(v)
             else:
-                sub_plain, sub_inline = _plain_and_inline_secret_values(v)
+                sub_plain, sub_inline = _plain_and_inline_secret_values(v, sensitive)
                 plain |= sub_plain
                 inline |= sub_inline
     elif isinstance(obj, list):
         for item in obj:
-            sub_plain, sub_inline = _plain_and_inline_secret_values(item)
+            sub_plain, sub_inline = _plain_and_inline_secret_values(
+                item, under_sensitive
+            )
             plain |= sub_plain
             inline |= sub_inline
     return plain, inline
