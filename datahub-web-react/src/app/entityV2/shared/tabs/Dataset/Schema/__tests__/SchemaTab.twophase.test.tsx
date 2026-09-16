@@ -54,12 +54,13 @@ vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/utils/updateSchemaFilterQueryS
 
 // Renders the row slice it receives so tests can assert which fields are displayed.
 vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable', () => ({
-    default: ({ rows, fullMetadataLoading }: { rows: Array<{ fieldPath: string }>; fullMetadataLoading?: boolean }) => (
+    default: ({ rows, metadataStatus }: { rows: Array<{ fieldPath: string }>; metadataStatus?: string }) => (
         <div
             data-testid="schema-table"
             data-first-key={rows[0]?.fieldPath ?? ''}
             data-row-count={String(rows.length)}
-            data-metadata-loading={String(!!fullMetadataLoading)}
+            data-metadata-loading={String(metadataStatus === 'loading')}
+            data-metadata-status={metadataStatus ?? 'ready'}
         />
     ),
 }));
@@ -229,6 +230,18 @@ describe('SchemaTab two-phase loading', () => {
         rerender(<Tab />);
 
         // Now both phases are done and matches.length is still 0 -> filter is cleared.
+        await waitFor(() => expect(screen.getByTestId('filter-input')).toHaveValue(''));
+
+        // Second cycle: a refetch puts Phase 2 back in flight, the user types another dead
+        // filter, and completion must reset the header again (the remount key increments,
+        // a boolean toggle would only have worked once).
+        mockUseGetEntityWithSchema.mockReturnValue(phase1State(5));
+        rerender(<Tab />);
+        fireEvent.change(screen.getByTestId('filter-input'), { target: { value: 'abc' } });
+        await waitFor(() => expect(screen.getByTestId('filter-input')).toHaveValue('abc'));
+
+        mockUseGetEntityWithSchema.mockReturnValue(phase2State(5));
+        rerender(<Tab />);
         await waitFor(() => expect(screen.getByTestId('filter-input')).toHaveValue(''));
     });
 

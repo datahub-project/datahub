@@ -5,11 +5,12 @@
  * marker when the full-metadata query failed. Field-path cells are never placeholders.
  */
 import { MockedProvider } from '@apollo/client/testing';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { vi } from 'vitest';
 
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
+import { MetadataStatus } from '@app/entityV2/shared/tabs/Dataset/Schema/metadataStatus';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,cells_ds,PROD)';
@@ -78,7 +79,7 @@ const METADATA_CELLS = 3 * fields.length;
 
 const schemaMetadata = { name: 'cells_ds', fields } as any;
 
-type TableProps = { fullMetadataLoading?: boolean; fullMetadataError?: boolean };
+type TableProps = { metadataStatus?: MetadataStatus };
 
 // One tree for render and rerender, so prop changes to SchemaTable land in one place.
 const buildTable = (props: TableProps) => (
@@ -100,7 +101,7 @@ const renderTable = (props: TableProps) => render(buildTable(props));
 
 describe('SchemaTable metadata cells across the two loading phases', () => {
     it('shows skeletons in the metadata columns while full metadata is loading, but real field paths', async () => {
-        renderTable({ fullMetadataLoading: true });
+        renderTable({ metadataStatus: 'loading' });
 
         await waitFor(() => expect(screen.getByTestId('schema-field-user_id')).toBeInTheDocument());
         expect(screen.getByTestId('schema-field-user_name')).toBeInTheDocument();
@@ -111,10 +112,10 @@ describe('SchemaTable metadata cells across the two loading phases', () => {
     });
 
     it('fills the metadata columns with real values once full metadata has loaded', async () => {
-        const { rerender } = renderTable({ fullMetadataLoading: true });
+        const { rerender } = renderTable({ metadataStatus: 'loading' });
         await waitFor(() => expect(screen.getAllByTestId('metadata-cell-skeleton').length).toBeGreaterThan(0));
 
-        rerender(buildTable({ fullMetadataLoading: false }));
+        rerender(buildTable({ metadataStatus: 'ready' }));
 
         await waitFor(() => expect(screen.getByText('Primary identifier')).toBeInTheDocument());
         expect(screen.getByText('Display name')).toBeInTheDocument();
@@ -123,8 +124,31 @@ describe('SchemaTable metadata cells across the two loading phases', () => {
         expect(screen.queryAllByTestId('metadata-cell-skeleton')).toHaveLength(0);
     });
 
+    it('sorts by name in both directions and keeps the sort when Phase 2 lands', async () => {
+        const rowOrder = () =>
+            screen.getAllByTestId(/^schema-field-(user_id|user_name)$/).map((el) => el.getAttribute('data-testid'));
+
+        const { rerender } = renderTable({ metadataStatus: 'loading' });
+        await waitFor(() => expect(screen.getByTestId('schema-field-user_id')).toBeInTheDocument());
+        expect(rowOrder()).toEqual(['schema-field-user_id', 'schema-field-user_name']);
+
+        // Ascending by name (already the fixture order), then descending. antd labels the
+        // sortable header cell with aria-label; with a fixed table height the header lives in
+        // its own table, so look it up by that label rather than by role.
+        const nameHeader = screen.getAllByLabelText('Name')[0];
+        fireEvent.click(nameHeader);
+        await waitFor(() => expect(rowOrder()).toEqual(['schema-field-user_id', 'schema-field-user_name']));
+        fireEvent.click(nameHeader);
+        await waitFor(() => expect(rowOrder()).toEqual(['schema-field-user_name', 'schema-field-user_id']));
+
+        // Phase 2 lands: rows are rebuilt with metadata, the descending sort must survive.
+        rerender(buildTable({ metadataStatus: 'ready' }));
+        await waitFor(() => expect(screen.getByText('Display name')).toBeInTheDocument());
+        expect(rowOrder()).toEqual(['schema-field-user_name', 'schema-field-user_id']);
+    });
+
     it('marks metadata cells unavailable when the full-metadata query failed', async () => {
-        renderTable({ fullMetadataLoading: false, fullMetadataError: true });
+        renderTable({ metadataStatus: 'error' });
 
         await waitFor(() => expect(screen.getByTestId('schema-field-user_id')).toBeInTheDocument());
         expect(screen.getAllByTestId('metadata-unavailable')).toHaveLength(METADATA_CELLS);

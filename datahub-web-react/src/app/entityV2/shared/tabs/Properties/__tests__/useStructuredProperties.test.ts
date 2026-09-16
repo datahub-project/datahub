@@ -166,7 +166,13 @@ describe('useStructuredProperties', () => {
                             fieldPath: FIELD_PATH,
                             schemaFieldEntity: {
                                 structuredProperties: {
-                                    properties: [buildStructuredPropertiesEntry('testProp', 'value1')],
+                                    // A propagated duplicate and an orphaned definition ride along:
+                                    // the direct value must win and the orphan must be dropped.
+                                    properties: [
+                                        buildStructuredPropertiesEntry('testProp', 'propagatedValue', true),
+                                        buildStructuredPropertiesEntry('testProp', 'value1'),
+                                        buildStructuredPropertiesEntry('goneProp', 'orphan', false, false),
+                                    ],
                                 },
                             },
                         },
@@ -197,6 +203,7 @@ describe('useStructuredProperties', () => {
             entityData: {
                 structuredProperties: {
                     properties: [
+                        buildStructuredPropertiesEntry('entityProp', 'propagatedValue', true),
                         buildStructuredPropertiesEntry('entityProp', 'entityValue'),
                         buildStructuredPropertiesEntry('goneProp', 'orphan', false, false),
                     ],

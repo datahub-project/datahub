@@ -18,6 +18,7 @@ import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContex
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
 import MetadataErrorBanner from '@app/entityV2/shared/tabs/Dataset/Schema/components/MetadataErrorBanner';
 import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
+import { toMetadataStatus } from '@app/entityV2/shared/tabs/Dataset/Schema/metadataStatus';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import useSchemaVersioning from '@app/entityV2/shared/tabs/Dataset/Schema/useSchemaVersioning';
 import { SchemaFilterType, filterSchemaRows } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
@@ -353,8 +354,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                     openTimelineDrawer={openTimelineDrawer}
                                     setOpenTimelineDrawer={setOpenTimelineDrawer}
                                     refetch={refetch}
-                                    fullMetadataLoading={fullMetadataLoading}
-                                    fullMetadataError={!!fullMetadataError}
+                                    metadataStatus={toMetadataStatus(fullMetadataLoading, fullMetadataError)}
                                 />
                             </SchemaEditableContext.Provider>
                         ) : (

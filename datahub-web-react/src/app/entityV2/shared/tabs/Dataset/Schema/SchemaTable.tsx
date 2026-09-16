@@ -23,6 +23,7 @@ import CellSkeleton from '@app/entityV2/shared/tabs/Dataset/Schema/components/Ce
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import MetadataUnavailable from '@app/entityV2/shared/tabs/Dataset/Schema/components/MetadataUnavailable';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
+import { MetadataStatus } from '@app/entityV2/shared/tabs/Dataset/Schema/metadataStatus';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
 import useBusinessAttributeRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useBusinessAttributeRenderer';
 import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
@@ -168,8 +169,8 @@ type Props = {
     }[];
     refetch?: () => void;
     visibleColumns?: string[];
-    fullMetadataLoading?: boolean;
-    fullMetadataError?: boolean;
+    /** Phase 2 (full metadata) state; drives skeleton / unavailable rendering of metadata cells. */
+    metadataStatus?: MetadataStatus;
 };
 
 const EMPTY_SET: Set<string> = new Set();
@@ -191,8 +192,7 @@ export default function SchemaTable({
     setOpenTimelineDrawer,
     refetch,
     visibleColumns,
-    fullMetadataLoading,
-    fullMetadataError,
+    metadataStatus = 'ready',
 }: Props): JSX.Element {
     const { t } = useTranslation('entity.profile.schema');
     const { t: tc } = useTranslation('common.labels');
@@ -245,11 +245,7 @@ export default function SchemaTable({
     const businessAttributesFlag = useBusinessAttributesFlag();
 
     const tableColumnStructuredProps = useGetTableColumnProperties(entityData?.platform?.urn);
-    const structuredPropColumns = useGetStructuredPropColumns(
-        tableColumnStructuredProps,
-        fullMetadataLoading,
-        fullMetadataError,
-    );
+    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps, metadataStatus);
 
     const fieldColumn = useMemo(
         () => ({
@@ -284,11 +280,12 @@ export default function SchemaTable({
     // (a blank cell would read as "no tags"), real content otherwise.
     const renderMetadataCell = useCallback(
         (width: number, content: () => React.ReactNode): React.ReactNode => {
-            if (fullMetadataLoading) return <CellSkeleton $width={width} data-testid="metadata-cell-skeleton" />;
-            if (fullMetadataError) return <MetadataUnavailable />;
+            if (metadataStatus === 'loading')
+                return <CellSkeleton $width={width} data-testid="metadata-cell-skeleton" />;
+            if (metadataStatus === 'error') return <MetadataUnavailable />;
             return content();
         },
-        [fullMetadataLoading, fullMetadataError],
+        [metadataStatus],
     );
 
     const descriptionColumn = useMemo(
@@ -566,7 +563,7 @@ export default function SchemaTable({
         // Only the row payload and sort state matter here; sortRows/finalColumns are derived from
         // them plus stable renderers, and depending on them would re-sort on every render.
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
-    }, [dataSource, schemaSorter, fullMetadataLoading]);
+    }, [dataSource, schemaSorter, metadataStatus]);
 
     return (
         <>

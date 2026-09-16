@@ -58,7 +58,7 @@ describe('useGetStructuredPropColumns', () => {
     });
 
     it('renders real values once full metadata is loaded', () => {
-        const { result } = renderHook(() => useGetStructuredPropColumns(properties, false));
+        const { result } = renderHook(() => useGetStructuredPropColumns(properties, 'ready'));
         render(
             <ThemeProvider theme={testTheme}>
                 {result.current?.[1].render({ urn: 'urn:li:schemaField:x' })}
@@ -72,7 +72,7 @@ describe('useGetStructuredPropColumns', () => {
     });
 
     it('renders an unavailable marker instead of values when full metadata failed', () => {
-        const { result } = renderHook(() => useGetStructuredPropColumns(properties, false, true));
+        const { result } = renderHook(() => useGetStructuredPropColumns(properties, 'error'));
         render(
             <ThemeProvider theme={testTheme}>
                 {result.current?.[0].render({ urn: 'urn:li:schemaField:x' })}
@@ -84,7 +84,7 @@ describe('useGetStructuredPropColumns', () => {
     });
 
     it('renders skeleton placeholders while full metadata is still loading', () => {
-        const { result } = renderHook(() => useGetStructuredPropColumns(properties, true));
+        const { result } = renderHook(() => useGetStructuredPropColumns(properties, 'loading'));
         render(
             <ThemeProvider theme={testTheme}>
                 {result.current?.[0].render({ urn: 'urn:li:schemaField:x' })}
