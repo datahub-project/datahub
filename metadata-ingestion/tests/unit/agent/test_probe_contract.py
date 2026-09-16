@@ -622,6 +622,12 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
                 config_cls = config_class_for(source_type)
             except Exception:
                 continue
+            if config_cls is None:
+                # A registered source with no get_config_class. The except
+                # above does not cover this -- it wraps the call, not the walk
+                # -- so the AttributeError would error the test rather than
+                # skip the source. Guarded the way the sibling test guards it.
+                continue
             # Walk the MRO: BigQuery defines this on BigQueryFilterConfig, not
             # on the class the registry returns, so a __dict__ check misses it.
             for klass in config_cls.__mro__:
