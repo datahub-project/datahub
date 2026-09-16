@@ -121,6 +121,10 @@ class DatasetReconcileResult:
     dataset_urn: str
     remaps: List[FieldRemap] = field(default_factory=list)
     editable_updated: bool = False
+    # Stranded source field paths whose entity was soft-deleted. Tracked separately
+    # so an idempotent re-run that only removes an already-migrated stale source
+    # (nothing re-anchored) still reports the deletion instead of "0 re-anchored".
+    soft_deleted: List[str] = field(default_factory=list)
     skipped: List[str] = field(default_factory=list)
     error: Optional[str] = None
 
@@ -260,8 +264,10 @@ def _union_association_aspect(
     if isinstance(dest, GlossaryTermsClass):
         audit_stamp = dest.auditStamp
     else:
-        assert isinstance(src, GlossaryTermsClass)
-        audit_stamp = src.auditStamp
+        # Keyed by aspect name, so ``src`` is a GlossaryTermsClass here. Express the
+        # invariant with cast, not assert (asserts are stripped under ``python -O``,
+        # which would turn this into an AttributeError).
+        audit_stamp = cast(GlossaryTermsClass, src).auditStamp
     return GlossaryTermsClass(
         terms=_dedup_terms([*dest_terms, *src_terms]), auditStamp=audit_stamp
     )
@@ -507,17 +513,20 @@ def _reconcile_schema_field_entities(
             )
         # Keep the source field if anything could not be carried over, so the
         # un-migrated aspect is not lost behind a soft delete.
-        if delete_source and not dry_run and not left_behind:
-            try:
-                graph.soft_delete_entity(schema_field_urn)
-            except (click.Abort, KeyboardInterrupt):
-                raise
-            except Exception as e:
-                log.warning(f"Failed to soft-delete '{schema_field_urn}': {e}")
-                result.skipped.append(
-                    f"schemaField '{old_path}': aspects re-anchored onto '{new_path}' "
-                    f"but soft-delete of the source failed ({e})"
-                )
+        if delete_source and not left_behind:
+            if not dry_run:
+                try:
+                    graph.soft_delete_entity(schema_field_urn)
+                except (click.Abort, KeyboardInterrupt):
+                    raise
+                except Exception as e:
+                    log.warning(f"Failed to soft-delete '{schema_field_urn}': {e}")
+                    result.skipped.append(
+                        f"schemaField '{old_path}': aspects re-anchored onto "
+                        f"'{new_path}' but soft-delete of the source failed ({e})"
+                    )
+                    continue
+            result.soft_deleted.append(old_path)
 
 
 def _reconcile_editable_schema_metadata(
@@ -579,8 +588,16 @@ def _reconcile_editable_schema_metadata(
             graph.emit_mcp(
                 MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
+                    # This is a full-aspect upsert. The stamps are NOT
+                    # editableSchemaFieldInfo defaults — omitting them resets
+                    # created/lastModified to urn:li:corpuser:unknown / time 0 and
+                    # drops ``deleted``, silently losing the provenance this command
+                    # exists to preserve. Carry the existing stamps through verbatim.
                     aspect=EditableSchemaMetadataClass(
-                        editableSchemaFieldInfo=list(by_path.values())
+                        editableSchemaFieldInfo=list(by_path.values()),
+                        created=editable.created,
+                        lastModified=editable.lastModified,
+                        deleted=editable.deleted,
                     ),
                 )
             )
@@ -681,21 +698,26 @@ class SchemaFieldCaseMigrationReport:
 
     def render(self) -> str:
         prefix = "[Dry Run] " if self.dry_run else ""
-        touched = [r for r in self.results if r.remaps or r.editable_updated]
+        touched = [
+            r for r in self.results if r.remaps or r.editable_updated or r.soft_deleted
+        ]
         errored = [r for r in self.results if r.error is not None]
         needs_review = [r for r in self.results if r.skipped]
         total_fields = sum(len(r.remaps) for r in self.results)
+        total_soft_deleted = sum(len(r.soft_deleted) for r in self.results)
         lines = [
             f"{prefix}Schema Field Case Migration Report:",
             "--------------",
             f"{prefix}Datasets scanned = {len(self.results)}",
             f"{prefix}Datasets changed = {len(touched)}",
             f"{prefix}Fields re-anchored = {total_fields}",
+            f"{prefix}Sources soft-deleted = {total_soft_deleted}",
             f"{prefix}Datasets errored = {len(errored)}",
             f"{prefix}Datasets needing manual review = {len(needs_review)}",
         ]
         for r in touched:
             lines.append(f"{prefix}  {r.dataset_urn}")
+            remapped = {remap.old_path for remap in r.remaps}
             for remap in r.remaps:
                 where = []
                 if remap.schema_field_aspects:
@@ -706,6 +728,14 @@ class SchemaFieldCaseMigrationReport:
                     f"{prefix}    '{remap.old_path}' -> '{remap.new_path}' "
                     f"({'; '.join(where)})"
                 )
+            # Sources removed without a re-anchor (their metadata was already on the
+            # correctly-cased field) would otherwise be invisible in the report.
+            for old_path in r.soft_deleted:
+                if old_path not in remapped:
+                    lines.append(
+                        f"{prefix}    soft-deleted stale source '{old_path}' "
+                        "(metadata already on the correctly-cased field)"
+                    )
         for r in needs_review:
             lines.append(f"{prefix}  REVIEW {r.dataset_urn}")
             for note in r.skipped:

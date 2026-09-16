@@ -552,3 +552,73 @@ def test_include_soft_deleted_rediscovers_and_remigrates() -> None:
     assert g.store[sf(ds, "Product2Id")]["documentation"] == _doc(
         "stranded on a soft-deleted field"
     )
+
+
+def test_editable_rewrite_preserves_audit_stamps() -> None:
+    # The rewrite is a full-aspect upsert: it must carry the existing
+    # created/lastModified/deleted stamps through, not reset them to the class
+    # defaults (unknown actor, time 0) and so lose the provenance being repaired.
+    ds = _ds("db.sch.stamps")
+    created = AuditStampClass(time=111, actor="urn:li:corpuser:alice")
+    modified = AuditStampClass(time=222, actor="urn:li:corpuser:bob")
+    deleted = AuditStampClass(time=333, actor="urn:li:corpuser:carol")
+    g = FakeGraph()
+    g.add(ds, _schema(ds, "Product2Id"))
+    g.add(
+        ds,
+        {
+            "editableSchemaMetadata": EditableSchemaMetadataClass(
+                editableSchemaFieldInfo=[
+                    EditableSchemaFieldInfoClass(
+                        fieldPath="product2id", description="doc"
+                    )
+                ],
+                created=created,
+                lastModified=modified,
+                deleted=deleted,
+            )
+        },
+    )
+
+    run_migration(
+        g,  # type: ignore[arg-type]
+        [ds],
+        dry_run=False,
+        delete_source=True,
+        include_soft_deleted=False,
+    )
+
+    esm = g.store[ds]["editableSchemaMetadata"]
+    assert isinstance(esm, EditableSchemaMetadataClass)
+    assert {i.fieldPath for i in esm.editableSchemaFieldInfo} == {"Product2Id"}
+    assert esm.created == created
+    assert esm.lastModified == modified
+    assert esm.deleted == deleted
+
+
+def test_soft_deleted_stale_source_with_no_reanchor_is_reported() -> None:
+    # The stranded source's only aspect already exists, identical, on the
+    # correctly-cased field, so nothing is re-anchored — but the stale source is
+    # still soft-deleted. That deletion must be surfaced, not hidden behind a
+    # "0 re-anchored" report line.
+    ds = _ds("db.sch.already")
+    g = FakeGraph()
+    g.add(ds, _schema(ds, "Product2Id"))
+    g.add(sf(ds, "product2id"), {"documentation": _doc("same")})
+    g.add(sf(ds, "Product2Id"), {"documentation": _doc("same")})
+
+    report = run_migration(
+        g,  # type: ignore[arg-type]
+        [ds],
+        dry_run=False,
+        delete_source=True,
+        include_soft_deleted=False,
+    )
+
+    result = report.results[0]
+    assert result.remaps == []  # nothing re-anchored
+    assert result.soft_deleted == ["product2id"]
+    assert sf(ds, "product2id") in g.soft_deleted
+    rendered = report.render()
+    assert "Sources soft-deleted = 1" in rendered
+    assert "soft-deleted stale source 'product2id'" in rendered
