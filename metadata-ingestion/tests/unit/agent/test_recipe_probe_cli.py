@@ -1,6 +1,7 @@
 import io
 import json
 import pathlib
+import sys
 
 import pytest
 from click.testing import CliRunner
@@ -1108,3 +1109,23 @@ def test_the_error_path_honours_the_same_disclosure_exemption(monkeypatch):
         rc, "_stdin_secrets", {"PW": "analytics", "TOK": "t0k3nvalue"}, raising=False
     )
     assert rc._with_stdin_secrets(set()) == {"t0k3nvalue"}
+
+
+def test_a_malformed_envelope_is_a_user_error_not_an_internal_one(monkeypatch):
+    """Exit codes are the agent's control flow, so the wrong one misroutes it.
+
+    A `__recipe_yaml__` that is not a string fell through to yaml.safe_load
+    and surfaced as `'dict' object has no attribute 'read'` at exit 1 --
+    an internal-error code, and an implementation detail as the message. The
+    agent reads exit 1 as "something broke, maybe retry" when the answer is
+    "you built the envelope wrong, fix it", which is exit 2.
+    """
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(json.dumps({"__recipe_yaml__": {"source": {}}, "__secrets__": {}})),
+    )
+
+    with pytest.raises(ValueError, match="__recipe_yaml__"):
+        rc._recipe_from_stdin()

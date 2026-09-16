@@ -237,6 +237,16 @@ def _recipe_from_stdin() -> Dict[str, object]:
     except ValueError:
         envelope = None
     if isinstance(envelope, dict) and "__recipe_yaml__" in envelope:
+        # Checked before anything reads it. A non-string reached yaml.safe_load
+        # and came back as `'dict' object has no attribute 'read'` at exit 1 --
+        # an internal-error code for a malformed input, which tells an agent to
+        # retry when it should be rebuilding the envelope. Exit codes are the
+        # agent's control flow, so the wrong one misroutes it.
+        if not isinstance(envelope["__recipe_yaml__"], str):
+            raise ValueError(
+                "__recipe_yaml__ must be a string holding the recipe YAML; got "
+                f"{type(envelope['__recipe_yaml__']).__name__}"
+            )
         secrets = envelope.get("__secrets__") or {}
         if isinstance(secrets, dict):
             # Strings only, deliberately. str(v) would turn a JSON null into
