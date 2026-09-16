@@ -78,21 +78,25 @@ const METADATA_CELLS = 3 * fields.length;
 
 const schemaMetadata = { name: 'cells_ds', fields } as any;
 
-const renderTable = (props: { fullMetadataLoading?: boolean; fullMetadataError?: boolean }) =>
-    render(
-        <MockedProvider mocks={[]} addTypename={false}>
-            <TestPageContainer>
-                <SchemaTable
-                    rows={fields}
-                    schemaMetadata={schemaMetadata}
-                    editableSchemaMetadata={null}
-                    expandedDrawerFieldPath={null}
-                    setExpandedDrawerFieldPath={() => {}}
-                    {...props}
-                />
-            </TestPageContainer>
-        </MockedProvider>,
-    );
+type TableProps = { fullMetadataLoading?: boolean; fullMetadataError?: boolean };
+
+// One tree for render and rerender, so prop changes to SchemaTable land in one place.
+const buildTable = (props: TableProps) => (
+    <MockedProvider mocks={[]} addTypename={false}>
+        <TestPageContainer>
+            <SchemaTable
+                rows={fields}
+                schemaMetadata={schemaMetadata}
+                editableSchemaMetadata={null}
+                expandedDrawerFieldPath={null}
+                setExpandedDrawerFieldPath={() => {}}
+                {...props}
+            />
+        </TestPageContainer>
+    </MockedProvider>
+);
+
+const renderTable = (props: TableProps) => render(buildTable(props));
 
 describe('SchemaTable metadata cells across the two loading phases', () => {
     it('shows skeletons in the metadata columns while full metadata is loading, but real field paths', async () => {
@@ -110,20 +114,7 @@ describe('SchemaTable metadata cells across the two loading phases', () => {
         const { rerender } = renderTable({ fullMetadataLoading: true });
         await waitFor(() => expect(screen.getAllByTestId('metadata-cell-skeleton').length).toBeGreaterThan(0));
 
-        rerender(
-            <MockedProvider mocks={[]} addTypename={false}>
-                <TestPageContainer>
-                    <SchemaTable
-                        rows={fields}
-                        schemaMetadata={schemaMetadata}
-                        editableSchemaMetadata={null}
-                        expandedDrawerFieldPath={null}
-                        setExpandedDrawerFieldPath={() => {}}
-                        fullMetadataLoading={false}
-                    />
-                </TestPageContainer>
-            </MockedProvider>,
-        );
+        rerender(buildTable({ fullMetadataLoading: false }));
 
         await waitFor(() => expect(screen.getByText('Primary identifier')).toBeInTheDocument());
         expect(screen.getByText('Display name')).toBeInTheDocument();

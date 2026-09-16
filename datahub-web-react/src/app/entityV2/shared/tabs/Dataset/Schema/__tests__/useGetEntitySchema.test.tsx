@@ -18,9 +18,13 @@ import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema
 import { GetDatasetSchemaDocument, GetDatasetSchemaStructuralDocument } from '@graphql/dataset.generated';
 
 const TEST_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,two_phase_ds,PROD)';
+const OTHER_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,other_ds,PROD)';
+
+// Mutable so a test can simulate in-tab navigation to another dataset.
+const mockEntity = { urn: TEST_URN };
 
 vi.mock('@app/entity/shared/EntityContext', () => ({
-    useEntityData: () => ({ urn: TEST_URN, entityType: 'DATASET', entityData: null }),
+    useEntityData: () => ({ urn: mockEntity.urn, entityType: 'DATASET', entityData: null }),
 }));
 
 // Hide-siblings mode short-circuits the sibling-combination pass, keeping these tests
@@ -88,6 +92,10 @@ const wrapperWith =
     );
 
 describe('useGetEntityWithSchema two-phase sequencing', () => {
+    beforeEach(() => {
+        mockEntity.urn = TEST_URN;
+    });
+
     it('resolves the structural phase first, then loads full metadata', async () => {
         const { result } = renderHook(() => useGetEntityWithSchema(undefined, undefined, true), {
             wrapper: wrapperWith([structuralMock, slowFullMock]),
@@ -137,14 +145,89 @@ describe('useGetEntityWithSchema two-phase sequencing', () => {
             request: structuralMock.request,
             result: { data: { dataset: { ...structuralDataset.dataset, urn: 'urn:li:dataset:other' } } },
         };
-        const { result } = renderHook(() => useGetEntityWithSchema(), {
+        const { result } = renderHook(() => useGetEntityWithSchema(undefined, undefined, true), {
             wrapper: wrapperWith([staleStructuralMock]),
         });
 
-        await waitFor(() => expect(result.current.structuralSchemaMetadata).not.toBeNull());
+        // The mismatched result is treated as absent: no rows, no Phase 2.
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(result.current.structuralSchemaMetadata).toBeNull();
         expect(result.current.fullMetadataLoading).toBe(false);
         expect(result.current.fullMetadataError).toBeUndefined();
         expect(result.current.entityWithSchema).toBeNull();
+    });
+
+    it('navigating to another dataset evicts the previous data and reloads in two phases', async () => {
+        const otherStructural = {
+            request: { query: structuralMock.request.query, variables: { urn: OTHER_URN, skipSiblingsSearch: false } },
+            result: {
+                data: {
+                    dataset: {
+                        ...structuralDataset.dataset,
+                        urn: OTHER_URN,
+                        schemaMetadata: {
+                            __typename: 'SchemaMetadata',
+                            name: 'other_ds',
+                            fields: [
+                                { __typename: 'SchemaField', fieldPath: 'other_col', type: 'STRING', nullable: true },
+                            ],
+                        },
+                    },
+                },
+            },
+            delay: 200,
+        };
+        const otherFull = {
+            request: { query: fullMock.request.query, variables: { urn: OTHER_URN } },
+            result: {
+                data: {
+                    dataset: {
+                        ...fullDataset.dataset,
+                        urn: OTHER_URN,
+                        schemaMetadata: {
+                            __typename: 'SchemaMetadata',
+                            name: 'other_ds',
+                            fields: [
+                                {
+                                    __typename: 'SchemaField',
+                                    fieldPath: 'other_col',
+                                    type: 'STRING',
+                                    nullable: true,
+                                    description: 'other description',
+                                },
+                            ],
+                        },
+                    },
+                },
+            },
+            delay: 300,
+        };
+        const { result, rerender } = renderHook(() => useGetEntityWithSchema(undefined, undefined, true), {
+            wrapper: wrapperWith([structuralMock, fullMock, otherStructural, otherFull]),
+        });
+        await waitFor(() => expect(result.current.entityWithSchema?.schemaMetadata?.fields).toHaveLength(2));
+
+        // Navigate: the hook instance survives, only the urn changes.
+        mockEntity.urn = OTHER_URN;
+        rerender();
+
+        // Nothing from the previous dataset leaks while the new one loads.
+        expect(result.current.entityWithSchema?.schemaMetadata).toBeUndefined();
+        expect(result.current.structuralSchemaMetadata).toBeNull();
+        expect(result.current.fullMetadataLoading).toBe(false);
+
+        // Phase 1 for the new dataset, then Phase 2.
+        await waitFor(() =>
+            expect(result.current.structuralSchemaMetadata?.fields?.[0]?.fieldPath).toEqual('other_col'),
+        );
+        expect(result.current.fullMetadataLoading).toBe(true);
+        expect(result.current.entityWithSchema?.schemaMetadata).toBeUndefined();
+        await waitFor(() =>
+            expect(result.current.entityWithSchema?.schemaMetadata?.fields?.[0]?.description).toEqual(
+                'other description',
+            ),
+        );
+        expect(result.current.fullMetadataLoading).toBe(false);
     });
 
     it('structuralOnly never fires the full metadata query', async () => {

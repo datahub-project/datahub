@@ -736,6 +736,8 @@ export const dataset3 = {
 const dataset3WithSchema = {
     dataset: {
         __typename: 'Dataset',
+        // Both schema queries select the urn; the hook only accepts results for the current dataset.
+        urn: 'urn:li:dataset:3',
         schemaMetadata: {
             __typename: 'SchemaMetadata',
             aspectVersion: 0,

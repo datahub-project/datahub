@@ -135,10 +135,14 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean,
         // to entity context data. All consumers other than SchemaTab should use this --
         // it never exposes structural-only data, so components that read tags, terms, or
         // schemaFieldEntity will not see missing fields.
-        entityWithSchema: shouldLoad ? (mergedFullData?.dataset ?? entityData) : entityData,
+        // Both this and structuralSchemaMetadata are URN-checked: navigating from dataset A
+        // to B inside the tab keeps this hook instance alive, and Apollo can still hold A's
+        // results for a render. Refusing them evicts A's rows, so B goes through the same
+        // spinner -> structural rows -> lazy metadata sequence as a fresh load.
+        entityWithSchema: shouldLoad && mergedFullData?.dataset?.urn === urn ? mergedFullData.dataset : entityData,
         // Structural schema metadata, exposed separately so SchemaTab can render field
         // paths and types immediately while the full metadata query is still in-flight.
-        structuralSchemaMetadata: mergedStructuralData?.dataset?.schemaMetadata ?? null,
+        structuralSchemaMetadata: structuralDataLoaded ? (mergedStructuralData?.dataset?.schemaMetadata ?? null) : null,
         refetch,
     };
 };
