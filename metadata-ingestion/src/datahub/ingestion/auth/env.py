@@ -20,7 +20,6 @@ Supported values of ``DATAHUB_AUTH_TYPE`` and their variables:
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Dict, Optional
 
 from pydantic import SecretStr
@@ -30,8 +29,6 @@ from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.auth.registry import AuthConfig
 
 ENV_AUTH_TYPE = "DATAHUB_AUTH_TYPE"
-
-logger = logging.getLogger(__name__)
 
 
 def _require_env(auth_type: str, values: Dict[str, Optional[str]]) -> Dict[str, str]:
@@ -105,55 +102,3 @@ def build_auth_config_from_env() -> Optional[AuthConfig]:
         )
 
     return AuthConfig(type=auth_type, config=config)
-
-
-def resolve_env_auth_config(server: str, *, origin_guard: bool) -> Optional[AuthConfig]:
-    """Resolve env-based OAuth (``DATAHUB_AUTH_TYPE``) for a client whose caller
-    supplied no explicit credentials. Returns None when ``DATAHUB_AUTH_TYPE`` is
-    unset. This is the single place emitter- and sink-side clients read OAuth
-    credentials from the environment, so the rule is not reimplemented per layer.
-
-    ``origin_guard`` decides whether the credential is restricted to the
-    ``DATAHUB_GMS_URL`` origin:
-
-    - ``False`` — trust ``server``. Its callers (the REST emitter, and through it
-      the Airflow hook and lineage listener, GX, Prefect, ``DataHubGraph``) pass a
-      server from code, and the minted token is audience-scoped to DataHub. They
-      routinely run where ``DATAHUB_GMS_URL`` is unset or spelled differently,
-      where a guard would wrongly decline.
-    - ``True`` — attach the credential only when ``server`` matches
-      ``DATAHUB_GMS_URL`` (via requests' ``should_strip_auth``, which permits the
-      benign http->https upgrade). A recipe-configured ``datahub-rest`` sink can
-      point at an arbitrary host, so env OAuth must not mint tokens for a server
-      the operator never set in the environment.
-    """
-    env_auth = build_auth_config_from_env()
-    if env_auth is None or not origin_guard:
-        return env_auth
-
-    # Lazy imports: config_utils imports this module at load time, so importing
-    # it (and its neighbours) at module scope would create a cycle.
-    from requests.sessions import SessionRedirectMixin
-
-    from datahub.cli.cli_utils import fixup_gms_url
-    from datahub.cli.config_utils import get_url_from_env
-
-    env_url = get_url_from_env()
-    if env_url is None:
-        logger.warning(
-            "DATAHUB_AUTH_TYPE is set but DATAHUB_GMS_URL is not; not applying "
-            "env OAuth to %s. Set DATAHUB_GMS_URL to inherit env auth.",
-            server,
-        )
-        return None
-    if SessionRedirectMixin().should_strip_auth(
-        fixup_gms_url(env_url), fixup_gms_url(server)
-    ):
-        logger.warning(
-            "Not applying env OAuth (DATAHUB_AUTH_TYPE) to %s — it does not match "
-            "the env-configured server %s.",
-            server,
-            env_url,
-        )
-        return None
-    return env_auth

@@ -13,6 +13,7 @@ import pydantic
 import requests
 from pydantic import field_validator
 
+from datahub.cli.cli_utils import resolve_env_auth_config
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigurationError,
@@ -41,7 +42,6 @@ from datahub.ingestion.api.sink import (
     WriteCallback,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.auth.env import resolve_env_auth_config
 from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (

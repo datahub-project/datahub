@@ -35,7 +35,12 @@ from urllib3 import HTTPResponse
 
 from datahub._version import nice_version_name
 from datahub.cli import config_utils
-from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url, get_or_else
+from datahub.cli.cli_utils import (
+    ensure_has_system_metadata,
+    fixup_gms_url,
+    get_or_else,
+    resolve_env_auth_config,
+)
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigModel,
@@ -76,7 +81,6 @@ from datahub.emitter.response_helper import (
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.api.closeable import Closeable
-from datahub.ingestion.auth.env import resolve_env_auth_config
 from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import (
     DATAHUB_COMPONENT_ENV,
