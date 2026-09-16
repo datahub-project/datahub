@@ -7,6 +7,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.dao.throttle.DatabaseTransactionConflictRestLiServiceException;
 import com.linkedin.metadata.dao.throttle.ThrottledRestLiServiceException;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
@@ -53,9 +54,17 @@ public class RestliUtils {
         finalException = apiThrottled(apiThrottleException);
       } else {
         DatabaseTransactionConflictException conflict =
-            findDatabaseTransactionConflict(throwable);
+            findCause(throwable, DatabaseTransactionConflictException.class);
+        LineageTimeoutException lineageTimeout =
+            findCause(throwable, LineageTimeoutException.class);
         if (conflict != null) {
           finalException = databaseTransactionConflict(conflict);
+        } else if (lineageTimeout != null) {
+          // Same classification as the GraphQL DEADLINE_EXCEEDED mapping, so SDK/CLI callers can
+          // tell a graph-query deadline from an outage instead of retrying a generic 500.
+          finalException =
+              new RestLiServiceException(
+                  HttpStatus.S_504_GATEWAY_TIMEOUT, lineageTimeout.getMessage(), lineageTimeout);
         } else if (throwable instanceof RestLiServiceException) {
           finalException = (RestLiServiceException) throwable;
         } else {
@@ -79,13 +88,14 @@ public class RestliUtils {
   }
 
   @Nullable
-  private static DatabaseTransactionConflictException findDatabaseTransactionConflict(
-      @Nonnull Throwable throwable) {
-    while (throwable != null) {
-      if (throwable instanceof DatabaseTransactionConflictException conflict) {
-        return conflict;
+  private static <T extends Throwable> T findCause(
+      @Nonnull Throwable throwable, @Nonnull Class<T> type) {
+    Throwable current = throwable;
+    while (current != null) {
+      if (type.isInstance(current)) {
+        return type.cast(current);
       }
-      throwable = throwable.getCause();
+      current = current.getCause();
     }
     return null;
   }
