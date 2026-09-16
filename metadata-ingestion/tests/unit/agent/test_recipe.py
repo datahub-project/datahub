@@ -105,7 +105,6 @@ def test_scaffold_does_not_overwrite_a_connectors_deny_defaults():
     MORE than the same recipe without the line. Snowflake stopped denying
     ^SNOWFLAKE_SAMPLE_DATA$, Kafka stopped denying ^_.* so __consumer_offsets
     became a dataset. This is the first command an agent runs."""
-    _require_connector("snowflake")
     from datahub.ingestion.agent.probe_methods import config_class_for
     from datahub.ingestion.agent.recipe import scaffold
 
@@ -113,6 +112,11 @@ def test_scaffold_does_not_overwrite_a_connectors_deny_defaults():
         ("snowflake", "database_pattern"),
         ("kafka", "topic_patterns"),
     ):
+        # Inside the loop, not before it: a guard on the first connector
+        # skips the second's assertion when the first extra is missing, and
+        # does nothing at all when the second's is. Each iteration guards
+        # what it is about to touch.
+        _require_connector(source_type)
         source = scaffold(source_type)["source"]
         assert isinstance(source, dict)
         config = source["config"]
