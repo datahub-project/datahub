@@ -2,8 +2,9 @@ package com.linkedin.metadata.resources.analytics;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.analytics.GetTimeseriesAggregatedStatsResponse;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.resources.restli.RestliUtils;
@@ -32,10 +33,6 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
-import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
-
 /** Rest.li entry point: /analytics */
 @Slf4j
 @RestLiSimpleResource(name = "analytics", namespace = "com.linkedin.analytics")
@@ -59,6 +56,21 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
     @Named("systemOperationContext")
     private OperationContext systemOperationContext;
 
+  @VisibleForTesting
+  void setTimeseriesAspectService(TimeseriesAspectService timeseriesAspectService) {
+    this.timeseriesAspectService = timeseriesAspectService;
+  }
+
+  @VisibleForTesting
+  void setAuthorizer(Authorizer authorizer) {
+    this.authorizer = authorizer;
+  }
+
+  @VisibleForTesting
+  void setSystemOperationContext(OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+  }
+
   @Action(name = ACTION_GET_TIMESERIES_STATS)
   @Nonnull
   public Task<GetTimeseriesAggregatedStatsResponse> getTimeseriesStats(
@@ -74,12 +86,14 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                             ACTION_GET_TIMESERIES_STATS, entityName).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true);
 
-            if (!AuthUtil.isAPIAuthorizedEntityType(
-                    opContext,
-                    TIMESERIES, READ,
-                    entityName)) {
+            if (!TimeseriesAuthUtil.canReadAggregatedStats(
+                    opContext, entityName, aspectName, filter)) {
                 throw new RestLiServiceException(
-                        HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + entityName);
+                        HttpStatus.S_403_FORBIDDEN,
+                        "User is unauthorized to get timeseries stats for "
+                            + entityName
+                            + " "
+                            + aspectName);
             }
 
             log.info("Attempting to query timeseries stats");

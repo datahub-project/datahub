@@ -7,6 +7,7 @@ from typing import cast
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.context import TestContext, ValidationResult
 from tests.zdu.framework.scenario_executor import (
     ScenarioTypeExecutor,
@@ -14,6 +15,8 @@ from tests.zdu.framework.scenario_executor import (
 )
 from tests.zdu.framework.scenario_loader import ZDUTestScenario
 from tests.zdu.framework.suite import Suite
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _scenario(tc: int, stype: str) -> ZDUTestScenario:

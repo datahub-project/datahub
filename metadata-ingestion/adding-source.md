@@ -117,7 +117,7 @@ from datahub.ingestion.api.decorators import (
 )
 
 @platform_name("File")
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @config_class(FileSourceConfig)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,

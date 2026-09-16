@@ -30,6 +30,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -712,6 +713,13 @@ public class EntityController
                   aspectItemMap.putAll(
                       toTimeseriesAspectItemMap(u, timeseriesAspects.get(u), withSystemMetadata));
                 }
+                aspectItemMap =
+                    TimeseriesAuthUtil.omitUnauthorizedTimeseriesAspects(
+                        opContext,
+                        u,
+                        aspectItemMap,
+                        name ->
+                            lookupAspectSpec(u, name).map(AspectSpec::isTimeseries).orElse(false));
 
                 return GenericEntityV3.builder().build(objectMapper, u, aspectItemMap);
               })
@@ -982,11 +990,24 @@ public class EntityController
         while (aspectItr.hasNext()) {
           Map.Entry<String, JsonNode> aspect = aspectItr.next();
 
-          if ("urn".equals(aspect.getKey())) {
+          if (RequestInputUtil.isEntityDocumentMetadataKey(aspect.getKey())) {
             continue;
           }
 
-          AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null);
+          boolean alternateValidation =
+              opContext.getValidationContext() != null
+                  && opContext.getValidationContext().isAlternateValidation();
+          final AspectSpec aspectSpec;
+          if (alternateValidation) {
+            // ProposedItem.build validates the aspect against the registry and rejects unknown
+            // names, so the spec is only needed for the typed items built below.
+            aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null);
+          } else {
+            aspectSpec =
+                RequestInputUtil.requireAspectSpec(
+                    entityRegistry.getEntitySpec(entityUrn.getEntityType()), aspect.getKey());
+          }
+
           SystemMetadata systemMetadata = null;
           if (aspect.getValue().has("systemMetadata")) {
             systemMetadata =
@@ -1025,9 +1046,9 @@ public class EntityController
                   .setSystemMetadata(systemMetadata, SetMode.IGNORE_NULL)
                   .setAspect(genericAspect);
 
-          if (opContext.getValidationContext().isAlternateValidation()) {
+          if (alternateValidation) {
             items.add(ProposedItem.builder().build(mcp, auditStamp, entityRegistry));
-          } else if (aspectSpec != null) {
+          } else {
             if (ChangeType.PATCH == changeType) {
               items.add(
                   PatchItemImpl.builder()

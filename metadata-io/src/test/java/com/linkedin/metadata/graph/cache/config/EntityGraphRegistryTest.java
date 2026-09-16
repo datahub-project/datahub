@@ -33,6 +33,10 @@ public class EntityGraphRegistryTest {
     assertNotNull(domain);
     assertEquals(domain.getGraphId(), "domain");
     assertEquals(domain.getSource(), GraphSnapshotSource.SEARCH);
+    assertEquals(
+        registry.getDefinition("domain").getResolvedEdges().get(0).getSearchField(),
+        "parentDomain");
+    assertTrue(registry.getDefinition("domain").getResolvedEdges().get(0).isSearchable());
   }
 
   @Test
@@ -76,9 +80,64 @@ public class EntityGraphRegistryTest {
   }
 
   @Test
-  public void testMissingKnownGraphFailsWhenEnabled() {
+  public void testMissingKnownGraphAllowedWhenEnabled() {
     EntityGraphCacheProperties properties = enabledPropertiesWithKnownGraphs();
     properties.getGraphs().remove("domain");
+
+    EntityGraphRegistry registry =
+        EntityGraphRegistry.build(
+            properties, new TestEntityRegistry(), new LineageRegistry(new TestEntityRegistry()));
+
+    assertEquals(registry.resolveKnownGraph(KnownEntityGraph.DOMAIN), null);
+    assertNotNull(registry.resolveKnownGraph(KnownEntityGraph.GLOSSARY));
+    assertFalse(registry.getGraphIdsForEntityType("domain").contains("domain"));
+  }
+
+  @Test
+  public void testDisabledKnownGraphAllowedWhenEnabled() {
+    EntityGraphCacheProperties properties = enabledPropertiesWithKnownGraphs();
+    properties.getGraphs().get("domain").setEnabled(false);
+
+    EntityGraphRegistry registry =
+        EntityGraphRegistry.build(
+            properties, new TestEntityRegistry(), new LineageRegistry(new TestEntityRegistry()));
+
+    assertEquals(registry.getDefinition("domain"), null);
+    assertEquals(registry.resolveKnownGraph(KnownEntityGraph.DOMAIN), null);
+    assertNotNull(registry.resolveKnownGraph(KnownEntityGraph.GLOSSARY));
+  }
+
+  @Test
+  public void testEmptyEnabledGraphsAllowedWhenEnabled() {
+    EntityGraphCacheProperties properties = enabledPropertiesWithKnownGraphs();
+    properties.getGraphs().values().forEach(graph -> graph.setEnabled(false));
+
+    EntityGraphRegistry registry =
+        EntityGraphRegistry.build(
+            properties, new TestEntityRegistry(), new LineageRegistry(new TestEntityRegistry()));
+
+    assertEquals(registry.getGraphsById().size(), 0);
+    assertFalse(registry.hasFullScopeGraphs());
+    assertEquals(registry.getScheduledFullGraphs().size(), 0);
+  }
+
+  @Test
+  public void testKnownDomainGraphAllowsGraphBuildSource() {
+    EntityGraphCacheProperties properties = enabledPropertiesWithKnownGraphs();
+    properties.getGraphs().get("domain").setBuildSource("graph");
+
+    EntityGraphRegistry registry =
+        EntityGraphRegistry.build(
+            properties, new TestEntityRegistry(), new LineageRegistry(new TestEntityRegistry()));
+
+    assertEquals(
+        registry.resolveKnownGraph(KnownEntityGraph.DOMAIN).getSource(), GraphSnapshotSource.GRAPH);
+  }
+
+  @Test
+  public void testKnownDomainGraphRejectsPrimaryBuildSource() {
+    EntityGraphCacheProperties properties = enabledPropertiesWithKnownGraphs();
+    properties.getGraphs().get("domain").setBuildSource("primary");
 
     IllegalStateException ex =
         expectThrows(
@@ -89,13 +148,13 @@ public class EntityGraphRegistryTest {
                     new TestEntityRegistry(),
                     new LineageRegistry(new TestEntityRegistry())));
     assertTrue(ex.getMessage().contains("domain"));
-    assertTrue(ex.getMessage().contains("DOMAIN"));
+    assertTrue(ex.getMessage().contains("FULL scope requires buildSource graph or search"));
   }
 
   @Test
-  public void testWrongBuildSourceForKnownGraphFailsWhenEnabled() {
+  public void testKnownGlossaryGraphRejectsSearchBuildSource() {
     EntityGraphCacheProperties properties = enabledPropertiesWithKnownGraphs();
-    properties.getGraphs().get("domain").setBuildSource("graph");
+    properties.getGraphs().get("glossary").setBuildSource("search");
 
     IllegalStateException ex =
         expectThrows(
@@ -105,8 +164,8 @@ public class EntityGraphRegistryTest {
                     properties,
                     new TestEntityRegistry(),
                     new LineageRegistry(new TestEntityRegistry())));
-    assertTrue(ex.getMessage().contains("DOMAIN"));
-    assertTrue(ex.getMessage().contains("buildSource search"));
+    assertTrue(ex.getMessage().toLowerCase().contains("glossary"));
+    assertTrue(ex.getMessage().contains("search"));
   }
 
   @Test

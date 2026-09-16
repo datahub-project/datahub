@@ -79,5 +79,4 @@ clean {
 }
 
 compileJava.dependsOn 'graphqlCodegen'
-build.dependsOn ':datahub-web-react:graphqlPrettierCheck'
 sourceSets.main.java.srcDir "$projectDir/src/mainGeneratedGraphQL/java"

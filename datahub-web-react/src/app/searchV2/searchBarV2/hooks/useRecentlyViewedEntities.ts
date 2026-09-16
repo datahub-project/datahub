@@ -11,7 +11,7 @@ interface Response {
     refetch: () => Promise<unknown>;
 }
 
-export default function useRecentlyViewedEntities(): Response {
+export default function useRecentlyViewedEntities(skip?: boolean): Response {
     const { user, localState } = useUserContext();
     const { selectedViewUrn } = localState;
     const userUrn = user?.urn;
@@ -29,7 +29,7 @@ export default function useRecentlyViewedEntities(): Response {
             },
         },
         fetchPolicy: 'cache-first',
-        skip: !userUrn,
+        skip: skip || !userUrn,
     });
 
     const viewedModule = data?.listRecommendations?.modules?.find(

@@ -5,7 +5,9 @@ import { Domain } from '@types';
 const DOMAINS_MODULE_ID = 'Domains';
 const MAX_DOMAINS = 5;
 
-export const useGetDomains = (): {
+export const useGetDomains = (
+    count: number = MAX_DOMAINS,
+): {
     domains: { entity: Domain; assetCount: number }[];
     loading: boolean;
     refetch: () => Promise<unknown>;
@@ -20,6 +22,6 @@ export const useGetDomains = (): {
                 entity: content.entity as Domain,
                 assetCount: content.params?.contentParams?.count || 0,
             }))
-            ?.slice(0, MAX_DOMAINS) || [];
+            ?.slice(0, count) || [];
     return { domains, loading, refetch };
 };

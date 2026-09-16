@@ -30,6 +30,8 @@ import { useTheme } from 'styled-components';
 import { EditorContainer, getEditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
 import RemirrorLocaleProvider from '@components/components/Editor/RemirrorLocaleProvider';
+import { DetailsExtension } from '@components/components/Editor/extensions/details/DetailsExtension';
+import { DetailsSummaryExtension } from '@components/components/Editor/extensions/details/DetailsSummaryExtension';
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
@@ -69,6 +71,8 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
 
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
+            new DetailsExtension(),
+            new DetailsSummaryExtension(),
             new BlockquoteExtension(),
             new BoldExtension({}),
             new BulletListExtension({}),

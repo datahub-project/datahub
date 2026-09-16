@@ -12,7 +12,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "incidentInfo",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record IncidentInfo {
   /**
@@ -56,7 +56,7 @@ record IncidentInfo {
   @Relationship = {
     "/*": {
       "name": "IncidentOn",
-      "entityTypes": [ "dataset", "chart", "dashboard", "dataFlow", "dataJob", "schemaField", "mlModel", "mlFeature", "service", "aiAgent"]
+      "entityTypes": [ "dataset", "chart", "dashboard", "dataFlow", "dataJob", "schemaField", "mlModel", "mlFeature", "mlFeatureTable", "service", "aiAgent"]
     }
   }
   @Searchable = {

@@ -40,32 +40,35 @@ type StructuredPropertyEntity implements Entity {
   """
   A primary key associated with the structured property
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Definition of this structured property including its name
   """
   definition: StructuredPropertyDefinition!
+    @aspectMapping(aspects: ["propertyDefinition"])
 
   """
   Definition of this structured property including its name
   """
   settings: StructuredPropertySettings
+    @aspectMapping(aspects: ["structuredPropertySettings"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -306,22 +309,23 @@ type DataTypeEntity implements Entity {
   """
   A primary key associated with the Query
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Info about this type including its name
   """
-  info: DataTypeInfo!
+  info: DataTypeInfo! @aspectMapping(aspects: ["dataTypeInfo"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """

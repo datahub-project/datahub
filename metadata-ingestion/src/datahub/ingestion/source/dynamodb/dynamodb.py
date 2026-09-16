@@ -174,7 +174,7 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
 
 @platform_name("DynamoDB", id="dynamodb")
 @config_class(DynamoDBConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
     "By default, platform_instance will use the AWS account id",

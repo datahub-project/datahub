@@ -25,7 +25,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -267,7 +266,9 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
 
     // 7) Build field set using same logic as keyword search
     Set<String> fieldsToFetch =
-        new HashSet<>(SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH);
+        SearchDocFieldFetchConfig.resolve(
+            SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH,
+            opContext.getSearchContext().getSearchFlags());
 
     // 8) Execute kNN query via the engine-specific SearchClientShim path
     List<SearchEntity> hits =
@@ -279,6 +280,19 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             k,
             finalFilterMap,
             fieldsToFetch);
+
+    // Apply relevance floor: drop hits scoring below minScore so a caller (e.g. an agent) can
+    // abstain rather than surface weak matches. Post-kNN filtering keeps this engine-agnostic
+    // across the ES8 and OpenSearch shims.
+    final com.linkedin.metadata.query.SearchFlags searchFlags =
+        opContext.getSearchContext().getSearchFlags();
+    final Float minScore = searchFlags != null ? searchFlags.getMinScore() : null;
+    if (minScore != null) {
+      hits =
+          hits.stream()
+              .filter(h -> h.getScore() != null && h.getScore() >= minScore)
+              .collect(Collectors.toList());
+    }
 
     // 9) Slice [from, from+pageSize)
     if (from >= hits.size()) {

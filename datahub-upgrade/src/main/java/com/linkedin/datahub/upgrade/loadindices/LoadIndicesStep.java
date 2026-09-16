@@ -557,8 +557,7 @@ public class LoadIndicesStep implements UpgradeStep {
     }
     restoreArgs.urnLike = args.urnLike;
     restoreArgs.gePitEpochMs = args.gePitEpochMs != null ? args.gePitEpochMs : 0L;
-    restoreArgs.lePitEpochMs =
-        args.lePitEpochMs != null ? args.lePitEpochMs : System.currentTimeMillis();
+    restoreArgs.lePitEpochMs = args.lePitEpochMs != null ? args.lePitEpochMs : 0L;
     restoreArgs.limit = limit;
 
     // Enable URN-based pagination if lastUrn is provided

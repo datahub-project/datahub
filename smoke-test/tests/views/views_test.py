@@ -3,9 +3,12 @@ from typing import Any, Dict
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 @with_test_retry()
@@ -43,6 +46,7 @@ def _ensure_less_views(
     assert after_count == before_count - 1
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 def test_create_list_delete_global_view(auth_session):
     # Get count of existing views
@@ -141,6 +145,7 @@ def test_create_list_delete_global_view(auth_session):
     )
 
 
+@pytest.mark.p0
 @pytest.mark.dependency(depends=["test_create_list_delete_global_view"])
 def test_create_list_delete_personal_view(auth_session):
     # Get count of existing views

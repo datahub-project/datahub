@@ -52,6 +52,13 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     sql_views_without_statement: int = 0
     reports_skipped_not_dashboard_linked: int = 0
     failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)
+    semantic_models_emitted: int = 0
+    semantic_model_datasets_emitted: int = 0
+    semantic_model_metrics_emitted: int = 0
+    semantic_model_relationships_emitted: int = 0
+    semantic_model_attribute_relationship_api_failures: int = 0
+    semantic_model_consolidation_api_failures: int = 0
+    semantic_model_metric_search_api_failures: int = 0
 
     def report_project_scanned(self) -> None:
         self.projects_scanned += 1
@@ -174,3 +181,24 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_failed_metric_model(self, metric_id: str) -> None:
         self.failed_metric_model_ids.append(metric_id)
+
+    def report_semantic_model_emitted(self) -> None:
+        self.semantic_models_emitted += 1
+
+    def report_semantic_model_datasets_emitted(self, count: int) -> None:
+        self.semantic_model_datasets_emitted += count
+
+    def report_semantic_model_metrics_emitted(self, count: int) -> None:
+        self.semantic_model_metrics_emitted += count
+
+    def report_semantic_model_relationships_emitted(self, count: int) -> None:
+        self.semantic_model_relationships_emitted += count
+
+    def report_semantic_model_attribute_relationship_api_failure(self) -> None:
+        self.semantic_model_attribute_relationship_api_failures += 1
+
+    def report_semantic_model_consolidation_api_failure(self) -> None:
+        self.semantic_model_consolidation_api_failures += 1
+
+    def report_semantic_model_metric_search_api_failure(self) -> None:
+        self.semantic_model_metric_search_api_failures += 1

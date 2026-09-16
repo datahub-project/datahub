@@ -134,6 +134,12 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             config=self.config.profiling,
             platform=self.platform,
             env=self.config.env,
+            # Snowflake's schema comes from INFORMATION_SCHEMA, not from
+            # reflection, so its field paths follow source config rather than the
+            # dialect's normalize_name. Columns fold separately from datasets --
+            # preserve_column_case keeps a quoted "col"/"COL" pair distinct -- so
+            # this is the column rule, not snowflake_identifier.
+            field_path_transform=self.identifiers.snowflake_column_identifier,
         )
 
     def callable_for_db_connection(self, db_name: str) -> Callable:

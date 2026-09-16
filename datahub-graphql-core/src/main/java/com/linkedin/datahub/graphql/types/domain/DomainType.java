@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -71,12 +72,16 @@ public class DomainType
     final List<Urn> domainUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, Constants.DOMAIN_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.DOMAIN_ENTITY_NAME,
               new HashSet<>(domainUrns),
-              ASPECTS_TO_FETCH);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : domainUrns) {

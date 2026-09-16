@@ -79,6 +79,7 @@ export enum EventType {
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
+    MoveDataProductEvent,
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
     IngestionSourceConfigurationImpressionEvent,
@@ -650,6 +651,12 @@ export interface MoveDomainEvent extends BaseEvent {
     type: EventType.MoveDomainEvent;
     oldParentDomainUrn?: string;
     parentDomainUrn?: string;
+}
+
+export interface MoveDataProductEvent extends BaseEvent {
+    type: EventType.MoveDataProductEvent;
+    oldParentDataProductUrn?: string;
+    parentDataProductUrn?: string;
 }
 
 // Managed Ingestion Events
@@ -1455,6 +1462,7 @@ export type Event =
     | CreateGlossaryEntityEvent
     | CreateDomainEvent
     | MoveDomainEvent
+    | MoveDataProductEvent
     | CreateIngestionSourceEvent
     | UpdateIngestionSourceEvent
     | DeleteIngestionSourceEvent

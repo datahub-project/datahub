@@ -7,9 +7,12 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.config import ZDUTestConfig
 from tests.zdu.framework.context import TestContext
 from tests.zdu.framework.phases.build_images import BuildImagesPhase
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 @pytest.fixture

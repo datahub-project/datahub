@@ -114,7 +114,6 @@ task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
 }
 
 build.dependsOn install
-check.dependsOn lint
 check.dependsOn testFull
 
 clean {

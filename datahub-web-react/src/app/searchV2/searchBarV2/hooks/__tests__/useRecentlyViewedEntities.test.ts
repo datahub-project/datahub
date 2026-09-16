@@ -52,6 +52,12 @@ describe('useRecentlyViewedEntities', () => {
         });
     });
 
+    it('skips the dedicated query when requested', () => {
+        renderHook(() => useRecentlyViewedEntities(true));
+
+        expect(queryMock).toHaveBeenCalledWith(expect.objectContaining({ skip: true }));
+    });
+
     it('maps recently viewed entities from the module payload', () => {
         const entity = { urn: 'urn:li:dataset:1', type: EntityType.Dataset };
         queryMock.mockReturnValue({

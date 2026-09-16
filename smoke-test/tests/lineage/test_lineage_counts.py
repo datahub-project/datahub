@@ -13,9 +13,12 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 COUNTS_QUERY = """
 query($input: SearchAcrossLineageCountsInput!) {

@@ -17,6 +17,7 @@
     "executions.cancelError": "Ausführung konnte nicht abgebrochen werden!: \n {{errorMessage}}",
     "executions.cancelSuccess": "Abbruchanforderung erfolgreich übermittelt!",
     "executions.cliExecution": "CLI-Ausführung",
+    "executions.cliExecutionBy": "CLI-Ausführung von <user></user>",
     "executions.colDuration": "Dauer",
     "executions.colExecutedBy": "Ausgeführt von",
     "executions.colStartedAt": "Gestartet am",

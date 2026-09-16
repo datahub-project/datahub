@@ -1,9 +1,10 @@
 """Emit a semantic model with two logical datasets and two metrics.
 
 This example builds the full lineage chain
-``Metric -> SemanticModel -> Logical Dataset -> Physical Dataset`` using the
-high-level ``datahub.sdk`` builders, then writes every emitted MCP to a JSON
-file so the resulting aspect shapes can be inspected.
+``Metric -> Logical Dataset -> Physical Dataset`` (with SemanticModel as a
+container of its datasets and metrics) using the high-level ``datahub.sdk``
+builders, then writes every emitted MCP to a JSON file so the resulting
+aspect shapes can be inspected.
 
 Run with::
 
@@ -12,10 +13,10 @@ Run with::
 The output is written to ``semantic_model_create.json`` in the current
 directory. Inspect it to confirm the aspect shapes match the producer contract:
 URN patterns, the ``Semantic Model Dataset`` subtype, the
-``semanticModelProperties`` back-refs, the schemaField-anchored
-``semanticFieldAnnotation`` MCPs, the required-expression fallback
-(``ORDERS.order_id``), aiContext-only-when-non-empty, and the absence of
-``metricUpstreams`` for semantic-model-backed metrics.
+``semanticModelProperties`` / ``metricInfo.semanticModel`` membership pointers,
+the schemaField-anchored ``semanticFieldAnnotation`` MCPs, the required-expression
+fallback (``ORDERS.order_id``), aiContext-only-when-non-empty, and
+``metricUpstreams.datasetUpstreams`` pointing at SMDs.
 """
 
 import json
@@ -104,6 +105,29 @@ def build_graph() -> tuple[SemanticModel, List[Entity]]:
         upstreams=[make_dataset_urn(platform, "raw.customers")],
     )
 
+    total_revenue = Metric(
+        platform=platform,
+        path="analytics",
+        id="total_revenue",
+        semantic_model=str(model_urn),
+        name="Total Revenue",
+        description="Sum of all order amounts.",
+        expression=DialectExpressionInput(
+            expression="SUM(ORDERS.amount)", dialect=DialectClass.SNOWFLAKE
+        ),
+        upstream_datasets=[orders_ds.urn],
+        ai_context=AiContextInput(synonyms=["revenue"]),
+    )
+    double_revenue = Metric(
+        platform=platform,
+        path="analytics",
+        id="double_revenue",
+        semantic_model=str(model_urn),
+        name="Double Revenue",
+        expression="2 * total_revenue",
+        derived_from=[total_revenue.urn],
+    )
+
     model = SemanticModel(
         platform=platform,
         path="analytics",
@@ -125,28 +149,6 @@ def build_graph() -> tuple[SemanticModel, List[Entity]]:
             synonyms=["orders model"],
             instructions="Use for revenue and customer analytics.",
         ),
-    )
-
-    total_revenue = Metric(
-        platform=platform,
-        path="analytics",
-        id="total_revenue",
-        semantic_model=str(model.urn),
-        name="Total Revenue",
-        description="Sum of all order amounts.",
-        expression=DialectExpressionInput(
-            expression="SUM(ORDERS.amount)", dialect=DialectClass.SNOWFLAKE
-        ),
-        ai_context=AiContextInput(synonyms=["revenue"]),
-    )
-    double_revenue = Metric(
-        platform=platform,
-        path="analytics",
-        id="double_revenue",
-        semantic_model=str(model.urn),
-        name="Double Revenue",
-        expression="2 * total_revenue",
-        derived_from=[total_revenue.urn],
     )
 
     return model, [orders_ds, customers_ds, total_revenue, double_revenue]

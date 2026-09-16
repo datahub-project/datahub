@@ -7,6 +7,9 @@ import styled, { useTheme } from 'styled-components';
 import { useUserContext } from '@app/context/useUserContext';
 import { LanguageSelect } from '@app/i18n/components/LanguageSelect';
 import { useIsI18nEnabled } from '@app/i18n/hooks/useIsI18nEnabled';
+import DarkModeSwitch from '@app/settingsV2/DarkModeSwitch';
+import { useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
+import { THEME_DARK_MODE_FLAG } from '@app/theme/useIsDarkMode';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useUpdateApplicationsSettingsMutation } from '@graphql/app.generated';
@@ -74,6 +77,7 @@ export const Preferences = () => {
     const userContext = useUserContext();
     const appConfig = useAppConfig();
     const i18nEnabled = useIsI18nEnabled();
+    const darkModeEnabled = useFeatureFlag(THEME_DARK_MODE_FLAG);
 
     const applicationsEnabled = appConfig.config?.visualConfig?.application?.showApplicationInNavigation ?? false;
 
@@ -89,6 +93,17 @@ export const Preferences = () => {
                         <PageTitle title={t('appearance.title')} subTitle={t('appearance.subTitle')} />
                     </HeaderContainer>
                 </TokensContainer>
+                {darkModeEnabled && (
+                    <StyledCard>
+                        <UserSettingRow>
+                            <TextContainer>
+                                <SettingText>{t('darkMode.title')}</SettingText>
+                                <DescriptionText>{t('darkMode.description')}</DescriptionText>
+                            </TextContainer>
+                            <DarkModeSwitch />
+                        </UserSettingRow>
+                    </StyledCard>
+                )}
                 {canManageApplicationAppearance && (
                     <StyledCard>
                         <UserSettingRow>
@@ -128,7 +143,7 @@ export const Preferences = () => {
                         </UserSettingRow>
                     </StyledCard>
                 )}
-                {!canManageApplicationAppearance && !i18nEnabled && (
+                {!canManageApplicationAppearance && !i18nEnabled && !darkModeEnabled && (
                     <div style={{ color: theme.colors.textSecondary }}>{t('noSettings')}</div>
                 )}
             </SourceContainer>

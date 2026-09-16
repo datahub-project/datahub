@@ -12,11 +12,13 @@ import useGetDomainUtils from '@app/homeV3/modules/domains/useDomainModuleUtils'
 
 import { DataHubPageModuleType } from '@types';
 
+const MAX_DOMAINS = 25;
+
 const TopDomainsModule = (props: ModuleProps) => {
     const { t } = useTranslation('modules');
     const { isReloading, onReloadingFinished } = useModuleContext();
 
-    const { domains, loading, refetch } = useGetDomains();
+    const { domains, loading, refetch } = useGetDomains(MAX_DOMAINS);
 
     useEffect(() => {
         if (!isReloading) {

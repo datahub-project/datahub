@@ -83,6 +83,18 @@ public interface OperationFingerprint {
   String getEntityContextId();
 
   /**
+   * Whether this operation is running as the configured system principal.
+   *
+   * <p>Defaults to {@code false} for shims/tests. {@code OperationContext} overrides this with the
+   * canonical system-auth check (session actor equals configured system authentication). Do not
+   * substitute client-writable provenance fields (e.g. {@code appSource}) or a hardcoded system
+   * URN.
+   */
+  default boolean isSystemAuth() {
+    return false;
+  }
+
+  /**
    * Return the {@link Enrichment} of the given concrete class stamped onto this operation, or
    * {@link Optional#empty()} if no such enrichment is present.
    *
@@ -95,5 +107,13 @@ public interface OperationFingerprint {
   @Nonnull
   default <T extends Enrichment> Optional<T> getEnrichment(@Nonnull final Class<T> type) {
     return Optional.empty();
+  }
+
+  /**
+   * Per-operation configuration read; {@code OperationContext} resolves it from its enrichments.
+   */
+  @Nonnull
+  default <T> T getConfig(@Nonnull final String key, @Nonnull final T defaultValue) {
+    return defaultValue;
   }
 }

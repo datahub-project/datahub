@@ -138,7 +138,9 @@ public class LineageSearchService {
    * @param direction Direction of the relationship
    * @param entities list of entities to search (If empty, searches across all entities)
    * @param input the search input text
-   * @param maxHops the maximum number of hops away to search for. If null, defaults to 1000
+   * @param maxHops the maximum number of hops away to search for. If null, defaults to the
+   *     configured per-mode maximum (impact.maxHops for impact analysis; lineageMaxHops for
+   *     visualization), and any larger value is clamped to it
    * @param inputFilters the request map with fields and values as filters to be applied to search
    *     hits
    * @param sortCriteria list of {@link SortCriterion} to be applied to search results
@@ -953,7 +955,9 @@ public class LineageSearchService {
    * @param direction Direction of the relationship
    * @param entities list of entities to search (If empty, searches across all entities)
    * @param input the search input text
-   * @param maxHops the maximum number of hops away to search for. If null, defaults to 1000
+   * @param maxHops the maximum number of hops away to search for. If null, defaults to the
+   *     configured per-mode maximum (impact.maxHops for impact analysis; lineageMaxHops for
+   *     visualization), and any larger value is clamped to it
    * @param inputFilters the request map with fields and values as filters to be applied to search
    *     hits
    * @param sortCriteria list of {@link SortCriterion} to be applied to search results
@@ -981,6 +985,12 @@ public class LineageSearchService {
             metricUtils, "scrollAcrossLineage", sourceUrn, -1, "datahub.lineage")) {
       rejectUnsupportedScrollFlags(opContext.getSearchContext().getLineageFlags());
 
+      // Clamp hops the same way searchAcrossLineage does (see applyMaxHopsLimit), before building
+      // the cache key. The scroll path previously defaulted to 1000 without clamping, letting a
+      // caller-supplied maxHops drive an unbounded deep traversal; clamping before the key also
+      // keeps scroll and search cache entries aligned for the same logical request.
+      maxHops = applyMaxHopsLimit(opContext.getSearchContext().getLineageFlags(), maxHops);
+
       // Cache multihop result for faster performance
       final EntityLineageResultCacheKey cacheKey =
           new EntityLineageResultCacheKey(
@@ -997,7 +1007,6 @@ public class LineageSearchService {
               : null;
       EntityLineageResult lineageResult;
       if (cachedLineageResult == null) {
-        maxHops = maxHops != null ? maxHops : 1000;
         lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
         if (enableCache(opContext.getSearchContext().getSearchFlags())) {
           cache.put(

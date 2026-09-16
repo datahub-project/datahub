@@ -40,6 +40,9 @@
     "deprecation.ok": "OK",
     "deprecation.reasonLabel": "Raison",
     "deprecation.reasonPlaceholder": "Ajouter une raison",
+    "deprecation.replacementColumnLabel": "Colonne",
+    "deprecation.replacementColumnPlaceholder": "Sélectionner une colonne",
+    "deprecation.replacementParentPlaceholder": "Sélectionner {{entityName}}",
     "deprecation.replacementLabel": "Remplacement",
     "deprecation.replacementSearchTitle": "Sélectionnez une entité pour remplacer l'entité obsolète.",
     "deprecation.selectReplacement": "Sélectionner un remplacement",
@@ -95,5 +98,8 @@
     "unlinkVersion.confirmTitle": "Confirmez-vous?",
     "unlinkVersion.error": "Échec de la dissociation: \n {{errorMessage}}",
     "unlinkVersion.loading": "Dissociation en cours...",
-    "unlinkVersion.success": "Dissociation de {{entityName}} effectuée!"
+    "unlinkVersion.success": "Dissociation de {{entityName}} effectuée!",
+    "dataProductSelect.notFound": "Aucun Data Product trouvé",
+    "dataProductSelect.placeholder": "Sélectionner un Data Product parent",
+    "moveDataProduct.title": "Déplacer le Data Product"
 }

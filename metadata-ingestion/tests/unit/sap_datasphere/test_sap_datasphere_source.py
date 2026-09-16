@@ -17,6 +17,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.sap_common.models import EdmxParseResult
 from datahub.ingestion.source.sap_datasphere import source as source_module
 from datahub.ingestion.source.sap_datasphere.client import SapDatasphereClient
 from datahub.ingestion.source.sap_datasphere.config import SapDatasphereConfig
@@ -49,7 +50,10 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     MetadataChangeProposalClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    StringTypeClass,
     SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -4484,6 +4488,7 @@ def test_business_layer_keeps_fgl_when_upstreams_match():
         schema_fields=[],
         custom_properties={},
         query_upstreams=query_upstreams,
+        space_name="finance",
     )
 
     assert result is not None
@@ -4537,6 +4542,7 @@ def test_business_layer_drops_fgl_when_upstreams_mismatch():
         schema_fields=[],
         custom_properties={},
         query_upstreams=query_upstreams,
+        space_name="finance",
     )
 
     assert result is not None
@@ -4545,6 +4551,138 @@ def test_business_layer_drops_fgl_when_upstreams_mismatch():
     # FGL DROPPED: its upstream parent is the double-prefixed fact, not in the
     # business-layer set -> set to None (not an empty list).
     assert result.fineGrainedLineages is None
+
+
+def test_business_layer_prefixes_bare_same_space_keys():
+    # Same-space BL keys are bare names; without a space prefix they become
+    # ghost lineage URNs that only show as hidden edges.
+    src = _bl_source("bl-bare-same-space")
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="v_fact_orders",
+        dim_key="v_dim_region",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=None,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert {u.dataset for u in result.upstreams} == {
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_fact_orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_dim_region,PROD)",
+    }
+
+
+def test_business_layer_passthrough_qualified_cross_space_keys():
+    src = _bl_source("bl-qualified-passthrough")
+    assert src._business_layer_upstream_urn("MY_SPACE", "OTHER_SPACE.BASE_TABLE") == (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "other_space.base_table,PROD)"
+    )
+
+
+def test_business_layer_mixed_bare_and_qualified_keys():
+    # Realistic star schema: same-space fact/dim plus a built-in time dimension.
+    src = _bl_source("bl-mixed-keys")
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="v_fact_orders",
+        dim_key="SAP.TIME.M_TIME_DIMENSION",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=None,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert {u.dataset for u in result.upstreams} == {
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_fact_orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "sap.time.m_time_dimension,PROD)",
+    }
+
+
+def test_business_layer_keeps_fgl_for_bare_same_space_keys():
+    # Before space-prefixing bare BL keys, query FGL parents were already
+    # space-prefixed while BL upstreams were not — retention always failed.
+    src = _bl_source("bl-bare-fgl-keep")
+    fact_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_fact_orders,PROD)"
+    )
+    dim_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v_dim_region,PROD)"
+    )
+    model_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.am_orders,PROD)"
+    )
+    fgl = FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+        upstreams=[
+            f"urn:li:schemaField:({fact_urn},total)",
+            f"urn:li:schemaField:({dim_urn},region)",
+        ],
+        downstreams=[f"urn:li:schemaField:({model_urn},total)"],
+    )
+    query_upstreams = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=fact_urn, type=DatasetLineageTypeClass.VIEW),
+        ],
+        fineGrainedLineages=[fgl],
+    )
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="v_fact_orders",
+        dim_key="v_dim_region",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=query_upstreams,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert {u.dataset for u in result.upstreams} == {fact_urn, dim_urn}
+    assert result.fineGrainedLineages, "fineGrainedLineages should be kept"
+    assert len(result.fineGrainedLineages) == 1
+    assert result.fineGrainedLineages[0] is fgl
+
+
+def test_business_layer_dedups_qualified_and_bare_same_object():
+    # Qualified MY_SPACE.V_FACT and bare V_FACT resolve to the same URN after
+    # space-prefixing; emit once.
+    src = _bl_source("bl-dedup-keys")
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="MY_SPACE.V_FACT",
+        dim_key="V_FACT",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=None,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert len(result.upstreams) == 1
+    assert result.upstreams[0].dataset == (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v_fact,PROD)"
+    )
 
 
 def test_schema_field_parent_extracts_dataset_urn():
@@ -6108,3 +6246,184 @@ def test_column_lineage_extractor_failure_preserves_table_level(
         f"expected the column-lineage failure warning; got "
         f"{[w.title for w in source.report.warnings]}"
     )
+
+
+def test_schema_fields_from_csn_appends_calculated_formula():
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="calc-formula"), cfg)
+    csn_def = {
+        "elements": {
+            "QTY": {"type": "cds.Decimal", "@EndUserText.label": "Quantity"},
+            "TOTAL": {"type": "cds.Decimal", "@EndUserText.label": "Total"},
+        },
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"ref": ["QTY"]},
+                    {"xpr": [{"ref": ["PRICE"]}, "*", {"ref": ["QTY"]}], "as": "TOTAL"},
+                ],
+            }
+        },
+    }
+
+    fields = source._resolve_asset_schema_fields("S1", "MY_VIEW", None, csn_def)
+    assert fields is not None
+    by_path = {f.fieldPath: f for f in fields}
+    assert by_path["TOTAL"].description == "Total\n\nformula: PRICE * QTY"
+    assert by_path["QTY"].description == "Quantity"
+    assert source.report.calculated_column_formulas_emitted == 1
+
+
+def _string_field(field_path: str, description: Optional[str]) -> SchemaFieldClass:
+    return SchemaFieldClass(
+        fieldPath=field_path,
+        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        nativeDataType="cds.String",
+        description=description,
+    )
+
+
+def test_edmx_schema_path_appends_calculated_formula():
+    """Formulas live only in the CSN, so they must decorate the EDMX field list
+    too, not just the CSN fallback path."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="edmx-calc-formula"), cfg)
+    parse_result = EdmxParseResult(
+        fields=[
+            _string_field("QTY", "Quantity"),
+            _string_field("TOTAL", "Total"),
+        ]
+    )
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"ref": ["QTY"]},
+                    {"xpr": [{"ref": ["PRICE"]}, "*", {"ref": ["QTY"]}], "as": "TOTAL"},
+                ],
+            }
+        },
+    }
+
+    fields = source._resolve_asset_schema_fields("S1", "MY_VIEW", parse_result, csn_def)
+    assert fields is not None
+    by_path = {f.fieldPath: f for f in fields}
+    assert by_path["TOTAL"].description == "Total\n\nformula: PRICE * QTY"
+    assert by_path["QTY"].description == "Quantity"
+    assert source.report.calculated_column_formulas_emitted == 1
+
+
+def test_sql_editor_view_skips_formula_decoration():
+    """A SQL-editor view's body is raw SQL, not a CQN tree, so formulas from any
+    incidental ``query`` block must not be applied."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="sql-editor-skip"), cfg)
+    parse_result = EdmxParseResult(fields=[_string_field("TOTAL", "Total")])
+    csn_def = {
+        "@DataWarehouse.sqlEditor.query": "SELECT price * qty AS total FROM base",
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"xpr": [{"ref": ["PRICE"]}, "*", {"ref": ["QTY"]}], "as": "TOTAL"},
+                ],
+            }
+        },
+    }
+
+    fields = source._resolve_asset_schema_fields(
+        "S1", "SQL_VIEW", parse_result, csn_def
+    )
+    assert fields is not None
+    assert {f.fieldPath: f.description for f in fields} == {"TOTAL": "Total"}
+    assert source.report.calculated_column_formulas_emitted == 0
+
+
+def test_formula_extraction_exception_degrades_gracefully(monkeypatch):
+    """A renderer bug must not corrupt the schema: fields stay unchanged, the
+    counter stays 0, and the failure is surfaced (not swallowed)."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="formula-exc"), cfg)
+
+    def _boom(_csn_def):
+        raise ValueError("renderer blew up")
+
+    monkeypatch.setattr(source_module, "extract_calculated_column_formulas", _boom)
+
+    fields = [_string_field("TOTAL", "Total")]
+    source._apply_calculated_column_formulas("S1", "MY_VIEW", {"query": {}}, fields)
+
+    assert fields[0].description == "Total"
+    assert source.report.calculated_column_formulas_emitted == 0
+    assert "S1.MY_VIEW" in list(source.report.assets_formula_extraction_failed)
+    assert any(
+        w.title == "Failed to extract calculated-column formulas"
+        for w in source.report.warnings
+    )
+
+
+def test_formula_counter_increments_per_column():
+    """The emitted counter must count every decorated column, not just the asset —
+    a regression hoisting the increment out of the loop would go undetected with a
+    single-column fixture."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="formula-per-col"), cfg)
+    fields = [
+        _string_field("TOTAL", "Total"),
+        _string_field("MARGIN", "Margin"),
+    ]
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"xpr": [{"ref": ["PRICE"]}, "*", {"ref": ["QTY"]}], "as": "TOTAL"},
+                    {"xpr": [{"ref": ["REV"]}, "-", {"ref": ["COST"]}], "as": "MARGIN"},
+                ],
+            }
+        },
+    }
+
+    source._apply_calculated_column_formulas("S1", "MY_VIEW", csn_def, fields)
+
+    assert fields[0].description == "Total\n\nformula: PRICE * QTY"
+    assert fields[1].description == "Margin\n\nformula: REV - COST"
+    assert source.report.calculated_column_formulas_emitted == 2
+
+
+def test_formula_for_pattern_filtered_column_is_reported_unmatched():
+    """A formula whose output column was dropped by column_pattern (absent from the
+    field list) is recorded on the report, not silently discarded."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="formula-unmatched"), cfg)
+    fields = [_string_field("KEPT", "Kept")]
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"xpr": [{"ref": ["A"]}, "+", {"ref": ["B"]}], "as": "DROPPED"},
+                ],
+            }
+        },
+    }
+
+    source._apply_calculated_column_formulas("S1", "MY_VIEW", csn_def, fields)
+
+    assert fields[0].description == "Kept"
+    assert source.report.calculated_column_formulas_emitted == 0
+    assert "S1.MY_VIEW.DROPPED" in list(source.report.formula_columns_unmatched)

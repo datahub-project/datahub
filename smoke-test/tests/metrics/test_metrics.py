@@ -26,11 +26,14 @@ from tests.metrics.usage_aggregation_metrics import (
     wait_for_metric_at_least,
     wait_for_metric_delta,
 )
+from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import get_prometheus_metrics
 from tests.utilities.multi_user import cleanup_step_actor_user, make_step_actor_user
 from tests.utils import get_gms_prometheus_base_url
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _require_prometheus_url() -> str:

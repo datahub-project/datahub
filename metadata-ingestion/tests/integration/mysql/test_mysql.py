@@ -12,8 +12,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
-MYSQL_PORT = 3306
-MYSQL_USAGE_PORT = 53308
+MYSQL_PORT = 3306  # container-internal MySQL port
 
 
 @pytest.fixture(scope="module")
@@ -33,7 +32,7 @@ def is_mysql_up(container_name: str, port: int) -> bool:
 
 
 @pytest.fixture(scope="module")
-def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "mysql"
     ) as docker_services:
@@ -44,7 +43,14 @@ def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             timeout=120,
             checker=lambda: is_mysql_up("testmysql", MYSQL_PORT),
         )
-        yield docker_services
+        # The compose file exposes the MySQL port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh
+        # run needs. Recipe ymls in this directory pick it up via ${MYSQL_HOST_PORT}.
+        host_port = docker_services.port_for("testmysql", MYSQL_PORT)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("MYSQL_HOST_PORT", str(host_port))
+        request.addfinalizer(mp.undo)
+        yield host_port
 
 
 @pytest.mark.parametrize(
@@ -93,10 +99,12 @@ def mysql_usage_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             timeout=120,
             checker=lambda: is_mysql_up("testmysqlusage", MYSQL_PORT),
         )
-        mysql_usage_helpers.execute_usage_workload(
-            port=MYSQL_USAGE_PORT, password="example"
-        )
-        yield docker_services
+        # The compose file exposes the MySQL port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh
+        # run needs.
+        host_port = docker_services.port_for("testmysqlusage", MYSQL_PORT)
+        mysql_usage_helpers.execute_usage_workload(port=host_port, password="example")
+        yield host_port
 
 
 @pytest.mark.integration
@@ -104,7 +112,7 @@ def test_mysql_usage_performance_schema(mysql_usage_runner, tmp_path):
     mcps = mysql_usage_helpers.run_usage_pipeline(
         platform="mysql",
         usage_source="performance_schema",
-        port=MYSQL_USAGE_PORT,
+        port=mysql_usage_runner,
         password="example",
         output_path=tmp_path / "perf.json",
     )
@@ -125,7 +133,7 @@ def test_mysql_usage_general_log(mysql_usage_runner, tmp_path):
     mcps = mysql_usage_helpers.run_usage_pipeline(
         platform="mysql",
         usage_source="general_log",
-        port=MYSQL_USAGE_PORT,
+        port=mysql_usage_runner,
         password="example",
         output_path=tmp_path / "glog.json",
     )
@@ -153,7 +161,7 @@ def test_mysql_usage_general_log(mysql_usage_runner, tmp_path):
     [
         (
             {
-                "host_port": "localhost:53307",
+                "host_port": None,  # filled in from mysql_runner's ephemeral port below
                 "database": "northwind",
                 "username": "root",
                 "password": "example",
@@ -175,6 +183,8 @@ def test_mysql_usage_general_log(mysql_usage_runner, tmp_path):
 @time_machine.travel(FROZEN_TIME_DT, tick=False)
 @pytest.mark.integration
 def test_mysql_test_connection(mysql_runner, config_dict, is_success):
+    if config_dict["host_port"] is None:
+        config_dict = {**config_dict, "host_port": f"localhost:{mysql_runner}"}
     report = test_connection_helpers.run_test_connection(MySQLSource, config_dict)
     if is_success:
         test_connection_helpers.assert_basic_connectivity_success(report)

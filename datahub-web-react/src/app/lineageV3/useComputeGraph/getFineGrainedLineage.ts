@@ -38,16 +38,11 @@ interface TentativeEdge {
  */
 export function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: NodeContext['nodes']): boolean {
     const node = nodes.get(datasetUrn);
-    if (!node?.entity?.schemaMetadata?.fields) {
+    if (!node?.entity?.lineageAssets) {
         return false;
     }
 
-    // Normalize both paths to V1 format for comparison, since fineGrainedLineages paths
-    // are downgraded to V1 in EntityRegistry but schema field paths may still be V2
-    const normalizedFieldPath = downgradeV2FieldPath(fieldPath);
-    return node.entity.schemaMetadata.fields.some(
-        (field) => downgradeV2FieldPath(field.fieldPath) === normalizedFieldPath,
-    );
+    return node.entity.lineageAssets.has(downgradeV2FieldPath(fieldPath));
 }
 
 /**
@@ -79,7 +74,9 @@ export default function getFineGrainedLineage(
         const upstreamRef = createColumnRef(upstreamUrn, upstreamField);
         const downstreamRef = createColumnRef(downstreamUrn, downstreamField);
 
-        // Drop ghost edges and self edges
+        // Drop ghost edges and self edges. Edges between the same column on two siblings are kept:
+        // siblings are drawn as separate nodes (e.g. a dbt model as a transformation node), so the
+        // edge is drawable, and it lets column lineage pass through a hidden sibling.
         if (!nodes.has(upstreamUrn) || !nodes.has(downstreamUrn) || upstreamRef === downstreamRef) return;
 
         // Validate that both upstream and downstream schema fields actually exist in their datasets

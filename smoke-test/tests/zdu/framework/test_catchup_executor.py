@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.catchup_executor import CatchUpScenarioExecutor
 from tests.zdu.framework.context import (
     IndexState,
@@ -13,6 +14,8 @@ from tests.zdu.framework.context import (
 )
 from tests.zdu.framework.scenario_loader import ZDUTestScenario
 from tests.zdu.framework.suite import Suite
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _scenario(

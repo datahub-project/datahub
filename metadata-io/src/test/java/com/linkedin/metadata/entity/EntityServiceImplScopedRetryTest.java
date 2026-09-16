@@ -9,7 +9,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.util.Pair;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -98,6 +101,71 @@ public class EntityServiceImplScopedRetryTest {
     assertTrue(
         !EntityServiceImpl.isAlreadyCommitted(committedKeys, changeFor(URN_A, ASPECT_STATUS)),
         "conflicted sibling on the same URN must still be retried");
+  }
+
+  private static Pair<ChangeMCP, Set<AspectValidationException>> failureFor(
+      Urn urn, String aspect) {
+    return Pair.of(changeFor(urn, aspect), Set.<AspectValidationException>of());
+  }
+
+  @Test
+  public void failedKeysOfExtractsUrnAspectPairs() {
+    List<Pair<ChangeMCP, Set<AspectValidationException>>> failures =
+        List.of(failureFor(URN_A, ASPECT_STATUS), failureFor(URN_B, ASPECT_KEY));
+
+    assertEquals(
+        EntityServiceImpl.failedKeysOf(failures),
+        Set.of(Pair.of(URN_A, ASPECT_STATUS), Pair.of(URN_B, ASPECT_KEY)));
+  }
+
+  @Test
+  public void appendNewFailedResultsRecordsEachUrnAspectOnceAcrossPasses() {
+    // A terminally validation-failing aspect (URN_A/status) is re-included in every URN-scoped
+    // scoped-retry sub-batch and re-fails validation on each pass. It must be recorded exactly once
+    // — not once per pass — while a genuinely new failure on a later pass is still appended.
+    List<Pair<ChangeMCP, Set<AspectValidationException>>> accumulator = new ArrayList<>();
+    accumulator.add(failureFor(URN_A, ASPECT_STATUS)); // pass-0 failure
+    Set<Pair<Urn, String>> seenFailedKeys =
+        new HashSet<>(EntityServiceImpl.failedKeysOf(accumulator));
+
+    // Retry pass re-reports the same (URN_A, status) failure plus a new (URN_B, status) one.
+    EntityServiceImpl.appendNewFailedResults(
+        accumulator,
+        List.of(failureFor(URN_A, ASPECT_STATUS), failureFor(URN_B, ASPECT_STATUS)),
+        seenFailedKeys);
+
+    assertEquals(accumulator.size(), 2, "repeated (urn, aspect) recorded once; new one appended");
+    assertEquals(
+        EntityServiceImpl.failedKeysOf(accumulator),
+        Set.of(Pair.of(URN_A, ASPECT_STATUS), Pair.of(URN_B, ASPECT_STATUS)));
+
+    // A third pass that only re-reports already-seen failures adds nothing.
+    EntityServiceImpl.appendNewFailedResults(
+        accumulator,
+        List.of(failureFor(URN_A, ASPECT_STATUS), failureFor(URN_B, ASPECT_STATUS)),
+        seenFailedKeys);
+    assertEquals(accumulator.size(), 2, "no new keys on a repeat pass → no growth");
+  }
+
+  @Test
+  public void appendNewFailedResultsKeepsDistinctSameKeyFailuresWithinAPassButNotAcrossPasses() {
+    // Two DISTINCT items sharing (URN_A, status) that both fail in the SAME pass must both be kept
+    // — the dedup only removes a (urn, aspect) that already failed in an EARLIER pass, so it never
+    // collapses two distinct failures reported together (preserving the un-deduped pass-0
+    // behavior).
+    List<Pair<ChangeMCP, Set<AspectValidationException>>> accumulator = new ArrayList<>();
+    Set<Pair<Urn, String>> seenFailedKeys = new HashSet<>();
+
+    EntityServiceImpl.appendNewFailedResults(
+        accumulator,
+        List.of(failureFor(URN_A, ASPECT_STATUS), failureFor(URN_A, ASPECT_STATUS)),
+        seenFailedKeys);
+    assertEquals(accumulator.size(), 2, "distinct same-key failures within one pass are both kept");
+
+    // A later pass restating (URN_A, status) adds nothing — it already failed in an earlier pass.
+    EntityServiceImpl.appendNewFailedResults(
+        accumulator, List.of(failureFor(URN_A, ASPECT_STATUS)), seenFailedKeys);
+    assertEquals(accumulator.size(), 2, "cross-pass repeat of an earlier-failed key is suppressed");
   }
 
   @Test

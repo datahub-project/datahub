@@ -14,11 +14,12 @@ import pytest
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import DatasetPropertiesClass
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
 
 _OBJECT_STORAGE_URI_KEY = "datahub.objectStorage.uri"
 
@@ -92,6 +93,7 @@ def test_documentation_file_upload_gated_without_presigned_urls(
     assert enabled is False
 
 
+@pytest.mark.p0
 def test_get_presigned_upload_url_rejects_local_provider(
     auth_session: Any, documentation_dataset_urn: str
 ) -> None:

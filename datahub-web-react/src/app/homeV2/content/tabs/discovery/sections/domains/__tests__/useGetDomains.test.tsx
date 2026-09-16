@@ -56,4 +56,33 @@ describe('useGetDomains', () => {
         expect(result.current.domains).toEqual([{ entity: domain, assetCount: 4 }]);
         expect(result.current.loading).toBe(false);
     });
+
+    it('slices domains to the requested count', () => {
+        const domains = Array.from({ length: 8 }, (_, index) => ({
+            urn: `urn:li:domain:${index}`,
+            type: EntityType.Domain,
+        }));
+        homeRecsMock.mockReturnValue({
+            modules: [
+                {
+                    moduleId: 'Domains',
+                    content: domains.map((entity) => ({
+                        entity,
+                        params: { contentParams: { count: 1 } },
+                    })),
+                },
+            ],
+            loading: false,
+            refetch: vi.fn(),
+        });
+
+        const { result } = renderHook(() => useGetDomains(3));
+
+        expect(result.current.domains).toHaveLength(3);
+        expect(result.current.domains.map((domain) => domain.entity.urn)).toEqual([
+            'urn:li:domain:0',
+            'urn:li:domain:1',
+            'urn:li:domain:2',
+        ]);
+    });
 });

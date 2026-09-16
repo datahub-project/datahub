@@ -30,7 +30,7 @@ The executor runs ingestion in pre-built virtual environments under `DATAHUB_BUN
 
 ## Security
 
-Anyone who can configure UI-driven ingestion sources influences recipe content executed by this Action. For production, combine least-privilege platform privileges with operational controls such as **locked** `datahub-actions` images, a **private Python package mirror**, and restricted outbound egress as described in [Ingestion executor security and hardening](/docs/docker/ingestion-executor-security.md).
+Anyone with **Manage Metadata Ingestion** (or Edit plus Execute on a source) can submit recipes this Action runs as Python on the executor. Grant that privilege only to trusted operators. For production, combine least-privilege platform privileges with operational controls such as **locked** `datahub-actions` images, a **private Python package mirror**, and restricted outbound egress as described in [Ingestion executor security and hardening](/docs/docker/ingestion-executor-security.md).
 
 ## Action Quickstart
 

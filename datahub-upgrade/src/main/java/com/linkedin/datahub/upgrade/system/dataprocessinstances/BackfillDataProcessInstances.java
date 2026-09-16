@@ -8,7 +8,9 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class BackfillDataProcessInstances implements NonBlockingSystemUpgrade {
 
   private final List<UpgradeStep> _steps;
@@ -38,6 +40,9 @@ public class BackfillDataProcessInstances implements NonBlockingSystemUpgrade {
                   totalDays,
                   windowDays));
     } else {
+      log.info(
+          "{} is disabled (systemUpdate.processInstanceHasRunEvents.enabled=false); no steps registered.",
+          id());
       _steps = ImmutableList.of();
     }
   }

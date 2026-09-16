@@ -1,4 +1,5 @@
 import { FolderFilled } from '@ant-design/icons';
+import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import { IconStyleType } from '@app/entity/Entity';
@@ -21,6 +22,7 @@ import {
     getStructuredPropFilterDisplayName,
     isAnyOptionSelected,
     isFilterOptionSelected,
+    useFilterDisplayName,
 } from '@app/searchV2/filters/utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME, STRUCTURED_PROPERTIES_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '@src/Mocks';
@@ -781,5 +783,31 @@ describe('filter utils - getDynamicFilterField structured-property type routing'
             EntityType.CorpUser,
             EntityType.CorpGroup,
         ]);
+    });
+});
+
+describe('filter utils - localized filter labels', () => {
+    const facet = (field: string, displayName: string) => ({ field, displayName, aggregations: [] }) as any;
+
+    it('prefers the localized label over the backend displayName when building a filter field', () => {
+        expect(getDynamicFilterField('applications', [facet('applications', 'Backend Override')]).displayName).toBe(
+            'Application',
+        );
+    });
+
+    it('falls back to the backend displayName for a field with no localized label', () => {
+        expect(getDynamicFilterField('someCustomField', [facet('someCustomField', 'Custom Label')]).displayName).toBe(
+            'Custom Label',
+        );
+    });
+
+    it('localizes a raw facet passed straight to useFilterDisplayName', () => {
+        const { result } = renderHook(() => useFilterDisplayName(facet('topUsersLast30Days', 'Backend Override')));
+        expect(result.current).toBe('Top users last 30 days');
+    });
+
+    it('keeps the backend displayName for a raw facet with no localized label', () => {
+        const { result } = renderHook(() => useFilterDisplayName(facet('someCustomField', 'Custom Label')));
+        expect(result.current).toBe('Custom Label');
     });
 });

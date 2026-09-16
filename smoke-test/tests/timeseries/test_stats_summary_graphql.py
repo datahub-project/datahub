@@ -30,6 +30,7 @@ import pytest
 import requests as _requests
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import (
     execute_graphql,
     get_timestampmillis_at_start_of_day,
@@ -37,6 +38,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.OBSERVE)
 
 # ---------------------------------------------------------------------------
 # Test entities
@@ -359,6 +362,7 @@ def _expected_top_users(fixture: Dict[str, Any]) -> List[str]:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.p0
 def test_dashboard_stats_summary(auth_session: Any) -> None:
     """
     Queries 3 dashboards in a single multi-alias request (exercises the DataLoader
@@ -398,6 +402,7 @@ def test_dashboard_stats_summary(auth_session: Any) -> None:
     assert_dashboard_summaries()
 
 
+@pytest.mark.p0
 def test_dataset_stats_summary(auth_session: Any) -> None:
     """
     Queries 3 datasets in a single multi-alias request (one GraphQL request → the DataLoader

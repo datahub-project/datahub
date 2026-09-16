@@ -15,6 +15,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
+    ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
@@ -195,9 +196,13 @@ class SnowflakeAdapter(PlatformAdapter):
             else:
                 raise
 
-        # Reflect the temp table as a real sa.Table
+        # Reflect the temp table as a real sa.Table. CTAS carries case-only
+        # duplicate columns through to the sample, so this needs the same
+        # case-folding repair as a directly reflected table.
         metadata = sa.MetaData()
-        context.sql_table = sa.Table(temp_name, metadata, autoload_with=conn)
+        context.sql_table = self._use_stored_column_names(
+            sa.Table(temp_name, metadata, autoload_with=conn), conn
+        )
         context.is_sampled = True
         context.sample_percentage = bernoulli_pc
         context.temp_table = temp_name
@@ -236,13 +241,16 @@ class SnowflakeAdapter(PlatformAdapter):
 
         if has_lowercase or has_lowercase_schema:
             try:
-                return sa.Table(
-                    table,
-                    metadata,
-                    schema=schema,
-                    autoload_with=engine,
-                    quote=True,
-                    quote_schema=bool(schema),
+                return self._use_stored_column_names(
+                    sa.Table(
+                        table,
+                        metadata,
+                        schema=schema,
+                        autoload_with=engine,
+                        quote=True,
+                        quote_schema=bool(schema),
+                    ),
+                    engine,
                 )
             except SQLAlchemyError as e:
                 logger.debug(
@@ -251,13 +259,16 @@ class SnowflakeAdapter(PlatformAdapter):
                 )
 
         try:
-            return sa.Table(
-                table,
-                metadata,
-                schema=schema,
-                autoload_with=engine,
-                quote=False,
-                quote_schema=False,
+            return self._use_stored_column_names(
+                sa.Table(
+                    table,
+                    metadata,
+                    schema=schema,
+                    autoload_with=engine,
+                    quote=False,
+                    quote_schema=False,
+                ),
+                engine,
             )
         except SQLAlchemyError as e:
             if not (has_lowercase or has_lowercase_schema):
@@ -265,13 +276,16 @@ class SnowflakeAdapter(PlatformAdapter):
                     f"Failed to reflect {schema}.{table} without quoting, "
                     f"trying with quotes: {type(e).__name__}: {str(e)}"
                 )
-                return sa.Table(
-                    table,
-                    metadata,
-                    schema=schema,
-                    autoload_with=engine,
-                    quote=True,
-                    quote_schema=bool(schema),
+                return self._use_stored_column_names(
+                    sa.Table(
+                        table,
+                        metadata,
+                        schema=schema,
+                        autoload_with=engine,
+                        quote=True,
+                        quote_schema=bool(schema),
+                    ),
+                    engine,
                 )
             raise
 
@@ -289,7 +303,7 @@ class SnowflakeAdapter(PlatformAdapter):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         if quantiles is None:
@@ -300,7 +314,7 @@ class SnowflakeAdapter(PlatformAdapter):
             try:
                 snowflake_expr = sa.func.approx_percentile(sa.column(column), q)
                 query = sa.select(snowflake_expr).select_from(table)
-                result = conn.execute(query).scalar()
+                result = conn.execute_rows(query).scalar()
                 results.append(float(result) if result is not None else None)
             except SQLAlchemyError as e:
                 logger.warning(

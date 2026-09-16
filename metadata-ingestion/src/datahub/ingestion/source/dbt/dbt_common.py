@@ -1463,7 +1463,7 @@ def get_column_type(
 
 @platform_name("dbt")
 @config_class(DBTCommonConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )

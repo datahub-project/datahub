@@ -44,14 +44,17 @@ def minio_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             timeout=120,
             checker=lambda: is_minio_up(container_name),
         )
-        yield docker_services
+        # The compose file exposes the S3 API port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh run needs.
+        host_port = docker_services.port_for("minio", MINIO_PORT)
+        yield host_port
 
 
 @pytest.fixture(scope="module", autouse=True)
 def s3_bkt(minio_runner):
     s3 = boto3.resource(
         "s3",
-        endpoint_url=f"http://localhost:{MINIO_PORT}",
+        endpoint_url=f"http://localhost:{minio_runner}",
         aws_access_key_id="miniouser",
         aws_secret_access_key="miniopassword",
     )
@@ -75,7 +78,7 @@ def populate_minio(pytestconfig, s3_bkt):
 
 
 @time_machine.travel("2023-01-01 00:00:00+00:00", tick=False)
-def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir):
+def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir, minio_runner):
     # Run the metadata ingestion pipeline.
     pipeline = Pipeline.create(
         {
@@ -89,7 +92,7 @@ def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir):
                         "aws_config": {
                             "aws_access_key_id": "miniouser",
                             "aws_secret_access_key": "miniopassword",
-                            "aws_endpoint_url": f"http://localhost:{MINIO_PORT}",
+                            "aws_endpoint_url": f"http://localhost:{minio_runner}",
                             "aws_region": "us-east-1",
                         },
                     },
