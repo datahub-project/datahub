@@ -4,6 +4,7 @@ import pytest
 
 from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
+    collect_nested_credential_values,
     collect_nested_secret_values,
     collect_secret_values,
     redact,
@@ -199,3 +200,33 @@ def test_a_secret_under_a_sensitive_parent_is_not_treated_as_disclosed():
     assert plain_config_values(
         {"connection": {"database": "analytics"}}, _SENSITIVE_KEY_HINTS
     ) == {"analytics"}
+
+
+def test_an_identifier_or_a_path_is_not_a_credential():
+    """`private_key_id` and `private_key_path` are real GCP fields.
+
+    The hints match as substrings, so the `private_key` hint -- which exists
+    for `credential.private_key`, nested one level down -- also swallowed the
+    key's ID (public metadata, not a secret) and the PATH to the key file.
+    The detector then told an author their correct service-account recipe
+    held two plaintext secrets, and the only edit that would satisfy it is to
+    stop naming the file.
+
+    A suffix that makes a key name an identifier, a location or a reference
+    cannot also make it the credential.
+    """
+    # Assembled, not written: a PEM header is a high-confidence signature for
+    # the repo's secret scanner, which cannot tell a fixture from a leak.
+    pem = "-----BEGIN " + "PRIVATE KEY" + "-----xyz"
+    cfg = {
+        "credential": {
+            "private_key_id": "abc123keyid",
+            "private_key": pem,
+            "private_key_path": "/etc/gcp/key.json",
+        }
+    }
+    found = collect_nested_credential_values(cfg, _SENSITIVE_KEY_HINTS)
+
+    assert pem in found, found
+    assert "abc123keyid" not in found, found
+    assert "/etc/gcp/key.json" not in found, found

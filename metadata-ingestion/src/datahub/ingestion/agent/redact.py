@@ -116,6 +116,15 @@ def collect_nested_secret_values(obj: object, hints: Tuple[str, ...]) -> Set[str
 collect_plain_config_values = plain_config_values
 
 
+# Suffixes that turn a credential-ish key name into something that is not the
+# credential: an identifier, a location, or a reference to it. `private_key`
+# is the hint that needs this -- it exists for GCP's `credential.private_key`,
+# and matched `private_key_id` (public key metadata) and `private_key_path`
+# (a filename) too, so a correct service-account recipe was reported as
+# holding two plaintext secrets.
+_NOT_THE_SECRET_SUFFIXES = ("_id", "_path", "_file", "_filename", "_url", "_uri")
+
+
 def collect_nested_credential_values(obj: object, hints: Tuple[str, ...]) -> Set[str]:
     """Like collect_nested_secret_values, but for DETECTING rather than masking.
 
@@ -135,7 +144,9 @@ def collect_nested_credential_values(obj: object, hints: Tuple[str, ...]) -> Set
         for k, v in obj.items():
             key = str(k).lower()
             leaf = key.rsplit(".", 1)[-1]
-            sensitive = any((h in key) if "." in h else (h in leaf) for h in hints)
+            sensitive = any(
+                (h in key) if "." in h else (h in leaf) for h in hints
+            ) and not leaf.endswith(_NOT_THE_SECRET_SUFFIXES)
             if isinstance(v, str) and v and sensitive:
                 found.add(v)
             else:
