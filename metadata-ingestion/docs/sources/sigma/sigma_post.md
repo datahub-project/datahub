@@ -118,12 +118,17 @@ Sigma ended support for datasets as a data source on 2026-09-15. A workbook elem
 a Sigma Dataset still answers `/v2/workbooks/{id}/elements/{id}/query` with HTTP 200, but the body
 no longer carries SQL — and that SQL was the only place the dataset's warehouse table was named.
 
-When an element has no SQL at all, the connector resolves the dataset's warehouse table structurally
+When an element's SQL names no warehouse table, the connector resolves the dataset's warehouse table structurally
 instead: `/v2/datasets/{id}/sources` names the table by inode, and `/v2/connections/paths/{inodeId}`
 resolves that inode to a `connectionId` plus a path. The URN is then built through the connection
 registry, so per-connection `default_database`, `env`, `platform_instance` and
 `convert_urns_to_lowercase` all apply, exactly as for Data Model element and chart warehouse edges.
 No `chart_sources_platform_mapping` entry is needed.
+
+Note the trigger is "the element's SQL named no warehouse table", which is wider than
+"the element has no SQL": the SQL parser only runs when a `chart_sources_platform_mapping`
+entry matches the element's path, so a recipe without one takes this route even against a
+tenant still serving SQL. Those charts previously got no Sigma Dataset lineage at all.
 
 This route is a **stopgap**. It depends on the deprecated dataset API, so it will stop returning
 anything once Sigma removes those endpoints; migrate datasets to Data Models to keep lineage. A
@@ -169,6 +174,14 @@ Known limitations:
 | `dataset_sources_endpoint_removed`      | `/datasets/{id}/sources` returned 404/410; endpoint treated as gone for the run   |
 | `connection_path_lookup_failed`         | `/connections/paths/{inodeId}` failed or returned an unusable body                |
 | `connection_path_lookup_rate_limited`   | Subset of the above: 429 after retries                                            |
+| `dataset_sources_not_found`             | Subset of `lookup_failed`: 404 for one dataset (deleted after the listing)        |
+| `dataset_sources_skipped_endpoint_gone` | Datasets skipped with no request once the endpoint was latched as removed         |
+| `datasets_listing_failed`               | `/v2/datasets` could not be listed, so no dataset lineage resolves this run       |
+
+Each Sigma Dataset also carries its Sigma-reported `migrationStatus` as a `datasetProperties`
+custom property — `not-migrated`, `migrated`, or `not-required` (referenced by nothing, so
+migration is optional). Use it to find the datasets that still need moving to Data Models. The
+property is omitted on tenants that do not report it.
 
 #### Workbook chart inputFields warehouse column-level qualification
 

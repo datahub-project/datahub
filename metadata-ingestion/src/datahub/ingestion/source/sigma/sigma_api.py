@@ -51,6 +51,11 @@ from datahub.ingestion.source.sigma.data_classes import (
 # Logger instance
 logger = logging.getLogger(__name__)
 
+# Consecutive 404s from /datasets/{id}/sources, with none having succeeded,
+# before concluding the deprecated endpoint is gone rather than that one
+# dataset vanished after the listing.
+_DATASET_SOURCES_404_LATCH_THRESHOLD = 3
+
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -71,6 +76,9 @@ class SigmaAPI:
         # Set once any /sources call returns 200, which proves the endpoint
         # exists and downgrades a later 404 to a per-dataset miss.
         self._dataset_sources_succeeded = False
+        # Consecutive 404s seen with no success yet; see
+        # _DATASET_SOURCES_404_LATCH_THRESHOLD.
+        self._dataset_sources_consecutive_404 = 0
         self.session = requests.Session()
 
         # Configure retry strategy for 429/503 with exponential backoff.
@@ -343,6 +351,22 @@ class SigmaAPI:
 
             return datasets
         except Exception as e:
+            # Deliberately a report warning, not only a log line: /v2/datasets is
+            # part of the same deprecated dataset API as /sources, so its removal
+            # is a plausible cause. Without this the downstream effect (no
+            # datasetId, so no warehouse lookup) surfaces only as an info that
+            # blames workspace_pattern.
+            self.report.datasets_listing_failed += 1
+            self.report.warning(
+                title="Sigma dataset listing failed",
+                message=(
+                    "/v2/datasets could not be listed, so no Sigma Dataset "
+                    "warehouse lineage can be resolved this run. Sigma retired "
+                    "the dataset API on 2026-09-15, so the endpoint may have "
+                    "been removed; migrate datasets to Data Models."
+                ),
+                exc=e,
+            )
             self._log_http_error(
                 message=f"Unable to fetch sigma datasets. Exception: {e}"
             )
@@ -1232,6 +1256,23 @@ class SigmaAPI:
 
         data_model.elements = elements
 
+    def _mark_dataset_sources_gone(self, dataset_id: str, status: int) -> None:
+        """Latch the dataset-sources endpoint as removed and warn once."""
+        if not self._dataset_sources_endpoint_gone:
+            self._dataset_sources_endpoint_gone = True
+            self.report.dataset_sources_endpoint_removed += 1
+            self.report.warning(
+                title="Sigma dataset sources endpoint unavailable",
+                message=(
+                    f"/datasets/{{id}}/sources returned {status}. Sigma retired the "
+                    "dataset API on 2026-09-15, so it has most likely been removed. "
+                    "No Sigma Dataset will get warehouse upstreamLineage for the "
+                    "rest of this run; migrate datasets to Data Models."
+                ),
+                context=f"dataset_id={dataset_id}, http_status={status}",
+            )
+        return None
+
     def get_dataset_sources(self, dataset_id: str) -> Optional[List[Dict[str, Any]]]:
         """Fetch the raw ``/datasets/{datasetId}/sources`` entries, or None on failure.
 
@@ -1247,42 +1288,42 @@ class SigmaAPI:
         treated as "endpoint gone" and warned about once per run.
         """
         if self._dataset_sources_endpoint_gone:
+            # Counted so operators can see how much lineage the latch cost.
+            self.report.dataset_sources_skipped_endpoint_gone += 1
             return None
         logger.debug("Fetching sources for dataset '%s'.", dataset_id)
         url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}/sources"
         try:
             response = self._get_api_call(url)
-            if response.status_code in (404, 410):
-                # 410 Gone is unambiguous: the endpoint is retired, latch immediately.
-                # 404 is not -- a dataset deleted or re-permissioned between the
-                # /v2/datasets listing and this call also 404s -- so only conclude
-                # the endpoint is gone if nothing has succeeded yet this run.
-                # Latching on a mid-run 404 would drop lineage for every dataset
-                # processed afterwards.
-                self.report.dataset_sources_endpoint_removed += 1
-                if response.status_code == 404 and self._dataset_sources_succeeded:
-                    self.report.warning(
-                        title="Sigma dataset sources not found for one dataset",
-                        message=(
-                            "/datasets/{id}/sources returned 404/410 for this "
-                            "dataset while other datasets resolved normally. Its "
-                            "warehouse upstreamLineage will be missing."
-                        ),
-                        context=f"dataset_id={dataset_id}, http_status={response.status_code}",
-                    )
-                    return None
-                if not self._dataset_sources_endpoint_gone:
-                    self._dataset_sources_endpoint_gone = True
-                    self.report.warning(
-                        title="Sigma dataset sources endpoint unavailable",
-                        message=(
-                            "/datasets/{id}/sources returned 404/410. Sigma retired "
-                            "the dataset API on 2026-09-15, so it may have been "
-                            "removed. Sigma Datasets will get no warehouse "
-                            "upstreamLineage; migrate them to Data Models."
-                        ),
-                        context=f"dataset_id={dataset_id}, http_status={response.status_code}",
-                    )
+            if response.status_code == 410:
+                # 410 Gone is unambiguous: the endpoint is retired. Latch at once.
+                return self._mark_dataset_sources_gone(dataset_id, 410)
+            if response.status_code == 404:
+                # A 404 is ambiguous: a dataset deleted or re-permissioned between
+                # the /v2/datasets listing and this call 404s too, and workbooks
+                # are processed long after the listing on large tenants. Latching
+                # on the first one would drop lineage for every later dataset, so
+                # require several consecutive 404s with nothing having succeeded.
+                self._dataset_sources_consecutive_404 += 1
+                if (
+                    not self._dataset_sources_succeeded
+                    and self._dataset_sources_consecutive_404
+                    >= _DATASET_SOURCES_404_LATCH_THRESHOLD
+                ):
+                    return self._mark_dataset_sources_gone(dataset_id, 404)
+                # Otherwise treat it as this dataset being gone, not the endpoint.
+                self.report.dataset_sources_lookup_failed += 1
+                self.report.dataset_sources_not_found += 1
+                self.report.warning(
+                    title="Sigma dataset sources not found for one dataset",
+                    message=(
+                        "/datasets/{id}/sources returned 404 for this dataset. It "
+                        "was most likely deleted or re-permissioned after the "
+                        "dataset listing; its warehouse upstreamLineage will be "
+                        "missing."
+                    ),
+                    context=f"dataset_id={dataset_id}, http_status=404",
+                )
                 return None
             if response.status_code == 429:
                 self.report.dataset_sources_lookup_failed += 1
@@ -1322,6 +1363,7 @@ class SigmaAPI:
                 )
                 return None
             self._dataset_sources_succeeded = True
+            self._dataset_sources_consecutive_404 = 0
             return entries
         except Exception as e:
             self.report.dataset_sources_lookup_failed += 1
@@ -1390,8 +1432,10 @@ class SigmaAPI:
                     context=f"inode_id={inode_id}, keys={sorted(body)!r}",
                 )
                 return None
-            if not isinstance(path, list) or not all(
-                isinstance(p, str) and p for p in path
+            if (
+                not isinstance(path, list)
+                or not path
+                or not all(isinstance(p, str) and p for p in path)
             ):
                 self.report.connection_path_lookup_failed += 1
                 self.report.warning(

@@ -17,8 +17,14 @@ from datahub.ingestion.source.sigma.connection_registry import (
     SigmaConnectionRecord,
     SigmaConnectionRegistry,
 )
-from datahub.ingestion.source.sigma.data_classes import ConnectionPath
-from datahub.ingestion.source.sigma.sigma import SigmaSource
+from datahub.ingestion.source.sigma.data_classes import (
+    ConnectionPath,
+    SigmaDataset,
+)
+from datahub.ingestion.source.sigma.sigma import (
+    SigmaSource,
+    _WarehouseTableRef,
+)
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 
 _SNOWFLAKE_CONN_ID = "conn-snowflake-001"
@@ -30,8 +36,12 @@ def _make_source(redshift_default_db: Optional[str] = None) -> SigmaSource:
         {"client_id": "test", "client_secret": "test"}
     )
     ctx = PipelineContext(run_id="dataset-inode-unit")
+    # Patch get_connections as well as the token: SigmaSource builds the
+    # connection registry in __init__, which otherwise makes a real HTTP call
+    # from a unit test. The registry is replaced below anyway.
     with patch.object(SigmaAPI, "_generate_token"):
-        source = SigmaSource(config=config, ctx=ctx)
+        with patch.object(SigmaAPI, "get_connections", return_value=[]):
+            source = SigmaSource(config=config, ctx=ctx)
     records = [
         SigmaConnectionRecord(
             connection_id=_SNOWFLAKE_CONN_ID,
@@ -240,64 +250,85 @@ class TestDatasetWarehouseRefs:
 class TestPlatformMappingEnvWarning:
     """env / platform_instance set only on the legacy mapping is now ignored."""
 
-    def _source_with_mapping(self, **platform_detail: object) -> SigmaSource:
+    def _source(
+        self, mapping: Dict[str, Dict[str, object]], **cfg: object
+    ) -> SigmaSource:
         config = SigmaSourceConfig.model_validate(
             {
                 "client_id": "test",
                 "client_secret": "test",
-                "chart_sources_platform_mapping": {
-                    "ws/wb": {"data_source_platform": "snowflake", **platform_detail}
-                },
+                "chart_sources_platform_mapping": mapping,
+                **cfg,
             }
         )
         ctx = PipelineContext(run_id="mapping-env-unit")
         with patch.object(SigmaAPI, "_generate_token"):
-            source = SigmaSource(config=config, ctx=ctx)
-        source.connection_registry = SigmaConnectionRegistry(by_id={})
+            with patch.object(SigmaAPI, "get_connections", return_value=[]):
+                source = SigmaSource(config=config, ctx=ctx)
+        source.connection_registry = SigmaConnectionRegistry(
+            by_id={
+                _SNOWFLAKE_CONN_ID: SigmaConnectionRecord(
+                    connection_id=_SNOWFLAKE_CONN_ID,
+                    name="Snowflake",
+                    sigma_type="snowflake",
+                    datahub_platform="snowflake",
+                    is_mappable=True,
+                )
+            }
+        )
         return source
 
-    def test_warns_once_when_platform_instance_only_on_mapping(self) -> None:
-        # Pre-deprecation these edges took env/platform_instance from the
-        # mapping; the registry route does not, so the URN silently changes.
-        source = self._source_with_mapping(platform_instance="myinst")
-        before = len(source.reporter.warnings)
-        source._warn_if_platform_mapping_env_ignored("conn-1")
-        source._warn_if_platform_mapping_env_ignored("conn-1")
-        assert len(source.reporter.warnings) == before + 1
+    def _ref(self) -> _WarehouseTableRef:
+        return _WarehouseTableRef(
+            connection_id=_SNOWFLAKE_CONN_ID, db="DB", schema="S", table="T"
+        )
 
-    def test_warns_when_env_differs_from_recipe(self) -> None:
-        source = self._source_with_mapping(env="DEV")
+    def _warn_delta(self, source: SigmaSource, times: int = 1) -> int:
         before = len(source.reporter.warnings)
-        source._warn_if_platform_mapping_env_ignored("conn-1")
+        for _ in range(times):
+            source._warn_if_platform_mapping_env_ignored(self._ref())
+        return len(source.reporter.warnings) - before
+
+    def test_warns_once_when_platform_instance_only_on_mapping(self) -> None:
+        source = self._source(
+            {"ws/wb": {"data_source_platform": "snowflake", "platform_instance": "mi"}}
+        )
+        assert self._warn_delta(source, times=2) == 1
+
+    def test_warns_when_env_set_explicitly(self) -> None:
+        source = self._source(
+            {"ws/wb": {"data_source_platform": "snowflake", "env": "DEV"}}
+        )
+        assert self._warn_delta(source) == 1
+
+    def test_warns_when_env_only_defaulted_but_recipe_env_differs(self) -> None:
+        # PlatformDetail.env defaults to PROD, so the URN diverges even though
+        # the mapping never mentions env. The message must not claim it was set.
+        source = self._source(
+            {"ws/wb": {"data_source_platform": "snowflake"}}, env="DEV"
+        )
+        before = len(source.reporter.warnings)
+        source._warn_if_platform_mapping_env_ignored(self._ref())
         assert len(source.reporter.warnings) == before + 1
+        assert "defaulted" in str(list(source.reporter.warnings)[-1])
+
+    def test_silent_for_a_mapping_on_another_platform(self) -> None:
+        # A postgres-only mapping says nothing about a Snowflake connection.
+        source = self._source(
+            {"ws/wb": {"data_source_platform": "postgres", "platform_instance": "mi"}}
+        )
+        assert self._warn_delta(source) == 0
 
     def test_silent_when_mapping_adds_nothing(self) -> None:
-        source = self._source_with_mapping()
-        before = len(source.reporter.warnings)
-        source._warn_if_platform_mapping_env_ignored("conn-1")
-        assert len(source.reporter.warnings) == before
+        source = self._source({"ws/wb": {"data_source_platform": "snowflake"}})
+        assert self._warn_delta(source) == 0
 
     def test_silent_when_connection_has_an_override(self) -> None:
-        # connection_to_platform_map governs this route, so nothing is ignored.
-        config = SigmaSourceConfig.model_validate(
-            {
-                "client_id": "test",
-                "client_secret": "test",
-                "chart_sources_platform_mapping": {
-                    "ws/wb": {
-                        "data_source_platform": "snowflake",
-                        "platform_instance": "myinst",
-                    }
-                },
-                "connection_to_platform_map": {"conn-1": {"env": "DEV"}},
-            }
+        source = self._source(
+            {"ws/wb": {"data_source_platform": "snowflake", "platform_instance": "mi"}},
+            connection_to_platform_map={_SNOWFLAKE_CONN_ID: {"env": "DEV"}},
         )
-        ctx = PipelineContext(run_id="mapping-env-unit")
-        with patch.object(SigmaAPI, "_generate_token"):
-            source = SigmaSource(config=config, ctx=ctx)
-        before = len(source.reporter.warnings)
-        source._warn_if_platform_mapping_env_ignored("conn-1")
-        assert len(source.reporter.warnings) == before
+        assert self._warn_delta(source) == 0
 
 
 class TestFallbackGate:
@@ -377,3 +408,38 @@ class TestFallbackGate:
             source, "_resolve_dataset_warehouse_upstreams", return_value=[]
         ):
             assert self._handle(source, sql_named_tables=False, in_tables=[]) == {}
+
+
+class TestMigrationStatusProperty:
+    """Sigma's per-dataset migration state, surfaced as a custom property."""
+
+    def _dataset(self, **extra: object) -> SigmaDataset:
+        return SigmaDataset.model_validate(
+            {
+                "datasetId": "ds-uuid-1",
+                "name": "PETS",
+                "description": "",
+                "createdBy": "u",
+                "createdAt": "2024-01-01T00:00:00Z",
+                "updatedAt": "2024-01-01T00:00:00Z",
+                "url": "https://app.sigmacomputing.com/org/b/urlid1",
+                **extra,
+            }
+        )
+
+    def _custom_properties(self, dataset: SigmaDataset) -> Dict[str, str]:
+        source = _make_source()
+        wu = source._gen_dataset_properties("urn:li:dataset:(x,y,PROD)", dataset)
+        return wu.metadata.aspect.customProperties  # type: ignore[union-attr]
+
+    @pytest.mark.parametrize("status", ["not-migrated", "not-required", "migrated"])
+    def test_status_is_passed_through_verbatim(self, status: str) -> None:
+        # Passed through as a string, so a status Sigma adds later needs no code
+        # change here.
+        props = self._custom_properties(self._dataset(migrationStatus=status))
+        assert props["migrationStatus"] == status
+
+    def test_absent_status_omits_the_property(self) -> None:
+        # Keeps datasetProperties byte-identical on tenants that predate the
+        # field, so no golden churn for them.
+        assert "migrationStatus" not in self._custom_properties(self._dataset())

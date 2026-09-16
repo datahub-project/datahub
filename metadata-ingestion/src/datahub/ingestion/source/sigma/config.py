@@ -445,9 +445,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     dataset_sources_lookup_failed: int = 0
     # Sub-bucket of the above: 429 after retries.
     dataset_sources_lookup_rate_limited: int = 0
-    # /datasets/{id}/sources returned 404/410. Sigma deprecated the dataset API,
-    # so this most likely means the endpoint is gone; warned once per run.
+    # Sub-bucket of dataset_sources_lookup_failed: /sources returned 404 for one
+    # dataset, i.e. it was deleted or re-permissioned after the listing.
+    dataset_sources_not_found: int = 0
+    # 1 once the endpoint is concluded to be removed (410, or repeated 404s with
+    # nothing having succeeded). Set at most once per run.
     dataset_sources_endpoint_removed: int = 0
+    # Datasets skipped without a request because the endpoint was already
+    # latched as removed. Shows how much lineage the latch cost.
+    dataset_sources_skipped_endpoint_gone: int = 0
     # /connections/paths/{inodeId} failed or returned an unusable body, so the
     # table could not be tied to a connection.
     connection_path_lookup_failed: int = 0
@@ -459,8 +465,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     dataset_warehouse_unknown_connection: int = 0
     # An element reads a Sigma Dataset that /v2/datasets did not return, so its
     # datasetId is unknown and /sources cannot be called. Usually
-    # workspace_pattern excludes that dataset's workspace.
+    # workspace_pattern excludes that dataset's workspace -- unless
+    # datasets_listing_failed is also set, in which case the listing itself
+    # failed and every referenced dataset lands here.
     dataset_warehouse_unlisted_dataset: int = 0
+    # /v2/datasets could not be listed (or was cut short mid-pagination). Set
+    # because the dataset API is deprecated: its removal is a likely cause, and
+    # without this the resulting lineage loss looks like a workspace_pattern
+    # choice rather than the endpoint going away.
+    datasets_listing_failed: int = 0
 
 
 class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
