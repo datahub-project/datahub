@@ -1,0 +1,184 @@
+{
+  "eventTime": "2024-11-26T13:10:36.695796+00:00",
+  "eventType": "START",
+  "inputs": [],
+  "job": {
+    "facets": {
+      "airflow": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobFacet",
+        "taskGroups": {},
+        "taskTree": {},
+        "tasks": {
+          "compose_task": {
+            "downstream_task_ids": [],
+            "emits_ol_events": true,
+            "is_setup": false,
+            "is_teardown": false,
+            "operator": "***.providers.standard.operators.python.PythonOperator",
+            "ui_color": "#ffefeb",
+            "ui_fgcolor": "#000",
+            "ui_label": "compose_task"
+          },
+          "copy_task": {
+            "downstream_task_ids": [
+              "compose_task",
+              "download_to_data",
+              "download_to_file"
+            ],
+            "emits_ol_events": true,
+            "is_setup": false,
+            "is_teardown": false,
+            "operator": "***.providers.standard.operators.python.PythonOperator",
+            "ui_color": "#ffefeb",
+            "ui_fgcolor": "#000",
+            "ui_label": "copy_task"
+          },
+          "delete": {
+            "downstream_task_ids": [],
+            "emits_ol_events": true,
+            "is_setup": false,
+            "is_teardown": false,
+            "operator": "***.providers.standard.operators.python.PythonOperator",
+            "ui_color": "#ffefeb",
+            "ui_fgcolor": "#000",
+            "ui_label": "delete"
+          },
+          "download_to_data": {
+            "downstream_task_ids": [],
+            "emits_ol_events": true,
+            "is_setup": false,
+            "is_teardown": false,
+            "operator": "***.providers.standard.operators.python.PythonOperator",
+            "ui_color": "#ffefeb",
+            "ui_fgcolor": "#000",
+            "ui_label": "download_to_data"
+          },
+          "download_to_file": {
+            "downstream_task_ids": [],
+            "emits_ol_events": true,
+            "is_setup": false,
+            "is_teardown": false,
+            "operator": "***.providers.standard.operators.python.PythonOperator",
+            "ui_color": "#ffefeb",
+            "ui_fgcolor": "#000",
+            "ui_label": "download_to_file"
+          },
+          "rewrite_task": {
+            "downstream_task_ids": [
+              "compose_task",
+              "download_to_data",
+              "download_to_file"
+            ],
+            "emits_ol_events": true,
+            "is_setup": false,
+            "is_teardown": false,
+            "operator": "***.providers.standard.operators.python.PythonOperator",
+            "ui_color": "#ffefeb",
+            "ui_fgcolor": "#000",
+            "ui_label": "rewrite_task"
+          },
+          "upload_for_deletion": {
+            "downstream_task_ids": [
+              "delete"
+            ],
+            "emits_ol_events": true,
+            "is_setup": false,
+            "is_teardown": false,
+            "operator": "***.providers.standard.operators.python.PythonOperator",
+            "ui_color": "#ffefeb",
+            "ui_fgcolor": "#000",
+            "ui_label": "upload_for_deletion"
+          },
+          "upload_from_data": {
+            "downstream_task_ids": [
+              "copy_task",
+              "rewrite_task"
+            ],
+            "emits_ol_events": true,
+            "is_setup": false,
+            "is_teardown": false,
+            "operator": "***.providers.standard.operators.python.PythonOperator",
+            "ui_color": "#ffefeb",
+            "ui_fgcolor": "#000",
+            "ui_label": "upload_from_data"
+          },
+          "upload_from_file": {
+            "downstream_task_ids": [
+              "upload_from_data"
+            ],
+            "emits_ol_events": true,
+            "is_setup": false,
+            "is_teardown": false,
+            "operator": "***.providers.standard.operators.python.PythonOperator",
+            "ui_color": "#ffefeb",
+            "ui_fgcolor": "#000",
+            "ui_label": "upload_from_file"
+          }
+        }
+      },
+      "jobType": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "integration": "AIRFLOW",
+        "jobType": "DAG",
+        "processingType": "BATCH"
+      },
+      "ownership": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/OwnershipJobFacet.json#/$defs/OwnershipJobFacet",
+        "owners": [
+          {
+            "name": "***"
+          }
+        ]
+      }
+    },
+    "name": "gcs_hook",
+    "namespace": "airflow"
+  },
+  "outputs": [],
+  "producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+  "run": {
+    "facets": {
+      "airflowDagRun": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "dag": {
+          "dag_id": "gcs_hook",
+          "fileloc": "/files/dags/dag_gcs_hook.py",
+          "owner": "airflow",
+          "start_date": "2024-07-03T00:00:00+00:00",
+          "tags": "[]",
+          "timetable": {},
+          "timetable_summary": "None"
+        },
+        "dagRun": {
+          "conf": {},
+          "dag_id": "gcs_hook",
+          "data_interval_end": "2024-11-26T13:10:35.729678+00:00",
+          "data_interval_start": "2024-11-26T13:10:35.729678+00:00",
+          "external_trigger": true,
+          "run_id": "manual__2024-11-26T13:10:35.729678+00:00",
+          "run_type": "manual",
+          "start_date": "2024-11-26T13:10:36.695796+00:00"
+        }
+      },
+      "nominalTime": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/NominalTimeRunFacet.json#/$defs/NominalTimeRunFacet",
+        "nominalEndTime": "2024-11-26T13:10:35.729678+00:00",
+        "nominalStartTime": "2024-11-26T13:10:35.729678+00:00"
+      },
+      "processing_engine": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+        "name": "Airflow",
+        "openlineageAdapterVersion": "1.14.0",
+        "version": "3.0.0.dev0"
+      }
+    },
+    "runId": "01936898-5bd1-70bf-9ca2-4953116e45e1"
+  },
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent"
+}

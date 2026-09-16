@@ -1,0 +1,306 @@
+{
+    "eventTime": "2024-08-06T13:26:51.809Z",
+    "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+    "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+    "eventType": "START",
+    "run": {
+      "runId": "019127df-00a2-743c-b714-df7e6dcadb2b",
+      "facets": {
+        "parent": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ParentRunFacet.json#/$defs/ParentRunFacet",
+          "run": {
+            "runId": "019127de-fd25-7707-bfa4-3ec02693a531"
+          },
+          "job": {
+            "namespace": "testColumnLevelLineage",
+            "name": "open_lineage_integration_create_table"
+          }
+        },
+        "spark_unknown": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+          "output": {
+            "description": {
+              "table": {
+                "identifier": {
+                  "table": "cll_source1",
+                  "database": "default",
+                  "identifier": "cll_source1"
+                },
+                "tableType": {
+                  "name": "MANAGED"
+                },
+                "storage": {
+                  "locationUri": null,
+                  "inputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                  "outputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                  "serde": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                  "compressed": false,
+                  "properties": {}
+                },
+                "schema": {
+                  "type": "struct",
+                  "fields": [
+                    {
+                      "name": "a",
+                      "type": "integer",
+                      "nullable": true,
+                      "metadata": {}
+                    },
+                    {
+                      "name": "b",
+                      "type": "string",
+                      "nullable": true,
+                      "metadata": {}
+                    }
+                  ]
+                },
+                "provider": "hive",
+                "partitionColumnNames": [],
+                "bucketSpec": null,
+                "owner": "",
+                "createTime": 1722950811262,
+                "lastAccessTime": -1,
+                "createVersion": "",
+                "properties": {},
+                "stats": null,
+                "viewText": null,
+                "comment": null,
+                "unsupportedFeatures": [],
+                "tracksPartitionsInCatalog": false,
+                "schemaPreservesCase": true,
+                "ignoredProperties": {},
+                "viewOriginalText": null
+              },
+              "ignoreIfExists": false,
+              "treePatternBits": {},
+              "origin": {
+                "line": 1,
+                "startPosition": 0,
+                "startIndex": 0,
+                "stopIndex": 41,
+                "sqlText": "CREATE TABLE cll_source1 (a int, b string)",
+                "objectType": null,
+                "objectName": null,
+                "context": "== SQL(line 1, position 1) ==nCREATE TABLE cll_source1 (a int, b string)n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^n"
+              },
+              "nodePatterns": [
+                {
+                  "enumClass": "org.apache.spark.sql.catalyst.trees.TreePattern",
+                  "value": "COMMAND"
+                }
+              ],
+              "deterministic": true,
+              "schema": {
+                "type": "struct",
+                "fields": []
+              },
+              "allAttributes": {
+                "attrs": []
+              },
+              "resolved": true,
+              "validConstraints": [],
+              "distinctKeys": [],
+              "statsCache": null,
+              "metrics": {},
+              "streaming": false,
+              "traceEnabled": false,
+              "canonicalizedPlan": false,
+              "defaultTreePatternBits": {}
+            },
+            "inputAttributes": [],
+            "outputAttributes": []
+          },
+          "inputs": [
+            {
+              "description": {
+                "table": {
+                  "identifier": {
+                    "table": "cll_source1",
+                    "database": "default",
+                    "identifier": "cll_source1"
+                  },
+                  "tableType": {
+                    "name": "MANAGED"
+                  },
+                  "storage": {
+                    "locationUri": null,
+                    "inputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                    "outputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                    "serde": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                    "compressed": false,
+                    "properties": {}
+                  },
+                  "schema": {
+                    "type": "struct",
+                    "fields": [
+                      {
+                        "name": "a",
+                        "type": "integer",
+                        "nullable": true,
+                        "metadata": {}
+                      },
+                      {
+                        "name": "b",
+                        "type": "string",
+                        "nullable": true,
+                        "metadata": {}
+                      }
+                    ]
+                  },
+                  "provider": "hive",
+                  "partitionColumnNames": [],
+                  "bucketSpec": null,
+                  "owner": "",
+                  "createTime": 1722950811262,
+                  "lastAccessTime": -1,
+                  "createVersion": "",
+                  "properties": {},
+                  "stats": null,
+                  "viewText": null,
+                  "comment": null,
+                  "unsupportedFeatures": [],
+                  "tracksPartitionsInCatalog": false,
+                  "schemaPreservesCase": true,
+                  "ignoredProperties": {},
+                  "viewOriginalText": null
+                },
+                "ignoreIfExists": false,
+                "treePatternBits": {},
+                "origin": {
+                  "line": 1,
+                  "startPosition": 0,
+                  "startIndex": 0,
+                  "stopIndex": 41,
+                  "sqlText": "CREATE TABLE cll_source1 (a int, b string)",
+                  "objectType": null,
+                  "objectName": null,
+                  "context": "== SQL(line 1, position 1) ==nCREATE TABLE cll_source1 (a int, b string)n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^n"
+                },
+                "nodePatterns": [
+                  {
+                    "enumClass": "org.apache.spark.sql.catalyst.trees.TreePattern",
+                    "value": "COMMAND"
+                  }
+                ],
+                "deterministic": true,
+                "schema": {
+                  "type": "struct",
+                  "fields": []
+                },
+                "allAttributes": {
+                  "attrs": []
+                },
+                "resolved": true,
+                "validConstraints": [],
+                "distinctKeys": [],
+                "statsCache": null,
+                "metrics": {},
+                "streaming": false,
+                "traceEnabled": false,
+                "canonicalizedPlan": false,
+                "defaultTreePatternBits": {}
+              },
+              "inputAttributes": [],
+              "outputAttributes": []
+            }
+          ]
+        },
+        "spark.logicalPlan": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+          "plan": [
+            {
+              "class": "org.apache.spark.sql.execution.command.CreateTableCommand",
+              "num-children": 0,
+              "table": {
+                "product-class": "org.apache.spark.sql.catalyst.catalog.CatalogTable",
+                "identifier": {
+                  "product-class": "org.apache.spark.sql.catalyst.TableIdentifier",
+                  "table": "cll_source1",
+                  "database": "default"
+                },
+                "tableType": {
+                  "product-class": "org.apache.spark.sql.catalyst.catalog.CatalogTableType",
+                  "name": "MANAGED"
+                },
+                "storage": {
+                  "product-class": "org.apache.spark.sql.catalyst.catalog.CatalogStorageFormat",
+                  "inputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                  "outputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                  "serde": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                  "compressed": false,
+                  "properties": null
+                },
+                "schema": {
+                  "type": "struct",
+                  "fields": [
+                    {
+                      "name": "a",
+                      "type": "integer",
+                      "nullable": true,
+                      "metadata": {}
+                    },
+                    {
+                      "name": "b",
+                      "type": "string",
+                      "nullable": true,
+                      "metadata": {}
+                    }
+                  ]
+                },
+                "provider": "hive",
+                "partitionColumnNames": [],
+                "owner": "",
+                "createTime": 1722950811262,
+                "lastAccessTime": -1,
+                "createVersion": "",
+                "properties": null,
+                "unsupportedFeatures": [],
+                "tracksPartitionsInCatalog": false,
+                "schemaPreservesCase": true,
+                "ignoredProperties": null
+              },
+              "ignoreIfExists": false
+            }
+          ]
+        },
+        "spark_properties": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+          "properties": {
+            "spark.master": "local",
+            "spark.app.name": "Open Lineage Integration Create Table"
+          }
+        },
+        "processing_engine": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+          "version": "3.3.4",
+          "name": "spark",
+          "openlineageAdapterVersion": "1.19.0-SNAPSHOT"
+        },
+        "environment-properties": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+          "environment-properties": {}
+        }
+      }
+    },
+    "job": {
+      "namespace": "testColumnLevelLineage",
+      "name": "open_lineage_integration_create_table.execute_create_table_command.cll_test_cll_source1",
+      "facets": {
+        "jobType": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+          "processingType": "BATCH",
+          "integration": "SPARK",
+          "jobType": "SQL_JOB"
+        }
+      }
+    },
+    "inputs": [],
+    "outputs": []
+  }

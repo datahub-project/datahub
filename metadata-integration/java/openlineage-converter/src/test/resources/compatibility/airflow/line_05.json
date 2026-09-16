@@ -1,0 +1,218 @@
+{
+  "eventTime": "2024-11-26T13:05:34.626595+00:00",
+  "eventType": "COMPLETE",
+  "inputs": [
+    {
+      "facets": {
+        "schema": {
+          "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "fields": [],
+              "name": "a",
+              "type": "INTEGER"
+            },
+            {
+              "fields": [],
+              "name": "b",
+              "type": "INTEGER"
+            },
+            {
+              "fields": [],
+              "name": "c",
+              "type": "INTEGER"
+            },
+            {
+              "fields": [],
+              "name": "d",
+              "type": "INTEGER"
+            }
+          ]
+        }
+      },
+      "name": "mock-project.test.upload",
+      "namespace": "bigquery"
+    }
+  ],
+  "job": {
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "integration": "AIRFLOW",
+        "jobType": "TASK",
+        "processingType": "BATCH"
+      }
+    },
+    "name": "BQ.copy",
+    "namespace": "airflow"
+  },
+  "outputs": [
+    {
+      "facets": {
+        "columnLineage": {
+          "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+          "dataset": [],
+          "fields": {
+            "a": {
+              "inputFields": [
+                {
+                  "field": "a",
+                  "name": "mock-project.test.upload",
+                  "namespace": "bigquery",
+                  "transformations": []
+                }
+              ],
+              "transformationDescription": "identical",
+              "transformationType": "IDENTITY"
+            },
+            "b": {
+              "inputFields": [
+                {
+                  "field": "b",
+                  "name": "mock-project.test.upload",
+                  "namespace": "bigquery",
+                  "transformations": []
+                }
+              ],
+              "transformationDescription": "identical",
+              "transformationType": "IDENTITY"
+            },
+            "c": {
+              "inputFields": [
+                {
+                  "field": "c",
+                  "name": "mock-project.test.upload",
+                  "namespace": "bigquery",
+                  "transformations": []
+                }
+              ],
+              "transformationDescription": "identical",
+              "transformationType": "IDENTITY"
+            },
+            "d": {
+              "inputFields": [
+                {
+                  "field": "d",
+                  "name": "mock-project.test.upload",
+                  "namespace": "bigquery",
+                  "transformations": []
+                }
+              ],
+              "transformationDescription": "identical",
+              "transformationType": "IDENTITY"
+            }
+          }
+        },
+        "schema": {
+          "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "fields": [],
+              "name": "a",
+              "type": "INTEGER"
+            },
+            {
+              "fields": [],
+              "name": "b",
+              "type": "INTEGER"
+            },
+            {
+              "fields": [],
+              "name": "c",
+              "type": "INTEGER"
+            },
+            {
+              "fields": [],
+              "name": "d",
+              "type": "INTEGER"
+            }
+          ]
+        }
+      },
+      "name": "mock-project.test.upload_cp",
+      "namespace": "bigquery"
+    }
+  ],
+  "producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+  "run": {
+    "facets": {
+      "airflow": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "dag": {
+          "dag_id": "BQ",
+          "fileloc": "/files/dags/bq.py",
+          "owner": "airflow",
+          "start_date": "2024-01-01T00:00:00+00:00",
+          "tags": "[]",
+          "timetable": {},
+          "timetable_summary": "None"
+        },
+        "dagRun": {
+          "conf": {},
+          "dag_id": "BQ",
+          "data_interval_end": "2024-11-26T13:05:23.281750+00:00",
+          "data_interval_start": "2024-11-26T13:05:23.281750+00:00",
+          "external_trigger": true,
+          "run_id": "manual__2024-11-26T13:05:23.281750+00:00",
+          "run_type": "manual",
+          "start_date": "2024-11-26T13:05:23.809955+00:00"
+        },
+        "task": {
+          "depends_on_past": false,
+          "downstream_task_ids": "['download']",
+          "executor_config": {},
+          "ignore_first_depends_on_past": false,
+          "inlets": "[]",
+          "mapped": false,
+          "multiple_outputs": false,
+          "operator_class": "BigQueryToBigQueryOperator",
+          "operator_class_path": "***.providers.google.cloud.transfers.bigquery_to_bigquery.BigQueryToBigQueryOperator",
+          "outlets": "[]",
+          "owner": "***",
+          "priority_weight": 1,
+          "queue": "default",
+          "retries": 0,
+          "retry_exponential_backoff": false,
+          "task_id": "copy",
+          "trigger_rule": "all_success",
+          "upstream_task_ids": "['upload']",
+          "wait_for_downstream": false,
+          "wait_for_past_depends_before_skipping": false,
+          "weight_rule": "<<non-serializable: _DownstreamPriorityWeightStrategy>>"
+        },
+        "taskInstance": {
+          "duration": 2.902111,
+          "log_url": "http://localhost:8080/dags/BQ/grid?dag_run_id=manual__2024-11-26T13%3A05%3A23.281750%2B00%3A00&task_id=copy&base_date=2024-11-26T13%3A05%3A23%2B0000&tab=logs",
+          "pool": "default_pool",
+          "queued_dttm": "2024-11-26T13:05:29.697982+00:00",
+          "try_number": 1
+        },
+        "taskUuid": "01936893-9751-7b10-a4a7-cd7454722d0f"
+      },
+      "externalQuery": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-2/ExternalQueryRunFacet.json#/$defs/ExternalQueryRunFacet",
+        "externalQueryId": "***_1732626332070201_3cff1da525a6e01f42e15d1dc755f7c2",
+        "source": "bigquery"
+      },
+      "parent": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ParentRunFacet.json#/$defs/ParentRunFacet",
+        "job": {
+          "name": "BQ",
+          "namespace": "airflow"
+        },
+        "run": {
+          "runId": "01936893-9751-7a91-a2a0-a51101a3970c"
+        }
+      }
+    },
+    "runId": "01936893-9751-7b10-a4a7-cd7454722d0f"
+  },
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent"
+}

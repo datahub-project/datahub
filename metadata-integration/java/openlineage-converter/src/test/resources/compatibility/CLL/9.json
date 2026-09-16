@@ -1,0 +1,46 @@
+{
+    "eventTime": "2024-08-06T13:26:54.353Z",
+    "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+    "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+    "eventType": "COMPLETE",
+    "run": {
+      "runId": "019127de-fd25-7707-bfa4-3ec02693a531",
+      "facets": {
+        "spark_properties": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+          "properties": {
+            "spark.master": "local",
+            "spark.app.name": "Open Lineage Integration Create Table"
+          }
+        },
+        "processing_engine": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+          "version": "3.3.4",
+          "name": "spark",
+          "openlineageAdapterVersion": "1.19.0-SNAPSHOT"
+        },
+        "environment-properties": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+          "environment-properties": {}
+        }
+      }
+    },
+    "job": {
+      "namespace": "testColumnLevelLineage",
+      "name": "open_lineage_integration_create_table",
+      "facets": {
+        "jobType": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+          "processingType": "NONE",
+          "integration": "SPARK",
+          "jobType": "APPLICATION"
+        }
+      }
+    },
+    "inputs": [],
+    "outputs": []
+  }

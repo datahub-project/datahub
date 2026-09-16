@@ -1,0 +1,1009 @@
+{
+    "eventTime": "2024-08-06T13:26:54.268Z",
+    "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+    "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+    "eventType": "RUNNING",
+    "run": {
+      "runId": "019127df-0850-72bc-b214-b255290588a6",
+      "facets": {
+        "parent": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ParentRunFacet.json#/$defs/ParentRunFacet",
+          "run": {
+            "runId": "019127de-fd25-7707-bfa4-3ec02693a531"
+          },
+          "job": {
+            "namespace": "testColumnLevelLineage",
+            "name": "open_lineage_integration_create_table"
+          }
+        },
+        "spark.logicalPlan": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+          "plan": [
+            {
+              "class": "org.apache.spark.sql.hive.execution.CreateHiveTableAsSelectCommand",
+              "num-children": 1,
+              "tableDesc": {
+                "product-class": "org.apache.spark.sql.catalyst.catalog.CatalogTable",
+                "identifier": {
+                  "product-class": "org.apache.spark.sql.catalyst.TableIdentifier",
+                  "table": "tbl1",
+                  "database": "default"
+                },
+                "tableType": {
+                  "product-class": "org.apache.spark.sql.catalyst.catalog.CatalogTableType",
+                  "name": "EXTERNAL"
+                },
+                "storage": {
+                  "product-class": "org.apache.spark.sql.catalyst.catalog.CatalogStorageFormat",
+                  "locationUri": null,
+                  "inputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                  "outputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                  "serde": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                  "compressed": false,
+                  "properties": null
+                },
+                "schema": {
+                  "type": "struct",
+                  "fields": []
+                },
+                "provider": "hive",
+                "partitionColumnNames": [],
+                "owner": "",
+                "createTime": 1722950813630,
+                "lastAccessTime": -1,
+                "createVersion": "",
+                "properties": null,
+                "unsupportedFeatures": [],
+                "tracksPartitionsInCatalog": false,
+                "schemaPreservesCase": true,
+                "ignoredProperties": null
+              },
+              "query": 0,
+              "outputColumnNames": "[ident, trans, agg]",
+              "mode": null
+            },
+            {
+              "class": "org.apache.spark.sql.catalyst.plans.logical.Aggregate",
+              "num-children": 1,
+              "groupingExpressions": [
+                [
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                    "num-children": 0,
+                    "name": "a",
+                    "dataType": "integer",
+                    "nullable": true,
+                    "metadata": {},
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 5,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": "[t1]"
+                  }
+                ],
+                [
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                    "num-children": 0,
+                    "name": "b",
+                    "dataType": "string",
+                    "nullable": true,
+                    "metadata": {},
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 6,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": "[t1]"
+                  }
+                ]
+              ],
+              "aggregateExpressions": [
+                [
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.Alias",
+                    "num-children": 1,
+                    "child": 0,
+                    "name": "ident",
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 0,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": [],
+                    "nonInheritableMetadataKeys": []
+                  },
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                    "num-children": 0,
+                    "name": "a",
+                    "dataType": "integer",
+                    "nullable": true,
+                    "metadata": {},
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 5,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": "[t1]"
+                  }
+                ],
+                [
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.Alias",
+                    "num-children": 1,
+                    "child": 0,
+                    "name": "trans",
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 1,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": [],
+                    "nonInheritableMetadataKeys": []
+                  },
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.Concat",
+                    "num-children": 2,
+                    "children": [
+                      0,
+                      1
+                    ]
+                  },
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                    "num-children": 0,
+                    "name": "b",
+                    "dataType": "string",
+                    "nullable": true,
+                    "metadata": {},
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 6,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": "[t1]"
+                  },
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.Literal",
+                    "num-children": 0,
+                    "value": "test",
+                    "dataType": "string"
+                  }
+                ],
+                [
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.Alias",
+                    "num-children": 1,
+                    "child": 0,
+                    "name": "agg",
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 2,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": [],
+                    "nonInheritableMetadataKeys": []
+                  },
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.aggregate.AggregateExpression",
+                    "num-children": 1,
+                    "aggregateFunction": 0,
+                    "mode": {
+                      "object": "org.apache.spark.sql.catalyst.expressions.aggregate.Complete$"
+                    },
+                    "isDistinct": false,
+                    "resultId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 7,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    }
+                  },
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.aggregate.Sum",
+                    "num-children": 1,
+                    "child": 0,
+                    "useAnsiAdd": false
+                  },
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                    "num-children": 0,
+                    "name": "c",
+                    "dataType": "integer",
+                    "nullable": true,
+                    "metadata": {},
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 4,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": "[t2]"
+                  }
+                ]
+              ],
+              "child": 0
+            },
+            {
+              "class": "org.apache.spark.sql.catalyst.plans.logical.Project",
+              "num-children": 1,
+              "projectList": [
+                [
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                    "num-children": 0,
+                    "name": "c",
+                    "dataType": "integer",
+                    "nullable": true,
+                    "metadata": {},
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 4,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": []
+                  }
+                ],
+                [
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                    "num-children": 0,
+                    "name": "a",
+                    "dataType": "integer",
+                    "nullable": true,
+                    "metadata": {},
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 5,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": []
+                  }
+                ],
+                [
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                    "num-children": 0,
+                    "name": "b",
+                    "dataType": "string",
+                    "nullable": true,
+                    "metadata": {},
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 6,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": []
+                  }
+                ]
+              ],
+              "child": 0
+            },
+            {
+              "class": "org.apache.spark.sql.catalyst.plans.logical.Join",
+              "num-children": 2,
+              "left": 0,
+              "right": 1,
+              "joinType": {
+                "object": "org.apache.spark.sql.catalyst.plans.Inner$"
+              },
+              "condition": [
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.EqualTo",
+                  "num-children": 2,
+                  "left": 0,
+                  "right": 1
+                },
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                  "num-children": 0,
+                  "name": "a",
+                  "dataType": "integer",
+                  "nullable": true,
+                  "metadata": {},
+                  "exprId": {
+                    "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                    "id": 5,
+                    "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                  },
+                  "qualifier": "[t1]"
+                },
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                  "num-children": 0,
+                  "name": "a",
+                  "dataType": "integer",
+                  "nullable": true,
+                  "metadata": {},
+                  "exprId": {
+                    "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                    "id": 3,
+                    "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                  },
+                  "qualifier": "[t2]"
+                }
+              ],
+              "hint": null
+            },
+            {
+              "class": "org.apache.spark.sql.catalyst.plans.logical.Filter",
+              "num-children": 1,
+              "condition": [
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.And",
+                  "num-children": 2,
+                  "left": 0,
+                  "right": 1
+                },
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.IsNotNull",
+                  "num-children": 1,
+                  "child": 0
+                },
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                  "num-children": 0,
+                  "name": "a",
+                  "dataType": "integer",
+                  "nullable": true,
+                  "metadata": {},
+                  "exprId": {
+                    "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                    "id": 3,
+                    "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                  },
+                  "qualifier": "[spark_catalog, default, cll_source2]"
+                },
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.GreaterThan",
+                  "num-children": 2,
+                  "left": 0,
+                  "right": 1
+                },
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                  "num-children": 0,
+                  "name": "a",
+                  "dataType": "integer",
+                  "nullable": true,
+                  "metadata": {},
+                  "exprId": {
+                    "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                    "id": 3,
+                    "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                  },
+                  "qualifier": "[spark_catalog, default, cll_source2]"
+                },
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.Literal",
+                  "num-children": 0,
+                  "value": "1",
+                  "dataType": "integer"
+                }
+              ],
+              "child": 0
+            },
+            {
+              "class": "org.apache.spark.sql.catalyst.catalog.HiveTableRelation",
+              "num-children": 0,
+              "tableMeta": {
+                "product-class": "org.apache.spark.sql.catalyst.catalog.CatalogTable",
+                "identifier": {
+                  "product-class": "org.apache.spark.sql.catalyst.TableIdentifier",
+                  "table": "cll_source2",
+                  "database": "default"
+                },
+                "tableType": {
+                  "product-class": "org.apache.spark.sql.catalyst.catalog.CatalogTableType",
+                  "name": "MANAGED"
+                },
+                "storage": {
+                  "product-class": "org.apache.spark.sql.catalyst.catalog.CatalogStorageFormat",
+                  "locationUri": null,
+                  "inputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                  "outputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                  "serde": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                  "compressed": false,
+                  "properties": null
+                },
+                "schema": {
+                  "type": "struct",
+                  "fields": [
+                    {
+                      "name": "a",
+                      "type": "integer",
+                      "nullable": true,
+                      "metadata": {}
+                    },
+                    {
+                      "name": "c",
+                      "type": "integer",
+                      "nullable": true,
+                      "metadata": {}
+                    }
+                  ]
+                },
+                "provider": "hive",
+                "partitionColumnNames": [],
+                "owner": "spark",
+                "createTime": 1722950813000,
+                "lastAccessTime": 0,
+                "createVersion": "3.3.4",
+                "properties": null,
+                "unsupportedFeatures": [],
+                "tracksPartitionsInCatalog": true,
+                "schemaPreservesCase": true,
+                "ignoredProperties": null
+              },
+              "dataCols": [
+                [
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                    "num-children": 0,
+                    "name": "a",
+                    "dataType": "integer",
+                    "nullable": true,
+                    "metadata": {},
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 3,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": []
+                  }
+                ],
+                [
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                    "num-children": 0,
+                    "name": "c",
+                    "dataType": "integer",
+                    "nullable": true,
+                    "metadata": {},
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 4,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": []
+                  }
+                ]
+              ],
+              "partitionCols": [],
+              "tableStats": null
+            },
+            {
+              "class": "org.apache.spark.sql.catalyst.plans.logical.Filter",
+              "num-children": 1,
+              "condition": [
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.And",
+                  "num-children": 2,
+                  "left": 0,
+                  "right": 1
+                },
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.GreaterThan",
+                  "num-children": 2,
+                  "left": 0,
+                  "right": 1
+                },
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                  "num-children": 0,
+                  "name": "a",
+                  "dataType": "integer",
+                  "nullable": true,
+                  "metadata": {},
+                  "exprId": {
+                    "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                    "id": 5,
+                    "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                  },
+                  "qualifier": "[t1]"
+                },
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.Literal",
+                  "num-children": 0,
+                  "value": "1",
+                  "dataType": "integer"
+                },
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.IsNotNull",
+                  "num-children": 1,
+                  "child": 0
+                },
+                {
+                  "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                  "num-children": 0,
+                  "name": "a",
+                  "dataType": "integer",
+                  "nullable": true,
+                  "metadata": {},
+                  "exprId": {
+                    "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                    "id": 5,
+                    "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                  },
+                  "qualifier": "[t1]"
+                }
+              ],
+              "child": 0
+            },
+            {
+              "class": "org.apache.spark.sql.catalyst.catalog.HiveTableRelation",
+              "num-children": 0,
+              "tableMeta": {
+                "product-class": "org.apache.spark.sql.catalyst.catalog.CatalogTable",
+                "identifier": {
+                  "product-class": "org.apache.spark.sql.catalyst.TableIdentifier",
+                  "table": "cll_source1",
+                  "database": "default"
+                },
+                "tableType": {
+                  "product-class": "org.apache.spark.sql.catalyst.catalog.CatalogTableType",
+                  "name": "MANAGED"
+                },
+                "storage": {
+                  "product-class": "org.apache.spark.sql.catalyst.catalog.CatalogStorageFormat",
+                  "locationUri": null,
+                  "inputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                  "outputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                  "serde": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                  "compressed": false,
+                  "properties": null
+                },
+                "schema": {
+                  "type": "struct",
+                  "fields": [
+                    {
+                      "name": "a",
+                      "type": "integer",
+                      "nullable": true,
+                      "metadata": {}
+                    },
+                    {
+                      "name": "b",
+                      "type": "string",
+                      "nullable": true,
+                      "metadata": {}
+                    }
+                  ]
+                },
+                "provider": "hive",
+                "partitionColumnNames": [],
+                "owner": "spark",
+                "createTime": 1722950813000,
+                "lastAccessTime": 0,
+                "createVersion": "3.3.4",
+                "properties": null,
+                "unsupportedFeatures": [],
+                "tracksPartitionsInCatalog": true,
+                "schemaPreservesCase": true,
+                "ignoredProperties": null
+              },
+              "dataCols": [
+                [
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                    "num-children": 0,
+                    "name": "a",
+                    "dataType": "integer",
+                    "nullable": true,
+                    "metadata": {},
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 5,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": []
+                  }
+                ],
+                [
+                  {
+                    "class": "org.apache.spark.sql.catalyst.expressions.AttributeReference",
+                    "num-children": 0,
+                    "name": "b",
+                    "dataType": "string",
+                    "nullable": true,
+                    "metadata": {},
+                    "exprId": {
+                      "product-class": "org.apache.spark.sql.catalyst.expressions.ExprId",
+                      "id": 6,
+                      "jvmId": "20c7eddf-cc84-4b90-8cd7-6bb02673e892"
+                    },
+                    "qualifier": []
+                  }
+                ]
+              ],
+              "partitionCols": [],
+              "tableStats": null
+            }
+          ]
+        },
+        "spark_properties": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+          "properties": {
+            "spark.master": "local",
+            "spark.app.name": "Open Lineage Integration Create Table"
+          }
+        },
+        "processing_engine": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+          "version": "3.3.4",
+          "name": "spark",
+          "openlineageAdapterVersion": "1.19.0-SNAPSHOT"
+        },
+        "environment-properties": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+          "environment-properties": {}
+        }
+      }
+    },
+    "job": {
+      "namespace": "testColumnLevelLineage",
+      "name": "open_lineage_integration_create_table.execute_create_hive_table_as_select_command.default_tbl1",
+      "facets": {
+        "jobType": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+          "processingType": "BATCH",
+          "integration": "SPARK",
+          "jobType": "SQL_JOB"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "namespace": "file",
+        "name": "/tmp/cll_test/cll_source2",
+        "facets": {
+          "dataSource": {
+            "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+            "name": "file",
+            "uri": "file"
+          },
+          "schema": {
+            "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+            "fields": [
+              {
+                "name": "a",
+                "type": "integer"
+              },
+              {
+                "name": "c",
+                "type": "integer"
+              }
+            ]
+          },
+          "symlinks": {
+            "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json#/$defs/SymlinksDatasetFacet",
+            "identifiers": [
+              {
+                "namespace": "file:/tmp/cll_test",
+                "name": "default.cll_source2",
+                "type": "TABLE"
+              }
+            ]
+          }
+        },
+        "inputFacets": {}
+      },
+      {
+        "namespace": "file",
+        "name": "/tmp/cll_test/cll_source1",
+        "facets": {
+          "dataSource": {
+            "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+            "name": "file",
+            "uri": "file"
+          },
+          "schema": {
+            "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+            "fields": [
+              {
+                "name": "a",
+                "type": "integer"
+              },
+              {
+                "name": "b",
+                "type": "string"
+              }
+            ]
+          },
+          "symlinks": {
+            "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json#/$defs/SymlinksDatasetFacet",
+            "identifiers": [
+              {
+                "namespace": "file:/tmp/cll_test",
+                "name": "default.cll_source1",
+                "type": "TABLE"
+              }
+            ]
+          }
+        },
+        "inputFacets": {}
+      }
+    ],
+    "outputs": [
+      {
+        "namespace": "file",
+        "name": "/tmp/cll_test/tbl1",
+        "facets": {
+          "dataSource": {
+            "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+            "name": "file",
+            "uri": "file"
+          },
+          "schema": {
+            "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+            "fields": [
+              {
+                "name": "ident",
+                "type": "integer"
+              },
+              {
+                "name": "trans",
+                "type": "string"
+              },
+              {
+                "name": "agg",
+                "type": "long"
+              }
+            ]
+          },
+          "columnLineage": {
+            "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-1-0/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+            "fields": {
+              "ident": {
+                "inputFields": [
+                  {
+                    "namespace": "file",
+                    "name": "/tmp/cll_test/cll_source1",
+                    "field": "a",
+                    "transformations": [
+                      {
+                        "type": "DIRECT",
+                        "subtype": "IDENTITY",
+                        "description": "",
+                        "masking": false
+                      },
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "GROUP_BY",
+                        "description": "",
+                        "masking": false
+                      },
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "JOIN",
+                        "description": "",
+                        "masking": false
+                      },
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "FILTER",
+                        "description": "",
+                        "masking": false
+                      }
+                    ]
+                  },
+                  {
+                    "namespace": "file",
+                    "name": "/tmp/cll_test/cll_source1",
+                    "field": "b",
+                    "transformations": [
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "GROUP_BY",
+                        "description": "",
+                        "masking": false
+                      }
+                    ]
+                  },
+                  {
+                    "namespace": "file",
+                    "name": "/tmp/cll_test/cll_source2",
+                    "field": "a",
+                    "transformations": [
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "JOIN",
+                        "description": "",
+                        "masking": false
+                      },
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "FILTER",
+                        "description": "",
+                        "masking": false
+                      }
+                    ]
+                  }
+                ]
+              },
+              "trans": {
+                "inputFields": [
+                  {
+                    "namespace": "file",
+                    "name": "/tmp/cll_test/cll_source1",
+                    "field": "a",
+                    "transformations": [
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "GROUP_BY",
+                        "description": "",
+                        "masking": false
+                      },
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "JOIN",
+                        "description": "",
+                        "masking": false
+                      },
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "FILTER",
+                        "description": "",
+                        "masking": false
+                      }
+                    ]
+                  },
+                  {
+                    "namespace": "file",
+                    "name": "/tmp/cll_test/cll_source1",
+                    "field": "b",
+                    "transformations": [
+                      {
+                        "type": "DIRECT",
+                        "subtype": "TRANSFORMATION",
+                        "description": "",
+                        "masking": false
+                      },
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "GROUP_BY",
+                        "description": "",
+                        "masking": false
+                      }
+                    ]
+                  },
+                  {
+                    "namespace": "file",
+                    "name": "/tmp/cll_test/cll_source2",
+                    "field": "a",
+                    "transformations": [
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "JOIN",
+                        "description": "",
+                        "masking": false
+                      },
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "FILTER",
+                        "description": "",
+                        "masking": false
+                      }
+                    ]
+                  }
+                ]
+              },
+              "agg": {
+                "inputFields": [
+                  {
+                    "namespace": "file",
+                    "name": "/tmp/cll_test/cll_source1",
+                    "field": "a",
+                    "transformations": [
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "GROUP_BY",
+                        "description": "",
+                        "masking": false
+                      },
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "JOIN",
+                        "description": "",
+                        "masking": false
+                      },
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "FILTER",
+                        "description": "",
+                        "masking": false
+                      }
+                    ]
+                  },
+                  {
+                    "namespace": "file",
+                    "name": "/tmp/cll_test/cll_source1",
+                    "field": "b",
+                    "transformations": [
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "GROUP_BY",
+                        "description": "",
+                        "masking": false
+                      }
+                    ]
+                  },
+                  {
+                    "namespace": "file",
+                    "name": "/tmp/cll_test/cll_source2",
+                    "field": "c",
+                    "transformations": [
+                      {
+                        "type": "DIRECT",
+                        "subtype": "AGGREGATION",
+                        "description": "",
+                        "masking": false
+                      }
+                    ]
+                  },
+                  {
+                    "namespace": "file",
+                    "name": "/tmp/cll_test/cll_source2",
+                    "field": "a",
+                    "transformations": [
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "JOIN",
+                        "description": "",
+                        "masking": false
+                      },
+                      {
+                        "type": "INDIRECT",
+                        "subtype": "FILTER",
+                        "description": "",
+                        "masking": false
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "symlinks": {
+            "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json#/$defs/SymlinksDatasetFacet",
+            "identifiers": [
+              {
+                "namespace": "file:/tmp/cll_test",
+                "name": "default.tbl1",
+                "type": "TABLE"
+              }
+            ]
+          },
+          "lifecycleStateChange": {
+            "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/LifecycleStateChangeDatasetFacet.json#/$defs/LifecycleStateChangeDatasetFacet",
+            "lifecycleStateChange": "CREATE"
+          }
+        },
+        "outputFacets": {
+          "outputStatistics": {
+            "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.19.0-SNAPSHOT/integration/spark",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-2/OutputStatisticsOutputDatasetFacet.json#/$defs/OutputStatisticsOutputDatasetFacet",
+            "rowCount": 0,
+            "size": 0
+          }
+        }
+      }
+    ]
+  }
