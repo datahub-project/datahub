@@ -538,14 +538,27 @@ TELEMETRY_WRAPPED_ATTR = "__datahub_telemetry_wrapped__"
 
 
 def is_telemetry_wrapped(func: object) -> bool:
-    """Whether `func` already has a with_telemetry wrapper anywhere in its chain."""
+    """Whether `func` already has a with_telemetry wrapper anywhere in its chain.
+
+    Bounded by identity rather than by depth. The walk has to terminate --
+    wraps(f)(f) sets f.__wrapped__ = f, a cycle this codebase has already met
+    once -- but a fixed cap ends it by ANSWERING, and the answer it gives is
+    False. enable_auto_decorators reads False as "needs a wrapper", so a
+    chain longer than the cap got a second one and every function-call event
+    for that command fired twice: the exact defect this detection exists to
+    prevent, reintroduced by the guard against a different one.
+
+    In practice @wraps copies __dict__, so the marker propagates to every
+    wrapper above it and depth rarely mattered. A decorator that sets
+    __wrapped__ without copying __dict__ is the shape that reached the cap.
+    """
     current: object = func
-    seen = 0
-    while current is not None and seen < 20:
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
         if getattr(current, TELEMETRY_WRAPPED_ATTR, False):
             return True
+        seen.add(id(current))
         current = getattr(current, "__wrapped__", None)
-        seen += 1
     return False
 
 

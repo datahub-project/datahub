@@ -149,3 +149,66 @@ def test_an_already_wrapped_callback_is_left_entirely_alone(pings):
     assert getattr(after, "__wrapped__", None) is not after
     inspect.unwrap(after)
     inspect.signature(after)
+
+
+def test_a_deep_decorator_chain_does_not_hide_the_telemetry_wrapper():
+    """A depth cap that gives up says "not wrapped", which is the answer that
+    causes the bug.
+
+    is_telemetry_wrapped stopped after 20 links. A command wrapped more
+    deeply than that reported False, and enable_auto_decorators reads False
+    as "needs one" -- so it would add a second wrapper and every
+    function-call event for that command would fire twice again, which is
+    the whole defect this detection exists to prevent.
+    """
+
+    def target() -> None:
+        pass
+
+    # Deliberately NOT @wraps: it copies __dict__, so the marker propagates
+    # to every wrapper above and is found at depth 0 whatever the length --
+    # a @wraps chain passes this test without ever reaching the cap, which
+    # is how the first draft of it passed against the unfixed code.
+    fn = telemetry.with_telemetry()(target)
+    for _ in range(40):
+
+        def outer(f=fn):
+            def inner(*a, **k):
+                return f(*a, **k)
+
+            # setattr: __wrapped__ is a dynamic attribute, and a plain
+            # function has no such declared member.
+            # Through an Any-typed name: __wrapped__ is a dynamic
+            # attribute, which a plain function does not declare.
+            link: Any = inner
+            link.__wrapped__ = f  # the link, without the dict copy
+            return inner
+
+        fn = outer()
+
+    assert not getattr(fn, telemetry.TELEMETRY_WRAPPED_ATTR, False), (
+        "the marker propagated, so this chain does not exercise the walk"
+    )
+    assert telemetry.is_telemetry_wrapped(fn)
+
+
+def test_a_self_referential_wrapper_chain_terminates():
+    """Why the cap was there, and what has to survive removing it.
+
+    wraps(f)(f) sets f.__wrapped__ = f -- a cycle this branch has already met
+    once, where it made inspect.unwrap raise "wrapper loop" on exactly the
+    commands that instrument themselves. Identity, not depth, is what ends
+    the walk.
+    """
+    from functools import wraps
+
+    def lonely() -> None:
+        pass
+
+    wraps(lonely)(lonely)  # lonely.__wrapped__ is lonely
+    # Same Any-typed read as above: the cycle is real, the attribute is
+    # dynamic, and a plain function does not declare it.
+    cyclic: Any = lonely
+    assert cyclic.__wrapped__ is lonely
+
+    assert telemetry.is_telemetry_wrapped(lonely) is False
