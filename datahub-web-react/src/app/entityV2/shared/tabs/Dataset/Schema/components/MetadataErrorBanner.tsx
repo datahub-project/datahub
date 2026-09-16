@@ -8,7 +8,7 @@ const Banner = styled.div`
     gap: 6px;
     padding: 4px 16px;
     font-size: 12px;
-    color: ${(props) => props.theme.colors.textDisabled};
+    color: ${(props) => props.theme.colors.textError};
     background: ${(props) => props.theme.colors.bgSurface};
     border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
@@ -35,7 +35,7 @@ type Props = {
 export default function MetadataErrorBanner({ message, onRetry }: Props) {
     const { t: ta } = useTranslation('common.actions');
     return (
-        <Banner data-testid="metadata-error-banner">
+        <Banner role="alert" data-testid="metadata-error-banner">
             {message}{' '}
             <RetryLink type="button" onClick={onRetry}>
                 {ta('retry')}

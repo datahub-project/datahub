@@ -183,7 +183,38 @@ describe('useStructuredProperties', () => {
         expect(mockUseGetEntityWithSchema).toHaveBeenCalledWith(false);
         expect(result.current.loading).toBe(true);
         expect(result.current.structuredPropertyRowsRaw).toHaveLength(1);
-        expect(result.current.structuredPropertyRowsRaw[0]).toMatchObject({ qualifiedName: 'testProp' });
+        expect(result.current.structuredPropertyRowsRaw[0]).toMatchObject({
+            displayName: 'testProp',
+            qualifiedName: 'testProp',
+            values: [{ value: 'value1', entity: null }],
+            type: { type: 'string', nativeDataType: 'text' },
+        });
+    });
+
+    it('derives entity-level rows from entity context when no fieldPath is given', () => {
+        // The entity-level Properties tab: no field, no schema query, rows come from entityData.
+        mockUseEntityData.mockReturnValue({
+            entityData: {
+                structuredProperties: {
+                    properties: [
+                        buildStructuredPropertiesEntry('entityProp', 'entityValue'),
+                        buildStructuredPropertiesEntry('goneProp', 'orphan', false, false),
+                    ],
+                },
+            },
+        });
+
+        const { result } = renderHook(() => useStructuredProperties(entityRegistry, null, undefined));
+
+        // No field means the schema query is skipped outright.
+        expect(mockUseGetEntityWithSchema).toHaveBeenCalledWith(true);
+        expect(result.current.structuredPropertyRowsRaw).toHaveLength(1);
+        expect(result.current.structuredPropertyRowsRaw[0]).toMatchObject({
+            displayName: 'entityProp',
+            qualifiedName: 'entityProp',
+            values: [{ value: 'entityValue', entity: null }],
+            type: { type: 'string', nativeDataType: 'text' },
+        });
     });
 });
 
