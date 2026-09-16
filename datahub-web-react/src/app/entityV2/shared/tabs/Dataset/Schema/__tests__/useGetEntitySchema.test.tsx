@@ -2,8 +2,9 @@
  * Tests the two-phase schema loading hooks against real Apollo queries (MockedProvider),
  * complementing SchemaTab.twophase.test.tsx which mocks the hook away to test the tab:
  * - useGetEntityWithSchema: Phase 1 (structural) resolves first; Phase 2 (full metadata)
- *   fires only after Phase 1 delivers data for the current urn; structuralOnly suppresses
- *   Phase 2 entirely; `loading` covers both phases unless the caller opts into structuralFirst.
+ *   fires only after Phase 1 delivers data and is merged into the same single copy;
+ *   structuralOnly suppresses Phase 2 entirely; `loading` covers both phases unless the
+ *   caller opts into structuralFirst; refetch re-runs only Phase 2 once full data exists.
  * - useGetColumnTabCount: undefined while loading, then the structural field count.
  */
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
@@ -122,6 +123,13 @@ describe('useGetEntityWithSchema two-phase sequencing', () => {
         );
         expect(result.current.fullMetadataError).toBeUndefined();
         expect(result.current.structuralSchemaError).toBeUndefined();
+        // Single copy: once full metadata is merged in, the structural view is released.
+        expect(result.current.structuralSchemaMetadata).toBeNull();
+        // The merged copy still carries every structural field, in order.
+        expect(result.current.entityWithSchema?.schemaMetadata?.fields?.map((f) => f.fieldPath)).toEqual([
+            'user_id',
+            'user_name',
+        ]);
     });
 
     it('default callers stay loading until full metadata has settled', async () => {
@@ -138,23 +146,39 @@ describe('useGetEntityWithSchema two-phase sequencing', () => {
         expect(result.current.entityWithSchema?.schemaMetadata?.fields).toHaveLength(2);
     });
 
-    it('does not start the full query when the structural result names another dataset', async () => {
-        // Simulates the render where Apollo still reports the previous dataset's result after
-        // the urn changed. No fullMock: firing Phase 2 would surface a missing-mock error.
-        const staleStructuralMock = {
-            request: structuralMock.request,
-            result: { data: { dataset: { ...structuralDataset.dataset, urn: 'urn:li:dataset:other' } } },
+    it('refetch after Phase 2 re-runs only the full query and keeps rows on screen', async () => {
+        const refreshedFull = {
+            request: fullMock.request,
+            result: {
+                data: {
+                    dataset: {
+                        ...fullDataset.dataset,
+                        schemaMetadata: {
+                            ...fullDataset.dataset.schemaMetadata,
+                            fields: fullDataset.dataset.schemaMetadata.fields.map((f) => ({
+                                ...f,
+                                description: `${f.fieldPath} edited`,
+                            })),
+                        },
+                    },
+                },
+            },
         };
+        // No second structural mock: if refetch re-ran Phase 1 it would fail on a missing mock.
         const { result } = renderHook(() => useGetEntityWithSchema(undefined, undefined, true), {
-            wrapper: wrapperWith([staleStructuralMock]),
+            wrapper: wrapperWith([structuralMock, fullMock, refreshedFull]),
+        });
+        await waitFor(() => expect(result.current.entityWithSchema?.schemaMetadata?.fields).toHaveLength(2));
+
+        await act(async () => {
+            await result.current.refetch();
         });
 
-        // The mismatched result is treated as absent: no rows, no Phase 2.
-        await waitFor(() => expect(result.current.loading).toBe(false));
-        expect(result.current.structuralSchemaMetadata).toBeNull();
+        expect(result.current.entityWithSchema?.schemaMetadata?.fields?.[0]?.description).toEqual('user_id edited');
+        // The reload never re-raised the metadata skeletons or dropped the rows.
         expect(result.current.fullMetadataLoading).toBe(false);
-        expect(result.current.fullMetadataError).toBeUndefined();
-        expect(result.current.entityWithSchema).toBeNull();
+        expect(result.current.loading).toBe(false);
+        expect(result.current.structuralSchemaError).toBeUndefined();
     });
 
     it('navigating to another dataset evicts the previous data and reloads in two phases', async () => {
@@ -281,8 +305,10 @@ describe('useGetEntityWithSchema two-phase sequencing', () => {
             await result.current.refetch();
         });
 
-        await waitFor(() => expect(result.current.structuralSchemaMetadata?.fields).toHaveLength(2));
+        // refetch resolves once both phases have settled: the structural copy has already been
+        // merged into the full one by now.
         await waitFor(() => expect(result.current.entityWithSchema?.schemaMetadata?.fields).toHaveLength(2));
+        expect(result.current.structuralSchemaMetadata).toBeNull();
         expect(result.current.structuralSchemaError).toBeUndefined();
         expect(result.current.fullMetadataError).toBeUndefined();
         expect(result.current.loading).toBe(false);
