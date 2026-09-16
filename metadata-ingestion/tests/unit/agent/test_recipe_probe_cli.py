@@ -29,9 +29,20 @@ def _isolate_secret_registry():
     order-dependent flake for someone to find."""
     from datahub.masking.secret_registry import SecretRegistry
 
-    SecretRegistry.reset_instance()
+    # Cleared IN PLACE rather than replaced. SecretMaskingFilter caches the
+    # registry it was built with (masking_filter.py: `self._registry =
+    # secret_registry or SecretRegistry.get_instance()`), and the `recipe`
+    # group installs those filters on process-global handlers that outlive
+    # this fixture. reset_instance() swaps the singleton underneath them, so
+    # every handler installed by an earlier test goes on masking against a
+    # dead registry and a later test's secrets reach the output unmasked --
+    # the very leak this fixture exists to prevent, arriving by a different
+    # door. Verified: with reset_instance(), an already-built filter masks
+    # nothing registered afterwards; with clear(), it picks up the new
+    # secrets and forgets the old ones.
+    SecretRegistry.get_instance().clear()
     yield
-    SecretRegistry.reset_instance()
+    SecretRegistry.get_instance().clear()
 
 
 def _recipe_file(tmp_path):
@@ -1175,3 +1186,29 @@ def test_the_cli_hands_over_a_valueless_flag_without_guessing(monkeypatch, tmp_p
     # The neighbouring value is untouched -- the sentinel is for the flag that
     # was given none, not for everything after it.
     assert seen["table"] == "orders", seen
+
+
+def test_clearing_the_registry_keeps_installed_filters_working():
+    """Why the fixture above clears instead of resetting.
+
+    A filter caches the registry it was constructed with, and the `recipe`
+    group installs filters on process-global handlers. Swapping the singleton
+    leaves those handlers masking against the old one, so secrets registered
+    by a later test are not masked at all -- a leak that looks like a passing
+    test, because the assertion "the secret is absent from the output" is
+    also satisfied when nothing was ever there to mask.
+    """
+    from datahub.masking.masking_filter import SecretMaskingFilter
+    from datahub.masking.secret_registry import SecretRegistry
+
+    registry = SecretRegistry.get_instance()
+    registry.register_secret("PW", "earlier-secret-value")
+    installed = SecretMaskingFilter()
+
+    registry.clear()
+    SecretRegistry.get_instance().register_secret("PW", "later-secret-value")
+
+    assert "later-secret-value" not in installed.mask_text("saw later-secret-value")
+    # ...and the previous test's secret is genuinely gone, which is the
+    # isolation the fixture is for.
+    assert "earlier-secret-value" in installed.mask_text("saw earlier-secret-value")
