@@ -81,6 +81,20 @@ _TARGET_PLATFORM_TO_DIALECT: Dict[str, str] = {
 }
 
 
+def _accumulation_note(metric_definition: DBTMetric) -> Optional[str]:
+    """How a cumulative metric accumulates, for the expression comment.
+
+    Without it a cumulative metric's expression is the aggregation it is built
+    on -- identical to the simple metric over the same measure, so a 7-day
+    running total and a plain total read the same.
+    """
+    if metric_definition.window:
+        return f"cumulative over {metric_definition.window}"
+    if metric_definition.grain_to_date:
+        return f"cumulative to date by {metric_definition.grain_to_date}"
+    return None
+
+
 def _metric_subtype(metric_type: str) -> str:
     """Title-case dbt's metric type for display, e.g. "cumulative" -> Cumulative.
 
@@ -122,6 +136,8 @@ class _MetricComputation:
 
     expression: str
     measure_predicate: Optional[str] = None
+    # Appended as a trailing SQL comment, after any FILTER clause.
+    annotation: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -996,7 +1012,9 @@ class DbtSemanticModelMapper:
             if predicate
         ]
         if not predicates:
-            return self._expression(computation.expression)
+            return self._expression(
+                self._annotated(computation.expression, computation.annotation)
+            )
         if len(predicates) > 1:
             # AND binds tighter than OR, so joining `a OR b` to `c OR d` bare
             # yields `a OR (b AND c) OR d` -- a different set of rows than dbt
@@ -1004,8 +1022,26 @@ class DbtSemanticModelMapper:
             # since nothing is joined to it.
             predicates = [f"({predicate})" for predicate in predicates]
         return self._expression(
-            f"{computation.expression} FILTER (WHERE {' AND '.join(predicates)})"
+            self._annotated(
+                f"{computation.expression} FILTER (WHERE {' AND '.join(predicates)})",
+                computation.annotation,
+            )
         )
+
+    @staticmethod
+    def _annotated(expression: str, annotation: Optional[str]) -> str:
+        """Append an annotation as a SQL comment.
+
+        A comment rather than invented syntax: it is legal wherever whitespace
+        is, so the expression stays parseable and the leading aggregation still
+        yields its column reference.
+
+        TODO: this is tactical. The proper home for a cumulative metric's
+        window is a field on MetricInfo; until the aspect has one, anything we
+        do here is a convention this connector owns. Drop the comment in favour
+        of the real field when it exists.
+        """
+        return f"{expression} /* {annotation} */" if annotation else expression
 
     def _metric_computation(
         self, metric_definition: DBTMetric, index: _MeasureIndex
@@ -1041,7 +1077,9 @@ class DbtSemanticModelMapper:
             # author-written `expr` is theirs, and folding a predicate into it
             # would be putting words in their mouth.
             return _MetricComputation(
-                located.expression, measure_predicate=measure_input.filter
+                located.expression,
+                measure_predicate=measure_input.filter,
+                annotation=_accumulation_note(metric_definition),
             )
         return None
 

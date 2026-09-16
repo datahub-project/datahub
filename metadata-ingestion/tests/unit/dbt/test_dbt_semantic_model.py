@@ -1881,3 +1881,91 @@ def test_a_genuine_name_collision_with_a_measure_is_still_warned_about():
         w.title == "dbt metric shadows a create_metric measure"
         for w in mapper.report.warnings
     )
+
+
+def _cumulative(**type_params: Any) -> Dict[str, Any]:
+    return {
+        "metric.jaffle_shop.running": {
+            "name": "running",
+            "label": "Running total",
+            "description": "",
+            "type": "cumulative",
+            "type_params": {"measure": {"name": "order_count"}, **type_params},
+        }
+    }
+
+
+def _running_expression(raw: Dict[str, Any]) -> Optional[str]:
+    workunits = _emit(_mapper(), [_sm_node("orders", _ORDERS)], _metrics(raw))
+    info = dict(_aspects(workunits, MetricInfoClass))[
+        f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},running)"
+    ]
+    return _expression_of(info.expression).expression
+
+
+def test_a_cumulative_metric_says_how_it_accumulates():
+    # Without the note its expression is the aggregation it is built on, so a
+    # running total and a plain total read identically.
+    assert _running_expression(
+        _cumulative(window={"count": 7, "granularity": "day"})
+    ) == "count(orders.order_count) /* cumulative over 7 day */"
+    assert _running_expression(_cumulative(grain_to_date="month")) == (
+        "count(orders.order_count) /* cumulative to date by month */"
+    )
+
+
+def test_the_accumulation_note_follows_the_filter_clause():
+    # A comment is legal wherever whitespace is, but it has to come last or it
+    # would sit between the aggregate and its FILTER.
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.running": {
+                    "name": "running",
+                    "label": "Running total",
+                    "description": "",
+                    "type": "cumulative",
+                    "type_params": {
+                        "measure": {"name": "order_count"},
+                        "window": {"count": 7, "granularity": "day"},
+                    },
+                    "filter": {
+                        "where_filters": [{"where_sql_template": "country = 'US'"}]
+                    },
+                }
+            }
+        ),
+    )
+
+    info = dict(_aspects(workunits, MetricInfoClass))[
+        f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},running)"
+    ]
+    assert _expression_of(info.expression).expression == (
+        "count(orders.order_count) FILTER (WHERE country = 'US') "
+        "/* cumulative over 7 day */"
+    )
+
+
+def test_a_simple_metric_gets_no_accumulation_note():
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.running": {
+                    "name": "running",
+                    "label": "Plain total",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {"measure": {"name": "order_count"}},
+                }
+            }
+        ),
+    )
+
+    info = dict(_aspects(workunits, MetricInfoClass))[
+        f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},running)"
+    ]
+    assert _expression_of(info.expression).expression == "count(orders.order_count)"

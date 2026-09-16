@@ -641,6 +641,15 @@ sum(payments.payment_amount) FILTER (WHERE {{ Dimension('payment__payment_amount
 
 Two predicates are parenthesized before being joined, so a disjunction in either keeps its scope.
 
+A cumulative metric ends with a comment saying how it accumulates, because its computation is
+otherwise the plain aggregation it is built on — a 7-day running total and a plain total would read
+identically:
+
+```
+count(orders.order_count) /* cumulative over 7 day */
+count(orders.order_count) FILTER (WHERE country = 'US') /* cumulative over 7 day */
+```
+
 Treat the expression as documentation rather than runnable SQL. The leading aggregation is a real
 column reference, so it stays useful for tracing what a metric reads.
 
@@ -682,11 +691,11 @@ tags, terms, documentation — is not carried across automatically.
 
 ##### Not currently mapped
 
-- **Metric `window` and `grain_to_date`.** `MetricInfo` has no field for these, so a cumulative
-  metric's window is not carried. The metric's `type` _is_ carried, as a subtype (`Simple`, `Ratio`,
-  `Cumulative`, `Derived`, `Conversion`), so the kinds are distinguishable in search and filters even
-  though a cumulative metric's expression is the same aggregation as its simple counterpart's.
-  Metric filters _are_ represented — see [Metric expressions](#metric-expressions).
+- **Metric `window` and `grain_to_date` as structured data.** `MetricInfo` has no field for either,
+  so they are carried only as a trailing comment on the expression — readable, but not queryable or
+  filterable. The metric's `type` _is_ structured, as a subtype (`Simple`, `Ratio`, `Cumulative`,
+  `Derived`, `Conversion`). Metric filters are carried in the expression too — see
+  [Metric expressions](#metric-expressions).
 - **Tags on a dbt Core semantic model.** Manifest schema v11 gives a semantic model no `tags`
   field, so there are none to read from a manifest. On dbt Cloud the Discovery API does return
   `tags`, and those are emitted on the Semantic Model Dataset. The semantic model's owner is read

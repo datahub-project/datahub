@@ -528,6 +528,22 @@ def _dedupe_metric_inputs(inputs: List[DBTMetricInput]) -> List[DBTMetricInput]:
     return deduped
 
 
+def _metric_window(value: Any) -> Optional[str]:
+    """Flatten a cumulative metric's window into `"<count> <granularity>"`.
+
+    dbt >= 1.7 emits ``{"count": 7, "granularity": "day"}``; earlier versions
+    emitted a bare string.
+    """
+    if isinstance(value, str):
+        return value or None
+    if isinstance(value, dict):
+        count = value.get("count")
+        granularity = value.get("granularity")
+        if isinstance(count, int) and isinstance(granularity, str):
+            return f"{count} {granularity}"
+    return None
+
+
 def _optional_str_value(value: Any) -> Optional[str]:
     """Keep a non-string manifest value out of the typed model."""
     return value if isinstance(value, str) else None
@@ -629,6 +645,11 @@ def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBT
 
     tags = [tag_prefix + tag for tag in metric_node.get("tags") or []]
 
+    # dbt 1.9 moved these into their own block; earlier versions put them
+    # directly on type_params.
+    cumulative = type_params.get("cumulative_type_params")
+    cumulative = cumulative if isinstance(cumulative, dict) else {}
+
     return DBTMetric(
         name=metric_node.get("name", ""),
         unique_id=key,
@@ -641,6 +662,10 @@ def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBT
         # can hold anything. Same guard as measure `agg`.
         expr=_optional_str_value(type_params.get("expr")),
         filter=_metric_filter(metric_node.get("filter")),
+        window=_metric_window(type_params.get("window") or cumulative.get("window")),
+        grain_to_date=_optional_str_value(
+            type_params.get("grain_to_date") or cumulative.get("grain_to_date")
+        ),
         tags=tags,
         depends_on=depends_on_nodes,
     )

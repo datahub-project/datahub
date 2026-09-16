@@ -1625,6 +1625,12 @@ class DBTMetric:
     input_metrics: List[DBTMetricInput] = field(default_factory=list)
     expr: Optional[str] = None
     filter: Optional[str] = None
+    # A cumulative metric accumulates over one of these. Rendered into the
+    # expression as a trailing SQL comment, since MetricInfo has no field for
+    # them and without one a 7-day running total is indistinguishable from the
+    # plain aggregation it is built on.
+    window: Optional[str] = None
+    grain_to_date: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     depends_on: List[str] = field(default_factory=list)
 
