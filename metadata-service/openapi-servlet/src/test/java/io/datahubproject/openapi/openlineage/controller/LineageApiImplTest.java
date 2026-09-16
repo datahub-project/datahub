@@ -8,6 +8,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -23,8 +24,10 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.exception.UnprocessableEntityException;
+import io.datahubproject.openapi.openlineage.config.DatahubOpenlineageProperties;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.model.LineageBatchResult;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -95,6 +98,7 @@ public class LineageApiImplTest {
   @Mock private Authentication authentication;
 
   private LineageApiImpl controller;
+  private DatahubOpenlineageProperties properties;
   private AutoCloseable mocks;
 
   @BeforeMethod
@@ -119,6 +123,8 @@ public class LineageApiImplTest {
     ReflectionTestUtils.setField(controller, "_entityService", entityService);
     ReflectionTestUtils.setField(controller, "_authorizerChain", authorizerChain);
     ReflectionTestUtils.setField(controller, "request", request);
+    properties = new DatahubOpenlineageProperties();
+    ReflectionTestUtils.setField(controller, "_properties", properties);
 
     when(authentication.getActor())
         .thenReturn(new Actor(ActorType.USER, "urn:li:corpuser:testuser"));
@@ -229,6 +235,117 @@ public class LineageApiImplTest {
       assertEquals(response.getStatusCode(), HttpStatus.CREATED);
       verify(entityService, times(1)).ingestProposal(any(), any(AspectsBatch.class), anyBoolean());
     }
+  }
+
+  @Test
+  public void testBatchIngestsEveryEventAsOneWrite() {
+    LineageBatchResult result =
+        postBatch(batch(SAMPLE_START_EVENT, SAMPLE_JOB_EVENT, SAMPLE_DATASET_EVENT));
+
+    assertEquals(result.getStatus(), LineageBatchResult.STATUS_SUCCESS);
+    assertEquals(result.getSummary().getReceived(), 3);
+    assertEquals(result.getSummary().getSuccessful(), 3);
+    assertTrue(result.getFailedEvents().isEmpty());
+    // The point of a batch: three events, one write.
+    verify(entityService, times(1)).ingestProposal(any(), any(AspectsBatch.class), anyBoolean());
+  }
+
+  @Test
+  public void testBatchReportsAnUnconvertibleEventAndIngestsTheRest() {
+    LineageBatchResult result =
+        postBatch(batch(SAMPLE_START_EVENT, EVENT_WITH_EMPTY_JOB_NAME, SAMPLE_JOB_EVENT));
+
+    assertEquals(result.getStatus(), LineageBatchResult.STATUS_PARTIAL_SUCCESS);
+    assertEquals(result.getSummary().getReceived(), 3);
+    assertEquals(result.getSummary().getSuccessful(), 2);
+    assertEquals(result.getSummary().getFailed(), 1);
+    assertEquals(result.getFailedEvents().size(), 1);
+    // The index is the producer's only handle on which event it has to fix.
+    assertEquals(result.getFailedEvents().get(0).getIndex(), 1);
+    // Conversion is deterministic, so resending the same bytes cannot help.
+    assertEquals(result.getFailedEvents().get(0).isRetriable(), false);
+    assertEquals(result.getSummary().getNonRetriable(), 1);
+    verify(entityService, times(1)).ingestProposal(any(), any(AspectsBatch.class), anyBoolean());
+  }
+
+  @Test
+  public void testEmptyBatchIngestsNothing() {
+    LineageBatchResult result = postBatch("[]");
+
+    assertEquals(result.getStatus(), LineageBatchResult.STATUS_SUCCESS);
+    assertEquals(result.getSummary().getReceived(), 0);
+    // A producer flushing an empty buffer is not an error, but it must not open a transaction.
+    verify(entityService, never()).ingestProposal(any(), any(AspectsBatch.class), anyBoolean());
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testBatchRejectsABodyThatIsNotAnArray() {
+    controller.postEventBatchRaw(SAMPLE_START_EVENT);
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testBatchRejectsMoreEventsThanConfigured() {
+    properties.setMaxBatchSize(1);
+    controller.postEventBatchRaw(batch(SAMPLE_START_EVENT, SAMPLE_JOB_EVENT));
+  }
+
+  @Test(expectedExceptions = UnauthorizedException.class)
+  public void testBatchIsRefusedWholeWhenTheActorIsUnauthorized() {
+    try (MockedStatic<AuthenticationContext> authContext =
+            Mockito.mockStatic(AuthenticationContext.class);
+        MockedStatic<EntityAuthorizationUtils> authUtil =
+            Mockito.mockStatic(EntityAuthorizationUtils.class)) {
+
+      authContext.when(AuthenticationContext::getAuthentication).thenReturn(authentication);
+      authUtil
+          .when(() -> EntityAuthorizationUtils.isAPIAuthorizedIngest(any(), any(), any()))
+          .thenAnswer(inv -> deny(inv.getArgument(2)));
+
+      try {
+        // Authorization is a property of the actor, not of an individual event, so a batch is
+        // refused whole rather than reported as a per-event failure.
+        controller.postEventBatchRaw(batch(SAMPLE_START_EVENT, SAMPLE_JOB_EVENT));
+      } finally {
+        verify(entityService, never()).ingestProposal(any(), any(AspectsBatch.class), anyBoolean());
+      }
+    }
+  }
+
+  /**
+   * The response is the spec's wire contract, and Lombok's getter names are camelCase, so the
+   * snake_case field names have to survive serialization.
+   */
+  @Test
+  public void testResultSerializesWithTheSpecFieldNames() throws Exception {
+    String json =
+        new com.fasterxml.jackson.databind.ObjectMapper()
+            .writeValueAsString(
+                LineageBatchResult.of(
+                    2, List.of(new LineageBatchResult.FailedEvent(1, "nope", false))));
+
+    assertTrue(json.contains("\"failed_events\""), json);
+    assertTrue(json.contains("\"non_retriable\""), json);
+  }
+
+  private LineageBatchResult postBatch(String body) {
+    try (MockedStatic<AuthenticationContext> authContext =
+            Mockito.mockStatic(AuthenticationContext.class);
+        MockedStatic<EntityAuthorizationUtils> authUtil =
+            Mockito.mockStatic(EntityAuthorizationUtils.class)) {
+
+      authContext.when(AuthenticationContext::getAuthentication).thenReturn(authentication);
+      authUtil
+          .when(() -> EntityAuthorizationUtils.isAPIAuthorizedIngest(any(), any(), any()))
+          .thenAnswer(inv -> allow(inv.getArgument(2)));
+
+      ResponseEntity<LineageBatchResult> response = controller.postEventBatchRaw(body);
+      assertEquals(response.getStatusCode(), HttpStatus.OK);
+      return response.getBody();
+    }
+  }
+
+  private static String batch(String... events) {
+    return "[" + String.join(",", events) + "]";
   }
 
   private static List<Pair<MetadataChangeProposal, Integer>> allow(
