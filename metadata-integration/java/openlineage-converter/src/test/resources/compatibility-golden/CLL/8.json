@@ -285,55 +285,55 @@
     }
   }, {
     "op" : "add",
-    "path" : "/fineGrainedLineages/DIRECT:IDENTITY,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),ident)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),b)",
+    "path" : "/fineGrainedLineages/INDIRECT:GROUP_BY/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),ident)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),b)",
     "value" : {
       "confidenceScore" : 0.5
     }
   }, {
     "op" : "add",
-    "path" : "/fineGrainedLineages/DIRECT:IDENTITY,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),ident)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD),a)",
+    "path" : "/fineGrainedLineages/INDIRECT:FILTER,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),ident)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD),a)",
     "value" : {
       "confidenceScore" : 0.5
     }
   }, {
     "op" : "add",
-    "path" : "/fineGrainedLineages/DIRECT:TRANSFORMATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),trans)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),a)",
+    "path" : "/fineGrainedLineages/INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),trans)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),a)",
     "value" : {
       "confidenceScore" : 0.5
     }
   }, {
     "op" : "add",
-    "path" : "/fineGrainedLineages/DIRECT:TRANSFORMATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),trans)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),b)",
+    "path" : "/fineGrainedLineages/DIRECT:TRANSFORMATION,INDIRECT:GROUP_BY/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),trans)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),b)",
     "value" : {
       "confidenceScore" : 0.5
     }
   }, {
     "op" : "add",
-    "path" : "/fineGrainedLineages/DIRECT:TRANSFORMATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),trans)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD),a)",
+    "path" : "/fineGrainedLineages/INDIRECT:FILTER,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),trans)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD),a)",
     "value" : {
       "confidenceScore" : 0.5
     }
   }, {
     "op" : "add",
-    "path" : "/fineGrainedLineages/DIRECT:AGGREGATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),agg)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),a)",
+    "path" : "/fineGrainedLineages/INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),agg)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),a)",
     "value" : {
       "confidenceScore" : 0.5
     }
   }, {
     "op" : "add",
-    "path" : "/fineGrainedLineages/DIRECT:AGGREGATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),agg)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),b)",
+    "path" : "/fineGrainedLineages/INDIRECT:GROUP_BY/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),agg)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source1,PROD),b)",
     "value" : {
       "confidenceScore" : 0.5
     }
   }, {
     "op" : "add",
-    "path" : "/fineGrainedLineages/DIRECT:AGGREGATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),agg)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD),a)",
+    "path" : "/fineGrainedLineages/DIRECT:AGGREGATION/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),agg)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD),c)",
     "value" : {
       "confidenceScore" : 0.5
     }
   }, {
     "op" : "add",
-    "path" : "/fineGrainedLineages/DIRECT:AGGREGATION,INDIRECT:FILTER,INDIRECT:GROUP_BY,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),agg)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD),c)",
+    "path" : "/fineGrainedLineages/INDIRECT:FILTER,INDIRECT:JOIN/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.tbl1,PROD),agg)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,default.cll_source2,PROD),a)",
     "value" : {
       "confidenceScore" : 0.5
     }
