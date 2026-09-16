@@ -1,5 +1,5 @@
 import { cloneDeep } from 'lodash';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
@@ -62,6 +62,7 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean,
     // field objects, spiking the heap before GC could run and crashing the tab.
     // errorPolicy:'all' returns partial data instead of throwing to an error boundary;
     // failures surface via fullMetadataError so SchemaTab can warn inline.
+    const skipFull = !shouldLoad || !structuralDataLoaded || !!structuralOnly;
     const {
         data: fullData,
         loading: fullLoading,
@@ -69,10 +70,16 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean,
         refetch: refetchFull,
     } = useGetDatasetSchemaQuery({
         variables: { urn },
-        skip: !shouldLoad || !structuralDataLoaded || !!structuralOnly,
+        skip: skipFull,
         fetchPolicy: 'no-cache',
         errorPolicy: 'all',
     });
+
+    // Whether the full query has ever been started for this hook instance. Apollo throws
+    // when refetch() is called on a query that is still skip:true and has never fired, so
+    // refetch() below must know this at call time rather than from a render-time snapshot.
+    const fullStartedRef = useRef(false);
+    if (!skipFull) fullStartedRef.current = true;
 
     const mergedStructuralData = useMemo(
         () =>
@@ -88,13 +95,13 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean,
     );
 
     // Chain refetches sequentially so the full metadata query starts only after the
-    // structural query completes, matching the initial-load sequencing.
-    // Guard on structuralDataLoaded: calling refetch on a query that was mounted with
-    // skip:true and has never fired throws an Apollo error.
+    // structural query completes, matching the initial-load sequencing. If the full query
+    // has never fired (Phase 1 failed, or structuralOnly), there is nothing to refetch:
+    // once the structural refetch delivers data, skipFull flips and Phase 2 starts by itself.
     const refetch = useCallback(async () => {
         await refetchStructural();
-        if (shouldLoad && structuralDataLoaded && !structuralOnly) await refetchFull();
-    }, [refetchStructural, refetchFull, shouldLoad, structuralDataLoaded, structuralOnly]);
+        if (fullStartedRef.current) await refetchFull();
+    }, [refetchStructural, refetchFull]);
 
     // True after Phase 1 resolves but before Phase 2 (tags/terms/descriptions)
     // completes. SchemaTable shows skeleton placeholders in metadata columns.
