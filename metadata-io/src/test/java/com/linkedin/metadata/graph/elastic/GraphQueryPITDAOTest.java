@@ -2110,7 +2110,6 @@ public class GraphQueryPITDAOTest {
 
     mockSliceBasedSearch(mockClient, List.of(searchResponse), List.of(emptyResponse));
 
-    // Override to delay second hop to cause timeout in main loop
     when(mockClient.search(
             any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(searchResponse) // slice 0, page 1
@@ -2122,7 +2121,6 @@ public class GraphQueryPITDAOTest {
               return searchResponse;
             });
 
-    // Should throw IllegalStateException with exact message format
     LineageTimeoutException thrown =
         expectThrows(
             LineageTimeoutException.class,
