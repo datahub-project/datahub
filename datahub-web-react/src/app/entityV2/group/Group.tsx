@@ -50,7 +50,15 @@ export class GroupEntity implements Entity<CorpGroup> {
             urn={data.urn}
             name={this.displayName(data)}
             description={data.info?.description}
-            membersCount={(data as any)?.memberCount?.total || (data as any)?.relationships?.total || 0}
+            // memberCount.total is the authoritative total (fetched by the owner fragment); fall back
+            // to the length of the fetched members list so previews that only carry info.members still
+            // show a count instead of 0.
+            membersCount={
+                (data as any)?.memberCount?.total ||
+                (data as any)?.relationships?.total ||
+                data.info?.members?.length ||
+                0
+            }
         />
     );
 
