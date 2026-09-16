@@ -22,6 +22,9 @@ All fields of ``DevToolingConfig`` are mutable inside ``extend_config``:
   config.rebuild_module_aliases   dict[str, str]
       Short alias → docker service name, used by ``rebuild --module <alias>``.
 
+  config.rebuild_gradle_modules   dict[str, str]
+      Docker service name → Gradle image module, used to narrow ``:docker:reload``.
+
   config.services   list[ServiceConfig]
       Ordered list of HTTP health-check endpoints. ``cmd_status`` and
       ``cmd_wait`` iterate this list.  Each entry has:
@@ -70,6 +73,13 @@ def extend_config(config: DevToolingConfig) -> DevToolingConfig:
         {
             "integrations": "datahub-integrations-service",
             "executor": "datahub-executor-coordinator",
+        }
+    )
+
+    config.rebuild_gradle_modules.update(
+        {
+            "datahub-integrations-service": ":datahub-integrations-service",
+            "datahub-executor-coordinator": ":datahub-executor",
         }
     )
 
