@@ -108,14 +108,15 @@ def test_embedding_success_reporting_inline_mode(pipeline_context, chunking_conf
         {"type": "NarrativeText", "text": "Test content"},
     ]
 
-    # Mock successful embedding generation
-    mock_embeddings = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+    # Mock successful embedding generation: the basic strategy folds both elements
+    # into one chunk, so the provider returns one vector.
+    mock_embeddings = [[0.1, 0.2, 0.3]]
     with patch.object(source, "_generate_embeddings", return_value=mock_embeddings):
         list(source.process_elements_inline(document_urn, elements))
 
     # Verify document was processed and embeddings counted
     assert source.report.num_documents_processed == 1
-    assert source.report.num_embeddings_generated == 2
+    assert source.report.num_embeddings_generated == 1
 
 
 def test_embedding_failure_batch_mode(pipeline_context, chunking_config):
@@ -860,6 +861,33 @@ def test_validate_provider_config_local_no_model_fails():
     assert not report.capable
 
 
+# --- _validate_provider_config for classical ---
+
+
+def test_validate_provider_config_classical_success():
+    """Classical provider needs nothing beyond the model name."""
+    config = EmbeddingConfig(
+        provider="classical",
+        model="hash-v1-2048",
+        allow_local_embedding_config=True,
+    )
+    model, report = DocumentChunkingSource._validate_provider_config(config)
+    assert model == "classical/hash-v1-2048"
+    assert report is None
+
+
+def test_validate_provider_config_classical_no_model_fails():
+    config = EmbeddingConfig(
+        provider="classical",
+        model=None,
+        allow_local_embedding_config=True,
+    )
+    model, report = DocumentChunkingSource._validate_provider_config(config)
+    assert model is None
+    assert report is not None
+    assert not report.capable
+
+
 # ---------------------------------------------------------------------------
 # _validate_provider_init_requirements — fail-fast presence checks
 # ---------------------------------------------------------------------------
@@ -952,6 +980,84 @@ def test_validate_init_requirements_rejects_provider_without_model():
     )
     with pytest.raises(ValueError, match="embedding.model is required"):
         DocumentChunkingSource._validate_provider_init_requirements(cfg)
+
+
+def test_validate_init_requirements_rejects_malformed_classical_model():
+    """A malformed classical model name must fail at init, not as a per-document
+    embedding failure inside the first embed call."""
+    cfg = EmbeddingConfig(
+        provider="classical",
+        model="hash-v1-lots",
+        allow_local_embedding_config=True,
+    )
+    with pytest.raises(ValueError, match="hash-v1-<dimensions>"):
+        DocumentChunkingSource._validate_provider_init_requirements(cfg)
+
+    DocumentChunkingSource._validate_provider_init_requirements(
+        EmbeddingConfig(
+            provider="classical",
+            model="hash-v1-2048",
+            allow_local_embedding_config=True,
+        )
+    )  # no raise
+
+
+def test_classical_provider_is_not_rate_limited(pipeline_context, chunking_config):
+    """The documents-per-minute limiter protects external APIs; the in-process
+    classical provider must not be throttled by it."""
+    classical = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="classical",
+            model="hash-v1-2048",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    assert (
+        DocumentChunkingSource(
+            ctx=pipeline_context, config=classical, standalone=False, graph=None
+        ).rate_limiter
+        is None
+    )
+    onnx = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="onnx",
+            model="bge-small-en-v1.5",
+            onnx_model_dir="/tmp/onnx-model",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    assert (
+        DocumentChunkingSource(
+            ctx=pipeline_context, config=onnx, standalone=False, graph=None
+        ).rate_limiter
+        is None
+    )
+    # An API-backed provider keeps the default limiter.
+    assert (
+        DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+        ).rate_limiter
+        is not None
+    )
+
+
+def test_classical_rejects_chunk_size_above_code_point_limit(pipeline_context):
+    """The classical provider rejects oversized inputs instead of truncating, so a
+    chunk size above its cap would fail every document; refuse it up front."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="classical",
+            model="hash-v1-2048",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic", max_characters=20000),
+    )
+    with pytest.raises(ValueError, match="16384 code point limit"):
+        DocumentChunkingSource(
+            ctx=pipeline_context, config=config, standalone=False, graph=None
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1278,6 +1384,130 @@ class TestSkipMarkersAndEmbedAccounting:
         assert aspect.skipReason == "NO_INDEXABLE_CONTENT"
         assert source.report.num_embedding_failures == 0
 
+    def test_blank_chunk_in_middle_keeps_embedding_alignment(
+        self, pipeline_context, chunking_config
+    ):
+        """Blank chunks are never sent to the provider; every emitted chunk must
+        still carry the vector computed from its own text, not its neighbour's."""
+        source = self._source(pipeline_context, chunking_config)
+        vectors = {"alpha": [1.0, 0.0], "gamma": [0.0, 1.0]}
+        provider = MagicMock()
+        provider.embed.side_effect = lambda texts: EmbeddingResult(
+            embeddings=[vectors[t] for t in texts]
+        )
+        source._provider = provider
+        chunks = [{"text": "alpha"}, {"text": "   "}, {"text": "gamma"}]
+
+        with patch.object(source, "_chunk_elements", return_value=chunks):
+            wus = list(
+                source.process_elements_inline(
+                    "urn:li:document:aligned",
+                    [{"type": "NarrativeText", "text": "alpha gamma"}],
+                )
+            )
+
+        semantic_wu = next(wu for wu in wus if "semanticContent" in wu.id)
+        (model_data,) = _semantic_embeddings(semantic_wu).values()
+        assert [(c.text, c.vector) for c in model_data.chunks] == [
+            ("alpha", [1.0, 0.0]),
+            ("gamma", [0.0, 1.0]),
+        ]
+        assert [c.position for c in model_data.chunks] == [0, 1]
+        assert model_data.totalChunks == 2
+        # Offsets still count the skipped blank chunk ("   ", 3 chars) so they map
+        # onto the original document text.
+        assert [(c.characterOffset, c.characterLength) for c in model_data.chunks] == [
+            (0, 5),
+            (8, 5),
+        ]
+
+    def test_null_chunk_text_is_skipped_like_blank(
+        self, pipeline_context, chunking_config
+    ):
+        source = self._source(pipeline_context, chunking_config)
+        provider = MagicMock()
+        provider.embed.return_value = EmbeddingResult(embeddings=[[1.0, 0.0]])
+        source._provider = provider
+        chunks = [{"text": None}, {"text": "alpha"}]
+
+        with patch.object(source, "_chunk_elements", return_value=chunks):
+            wus = list(
+                source.process_elements_inline(
+                    "urn:li:document:nulltext",
+                    [{"type": "NarrativeText", "text": "alpha"}],
+                )
+            )
+
+        semantic_wu = next(wu for wu in wus if "semanticContent" in wu.id)
+        (model_data,) = _semantic_embeddings(semantic_wu).values()
+        assert [(c.text, c.characterOffset) for c in model_data.chunks] == [
+            ("alpha", 0)
+        ]
+        assert model_data.totalChunks == 1
+
+    def test_vector_count_mismatch_fails_document_instead_of_emitting(
+        self, pipeline_context, chunking_config
+    ):
+        """A provider returning fewer vectors than chunks must not produce a
+        semanticContent whose totalChunks claims chunks that carry no vector."""
+        source = self._source(pipeline_context, chunking_config)
+        provider = MagicMock()
+        provider.embed.return_value = EmbeddingResult(embeddings=[[1.0, 0.0]])
+        source._provider = provider
+        chunks = [{"text": "alpha"}, {"text": "gamma"}]
+
+        with (
+            patch.object(source, "_chunk_elements", return_value=chunks),
+            pytest.raises(RuntimeError, match="1 vectors for 2 chunks"),
+        ):
+            list(
+                source.process_elements_inline(
+                    "urn:li:document:mismatch",
+                    [{"type": "NarrativeText", "text": "alpha gamma"}],
+                )
+            )
+        # Recorded as an embedding failure, never as a success.
+        assert source.report.num_embedding_failures == 1
+        assert "1 vectors for 2 chunks" in source.report.embedding_failures[0]
+
+    def test_vector_count_is_checked_per_batch(self, pipeline_context):
+        """Miscounts that net out across batches must still fail, and a short batch
+        must fail before the remaining provider calls are spent."""
+        config = DocumentChunkingSourceConfig(
+            embedding=EmbeddingConfig(
+                provider="bedrock",
+                model="cohere.embed-english-v3",
+                aws_region="us-west-2",
+                allow_local_embedding_config=True,
+                batch_size=1,
+            ),
+            chunking=ChunkingConfig(strategy="basic"),
+        )
+        source = self._source(pipeline_context, config)
+        provider = MagicMock()
+        # Two vectors for the first one-chunk batch, none for the second: the
+        # aggregate count would match.
+        provider.embed.side_effect = [
+            EmbeddingResult(embeddings=[[1.0, 0.0], [0.0, 1.0]]),
+            EmbeddingResult(embeddings=[]),
+        ]
+        source._provider = provider
+        chunks = [{"text": "alpha"}, {"text": "gamma"}]
+
+        with (
+            patch.object(source, "_chunk_elements", return_value=chunks),
+            pytest.raises(RuntimeError, match="2 vectors for 1 chunks"),
+        ):
+            list(
+                source.process_elements_inline(
+                    "urn:li:document:per-batch",
+                    [{"type": "NarrativeText", "text": "alpha gamma"}],
+                )
+            )
+        # Failed on the first short batch; the second provider call was never made.
+        assert provider.embed.call_count == 1
+        assert source.report.num_embedding_failures == 1
+
     def test_provider_returning_no_vectors_is_failure_not_success(
         self, pipeline_context, chunking_config
     ):
@@ -1306,9 +1536,8 @@ class TestSkipMarkersAndEmbedAccounting:
             {"type": "NarrativeText", "text": "Test content"},
         ]
 
-        with patch.object(
-            source, "_generate_embeddings", return_value=[[0.1, 0.2], [0.3, 0.4]]
-        ):
+        # Both elements fold into one chunk under the basic strategy: one vector.
+        with patch.object(source, "_generate_embeddings", return_value=[[0.1, 0.2]]):
             wus = list(
                 source.process_elements_inline("urn:li:document:embedded", elements)
             )

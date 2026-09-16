@@ -52,10 +52,12 @@ class EmbeddingConfig(ConfigModel):
 
     # Core configuration (Optional - loaded from server if not set)
     provider: Optional[
-        Literal["bedrock", "cohere", "openai", "local", "vertex_ai", "onnx"]
+        Literal[
+            "bedrock", "cohere", "openai", "local", "vertex_ai", "onnx", "classical"
+        ]
     ] = Field(
         default=None,
-        description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). If not set, loads from server.",
+        description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). 'classical' is a deterministic hashed-feature embedding with no external service (matches the GMS built-in provider). If not set, loads from server.",
     )
     endpoint: Optional[str] = Field(
         default=None,
@@ -311,12 +313,16 @@ class EmbeddingConfig(ConfigModel):
             return "vertex_ai"
         if "onnx" in provider_lower:
             return "onnx"
+        if "classical" in provider_lower:
+            return "classical"
         return provider_lower
 
     @staticmethod
     def _normalize_provider_from_server(
         server_provider: str,
-    ) -> Literal["bedrock", "cohere", "openai", "local", "vertex_ai", "onnx"]:  # type: ignore
+    ) -> Literal[
+        "bedrock", "cohere", "openai", "local", "vertex_ai", "onnx", "classical"
+    ]:  # type: ignore
         """Convert server provider format to local config format."""
         normalized = EmbeddingConfig._normalize_provider(server_provider)
         if normalized == "bedrock":
@@ -331,6 +337,8 @@ class EmbeddingConfig(ConfigModel):
             return "vertex_ai"
         elif normalized == "onnx":
             return "onnx"
+        elif normalized == "classical":
+            return "classical"
         else:
             raise ValueError(f"Unsupported provider from server: {server_provider}")
 
