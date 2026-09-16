@@ -23,6 +23,7 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.expressions as sqlglot_exp
 import yaml
+from databricks.sdk.core import DatabricksError
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -579,22 +580,57 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         config = UnityCatalogSourceConfig.model_validate(config_dict)
         return cls(ctx=ctx, config=config)
 
+    def _start_warehouse_or_report_failure(self) -> bool:
+        """Start the SQL warehouse and block until it is running.
+
+        Returns True once the warehouse is running. If the warehouse is missing,
+        the workspace is unreachable, or the warehouse fails to start, records a
+        structured failure and returns False so ingestion stops with an actionable
+        message instead of an uncaught traceback.
+        """
+        warehouse_id = self.config.profiling.warehouse_id
+        try:
+            wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
+        except TimeoutError as e:
+            # The Databricks SDK raises a plain TimeoutError (not a DatabricksError)
+            # once its retry budget is exhausted on the start request itself, e.g.
+            # when the workspace host is unreachable at the network layer.
+            self.report.failure(
+                message="Timed out reaching the Databricks workspace to start the SQL warehouse",
+                context=(
+                    f"SQL warehouse {warehouse_id}: verify network connectivity to "
+                    "the Databricks workspace host (firewall/proxy/egress)"
+                ),
+                exc=e,
+            )
+            return False
+        if wait_on_warehouse is None:
+            self.report.failure(
+                message="SQL warehouse not found",
+                context=f"SQL warehouse {warehouse_id} not found",
+            )
+            return False
+        try:
+            # Waits (can take several minutes) for the warehouse to reach a running state.
+            wait_on_warehouse.result()
+        except (TimeoutError, DatabricksError) as e:
+            self.report.failure(
+                message="Failed to start the Databricks SQL warehouse",
+                context=(
+                    f"SQL warehouse {warehouse_id} did not reach a running state "
+                    "(it may be slow to start, or the workspace may be unreachable)"
+                ),
+                exc=e,
+            )
+            return False
+        return True
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage("Ingestion Setup"):
-            wait_on_warehouse = None
             if self.config.include_hive_metastore:
                 with self.report.new_stage("Start warehouse"):
-                    # Can take several minutes, so start now and wait later
-                    wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
-                    if wait_on_warehouse is None:
-                        self.report.failure(
-                            message="SQL warehouse not found",
-                            context=f"SQL warehouse {self.config.profiling.warehouse_id} not found",
-                        )
+                    if not self._start_warehouse_or_report_failure():
                         return
-                    else:
-                        # wait until warehouse is started
-                        wait_on_warehouse.result()
 
         if self.config.include_ownership:
             with self.report.new_stage("Ingest service principals"):
@@ -631,19 +667,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.is_profiling_enabled():
             with self.report.new_stage("Start warehouse"):
-                # Need to start the warehouse again for profiling,
-                # as it may have been stopped after ingestion might take
-                # longer time to complete
-                wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
-                if wait_on_warehouse is None:
-                    self.report.failure(
-                        message="SQL warehouse not found",
-                        context=f"SQL warehouse {self.config.profiling.warehouse_id} not found",
-                    )
+                # Need to start the warehouse again for profiling, as it may have
+                # been stopped after ingestion.
+                if not self._start_warehouse_or_report_failure():
                     return
-                else:
-                    # wait until warehouse is started
-                    wait_on_warehouse.result()
 
             with self.report.new_stage("Profiling"):
                 if isinstance(self.config.profiling, UnityCatalogAnalyzeProfilerConfig):
