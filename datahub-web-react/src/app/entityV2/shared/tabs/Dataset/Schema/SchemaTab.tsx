@@ -96,6 +96,10 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
     // Use full metadata (tags/terms/descriptions) when the full query has resolved.
     // Fall back to structural schema so the table renders immediately on first load.
     let schemaMetadata: any = entityWithSchema?.schemaMetadata || structuralSchemaMetadata || undefined;
+    // Phase 2 can return metadata together with GraphQL errors (one nested resolver failing).
+    // That is a partial success: the merged metadata is shown and the banner offers a retry;
+    // cells only fall back to "unavailable" when no full metadata arrived at all.
+    const fullMetadataMissing = !!fullMetadataError && !entityWithSchema?.schemaMetadata;
     let editableSchemaMetadata: any = entityWithSchema?.editableSchemaMetadata || undefined;
     const separateSiblings = useIsSeparateSiblingsMode();
     const siblingUrn = entityData?.siblingsSearch?.searchResults?.[0]?.entity?.urn;
@@ -359,7 +363,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                     openTimelineDrawer={openTimelineDrawer}
                                     setOpenTimelineDrawer={setOpenTimelineDrawer}
                                     refetch={refetch}
-                                    metadataStatus={toMetadataStatus(fullMetadataLoading, fullMetadataError)}
+                                    metadataStatus={toMetadataStatus(fullMetadataLoading, fullMetadataMissing)}
                                 />
                             </SchemaEditableContext.Provider>
                         ) : (

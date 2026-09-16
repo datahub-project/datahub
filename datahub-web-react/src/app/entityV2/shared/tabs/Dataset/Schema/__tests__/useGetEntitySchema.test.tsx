@@ -10,6 +10,7 @@
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import { waitFor } from '@testing-library/react';
 import { act, renderHook } from '@testing-library/react-hooks';
+import { GraphQLError } from 'graphql';
 import React from 'react';
 import { vi } from 'vitest';
 
@@ -334,6 +335,22 @@ describe('useGetEntityWithSchema two-phase sequencing', () => {
         expect(result.current.entityWithSchema?.schemaMetadata?.fields?.[1]?.description).toEqual(
             'user_name description',
         );
+    });
+
+    it('keeps partial full metadata and still surfaces its GraphQL errors', async () => {
+        const partialFull = {
+            request: fullMock.request,
+            result: { data: fullDataset, errors: [new GraphQLError('siblingsSearch failed')] },
+        };
+        const { result } = renderHook(() => useGetEntityWithSchema(undefined, undefined, true), {
+            wrapper: wrapperWith([structuralMock, partialFull]),
+        });
+        await waitFor(() => expect(result.current.entityWithSchema?.schemaMetadata?.fields).toHaveLength(2));
+        expect(result.current.entityWithSchema?.schemaMetadata?.fields?.[1]?.description).toEqual(
+            'user_name description',
+        );
+        expect(result.current.fullMetadataError?.graphQLErrors?.[0]?.message).toEqual('siblingsSearch failed');
+        expect(result.current.fullMetadataLoading).toBe(false);
     });
 
     it('surfaces a structural query failure via structuralSchemaError', async () => {

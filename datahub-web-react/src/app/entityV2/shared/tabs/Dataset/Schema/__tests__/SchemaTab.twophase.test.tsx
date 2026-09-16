@@ -282,6 +282,19 @@ describe('SchemaTab two-phase loading', () => {
         expect(mockRefetch).toHaveBeenCalledTimes(1);
     });
 
+    it('a partial Phase 2 error keeps the metadata cells and shows the banner', async () => {
+        // Phase 2 delivered metadata but also GraphQL errors: cells render the data, the banner
+        // offers a retry, and nothing is marked unavailable.
+        mockUseGetEntityWithSchema.mockReturnValue({
+            ...phase2State(5, 'full'),
+            fullMetadataError: new Error('one resolver failed'),
+        });
+        render(<Tab />);
+        await waitFor(() => expect(screen.getByTestId('schema-table')).toHaveAttribute('data-first-key', 'full_0000'));
+        expect(screen.getByTestId('schema-table')).toHaveAttribute('data-metadata-status', 'ready');
+        expect(screen.getByText(/Could not load field metadata/)).toBeInTheDocument();
+    });
+
     it('recovers from a Phase 1 failure after retry: banner gone, rows rendered', async () => {
         const mockRefetch = vi.fn();
         mockUseGetEntityWithSchema.mockReturnValue({ ...phase1ErrorState(), refetch: mockRefetch });
