@@ -27,10 +27,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     Workspace,
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource, _WorkbookWarehouseIndex
-from datahub.ingestion.source.sigma.sigma_api import (
-    _DATASET_SOURCES_404_LATCH_THRESHOLD,
-    SigmaAPI,
-)
+from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     OwnershipClass,
@@ -568,7 +565,7 @@ class TestGetElementUpstreamSources:
         # ``DatasetUpstream.name`` is ``Optional[str]`` so a null-name node
         # no longer trips ValidationError at parse time. Both nodes land
         # in the upstream map; the chart-input path in ``sigma.py`` is
-        # responsible for skipping the edge and bumping
+        # responsible for the SQL-correlated edge and bumping
         # ``chart_dataset_upstream_name_missing``.
         api = _create_sigma_api()
         element = _make_element()
@@ -2900,6 +2897,7 @@ class TestGetDatasetSources:
     def test_non_list_body_is_a_failure(self) -> None:
         # The envelope every other Sigma endpoint uses. Coercing it would
         # silently resolve zero sources instead of surfacing the change.
+        # Individual entries are validated by the caller, not here.
         api = _create_sigma_api()
         with patch.object(
             api, "_get_api_call", return_value=_response(200, {"entries": []})
@@ -2938,43 +2936,49 @@ class TestGetDatasetSources:
         assert api.report.dataset_sources_endpoint_removed == 1
         assert api.report.dataset_sources_skipped_endpoint_gone == 1
 
-    def test_404_latches_only_after_repeated_failures(self) -> None:
-        # A single 404 can just mean that dataset vanished after the listing,
-        # and workbooks are processed long after it. Latching on the first one
-        # would cost every later dataset, so require several in a row.
+    def test_404_latches_only_when_the_dataset_api_is_also_gone(self) -> None:
+        # The endpoint is concluded gone only when GET /v2/datasets/{id} also
+        # 404s. Inferring it from a run of 404s depended on processing order.
         api = _create_sigma_api()
         with patch.object(api, "_get_api_call", return_value=_response(404)) as mocked:
-            for _ in range(_DATASET_SOURCES_404_LATCH_THRESHOLD):
-                assert api.get_dataset_sources("ds-x") is None
-            assert mocked.call_count == _DATASET_SOURCES_404_LATCH_THRESHOLD
-            assert api.get_dataset_sources("ds-y") is None
-            assert mocked.call_count == _DATASET_SOURCES_404_LATCH_THRESHOLD
+            assert api.get_dataset_sources("ds-1") is None
+            assert api.get_dataset_sources("ds-2") is None
+            # ds-1: /sources + probe. ds-2: skipped, endpoint already latched.
+            assert mocked.call_count == 2
         assert api.report.dataset_sources_endpoint_removed == 1
-        # The 404s before the latch are per-dataset misses, not "endpoint gone".
-        assert (
-            api.report.dataset_sources_not_found
-            == _DATASET_SOURCES_404_LATCH_THRESHOLD - 1
-        )
+        assert api.report.dataset_sources_skipped_endpoint_gone == 1
 
-    def test_404_after_a_success_is_a_per_dataset_miss(self) -> None:
-        # A 404 only means "endpoint gone" if nothing has succeeded yet. Once one
-        # dataset has answered 200 the endpoint plainly exists, so a later 404 is
-        # about that dataset -- latching would drop every dataset after it.
+    def test_404_with_a_live_dataset_api_is_one_dataset_only(self) -> None:
+        # A nonexistent dataset answers 409 on /v2/datasets/{id}, not 404, so
+        # anything outside {404, 410} proves the API is alive.
         api = _create_sigma_api()
-        responses = [
-            _response(200, [{"type": "table", "inodeId": "inode-1"}]),
-            _response(404),
-            _response(200, [{"type": "table", "inodeId": "inode-2"}]),
-        ]
+        responses = [_response(404), _response(409), _response(200, [])]
         with patch.object(api, "_get_api_call", side_effect=responses) as mocked:
-            assert api.get_dataset_sources("ds-a") is not None
-            assert api.get_dataset_sources("ds-b") is None
-            assert api.get_dataset_sources("ds-c") is not None
+            assert api.get_dataset_sources("ds-gone") is None
+            # Not latched: the next dataset is still attempted.
+            assert api.get_dataset_sources("ds-ok") == []
             assert mocked.call_count == 3
-        # Counted as a per-dataset miss, not as the endpoint being removed.
         assert api.report.dataset_sources_endpoint_removed == 0
         assert api.report.dataset_sources_not_found == 1
         assert api.report.dataset_sources_lookup_failed == 1
+
+    def test_non_consecutive_404s_do_not_latch(self) -> None:
+        # 404, 500, 404: the old consecutive-counter approach latched here.
+        api = _create_sigma_api()
+        responses = [
+            _response(404),
+            _response(409),  # dataset gone, API alive
+            _response(500),  # unrelated failure
+            _response(404),
+            _response(409),  # another dataset gone
+            _response(200, []),
+        ]
+        with patch.object(api, "_get_api_call", side_effect=responses):
+            assert api.get_dataset_sources("ds-1") is None
+            assert api.get_dataset_sources("ds-2") is None
+            assert api.get_dataset_sources("ds-3") is None
+            assert api.get_dataset_sources("ds-4") == []
+        assert api.report.dataset_sources_endpoint_removed == 0
 
 
 class TestGetConnectionPath:
@@ -3003,6 +3007,15 @@ class TestGetConnectionPath:
         with patch.object(api, "_get_api_call", return_value=_response(200, body)):
             assert api.get_connection_path("inode-1") is None
         assert api.report.connection_path_lookup_failed == 1
+
+    def test_non_200_counts_as_failure(self) -> None:
+        # 403 is the documented production failure: the credential may lack
+        # permission to read /v2/connections/paths/{inodeId}.
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=_response(403)):
+            assert api.get_connection_path("inode-1") is None
+        assert api.report.connection_path_lookup_failed == 1
+        assert api.report.connection_path_lookup_rate_limited == 0
 
     def test_429_counted_separately(self) -> None:
         api = _create_sigma_api()

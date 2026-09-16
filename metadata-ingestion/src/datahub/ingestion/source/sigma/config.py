@@ -441,6 +441,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Datasets whose /sources listed no type=table entry: a CSV upload, a
     # dataset-on-dataset, or a custom-SQL dataset. Not an error.
     dataset_warehouse_no_table_sources: int = 0
+    # A /sources entry named a table but could not be used: not a JSON object,
+    # or a type=table entry with no inodeId. Mirrors
+    # dm_element_warehouse_table_entry_incomplete. Counted per entry, and kept
+    # out of no_table_sources, which is documented as the benign case.
+    dataset_warehouse_table_entry_incomplete: int = 0
     # /datasets/{id}/sources returned non-200, raised, or was not a JSON list.
     dataset_sources_lookup_failed: int = 0
     # Sub-bucket of the above: 429 after retries.

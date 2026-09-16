@@ -131,9 +131,10 @@ entry matches the element's path, so a recipe without one takes this route even 
 tenant still serving SQL. Those charts previously got no Sigma Dataset lineage at all.
 
 This route is a **stopgap**. It depends on the deprecated dataset API, so it will stop returning
-anything once Sigma removes those endpoints; migrate datasets to Data Models to keep lineage. A
-404/410 from `/sources` before any dataset has resolved is treated as "endpoint removed" and warned
-about once per run; after a successful call it is reported as a miss for that one dataset.
+anything once Sigma removes those endpoints; migrate datasets to Data Models to keep lineage. A 410 from `/sources` latches the endpoint as removed at once. A 404 is ambiguous, so the
+connector asks `GET /v2/datasets/{id}`: if that is also gone the endpoint is latched and warned
+about once per run, otherwise the 404 is reported as an info for that one dataset (most likely
+deleted or re-permissioned after the listing).
 
 **If you set `env` or `platform_instance` in `chart_sources_platform_mapping`, copy them into
 `connection_to_platform_map`.** Before the deprecation these edges came from the SQL parser, which
@@ -157,11 +158,26 @@ Known limitations:
   `upstreamLineage`, and the chart does not list it under `chartInfo.inputs` — matching the
   pre-deprecation behaviour, where the dataset appeared as a chart input only when its
   warehouse table was identified.
+- Only datasets referenced by an ingested workbook chart get warehouse lineage. The route itself
+  does not need an element, but it is driven from chart resolution, so a dataset read only by a
+  Data Model, or by nothing at all (`migrationStatus: not-required`), is not resolved. This matches
+  the pre-deprecation SQL route, which was also per element.
+- A dataset excluded by `workspace_pattern` gets no warehouse lineage even though the
+  pre-deprecation SQL route could emit it, because that route did not need the dataset listing.
+  Aspects are no longer emitted for datasets the run did not ingest; widen the pattern if you want
+  that lineage.
+- On a tenant still serving SQL, a dataset reachable both through a matching
+  `chart_sources_platform_mapping` (SQL) and through this route can get either spelling of the URN
+  depending on which element is processed first. Set `connection_to_platform_map` to make the two
+  agree.
 - A 2-segment path is read as `[SCHEMA, TABLE]` with the database taken from the connection.
-  That is correct for Redshift-style connections; for a platform that instead reports
-  `[DB, TABLE]` the emitted name would be wrong. This mirrors the existing `/files`
-  path handling and is unverified beyond Redshift — check a few edges if your warehouse
-  reports two-part paths.
+  That is correct for Redshift-style connections and mirrors the existing `/files` path
+  handling, but it is unverified elsewhere. **On a genuinely two-level platform such as
+  MySQL the path is `[DB, TABLE]`, so do not set `default_database` for that connection**:
+  leaving it unset emits `DB.TABLE`, which is the correct MySQL URN, whereas setting it
+  produces `<default_database>.DB.TABLE`, which matches nothing. The
+  "default_database not configured" warning does not know the difference yet, so ignore it
+  for two-level connections and check a few edges if your warehouse reports two-part paths.
 
 | Counter                                 | Meaning                                                                           |
 | --------------------------------------- | --------------------------------------------------------------------------------- |

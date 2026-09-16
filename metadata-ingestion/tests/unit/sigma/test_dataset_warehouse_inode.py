@@ -19,7 +19,10 @@ from datahub.ingestion.source.sigma.connection_registry import (
 )
 from datahub.ingestion.source.sigma.data_classes import (
     ConnectionPath,
+    DatasetUpstream,
+    Element,
     SigmaDataset,
+    Workbook,
 )
 from datahub.ingestion.source.sigma.sigma import (
     SigmaSource,
@@ -98,7 +101,6 @@ class TestConnectionPathShapes:
         # Emits schema.table, which will not match a connector using
         # db.schema.table -- so the operator gets told, once per connection.
         source = _make_source(redshift_default_db=None)
-        warnings_before = len(source.reporter.warnings)
         with patch.object(
             source.sigma_api,
             "get_connection_path",
@@ -106,12 +108,17 @@ class TestConnectionPathShapes:
                 connection_id=_REDSHIFT_CONN_ID, path=["public", "orders"]
             ),
         ):
-            ref = source._resolve_inode_to_warehouse_ref("inode-1")
-            source._connection_path_cache.clear()
-            source._resolve_inode_to_warehouse_ref("inode-2")
+            # Count calls, not entries: identical warnings collapse into a
+            # single StructuredLogs entry regardless of the dedup set.
+            with patch.object(
+                source.reporter, "warning", wraps=source.reporter.warning
+            ) as spy:
+                ref = source._resolve_inode_to_warehouse_ref("inode-1")
+                source._connection_path_cache.clear()
+                source._resolve_inode_to_warehouse_ref("inode-2")
+                assert spy.call_count == 1
         assert ref is not None
         assert ref.db is None
-        assert len(source.reporter.warnings) == warnings_before + 1
 
     @pytest.mark.parametrize("path", [["TABLE"], ["A", "B", "C", "D"]])
     def test_unexpected_depth_is_skipped(self, path: List[str]) -> None:
@@ -154,7 +161,6 @@ class TestDatasetWarehouseRefs:
         [
             [],
             [{"type": "dataset", "inodeId": "inode-1"}],
-            [{"type": "table"}],  # no inodeId
         ],
     )
     def test_no_table_sources_is_not_an_error(
@@ -169,6 +175,34 @@ class TestDatasetWarehouseRefs:
             assert source._get_dataset_warehouse_refs("url-1") == []
         assert source.reporter.dataset_warehouse_no_table_sources == 1
         assert source.reporter.dataset_sources_lookup_failed == 0
+
+    @pytest.mark.parametrize(
+        "entries",
+        [
+            [{"type": "table"}],  # named a table but gave no inodeId
+            ["inode-1"],  # not an object at all
+            [{"type": "table", "inodeId": "i-1"}, 3],  # one good, one junk
+        ],
+    )
+    def test_unusable_entry_is_not_the_benign_case(self, entries: List[object]) -> None:
+        # Sigma named a table but the entry was unusable. That is a malformed
+        # payload, not a CSV/custom-SQL dataset, so it must not land in
+        # dataset_warehouse_no_table_sources -- which the docs call benign.
+        source = _make_source()
+        source.sigma_dataset_id_by_url_id["url-1"] = "ds-uuid-1"
+        with patch.object(
+            source.sigma_api, "get_dataset_sources", return_value=entries
+        ):
+            with patch.object(
+                source.sigma_api, "get_connection_path", return_value=None
+            ):
+                with patch.object(
+                    source.reporter, "warning", wraps=source.reporter.warning
+                ) as spy:
+                    source._get_dataset_warehouse_refs("url-1")
+                    assert spy.call_count == 1
+        assert source.reporter.dataset_warehouse_no_table_sources == 0
+        assert source.reporter.dataset_warehouse_table_entry_incomplete == 1
 
     def test_failed_lookup_is_not_counted_as_no_table_sources(self) -> None:
         # None means the lookup failed (already counted and warned inside
@@ -283,23 +317,31 @@ class TestPlatformMappingEnvWarning:
             connection_id=_SNOWFLAKE_CONN_ID, db="DB", schema="S", table="T"
         )
 
-    def _warn_delta(self, source: SigmaSource, times: int = 1) -> int:
-        before = len(source.reporter.warnings)
-        for _ in range(times):
-            source._warn_if_platform_mapping_env_ignored(self._ref())
-        return len(source.reporter.warnings) - before
+    def _warn_calls(self, source: SigmaSource, times: int = 1) -> int:
+        """Number of reporter.warning CALLS, not report entries.
+
+        StructuredLogs keys entries on title+message, so repeated identical
+        warnings collapse into one entry -- counting entries would pass even
+        with the dedup set removed.
+        """
+        with patch.object(
+            source.reporter, "warning", wraps=source.reporter.warning
+        ) as spy:
+            for _ in range(times):
+                source._warn_if_platform_mapping_env_ignored(self._ref())
+            return spy.call_count
 
     def test_warns_once_when_platform_instance_only_on_mapping(self) -> None:
         source = self._source(
             {"ws/wb": {"data_source_platform": "snowflake", "platform_instance": "mi"}}
         )
-        assert self._warn_delta(source, times=2) == 1
+        assert self._warn_calls(source, times=2) == 1
 
     def test_warns_when_env_set_explicitly(self) -> None:
         source = self._source(
             {"ws/wb": {"data_source_platform": "snowflake", "env": "DEV"}}
         )
-        assert self._warn_delta(source) == 1
+        assert self._warn_calls(source) == 1
 
     def test_warns_when_env_only_defaulted_but_recipe_env_differs(self) -> None:
         # PlatformDetail.env defaults to PROD, so the URN diverges even though
@@ -317,18 +359,29 @@ class TestPlatformMappingEnvWarning:
         source = self._source(
             {"ws/wb": {"data_source_platform": "postgres", "platform_instance": "mi"}}
         )
-        assert self._warn_delta(source) == 0
+        assert self._warn_calls(source) == 0
 
     def test_silent_when_mapping_adds_nothing(self) -> None:
         source = self._source({"ws/wb": {"data_source_platform": "snowflake"}})
-        assert self._warn_delta(source) == 0
+        assert self._warn_calls(source) == 0
+
+    def test_warns_when_override_sets_only_default_database(self) -> None:
+        # An override that supplies neither env nor platform_instance leaves
+        # both unconfigured for this connection, so the mapping's values are
+        # still being ignored. WarehouseConnectionConfig inherits an env
+        # default, so presence of the entry is not enough to tell.
+        source = self._source(
+            {"ws/wb": {"data_source_platform": "snowflake", "platform_instance": "mi"}},
+            connection_to_platform_map={_SNOWFLAKE_CONN_ID: {"default_database": "DB"}},
+        )
+        assert self._warn_calls(source) == 1
 
     def test_silent_when_connection_has_an_override(self) -> None:
         source = self._source(
             {"ws/wb": {"data_source_platform": "snowflake", "platform_instance": "mi"}},
             connection_to_platform_map={_SNOWFLAKE_CONN_ID: {"env": "DEV"}},
         )
-        assert self._warn_delta(source) == 0
+        assert self._warn_calls(source) == 0
 
 
 class TestFallbackGate:
@@ -343,12 +396,6 @@ class TestFallbackGate:
     def _handle(
         self, source: SigmaSource, *, sql_named_tables: bool, in_tables: List[str]
     ) -> Dict[str, List[str]]:
-        from datahub.ingestion.source.sigma.data_classes import (
-            DatasetUpstream,
-            Element,
-            Workbook,
-        )
-
         dataset_inputs: Dict[str, List[str]] = {}
         source._handle_dataset_upstream(
             upstream=DatasetUpstream(name="PETS dataset"),
@@ -443,3 +490,84 @@ class TestMigrationStatusProperty:
         # Keeps datasetProperties byte-identical on tenants that predate the
         # field, so no golden churn for them.
         assert "migrationStatus" not in self._custom_properties(self._dataset())
+
+
+class TestNullUpstreamName:
+    """A null upstream name must not block the inode route."""
+
+    def _handle(
+        self, source: SigmaSource, *, sql_named_tables: bool
+    ) -> Dict[str, List[str]]:
+        dataset_inputs: Dict[str, List[str]] = {}
+        source._handle_dataset_upstream(
+            upstream=DatasetUpstream(name=None),
+            node_id="inode-url-1",
+            element=Element(elementId="el-1", name="chart", url="http://x"),
+            workbook=Workbook(
+                workbookId="wb-1",
+                name="WB",
+                ownerId="u",
+                createdBy="u",
+                updatedBy="u",
+                createdAt="2024-01-01T00:00:00Z",
+                updatedAt="2024-01-01T00:00:00Z",
+                url="http://x",
+                path="ws",
+                latestVersion=1,
+            ),
+            dataset_inputs=dataset_inputs,
+            sql_parser_in_tables=[],
+            sql_named_tables=sql_named_tables,
+        )
+        return dataset_inputs
+
+    def test_null_name_with_no_sql_still_resolves(self) -> None:
+        # The headline fix: the name is only needed for the SQL substring match,
+        # so a null name must not stop the inode route. Sigma does send nulls.
+        source = _make_source()
+        warehouse_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t,PROD)"
+        with patch.object(
+            source,
+            "_resolve_dataset_warehouse_upstreams",
+            return_value=[warehouse_urn],
+        ) as resolver:
+            dataset_inputs = self._handle(source, sql_named_tables=False)
+            resolver.assert_called_once()
+        assert list(dataset_inputs.values()) == [[warehouse_urn]]
+
+    def test_null_name_with_no_sql_is_not_reported(self) -> None:
+        # Nothing was lost, so warning here would be pure noise post-deprecation.
+        source = _make_source()
+        with patch.object(
+            source, "_resolve_dataset_warehouse_upstreams", return_value=[]
+        ):
+            with patch.object(source.reporter, "warning") as spy:
+                self._handle(source, sql_named_tables=False)
+                spy.assert_not_called()
+        assert source.reporter.chart_dataset_upstream_name_missing == 0
+
+    def test_null_name_with_sql_is_reported(self) -> None:
+        # Here the name genuinely cost the SQL correlation.
+        source = _make_source()
+        with patch.object(source.reporter, "warning") as spy:
+            self._handle(source, sql_named_tables=True)
+            spy.assert_called_once()
+        assert source.reporter.chart_dataset_upstream_name_missing == 1
+
+
+class TestDatasetListingFailure:
+    def test_unlisted_reason_names_the_listing_failure(self) -> None:
+        # When /v2/datasets itself failed, the cause is the (deprecated) endpoint,
+        # not workspace_pattern. The info must not send operators to the filter.
+        source = _make_source()
+        source.reporter.datasets_listing_failed = 1
+        with patch.object(source.reporter, "info") as spy:
+            assert source._get_dataset_warehouse_refs("unknown-url-id") == []
+            spy.assert_called_once()
+            assert "listing failed" in spy.call_args.kwargs["title"]
+
+    def test_unlisted_reason_names_workspace_pattern_otherwise(self) -> None:
+        source = _make_source()
+        with patch.object(source.reporter, "info") as spy:
+            assert source._get_dataset_warehouse_refs("unknown-url-id") == []
+            assert "workspace_pattern" in spy.call_args.kwargs["message"]

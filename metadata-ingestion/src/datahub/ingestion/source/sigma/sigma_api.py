@@ -51,10 +51,6 @@ from datahub.ingestion.source.sigma.data_classes import (
 # Logger instance
 logger = logging.getLogger(__name__)
 
-# Consecutive 404s from /datasets/{id}/sources, with none having succeeded,
-# before concluding the deprecated endpoint is gone rather than that one
-# dataset vanished after the listing.
-_DATASET_SOURCES_404_LATCH_THRESHOLD = 3
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -76,9 +72,6 @@ class SigmaAPI:
         # Set once any /sources call returns 200, which proves the endpoint
         # exists and downgrades a later 404 to a per-dataset miss.
         self._dataset_sources_succeeded = False
-        # Consecutive 404s seen with no success yet; see
-        # _DATASET_SOURCES_404_LATCH_THRESHOLD.
-        self._dataset_sources_consecutive_404 = 0
         self.session = requests.Session()
 
         # Configure retry strategy for 429/503 with exponential backoff.
@@ -1256,6 +1249,24 @@ class SigmaAPI:
 
         data_model.elements = elements
 
+    def _dataset_api_is_gone(self, dataset_id: str) -> bool:
+        """Whether the deprecated dataset API itself has been removed.
+
+        Called only to disambiguate a 404 from /sources. ``GET /v2/datasets/{id}``
+        answering anything other than 404/410 proves the API is still there, so
+        that 404 concerned one dataset. Note a dataset that does not exist
+        answers 409 on this endpoint rather than 404, which is why anything
+        outside {404, 410} counts as alive.
+        """
+        url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}"
+        try:
+            return self._get_api_call(url).status_code in (404, 410)
+        except Exception:
+            # Cannot tell; assume alive so one flaky probe does not disable the
+            # route for the rest of the run.
+            logger.debug("Dataset API probe failed for %r; assuming alive.", dataset_id)
+            return False
+
     def _mark_dataset_sources_gone(self, dataset_id: str, status: int) -> None:
         """Latch the dataset-sources endpoint as removed and warn once."""
         if not self._dataset_sources_endpoint_gone:
@@ -1271,7 +1282,6 @@ class SigmaAPI:
                 ),
                 context=f"dataset_id={dataset_id}, http_status={status}",
             )
-        return None
 
     def get_dataset_sources(self, dataset_id: str) -> Optional[List[Dict[str, Any]]]:
         """Fetch the raw ``/datasets/{datasetId}/sources`` entries, or None on failure.
@@ -1284,8 +1294,9 @@ class SigmaAPI:
         Sigma marks this endpoint deprecated alongside the rest of the dataset
         API, so this whole route is a stopgap: it exists to keep lineage alive
         for datasets that have not been migrated to Data Models yet, and will
-        stop returning anything once Sigma removes it. 404/410 is therefore
-        treated as "endpoint gone" and warned about once per run.
+        stop returning anything once Sigma removes it. A 410 therefore latches
+        the endpoint as gone; a 404 is disambiguated against
+        ``GET /v2/datasets/{id}`` first, since one deleted dataset also 404s.
         """
         if self._dataset_sources_endpoint_gone:
             # Counted so operators can see how much lineage the latch cost.
@@ -1297,30 +1308,27 @@ class SigmaAPI:
             response = self._get_api_call(url)
             if response.status_code == 410:
                 # 410 Gone is unambiguous: the endpoint is retired. Latch at once.
-                return self._mark_dataset_sources_gone(dataset_id, 410)
+                self._mark_dataset_sources_gone(dataset_id, 410)
+                return None
             if response.status_code == 404:
-                # A 404 is ambiguous: a dataset deleted or re-permissioned between
-                # the /v2/datasets listing and this call 404s too, and workbooks
-                # are processed long after the listing on large tenants. Latching
-                # on the first one would drop lineage for every later dataset, so
-                # require several consecutive 404s with nothing having succeeded.
-                self._dataset_sources_consecutive_404 += 1
-                if (
-                    not self._dataset_sources_succeeded
-                    and self._dataset_sources_consecutive_404
-                    >= _DATASET_SOURCES_404_LATCH_THRESHOLD
-                ):
-                    return self._mark_dataset_sources_gone(dataset_id, 404)
-                # Otherwise treat it as this dataset being gone, not the endpoint.
+                # Ambiguous on its own: the endpoint may be retired, or just this
+                # dataset may have been deleted or re-permissioned since the
+                # listing (workbooks are processed long after it). Ask the dataset
+                # API directly rather than inferring from a run of 404s, which
+                # depends on processing order and on which other statuses
+                # intervened.
+                if self._dataset_api_is_gone(dataset_id):
+                    self._mark_dataset_sources_gone(dataset_id, 404)
+                    return None
                 self.report.dataset_sources_lookup_failed += 1
                 self.report.dataset_sources_not_found += 1
-                self.report.warning(
+                self.report.info(
                     title="Sigma dataset sources not found for one dataset",
                     message=(
-                        "/datasets/{id}/sources returned 404 for this dataset. It "
-                        "was most likely deleted or re-permissioned after the "
-                        "dataset listing; its warehouse upstreamLineage will be "
-                        "missing."
+                        "/datasets/{id}/sources returned 404 while the dataset API "
+                        "itself still responds, so this dataset was most likely "
+                        "deleted or re-permissioned after the listing. Its "
+                        "warehouse upstreamLineage will be missing."
                     ),
                     context=f"dataset_id={dataset_id}, http_status=404",
                 )
@@ -1357,13 +1365,14 @@ class SigmaAPI:
                     title="Sigma /datasets/{id}/sources returned an unexpected shape",
                     message=(
                         "Expected a bare JSON list of source entries. Warehouse "
-                        "upstream resolution is skipped for this Sigma Dataset."
+                        "upstream resolution is skipped for this Sigma Dataset. "
+                        "Individual entries are validated by the caller, which "
+                        "skips a malformed one rather than losing the rest."
                     ),
                     context=f"dataset_id={dataset_id}, body_type={type(entries).__name__}",
                 )
                 return None
             self._dataset_sources_succeeded = True
-            self._dataset_sources_consecutive_404 = 0
             return entries
         except Exception as e:
             self.report.dataset_sources_lookup_failed += 1
