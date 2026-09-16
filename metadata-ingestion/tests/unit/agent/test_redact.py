@@ -230,3 +230,56 @@ def test_an_identifier_or_a_path_is_not_a_credential():
     assert pem in found, found
     assert "abc123keyid" not in found, found
     assert "/etc/gcp/key.json" not in found, found
+
+
+def test_a_credential_nested_under_a_sensitive_key_is_collected():
+    """Third appearance of one bug, and the first where it fails to MASK.
+
+    Both collectors decided sensitivity per key and dropped it at the
+    recursion, so a sensitive key holding a MAPPING had its children judged by
+    their own names:
+
+        token:      {access: ...}             -> collected by neither
+        credential: {private_key: {pem: ...}} -> collected by neither
+
+    plain_config_values and the executor's copy had the same defect pointing
+    the other way -- they reached INTO a sensitive subtree and exempted what
+    they found. Here the credential is simply never collected, so the
+    redactor does not mask it and validate does not mention it. Same outcome:
+    it reaches the caller in the clear.
+
+    `credential.private_key` is the shape the private_key hint was added for,
+    and the comment there says "nested one level down" -- which works only
+    while the value is a string. One level further and it was gone.
+    """
+    cfg = {
+        "connection": {
+            "token": {"access": "acc3ssvalue"},
+            "credential": {"private_key": {"pem": "p3mvalue"}},
+            "database": "analytics",
+        }
+    }
+
+    masked = collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS)
+    assert "acc3ssvalue" in masked, masked
+    assert "p3mvalue" in masked, masked
+
+    flagged = collect_nested_credential_values(cfg, _SENSITIVE_KEY_HINTS)
+    assert "acc3ssvalue" in flagged, flagged
+    assert "p3mvalue" in flagged, flagged
+
+    # A plain identifier under a plain key stays out of both, or the fix has
+    # simply widened everything.
+    assert "analytics" not in masked, masked
+    assert "analytics" not in flagged, flagged
+
+
+def test_an_identifier_suffix_still_wins_under_a_sensitive_parent():
+    """The suffix rule is about the leaf's own name, so inheriting a sensitive
+    parent must not resurrect `_id` and `_path` as credentials."""
+    # `token` is the sensitive parent here -- `credential` matches no hint on
+    # its own, which is why the test above nests private_key under it.
+    cfg = {"token": {"access_id": "abc123keyid", "value": "t0k3nvalue"}}
+    flagged = collect_nested_credential_values(cfg, _SENSITIVE_KEY_HINTS)
+    assert "t0k3nvalue" in flagged, flagged
+    assert "abc123keyid" not in flagged, flagged

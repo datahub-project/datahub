@@ -96,20 +96,37 @@ def collect_secret_values(
     return values
 
 
-def collect_nested_secret_values(obj: object, hints: Tuple[str, ...]) -> Set[str]:
+def collect_nested_secret_values(
+    obj: object, hints: Tuple[str, ...], under_sensitive: bool = False
+) -> Set[str]:
     """Recursively collect string values whose (dict) key contains a sensitive
     hint. Defense-in-depth for secrets that live in free-form dict config fields
-    (e.g. Kafka's consumer_config) and so are not typed SecretStr."""
+    (e.g. Kafka's consumer_config) and so are not typed SecretStr.
+
+    `under_sensitive` carries the parent's verdict down. Without it the
+    decision was re-made from each child's own name, so a sensitive key
+    holding a MAPPING lost everything inside it:
+
+        token:      {access: ...}              -> not masked
+        credential: {private_key: {pem: ...}}  -> not masked
+
+    The second is the shape the private_key hint exists for, one level deeper
+    than its comment assumes -- "nested one level down" holds only while the
+    value is a string. Everything beneath a sensitive key is the secret, so
+    the flag travels with the walk.
+    """
     found: Set[str] = set()
     if isinstance(obj, dict):
         for k, v in obj.items():
-            if isinstance(v, str) and v and any(h in str(k).lower() for h in hints):
-                found.add(v)
+            sensitive = under_sensitive or any(h in str(k).lower() for h in hints)
+            if isinstance(v, str):
+                if v and sensitive:
+                    found.add(v)
             else:
-                found |= collect_nested_secret_values(v, hints)
+                found |= collect_nested_secret_values(v, hints, sensitive)
     elif isinstance(obj, list):
         for item in obj:
-            found |= collect_nested_secret_values(item, hints)
+            found |= collect_nested_secret_values(item, hints, under_sensitive)
     return found
 
 
@@ -125,7 +142,9 @@ collect_plain_config_values = plain_config_values
 _NOT_THE_SECRET_SUFFIXES = ("_id", "_path", "_file", "_filename", "_url", "_uri")
 
 
-def collect_nested_credential_values(obj: object, hints: Tuple[str, ...]) -> Set[str]:
+def collect_nested_credential_values(
+    obj: object, hints: Tuple[str, ...], under_sensitive: bool = False
+) -> Set[str]:
     """Like collect_nested_secret_values, but for DETECTING rather than masking.
 
     The two want opposite errors. Masking everything under a `sasl`-ish key is
@@ -144,16 +163,24 @@ def collect_nested_credential_values(obj: object, hints: Tuple[str, ...]) -> Set
         for k, v in obj.items():
             key = str(k).lower()
             leaf = key.rsplit(".", 1)[-1]
-            sensitive = any(
-                (h in key) if "." in h else (h in leaf) for h in hints
-            ) and not leaf.endswith(_NOT_THE_SECRET_SUFFIXES)
-            if isinstance(v, str) and v and sensitive:
-                found.add(v)
+            # The suffix rule is about the LEAF's own name, so it still applies
+            # under a sensitive parent: `credential.private_key_id` is an
+            # identifier wherever it sits. Inheriting sensitivity is what
+            # reaches `credential.private_key.pem`, which has no such suffix.
+            named = any((h in key) if "." in h else (h in leaf) for h in hints)
+            sensitive = (under_sensitive or named) and not leaf.endswith(
+                _NOT_THE_SECRET_SUFFIXES
+            )
+            if isinstance(v, str):
+                if v and sensitive:
+                    found.add(v)
             else:
-                found |= collect_nested_credential_values(v, hints)
+                found |= collect_nested_credential_values(
+                    v, hints, under_sensitive or named
+                )
     elif isinstance(obj, list):
         for item in obj:
-            found |= collect_nested_credential_values(item, hints)
+            found |= collect_nested_credential_values(item, hints, under_sensitive)
     return found
 
 
