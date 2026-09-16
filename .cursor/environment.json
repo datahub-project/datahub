@@ -1,0 +1,9 @@
+{
+  "name": "DataHub",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "ports": [
+    { "port": 9002, "name": "DataHub frontend UI" },
+    { "port": 8080, "name": "DataHub GMS API" }
+  ]
+}
