@@ -283,3 +283,24 @@ def test_an_identifier_suffix_still_wins_under_a_sensitive_parent():
     flagged = collect_nested_credential_values(cfg, _SENSITIVE_KEY_HINTS)
     assert "t0k3nvalue" in flagged, flagged
     assert "abc123keyid" not in flagged, flagged
+
+
+def test_a_value_listed_in_a_plain_list_is_disclosed_too():
+    """`project_ids: [analytics]` states it as plainly as `project: analytics`.
+
+    The walk had no branch for a string reached through a list, so the list
+    form disclosed nothing -- and the list form is the common one here:
+    project_ids, databases and schemas are all lists. A password equal to a
+    project named in the recipe was therefore masked everywhere it appeared,
+    including in the `target` a verdict has to print, which is the exact
+    corruption this exemption exists to prevent.
+    """
+    assert plain_config_values(
+        {"project_ids": ["analytics", "staging"]}, _SENSITIVE_KEY_HINTS
+    ) == {"analytics", "staging"}
+
+    # And the sensitive side is unchanged: a list under a sensitive key
+    # discloses nothing, so those values keep their mask.
+    assert (
+        plain_config_values({"password": ["pw1value"]}, _SENSITIVE_KEY_HINTS) == set()
+    )

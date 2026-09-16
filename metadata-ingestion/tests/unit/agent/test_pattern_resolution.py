@@ -270,7 +270,12 @@ def test_the_convention_still_resolves_a_connector_that_declares_no_hint(caplog)
     caller reading verdicts rather than that field sees a confident wrong
     answer.
     """
+    # Both, and both matter: the lru_cache holds the resolution and
+    # _CONVENTION_WARNED holds whether it has already been announced. Clearing
+    # only the first left this test passing or failing on whether the
+    # warns-once test below had run first -- and pytest-randomly decides that.
     _pattern_field_for_config_class.cache_clear()
+    _reset_convention_warnings()
     with caplog.at_level(logging.WARNING, logger="datahub.ingestion.agent.introspect"):
         resolved = pattern_field_for_config(_UnannotatedCfg(), "Schema")
 

@@ -78,6 +78,19 @@ def plain_config_values(
                 # Nothing under a sensitive key is public, whatever its
                 # children are called.
                 found |= plain_config_values(v, hints)
+    elif isinstance(obj, str):
+        # Reached only through the list branch below -- the dict branch
+        # handles its own string values inline, and a sensitive subtree is
+        # never descended into -- so a string arriving here is one the recipe
+        # states in the clear under a plain key.
+        #
+        # Without this, `schemas: [public]` disclosed nothing while
+        # `schema: public` disclosed "public", and the list form is the common
+        # one: project_ids, databases, schemas are all lists. A password equal
+        # to a project named there was masked everywhere, which is exactly the
+        # corruption this exemption exists to prevent.
+        if obj and "${" not in obj:
+            found.add(obj)
     elif isinstance(obj, list):
         for item in obj:
             found |= plain_config_values(item, hints)
