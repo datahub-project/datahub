@@ -9,8 +9,14 @@ import { SearchResult } from '@src/types.generated';
 
 const testTheme = { colors: { bgSkeleton: '#f0f0f0', bgSkeletonShimmer: '#e0e0e0' } } as any;
 
+// Renders both inputs so a test can tell that the hook handed the cell the right record
+// (schemaFieldEntity) for the right property column, not just that something rendered.
 vi.mock('@src/app/entityV2/dataset/profile/schema/components/StructuredPropValues', () => ({
-    default: ({ propColumn }: any) => <span data-testid="prop-values">{propColumn.entity.urn}</span>,
+    default: ({ schemaFieldEntity, propColumn }: any) => (
+        <span data-testid="prop-values">
+            {schemaFieldEntity?.urn}|{propColumn.entity.urn}
+        </span>
+    ),
 }));
 
 vi.mock('@src/app/govern/structuredProperties/utils', () => ({
@@ -55,10 +61,26 @@ describe('useGetStructuredPropColumns', () => {
         const { result } = renderHook(() => useGetStructuredPropColumns(properties, false));
         render(
             <ThemeProvider theme={testTheme}>
+                {result.current?.[1].render({ urn: 'urn:li:schemaField:x' })}
+            </ThemeProvider>,
+        );
+        // The cell receives the row's schemaFieldEntity and its own (second) property column.
+        expect(screen.getByTestId('prop-values')).toHaveTextContent(
+            'urn:li:schemaField:x|urn:li:structuredProperty:steward',
+        );
+        expect(screen.queryByTestId('prop-cell-skeleton')).not.toBeInTheDocument();
+    });
+
+    it('renders an unavailable marker instead of values when full metadata failed', () => {
+        const { result } = renderHook(() => useGetStructuredPropColumns(properties, false, true));
+        render(
+            <ThemeProvider theme={testTheme}>
                 {result.current?.[0].render({ urn: 'urn:li:schemaField:x' })}
             </ThemeProvider>,
         );
-        expect(screen.getByTestId('prop-values')).toHaveTextContent('urn:li:structuredProperty:retention');
+        expect(screen.getByTestId('metadata-unavailable')).toBeInTheDocument();
+        expect(screen.queryByTestId('prop-values')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('prop-cell-skeleton')).not.toBeInTheDocument();
     });
 
     it('renders skeleton placeholders while full metadata is still loading', () => {

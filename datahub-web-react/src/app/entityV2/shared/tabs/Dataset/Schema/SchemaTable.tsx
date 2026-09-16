@@ -284,7 +284,7 @@ export default function SchemaTable({
     // (a blank cell would read as "no tags"), real content otherwise.
     const renderMetadataCell = useCallback(
         (width: number, content: () => React.ReactNode): React.ReactNode => {
-            if (fullMetadataLoading) return <CellSkeleton $width={width} />;
+            if (fullMetadataLoading) return <CellSkeleton $width={width} data-testid="metadata-cell-skeleton" />;
             if (fullMetadataError) return <MetadataUnavailable />;
             return content();
         },
