@@ -262,10 +262,11 @@ def check_query_scope(
 
     _check_withheld_columns(statement)
 
-    saw_table = False
+    saw_relation = False
     for table in statement.find_all(exp.Table):
-        saw_table = True
-        _check_table(table, scope=permitted, platform=platform)
+        # `or` would short-circuit and stop checking the rest.
+        if _check_table(table, scope=permitted, platform=platform):
+            saw_relation = True
 
     # A row-returning query that names no relation is not catalog inspection --
     # it computes a row from server state (`SELECT VERSION()`, `SELECT 1`).
@@ -277,7 +278,12 @@ def check_query_scope(
     # cannot see. The probe's typed getters cover legitimate no-SQL discovery;
     # the `sql` command a caller reaches for is always catalog-content over a
     # FROM.
-    if not saw_table:
+    #
+    # Physical relations only. A CTE alias parses as exp.Table, so counting
+    # every exp.Table let `WITH x AS (SELECT CURRENT_USER) SELECT * FROM x`
+    # satisfy this rule while reading nothing -- defeating, through the one
+    # node type that is not a relation, the very class this rule closes.
+    if not saw_relation:
         raise SqlScopeError(
             "a probe query must read from a catalog relation (for example a "
             "table in information_schema); this query names none, so it "
@@ -310,11 +316,40 @@ def _check_withheld_columns(statement: exp.Expr) -> None:
     column -- there the driver's output names are the real ones and the
     masker handles it. The two layers cover what the other cannot, which is
     why they read one shared set.
+
+    That pairing is what an alias column list breaks, so it is refused first:
+    `FROM access_history AS t(a, b, c)` renames positionally, which leaves
+    `SELECT *` naming no column for this walk AND makes the driver report
+    a/b/c, so the masker matches nothing either. Caller-chosen names on both
+    layers at once. A column list can only rename, never narrow, so a metadata
+    query has no use for one and refusing the form costs nothing.
+
+    `USING` is the other gap, and a parser detail rather than a syntax one:
+    sqlglot stores `JOIN ... USING (user_name)` names as bare Identifiers, not
+    exp.Column, so the walk below never saw them. Joining on the name and
+    returning a count answers "is this person here" one bit at a time -- the
+    same question the projection rule refuses.
     """
     # lazy: redact is cheap, but this keeps the import beside its one use
     from datahub.ingestion.agent.redact import WITHHELD_COLUMN_NAMES
 
-    for column in statement.find_all(exp.Column):
+    for alias in statement.find_all(exp.TableAlias):
+        if alias.args.get("columns"):
+            raise SqlScopeError(
+                "an alias column list can rename a withheld column out of "
+                "sight of both the name check and the output masker, so this "
+                "probe does not accept one; alias the table alone, or "
+                "`SELECT *` and read the real column names"
+            )
+
+    using_names = [
+        identifier
+        for join in statement.find_all(exp.Join)
+        for identifier in (join.args.get("using") or [])
+        if isinstance(identifier, exp.Identifier)
+    ]
+
+    for column in list(statement.find_all(exp.Column)) + using_names:
         if column.name.lower() in WITHHELD_COLUMN_NAMES:
             raise SqlScopeError(
                 f"'{column.name}' names a person rather than describing shape, "
@@ -336,7 +371,7 @@ def _check_functions(statement: exp.Expr) -> None:
 
 
 def _check_server_state(statement: exp.Expr) -> None:
-    """Refuse a reference to a server/session variable (`@@name`).
+    """Refuse a reference to server or session identity (`@@name`, CURRENT_USER).
 
     These name neither a relation nor a function, so the table walk and
     _check_functions both pass them through, yet `@@datadir`, `@@hostname` and
@@ -344,12 +379,24 @@ def _check_server_state(statement: exp.Expr) -> None:
     have no place in a catalog query, so any occurrence is refused -- including
     one smuggled into a UNION branch alongside a real catalog table, which the
     "must name a relation" rule alone would not catch.
+
+    CURRENT_USER is here for that last reason. It discloses the identity the
+    recipe connects as, and sqlglot models it as its own node rather than an
+    Anonymous function, so _check_functions cannot see it either. Riding along
+    with a real catalog table is exactly the case the relation rule cannot
+    reach, so the node itself is refused.
     """
     for param in statement.find_all(exp.SessionParameter):
         raise SqlScopeError(
             f"'@@{param.name}' reads a server/session variable, which is server "
             f"state rather than catalog metadata; only SELECTs over catalog "
             f"tables are permitted"
+        )
+    for _ in statement.find_all(exp.CurrentUser):
+        raise SqlScopeError(
+            "CURRENT_USER reads the identity this recipe connects as, which is "
+            "session state rather than catalog metadata; only SELECTs over "
+            "catalog tables are permitted"
         )
 
 
@@ -478,7 +525,13 @@ def _visible_cte_names(table: exp.Table) -> Set[str]:
     return names
 
 
-def _check_table(table: exp.Table, scope: CatalogScope, platform: str) -> None:
+def _check_table(table: exp.Table, scope: CatalogScope, platform: str) -> bool:
+    """Clear one table reference, and say whether it was a physical relation.
+
+    A CTE reference is not one, and the caller needs to know: a CTE alias
+    parses as exp.Table, so counting every exp.Table let a query that reads
+    nothing satisfy the "must read a catalog relation" rule.
+    """
     if not isinstance(table.this, exp.Identifier):
         # A set-returning function in FROM position. Caught here as well as in
         # _check_functions so that a vendor function sqlglot *does* model still
@@ -507,14 +560,15 @@ def _check_table(table: exp.Table, scope: CatalogScope, platform: str) -> None:
     if len(parts) < 2:
         name = parts[0] if parts else table.name
         # A CTE alias reads as an unqualified table; refusing it would reject
-        # legitimate catalog queries that use WITH.
+        # legitimate catalog queries that use WITH. It is not a relation read,
+        # though, which is what the False says.
         if name.lower() in _visible_cte_names(table):
-            return
+            return False
         # Some dialects expose their catalog unqualified: Oracle's dictionary
         # views are public synonyms, so `FROM dba_tables` is the idiomatic read
         # and there is no schema to qualify it with.
         if scope.permits_unqualified(name):
-            return
+            return True
         raise SqlScopeError(
             f"'{name}' is not schema-qualified, so it cannot be shown to be "
             f"catalog metadata; qualify it (e.g. {INFORMATION_SCHEMA}.{name}), or "
@@ -528,3 +582,5 @@ def _check_table(table: exp.Table, scope: CatalogScope, platform: str) -> None:
             f"'{rendered}' is outside the catalog metadata this probe may read; "
             f"this source permits {scope.describe()}"
         )
+
+    return True

@@ -92,12 +92,16 @@ PERMITTED: List[Tuple[str, str, str]] = [
     ("postgres", "postgres", "SELECT attname FROM pg_catalog.pg_attribute"),
     ("postgres", "postgres", "SELECT * FROM pg_catalog.pg_views"),
     # A RECURSIVE CTE legitimately references itself, so the sibling-order rule
-    # must admit the CTE being defined when the WITH is recursive.
+    # must admit the CTE being defined when the WITH is recursive. Seeded from a
+    # catalog relation rather than from a constant: the must-read-a-relation rule
+    # counts physical relations only, so a purely arithmetic recursion reads
+    # nothing and is refused -- which is the rule working, not a CTE problem.
     (
         "postgres",
         "postgres",
-        "WITH RECURSIVE r AS (SELECT 1 AS n UNION ALL "
-        "SELECT n+1 FROM r WHERE n<3) SELECT * FROM r",
+        "WITH RECURSIVE r AS ("
+        "SELECT table_name, 1 AS n FROM information_schema.tables "
+        "UNION ALL SELECT table_name, n+1 FROM r WHERE n<3) SELECT * FROM r",
     ),
 ]
 

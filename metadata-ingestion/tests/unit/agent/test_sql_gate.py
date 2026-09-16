@@ -1,6 +1,10 @@
 import pytest
 
-from datahub.ingestion.agent.sql_gate import SqlScopeError, check_query_scope
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+    SqlScopeError,
+    check_query_scope,
+)
 from datahub.ingestion.source.sql.postgres.source import PostgresConfig
 
 CATALOG_QUERY = (
@@ -377,7 +381,8 @@ def test_the_refusal_says_it_is_a_write_not_a_scope_problem():
     "sql",
     [
         "WITH t AS (SELECT table_name FROM information_schema.tables) SELECT * FROM t",
-        "WITH a AS (SELECT 1), b AS (SELECT * FROM a) SELECT * FROM b",
+        "WITH a AS (SELECT table_name FROM information_schema.tables), "
+        "b AS (SELECT * FROM a) SELECT * FROM b",
         "SELECT * FROM information_schema.tables",
     ],
 )
@@ -580,4 +585,93 @@ def test_still_permits_a_catalog_query_with_functions_and_no_user_table():
         "SELECT LOWER(table_name), COUNT(*) FROM information_schema.columns "
         "GROUP BY table_name",
         platform="mysql",
+    )
+
+
+# --- renaming a withheld column instead of naming it -----------------------
+#
+# The withheld-column gate refuses the name where it is written, and the
+# masker covers `SELECT *` where the driver's output names are the real ones.
+# Three ways found by review to land between the two: rename the columns so
+# `SELECT *` reports caller-chosen headers, put the name somewhere that is not
+# an exp.Column, or read no relation at all.
+
+_IDENTITY_SCOPE = CatalogScope(
+    schemas=frozenset(),
+    relations=frozenset({"account_usage.access_history", "account_usage.users"}),
+)
+
+
+@pytest.mark.parametrize(
+    ("label", "sql"),
+    [
+        # A table alias may carry a column list, which renames positionally.
+        # Under `SELECT *` no exp.Column names user_name, so the gate saw
+        # nothing -- and the driver then reports a/b/c, so the masker matched
+        # nothing either. Caller-chosen names on both layers at once.
+        (
+            "table alias column list",
+            "SELECT * FROM snowflake.account_usage.access_history AS t(a, b, c)",
+        ),
+        (
+            "derived table alias column list",
+            "SELECT * FROM (SELECT * FROM snowflake.account_usage.access_history) "
+            "AS t(a, b, c)",
+        ),
+    ],
+)
+def test_a_column_list_cannot_rename_a_withheld_column_out_of_sight(label, sql):
+    with pytest.raises(SqlScopeError, match="rename"):
+        check_query_scope(sql, platform="snowflake", scope=_IDENTITY_SCOPE)
+
+
+def test_a_join_using_clause_cannot_name_a_withheld_column():
+    """sqlglot stores USING names as Identifier, not Column, so the walk missed
+    them. Joining on the name and returning a count answers "is this person
+    here" one bit at a time, which is the same question the projection rule
+    refuses."""
+    with pytest.raises(SqlScopeError, match="names a person"):
+        check_query_scope(
+            "SELECT count(*) FROM snowflake.account_usage.access_history a "
+            "JOIN snowflake.account_usage.users b USING (user_name)",
+            platform="snowflake",
+            scope=_IDENTITY_SCOPE,
+        )
+
+
+def test_a_cte_alias_is_not_a_catalog_relation():
+    """The must-read-a-relation rule counted a CTE reference as a relation.
+
+    Its own comment says it exists to close "the whole no-table disclosure
+    class ... including built-in functions sqlglot models as first-class nodes
+    that _check_functions cannot see" -- and a CTE alias parses as exp.Table,
+    so wrapping the disclosure in a WITH satisfied the rule while reading
+    nothing.
+    """
+    with pytest.raises(SqlScopeError, match="must read from a catalog relation"):
+        check_query_scope("WITH x AS (SELECT 1) SELECT * FROM x", platform="snowflake")
+
+    # And the shape that motivated it. Refused by the CURRENT_USER rule first,
+    # so this asserts only that it does not get through.
+    with pytest.raises(SqlScopeError):
+        check_query_scope(
+            "WITH x AS (SELECT CURRENT_USER) SELECT * FROM x", platform="snowflake"
+        )
+
+
+def test_current_user_is_server_state_wherever_it_appears():
+    """The no-relation rule cannot reach this one: it rides along with a real
+    catalog table, so something has to refuse the node itself."""
+    with pytest.raises(SqlScopeError, match="session state"):
+        check_query_scope(
+            "SELECT CURRENT_USER, table_name FROM information_schema.tables",
+            platform="snowflake",
+        )
+
+
+def test_a_cte_over_a_real_relation_still_works():
+    """The converse, so the fix above cannot be 'refuse every WITH'."""
+    check_query_scope(
+        "WITH t AS (SELECT table_name FROM information_schema.tables) SELECT * FROM t",
+        platform="postgres",
     )
