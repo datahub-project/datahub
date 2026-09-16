@@ -426,6 +426,7 @@ project.ext.externalDependency = [
     'springBootTest': "org.springframework.boot:spring-boot-starter-test:$springBootVersion",
     'springBoot': "org.springframework.boot:spring-boot:$springBootVersion",
     'springBootAutoconfigure': "org.springframework.boot:spring-boot-autoconfigure:$springBootVersion",
+    'springBootDevtools': "org.springframework.boot:spring-boot-devtools:$springBootVersion",
     // Bridge for Jackson 2 (com.fasterxml) until full migration to Jackson 3 (tools.jackson)
     'springBootJackson2': "org.springframework.boot:spring-boot-jackson2:$springBootVersion",
     'springBootStarterWeb': "org.springframework.boot:spring-boot-starter-web:$springBootVersion",
