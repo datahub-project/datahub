@@ -30,6 +30,11 @@ POST GMS_SERVER_HOST:GMS_PORT/openapi/openlineage/api/v1/lineage
 
 Include the OpenLineage message in the request body in JSON format.
 
+The OpenLineage spec defines two paths, `/lineage` and `/lineage/batch`, and both accept `POST`
+only. Lineage events are an append-only stream, so the spec has no operation for reading, updating
+or deleting an event after you send it. To read lineage back, use DataHub's GraphQL API or the
+entity and relationship REST APIs.
+
 The endpoint responds with:
 
 | Status | Meaning                                                                                   |
@@ -40,7 +45,7 @@ The endpoint responds with:
 | `422`  | The event is well-formed but carries nothing DataHub can store (for example, no job name) |
 | `500`  | A server-side failure                                                                     |
 
-#### Sending a batch
+#### Send a batch
 
 A producer holding several events can send them in one request rather than one at a time:
 
@@ -48,9 +53,9 @@ A producer holding several events can send them in one request rather than one a
 POST GMS_SERVER_HOST:GMS_PORT/openapi/openlineage/api/v1/lineage/batch
 ```
 
-The body is a JSON array of the same three event types. Each event is converted on its own, so one
-unusable event does not reject the rest of the array; the events that did convert are then written
-in a single transaction. A request that is accepted answers `200` and reports what happened:
+The body is a JSON array of the same three event types. Each event converts on its own, so one
+unusable event does not reject the rest. Everything that converts is then written in a single
+transaction. A request that is accepted answers `200` and reports what happened:
 
 ```json
 {
@@ -66,14 +71,14 @@ in a single transaction. A request that is accepted answers `200` and reports wh
 }
 ```
 
-`index` is the event's position in the array you sent, which is the producer's handle on which
-event to fix. `retriable` is always `false`, because every failure reported here is a conversion
-failure and conversion is deterministic — the same bytes fail the same way. A failure a resend
-could fix is a server fault, and those come back as a `500` for the whole request.
+`index` is the event's position in the array you sent. Use it to identify which event to fix.
+`retriable` is always `false`. Every failure reported here is a conversion failure, and conversion
+is deterministic: the same bytes fail the same way. A failure a resend could fix is a server
+fault, and those return a `500` for the whole request.
 
 Two things are decided for the batch as a whole rather than per event:
 
-| Concern       | Behaviour                                                                                                               |
+| Concern       | Behavior                                                                                                                |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Authorization | A batch touching anything the caller may not write is refused whole with `403`, because privileges belong to the actor. |
 | Batch size    | More than `datahub.openlineage.max-batch-size` events (default 1000) is a `400`.                                        |
@@ -91,9 +96,9 @@ The endpoint accepts all three OpenLineage 2.0 event types:
 | `DatasetEvent` | A single dataset, no job or run   | Dataset aspects only                                |
 
 `JobEvent` and `DatasetEvent` are the spec's static-lineage path: a producer describing a job or a
-table it did not just execute or write. The event type comes from `schemaURL`; when a producer omits
-it, the event's shape decides — a `run` means a RunEvent, a top-level `dataset` means a DatasetEvent,
-otherwise a JobEvent.
+table it did not itself run or write. The event type comes from `schemaURL`. When a producer omits it, the event's shape decides: a
+`run` means a RunEvent, a top-level `dataset` means a DatasetEvent, and anything else is a
+JobEvent.
 
 ### What DataHub captures from an event
 
@@ -117,13 +122,34 @@ otherwise a JobEvent.
 Facets outside this table are not stored. An `extractionError` facet also raises a warning in the GMS
 log, because it is the producer reporting that its own lineage output is incomplete.
 
+### What DataHub does not capture
+
+OpenLineage 2.0 defines 38 standard facets. DataHub reads 26 of them. A producer can send the
+remaining 12 without error, but nothing is stored:
+
+| OpenLineage facet                                | Level   | Why                                                                       |
+| ------------------------------------------------ | ------- | ------------------------------------------------------------------------- |
+| `dataSource`                                     | Dataset | The dataset namespace carries the same information and drives the URN     |
+| `catalog`                                        | Dataset | Iceberg identity resolves through `symlinks` instead                      |
+| `dataQualityAssertions`                          | Dataset | Maps to DataHub's `Assertion` entity, not to an aspect                    |
+| `hierarchy`, `inputStatistics`, `subset`         | Dataset | No DataHub equivalent                                                     |
+| `sourceCode`                                     | Job     | The job's source text. `sourceCodeLocation`, which links to it, is stored |
+| `tags`                                           | Run     | Job-level and dataset-level `tags` are stored; run-level tags are not     |
+| `environmentVariables`                           | Run     | Holds credentials in practice, so it needs redaction before storage       |
+| `executionParameters`, `jobDependencies`, `test` | Run     | No DataHub equivalent                                                     |
+
+Non-standard vendor facets are stored only where a mapping exists. The Airflow facets and the
+Spark facets — `spark_properties`, `spark_jobDetails`, `spark_version`, `spark.logicalPlan` and
+`unknownSourceAttribute` — become custom properties. Others, including the `gcp_*` facets that
+Dataproc emits, are dropped.
+
 The caller needs `Edit Entity` and `Edit Lineage` privileges on the entity types the event
 touches — DataFlow, DataJob, DataProcessInstance and Dataset.
 
 Metadata reported across several events for one run accumulates rather than the last event
 winning, so a producer that declares inputs at `START` and outputs at `COMPLETE` ends up with
 both. Because lineage is applied additively, an edge a job no longer has is not removed
-automatically; set `DATAHUB_OPENLINEAGE_USE_PATCH=false` for last-event-wins behaviour instead.
+automatically; set `DATAHUB_OPENLINEAGE_USE_PATCH=false` for last-event-wins behavior instead.
 
 Example:
 
@@ -320,11 +346,19 @@ The orchestrator name is determined in the following priority order:
 
 #### Known Limitations
 
-With Spark and Airflow we recommend using the Spark Lineage or DataHub's Airflow plugin for tighter integration with DataHub.
+With Spark and Airflow, prefer the Spark Lineage plugin or DataHub's Airflow plugin for tighter
+integration.
 
-- **[PathSpec](https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage/#configuring-hdfs-based-dataset-urns) Support**: While the REST endpoint supports OpenLineage messages, full [PathSpec](https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage/#configuring-hdfs-based-dataset-urns)) support is not yet available in the OpenLineage endpoint but it is available in the DataHub Cloud Spark Plugin.
-
-etc...
+- **Job lineage is append-only.** Events for one run accumulate rather than the last event
+  winning. An edge a job no longer has stays until you remove it. Set
+  `DATAHUB_OPENLINEAGE_USE_PATCH=false` for last-event-wins behavior instead.
+- **A run's own inputs and outputs follow the last event.** `dataProcessInstanceInput` and
+  `dataProcessInstanceOutput` are written whole on every event. A terminal event carrying no
+  inputs therefore replaces the ones an earlier event reported. Job-level lineage is unaffected.
+- **The `parent` facet becomes a job-to-job edge only.** The run-to-run relationship between a
+  parent run and its child is not stored.
+- **Raw events are not retained.** An event that a later release maps more completely cannot be
+  reprocessed; ask the producer to resend it.
 
 ### 2. Spark Event Listener Plugin
 
