@@ -994,3 +994,95 @@ def test_a_ref_under_an_unrecognised_key_is_still_masked(monkeypatch):
 
     _t, _config, secret_values = rc._resolve_for_probe(rc._load_recipe("-"))
     assert "not-a-database-name" in secret_values
+
+
+def test_an_envelope_secret_the_recipe_discloses_is_not_registered(monkeypatch):
+    """The masking backstop is the third place this value gets blanked.
+
+    Even with redaction exempting it, registering it with the registry masks
+    the child's whole stdout stream -- so `datahub.ingestion.source.sql` logs
+    as `***REDACTED:PW***.ingestion.source.sql`, and those lines become the
+    task's operator-visible logs. Same rule, same reason: the recipe states
+    the identifier in the clear, so masking it protects nothing.
+    """
+    from datahub.masking.masking_filter import SecretMaskingFilter
+
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(
+        "sys.stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "__recipe_yaml__": (
+                        "source:\n"
+                        "  type: mysql\n"
+                        "  config:\n"
+                        "    host_port: h:3306\n"
+                        "    database: probe_db\n"
+                        "    password: ${PROBE_TEST_REF}\n"
+                    ),
+                    "__secrets__": {"PROBE_TEST_REF": "probe_db"},
+                }
+            )
+        ),
+    )
+    rc._load_recipe("-")
+
+    assert SecretMaskingFilter().mask_text("probe_db.orders") == "probe_db.orders"
+
+
+def test_an_envelope_secret_the_recipe_does_not_disclose_is_still_registered(
+    monkeypatch,
+):
+    """The exemption must not become a hole in the backstop."""
+    from datahub.masking.masking_filter import SecretMaskingFilter
+
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(
+        "sys.stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "__recipe_yaml__": (
+                        "source:\n"
+                        "  type: mysql\n"
+                        "  config:\n"
+                        "    host_port: h:3306\n"
+                        "    database: probe_db\n"
+                        "    password: ${PROBE_TEST_REF}\n"
+                    ),
+                    "__secrets__": {"PROBE_TEST_REF": "an-actual-password"},
+                }
+            )
+        ),
+    )
+    rc._load_recipe("-")
+
+    masked = SecretMaskingFilter().mask_text("connected as an-actual-password")
+    assert "an-actual-password" not in masked
+
+
+def test_a_malformed_envelope_recipe_still_registers_its_secrets(monkeypatch):
+    """Registration happens before the YAML is parsed on purpose, so a parse
+    error quoting the offending document is already covered. Computing the
+    exemption must not disturb that: an unparseable recipe discloses nothing.
+    """
+    from datahub.masking.masking_filter import SecretMaskingFilter
+
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(
+        "sys.stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "__recipe_yaml__": 'source:\n  bad: "unterminated\n',
+                    "__secrets__": {"PROBE_TEST_REF": "still-a-secret"},
+                }
+            )
+        ),
+    )
+    with pytest.raises(ValueError):
+        rc._load_recipe("-")
+
+    masked = SecretMaskingFilter().mask_text("leaked still-a-secret")
+    assert "still-a-secret" not in masked

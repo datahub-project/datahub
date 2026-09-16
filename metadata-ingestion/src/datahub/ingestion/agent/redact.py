@@ -1,5 +1,10 @@
 from typing import Any, Dict, FrozenSet, List, Sequence, Set, Tuple
 
+from datahub.masking.secret_registry import (
+    SENSITIVE_KEY_HINTS,
+    plain_config_values,
+)
+
 _MASK = "***"
 
 # Below this length a value is matched only against a whole string, never as a
@@ -74,18 +79,10 @@ def mask_identity_columns(
     return out
 
 
-_SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
-    "password",
-    "sasl",
-    "secret",
-    "token",
-    "basic.auth.user.info",
-    "ssl.key",
-    # Key-pair auth (Snowflake) and service-account JSON (GCP) both carry the
-    # key under this name, nested one level down (`credential.private_key`), so
-    # the top-level SecretStr sweep misses it even though the field is typed.
-    "private_key",
-)
+# The policy lives in datahub.masking so the executor can import it too --
+# datahub.executor must not depend on this package. Aliased rather than
+# re-spelled, so existing call sites and tests are unaffected.
+_SENSITIVE_KEY_HINTS: Tuple[str, ...] = SENSITIVE_KEY_HINTS
 
 
 def collect_secret_values(
@@ -116,37 +113,7 @@ def collect_nested_secret_values(obj: object, hints: Tuple[str, ...]) -> Set[str
     return found
 
 
-def collect_plain_config_values(obj: object, hints: Tuple[str, ...]) -> Set[str]:
-    """String values a recipe states in the clear under a non-sensitive key.
-
-    The counterpart to collect_nested_secret_values, for subtracting rather
-    than adding. A secret whose resolved value equals one of these cannot be
-    protected by masking: the value is a plain part of the recipe, the report
-    has to be able to print it (a verdict's `target` is a qualified
-    identifier), and blanking it is what tells a reader that the secret equals
-    the identifier they can already see. Same reasoning as
-    _MIN_SUBSTRING_SECRET_LEN below -- masking that cannot protect anything
-    only corrupts output.
-
-    Reads the RAW recipe, never the resolved config. A resolved config holds
-    ${ref}-sourced secrets, including under keys no hint matches
-    (``options.some_odd_key: ${PW}``), and collecting those here would exempt
-    from masking the very values the ${ref} sweep exists to catch. A raw value
-    still carrying ``${`` is skipped for the same reason.
-    """
-    found: Set[str] = set()
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            sensitive = any(h in str(k).lower() for h in hints)
-            if isinstance(v, str):
-                if v and not sensitive and "${" not in v:
-                    found.add(v)
-            else:
-                found |= collect_plain_config_values(v, hints)
-    elif isinstance(obj, list):
-        for item in obj:
-            found |= collect_plain_config_values(item, hints)
-    return found
+collect_plain_config_values = plain_config_values
 
 
 def _maskable_forms(secret_values: Set[str]) -> List[str]:

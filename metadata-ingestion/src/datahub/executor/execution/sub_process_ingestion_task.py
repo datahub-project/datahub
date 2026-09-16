@@ -14,7 +14,6 @@
 
 import asyncio
 import asyncio.exceptions
-import json
 import logging
 import os
 import signal
@@ -27,7 +26,6 @@ from pathlib import Path
 from typing import IO, Any, Optional
 
 import pydantic
-import yaml
 from pydantic import Field
 
 from datahub.configuration.env_vars import get_debug
@@ -37,10 +35,7 @@ from datahub.executor.context.execution_context import ExecutionContext
 from datahub.executor.context.executor_context import ExecutorContext
 from datahub.executor.execution.runner import (
     LogHolder,
-    SubprocessRunner,
-    VenvConfig,
     VenvReference,
-    setup_venv,
 )
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
@@ -198,55 +193,15 @@ class SubProcessIngestionTask(Task):
         exec_out_dir: str,
         shared_logs: LogHolder,
     ) -> VenvReference:
-        """Set up the virtual environment using Python utilities with shared logging."""
-        # Create venv configuration from subprocess args
-        venv_config = VenvConfig(
-            version=validated_args.version,
-            main_plugin=plugin,
-            extra_pip_requirements=validated_args.extra_pip_requirements,
-            extra_pip_plugins=validated_args.extra_pip_plugins,
-            extra_env_vars=validated_args.extra_env_vars,
+        """This task's venv setup, which is the shared skeleton's.
+
+        Kept as a named method because the holder is positional here: venv
+        progress has to land in the log buffer the subprocess output is read
+        into, so it shows up in the run's logs rather than only on a failure.
+        """
+        return await SubProcessTaskUtil.setup_task_venv(
+            validated_args, plugin, exec_out_dir, logs=shared_logs
         )
-
-        # Use shared LogHolder for venv setup - logs will appear in subprocess output
-        venv_runner = SubprocessRunner(logs=shared_logs)
-
-        logger.info(
-            f"Setting up venv for plugin '{plugin}' with version '{validated_args.version}'"
-        )
-
-        # Add venv setup status to shared logs so it appears in subprocess output
-        shared_logs.append(
-            f"Setting up venv for plugin '{plugin}' with version '{validated_args.version}'\n"
-        )
-
-        if validated_args.should_use_bundled_venv():
-            logger.info("Using Bundled startup (pre-built) venv")
-            shared_logs.append("Using Bundled startup (pre-built) venv\n")
-        else:
-            logger.info("Creating dynamic venv - this may take a few minutes...")
-            shared_logs.append(
-                "Creating dynamic venv - this may take a few minutes...\n"
-            )
-
-        try:
-            # Set up the venv using our Python utilities
-            venv_ref = await setup_venv(
-                venv_config=venv_config,
-                runner=venv_runner,
-                tmp_dir=Path(exec_out_dir),
-            )
-
-            logger.info(f"Venv ready at: {venv_ref.venv_loc}")
-            shared_logs.append(f"✅ Venv ready at: {venv_ref.venv_loc}\n")
-
-            return venv_ref
-
-        except Exception as e:
-            error_msg = SubProcessTaskUtil.format_subprocess_error(e)
-            logger.error(f"Venv setup failed: {error_msg}")
-            shared_logs.append(f"❌ Venv setup failed: {error_msg}\n")
-            raise TaskError(f"Failed to set up virtual environment: {error_msg}") from e
 
     async def _create_subprocess(
         self,
@@ -264,9 +219,6 @@ class SubProcessIngestionTask(Task):
         Secrets and recipe are passed via stdin as a JSON envelope to avoid
         writing secrets to env vars or recipe to disk.
         """
-        user_env_secrets = SubProcessTaskUtil.subprocess_env_secrets(validated_args)
-
-        # First, set up the venv using Python utilities with shared logging
         venv_ref = await self._setup_venv(
             validated_args, plugin, exec_out_dir, shared_logs
         )
@@ -293,18 +245,16 @@ class SubProcessIngestionTask(Task):
             "VENV_PATH": str(venv_ref.venv_loc),
         }
 
-        # Build stdin envelope in datahub-compatible format.
         # The wrapper consumes the envelope and forwards it to the CLI's
         # config_loader when the venv CLI supports it.
-        # All envelope keys use dunder prefix to distinguish from recipe content.
-        # Per-run values only, never the whole registry; recipe values win on collision.
-        stdin_envelope = json.dumps(
-            {
-                "__recipe_yaml__": yaml.dump(recipe),
-                "__secrets__": {**user_env_secrets, **secret_values},
+        stdin_envelope = SubProcessTaskUtil.build_stdin_envelope(
+            validated_args,
+            recipe,
+            secret_values,
+            extra={
                 "__report_out_file__": report_out_file,
                 "__debug_mode__": debug_mode,
-            }
+            },
         )
 
         process = await asyncio.create_subprocess_exec(
@@ -596,30 +546,9 @@ class SubProcessIngestionTask(Task):
         code from a non-cancelled run — so callers can invoke this from a
         `finally` block without fear of masking an in-flight exception.
         """
-        masking_filter = SecretMaskingFilter()
-
-        if os.path.exists(report_out_file):
-            try:
-                with open(report_out_file) as structured_report_fp:
-                    report_content = structured_report_fp.read()
-                ctx.get_report().set_structured_report(
-                    masking_filter.mask_text(report_content)
-                )
-            except Exception:
-                logger.exception(
-                    "Failed to process structured report from %s", report_out_file
-                )
-
-        try:
-            ctx.get_report().set_logs(
-                masking_filter.mask_text(
-                    SubProcessTaskUtil._format_log_lines(shared_logs.get_lines())
-                )
-            )
-        except Exception:
-            logger.exception("Failed to set logs on execution report")
-
-        SubProcessTaskUtil._remove_directory(exec_out_dir)
+        SubProcessTaskUtil.finalize_task_output(
+            report_out_file, exec_out_dir, shared_logs.get_lines(), ctx
+        )
 
         if cancelled:
             ctx.get_report().report_info("Ingestion task was cancelled")

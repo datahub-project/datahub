@@ -185,6 +185,32 @@ def _stdin_aware_resolvers() -> List[SecretResolver]:
     return default_resolvers()
 
 
+def _envelope_disclosed_values(recipe_yaml: object) -> Set[str]:
+    """Values the envelope's recipe states in the clear, which cannot be masked.
+
+    Best-effort and never raises: the envelope's secrets are registered BEFORE
+    the recipe is parsed, so a parse error quoting the offending line is
+    already covered, and that ordering must not change. An unparseable recipe
+    simply discloses nothing.
+
+    Inline secret literals are excluded, as everywhere else -- a recipe with
+    `password: p` and `database: p` discloses the credential itself, and the
+    child's output travels further than the recipe does.
+    """
+    if not isinstance(recipe_yaml, str):
+        return set()
+    try:
+        loaded = yaml.safe_load(recipe_yaml)
+        config = loaded["source"]["config"]
+    except Exception:
+        return set()
+    if not isinstance(config, dict):
+        return set()
+    return collect_plain_config_values(
+        config, _SENSITIVE_KEY_HINTS
+    ) - collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+
+
 def _recipe_from_stdin() -> Dict[str, object]:
     raw = sys.stdin.read()
     if not raw.strip():
@@ -230,7 +256,18 @@ def _recipe_from_stdin() -> Dict[str, object]:
             # `ingest -c -`.
             from datahub.masking.secret_registry import SecretRegistry
 
-            SecretRegistry.get_instance().register_secrets_batch(_stdin_secrets)
+            # Minus what the recipe states in the clear, for the same reason
+            # _resolve_for_probe subtracts it from the redaction set -- except
+            # the stakes here are the whole stdout stream, not one payload. A
+            # password equal to the database name otherwise masks it inside
+            # every unrelated word the child prints, turning
+            # `datahub.ingestion.source.sql` into
+            # `***REDACTED:PW***.ingestion.source.sql`, and those lines become
+            # the task's operator-visible logs.
+            disclosed = _envelope_disclosed_values(envelope["__recipe_yaml__"])
+            SecretRegistry.get_instance().register_secrets_batch(
+                {k: v for k, v in _stdin_secrets.items() if v not in disclosed}
+            )
         raw = envelope["__recipe_yaml__"]
     try:
         loaded = yaml.safe_load(raw) or {}

@@ -20,6 +20,63 @@ MAX_SECRET_VERSIONS = 3
 LARGE_SECRET_RENDERING_COUNT = 200
 
 _UNMASKABLE_LITERALS = frozenset({"true", "false", "yes", "no", "none", "null"})
+
+# Key fragments that mark a config value as a credential.
+SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
+    "password",
+    "sasl",
+    "secret",
+    "token",
+    "basic.auth.user.info",
+    "ssl.key",
+    # Key-pair auth (Snowflake) and service-account JSON (GCP) both carry the
+    # key under this name, nested one level down (`credential.private_key`), so
+    # a top-level SecretStr sweep misses it even though the field is typed.
+    "private_key",
+)
+
+
+def plain_config_values(
+    obj: object, hints: Tuple[str, ...] = SENSITIVE_KEY_HINTS
+) -> Set[str]:
+    """String values a recipe states in the clear under a non-sensitive key.
+
+    A secret whose resolved value equals one of these cannot be protected by
+    masking. The recipe already states the value, consumers legitimately have
+    to print it -- a probe verdict's `target` is a qualified identifier, a log
+    line is full of ordinary words -- and blanking it is itself what tells a
+    reader that the secret equals the identifier they can already see. A
+    password of "my_db" otherwise rewrites `my_db_executor.coordinator` into
+    `***REDACTED:PW***_executor.coordinator`.
+
+    Same family as _UNMASKABLE_LITERALS and MIN_SECRET_LENGTH above: masking
+    that cannot protect anything only corrupts output.
+
+    Callers must read the RAW recipe, not a resolved config. A resolved config
+    holds ${ref}-sourced secrets, including under keys no hint matches
+    (`options.some_odd_key: ${PW}`), and treating those as disclosed would
+    exempt the very values the ${ref} sweep exists to catch. A raw value still
+    containing `${` is skipped for the same reason.
+
+    Callers must also subtract what the recipe carries as an inline secret
+    literal: a recipe with `password: p` and `database: p` discloses the
+    credential itself, and a report travels further than a recipe does.
+    """
+    found: Set[str] = set()
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            sensitive = any(h in str(k).lower() for h in hints)
+            if isinstance(v, str):
+                if v and not sensitive and "${" not in v:
+                    found.add(v)
+            else:
+                found |= plain_config_values(v, hints)
+    elif isinstance(obj, list):
+        for item in obj:
+            found |= plain_config_values(item, hints)
+    return found
+
+
 _ESCAPABLE_CHARACTERS = ("\n", "\r", "\t", "\\", '"', "'")
 
 

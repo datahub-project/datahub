@@ -5,18 +5,23 @@ field validators that accommodate what the UI sends, and env var merging.
 """
 
 import errno
+import json
+import os
 import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from pydantic import ValidationError
 
+from datahub.executor.execution.runner import LogHolder
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
     SubProcessTaskUtil,
 )
+from datahub.executor.execution.task import TaskError
+from datahub.masking.secret_registry import SecretRegistry
 
 
 class TestFormatSubprocessError:
@@ -476,3 +481,233 @@ class TestGetCombinedEnvVars:
         assert combined_env.get("TEST_VAR1") == "user_override1"
         assert combined_env.get("TEST_VAR2") == "user_override2"
         assert combined_env.get("NEW_VAR") == "new_value"
+
+
+class TestSharedRecipeTaskSkeleton:
+    """The steps every recipe task shares.
+
+    Each task had its own copy, and the copies had drifted: an envelope missing
+    the pip-referenced env secrets, a venv failure reporting neither stderr nor
+    logs, and a report shipped unmasked where the guarantee is to withhold it.
+    These pin the consolidated behaviour, so the next task inherits it.
+    """
+
+    @staticmethod
+    def _args(**kwargs: object) -> SubProcessRecipeTaskArgs:
+        return SubProcessRecipeTaskArgs(
+            recipe='{"source": {"type": "mysql"}}', **kwargs
+        )
+
+    def test_an_empty_extra_env_var_does_not_override_the_real_one(self) -> None:
+        """get_combined_env_vars filters empty values on purpose.
+
+        One task then merged `venv_ref.extra_envs()` on top, which returns them
+        unfiltered -- putting "" back over a real os.environ value. Only that
+        task did it, which is how it went unnoticed.
+        """
+        venv_ref = Mock()
+        venv_ref.venv_loc = "/tmp/venv"
+        args = self._args(extra_env_vars={"SHARED_SKELETON_PROBE": ""})
+
+        with patch.dict(os.environ, {"SHARED_SKELETON_PROBE": "real-value"}):
+            env = SubProcessTaskUtil.build_subprocess_env(args, venv_ref)
+
+        assert env["SHARED_SKELETON_PROBE"] == "real-value"
+        assert env["VENV_PATH"] == "/tmp/venv"
+        assert env["DATAHUB_ENABLE_SECRET_MASKING"] == "true"
+
+    def test_the_resolved_secrets_are_not_in_the_environment(self) -> None:
+        """They ride in the stdin envelope, so they stay off /proc/<pid>/environ."""
+        venv_ref = Mock()
+        venv_ref.venv_loc = "/tmp/venv"
+        args = self._args()
+
+        env = SubProcessTaskUtil.build_subprocess_env(args, venv_ref)
+        envelope = json.loads(
+            SubProcessTaskUtil.build_stdin_envelope(
+                args, {"source": {"type": "mysql"}}, {"A_SECRET": "envelope-only"}
+            )
+        )
+
+        assert envelope["__secrets__"] == {"A_SECRET": "envelope-only"}
+        assert "A_SECRET" not in env
+        assert "envelope-only" not in env.values()
+
+    @pytest.mark.asyncio
+    async def test_a_venv_failure_reports_the_captured_stderr(self) -> None:
+        """format_subprocess_error pulls a CalledProcessError's captured output.
+
+        One task dropped it and raised bare `str(e)`, so a pip/uv resolution
+        failure surfaced as "Command '[...]' returned non-zero exit status 1"
+        with the actual reason discarded.
+        """
+        error = subprocess.CalledProcessError(returncode=1, cmd=["uv", "pip"])
+        error.stderr = "No solution found when resolving dependencies"
+
+        with patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            side_effect=error,
+        ):
+            with pytest.raises(TaskError) as err:
+                await SubProcessTaskUtil.setup_task_venv(
+                    self._args(), "mysql", tempfile.mkdtemp()
+                )
+
+        assert "No solution found when resolving dependencies" in str(err.value)
+
+    @pytest.mark.asyncio
+    async def test_a_venv_failure_also_reports_what_the_setup_logged(self) -> None:
+        """The holder is kept rather than inlined, so a failure has both."""
+        logs = LogHolder()
+
+        with patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            side_effect=RuntimeError("boom"),
+        ):
+            with pytest.raises(TaskError):
+                await SubProcessTaskUtil.setup_task_venv(
+                    self._args(), "mysql", tempfile.mkdtemp(), logs=logs
+                )
+
+        captured = logs.get_logs()
+        assert "Setting up venv for plugin 'mysql'" in captured
+        assert "Venv setup failed: boom" in captured
+
+    def test_logs_that_cannot_be_masked_are_withheld_like_the_report(
+        self, tmp_path: Path
+    ) -> None:
+        """Fail-closed for BOTH outputs.
+
+        The tasks disagreed: one withheld the report but shipped the logs
+        unmasked, and the logs are rendered in the UI and handed to the agent
+        verbatim. masking_filter.py's guarantee does not distinguish them.
+        """
+        report_file = tmp_path / "report.json"
+        report_file.write_text('{"nodes": [{"name": "a_real_table"}]}')
+        ctx = Mock()
+        report = Mock()
+        ctx.get_report.return_value = report
+
+        with patch(
+            "datahub.executor.execution.sub_process_task_common.SecretMaskingFilter",
+            side_effect=RuntimeError("masking circuit open"),
+        ):
+            # Must not raise: this is called from a `finally`.
+            SubProcessTaskUtil.finalize_task_output(
+                str(report_file), str(tmp_path), ["a log line\n"], ctx
+            )
+
+        shipped_report = report.set_structured_report.call_args[0][0]
+        shipped_logs = report.set_logs.call_args[0][0]
+        assert "a_real_table" not in shipped_report
+        assert "withheld" in shipped_report
+        assert "a log line" not in shipped_logs
+        assert "withheld" in shipped_logs
+
+
+class TestUnprotectableDisclosedSecrets:
+    """A resolved secret equal to a value the recipe states in the clear.
+
+    Registering it masks that value everywhere it occurs -- in the structured
+    report, in the task logs, and inside unrelated words that merely contain
+    it. A password of "datahub" turned the log line
+    `datahub_executor.coordinator.ingestion` into
+    `***REDACTED:PW***_executor.coordinator.ingestion`, and a probe verdict's
+    target from `datahub.orders` into `***REDACTED:PW***.orders`.
+
+    Masking cannot protect such a value: the recipe already states it under a
+    non-secret key, and the mask is itself what tells a reader that the secret
+    equals the identifier they can see.
+    """
+
+    RECIPE = json.dumps(
+        {
+            "source": {
+                "type": "mysql",
+                "config": {
+                    "host_port": "mysql:3306",
+                    "username": "u",
+                    "password": "${PW}",
+                    "database": "datahub",
+                },
+            }
+        }
+    )
+
+    @staticmethod
+    def _registered(recipe: str, env: dict) -> set:
+        seen: dict = {}
+
+        def _capture(_self: object, secrets: dict) -> None:
+            seen.update(secrets)
+
+        ctx = Mock()
+        ctx.exec_id = "exec-1"
+        ctx.get_report.return_value = Mock()
+        executor_ctx = Mock()
+        executor_ctx.get_secret_stores.return_value = []
+
+        with (
+            patch.dict(os.environ, env),
+            patch.object(SecretRegistry, "register_secrets_batch", _capture),
+            patch(
+                "datahub.executor.execution.sub_process_task_common.initialize_secret_masking"
+            ),
+        ):
+            try:
+                SubProcessTaskUtil._resolve_recipe(
+                    recipe, execution_ctx=ctx, executor_ctx=executor_ctx
+                )
+            except Exception:
+                # A malformed recipe raises at the JSON parse, which happens
+                # AFTER registration on purpose -- so what was registered by
+                # then is exactly what the caller wants to inspect.
+                pass
+        return set(seen.values())
+
+    def test_a_secret_equal_to_a_plain_config_value_is_not_registered(self) -> None:
+        registered = self._registered(self.RECIPE, {"PW": "datahub"})
+        assert "datahub" not in registered
+
+    def test_an_ordinary_secret_is_still_registered(self) -> None:
+        registered = self._registered(self.RECIPE, {"PW": "hunter2"})
+        assert "hunter2" in registered
+
+    def test_a_secret_matching_an_inline_secret_literal_is_still_registered(
+        self,
+    ) -> None:
+        """The exemption is for NON-secret keys only.
+
+        A recipe with `password: p` and `database: p` discloses the credential
+        itself, and the report travels further than the recipe does.
+        """
+        recipe = json.dumps(
+            {
+                "source": {
+                    "type": "mysql",
+                    "config": {
+                        "host_port": "mysql:3306",
+                        # An inline secret under any hint-matching key, and the
+                        # same string as a plain value. The ref must still be
+                        # registered: the recipe discloses the credential.
+                        "token": "shared-with-database",
+                        "database": "shared-with-database",
+                        "password": "${PW}",
+                    },
+                }
+            }
+        )
+        assert "shared-with-database" in self._registered(
+            recipe, {"PW": "shared-with-database"}
+        )
+
+    def test_a_malformed_recipe_still_registers_its_secrets(self) -> None:
+        """The exemption is best-effort and must never be why a recipe fails.
+
+        Refs are resolved and registered BEFORE the JSON parse on purpose, so
+        a parse error quoting the offending document cannot echo an unmasked
+        secret. Reading the recipe to compute the exemption must not disturb
+        that: an unparseable recipe discloses nothing, so nothing is exempt.
+        """
+        truncated = '{"source": {"config": {"password": "${PW}"'
+        assert "hunter2" in self._registered(truncated, {"PW": "hunter2"})

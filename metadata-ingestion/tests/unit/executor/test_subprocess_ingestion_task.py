@@ -50,7 +50,8 @@ _FORMAT_LOG_LINES = (
     "datahub.executor.execution.sub_process_task_common"
     ".SubProcessTaskUtil._format_log_lines"
 )
-_SETUP_VENV = "datahub.executor.execution.sub_process_ingestion_task.setup_venv"
+# The venv setup lives in the shared recipe-task skeleton now.
+_SETUP_VENV = "datahub.executor.execution.sub_process_task_common.setup_venv"
 
 
 @pytest.fixture(autouse=True)
