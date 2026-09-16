@@ -5,6 +5,7 @@ field validators that accommodate what the UI sends, and env var merging.
 """
 
 import errno
+import inspect
 import json
 import os
 import subprocess
@@ -516,22 +517,52 @@ class TestSharedRecipeTaskSkeleton:
         assert env["VENV_PATH"] == "/tmp/venv"
         assert env["DATAHUB_ENABLE_SECRET_MASKING"] == "true"
 
-    def test_the_resolved_secrets_are_not_in_the_environment(self) -> None:
-        """They ride in the stdin envelope, so they stay off /proc/<pid>/environ."""
+    def test_a_store_sourced_secret_rides_the_envelope_and_not_the_environment(
+        self,
+    ) -> None:
+        """Where the boundary actually is, in both directions.
+
+        A store-resolved secret reaches the child through stdin, so it stays
+        off /proc/<pid>/environ and `ps e` and is not inherited by everything
+        the child spawns. An env-SOURCED one is a different case and IS
+        inherited, because os.environ is passed through wholesale -- the
+        docstring on build_subprocess_env says so, and asserting otherwise
+        would be asserting a property this code does not have.
+
+        The previous version of this test could not fail: it invented the
+        value "envelope-only", handed it only to build_stdin_envelope, and
+        then checked it was absent from an environment it had never been given
+        to. Review was right that it proved nothing; the fix review suggested
+        -- resolve ${A_SECRET} from a patched environment and assert it is
+        absent -- would have asserted the opposite of the documented
+        behaviour, so the boundary is pinned in both directions instead.
+        """
         venv_ref = Mock()
         venv_ref.venv_loc = "/tmp/venv"
         args = self._args()
 
-        env = SubProcessTaskUtil.build_subprocess_env(args, venv_ref)
+        with patch.dict(os.environ, {"AN_ENV_SOURCED_SECRET": "inherited-on-purpose"}):
+            env = SubProcessTaskUtil.build_subprocess_env(args, venv_ref)
+
         envelope = json.loads(
             SubProcessTaskUtil.build_stdin_envelope(
                 args, {"source": {"type": "mysql"}}, {"A_SECRET": "envelope-only"}
             )
         )
 
+        # From the store: in the envelope, nowhere in the environment.
         assert envelope["__secrets__"] == {"A_SECRET": "envelope-only"}
         assert "A_SECRET" not in env
         assert "envelope-only" not in env.values()
+        # build_subprocess_env is never handed secret_values at all, which is
+        # what makes the first two assertions structural rather than lucky.
+        assert (
+            "secret_values"
+            not in inspect.signature(SubProcessTaskUtil.build_subprocess_env).parameters
+        )
+
+        # From the environment: inherited, and documented as such.
+        assert env["AN_ENV_SOURCED_SECRET"] == "inherited-on-purpose"
 
     @pytest.mark.asyncio
     async def test_a_venv_failure_reports_the_captured_stderr(self) -> None:
