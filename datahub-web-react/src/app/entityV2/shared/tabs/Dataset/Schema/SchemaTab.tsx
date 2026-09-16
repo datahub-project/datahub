@@ -202,7 +202,6 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                 entityRegistry,
                 false,
             ),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         [
             schemaMetadata?.fields,
             editableSchemaMetadata,

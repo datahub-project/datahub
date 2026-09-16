@@ -14,7 +14,10 @@ import useSchemaTitleRenderer from '@app/entityV2/dataset/profile/schema/utils/s
 import useSchemaTypeRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTypeRenderer';
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
-import { findIndexOfFieldPathExcludingCollapsedFields } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import {
+    findIndexOfFieldPathExcludingCollapsedFields,
+    hasNestedSchemaRows,
+} from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
 import CellSkeleton from '@app/entityV2/shared/tabs/Dataset/Schema/components/CellSkeleton';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
@@ -22,6 +25,7 @@ import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/componen
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
 import useBusinessAttributeRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useBusinessAttributeRenderer';
 import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
+import useEditableSchemaFieldInfoMaps from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
@@ -204,7 +208,8 @@ export default function SchemaTable({
 
     const schemaFields = schemaMetadata ? schemaMetadata.fields : inputFields;
 
-    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false);
+    const fieldInfoMaps = useEditableSchemaFieldInfoMaps(editableSchemaMetadata);
+    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false, fieldInfoMaps);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats, expandedDrawerFieldPath);
     const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
@@ -215,6 +220,7 @@ export default function SchemaTable({
         filterText,
         false,
         true,
+        fieldInfoMaps,
     );
     const termRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
@@ -225,10 +231,11 @@ export default function SchemaTable({
         filterText,
         false,
         true,
+        fieldInfoMaps,
     );
-    const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata);
-    const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
-    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
+    const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata, fieldInfoMaps);
+    const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata, fieldInfoMaps);
+    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata, fieldInfoMaps);
     const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
     const schemaTitleRenderer = useSchemaTitleRenderer(entityUrn, schemaMetadata, filterText);
     const schemaTypeRenderer = useSchemaTypeRenderer();
@@ -446,31 +453,35 @@ export default function SchemaTable({
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
     }, [expandedRows, expandedDrawerFieldPath, finalColumns]);
 
-    const rowClassName = (record) => {
-        let className = '';
+    // Pre-compute prefixes once per expandedRows change rather than inside the per-row callback.
+    // expandedRows.forEach inside rowClassName was O(expandedRows) × O(rows) on every render.
+    const expandedRowPrefixes = useMemo(() => Array.from(expandedRows).map((r) => `${r}.`), [expandedRows]);
 
-        if (expandedDrawerFieldPath === record.fieldPath) {
-            className += 'selected-row';
-        }
-        if (expandedRows.has(record?.fieldPath)) {
-            className += ' expanded-row';
-        }
-        // Add different classes based on depth
-        if (record?.depth < 2) className += ` level-${record?.depth}`;
-        else className += ' level-n';
+    const rowClassName = useCallback(
+        (record) => {
+            let className = '';
 
-        const path: string = record?.fieldPath?.toString();
+            if (expandedDrawerFieldPath === record.fieldPath) {
+                className += 'selected-row';
+            }
+            if (expandedRows.has(record?.fieldPath)) {
+                className += ' expanded-row';
+            }
+            // Add different classes based on depth
+            if (record?.depth < 2) className += ` level-${record?.depth}`;
+            else className += ' level-n';
 
-        expandedRows.forEach((row) => {
-            if (path.startsWith(`${row}.`)) {
+            const path: string = record?.fieldPath?.toString();
+            if (expandedRowPrefixes.some((prefix) => path.startsWith(prefix))) {
                 className += ' expanded-child';
             }
-        });
 
-        return className;
-    };
+            return className;
+        },
+        [expandedDrawerFieldPath, expandedRows, expandedRowPrefixes],
+    );
 
-    const hasSomeRowsWithDepthGreaterThanZero = useMemo(() => rows.some((row) => row.depth || 0 > 1), [rows]);
+    const hasSomeRowsWithDepthGreaterThanZero = useMemo(() => hasNestedSchemaRows(rows), [rows]);
 
     const [schemaFieldDrawerFieldPath, setSchemaFieldDrawerFieldPath] = useState(expandedDrawerFieldPath);
     useDebounce(() => setSchemaFieldDrawerFieldPath(expandedDrawerFieldPath), KEYBOARD_CONTROL_DEBOUNCE_MS, [

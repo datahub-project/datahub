@@ -307,3 +307,12 @@ jobs:
           echo "  ${URL}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          ## Docker Unified CI
+
+          | Field      | Value        |
+          |------------|--------------|
+          | Tag        | \`${TAG}\`   |
+          | Commit SHA | \`${SHA}\`   |
+          | Run        | ${URL}       |
+          EOF
