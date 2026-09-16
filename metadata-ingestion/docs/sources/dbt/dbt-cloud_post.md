@@ -4,9 +4,10 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 #### Semantic model and metric differences
 
-`emit_semantic_model_entities` works the same way here as for dbt Core — see
+`emit_semantic_model_entities` works the same way here as for dbt Core — tri-state, unset by
+default, following the server where it can accept the entities. See
 [Semantic Models and Metrics](#semantic-models-and-metrics)
-for what it emits. Two dbt Cloud specifics:
+for what it emits and for the migration note. Two dbt Cloud specifics:
 
 - The project name in the `SemanticModel` and `Metric` URNs comes from the semantic models'
   `packageName`, since there is no manifest metadata to read it from. If the semantic models come

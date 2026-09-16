@@ -340,7 +340,10 @@ class DbtTestConfig:
             manifest_file="dbt_manifest_semantic_models.json",
             catalog_file="sample_dbt_catalog_2.json",
             sources_file="sample_dbt_sources_2.json",
-            source_config_modifiers={},
+            # Explicitly false, not merely unset: this golden is the pin for
+            # the legacy wire format, so it must not depend on how the
+            # tri-state default happens to resolve.
+            source_config_modifiers={"emit_semantic_model_entities": False},
         ),
         DbtTestConfig(
             "dbt-test-semantic-model-entities",

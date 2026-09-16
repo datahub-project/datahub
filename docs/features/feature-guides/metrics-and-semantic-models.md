@@ -138,7 +138,9 @@ source:
     emit_semantic_model_entities: true # a plain boolean, not tri-state
 ```
 
-Unlike Snowflake, this flag is a plain boolean and defaults to `false`. There is no auto-detect: dbt has emitted semantic models as datasets for several releases, so auto-enabling would silently re-mint those URNs on upgrade. On DataHub Cloud, setting `true` against a server that is too old — or that has the Metrics feature switched off — falls back to the dataset behavior and reports why; on OSS there is no such check.
+The flag is tri-state and unset by default, which means "follow the server": on DataHub Cloud 2.1.0 or later it emits the first-class entities unless the Metrics feature is switched off, while OSS, older Cloud, and connectionless runs stay on the dataset behavior. Setting `true` requests emission — on Cloud a server that is too old, or has Metrics off, falls back to datasets and reports why; on OSS it is taken at face value. Setting `false` forces the dataset behavior.
+
+Because the default follows the server, a Cloud deployment already ingesting dbt semantic models as datasets will switch to the new URNs on its next run. The two shapes use different URNs, so read the migration note in the [dbt connector docs](../../generated/ingestion/sources/dbt.md#migrating-between-the-modes) first — or pin `emit_semantic_model_entities: false` until you are ready.
 
 Each metric carries its dbt `type` as a subtype — `Simple`, `Ratio`, `Cumulative`, `Derived` or `Conversion` — so the kinds can be told apart in search and filters. `window` and `grain_to_date` are not carried, since `MetricInfo` has no field for them.
 

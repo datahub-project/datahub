@@ -550,10 +550,17 @@ If these conditions are not met, warnings will appear in the ingestion report:
 
 ##### Two modes
 
-By default, each dbt semantic model is ingested as a **Dataset with subtype `Semantic Model`**, whose
-columns are its entities, dimensions, and measures flattened into one list. Metrics are not ingested.
+`emit_semantic_model_entities` selects between them, and it is **tri-state**:
 
-Setting `emit_semantic_model_entities: true` ingests them as first-class entities instead:
+| Value           | Behavior                                                         |
+| --------------- | ---------------------------------------------------------------- |
+| unset (default) | Follow the server: first-class entities where it can accept them |
+| `true`          | Request first-class entities                                     |
+| `false`         | Force the legacy datasets                                        |
+
+In the **legacy** mode each dbt semantic model is a **Dataset with subtype `Semantic Model`**, whose
+columns are its entities, dimensions, and measures flattened into one list, and metrics are not
+ingested at all. In the **first-class** mode they map like this:
 
 | dbt concept                             | DataHub entity                                    |
 | --------------------------------------- | ------------------------------------------------- |
@@ -570,23 +577,38 @@ source:
     manifest_path: target/manifest.json
     catalog_path: target/catalog.json
     target_platform: snowflake
-    emit_semantic_model_entities: true
+    # Unset is the default and needs no entry; set it only to pin a mode.
+    # emit_semantic_model_entities: false
     # Optional: pin the project name used in the URNs (see "URN stability").
     # semantic_model_project_name: jaffle_shop
 ```
 
-This requires a DataHub server new enough to have `semanticModel` and `metric` in its entity
+Either mode requires a DataHub server new enough to have `semanticModel` and `metric` in its entity
 registry: DataHub Cloud 2.1.0 or later, or DataHub Core v1.7.0 or later.
 
 - **On DataHub Cloud**, the server is interrogated before emitting: both the version and the
-  Metrics feature flag. If the version is too old, or the flag is off, ingestion falls back to the
-  default mode and says so in the report rather than failing. So on Cloud the flag gates emission,
-  not just visibility.
-- **On OSS**, there is no server interrogation at all, so the recipe is taken at face value and
-  there is no fallback — confirm you are running a compatible server before setting this to `true`.
-  Here `METRICS_ENABLED` is purely a **visibility** concern: it enables the Metrics page, the
-  `/metrics` route, and search. Ingestion succeeds without it and the entities are stored; they are
-  simply not discoverable in the UI.
+  Metrics feature flag. Left unset, first-class entities are emitted when the server can accept
+  them; if the version is too old, the flag is off, or the probe cannot be read, ingestion uses the
+  legacy datasets and says so in the report rather than failing. Set to `true` explicitly and the
+  same checks apply, with a warning when they refuse. So on Cloud this gates emission, not just
+  visibility.
+- **On OSS**, there is no managed server to interrogate, so an unset flag stays on the legacy
+  datasets and `true` is taken at face value with no fallback — confirm you are running a
+  compatible server before setting it. Here `METRICS_ENABLED` is purely a **visibility** concern:
+  it enables the Metrics page, the `/metrics` route, and search. Ingestion succeeds without it and
+  the entities are stored; they are simply not discoverable in the UI.
+
+A run with no graph client at all — a file sink, for instance — has no server to follow, so an unset
+flag stays on the legacy datasets there too.
+
+:::note
+Because the default follows the server, a DataHub Cloud deployment that has been ingesting dbt
+semantic models as datasets will **switch to the new URNs** on its next run after upgrading, unless
+you pin `emit_semantic_model_entities: false`. Read
+[Migrating between the modes](#migrating-between-the-modes) before that run: re-ingest with stateful
+ingestion enabled so the old datasets are soft-deleted, and use
+`datahub migrate dbt-semantic-models` to carry owners, tags, terms and documentation across.
+:::
 
 ##### Why one Semantic Model per project
 
@@ -680,14 +702,19 @@ The `SemanticModel` and `Metric` URNs contain the dbt project name, read from
 **Renaming the dbt project therefore changes those URNs** and orphans the originals. Set
 `semantic_model_project_name` to pin it if that is a risk.
 
-##### Migrating from the default mode
+##### Migrating between the modes
 
 The two modes use different URNs (`<database>.<schema>.<name>` versus
-`<project>.semantic_layer.<name>`), so
-turning the flag on is a replacement, not an in-place upgrade. Run with
-`stateful_ingestion.enabled: true` so the previous `Semantic Model` datasets are soft-deleted;
-without it they are left behind with no owner. Governance authored on the old datasets — owners,
-tags, terms, documentation — is not carried across automatically.
+`<project>.semantic_layer.<name>`), so changing mode is a replacement, not an in-place upgrade. That
+applies whether you set the flag yourself or the default switches you over on a capable server.
+
+Run with `stateful_ingestion.enabled: true` so the datasets from the previous mode are soft-deleted;
+without it they are left behind with no owner. Governance authored on them — owners, tags, terms,
+documentation — is not carried across automatically: use
+[`datahub migrate dbt-semantic-models`](../../../docs/features/feature-guides/metrics-and-semantic-models.md)
+for that, which works in both directions so the change stays reversible.
+
+If you are not ready, pin `emit_semantic_model_entities: false` and nothing changes.
 
 ##### Not currently mapped
 

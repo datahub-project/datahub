@@ -391,6 +391,8 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     )
     semantic_model_emission_effective: Optional[bool] = None
     semantic_model_emission_reason: Optional[str] = None
+    semantic_model_emission_is_saas: Optional[bool] = None
+    semantic_model_emission_metrics_enabled: Optional[bool] = None
 
     def record_node_failure(
         self,
@@ -598,23 +600,29 @@ class DBTCommonConfig(
         default=None,
         description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
     )
-    emit_semantic_model_entities: bool = Field(
-        default=False,
-        description="If true, emit dbt semantic models as first-class "
-        "`semanticModel` entities: one `semanticModel` per dbt project, one "
-        "dataset with subtype `Semantic Model Dataset` per dbt semantic model, "
-        "and one `metric` entity per `create_metric` measure and per top-level "
-        "`metrics:` definition (dbt Core only). When false (the default), "
-        "semantic models are emitted as datasets with subtype `Semantic Model`, "
-        "keeping existing URNs stable. Requires a DataHub server new enough to "
-        "have `semanticModel` and `metric` in its entity registry: DataHub "
-        "Cloud 2.1.0 or later, which is checked before emitting, or a "
-        "correspondingly recent OSS server, which is not checked -- so confirm "
-        "the version before enabling this on OSS. Set `METRICS_ENABLED=true` on "
-        "the server for the entities to be visible in the Metrics UI and "
-        "search; ingestion succeeds either way. Re-ingest with stateful "
-        "ingestion enabled so the previous `Semantic Model` datasets are "
-        "soft-deleted.",
+    emit_semantic_model_entities: Optional[bool] = Field(
+        default=None,
+        description="Tri-state control for emitting dbt semantic models as "
+        "first-class `semanticModel` entities -- one `semanticModel` per dbt "
+        "project, one dataset with subtype `Semantic Model Dataset` per dbt "
+        "semantic model, and one `metric` entity per `create_metric` measure "
+        "and per top-level `metrics:` definition (dbt Core only) -- instead of "
+        "legacy datasets subtyped `Semantic Model`. "
+        "`None` (default): follow the server -- on DataHub Cloud 2.1.0 or later "
+        "it is enabled unless the Metrics feature is explicitly disabled; "
+        "OSS/self-hosted, older Cloud, and connectionless runs (e.g. file sink) "
+        "stay on the legacy datasets. It also falls back to legacy datasets if "
+        "the server version cannot be parsed or the Metrics probe cannot be "
+        "read. "
+        "`true`: request emission -- on Cloud it is honored unless the server is "
+        "below 2.1.0 or Metrics is disabled (else warns and falls back to legacy "
+        "datasets); on OSS it enables emission, and the operator must run a "
+        "server that registers these entities. "
+        "`false`: force legacy dataset behavior. "
+        "The two modes use different URNs, so re-ingest with stateful ingestion "
+        "enabled for the previous `Semantic Model` datasets to be soft-deleted, "
+        "and see `datahub migrate dbt-semantic-models` for carrying governance "
+        "across.",
     )
     semantic_model_project_name: Optional[str] = Field(
         default=None,
@@ -2453,29 +2461,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
 
     def _emit_semantic_model_entities(self) -> bool:
-        """Resolve the semantic-model emission decision once, then cache it.
+        """Resolve the tri-state semantic-model decision once, then cache it.
 
-        Unlike Snowflake, this does not auto-enable on managed servers: dbt has
-        been emitting semantic models as datasets for a while, and auto-enabling
-        would silently re-mint those URNs on upgrade. The gate is used to refuse
-        an explicit opt-in that the server cannot honour.
+        The gate owns all three states, so the raw recipe value goes in
+        untouched: `None` follows the server, `True` requests emission and is
+        refused with a reason when the server cannot accept it, `False` forces
+        the legacy datasets.
         """
         if self._emit_semantic_models is not None:
             return self._emit_semantic_models
 
-        requested = self.config.emit_semantic_model_entities
-        if not requested:
-            self._emit_semantic_models = False
-            self.report.semantic_model_emission_effective = False
-            self.report.semantic_model_emission_reason = (
-                "emit_semantic_model_entities is not enabled"
-            )
-            return False
-
+        recipe_value = self.config.emit_semantic_model_entities
         decision = resolve_emit_semantic_model_entities(
-            graph=self.ctx.graph, recipe_value=requested
+            graph=self.ctx.graph, recipe_value=recipe_value
         )
-        if not decision.enabled:
+        # Warned only when the recipe asked outright and was refused. An
+        # unset flag resolving to off is the documented default, not a problem.
+        if recipe_value and not decision.enabled:
             self.report.warning(
                 title="Cannot emit dbt semanticModel/metric entities",
                 message="emit_semantic_model_entities was requested, but this "
@@ -2489,6 +2491,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._emit_semantic_models = decision.enabled
         self.report.semantic_model_emission_effective = decision.enabled
         self.report.semantic_model_emission_reason = decision.reason
+        self.report.semantic_model_emission_is_saas = decision.is_saas
+        self.report.semantic_model_emission_metrics_enabled = decision.metrics_enabled
         return decision.enabled
 
     def _resolve_semantic_model_project_name(

@@ -4760,11 +4760,47 @@ def _semantic_model_source(**config_overrides: Any) -> DBTCoreSource:
     return DBTCoreSource(DBTCoreConfig(**config_dict), ctx)
 
 
-def test_emit_semantic_model_entities_defaults_to_off():
-    """Existing semantic-model dataset URNs must stay stable by default."""
+def test_emit_semantic_model_entities_unset_stays_off_without_a_graph():
+    """Unset follows the server, and a connectionless run has none to follow.
+
+    So a file-sink or OSS-without-graph run keeps the legacy dataset URNs.
+    """
     source = _semantic_model_source()
     assert source._emit_semantic_model_entities() is False
     assert source.report.semantic_model_emission_effective is False
+    # Not a warning: unset resolving to off is the documented default.
+    assert not any(
+        w.title == "Cannot emit dbt semanticModel/metric entities"
+        for w in source.report.warnings
+    )
+
+
+def test_emit_semantic_model_entities_unset_follows_a_capable_server():
+    """Unset auto-enables where the server can accept the entities."""
+    source = _semantic_model_source()
+    graph = mock.MagicMock()
+    graph.server_config.is_datahub_cloud = True
+    graph.server_config.service_version = "2.1.0"
+    graph.server_config.supports_feature.return_value = True
+    graph.get_config.return_value = {"featureFlags": {"metricsEnabled": True}}
+    source.ctx.graph = graph
+
+    assert source._emit_semantic_model_entities() is True
+    assert source.report.semantic_model_emission_effective is True
+    assert source.report.semantic_model_emission_is_saas is True
+
+
+def test_emit_semantic_model_entities_false_forces_the_legacy_datasets():
+    """An explicit false is honoured even where the server would allow it."""
+    source = _semantic_model_source(emit_semantic_model_entities=False)
+    graph = mock.MagicMock()
+    graph.server_config.is_datahub_cloud = True
+    graph.server_config.service_version = "2.1.0"
+    graph.server_config.supports_feature.return_value = True
+    graph.get_config.return_value = {"featureFlags": {"metricsEnabled": True}}
+    source.ctx.graph = graph
+
+    assert source._emit_semantic_model_entities() is False
 
 
 def test_emit_semantic_model_entities_enabled_without_a_graph():
