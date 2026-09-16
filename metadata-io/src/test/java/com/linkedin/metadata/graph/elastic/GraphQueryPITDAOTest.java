@@ -2127,19 +2127,14 @@ public class GraphQueryPITDAOTest {
     } catch (IllegalStateException e) {
       String message = e.getMessage();
       Assert.assertNotNull(message, "Exception message should not be null");
-      // Verify exact message components from the code
+      // The timeout can trip in the main loop ("Lineage operation timed out after ...") or in a
+      // slice ("Slice N timed out after ..."); both are now LineageTimeoutException (an
+      // IllegalStateException). Which one wins is a timing race, so assert the robust invariant
+      // that
+      // the failure indicates a timeout, rather than an exact, path-dependent message.
       Assert.assertTrue(
-          message.contains("Lineage operation timed out after"),
-          "Message should contain 'Lineage operation timed out after'. Got: " + message);
-      Assert.assertTrue(
-          message.contains(String.valueOf(timeoutSeconds)),
-          "Message should contain timeout seconds (" + timeoutSeconds + "). Got: " + message);
-      Assert.assertTrue(
-          message.contains("Consider increasing the timeout or set partialResults to true"),
-          "Message should suggest increasing timeout or setting partialResults. Got: " + message);
-      Assert.assertTrue(
-          message.contains("Entity: " + sourceUrn) || message.contains(sourceUrn.toString()),
-          "Message should contain entity URN. Got: " + message);
+          message.contains("timed out") || message.contains("timeout"),
+          "Message should indicate a timeout. Got: " + message);
     } catch (RuntimeException e) {
       // Check if wrapped - unwrap to find IllegalStateException in the cause chain
       // The IllegalStateException may be wrapped multiple times:

@@ -23,6 +23,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
@@ -1407,7 +1408,16 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                 entityUrn,
                 lineageGraphFilters.getLineageDirection(),
                 maxHops);
-            throw new IllegalStateException(
+            if (metricUtils != null) {
+              metricUtils.incrementMicrometer(
+                  GraphQueryConstants.LINEAGE_TIMEOUT_METRIC,
+                  1,
+                  "phase",
+                  "graph_walk",
+                  "direction",
+                  String.valueOf(lineageGraphFilters.getLineageDirection()));
+            }
+            throw new LineageTimeoutException(
                 String.format(
                     "Lineage operation timed out after %d seconds. Entity: %s, Direction: %s, MaxHops: %d. Consider increasing the timeout or set partialResults to true to return partial results.",
                     config.getSearch().getGraph().getTimeoutSeconds(),
@@ -1830,7 +1840,11 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         if (!allowPartialResults) {
           log.error("Slice {} timed out after {} seconds", i, futureTimeout);
           sliceFutures.forEach(f -> f.cancel(true));
-          throw new RuntimeException(
+          if (metricUtils != null) {
+            metricUtils.incrementMicrometer(
+                GraphQueryConstants.LINEAGE_TIMEOUT_METRIC, 1, "phase", "slice");
+          }
+          throw new LineageTimeoutException(
               "Slice " + i + " timed out after " + futureTimeout + " seconds", e);
         }
         future.cancel(true);

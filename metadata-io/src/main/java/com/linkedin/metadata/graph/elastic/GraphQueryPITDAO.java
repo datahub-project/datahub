@@ -31,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -121,7 +122,15 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
     // Create slice-based search requests
     String pitId = null;
-    String keepAlive = config.getSearch().getGraph().getImpact().getKeepAlive();
+    // Derive keepAlive from the query budget so the PIT always outlives the traversal + drain;
+    // otherwise slices near the deadline lose their search context (search_context_missing).
+    String keepAlive =
+        GraphQueryTimeouts.computeEffectiveKeepAlive(
+            config.getSearch().getGraph().getImpact().getKeepAlive(),
+            config.getSearch().getGraph().getTimeoutSeconds(),
+            config.getSearch().getGraph().getSliceFutureDrainTimeoutSeconds() == null
+                ? 0
+                : config.getSearch().getGraph().getSliceFutureDrainTimeoutSeconds());
     List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
     try {
       pitId =
@@ -249,6 +258,12 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(query);
         searchSourceBuilder.size(pageSize);
+        // Bound the shard search server-side so ES stops working when we hit our wall-clock budget;
+        // the graph timeout is otherwise only a Java-side deadline and ES keeps running (and
+        // holding
+        // the PIT) after we stop waiting. Best-effort per-search timeout, not the overall budget.
+        searchSourceBuilder.timeout(
+            TimeValue.timeValueSeconds(config.getSearch().getGraph().getTimeoutSeconds()));
 
         // Add sorting for consistent results and search_after using Edge sort fields
         ESUtils.buildSortOrder(searchSourceBuilder, Edge.EDGE_SORT_CRITERION, List.of(), false);
