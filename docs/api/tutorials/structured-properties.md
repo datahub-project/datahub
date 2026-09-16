@@ -90,11 +90,11 @@ For example, below file represents a property `io.acryl.privacy.retentionTime`. 
     - value: 365
       description: Use this for non-sensitive data that can be retained for longer
   structured_property_settings:
-    isHidden: false
-    showAsAssetBadge: true
-    showInAssetSummary: true
-    showInColumnsTable: false
-    showInSearchFilters: true
+    is_hidden: false
+    show_as_asset_badge: true
+    show_in_asset_summary: true
+    show_in_columns_table: false
+    show_in_search_filters: true
 ```
 
 Use the CLI to create your properties:

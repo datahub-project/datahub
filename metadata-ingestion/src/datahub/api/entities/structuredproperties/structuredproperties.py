@@ -73,11 +73,11 @@ class TypeQualifierAllowedTypes(ConfigModel):
 
 
 class StructuredPropertySettings(ConfigModel):
-    isHidden: bool = False
-    showAsAssetBadge: bool = False
-    showInAssetSummary: bool = False
-    showInColumnsTable: bool = False
-    showInSearchFilters: bool = False
+    is_hidden: bool = False
+    show_as_asset_badge: bool = False
+    show_in_asset_summary: bool = False
+    show_in_columns_table: bool = False
+    show_in_search_filters: bool = False
 
 
 class StructuredProperties(ConfigModel):
@@ -205,11 +205,11 @@ class StructuredProperties(ConfigModel):
             mcp_settings = MetadataChangeProposalWrapper(
                 entityUrn=self.urn,
                 aspect=StructuredPropertySettingsClass(
-                    isHidden=settings.isHidden,
-                    showAsAssetBadge=settings.showAsAssetBadge,
-                    showInAssetSummary=settings.showInAssetSummary,
-                    showInColumnsTable=settings.showInColumnsTable,
-                    showInSearchFilters=settings.showInSearchFilters,
+                    isHidden=settings.is_hidden,
+                    showAsAssetBadge=settings.show_as_asset_badge,
+                    showInAssetSummary=settings.show_in_asset_summary,
+                    showInColumnsTable=settings.show_in_columns_table,
+                    showInSearchFilters=settings.show_in_search_filters,
                     lastModified=AuditStampClass(
                         time=int(time.time() * 1000.0), actor="urn:li:corpuser:datahub"
                     ),

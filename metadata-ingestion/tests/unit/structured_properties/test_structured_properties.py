@@ -258,11 +258,11 @@ def test_structured_properties_list(mock_graph):
 
 def test_structured_property_settings_valid():
     settings = StructuredPropertySettings(
-        isHidden=True,
-        showAsAssetBadge=False,
-        showInAssetSummary=False,
-        showInColumnsTable=False,
-        showInSearchFilters=False,
+        is_hidden=True,
+        show_as_asset_badge=False,
+        show_in_asset_summary=False,
+        show_in_columns_table=False,
+        show_in_search_filters=False,
     )
     props = StructuredProperties(
         id="test_prop_settings",
@@ -270,20 +270,20 @@ def test_structured_property_settings_valid():
         structured_property_settings=settings,
     )
     assert props.structured_property_settings is not None
-    assert props.structured_property_settings.isHidden is True
-    assert props.structured_property_settings.showAsAssetBadge is False
-    assert props.structured_property_settings.showInAssetSummary is False
-    assert props.structured_property_settings.showInColumnsTable is False
-    assert props.structured_property_settings.showInSearchFilters is False
+    assert props.structured_property_settings.is_hidden is True
+    assert props.structured_property_settings.show_as_asset_badge is False
+    assert props.structured_property_settings.show_in_asset_summary is False
+    assert props.structured_property_settings.show_in_columns_table is False
+    assert props.structured_property_settings.show_in_search_filters is False
 
 
 def test_structured_property_settings_generate_mcps():
     settings = StructuredPropertySettings(
-        isHidden=False,
-        showAsAssetBadge=True,
-        showInAssetSummary=False,
-        showInColumnsTable=False,
-        showInSearchFilters=False,
+        is_hidden=False,
+        show_as_asset_badge=True,
+        show_in_asset_summary=False,
+        show_in_columns_table=False,
+        show_in_search_filters=False,
     )
     props = StructuredProperties(
         id="test_prop_settings_mcp",
