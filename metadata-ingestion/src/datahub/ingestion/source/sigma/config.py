@@ -432,7 +432,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # --- Sigma Dataset -> warehouse table, via /datasets/{id}/sources ---
     # Replaces the SQL-name match that Sigma's 2026-09-15 dataset deprecation
     # broke (a dataset-backed element's /query now returns 200 with no SQL).
-    # Every counter below is per Sigma Dataset, not per referencing element.
+    # The dataset_* counters below are per Sigma Dataset, never per
+    # referencing element. connection_path_* are per warehouse table, and
+    # dataset_sources_endpoint_removed is effectively once per run.
     #
     # Datasets whose warehouse table(s) were recovered through this route.
     dataset_warehouse_upstream_from_inode: int = 0

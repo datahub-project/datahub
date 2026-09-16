@@ -68,6 +68,9 @@ class SigmaAPI:
         # answers 404/410 the endpoint is treated as removed for the rest of
         # the run rather than retried once per dataset.
         self._dataset_sources_endpoint_gone = False
+        # Set once any /sources call returns 200, which proves the endpoint
+        # exists and downgrades a later 404 to a per-dataset miss.
+        self._dataset_sources_succeeded = False
         self.session = requests.Session()
 
         # Configure retry strategy for 429/503 with exponential backoff.
@@ -1250,11 +1253,22 @@ class SigmaAPI:
         try:
             response = self._get_api_call(url)
             if response.status_code in (404, 410):
-                # Sigma has deprecated the dataset API; 404/410 most likely means
-                # the endpoint itself is gone rather than this dataset being odd.
-                # Warn once and stop calling it, so a tenant past removal does not
-                # get one misleading per-dataset warning for every dataset.
+                # Only conclude the endpoint is gone if nothing has succeeded yet
+                # this run. Once one dataset has answered 200 the endpoint plainly
+                # exists, so a later 404 is about that dataset -- latching there
+                # would drop lineage for every dataset processed afterwards.
                 self.report.dataset_sources_endpoint_removed += 1
+                if self._dataset_sources_succeeded:
+                    self.report.warning(
+                        title="Sigma dataset sources not found for one dataset",
+                        message=(
+                            "/datasets/{id}/sources returned 404/410 for this "
+                            "dataset while other datasets resolved normally. Its "
+                            "warehouse upstreamLineage will be missing."
+                        ),
+                        context=f"dataset_id={dataset_id}, http_status={response.status_code}",
+                    )
+                    return None
                 if not self._dataset_sources_endpoint_gone:
                     self._dataset_sources_endpoint_gone = True
                     self.report.warning(
@@ -1304,6 +1318,7 @@ class SigmaAPI:
                     context=f"dataset_id={dataset_id}, body_type={type(entries).__name__}",
                 )
                 return None
+            self._dataset_sources_succeeded = True
             return entries
         except Exception as e:
             self.report.dataset_sources_lookup_failed += 1

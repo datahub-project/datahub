@@ -444,6 +444,23 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         "json": {"entries": [], "total": 0, "nextPage": None},
     }
 
+    # Default dataset-sources mocks. Sigma Dataset warehouse resolution calls
+    # /datasets/{id}/sources for any dataset-backed element whose SQL named no
+    # tables, which is most tests. Without these the call is unmocked, the error
+    # is caught into a warning, and the suite stays green while quietly
+    # exercising the failure path. An empty list means "no warehouse source".
+    for _default_dataset_id in (
+        "8891fd40-5470-4ff2-a74f-6e61ee44d3fc",
+        "bd6b86e8-cd4a-4b25-ab65-f258c2a68a8f",
+    ):
+        api_vs_response[
+            f"https://aws-api.sigmacomputing.com/v2/datasets/{_default_dataset_id}/sources"
+        ] = {
+            "method": "GET",
+            "status_code": 200,
+            "json": [],
+        }
+
     # Default /v2/connections mock (one Snowflake connection). Every Sigma
     # integration test now exercises the connection registry build at
     # SigmaSource.__init__, so this default keeps existing tests from hitting
@@ -7827,6 +7844,26 @@ def test_dataset_warehouse_upstream_survives_empty_element_sql(
                 {"type": "table", "inodeId": "14139218-f19c-408f-bcb5-be88ee9f3659"}
             ],
         },
+        # Column formulas referencing the warehouse table by its short name.
+        # This is what drives the chart inputFields bridge: the per-element
+        # warehouse index is built from dataset_inputs, so without the dataset
+        # entry these columns fall back to self-references.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {"elementId": "Ml9C5ezT5W", "name": "Pk", "formula": "[PETS/Pk]"},
+                    {
+                        "elementId": "Ml9C5ezT5W",
+                        "name": "Status",
+                        "formula": "[PETS/Status]",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
         # Carries the connectionId, so the warehouse URN is built through the
         # connection registry rather than chart_sources_platform_mapping.
         # conn-test-snowflake is the default /v2/connections mock entry.
@@ -7846,14 +7883,15 @@ def test_dataset_warehouse_upstream_survives_empty_element_sql(
             "run_id": "sigma-test",
             "source": {
                 "type": "sigma",
+                # No chart_sources_platform_mapping: the platform now comes from
+                # the connection registry, so this route must resolve without it.
+                # Data Models are off because this fixture has no /dataModels
+                # mock; leaving them on banks a caught pagination warning and
+                # defeats the no-warnings assertion below.
                 "config": {
                     "client_id": "CLIENTID",
                     "client_secret": "CLIENTSECRET",
-                    "chart_sources_platform_mapping": {
-                        "Acryl Data/Acryl Workbook": {
-                            "data_source_platform": "snowflake"
-                        },
-                    },
+                    "ingest_data_models": False,
                 },
             },
             "sink": {"type": "file", "config": {"filename": output_path}},
@@ -7912,6 +7950,28 @@ def test_dataset_warehouse_upstream_survives_empty_element_sql(
         f"expected exactly 1 /sources call for the dataset, got {len(sources_calls)}"
     )
 
+    # The third symptom: chart columns sourced through the dataset fell back to
+    # self-references, because the per-element warehouse index is built from
+    # dataset_inputs. Columns carrying a [PETS/...] formula must now point at the
+    # Snowflake column; columns with no formula have nothing to bridge and
+    # correctly stay self-referencing.
+    fields = {
+        f["schemaField"]["fieldPath"]: f["schemaFieldUrn"]
+        for mce in mces
+        if mce.get("entityUrn") == "urn:li:chart:(sigma,Ml9C5ezT5W)"
+        and mce.get("aspectName") == "inputFields"
+        for f in mce["aspect"]["json"]["fields"]
+    }
+    for column in ("Pk", "Status"):
+        assert fields[column] == (
+            f"urn:li:schemaField:({expected_upstream},{column})"
+        ), (
+            f"column {column} should resolve to the warehouse column; got {fields[column]}"
+        )
+    assert fields["Profile Id"].startswith(
+        "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W)"
+    ), "a column with no formula has nothing to bridge and stays a self-reference"
+
     report = _sigma_report(pipeline)
     assert report.dataset_warehouse_upstream_from_inode == 1, (
         "counter is per dataset, not per referencing element; got "
@@ -7920,3 +7980,7 @@ def test_dataset_warehouse_upstream_survives_empty_element_sql(
     assert report.dataset_warehouse_unknown_connection == 0
     assert report.dataset_sources_lookup_failed == 0
     assert report.connection_path_lookup_failed == 0
+    # No endpoint was left unmocked and no failure path was taken: a caught
+    # exception here would otherwise pass silently, since goldens and counters
+    # above would both still look right.
+    assert not report.warnings, f"unexpected warnings: {list(report.warnings)}"

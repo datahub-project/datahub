@@ -127,7 +127,18 @@ No `chart_sources_platform_mapping` entry is needed.
 
 This route is a **stopgap**. It depends on the deprecated dataset API, so it will stop returning
 anything once Sigma removes those endpoints; migrate datasets to Data Models to keep lineage. A
-404/410 from `/sources` is treated as "endpoint removed" and warned about once per run.
+404/410 from `/sources` before any dataset has resolved is treated as "endpoint removed" and warned
+about once per run; after a successful call it is reported as a miss for that one dataset.
+
+**If you set `env` or `platform_instance` in `chart_sources_platform_mapping`, copy them into
+`connection_to_platform_map`.** Before the deprecation these edges came from the SQL parser, which
+read that mapping. This route resolves through the connection registry and does not, so without a
+`connection_to_platform_map` entry for the connection the URN uses this recipe's `env` and no
+platform instance — pointing at a URN your warehouse connector may never have produced. The
+connector warns when it detects this.
+
+The credential needs permission to read `/v2/connections/paths/{inodeId}`; without it each table
+produces a `connection_path_lookup_failed` warning and no warehouse upstream.
 
 Known limitations:
 

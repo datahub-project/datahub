@@ -199,3 +199,66 @@ class TestDatasetWarehouseRefs:
                 assert source._resolve_dataset_warehouse_upstreams("url-1") == []
                 assert source._resolve_dataset_warehouse_upstreams("url-1") == []
         assert source.reporter.dataset_warehouse_unknown_connection == 1
+
+
+class TestPlatformMappingEnvWarning:
+    """env / platform_instance set only on the legacy mapping is now ignored."""
+
+    def _source_with_mapping(self, **platform_detail: object) -> SigmaSource:
+        config = SigmaSourceConfig.model_validate(
+            {
+                "client_id": "test",
+                "client_secret": "test",
+                "chart_sources_platform_mapping": {
+                    "ws/wb": {"data_source_platform": "snowflake", **platform_detail}
+                },
+            }
+        )
+        ctx = PipelineContext(run_id="mapping-env-unit")
+        with patch.object(SigmaAPI, "_generate_token"):
+            source = SigmaSource(config=config, ctx=ctx)
+        source.connection_registry = SigmaConnectionRegistry(by_id={})
+        return source
+
+    def test_warns_once_when_platform_instance_only_on_mapping(self) -> None:
+        # Pre-deprecation these edges took env/platform_instance from the
+        # mapping; the registry route does not, so the URN silently changes.
+        source = self._source_with_mapping(platform_instance="myinst")
+        before = len(source.reporter.warnings)
+        source._warn_if_platform_mapping_env_ignored("conn-1")
+        source._warn_if_platform_mapping_env_ignored("conn-1")
+        assert len(source.reporter.warnings) == before + 1
+
+    def test_warns_when_env_differs_from_recipe(self) -> None:
+        source = self._source_with_mapping(env="DEV")
+        before = len(source.reporter.warnings)
+        source._warn_if_platform_mapping_env_ignored("conn-1")
+        assert len(source.reporter.warnings) == before + 1
+
+    def test_silent_when_mapping_adds_nothing(self) -> None:
+        source = self._source_with_mapping()
+        before = len(source.reporter.warnings)
+        source._warn_if_platform_mapping_env_ignored("conn-1")
+        assert len(source.reporter.warnings) == before
+
+    def test_silent_when_connection_has_an_override(self) -> None:
+        # connection_to_platform_map governs this route, so nothing is ignored.
+        config = SigmaSourceConfig.model_validate(
+            {
+                "client_id": "test",
+                "client_secret": "test",
+                "chart_sources_platform_mapping": {
+                    "ws/wb": {
+                        "data_source_platform": "snowflake",
+                        "platform_instance": "myinst",
+                    }
+                },
+                "connection_to_platform_map": {"conn-1": {"env": "DEV"}},
+            }
+        )
+        ctx = PipelineContext(run_id="mapping-env-unit")
+        with patch.object(SigmaAPI, "_generate_token"):
+            source = SigmaSource(config=config, ctx=ctx)
+        before = len(source.reporter.warnings)
+        source._warn_if_platform_mapping_env_ignored("conn-1")
+        assert len(source.reporter.warnings) == before

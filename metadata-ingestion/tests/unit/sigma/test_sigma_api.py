@@ -2980,3 +2980,20 @@ class TestGetConnectionPath:
         with patch.object(api, "_get_api_call", side_effect=requests.RequestException):
             assert api.get_connection_path("inode-1") is None
         assert api.report.connection_path_lookup_failed == 1
+
+    def test_404_after_a_success_is_a_per_dataset_miss(self) -> None:
+        # A 404 only means "endpoint gone" if nothing has succeeded yet. Once one
+        # dataset has answered 200 the endpoint plainly exists, so latching on a
+        # later 404 would drop lineage for every dataset processed after it.
+        api = _create_sigma_api()
+        responses = [
+            _response(200, [{"type": "table", "inodeId": "inode-1"}]),
+            _response(404),
+            _response(200, [{"type": "table", "inodeId": "inode-2"}]),
+        ]
+        with patch.object(api, "_get_api_call", side_effect=responses) as mocked:
+            assert api.get_dataset_sources("ds-a") is not None
+            assert api.get_dataset_sources("ds-b") is None
+            assert api.get_dataset_sources("ds-c") is not None
+            assert mocked.call_count == 3
+        assert api.report.dataset_sources_endpoint_removed == 1

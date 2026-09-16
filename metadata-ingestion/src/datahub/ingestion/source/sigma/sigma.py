@@ -441,6 +441,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._connection_path_cache: Dict[str, Optional[_WarehouseTableRef]] = {}
         # Datasets already warned about as absent from /v2/datasets.
         self._dataset_unlisted_warned: Set[str] = set()
+        # Connections already warned about env/platform_instance living only on
+        # chart_sources_platform_mapping.
+        self._platform_mapping_env_warned: Set[str] = set()
         # Datasets whose warehouse resolution has already been tallied, so the
         # per-dataset counters do not climb once per referencing element.
         self._dataset_warehouse_counted: Set[str] = set()
@@ -898,6 +901,55 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         return db
 
+    def _warehouse_urn_for_ref(self, ref: _WarehouseTableRef) -> Optional[str]:
+        """Warehouse Dataset URN for already-resolved table coordinates.
+
+        ``_resolve_dm_element_warehouse_upstream`` is keyed by a url_id against a
+        map, which suits its DM caller; here the ref is already in hand, so wrap
+        that shape rather than repeating the registry and casing logic.
+        """
+        return self._resolve_dm_element_warehouse_upstream(
+            url_id_suffix=ref.connection_id,
+            warehouse_map={ref.connection_id: ref},
+        )
+
+    def _warn_if_platform_mapping_env_ignored(self, connection_id: str) -> None:
+        """Warn when env / platform_instance are set only on the legacy mapping.
+
+        Before Sigma's dataset deprecation these edges came from the SQL parser,
+        which took env and platform_instance from
+        ``chart_sources_platform_mapping``. This route takes them from
+        ``connection_to_platform_map`` instead, so a recipe that configured them
+        only on the mapping silently starts emitting a different URN (the
+        recipe's own env, no platform instance). Tell those operators explicitly
+        rather than leaving it to the generic no-override info message.
+        """
+        if connection_id in self.config.connection_to_platform_map:
+            return
+        if connection_id in self._platform_mapping_env_warned:
+            return
+        divergent = [
+            path
+            for path, detail in self.config.chart_sources_platform_mapping.items()
+            if detail.platform_instance is not None or detail.env != self.config.env
+        ]
+        if not divergent:
+            return
+        self._platform_mapping_env_warned.add(connection_id)
+        self.reporter.warning(
+            title="Sigma Dataset warehouse URN ignores chart_sources_platform_mapping env",
+            message=(
+                "chart_sources_platform_mapping sets env and/or platform_instance, "
+                "but Sigma Dataset warehouse lineage is now resolved through the "
+                "connection registry and does not read that mapping. The emitted "
+                "URN uses this recipe's env with no platform instance. Copy env "
+                "and platform_instance into "
+                "connection_to_platform_map.<connectionId> so the edge points at "
+                "the URNs your warehouse connector produced."
+            ),
+            context=f"connectionId={connection_id}, mapping_paths={divergent!r}",
+        )
+
     def _resolve_dataset_warehouse_upstreams(self, dataset_url_id: str) -> List[str]:
         """Warehouse Dataset URNs for a Sigma Dataset, via the inode route.
 
@@ -912,10 +964,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         upstream_urns: List[str] = []
         for ref in self._get_dataset_warehouse_refs(dataset_url_id):
-            urn = self._resolve_dm_element_warehouse_upstream(
-                url_id_suffix=ref.connection_id,
-                warehouse_map={ref.connection_id: ref},
-            )
+            self._warn_if_platform_mapping_env_ignored(ref.connection_id)
+            urn = self._warehouse_urn_for_ref(ref)
             if urn is None:
                 if first_time:
                     self.reporter.dataset_warehouse_unknown_connection += 1
@@ -3647,12 +3697,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         if dataset_urn in dataset_inputs or sql_named_tables:
             # Either SQL already bridged this dataset, or SQL named tables but
-            # none matched this dataset's name. The fallback deliberately stays
-            # out of the second case: the element still has working SQL, so
-            # resolving the dataset here would add a second path to a table the
-            # chart already reaches directly, and tenants still serving SQL
-            # would see their output change. Only a genuinely SQL-less element
-            # -- the post-deprecation case -- falls through.
+            # none matched this dataset's name. Stay out of the second case: the
+            # element still has working SQL, so resolving the dataset here would
+            # add a second path to a table the chart already reaches directly.
+            #
+            # Note this gate is "SQL named no tables", which is wider than "the
+            # element has no SQL": the parser only runs when a
+            # chart_sources_platform_mapping entry matches, so a recipe with no
+            # mapping also falls through even against a tenant still serving
+            # SQL. Those charts previously got no dataset lineage at all, so
+            # they gain a correct edge here rather than a duplicate one.
             return
 
         warehouse_urns = self._resolve_dataset_warehouse_upstreams(sigma_dataset_id)
