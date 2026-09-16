@@ -588,11 +588,9 @@ def _reconcile_editable_schema_metadata(
             graph.emit_mcp(
                 MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
-                    # This is a full-aspect upsert. The stamps are NOT
-                    # editableSchemaFieldInfo defaults — omitting them resets
-                    # created/lastModified to urn:li:corpuser:unknown / time 0 and
-                    # drops ``deleted``, silently losing the provenance this command
-                    # exists to preserve. Carry the existing stamps through verbatim.
+                    # Full-aspect upsert: carry existing stamps through verbatim.
+                    # Omitting them resets created/lastModified and drops ``deleted``,
+                    # silently losing the provenance this command exists to preserve.
                     aspect=EditableSchemaMetadataClass(
                         editableSchemaFieldInfo=list(by_path.values()),
                         created=editable.created,
