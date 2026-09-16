@@ -108,6 +108,7 @@ public class UpdateIndicesV3StrategyTest {
 
     // Setup mock index builder
     when(elasticSearchService.getIndexBuilder()).thenReturn(mockIndexBuilder);
+    when(elasticSearchService.getIndexBuilder(anyString())).thenReturn(mockIndexBuilder);
 
     // Create strategy with V2 disabled (testing V3-only scenario)
     strategy =

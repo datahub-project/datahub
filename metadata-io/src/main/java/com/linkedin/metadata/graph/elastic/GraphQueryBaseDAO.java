@@ -20,6 +20,7 @@ import com.linkedin.data.template.IntegerArray;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
@@ -30,6 +31,7 @@ import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
@@ -98,6 +100,20 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
   protected abstract SearchClientShim<?> getClient();
 
+  protected SearchClientShim<?> graphClient(@Nonnull OperationContext opContext) {
+    if (opContext.getSearchContext().getSearchClusterAccess() == null) {
+      return getClient();
+    }
+    return SearchClients.forComponent(opContext, SearchComponent.GRAPH);
+  }
+
+  private static String graphIndexName(@Nonnull OperationContext opContext) {
+    return opContext
+        .getSearchContext()
+        .getIndexConvention()
+        .getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME);
+  }
+
   protected abstract LineageSliceFetchResult searchWithSlices(
       @Nonnull OperationContext opContext,
       @Nonnull QueryBuilder query,
@@ -125,8 +141,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
     searchRequest.source(searchSourceBuilder);
 
-    searchRequest.indices(
-        opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
+    searchRequest.indices(graphIndexName(opContext));
 
     return opContext.withSpan(
         "esQuery",
@@ -135,7 +150,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return getClient().search(opContext, searchRequest, RequestOptions.DEFAULT);
+            return graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -489,7 +504,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     try {
       if (metricUtils != null)
         metricUtils.increment(this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-      return getClient().search(opContext, searchRequest, RequestOptions.DEFAULT);
+      return graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
@@ -667,11 +682,11 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                 opContext,
                 scrollId,
                 keepAlive,
-                getClient(),
+                graphClient(opContext),
                 opContext
                     .getSearchContext()
                     .getIndexConvention()
-                    .getIndexName(opContext, INDEX_NAME))
+                    .getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME))
             : null;
     Object[] sort = scrollId != null ? SearchAfterWrapper.fromScrollId(scrollId).getSort() : null;
 
@@ -689,8 +704,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
     // PIT specifies indices in creation so it doesn't support specifying indices on the request
     if (!usePIT) {
-      searchRequest.indices(
-          opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
+      searchRequest.indices(graphIndexName(opContext));
     }
 
     return opContext.withSpan(
@@ -700,7 +714,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return getClient().search(opContext, searchRequest, RequestOptions.DEFAULT);
+            return graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -1284,8 +1298,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     }
 
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(
-        opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
+    searchRequest.indices(graphIndexName(opContext));
 
     return searchRequest;
   }
@@ -1298,7 +1311,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return getClient().search(opContext, request, RequestOptions.DEFAULT);
+            return graphClient(opContext).search(opContext, request, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -1890,7 +1903,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
   @Override
   public void cleanupPointInTime(@Nonnull OperationContext opContext, String pitId) {
-    ESUtils.cleanupPointInTime(opContext, getClient(), pitId, "API Request");
+    ESUtils.cleanupPointInTime(opContext, graphClient(opContext), pitId, "API Request");
   }
 
   @Value

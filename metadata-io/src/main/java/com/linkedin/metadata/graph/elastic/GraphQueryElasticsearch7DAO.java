@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
@@ -181,7 +182,10 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
 
       searchRequest.source(searchSourceBuilder);
       searchRequest.indices(
-          opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
+          opContext
+              .getSearchContext()
+              .getIndexConvention()
+              .getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME));
 
       // Execute initial search to get scroll ID
       SearchResponse response = executeSearch(opContext, searchRequest);
@@ -245,7 +249,8 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
                     if (metricUtils != null)
                       metricUtils.increment(
                           this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-                    return client.scroll(opContext, scrollRequest, RequestOptions.DEFAULT);
+                    return graphClient(opContext)
+                        .scroll(opContext, scrollRequest, RequestOptions.DEFAULT);
                   } catch (Exception e) {
                     log.error("Scroll query failed", e);
                     throw new ESQueryException("Scroll query failed:", e);
@@ -295,7 +300,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
         try {
           ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
           clearScrollRequest.addScrollId(scrollId);
-          client.clearScroll(opContext, clearScrollRequest, RequestOptions.DEFAULT);
+          graphClient(opContext).clearScroll(opContext, clearScrollRequest, RequestOptions.DEFAULT);
         } catch (Exception e) {
           log.warn("Failed to clear scroll context for slice {}", sliceId, e);
         }
@@ -315,7 +320,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+            return graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);

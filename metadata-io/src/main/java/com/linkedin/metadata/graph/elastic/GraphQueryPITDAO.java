@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
@@ -129,11 +130,11 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
               opContext,
               null,
               keepAlive,
-              client,
+              graphClient(opContext),
               opContext
                   .getSearchContext()
                   .getIndexConvention()
-                  .getIndexName(opContext, INDEX_NAME));
+                  .getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME));
       final String tempPitId = pitId;
 
       // One budget shared across all slices of this hop (see GraphQueryBaseDAO); null == unlimited.
@@ -181,7 +182,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       // deleting the shared PIT. cancel(true) only sends an interrupt — without waiting, slices
       // blocked inside client.search() may still be executing against a deleted PIT.
       cancelAndDrainSliceFutures(sliceFutures);
-      ESUtils.cleanupPointInTime(opContext, client, pitId, "lineage search: " + entityUrns);
+      ESUtils.cleanupPointInTime(
+          opContext, graphClient(opContext), pitId, "lineage search: " + entityUrns);
     }
   }
 
@@ -270,7 +272,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                     if (metricUtils != null)
                       metricUtils.increment(
                           this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-                    return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+                    return graphClient(opContext)
+                        .search(opContext, searchRequest, RequestOptions.DEFAULT);
                   } catch (Exception e) {
                     log.error("Search query failed", e);
                     throw new ESQueryException("Search query failed:", e);
