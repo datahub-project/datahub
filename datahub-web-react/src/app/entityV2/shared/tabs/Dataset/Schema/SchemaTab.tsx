@@ -90,7 +90,9 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
         fullMetadataError,
         structuralSchemaError,
         refetch,
-    } = useGetEntityWithSchema(undefined, undefined, true);
+        // Compact mode has no skeleton cells for the description column, so it keeps the
+        // full-metadata loading contract; the full tab renders structural rows first.
+    } = useGetEntityWithSchema(undefined, undefined, renderType !== TabRenderType.COMPACT);
     // Use full metadata (tags/terms/descriptions) when the full query has resolved.
     // Fall back to structural schema so the table renders immediately on first load.
     let schemaMetadata: any = entityWithSchema?.schemaMetadata || structuralSchemaMetadata || undefined;
@@ -236,14 +238,17 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
     // metadata query resolves. Clearing too early would silently discard a valid filter.
     // Likewise when Phase 2 failed: the rows have no metadata to match against, so zero
     // matches says nothing about the filter -- keep it for the retry.
+    // And only once some schema has actually arrived: before the first phase settles there is
+    // nothing to match against, and a URL-derived filter must survive that.
+    const hasSchema = !!schemaMetadata;
     useEffect(() => {
-        if (!loading && !fullMetadataLoading && !fullMetadataError && matchesLengthRef.current === 0) {
+        if (!loading && !fullMetadataLoading && !fullMetadataError && hasSchema && matchesLengthRef.current === 0) {
             setFilterText('');
             setSchemaFilterTypes(DEFAULT_SCHEMA_FILTER_TYPES);
             setSearchResetCount((c) => c + 1);
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
-    }, [loading, fullMetadataLoading, fullMetadataError]);
+    }, [loading, fullMetadataLoading, fullMetadataError, hasSchema]);
 
     if (renderType === TabRenderType.COMPACT) {
         if (loading && !schemaMetadata) {
@@ -359,7 +364,15 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                             </SchemaEditableContext.Provider>
                         ) : (
                             <SchemaScrollArea>
-                                <NoSchema />
+                                {/* A metadata filter (tags, terms, docs) cannot match structural rows, so
+                                    an empty result while Phase 2 is still loading is "not yet", not "none". */}
+                                {fullMetadataLoading ? (
+                                    <LoadingWrapper>
+                                        <LoadingOutlined />
+                                    </LoadingWrapper>
+                                ) : (
+                                    <NoSchema />
+                                )}
                             </SchemaScrollArea>
                         )}
                     </SchemaTableContainer>

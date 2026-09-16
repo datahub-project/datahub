@@ -314,18 +314,21 @@ describe('useGetEntityWithSchema two-phase sequencing', () => {
         expect(result.current.loading).toBe(false);
     });
 
-    it('retry after a full-metadata failure re-runs both phases in order and clears the error', async () => {
+    it('retry after a full-metadata failure re-runs only Phase 2, keeping the structural rows', async () => {
         const fullErrorMock = { request: fullMock.request, error: new Error('metadata boom') };
-        const { result } = renderHook(() => useGetEntityWithSchema(), {
-            wrapper: wrapperWith([structuralMock, fullErrorMock, structuralMock, fullMock]),
+        // No second structural mock: the retry must not re-run Phase 1.
+        const { result } = renderHook(() => useGetEntityWithSchema(undefined, undefined, true), {
+            wrapper: wrapperWith([structuralMock, fullErrorMock, fullMock]),
         });
         await waitFor(() => expect(result.current.fullMetadataError).toBeTruthy());
+        expect(result.current.structuralSchemaMetadata?.fields).toHaveLength(2);
 
         await act(async () => {
             await result.current.refetch();
         });
 
         await waitFor(() => expect(result.current.entityWithSchema?.schemaMetadata?.fields).toHaveLength(2));
+        expect(result.current.loading).toBe(false);
         expect(result.current.fullMetadataError).toBeUndefined();
         expect(result.current.fullMetadataLoading).toBe(false);
         expect(result.current.entityWithSchema?.schemaMetadata?.fields?.[1]?.description).toEqual(

@@ -1,8 +1,6 @@
 import React, { useMemo } from 'react';
 
-import CellSkeleton from '@app/entityV2/shared/tabs/Dataset/Schema/components/CellSkeleton';
-import MetadataUnavailable from '@app/entityV2/shared/tabs/Dataset/Schema/components/MetadataUnavailable';
-import { MetadataStatus } from '@app/entityV2/shared/tabs/Dataset/Schema/metadataStatus';
+import { MetadataStatus, renderMetadataCell } from '@app/entityV2/shared/tabs/Dataset/Schema/metadataStatus';
 import StructuredPropValues from '@src/app/entityV2/dataset/profile/schema/components/StructuredPropValues';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
 import { SearchResult, StructuredPropertyEntity } from '@src/types.generated';
@@ -19,12 +17,13 @@ export const useGetStructuredPropColumns = (
                 title: name,
                 dataIndex: 'schemaFieldEntity',
                 key: prop.entity.urn,
-                render: (record) => {
-                    if (metadataStatus === 'loading')
-                        return <CellSkeleton $width={120} data-testid="prop-cell-skeleton" />;
-                    if (metadataStatus === 'error') return <MetadataUnavailable />;
-                    return <StructuredPropValues schemaFieldEntity={record} propColumn={prop} />;
-                },
+                render: (record) =>
+                    renderMetadataCell(
+                        metadataStatus,
+                        120,
+                        () => <StructuredPropValues schemaFieldEntity={record} propColumn={prop} />,
+                        'prop-cell-skeleton',
+                    ),
                 ellipsis: true,
             };
         });

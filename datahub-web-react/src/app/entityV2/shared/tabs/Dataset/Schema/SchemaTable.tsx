@@ -19,11 +19,12 @@ import {
     hasNestedSchemaRows,
 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
-import CellSkeleton from '@app/entityV2/shared/tabs/Dataset/Schema/components/CellSkeleton';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
-import MetadataUnavailable from '@app/entityV2/shared/tabs/Dataset/Schema/components/MetadataUnavailable';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
-import { MetadataStatus } from '@app/entityV2/shared/tabs/Dataset/Schema/metadataStatus';
+import {
+    MetadataStatus,
+    renderMetadataCell as renderMetadataCellFor,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/metadataStatus';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
 import useBusinessAttributeRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useBusinessAttributeRenderer';
 import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
@@ -279,12 +280,8 @@ export default function SchemaTable({
     // while full metadata loads, an explicit "unavailable" marker when the full query failed
     // (a blank cell would read as "no tags"), real content otherwise.
     const renderMetadataCell = useCallback(
-        (width: number, content: () => React.ReactNode): React.ReactNode => {
-            if (metadataStatus === 'loading')
-                return <CellSkeleton $width={width} data-testid="metadata-cell-skeleton" />;
-            if (metadataStatus === 'error') return <MetadataUnavailable />;
-            return content();
-        },
+        (width: number, content: () => React.ReactNode): React.ReactNode =>
+            renderMetadataCellFor(metadataStatus, width, content),
         [metadataStatus],
     );
 

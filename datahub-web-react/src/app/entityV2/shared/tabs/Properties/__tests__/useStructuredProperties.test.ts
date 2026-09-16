@@ -90,7 +90,9 @@ describe('useStructuredProperties', () => {
     });
 
     afterEach(() => {
-        vi.clearAllMocks();
+        // resetAllMocks also drops mockReturnValue implementations, so a test that overrides
+        // the hook's return cannot leak into the next one (beforeEach re-installs the defaults).
+        vi.resetAllMocks();
     });
 
     it('derives field-level rows directly from fieldEntity without relying on entity-with-schema query', () => {

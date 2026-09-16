@@ -71,15 +71,13 @@ async function runSchemaQuery<T>(
             errorPolicy: 'all',
         });
         const dataset = (result.data as { dataset?: unknown } | undefined)?.dataset;
+        // errorPolicy 'all': GraphQL errors can arrive alongside partial data. Keep both, so a
+        // phase that came back incomplete shows its error state rather than passing as done.
+        const error = result.errors?.length ? new ApolloError({ graphQLErrors: result.errors }) : undefined;
         if (!dataset) {
-            return {
-                error: new ApolloError({
-                    graphQLErrors: result.errors ?? [],
-                    errorMessage: result.errors?.length ? undefined : 'Dataset not found',
-                }),
-            };
+            return { error: error ?? new ApolloError({ errorMessage: 'Dataset not found' }) };
         }
-        return { data: result.data };
+        return { data: result.data, error };
     } catch (e) {
         return { error: e instanceof ApolloError ? e : new ApolloError({ errorMessage: String(e) }) };
     }
@@ -143,15 +141,15 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean,
     const pendingRefetches = useRef<Array<() => void>>([]);
 
     useEffect(() => {
-        const settlePending = () => {
-            const pending = pendingRefetches.current;
-            pendingRefetches.current = [];
-            pending.forEach((resolve) => resolve());
-        };
+        // refetch() calls made before this run belong to it; ones made during it trigger the
+        // next run (which takes them over), so a superseded run never settles a newer promise.
+        const mine = pendingRefetches.current;
+        pendingRefetches.current = [];
+        const settleMine = () => mine.forEach((resolve) => resolve());
 
         if (!shouldLoad || !urn) {
             setState(EMPTY_STATE);
-            settlePending();
+            settleMine();
             return undefined;
         }
 
@@ -161,7 +159,9 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean,
 
         const run = async () => {
             const { current } = stateRef;
-            const fullOnly = reload.fullOnly && current.urn === urn && current.hasFull;
+            // Once structural rows exist for this dataset, a reload only needs Phase 2: after
+            // a Phase 2 failure the retry keeps the rows on screen instead of a spinner.
+            const fullOnly = reload.fullOnly && current.urn === urn && current.hasStructural;
 
             if (!fullOnly) {
                 // Phase 1: field paths, types, nullability. Evicts whatever was shown before.
@@ -182,7 +182,7 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean,
                     dataset,
                     hasStructural: true,
                     structuralLoading: false,
-                    structuralError: undefined,
+                    structuralError: structural.error,
                     fullLoading: !structuralOnly,
                 }));
                 if (structuralOnly) return;
@@ -203,11 +203,11 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean,
                 dataset: mergeFullIntoStructural(s.dataset, fullDataset),
                 hasFull: true,
                 fullLoading: false,
-                fullError: undefined,
+                fullError: full.error,
             }));
         };
 
-        run().finally(settlePending);
+        run().finally(settleMine);
         return () => {
             cancelled = true;
         };
@@ -241,7 +241,9 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean,
         // (SchemaTab shows a spinner, then rows with skeleton metadata cells).
         // Everyone else: true until entityWithSchema is final, i.e. the full query has
         // produced data or an error.
-        loading: structuralFirst ? state.structuralLoading : state.structuralLoading || fullMetadataLoading,
+        // Also true before the effect has started this dataset's run (first render, or the
+        // render right after a urn change): nothing is loaded yet, but nothing is "empty" either.
+        loading: shouldLoad && (!isCurrent || state.structuralLoading || (!structuralFirst && fullMetadataLoading)),
         fullMetadataLoading,
         // Set when the full metadata query fails. SchemaTab shows an inline error banner.
         fullMetadataError: isCurrent ? state.fullError : undefined,
