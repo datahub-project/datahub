@@ -185,7 +185,13 @@ def _needs_parent_for_qualified_match(
     on, so they are read from the same place rather than restated by a
     connector.
     """
-    if kind not in (DatasetContainerSubTypes.SCHEMA, DatasetContainerSubTypes.DATABASE):
+    if kind != DatasetContainerSubTypes.SCHEMA:
+        # Schema only. Database was included here originally and should not
+        # have been: database_pattern is matched on the bare database name
+        # whatever match_fully_qualified_names says, so the verdict is already
+        # the one ingestion makes -- and there is no container above a
+        # database to name, so "pass --parent" pointed at nothing. The warning
+        # reported correct verdicts as degraded.
         return False
     if not getattr(config, "match_fully_qualified_names", False):
         # The bare name is what ingestion matches too, so nothing is lost.

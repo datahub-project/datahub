@@ -153,8 +153,18 @@ def _with_stdin_secrets(secrets: Set[str]) -> Set[str]:
     offending line -- would be redacted against nothing. Read at raise time
     rather than at entry, so a command that never reaches its own collection
     step still masks what it was handed.
+
+    Minus the disclosed values, because unioning the envelope back in undid the
+    exemption exactly where it is most visible. A password equal to the
+    database name is dropped from the redaction set so `probe filter` can print
+    `target` -- and then `could not connect to analytics` came back with the
+    database blanked anyway, which both corrupts the message and announces the
+    collision the exemption exists to hide. Empty until the envelope is parsed,
+    so a failure before that still masks everything.
     """
-    return secrets | {v for v in _stdin_secrets.values() if v}
+    return (secrets | {v for v in _stdin_secrets.values() if v}) - (
+        _disclosed_stdin_values - secrets
+    )
 
 
 def _fail(message: str, code: int) -> NoReturn:
@@ -167,6 +177,13 @@ def _fail(message: str, code: int) -> NoReturn:
 # through every probe subcommand to carry it would be noise for a value that
 # is set at most once per process.
 _stdin_secrets: Dict[str, str] = {}
+
+# Envelope values the recipe also states in the clear under a non-sensitive
+# key. Kept beside _stdin_secrets and for the same reason: the exemption is
+# decided while loading, and every later redaction has to agree with it.
+# Without this the error path re-added them and the exemption only half
+# applied -- see _with_stdin_secrets.
+_disclosed_stdin_values: Set[str] = set()
 
 
 def _stdin_aware_resolvers() -> List[SecretResolver]:
@@ -265,6 +282,9 @@ def _recipe_from_stdin() -> Dict[str, object]:
             # `***REDACTED:PW***.ingestion.source.sql`, and those lines become
             # the task's operator-visible logs.
             disclosed = _envelope_disclosed_values(envelope["__recipe_yaml__"])
+            # Recorded for the error path, which builds its own redaction set
+            # and would otherwise union these straight back in.
+            _disclosed_stdin_values.update(disclosed)
             SecretRegistry.get_instance().register_secrets_batch(
                 {k: v for k, v in _stdin_secrets.items() if v not in disclosed}
             )

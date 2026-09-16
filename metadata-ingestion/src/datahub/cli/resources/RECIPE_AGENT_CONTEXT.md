@@ -52,10 +52,11 @@ as `***` everywhere. If a name comes back masked, that is why; it is not a probe
    ```
 
    Pattern fields are deliberately absent. Writing one at all replaces the connector's own
-   default, both halves — a scaffolded `database_pattern: {allow: [".*"], deny: []}` would
-   switch off Snowflake's built-in deny of `SNOWFLAKE_SAMPLE_DATA` and Kafka's of `^_.*`. Add a
-   pattern only when you mean to narrow something, and use `describe` to see what the default
-   already denies.
+   default, both halves — a scaffolded allow-all would switch off Snowflake's built-in deny of
+   `SNOWFLAKE_SAMPLE_DATA` in `database_pattern`, or Kafka's of `^_.*` in `topic_patterns`. The
+   field is named after the connector's own vocabulary, so read it off `describe` rather than
+   assuming `database_pattern`. Add a pattern only when you mean to narrow something, and use
+   `describe` to see what the default already denies.
 
 3. **Edit** — modify the recipe locally, keeping secrets as `${ENV_VAR}`.
 
@@ -146,11 +147,26 @@ statement type would pass it.
 
 BigQuery addresses catalog views as `<dataset>.INFORMATION_SCHEMA.TABLES`, which is understood.
 
-Results come back as `columns` plus positional `rows`, and **every** probe result carries a
-top-level `truncated` — the typed listings as well as `sql`. Read it before concluding you have
-seen everything. `--limit` is clamped to 1000 however large a value you pass, and a command that
-takes no `--limit` is capped at the same 1000, so narrow the query or the schema rather than
-raising the limit when a listing comes back truncated.
+Every probe result is the same envelope:
+
+```json
+{ "source_type": "...", "command": "...", "params": {}, "kind": "Table",
+  "parent_path": [], "result": ..., "truncated": false,
+  "warnings": [], "failures": [] }
+```
+
+`result` is where the shapes differ. A typed listing puts its list there
+(`"result": ["orders", "customers"]`); only `sql` nests a table,
+`"result": {"columns": [...], "rows": [[...]], "truncated": false}`, with positional rows. So
+read `result` first and do not expect `columns`/`rows` from a typed command.
+
+**`truncated` is top level on every result**, typed listings as well as `sql` — read it before
+concluding you have seen everything. `--limit` is clamped to 1000 however large a value you
+pass, and a command that takes no `--limit` is capped at the same 1000, so narrow the query or
+the schema rather than raising the limit when a listing comes back truncated.
+
+`failures` non-empty means the result is NOT a complete answer, and the command exits non-zero:
+"could not read" and "nothing there" are different, and this is how they are told apart.
 
 **Some sources expose an `api` command**, a read passthrough to their own API, for questions
 no typed command answers:

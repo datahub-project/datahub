@@ -1086,3 +1086,25 @@ def test_a_malformed_envelope_recipe_still_registers_its_secrets(monkeypatch):
 
     masked = SecretMaskingFilter().mask_text("leaked still-a-secret")
     assert "still-a-secret" not in masked
+
+
+def test_the_error_path_honours_the_same_disclosure_exemption(monkeypatch):
+    """The exemption has to hold on the failure path too, or it half-works.
+
+    A secret equal to a plain recipe identifier is dropped from the redaction
+    set so `probe filter` can still print `target` -- masking a value the
+    recipe states in the clear only corrupts output and announces the
+    collision. The error path rebuilt its set with _with_stdin_secrets, which
+    unions every envelope value straight back in, so `could not connect to
+    analytics` came back with the database name blanked after all.
+    """
+    monkeypatch.setattr(rc, "_stdin_secrets", {"PW": "analytics"}, raising=False)
+    monkeypatch.setattr(rc, "_disclosed_stdin_values", {"analytics"}, raising=False)
+
+    assert rc._with_stdin_secrets(set()) == set()
+
+    # A genuine envelope secret is still added.
+    monkeypatch.setattr(
+        rc, "_stdin_secrets", {"PW": "analytics", "TOK": "t0k3nvalue"}, raising=False
+    )
+    assert rc._with_stdin_secrets(set()) == {"t0k3nvalue"}

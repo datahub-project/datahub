@@ -606,3 +606,35 @@ def test_a_schema_with_its_container_does_not_warn():
     )
     assert result.results[0].included is True, result.results
     assert not [w for w in result.warnings if "qualified" in w], result.warnings
+
+
+def test_a_database_verdict_is_not_reported_as_degraded():
+    """There is nothing above a database to pass as --parent.
+
+    _needs_parent_for_qualified_match covered Database as well as Schema, and
+    that was overreach on my part: database_pattern is matched on the bare
+    database name whatever match_fully_qualified_names says, so the verdict is
+    already the one ingestion makes. Warning that it "will mostly read as
+    excluded" and to "pass --parent" pointed at a container that does not
+    exist, about verdicts that were right.
+    """
+    result = check_filters(
+        source_type="snowflake",
+        config_dict={
+            "account_id": "a",
+            "username": "u",
+            "password": "p",
+            "warehouse": "w",
+            "match_fully_qualified_names": True,
+            "database_pattern": {"allow": [r"^MYDB$"]},
+        },
+        kind=str(DatasetContainerSubTypes.DATABASE),
+        parent_path=[],
+        names=["MYDB", "OTHERDB"],
+    )
+
+    assert [(v.name, v.included) for v in result.results] == [
+        ("MYDB", True),
+        ("OTHERDB", False),
+    ]
+    assert not [w for w in result.warnings if "qualified" in w], result.warnings
