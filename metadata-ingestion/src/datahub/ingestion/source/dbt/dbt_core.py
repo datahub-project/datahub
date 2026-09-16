@@ -590,6 +590,10 @@ def extract_dbt_metrics(
         try:
             parsed = _parse_metric(key, metric_node, tag_prefix)
         except Exception as e:
+            # Logged unconditionally, reported when there is a report: `report`
+            # is optional for callers outside a source, and a dropped metric
+            # must never be invisible.
+            logger.warning(f"Could not read dbt metric {key}: {e}", exc_info=True)
             if report is not None:
                 report.warning(
                     title="Could not read a dbt metric",
@@ -725,6 +729,11 @@ def extract_semantic_models(
 
         parsed = parse_semantic_model(sm_node)
         definition = parsed.definition
+        if parsed.discarded:
+            logger.warning(
+                f"Could not read part of dbt semantic model {key}: "
+                f"{'; '.join(parsed.discarded)}"
+            )
         if parsed.discarded and report is not None:
             # Reported on the legacy path too: the dataset would otherwise be
             # emitted with a partial or empty schema and nothing saying why.
