@@ -1,3 +1,4 @@
+import logging
 import re
 import types
 import typing
@@ -22,6 +23,8 @@ from datahub.ingestion.agent.models import (
 )
 from datahub.ingestion.agent.verdicts import UNFILTERED
 from datahub.ingestion.source.source_registry import source_registry
+
+logger = logging.getLogger(__name__)
 
 
 def _strip_annotated(annotation: object) -> object:
@@ -72,12 +75,68 @@ def is_pattern_field(annotation: object) -> bool:
 
 # A pattern field is conventionally named after the kind it filters:
 # Schema -> schema_pattern, Topic -> topic_patterns.
+#
+# Kept deliberately, as a net for connectors this repo cannot see. Filters(...)
+# is the mechanism now -- 30 annotations, and a contract test asserting that no
+# registered connector resolves by name alone -- so for everything in-tree this
+# is unreachable, and review reasonably asked whether it should go.
+#
+# It stays because deleting it turns a right answer into a wrong one for an
+# out-of-tree connector, which the source registry accepts via entry points and
+# the contract test cannot reach. Measured on postgres with its annotations
+# stripped: with the convention, `schema_pattern` allow ['^analytics$']
+# correctly excludes other_schema; without it, resolution returns None, the
+# pattern defaults to allow-all, and other_schema is reported INCLUDED --
+# the opposite of what ingestion does.
+#
+# The "declares no kind" warning does not cover that. It is gated on
+# `declared and kind not in declared`, and Schema IS among the kinds postgres
+# declares, so nothing fires; only `filtering: "unresolved"` marks it. So the
+# net earns its place -- but it must not be invisible, which is what
+# _warn_convention is for.
 _PATTERN_SUFFIXES = ("_pattern", "_patterns")
 
 
 def _pattern_field_candidates(kind: ProbeNodeKind) -> List[str]:
     base = re.sub(r"[^a-z0-9]+", "_", str(kind).lower()).strip("_")
     return [base + suffix for suffix in _PATTERN_SUFFIXES]
+
+
+# (config class, kind) pairs already warned about. Deduped because
+# pattern_field_for_config is deliberately not memoized and `probe filter`
+# resolves the field once per name it judges -- a warning per call is a
+# warning nobody reads.
+_CONVENTION_WARNED: Set[Tuple[str, str]] = set()
+
+
+def _reset_convention_warnings() -> None:
+    """Test seam: forget what has already been warned about."""
+    _CONVENTION_WARNED.clear()
+
+
+def _warn_convention(config_cls: type, kind: ProbeNodeKind, name: str) -> None:
+    """Say out loud that a connector is leaning on the name guess.
+
+    Without this the fallback is indistinguishable from a live path at a
+    glance, which is not hypothetical: a dead `probe_schema_needs_parent`
+    reader in filter_check.py survived four commits of deliberate hook removal
+    for exactly that reason.
+    """
+    key = (config_cls.__name__, str(kind))
+    if key in _CONVENTION_WARNED:
+        return
+    _CONVENTION_WARNED.add(key)
+    logger.warning(
+        "%s.%s was matched to kind '%s' by name, not by declaration. The name "
+        "convention is a guess kept for connectors outside this repo, and it "
+        "can find the wrong field -- a deprecated alias that reads allow-all "
+        "will report every object included while ingestion drops them. "
+        "Annotate the field ingestion really filters on with Filters('%s').",
+        config_cls.__name__,
+        name,
+        kind,
+        kind,
+    )
 
 
 @lru_cache(maxsize=None)
@@ -144,6 +203,7 @@ def _pattern_field_for_config_class(
             # skipping it there alone left the default path resolving the
             # deprecated alias anyway.
             continue
+        _warn_convention(config_cls, kind, name)
         return name
     return None
 
@@ -218,6 +278,7 @@ def pattern_field_for_config(config: Any, kind: ProbeNodeKind) -> Optional[str]:
             # this kind", which is what makes the "declares no kind" warning
             # fire and name the kind the source really has (Database).
             continue
+        _warn_convention(config_cls, kind, name)
         return name
     return _pattern_field_for_config_class(config_cls, kind)
 

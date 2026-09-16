@@ -1,4 +1,5 @@
 import importlib
+import logging
 import pkgutil
 import re
 from collections import defaultdict
@@ -12,10 +13,12 @@ import datahub.ingestion.source as srcpkg
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.agent.introspect import (
     _pattern_field_for_config_class,
+    _reset_convention_warnings,
     describe_source,
     is_pattern_field,
     pattern_field_for_config,
 )
+from datahub.ingestion.agent.probe_methods import config_class_for
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -236,3 +239,72 @@ def test_a_two_tier_source_does_not_report_schema_as_a_level():
     by_name = {f.name: f for f in describe_source("mysql").fields}
     assert by_name["database_pattern"].filters == "Database"
     assert by_name["schema_pattern"].filters is None
+
+
+# --- the name convention, kept as a net and made audible -------------------
+
+
+class _UnannotatedCfg(ConfigModel):
+    """What a connector outside this repo looks like: conventional field, no hint.
+
+    Out-of-tree connectors are a supported thing (the source registry takes
+    entry points), and they cannot be reached by
+    test_no_connector_leans_on_the_name_convention, so the convention is the
+    only thing that resolves their levels.
+    """
+
+    schema_pattern: AllowDenyPattern = Field(default_factory=AllowDenyPattern)
+
+
+def test_the_convention_still_resolves_a_connector_that_declares_no_hint(caplog):
+    """Deleting the convention would turn a right answer into a wrong one.
+
+    Measured on postgres with its Filters(...) stripped: with the convention,
+    `schema_pattern` allow ['^analytics$'] correctly excludes other_schema;
+    without it, resolution returns None, the pattern defaults to allow-all and
+    other_schema is reported INCLUDED -- the opposite of what ingestion does.
+
+    The "declares no kind" warning does not cover that case. It is gated on
+    `declared and kind not in declared`, and Schema IS among the kinds postgres
+    declares, so nothing fires. Only `filtering: "unresolved"` marks it, and a
+    caller reading verdicts rather than that field sees a confident wrong
+    answer.
+    """
+    _pattern_field_for_config_class.cache_clear()
+    with caplog.at_level(logging.WARNING, logger="datahub.ingestion.agent.introspect"):
+        resolved = pattern_field_for_config(_UnannotatedCfg(), "Schema")
+
+    assert resolved == "schema_pattern"
+    assert "_UnannotatedCfg" in caplog.text, caplog.text
+    assert "Filters" in caplog.text, caplog.text
+
+
+def test_the_convention_warns_once_per_class_and_kind(caplog):
+    """A warning per call would be a warning nobody reads: probe filter
+    resolves the field for every name it judges, and pattern_field_for_config
+    is deliberately not memoized (many configs share a type)."""
+    _pattern_field_for_config_class.cache_clear()
+    _reset_convention_warnings()
+    with caplog.at_level(logging.WARNING, logger="datahub.ingestion.agent.introspect"):
+        for _ in range(5):
+            pattern_field_for_config(_UnannotatedCfg(), "Schema")
+
+    fired = [r for r in caplog.records if "_UnannotatedCfg" in r.getMessage()]
+    assert len(fired) == 1, [r.getMessage() for r in fired]
+
+
+def test_an_annotated_connector_stays_silent(caplog):
+    """The warning marks a connector leaning on the guess. Every in-tree one
+    declares Filters(...), so none of them may trip it."""
+    _pattern_field_for_config_class.cache_clear()
+    _reset_convention_warnings()
+    with caplog.at_level(logging.WARNING, logger="datahub.ingestion.agent.introspect"):
+        resolved = pattern_field_for_config(
+            config_class_for("postgres")(
+                host_port="localhost:5432", username="u", password="p", database="d"
+            ),
+            "Schema",
+        )
+
+    assert resolved == "schema_pattern"
+    assert caplog.text == "", caplog.text

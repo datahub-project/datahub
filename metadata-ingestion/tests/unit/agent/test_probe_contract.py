@@ -501,6 +501,15 @@ def test_no_connector_leans_on_the_name_convention():
     resolved to `schema_pattern`, a hidden deprecated alias that is allow-all
     unless set, so `probe filter --kind Schema` reported every dataset included
     while ingestion filtered on `dataset_pattern` and dropped them.
+
+    Bounded, and knowing where: it sweeps only the kinds each source DECLARES,
+    because inverting the convention across undeclared ones would report
+    `procedure_pattern` and `profile_pattern` as hierarchy levels. So a source
+    with a pattern field for a level it does not declare is outside this
+    assertion -- `mssql` and `hive-metastore` both have an unannotated
+    `database_pattern` and declare no Database kind, and `probe filter --kind
+    Database` resolves it by name on both. That is what introspect's
+    _warn_convention exists to surface at runtime, since no test here can.
     """
     from datahub.ingestion.agent.introspect import (
         _declared_filter_kind,
