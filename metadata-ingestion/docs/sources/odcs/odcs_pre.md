@@ -40,6 +40,15 @@ how to disable replication.
   contract-first workflows keep their expectations. Propagation of those expectations onto
   bound physical datasets is handled by DataHub via the `PhysicalInstanceOf` relationship —
   not by this source.
+- **A native `dataContract` is emitted per `schema[]` entry** (`emit_data_contract`, default
+  on) so contracts surface on the **Contract tab**. By default it is written only on the
+  logical `odcs` dataset — the self-consistent home, since the referenced assertions target
+  it. That contract renders in the UI only under `LOGICAL_MODELS_ENABLED`, so the table
+  consumers browse stays empty on the Contract tab until either that flag is enabled or you
+  opt into `emit_physical_data_contract` (default off), which _also_ writes the contract onto
+  the bound physical table. The physical write is always non-primary because the contract URN
+  matches the hand-authored SDK convention exactly — enabling it makes ODCS the owner of that
+  table's contract — and it requires `emit_logical_parent`.
 - **Physical binding is derived from the contract itself.** The spec requires
   `servers[].type`; the source maps supported types (postgres, mysql, snowflake, bigquery,
   redshift, databricks, sqlserver, trino) to DataHub platforms and composes fully-qualified
