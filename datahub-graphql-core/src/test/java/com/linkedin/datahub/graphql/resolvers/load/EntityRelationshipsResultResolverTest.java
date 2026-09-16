@@ -938,6 +938,86 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   /**
+   * A member of a group via BOTH ingested ({@code IsMemberOfGroup}) and native ({@code
+   * IsMemberOfNativeGroup}) membership yields two membership edges to the same corpuser. The
+   * members list and count must collapse them to a single unique member (issue #14471), preferring
+   * the native (GUI-managed) edge.
+   */
+  @Test
+  public void testCorpGroupIncomingMembersDeduplicatesAcrossMembershipEdgeTypes()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    Urn memberUrn = Urn.createFromString("urn:li:corpuser:member");
+
+    CorpGroup groupSource = new CorpGroup();
+    groupSource.setUrn(groupUrn.toString());
+    when(mockEnv.getSource()).thenReturn(groupSource);
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder()
+            .graphId("membership")
+            .source(GraphSnapshotSource.GRAPH)
+            .build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
+        .thenReturn(Optional.of(binding));
+    // Same neighbor URN returned once per requested edge type; count reflects edges, not members.
+    when(entityGraphCache.listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(groupUrn.toString()),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfGroup", "IsMemberOfNativeGroup")),
+            eq(1),
+            eq(0),
+            anyInt(),
+            any(ReadMode.class)))
+        .thenReturn(
+            MembershipNeighborResult.fromNeighbors(
+                List.of(
+                    new MembershipNeighborResult.Neighbor(memberUrn.toString(), "IsMemberOfGroup"),
+                    new MembershipNeighborResult.Neighbor(
+                        memberUrn.toString(), "IsMemberOfNativeGroup")),
+                2));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    OperationContext opContext =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build())
+            .build(baseContext.getSessionAuthentication(), false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput membersInput = new RelationshipsInput();
+    membersInput.setTypes(List.of("IsMemberOfGroup", "IsMemberOfNativeGroup"));
+    membersInput.setDirection(RelationshipDirection.INCOMING);
+    membersInput.setIncludeSoftDelete(false);
+    membersInput.setStart(0);
+    membersInput.setCount(10);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(membersInput);
+
+    when(_entityService.exists(any(), eq(Set.of(memberUrn)), eq(false)))
+        .thenReturn(Set.of(memberUrn));
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().size(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), memberUrn.toString());
+    assertEquals(result.getRelationships().get(0).getType(), "IsMemberOfNativeGroup");
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  /**
    * A role's members ({@code IsMemberOfRole} INCOMING) can be both users and groups. The membership
    * graph stores both edge types; reverse listing must be served from the membership path and
    * surface group grants alongside users (not drop groups or bypass to the live graph).

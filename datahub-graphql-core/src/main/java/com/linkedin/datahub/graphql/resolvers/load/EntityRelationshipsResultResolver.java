@@ -40,8 +40,10 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.ActorContext;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -379,12 +381,16 @@ public class EntityRelationshipsResultResolver
       total = relationships.size();
       relationships = paginateRelationships(relationships, start, count);
     } else {
-      // When filtering by relatedEntityTypes, page after filter so totals/pages match the
-      // filtered set (same as the live-graph mapper). Cap the pre-filter fetch at the membership
-      // graph's bounds.maxEdges (via MembershipReadSpec) and fail closed if truncated.
+      // A neighbor URN can appear at most once per relationship type, so the same member is only
+      // duplicated when more than one type is requested (e.g. group members via IsMemberOfGroup +
+      // IsMemberOfNativeGroup, issue #14471). Both dedup and relatedEntityTypes filtering need the
+      // full neighbor set before paginating/counting, so fetch up to the membership graph's
+      // bounds.maxEdges cap (via MembershipReadSpec) and fail closed if truncated.
       int fetchCap = spec.getRelatedTypeFilterFetchCap();
-      int fetchStart = filterByRelatedType ? 0 : (start != null ? start : 0);
-      int fetchCount = filterByRelatedType ? fetchCap : (count != null ? count : Integer.MAX_VALUE);
+      boolean needsDedup = relationshipTypes.size() > 1;
+      boolean fetchAll = filterByRelatedType || needsDedup;
+      int fetchStart = fetchAll ? 0 : (start != null ? start : 0);
+      int fetchCount = fetchAll ? fetchCap : (count != null ? count : Integer.MAX_VALUE);
       MembershipNeighborResult result =
           BoundMembershipAccess.listRelated(
               context.getOperationContext(),
@@ -403,17 +409,20 @@ public class EntityRelationshipsResultResolver
                           .setEntity(UrnUtils.getUrn(neighbor.neighborUrn()))
                           .setType(neighbor.relationshipType()))
               .collect(Collectors.toList());
-      if (filterByRelatedType) {
+      if (fetchAll) {
         if (result instanceof MembershipNeighborResult.Hit hit
             && hit.total() > relationships.size()) {
           throw new IllegalStateException(
               "Membership listing for "
                   + urn
-                  + " exceeds relatedEntityTypes fetch cap ("
+                  + " exceeds fetch cap ("
                   + fetchCap
-                  + " from membership bounds.maxEdges); refusing truncated filter+page results");
+                  + " from membership bounds.maxEdges); refusing truncated filter/dedup results");
         }
         relationships = filterByRelatedEntityTypes(relationships, relatedEntityTypes);
+        if (needsDedup) {
+          relationships = dedupByNeighborUrn(relationships);
+        }
         total = relationships.size();
         relationships = paginateRelationships(relationships, start, count);
       } else {
@@ -435,6 +444,29 @@ public class EntityRelationshipsResultResolver
     mapped.setTotal(total);
     mapped.setCount(mapped.getRelationships().size());
     return mapped;
+  }
+
+  /**
+   * Collapses membership edges that point at the same neighbor entity via different relationship
+   * types (e.g. a user who is both an ingested and a native group member, issue #14471) so the
+   * count and paged list reflect unique members. Prefers the native (GUI-managed) edge, mirroring
+   * DataHub's "edited copy wins" convention (schemaMetadata, documentation); first-seen order is
+   * otherwise preserved.
+   */
+  @Nonnull
+  private static List<EntityRelationship> dedupByNeighborUrn(
+      @Nonnull final List<EntityRelationship> relationships) {
+    final Map<Urn, EntityRelationship> byNeighbor = new LinkedHashMap<>();
+    for (EntityRelationship rel : relationships) {
+      byNeighbor.merge(
+          rel.getEntity(),
+          rel,
+          (existing, incoming) ->
+              IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME.equals(incoming.getType())
+                  ? incoming
+                  : existing);
+    }
+    return new ArrayList<>(byNeighbor.values());
   }
 
   @Nonnull
