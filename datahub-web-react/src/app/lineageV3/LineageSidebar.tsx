@@ -10,6 +10,8 @@ import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/Entity
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
+import { EntityType } from '@types';
+
 const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
     position: absolute;
     right: 0;
@@ -54,6 +56,11 @@ export default function LineageSidebar() {
         return null;
     }
 
+    // Don't show sidebar for restricted entities
+    if (selectedEntity.type === EntityType.Restricted) {
+        return null;
+    }
+
     return (
         <EntitySidebarContext.Provider
             value={{
@@ -66,7 +73,7 @@ export default function LineageSidebar() {
             }}
         >
             {createPortal(
-                <SidebarWrapper $distanceFromTop={0}>
+                <SidebarWrapper $distanceFromTop={0} data-testid="lineage-sidebar">
                     <CompactContext.Provider key={selectedEntity.urn} value>
                         {entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
                     </CompactContext.Provider>

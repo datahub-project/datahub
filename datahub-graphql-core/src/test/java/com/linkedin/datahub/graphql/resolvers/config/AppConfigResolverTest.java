@@ -595,6 +595,60 @@ public class AppConfigResolverTest {
         "us-west-2");
   }
 
+  /**
+   * The ingestion side reads provider, model id and model key from this response and must land on
+   * the same index field GMS queries, so the classical values are pinned here.
+   */
+  @Test
+  public void testSemanticSearchConfigPopulatedWithClassical() throws Exception {
+    EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
+    embeddingProvider.setType("classical");
+    embeddingProvider.getClassical().setModel("hash-v1-2048");
+
+    ModelEmbeddingConfig modelConfig = new ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(2048);
+    Map<String, ModelEmbeddingConfig> models = new HashMap<>();
+    models.put("hash_v1_2048", modelConfig);
+
+    SemanticSearchConfiguration semanticSearchConfig = new SemanticSearchConfiguration();
+    semanticSearchConfig.setEnabled(true);
+    semanticSearchConfig.setEnabledEntities(Set.of("document"));
+    semanticSearchConfig.setModels(models);
+    semanticSearchConfig.setEmbeddingProvider(embeddingProvider);
+
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true,
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true,
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            false,
+            semanticSearchConfig);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertEquals(result.getSemanticSearchConfig().getEmbeddingConfig().getProvider(), "classical");
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getModelId(), "hash-v1-2048");
+    assertEquals(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getModelEmbeddingKey(),
+        "hash_v1_2048");
+  }
+
   @Test
   public void testSemanticSearchConfigPopulatedWithVertexAi() throws Exception {
     // Setup semantic search configuration with vertex_ai provider

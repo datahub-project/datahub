@@ -487,6 +487,17 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
 
         return self._conn.execute(query, params)
 
+    @property
+    def closed(self) -> bool:
+        """Whether this dict has been closed and can no longer be queried.
+
+        Exposed for callers that share a dict they do not own: without it, a
+        borrower's only signal is an AttributeError on a None connection. For a
+        shared dict, True means this handle is closed, not that the underlying
+        database is gone; the wrapper and sibling dicts stay usable.
+        """
+        return self._conn is None
+
     def close(self) -> None:
         if self._conn:
             if self.shared_connection:  # Connection not owned by this object

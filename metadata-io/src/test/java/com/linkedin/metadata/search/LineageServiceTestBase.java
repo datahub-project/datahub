@@ -216,6 +216,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   public void wipe() throws Exception {
     syncAfterWrite(getBulkProcessor());
     elasticSearchService.clear(operationContext);
+    // New mock per test so a sibling's async cache-refill cannot leak into verify().
+    // clearCache rebuilds LineageSearchService so it holds this mock, not the previous test's.
+    graphService = mock(GraphService.class);
+    when(graphService.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
     clearCache(false);
     syncAfterWrite(getBulkProcessor());
   }

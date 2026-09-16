@@ -39,7 +39,12 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
 )
+from datahub.ingestion.source.unstructured.embedding_providers.classical import (
+    MAX_CODE_POINTS as CLASSICAL_MAX_CODE_POINTS,
+    parse_dimensions as parse_classical_dimensions,
+)
 from datahub.ingestion.source.unstructured.embedding_providers.factory import (
+    IN_PROCESS_PROVIDERS,
     create_embedding_provider,
     derive_model_id,
 )
@@ -72,6 +77,15 @@ def compute_source_text_sha256(text: str) -> str:
     contract on both sides.
     """
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _has_embeddable_text(chunk: dict[str, Any]) -> bool:
+    """Whether a chunk is sent to the embedding provider.
+
+    Blank chunks are skipped. The same predicate must gate both the provider call
+    and the aspect emission, or the returned vectors shift onto the wrong chunks.
+    """
+    return bool((chunk.get("text") or "").strip())
 
 
 @dataclass
@@ -184,14 +198,34 @@ class DocumentChunkingSource(Source):
             self.embedding_model = derive_model_id(
                 self.config.embedding.provider, self.config.embedding.model
             )
+            # The classical provider rejects inputs over its code point cap instead
+            # of truncating, so a chunk size above it would fail every document.
+            if (
+                self.config.embedding.provider == "classical"
+                and self.config.chunking.max_characters > CLASSICAL_MAX_CODE_POINTS
+            ):
+                raise ValueError(
+                    f"chunking.max_characters={self.config.chunking.max_characters} "
+                    f"exceeds the {CLASSICAL_MAX_CODE_POINTS} code point limit of the "
+                    "classical embedding provider; lower it so every chunk can be "
+                    "embedded."
+                )
 
-        # Initialize rate limiter for embedding calls
+        # Initialize rate limiter for embedding calls. The limiter protects an
+        # external embedding API; in-process providers have none, so throttling
+        # them would only slow the backfill.
+        in_process = config.embedding.provider in IN_PROCESS_PROVIDERS
+        if self.embedding_model and config.embedding.rate_limit and in_process:
+            logger.info(
+                f"Embedding provider '{config.embedding.provider}' runs in-process; "
+                "embedding.rate_limit / documents_per_minute are not applied."
+            )
         self.rate_limiter: Optional[RateLimiter] = (
             RateLimiter(
                 max_calls=config.embedding.documents_per_minute,
                 period=60.0,
             )
-            if self.embedding_model and config.embedding.rate_limit
+            if self.embedding_model and config.embedding.rate_limit and not in_process
             else None
         )
 
@@ -226,6 +260,19 @@ class DocumentChunkingSource(Source):
                 "Set embedding.model in your recipe."
             )
 
+        if provider == "classical":
+            # GMS refuses this provider without an explicit opt-in; say what it is
+            # here too, since a recipe can pin it without going through the server.
+            logger.warning(
+                "Embedding provider 'classical' ranks by hashed lexical overlap, not "
+                "meaning; it is meant for CI, smoke tests and quickstarts."
+            )
+            # Otherwise a malformed name only surfaces inside the first embed call
+            # and is reported as a per-document embedding failure on every document.
+            # The guard above already rejected a missing model; this only narrows the type.
+            assert embedding_config.model is not None
+            parse_classical_dimensions(embedding_config.model)
+
         if (
             provider == "cohere"
             and not has_key
@@ -252,6 +299,15 @@ class DocumentChunkingSource(Source):
             raise ValueError(
                 "vertex_project_id is required when using vertex_ai provider. "
                 "Set embedding.vertex_project_id in your recipe or the VERTEX_AI_PROJECT_ID environment variable."
+            )
+        if (
+            provider == "onnx"
+            and not embedding_config.onnx_model_dir
+            and not os.environ.get("ONNX_EMBEDDING_MODEL_DIR")
+        ):
+            raise ValueError(
+                "onnx_model_dir is required when using onnx provider. "
+                "Set embedding.onnx_model_dir in your recipe or the ONNX_EMBEDDING_MODEL_DIR environment variable."
             )
 
     def _get_provider(self) -> EmbeddingProvider:
@@ -315,7 +371,7 @@ class DocumentChunkingSource(Source):
         # All-blank chunk text is deterministic for this document: _generate_embeddings
         # would filter every chunk before calling the provider, so treat it as a
         # deliberate skip rather than an embedding failure that would retry forever.
-        if not any((chunk.get("text") or "").strip() for chunk in chunks):
+        if not any(_has_embeddable_text(chunk) for chunk in chunks):
             logger.warning(f"Only blank chunk text for document {document_urn}")
             yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
             return
@@ -843,10 +899,11 @@ class DocumentChunkingSource(Source):
             raise
 
     def _generate_embeddings(self, chunks: list[dict[str, Any]]) -> list[list[float]]:
-        """Generate embeddings via the configured provider."""
-        # Extract text from chunks
-        texts = [chunk.get("text", "") for chunk in chunks]
-        texts = [t for t in texts if t.strip()]
+        """Generate embeddings via the configured provider.
+
+        Returns one vector per embeddable (non-blank) chunk, in chunk order.
+        """
+        texts = [chunk["text"] for chunk in chunks if _has_embeddable_text(chunk)]
         if not texts:
             return []
 
@@ -856,6 +913,19 @@ class DocumentChunkingSource(Source):
             for i in range(0, len(texts), self.config.embedding.batch_size):
                 batch = texts[i : i + self.config.embedding.batch_size]
                 result = provider.embed(batch)
+                # Checked per batch so a short batch fails before the remaining
+                # provider calls are spent and miscounts cannot net out across a
+                # batch boundary. Raised inside the try so both callers record it
+                # as an embedding failure (no semanticContent is written, the
+                # document is retried) instead of counting a success and then
+                # emitting a misaligned aspect. RuntimeError is the type the inline
+                # callers already treat as "provider misbehaved, defer the
+                # document", the same contract as the zero-vector check.
+                if len(result.embeddings) != len(batch):
+                    raise RuntimeError(
+                        f"Embedding provider returned {len(result.embeddings)} "
+                        f"vectors for {len(batch)} chunks"
+                    )
                 embeddings.extend(result.embeddings)
                 logger.debug(f"Generated {len(result.embeddings)} embeddings for batch")
 
@@ -938,25 +1008,39 @@ class DocumentChunkingSource(Source):
         )
         assert model_version is not None
 
-        # Build embedding chunks
-        embedding_chunks = []
+        # characterOffset counts every chunk, blank ones included, so offsets keep
+        # mapping onto the original document text. Only embeddable chunks were sent
+        # to the provider, so pair vectors with that same subset; zipping against
+        # every chunk would shift each vector after a blank chunk onto the wrong text.
+        offsets: list[int] = []
         current_offset = 0
+        for chunk in chunks:
+            offsets.append(current_offset)
+            current_offset += len(chunk.get("text") or "")
+        embeddable = [
+            (chunk, offset)
+            for chunk, offset in zip(chunks, offsets, strict=True)
+            if _has_embeddable_text(chunk)
+        ]
+        # Build embedding chunks. _generate_embeddings already rejected a vector count
+        # that differs from the embeddable chunk count; strict=True keeps that
+        # invariant from silently degrading into a shorter chunk list here.
+        embedding_chunks = []
 
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=False)):
+        for i, ((chunk, offset), embedding) in enumerate(
+            zip(embeddable, embeddings, strict=True)
+        ):
             chunk_text = chunk.get("text", "")
-            chunk_length = len(chunk_text)
 
             embedding_chunk = EmbeddingChunkClass(
                 position=i,
                 vector=embedding,
-                characterOffset=current_offset,
-                characterLength=chunk_length,
+                characterOffset=offset,
+                characterLength=len(chunk_text),
                 tokenCount=None,
                 text=chunk_text,
             )
             embedding_chunks.append(embedding_chunk)
-
-            current_offset += chunk_length
 
         # totalTokens is intentionally omitted: provider responses report token
         # usage at the batch level (OpenAI usage.prompt_tokens,
@@ -968,7 +1052,9 @@ class DocumentChunkingSource(Source):
             generatedAt=int(datetime.utcnow().timestamp() * 1000),
             sourceTextSha256=source_text_sha256,
             chunkingStrategy=self.config.chunking.strategy,
-            totalChunks=len(chunks),
+            # Counts the chunks that carry a vector (the emitted list), not every
+            # chunk the splitter produced: blank chunks are never embedded.
+            totalChunks=len(embeddable),
             chunks=embedding_chunks,
         )
 
@@ -1254,11 +1340,38 @@ class DocumentChunkingSource(Source):
                 )
             return f"vertex_ai/{model}", None
 
+        elif provider == "onnx":
+            if not model:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="ONNX model not specified in embedding config",
+                    mitigation_message="Set embedding.model to the model name (e.g., 'snowflake_arctic_embed_s')",
+                )
+            if not embedding_config.onnx_model_dir and not os.environ.get(
+                "ONNX_EMBEDDING_MODEL_DIR"
+            ):
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="ONNX model directory not provided",
+                    mitigation_message="Set embedding.onnx_model_dir or the ONNX_EMBEDDING_MODEL_DIR "
+                    "environment variable to the directory containing model.onnx and tokenizer.json.",
+                )
+            return f"onnx/{model}", None
+
+        elif provider == "classical":
+            if not model:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="Classical embedding model not specified in embedding config",
+                    mitigation_message="Set embedding.model to the hash model name (e.g., 'hash-v1-2048')",
+                )
+            return f"classical/{model}", None
+
         else:
             return None, CapabilityReport(
                 capable=False,
                 failure_reason=f"Unsupported embedding provider: {provider}",
-                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai', 'local', 'vertex_ai'",
+                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai', 'local', 'vertex_ai', 'onnx', 'classical'",
             )
 
     @staticmethod
