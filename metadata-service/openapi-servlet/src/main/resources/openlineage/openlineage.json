@@ -12,8 +12,8 @@
   "paths": {
     "/lineage": {
       "post": {
-        "summary": "Send an event related to the state of a run",
-        "description": "Updates a run state for a job.",
+        "summary": "Send an OpenLineage event",
+        "description": "Accepts a RunEvent, JobEvent or DatasetEvent. The event type is taken from `schemaURL`; when that is absent the event's shape decides (`run` implies a RunEvent, a top-level `dataset` implies a DatasetEvent, otherwise a JobEvent). The body is declared as a string because the three event types are distinguished by a `schemaURL` discriminator that this generator cannot express as a typed union; see the RunEvent, JobEvent and DatasetEvent schemas in components for the accepted shapes.",
         "operationId": "postRunEventRaw",
         "tags": [
           "OpenLineage"
@@ -22,7 +22,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "string"
+                "type": "string",
+                "description": "A JSON-encoded OpenLineage RunEvent, JobEvent or DatasetEvent."
               }
             }
           }

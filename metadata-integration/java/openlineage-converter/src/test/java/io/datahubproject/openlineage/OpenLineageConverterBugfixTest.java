@@ -269,6 +269,54 @@ public class OpenLineageConverterBugfixTest {
         "map<string,array<long>> should keep the inner element type: " + paths);
   }
 
+  // ---- orchestrator resolution ----
+
+  /**
+   * A RunEvent from a producer the URI heuristics do not recognise used to be rejected outright
+   * with "Unable to determine orchestrator" -- an HTTP 500 -- whenever it omitted the
+   * processing_engine run facet. dbt, Flink and house-built emitters commonly do omit it while
+   * still sending jobType, so that facet now stands in.
+   */
+  @Test
+  public void runEventFallsBackToJobTypeIntegrationForTheOrchestrator() throws Exception {
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    OpenLineage.RunEvent event =
+        ol.newRunEventBuilder()
+            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
+            .eventTime(ZonedDateTime.now())
+            .run(ol.newRunBuilder().runId(UUID.randomUUID()).build())
+            .job(
+                ol.newJobBuilder()
+                    .namespace("ns")
+                    .name("job")
+                    .facets(
+                        ol.newJobFacetsBuilder()
+                            .jobType(
+                                ol.newJobTypeJobFacetBuilder()
+                                    .processingType("BATCH")
+                                    .integration("DBT")
+                                    .jobType("MODEL")
+                                    .build())
+                            .build())
+                    .build())
+            .inputs(Collections.emptyList())
+            .outputs(Collections.emptyList())
+            .build();
+
+    DatahubJob job = OpenLineageToDataHub.convertRunEventToJob(event, configWithoutOrchestrator());
+
+    assertEquals(job.getFlowUrn().getOrchestratorEntity(), "dbt");
+    // The DataJobInfo builds its own flow URN; if the two disagreed the job would advertise a
+    // DataFlow it does not belong to.
+    assertEquals(
+        job.getJobInfo().getFlowUrn().getOrchestratorEntity(),
+        job.getFlowUrn().getOrchestratorEntity());
+  }
+
+  private static DatahubOpenlineageConfig configWithoutOrchestrator() {
+    return DatahubOpenlineageConfig.builder().fabricType(FabricType.PROD).build();
+  }
+
   // ---- eventType handling ----
 
   private static OpenLineage.RunEventBuilder baseEvent(OpenLineage ol) {

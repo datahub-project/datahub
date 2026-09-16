@@ -1,0 +1,191 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datajob/urn%3Ali%3AdataJob%3A%28urn%3Ali%3AdataFlow%3A%28spark%2Csmoke_ol_jobevent%2Csmoke_ol_ns%29%2Csmoke_ol_jobevent%29",
+      "method": "delete",
+      "description": "Clean slate for the JobEvent DataJob"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataflow/urn%3Ali%3AdataFlow%3A%28spark%2Csmoke_ol_jobevent%2Csmoke_ol_ns%29",
+      "method": "delete",
+      "description": "Clean slate for the JobEvent DataFlow"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cmy_db.my_schema.smoke_ol_catalogued%2CPROD%29",
+      "method": "delete",
+      "description": "Clean slate for the DatasetEvent dataset"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/openlineage/api/v1/lineage",
+      "description": "A JobEvent carries job metadata and edges with no run attached",
+      "json": {
+        "eventTime": "2024-06-01T10:00:00.000Z",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+        "job": {
+          "namespace": "smoke_ol_ns",
+          "name": "smoke_ol_jobevent",
+          "facets": {
+            "jobType": {
+              "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+              "_schemaURL": "https://openlineage.io/spec/facets/2-0-4/JobTypeJobFacet.json",
+              "processingType": "BATCH",
+              "integration": "SPARK",
+              "jobType": "QUERY"
+            }
+          }
+        },
+        "inputs": [
+          {
+            "namespace": "postgres://my-host:5432",
+            "name": "my_db.my_schema.smoke_ol_src"
+          }
+        ],
+        "outputs": [
+          {
+            "namespace": "postgres://my-host:5432",
+            "name": "my_db.my_schema.smoke_ol_jobout"
+          }
+        ],
+        "producer": "https://github.com/apache/airflow/tree/1.0.0"
+      }
+    },
+    "response": {
+      "status_codes": [
+        201
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/openlineage/api/v1/lineage",
+      "description": "A DatasetEvent carries dataset metadata with neither a run nor a job",
+      "json": {
+        "eventTime": "2024-06-01T10:00:00.000Z",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent",
+        "dataset": {
+          "namespace": "postgres://my-host:5432",
+          "name": "my_db.my_schema.smoke_ol_catalogued",
+          "facets": {
+            "documentation": {
+              "_producer": "https://some.producer.com/version/1.0",
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationDatasetFacet.json",
+              "description": "Catalogued with no run"
+            }
+          }
+        },
+        "producer": "https://github.com/apache/airflow/tree/1.0.0"
+      }
+    },
+    "response": {
+      "status_codes": [
+        201
+      ]
+    }
+  },
+  {
+    "request": {
+      "wait": true,
+      "description": "Let the async writes land"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datajob/urn%3Ali%3AdataJob%3A%28urn%3Ali%3AdataFlow%3A%28spark%2Csmoke_ol_jobevent%2Csmoke_ol_ns%29%2Csmoke_ol_jobevent%29",
+      "method": "get",
+      "params": {
+        "aspects": "dataJobInputOutput"
+      },
+      "description": "The JobEvent produced lineage edges without a run, under the orchestrator its jobType.integration names rather than the one its producer URI implies"
+    },
+    "response": {
+      "status_codes": [
+        200
+      ],
+      "exclude_regex_paths": [
+        "root\\['dataJobInputOutput'\\]\\['value'\\]\\['(input|output)DatasetEdges'\\]\\[\\d+\\]\\['(created|lastModified)'\\]"
+      ],
+      "json": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(spark,smoke_ol_jobevent,smoke_ol_ns),smoke_ol_jobevent)",
+        "dataJobInputOutput": {
+          "value": {
+            "inputDatajobs": [],
+            "inputDatajobEdges": [],
+            "inputDatasets": [],
+            "inputDatasetFields": [],
+            "outputDatasets": [],
+            "outputDatasetFields": [],
+            "fineGrainedLineages": [],
+            "inputDatasetEdges": [
+              {
+                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.smoke_ol_src,PROD)"
+              }
+            ],
+            "outputDatasetEdges": [
+              {
+                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.smoke_ol_jobout,PROD)"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cmy_db.my_schema.smoke_ol_catalogued%2CPROD%29",
+      "method": "get",
+      "params": {
+        "aspects": "datasetProperties"
+      },
+      "description": "The DatasetEvent produced dataset metadata. The endpoint defaults to usePatch, so DatasetPropertiesTemplate materializes its empty customProperties/tags defaults."
+    },
+    "response": {
+      "status_codes": [
+        200
+      ],
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.smoke_ol_catalogued,PROD)",
+        "datasetProperties": {
+          "value": {
+            "description": "Catalogued with no run",
+            "customProperties": {},
+            "tags": []
+          }
+        }
+      }
+    }
+  }
+]

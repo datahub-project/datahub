@@ -53,6 +53,7 @@ import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.domain.Domains;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.ArrayType;
 import com.linkedin.schema.BooleanType;
 import com.linkedin.schema.BytesType;
@@ -86,7 +87,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -470,18 +471,11 @@ public class OpenLineageToDataHub {
     log.debug("Emitting lineage: {}", OpenLineageClientUtils.toJson(event));
     DataFlowInfo dfi = convertRunEventToDataFlowInfo(event, datahubConf.getPipelineName());
 
-    String processingEngine = null;
-
-    if (event.getRun().getFacets() != null
-        && event.getRun().getFacets().getProcessing_engine() != null) {
-      processingEngine = event.getRun().getFacets().getProcessing_engine().getName();
-    }
-
     DataFlowUrn dataFlowUrn =
         getFlowUrn(
             event.getJob().getNamespace(),
             event.getJob().getName(),
-            processingEngine,
+            runProcessingEngine(event),
             event.getProducer(),
             datahubConf);
     jobBuilder.flowUrn(dataFlowUrn);
@@ -518,18 +512,18 @@ public class OpenLineageToDataHub {
 
     // Ownership comes from the OpenLineage OwnershipJobFacet (a job facet), so it belongs on the
     // DataJob.
-    Ownership ownership = generateOwnership(event);
+    Ownership ownership = generateOwnership(event.getJob());
     jobBuilder.jobOwnership(ownership);
 
     // SourceCodeLocationJobFacet points at the code that produced this job.
-    jobBuilder.jobInstitutionalMemory(getSourceCodeLocation(event));
+    jobBuilder.jobInstitutionalMemory(getSourceCodeLocation(event.getJob(), event.getEventTime()));
 
     // Airflow-style DAG tags live in the run facet and stay on the DataFlow (backward compatible).
     GlobalTags flowTags = generateTags(event);
     jobBuilder.flowGlobalTags(flowTags);
 
     // Standard OpenLineage TagsJobFacet tags are a job facet, so they go on the DataJob.
-    GlobalTags jobTags = generateJobTags(event);
+    GlobalTags jobTags = generateJobTags(event.getJob());
     jobBuilder.jobGlobalTags(jobTags);
 
     // OpenLineage has no domain facet, so domains come from configuration only. An empty or
@@ -555,13 +549,12 @@ public class OpenLineageToDataHub {
     }
   }
 
-  private static Ownership generateOwnership(OpenLineage.RunEvent event) {
+  private static Ownership generateOwnership(OpenLineage.Job job) {
     Ownership ownership = new Ownership();
     OwnerArray owners = new OwnerArray();
-    if ((event.getJob().getFacets() != null)
-        && (event.getJob().getFacets().getOwnership() != null)) {
+    if ((job.getFacets() != null) && (job.getFacets().getOwnership() != null)) {
       for (OpenLineage.OwnershipJobFacetOwners ownerFacet :
-          event.getJob().getFacets().getOwnership().getOwners()) {
+          job.getFacets().getOwnership().getOwners()) {
         // A blank name would mint urn:li:corpuser: with no identity behind it, which is a
         // catalog entry nobody can act on. The dataset path already guards this; the job path
         // did not.
@@ -616,15 +609,15 @@ public class OpenLineageToDataHub {
    * pair becomes a {@code key:value} tag (or just {@code key} when the value is empty). Returns
    * {@code null} when no tags are present.
    */
-  private static GlobalTags generateJobTags(OpenLineage.RunEvent event) {
-    if (event.getJob() == null
-        || event.getJob().getFacets() == null
-        || event.getJob().getFacets().getTags() == null
-        || event.getJob().getFacets().getTags().getTags() == null) {
+  private static GlobalTags generateJobTags(OpenLineage.Job job) {
+    if (job == null
+        || job.getFacets() == null
+        || job.getFacets().getTags() == null
+        || job.getFacets().getTags().getTags() == null) {
       return null;
     }
     List<String> tagNames = new LinkedList<>();
-    for (OpenLineage.TagsJobFacetFields tag : event.getJob().getFacets().getTags().getTags()) {
+    for (OpenLineage.TagsJobFacetFields tag : job.getFacets().getTags().getTags()) {
       String key = tag.getKey();
       if (key == null || key.trim().isEmpty()) {
         continue;
@@ -639,10 +632,9 @@ public class OpenLineageToDataHub {
     return generateTags(tagNames);
   }
 
-  private static String getDescription(OpenLineage.RunEvent event) {
-    if (event.getJob().getFacets() != null
-        && event.getJob().getFacets().getDocumentation() != null) {
-      return event.getJob().getFacets().getDocumentation().getDescription();
+  private static String getDescription(OpenLineage.Job job) {
+    if (job.getFacets() != null && job.getFacets().getDocumentation() != null) {
+      return job.getFacets().getDocumentation().getDescription();
     }
     return null;
   }
@@ -675,118 +667,119 @@ public class OpenLineageToDataHub {
     Set<Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional>> fields =
         columnLineage.getFields().getAdditionalProperties().entrySet();
     for (Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional> field : fields) {
-      FineGrainedLineage fgl = new FineGrainedLineage();
-
-      UrnArray upstreamFields = new UrnArray();
-      UrnArray downstreamsFields = new UrnArray();
       Optional<DatasetUrn> datasetUrn =
           convertOpenlineageDatasetToDatasetUrn(dataset, mappingConfig);
-      datasetUrn.ifPresent(
-          urn ->
-              downstreamsFields.add(
-                  UrnUtils.getUrn("urn:li:schemaField:" + "(" + urn + "," + field.getKey() + ")")));
-
-      LinkedHashSet<String> transformationTexts = new LinkedHashSet<>();
-      OpenLineage.StaticDatasetBuilder staticDatasetBuilder =
-          new OpenLineage.StaticDatasetBuilder();
-      field
-          .getValue()
-          .getInputFields()
-          .forEach(
-              inputField -> {
-                // Capture transformation tags up front so the user can still see that the
-                // SQL involves JOIN/FILTER/GROUP_BY operations even when we drop the URN
-                // that contributed only an INDIRECT role.
-                if (inputField.getTransformations() != null) {
-                  for (OpenLineage.InputFieldTransformations transformation :
-                      inputField.getTransformations()) {
-                    transformationTexts.add(
-                        String.format(
-                            "%s:%s", transformation.getType(), transformation.getSubtype()));
-                  }
-                }
-
-                // Drop input fields whose only role is INDIRECT (JOIN/FILTER/GROUP BY) when
-                // the caller opts out. Mixed DIRECT+INDIRECT and DIRECT-only fields pass.
-                if (!includeIndirect && isIndirectOnly(inputField)) {
-                  return;
-                }
-
-                OpenLineage.Dataset staticDataset =
-                    staticDatasetBuilder
-                        .name(inputField.getName())
-                        .namespace(inputField.getNamespace())
-                        .build();
-                Optional<DatasetUrn> urn =
-                    convertOpenlineageDatasetToDatasetUrn(staticDataset, mappingConfig);
-                if (urn.isPresent()) {
-                  Urn datasetFieldUrn =
-                      UrnUtils.getUrn(
-                          "urn:li:schemaField:"
-                              + "("
-                              + urn.get()
-                              + ","
-                              + inputField.getField()
-                              + ")");
-                  upstreamFields.add(datasetFieldUrn);
-                  if (upstreams.stream()
-                      .noneMatch(
-                          upstream ->
-                              upstream.getDataset().toString().equals(urn.get().toString()))) {
-                    upstreams.add(
-                        new Upstream()
-                            .setDataset(urn.get())
-                            .setType(DatasetLineageType.TRANSFORMED));
-                  }
-                }
-              });
-
-      if (upstreamFields.isEmpty()) {
+      if (!datasetUrn.isPresent()) {
         continue;
       }
+      Urn downstreamUrn =
+          UrnUtils.getUrn(
+              "urn:li:schemaField:" + "(" + datasetUrn.get() + "," + field.getKey() + ")");
 
-      String combinedTransformations = "";
+      // Every input column of this output field keeps its own transformations. OpenLineage states
+      // them per (output, input) pair, and a column that only took part in a GROUP BY must not end
+      // up advertising the DIRECT:IDENTITY that a sibling column earned.
+      Map<Urn, LinkedHashSet<String>> transformationsByUpstream = new LinkedHashMap<>();
+      // Transformations belonging to inputs that indirect filtering drops. They describe the query
+      // rather than any surviving pair, but with those inputs gone there is nowhere else for them
+      // to live, so they are folded back in below.
+      LinkedHashSet<String> droppedTransformations = new LinkedHashSet<>();
 
-      // Capture transformation information from OpenLineage
-      if (!transformationTexts.isEmpty()) {
-        List<String> sortedList =
-            transformationTexts.stream()
-                .sorted(String.CASE_INSENSITIVE_ORDER)
-                .collect(Collectors.toList());
-        combinedTransformations = String.join(",", sortedList);
-      }
-
-      // Extract SQL query from SQLJobFacet if available
-      if (job != null
-          && job.getFacets() != null
-          && job.getFacets().getSql() != null
-          && job.getFacets().getSql().getQuery() != null) {
-        String sqlQuery = job.getFacets().getSql().getQuery();
-        if (!sqlQuery.trim().isEmpty()) {
-          if (!combinedTransformations.isEmpty()) {
-            combinedTransformations = "-- " + combinedTransformations + "\n" + sqlQuery;
-          } else {
-            combinedTransformations = sqlQuery;
+      for (OpenLineage.InputField inputField : field.getValue().getInputFields()) {
+        LinkedHashSet<String> own = new LinkedHashSet<>();
+        if (inputField.getTransformations() != null) {
+          for (OpenLineage.InputFieldTransformations transformation :
+              inputField.getTransformations()) {
+            own.add(String.format("%s:%s", transformation.getType(), transformation.getSubtype()));
           }
+        }
+
+        // Drop input fields whose only role is INDIRECT (JOIN/FILTER/GROUP BY) when the caller
+        // opts out. Mixed DIRECT+INDIRECT and DIRECT-only fields pass.
+        if (!includeIndirect && isIndirectOnly(inputField)) {
+          droppedTransformations.addAll(own);
+          continue;
+        }
+
+        OpenLineage.Dataset staticDataset =
+            new OpenLineage.StaticDatasetBuilder()
+                .name(inputField.getName())
+                .namespace(inputField.getNamespace())
+                .build();
+        Optional<DatasetUrn> upstreamDatasetUrn =
+            convertOpenlineageDatasetToDatasetUrn(staticDataset, mappingConfig);
+        if (!upstreamDatasetUrn.isPresent()) {
+          continue;
+        }
+        Urn datasetFieldUrn =
+            UrnUtils.getUrn(
+                "urn:li:schemaField:"
+                    + "("
+                    + upstreamDatasetUrn.get()
+                    + ","
+                    + inputField.getField()
+                    + ")");
+        // A producer may name the same column twice for one output; merge rather than duplicate.
+        transformationsByUpstream
+            .computeIfAbsent(datasetFieldUrn, k -> new LinkedHashSet<>())
+            .addAll(own);
+
+        if (upstreams.stream()
+            .noneMatch(
+                upstream ->
+                    upstream.getDataset().toString().equals(upstreamDatasetUrn.get().toString()))) {
+          upstreams.add(
+              new Upstream()
+                  .setDataset(upstreamDatasetUrn.get())
+                  .setType(DatasetLineageType.TRANSFORMED));
         }
       }
 
-      upstreamFields.sort(Comparator.comparing(Urn::toString));
-      fgl.setUpstreams(upstreamFields);
-      fgl.setConfidenceScore(0.5f);
-      fgl.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
+      if (transformationsByUpstream.isEmpty()) {
+        continue;
+      }
 
-      downstreamsFields.sort(Comparator.comparing(Urn::toString));
-      fgl.setDownstreams(downstreamsFields);
-      fgl.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
-      fgl.setTransformOperation(combinedTransformations);
-      fgla.add(fgl);
+      for (Map.Entry<Urn, LinkedHashSet<String>> pair : transformationsByUpstream.entrySet()) {
+        LinkedHashSet<String> tags = new LinkedHashSet<>(pair.getValue());
+        tags.addAll(droppedTransformations);
+
+        FineGrainedLineage fgl = new FineGrainedLineage();
+        fgl.setUpstreams(new UrnArray(Collections.singletonList(pair.getKey())));
+        fgl.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
+        fgl.setDownstreams(new UrnArray(Collections.singletonList(downstreamUrn)));
+        fgl.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
+        fgl.setConfidenceScore(0.5f);
+        fgl.setTransformOperation(transformOperation(tags, job));
+        fgla.add(fgl);
+      }
     }
 
     UpstreamLineage upstreamLineage = new UpstreamLineage();
     upstreamLineage.setFineGrainedLineages(fgla);
     upstreamLineage.setUpstreams(upstreams);
     return upstreamLineage;
+  }
+
+  /**
+   * The transformation label for one (downstream, upstream) pair: its own transformation tags, and
+   * the SQL the job ran when the job facet carries it.
+   */
+  private static String transformOperation(LinkedHashSet<String> tags, OpenLineage.Job job) {
+    String combined =
+        tags.isEmpty()
+            ? ""
+            : tags.stream().sorted(String.CASE_INSENSITIVE_ORDER).collect(Collectors.joining(","));
+
+    if (job != null
+        && job.getFacets() != null
+        && job.getFacets().getSql() != null
+        && job.getFacets().getSql().getQuery() != null) {
+      String sqlQuery = job.getFacets().getSql().getQuery();
+      if (!sqlQuery.trim().isEmpty()) {
+        return combined.isEmpty() ? sqlQuery : "-- " + combined + "\n" + sqlQuery;
+      }
+    }
+    return combined;
   }
 
   private static boolean isIndirectOnly(OpenLineage.InputField inputField) {
@@ -885,23 +878,8 @@ public class OpenLineageToDataHub {
       OpenLineage.RunEvent event, boolean flowProperties) {
     StringMap customProperties = new StringMap();
 
-    // JobTypeJobFacet describes the task (BATCH vs STREAMING, and which integration emitted it),
-    // so it belongs on the DataJob rather than the parent DataFlow. It was previously read only to
-    // detect RDD_JOB and then discarded.
-    if (!flowProperties
-        && event.getJob() != null
-        && event.getJob().getFacets() != null
-        && event.getJob().getFacets().getJobType() != null) {
-      OpenLineage.JobTypeJobFacet jobType = event.getJob().getFacets().getJobType();
-      if (jobType.getProcessingType() != null) {
-        customProperties.put(JOB_PROCESSING_TYPE_KEY, jobType.getProcessingType());
-      }
-      if (jobType.getIntegration() != null) {
-        customProperties.put(JOB_INTEGRATION_KEY, jobType.getIntegration());
-      }
-      if (jobType.getJobType() != null) {
-        customProperties.put(JOB_TYPE_KEY, jobType.getJobType());
-      }
+    if (!flowProperties) {
+      customProperties.putAll(jobTypeProperties(event.getJob()));
     }
     if ((event.getRun().getFacets() != null)
         && (event.getRun().getFacets().getProcessing_engine() != null)) {
@@ -1105,17 +1083,11 @@ public class OpenLineageToDataHub {
     // Set the display name
     dji.setName(jobNames.displayName);
 
-    String jobProcessingEngine = null;
-    if ((event.getRun().getFacets() != null)
-        && (event.getRun().getFacets().getProcessing_engine() != null)) {
-      jobProcessingEngine = event.getRun().getFacets().getProcessing_engine().getName();
-    }
-
     DataFlowUrn flowUrn =
         getFlowUrn(
             event.getJob().getNamespace(),
             job.getName(), // Use original job name for flow URN
-            jobProcessingEngine,
+            runProcessingEngine(event),
             event.getProducer(),
             datahubConf);
 
@@ -1135,7 +1107,7 @@ public class OpenLineageToDataHub {
       dji.setCreated(timestamp.setTime(event.getEventTime().toInstant().toEpochMilli()));
     }
 
-    String description = getDescription(event);
+    String description = getDescription(event.getJob());
     if (description != null) {
       dji.setDescription(description);
     }
@@ -1144,10 +1116,12 @@ public class OpenLineageToDataHub {
     // Process inputs and outputs
     boolean inputsEqualOutputs = checkInputsEqualOutputs(event, job, datahubConf);
 
-    processJobInputs(datahubJob, event, datahubConf);
+    processJobInputs(
+        datahubJob, event.getInputs(), event.getJob(), event.getEventTime(), datahubConf);
 
     if (!inputsEqualOutputs) {
-      processJobOutputs(datahubJob, event, datahubConf);
+      processJobOutputs(
+          datahubJob, event.getOutputs(), event.getJob(), event.getEventTime(), datahubConf);
     }
 
     // Set run event and instance properties
@@ -1236,6 +1210,12 @@ public class OpenLineageToDataHub {
     tableName = extractTableNameFromSql(job);
     if (tableName != null) {
       return tableName;
+    }
+
+    // The remaining strategies all read the run event. A JobEvent has no run, so only the
+    // SQL facet above is available to it.
+    if (event == null) {
+      return null;
     }
 
     // Method 2: Look for direct table names in the outputs
@@ -1494,14 +1474,18 @@ public class OpenLineageToDataHub {
   }
 
   private static void processJobInputs(
-      DatahubJob datahubJob, OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) {
+      DatahubJob datahubJob,
+      List<OpenLineage.InputDataset> inputs,
+      OpenLineage.Job job,
+      ZonedDateTime eventTime,
+      DatahubOpenlineageConfig datahubConf) {
 
-    if (event.getInputs() == null) {
+    if (inputs == null) {
       return;
     }
 
     // Use LinkedHashSet to maintain order and remove duplicates more efficiently
-    Set<OpenLineage.InputDataset> uniqueInputs = new LinkedHashSet<>(event.getInputs());
+    Set<OpenLineage.InputDataset> uniqueInputs = new LinkedHashSet<>(inputs);
 
     for (OpenLineage.InputDataset input : uniqueInputs) {
       Optional<DatasetUrn> datasetUrn = convertOpenlineageDatasetToDatasetUrn(input, datahubConf);
@@ -1515,14 +1499,13 @@ public class OpenLineageToDataHub {
           builder.tags(getDatasetTags(input));
           builder.ownership(getDatasetOwnership(input));
           builder.properties(getDatasetProperties(input));
-          DatasetProfile inputProfile = getDatasetProfile(input, event.getEventTime());
+          DatasetProfile inputProfile = getDatasetProfile(input, eventTime);
           if (inputProfile != null) {
             builder.profile(inputProfile);
           }
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
-          UpstreamLineage upstreamLineage =
-              getFineGrainedLineage(input, datahubConf, event.getJob());
+          UpstreamLineage upstreamLineage = getFineGrainedLineage(input, datahubConf, job);
           if (upstreamLineage != null) {
             builder.lineage(upstreamLineage);
           }
@@ -1533,14 +1516,18 @@ public class OpenLineageToDataHub {
   }
 
   private static void processJobOutputs(
-      DatahubJob datahubJob, OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) {
+      DatahubJob datahubJob,
+      List<OpenLineage.OutputDataset> outputs,
+      OpenLineage.Job job,
+      ZonedDateTime eventTime,
+      DatahubOpenlineageConfig datahubConf) {
 
-    if (event.getOutputs() == null) {
+    if (outputs == null) {
       return;
     }
 
     // Use LinkedHashSet to maintain order and remove duplicates more efficiently
-    Set<OpenLineage.OutputDataset> uniqueOutputs = new LinkedHashSet<>(event.getOutputs());
+    Set<OpenLineage.OutputDataset> uniqueOutputs = new LinkedHashSet<>(outputs);
 
     for (OpenLineage.OutputDataset output : uniqueOutputs) {
       Optional<DatasetUrn> datasetUrn = convertOpenlineageDatasetToDatasetUrn(output, datahubConf);
@@ -1552,19 +1539,18 @@ public class OpenLineageToDataHub {
           builder.tags(getDatasetTags(output));
           builder.ownership(getDatasetOwnership(output));
           builder.properties(getDatasetProperties(output));
-          DatasetProfile outputProfile = getDatasetProfile(output, event.getEventTime());
+          DatasetProfile outputProfile = getDatasetProfile(output, eventTime);
           if (outputProfile != null) {
             builder.profile(outputProfile);
           }
           // Only outputs get an Operation: it records what this run wrote.
-          Operation operation = getOperation(output, event.getEventTime());
+          Operation operation = getOperation(output, eventTime);
           if (operation != null) {
             builder.operation(operation);
           }
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
-          UpstreamLineage upstreamLineage =
-              getFineGrainedLineage(output, datahubConf, event.getJob());
+          UpstreamLineage upstreamLineage = getFineGrainedLineage(output, datahubConf, job);
           if (upstreamLineage != null) {
             builder.lineage(upstreamLineage);
           }
@@ -2305,14 +2291,12 @@ public class OpenLineageToDataHub {
    * Turns the {@code sourceCodeLocation} job facet into an {@code InstitutionalMemory} link, which
    * is where DataHub keeps "go and read the code that produced this".
    */
-  private static InstitutionalMemory getSourceCodeLocation(OpenLineage.RunEvent event) {
-    if (event.getJob() == null
-        || event.getJob().getFacets() == null
-        || event.getJob().getFacets().getSourceCodeLocation() == null) {
+  private static InstitutionalMemory getSourceCodeLocation(
+      OpenLineage.Job job, ZonedDateTime eventTime) {
+    if (job == null || job.getFacets() == null || job.getFacets().getSourceCodeLocation() == null) {
       return null;
     }
-    OpenLineage.SourceCodeLocationJobFacet location =
-        event.getJob().getFacets().getSourceCodeLocation();
+    OpenLineage.SourceCodeLocationJobFacet location = job.getFacets().getSourceCodeLocation();
     String url = location.getUrl() != null ? location.getUrl().toString() : location.getRepoUrl();
     if (url == null || url.trim().isEmpty()) {
       return null;
@@ -2333,11 +2317,184 @@ public class OpenLineageToDataHub {
       return null;
     }
     element.setDescription(description.toString());
-    element.setCreateStamp(createAuditStamp(event.getEventTime()));
+    element.setCreateStamp(createAuditStamp(eventTime));
 
     InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
     elements.add(element);
     return new InstitutionalMemory().setElements(elements);
+  }
+
+  /**
+   * JobTypeJobFacet describes the task (BATCH vs STREAMING, and which integration emitted it), so
+   * it belongs on the DataJob rather than the parent DataFlow. It was previously read only to
+   * detect RDD_JOB and then discarded.
+   */
+  private static StringMap jobTypeProperties(OpenLineage.Job job) {
+    StringMap properties = new StringMap();
+    if (job == null || job.getFacets() == null || job.getFacets().getJobType() == null) {
+      return properties;
+    }
+    OpenLineage.JobTypeJobFacet jobType = job.getFacets().getJobType();
+    if (jobType.getProcessingType() != null) {
+      properties.put(JOB_PROCESSING_TYPE_KEY, jobType.getProcessingType());
+    }
+    if (jobType.getIntegration() != null) {
+      properties.put(JOB_INTEGRATION_KEY, jobType.getIntegration());
+    }
+    if (jobType.getJobType() != null) {
+      properties.put(JOB_TYPE_KEY, jobType.getJobType());
+    }
+    return properties;
+  }
+
+  /**
+   * A JobEvent has no run, so it cannot carry the {@code processing_engine} run facet the RunEvent
+   * path reads to name the orchestrator. {@code jobType.integration} names the same thing from the
+   * job side -- SPARK, AIRFLOW, DBT -- so it stands in. Without it the orchestrator falls back to
+   * the producer-URI heuristics, and a JobEvent and a RunEvent describing the same job land under
+   * different DataFlow URNs; a producer the heuristics do not recognise is rejected outright.
+   */
+  /**
+   * Names the orchestrator for a RunEvent: the {@code processing_engine} run facet when the
+   * producer sends one, and otherwise {@code jobType.integration}, which dbt, Flink and other
+   * producers send instead. Without the fallback those producers reach getOrchestrator with nothing
+   * but a producer URI it does not recognise, and the whole event is rejected.
+   *
+   * <p>Both places that build a DataFlow URN for a run go through this, because they have to agree:
+   * if they disagreed, a job's DataJobInfo would point at a different DataFlow than the job itself.
+   */
+  private static String runProcessingEngine(OpenLineage.RunEvent event) {
+    if (event.getRun() != null
+        && event.getRun().getFacets() != null
+        && event.getRun().getFacets().getProcessing_engine() != null
+        && event.getRun().getFacets().getProcessing_engine().getName() != null) {
+      return event.getRun().getFacets().getProcessing_engine().getName();
+    }
+    return jobIntegration(event.getJob());
+  }
+
+  private static String jobIntegration(OpenLineage.Job job) {
+    if (job == null || job.getFacets() == null || job.getFacets().getJobType() == null) {
+      return null;
+    }
+    return job.getFacets().getJobType().getIntegration();
+  }
+
+  /**
+   * Converts an OpenLineage {@code JobEvent} — job metadata and dataset edges with no run attached
+   * — into a {@link DatahubJob}. This is the spec's static-lineage path: a producer describing what
+   * a job reads and writes without having just executed it. No DataProcessInstance is produced,
+   * because there is no run to represent.
+   */
+  public static DatahubJob convertJobEventToJob(
+      OpenLineage.JobEvent event, DatahubOpenlineageConfig datahubConf) throws URISyntaxException {
+    if (event.getJob() == null) {
+      throw new IllegalArgumentException("OpenLineage JobEvent carries no job");
+    }
+    OpenLineage.Job job = event.getJob();
+    DatahubJob.DatahubJobBuilder jobBuilder = DatahubJob.builder();
+
+    if (event.getEventTime() != null) {
+      jobBuilder.eventTime(event.getEventTime().toInstant().toEpochMilli());
+    }
+
+    DataFlowUrn dataFlowUrn =
+        getFlowUrn(
+            job.getNamespace(),
+            job.getName(),
+            jobIntegration(job),
+            event.getProducer(),
+            datahubConf);
+    jobBuilder.flowUrn(dataFlowUrn);
+
+    DataFlowInfo dataFlowInfo = new DataFlowInfo();
+    dataFlowInfo.setName(getFlowName(job.getName(), datahubConf.getPipelineName()));
+    jobBuilder.dataFlowInfo(dataFlowInfo);
+
+    if (datahubConf.getPlatformInstance() != null) {
+      DataPlatformInstance dpi =
+          new DataPlatformInstance()
+              .setPlatform(new DataPlatformUrn(dataFlowUrn.getOrchestratorEntity()))
+              .setInstance(
+                  dataPlatformInstanceUrn(
+                      dataFlowUrn.getOrchestratorEntity(), datahubConf.getPlatformInstance()));
+      jobBuilder.flowPlatformInstance(dpi);
+      jobBuilder.jobPlatformInstance(dpi);
+    }
+
+    jobBuilder.jobOwnership(generateOwnership(job));
+    jobBuilder.jobGlobalTags(generateJobTags(job));
+    jobBuilder.jobInstitutionalMemory(getSourceCodeLocation(job, event.getEventTime()));
+    if (datahubConf.getDomains() != null && !datahubConf.getDomains().isEmpty()) {
+      // A JobEvent creates the DataFlow as well, so it gets the same domains the RunEvent path
+      // stamps on both entities.
+      Domains domains = generateDomains(datahubConf.getDomains());
+      jobBuilder.jobDomains(domains);
+      jobBuilder.flowDomains(domains);
+    }
+
+    DatahubJob datahubJob = jobBuilder.build();
+
+    DataJobInfo jobInfo = new DataJobInfo();
+    // Mirror the RunEvent path so the display name is trimmed the same way.
+    JobNameResult jobNames = extractJobNames(job, null, datahubConf);
+    jobInfo.setName(jobNames.displayName);
+    jobInfo.setFlowUrn(dataFlowUrn);
+    jobInfo.setType(DataJobInfo.Type.create(dataFlowUrn.getOrchestratorEntity()));
+    jobInfo.setCustomProperties(jobTypeProperties(job));
+    String description = getDescription(job);
+    if (description != null) {
+      jobInfo.setDescription(description);
+    }
+    if (event.getEventTime() != null) {
+      jobInfo.setCreated(new TimeStamp().setTime(event.getEventTime().toInstant().toEpochMilli()));
+    }
+    datahubJob.setJobInfo(jobInfo);
+    datahubJob.setJobUrn(new DataJobUrn(dataFlowUrn, jobNames.urnName));
+
+    processJobInputs(datahubJob, event.getInputs(), job, event.getEventTime(), datahubConf);
+    processJobOutputs(datahubJob, event.getOutputs(), job, event.getEventTime(), datahubConf);
+
+    return datahubJob;
+  }
+
+  /**
+   * Converts an OpenLineage {@code DatasetEvent} — dataset metadata with neither a run nor a job —
+   * into dataset aspects. This is how the spec describes a table that nobody just wrote: a catalog
+   * crawler, or dbt emitting model metadata.
+   */
+  public static List<MetadataChangeProposal> convertDatasetEventToMcps(
+      OpenLineage.DatasetEvent event, DatahubOpenlineageConfig datahubConf) throws IOException {
+    if (event.getDataset() == null) {
+      throw new IllegalArgumentException("OpenLineage DatasetEvent carries no dataset");
+    }
+    OpenLineage.StaticDataset dataset = event.getDataset();
+    Optional<DatasetUrn> datasetUrn = convertOpenlineageDatasetToDatasetUrn(dataset, datahubConf);
+    if (!datasetUrn.isPresent()) {
+      throw new IllegalArgumentException(
+          "Unable to derive a dataset URN from namespace '"
+              + dataset.getNamespace()
+              + "' and name '"
+              + dataset.getName()
+              + "'");
+    }
+
+    DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
+    builder.urn(datasetUrn.get());
+    // Same gating as the run and job paths: a deployment that does not materialize datasets does
+    // not get them decorated either.
+    if (datahubConf.isMaterializeDataset()) {
+      builder.schemaMetadata(getSchemaMetadata(dataset, datahubConf));
+      builder.tags(getDatasetTags(dataset));
+      builder.ownership(getDatasetOwnership(dataset));
+      builder.properties(getDatasetProperties(dataset));
+      DatasetProfile profile = getDatasetProfile(dataset, event.getEventTime());
+      if (profile != null) {
+        builder.profile(profile);
+      }
+    }
+
+    return DatahubJob.datasetOnlyMcps(builder.build(), datahubConf);
   }
 
   public static SchemaMetadata getSchemaMetadata(
