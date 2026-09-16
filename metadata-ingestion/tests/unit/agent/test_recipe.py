@@ -5,6 +5,24 @@ import pytest
 from datahub.ingestion.agent.recipe import scaffold, validate_recipe
 
 
+def _require_connector(source_type: str) -> None:
+    """Skip when this connector's extra is not installed.
+
+    The file already guards four snowflake tests with
+    pytest.importorskip("snowflake.connector") and leaves nine others
+    unguarded, so a minimal environment errors on some and skips on others.
+    Asking the registry instead of naming a module keeps that honest for
+    every connector without a table of import names to maintain -- and it
+    fails for the same reason the test would.
+    """
+    from datahub.ingestion.agent.probe_methods import config_class_for
+
+    try:
+        config_class_for(source_type)
+    except Exception as exc:  # ValueError from an uninstalled extra
+        pytest.skip(f"{source_type} extra not installed: {exc}")
+
+
 def test_scaffold_uses_secret_refs():
     pytest.importorskip("snowflake.connector")
     recipe = scaffold("snowflake")
@@ -67,6 +85,7 @@ def test_a_non_mapping_config_is_named_as_such(bad):
     """`or {}` swallowed every falsey value, so the error named whichever field
     happened to be required rather than the config's shape -- telling an agent
     to add host_port to a config that is a list."""
+    _require_connector("postgres")
     result = validate_recipe({"source": {"type": "postgres", "config": bad}})
     assert result["valid"] is False
     assert result["errors"] == ["recipe.source.config must be a mapping"]
@@ -86,6 +105,7 @@ def test_scaffold_does_not_overwrite_a_connectors_deny_defaults():
     MORE than the same recipe without the line. Snowflake stopped denying
     ^SNOWFLAKE_SAMPLE_DATA$, Kafka stopped denying ^_.* so __consumer_offsets
     became a dataset. This is the first command an agent runs."""
+    _require_connector("snowflake")
     from datahub.ingestion.agent.probe_methods import config_class_for
     from datahub.ingestion.agent.recipe import scaffold
 
@@ -111,6 +131,7 @@ def test_scaffold_does_not_overwrite_a_connectors_deny_defaults():
 def test_scaffold_still_emits_secrets_and_required_fields():
     """The control: omitting pattern fields must not turn into omitting
     everything."""
+    _require_connector("snowflake")
     from datahub.ingestion.agent.recipe import scaffold
 
     source = scaffold("snowflake")["source"]
@@ -141,6 +162,7 @@ def test_validate_accepts_an_env_ref_in_a_non_string_field(monkeypatch):
     working recipe invalid -- while `datahub ingest` ran it. validate's own
     warning text tells the author to use ${...} references, so it was
     advising the thing it then rejected."""
+    _require_connector("mysql")
     from datahub.ingestion.agent.recipe import validate_recipe
 
     monkeypatch.setenv("PROFILING_ENABLED", "true")
@@ -164,6 +186,7 @@ def test_validate_names_a_reference_it_cannot_resolve(monkeypatch):
     """Still an error -- a recipe pointing at an unset variable does not work
     here -- but named, which beats a type complaint about the literal
     "${VAR}"."""
+    _require_connector("mysql")
     from datahub.ingestion.agent.recipe import validate_recipe
 
     monkeypatch.delenv("NOPE_UNSET_VAR", raising=False)
@@ -190,6 +213,7 @@ def test_validate_sees_a_plaintext_secret_nested_in_a_free_form_dict():
     SECRET, so kafka's connection.consumer_config['sasl.password'] came back
     as a clean recipe. The redactor already treats it as a secret -- the one
     command whose job is to say so was the only thing not asking."""
+    _require_connector("kafka")
     from datahub.ingestion.agent.recipe import validate_recipe
 
     result = validate_recipe(
@@ -216,6 +240,7 @@ def test_validate_sees_a_plaintext_secret_nested_in_a_free_form_dict():
 def test_a_referenced_nested_secret_is_not_warned_about():
     """The control: a ${REF} is the thing the warning asks for, so warning
     about it would train the reader to ignore the warning."""
+    _require_connector("kafka")
     from datahub.ingestion.agent.recipe import validate_recipe
 
     result = validate_recipe(
@@ -300,6 +325,7 @@ def test_a_top_level_plaintext_secret_is_reported_once_not_twice():
     Two warnings for one value, the second of which points somewhere the value
     is not, is how an author stops reading them.
     """
+    _require_connector("postgres")
     result = validate_recipe(
         {
             "source": {
@@ -327,7 +353,13 @@ def test_an_unreadable_datahubenv_does_not_crash_validate(tmp_path, monkeypatch)
     lets the next resolver try and, failing that, lets the recipe fail by
     name, which is the answer the caller can act on.
     """
+    _require_connector("postgres")
     import datahub.cli.config_utils as cu
+
+    # The environment resolver runs before the .datahubenv one, so a runner
+    # that happens to export this name would resolve the ref and the test
+    # would assert against the wrong path.
+    monkeypatch.delenv("NO_SUCH_REF", raising=False)
 
     bad = tmp_path / ".datahubenv"
     bad.write_text("gms:\n  server: [unclosed\n")
