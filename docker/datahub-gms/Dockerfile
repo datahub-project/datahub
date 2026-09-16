@@ -23,12 +23,16 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
 
 COPY docker/snippets/wait_for_deps.sh /usr/local/lib/datahub/wait_for_deps.sh
 
+RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub \
+    && mkdir -p /etc/datahub/plugins/auth/resources \
+        /datahub/datahub-gms/bin /datahub/datahub-gms/resources /datahub/datahub-gms/scripts \
+    && chown -R datahub:datahub /etc/datahub /datahub
+
 FROM base AS prod-install
-COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
-COPY docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
-COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
-RUN chmod +x /datahub/datahub-gms/scripts/start.sh
-COPY metadata-service/war/build/libs/war.war /datahub/datahub-gms/bin/war.war
+COPY --chown=datahub:datahub metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
+COPY --chown=datahub:datahub --chmod=755 docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
+COPY --chown=datahub:datahub docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
+COPY --chown=datahub:datahub metadata-service/war/build/libs/war.war /datahub/datahub-gms/bin/war.war
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -36,10 +40,6 @@ FROM base AS dev-install
 
 FROM ${APP_ENV}-install AS final
 
-RUN mkdir -p /etc/datahub/plugins/auth/resources /datahub
-
-RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
-RUN chown -R datahub:datahub /etc/datahub /datahub
 USER datahub
 
 ENV JMX_OPTS=""

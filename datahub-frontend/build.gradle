@@ -103,6 +103,7 @@ docker {
   dependsOn stage
   name "${docker_registry}/${docker_repo}:${versionTag}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
+  contextDirectory layout.buildDirectory.dir('docker-context').get().asFile
   files "${buildDir}/stage"
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
@@ -123,4 +124,24 @@ docker {
   if (dockerBuildArgs.size() > 0) {
     buildArgs(dockerBuildArgs)
   }
+}
+
+def prepareDockerContext = tasks.register('prepareDockerContext', Sync) {
+  group = 'docker'
+  description = 'Stages only production frontend Docker inputs outside the full worktree.'
+  dependsOn stage
+  from(rootProject.projectDir) {
+    include '.dockerignore'
+    include 'docker/snippets/setup_java_runtime.sh'
+    include 'docker/monitoring/client-prometheus-config.yaml'
+    include 'docker/datahub-frontend/start.sh'
+    include 'datahub-frontend/build/stage/main/**'
+    include 'datahub-frontend/conf/mfe.*.yaml'
+  }
+  into layout.buildDirectory.dir('docker-context')
+}
+
+afterEvaluate {
+  tasks.named('docker') { dependsOn prepareDockerContext }
+  tasks.named('generateBakeSnippet') { dependsOn prepareDockerContext }
 }

@@ -51,6 +51,7 @@ ext {
 class DockerPluginExtension {
   Project project
   Property<File> dockerfile
+  Property<File> contextDirectory
   CopySpec copySpec
   MapProperty<String, String> buildArgs
   MapProperty<String, String> tags
@@ -71,6 +72,7 @@ class DockerPluginExtension {
   DockerPluginExtension(Project project) {
     this.project = project
     dockerfile = project.objects.property(File)
+    contextDirectory = project.objects.property(File)
     buildArgs = project.objects.mapProperty(String, String)
     copySpec = project.copySpec()
     tags = project.objects.mapProperty(String, String)
@@ -96,6 +98,10 @@ class DockerPluginExtension {
 
   def dockerfile(File value) {
     dockerfile.set(value)
+  }
+
+  def contextDirectory(File value) {
+    contextDirectory.set(value)
   }
 
   def buildArgs(Map<String, String> values) {
@@ -126,7 +132,7 @@ class DockerPluginExtension {
 def extension = project.extensions.create("docker", DockerPluginExtension)
 
 project.afterEvaluate {
-  def buildContext = "${rootProject.projectDir}"
+  def buildContext = extension.contextDirectory.getOrElse(rootProject.projectDir).absolutePath
 
   tasks.register("dockerPrepare") {
     group "docker"
@@ -143,6 +149,10 @@ project.afterEvaluate {
     def marker = "${project.buildDir}/imageCreated-${name}.json"
 
     inputs.file(extension.dockerfile)
+    inputs.files(rootProject.fileTree(rootProject.projectDir) { include '.dockerignore' })
+    inputs.files(project.fileTree(extension.dockerfile.get().parentFile) {
+      include "${extension.dockerfile.get().name}.dockerignore"
+    })
     inputs.property("tags", extension.tags)
     inputs.property("buildArgs", extension.buildArgs)
     outputs.file(marker)
@@ -241,7 +251,10 @@ project.afterEvaluate {
     doLast {
       def originalTaskInstance = tasks.named('docker').get()
       project.exec {
-        commandLine originalTaskInstance.commandLine
+        // No preparation graph runs here, so do not require a staged context.
+        commandLine originalTaskInstance.commandLine.collect { arg ->
+          arg == buildContext ? rootProject.projectDir.absolutePath : arg
+        }
         workingDir originalTaskInstance.workingDir
       }
     }
@@ -263,7 +276,7 @@ project.afterEvaluate {
         def matrixBuild = project.getProperties().getOrDefault("matrixBuild", false)
 
         def bake_spec_target = [
-          context: "${buildContext}",
+          context: isDebug ? rootProject.projectDir.absolutePath : buildContext,
           dockerfile: "${extension.dockerfile.get().toPath()}",
         ]
 

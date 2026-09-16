@@ -5,6 +5,7 @@ tasks.named("playRun").configure {
   it.httpPort = project.ext.httpPort
   if (project.hasProperty('playDev')) {
     dependsOn ':metadata-service:restli-api:mainRestClientJar'
+    devSettings.put('mfeConfigFilePath', 'conf/mfe.config.dev.yaml')
   }
 }
 

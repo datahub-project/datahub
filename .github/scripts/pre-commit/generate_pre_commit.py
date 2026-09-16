@@ -6,6 +6,7 @@ an override file.
 """
 
 import os
+import re
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
@@ -155,6 +156,7 @@ class HookGenerator:
         # intentionally NOT covered — it had no ruff coverage before and would
         # fail under ruff's default rules.
         ruff_module_dirs: list[str] = []
+        java_projects: list[Project] = []
 
         for project in self.projects:
             if project.type == ProjectType.PYTHON:
@@ -170,11 +172,16 @@ class HookGenerator:
                     continue
                 ruff_module_dirs.append(project.path)
             elif project.type == ProjectType.JAVA:
-                hooks.append(self._generate_spotless_hook(project))
+                java_projects.append(project)
             elif project.type == ProjectType.PRETTIER:
                 hooks.append(self._generate_prettier_hook(project))
             else:
-                print(f"Warning: Unsupported project type {project.type} for {project.path}")
+                print(
+                    f"Warning: Unsupported project type {project.type} for {project.path}"
+                )
+
+        if java_projects:
+            hooks.append(self._generate_spotless_hook(java_projects))
 
         # Collapse all per-module ruff hooks into two repo-wide hooks (one check,
         # one format) using the official ruff Docker image (pinned to the latest
@@ -233,41 +240,53 @@ class HookGenerator:
         # pre-refactor behaviour (mypy was CI-only). See PFP-4982.
 
         config = {"repos": [{"repo": "local", "hooks": hooks}]}
-        
+
         # Merge override hooks if they exist
         if self.override_file and os.path.exists(self.override_file):
             try:
-                with open(self.override_file, 'r') as f:
+                with open(self.override_file, "r") as f:
                     override_config = yaml.safe_load(f)
-                
-                if override_config and 'repos' in override_config:
-                    for override_repo in override_config['repos']:
+
+                if override_config and "repos" in override_config:
+                    for override_repo in override_config["repos"]:
                         matching_repo = next(
-                            (repo for repo in config['repos'] 
-                             if repo['repo'] == override_repo['repo']),
-                            None
+                            (
+                                repo
+                                for repo in config["repos"]
+                                if repo["repo"] == override_repo["repo"]
+                            ),
+                            None,
                         )
-                        
+
                         if matching_repo:
-                            matching_repo['hooks'].extend(override_repo.get('hooks', []))
+                            matching_repo["hooks"].extend(
+                                override_repo.get("hooks", [])
+                            )
                         else:
-                            config['repos'].append(override_repo)
-                
+                            config["repos"].append(override_repo)
+
                 print(f"Merged additional hooks from {self.override_file}")
             except Exception as e:
                 print(f"Warning: Error reading override file {self.override_file}: {e}")
 
         return config
 
-    def _generate_spotless_hook(self, project: Project) -> dict:
-        """Generate a spotless hook for Java projects."""
+    def _generate_spotless_hook(self, projects: list[Project]) -> dict:
+        """Batch matching Java projects without changing module-wide coverage."""
+        paths = sorted({project.path for project in projects})
+        paths_regex = "|".join(re.escape(path) for path in paths)
         return {
-            "id": f"{project.project_id}-spotless",
-            "name": f"{project.path} Spotless Apply",
-            "entry": f"./gradlew {project.gradle_path}:spotlessApply -x generateGitPropertiesGlobal",
+            "id": "java-spotless",
+            "name": "Spotless Apply (matching Java projects)",
+            "entry": (
+                "python3 .github/scripts/pre-commit/run_spotless.py --projects "
+                + ",".join(paths)
+                + " --"
+            ),
             "language": "system",
-            "files": f"^{project.path}/.*\\.java$",
-            "pass_filenames": False,
+            "files": f"^({paths_regex})/.*\\.java$",
+            "pass_filenames": True,
+            "require_serial": True,
             # spotlessApply is a self-correcting formatter (slow, module-wide Gradle
             # invocation). Run it at pre-push instead of pre-commit so commits stay
             # fast; see PFP-5002.
@@ -301,7 +320,9 @@ def write_yaml_with_spaces(file_path: str, data: dict):
     """Write YAML file with extra spacing between hooks and a timestamp header."""
     with open(file_path, "w") as f:
         # Add timestamp header
-        header = "# Auto-generated by .github/scripts/pre-commit/generate_pre_commit.py\n"
+        header = (
+            "# Auto-generated by .github/scripts/pre-commit/generate_pre_commit.py\n"
+        )
         f.write(header)
         header = "# Do not edit this file directly. Run the script to regenerate.\n"
         f.write(header)
@@ -348,7 +369,7 @@ def main():
             path="datahub-web-react",
             type=ProjectType.PRETTIER,
             taskName="githubActionsPrettierWriteChanged",
-            filePattern="^\\.github/.*\\.(yml|yaml)$"
+            filePattern="^\\.github/.*\\.(yml|yaml)$",
         ),
         Project(
             path="datahub-web-react",
