@@ -7785,6 +7785,7 @@ def test_sigma_ingest_workbook_customsql(pytestconfig, tmp_path, requests_mock):
         golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_workbook_customsql.json",
     )
 
+
 @pytest.mark.integration
 def test_dataset_warehouse_upstream_survives_empty_element_sql(
     pytestconfig, tmp_path, requests_mock

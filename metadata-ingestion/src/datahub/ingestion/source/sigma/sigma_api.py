@@ -1224,6 +1224,57 @@ class SigmaAPI:
 
         data_model.elements = elements
 
+    def get_dataset_sources(self, dataset_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Fetch the raw ``/datasets/{datasetId}/sources`` entries, or None on failure.
+
+        Shape is ``[{"type": "table", "inodeId": "<uuid>"}, ...]`` -- a bare
+        list, not the ``{"entries": [...]}`` envelope other Sigma endpoints use,
+        and not paginated. A non-list body is a failure rather than coerced, so
+        an envelope change surfaces instead of silently resolving zero sources.
+        """
+        logger.debug("Fetching sources for dataset '%s'.", dataset_id)
+        url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}/sources"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code != 200:
+                self.report.dataset_sources_lookup_failed += 1
+                self.report.warning(
+                    title="Sigma /datasets/{id}/sources lookup returned non-200",
+                    message=(
+                        "Unable to resolve the warehouse tables behind a Sigma "
+                        "Dataset. Its warehouse upstreamLineage will be missing, "
+                        "and chart columns reading through it fall back to "
+                        "self-references."
+                    ),
+                    context=f"dataset_id={dataset_id}, http_status={response.status_code}",
+                )
+                return None
+            entries = response.json()
+            if not isinstance(entries, list):
+                self.report.dataset_sources_lookup_failed += 1
+                self.report.warning(
+                    title="Sigma /datasets/{id}/sources returned an unexpected shape",
+                    message=(
+                        "Expected a bare JSON list of source entries. Warehouse "
+                        "upstream resolution is skipped for this Sigma Dataset."
+                    ),
+                    context=f"dataset_id={dataset_id}, body_type={type(entries).__name__}",
+                )
+                return None
+            return entries
+        except Exception as e:
+            self.report.dataset_sources_lookup_failed += 1
+            self.report.warning(
+                title="Sigma /datasets/{id}/sources lookup failed",
+                message=(
+                    "Exception while fetching the sources of a Sigma Dataset; "
+                    "its warehouse upstream is skipped."
+                ),
+                context=f"dataset_id={dataset_id}",
+                exc=e,
+            )
+            return None
+
     def get_file_metadata(self, inode_id: str) -> Optional[Dict[str, Any]]:
         """Fetch /files/{inodeId} and return the raw JSON dict, or None on
         non-200 or exception.  Resolves a warehouse-table lineage ``inodeId``
