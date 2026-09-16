@@ -407,9 +407,18 @@ def _slot_pieces(slot: object, platform: str) -> List[str]:
     The dialect decides, and `Identifier.quoted` deliberately does not get a
     vote: sqlglot reports quoted=True for BigQuery's `myds.INFORMATION_SCHEMA
     .TABLES` even though the SQL carries no quotes, so keying on it blocks the
-    split for the one dialect that needs it. It is safe to split BigQuery
-    unconditionally because BigQuery identifiers cannot contain a dot -- a
-    dotted name there is always a path, never a table's own name.
+    split for the one dialect that needs it.
+
+    Splitting BigQuery unconditionally is safe because a BigQuery identifier
+    cannot contain a dot, so a dotted name there is always a path and never a
+    table's own name. That is a naming rule, not an assumption: BigQuery admits
+    only Unicode categories L, M, N, Pc, Pd and Zs in a table name, and `.` is
+    Po. (Underscore is Pc, dash is Pd and space is Zs, which is why all three
+    ARE legal there and a dot is not.)
+
+    Every other dialect keeps the whole slot, so a quoted user table actually
+    named "information_schema.tables" stays one unqualified name and is
+    refused, rather than decomposing into a path the scope would permit.
     """
     if not isinstance(slot, exp.Identifier):
         # Not an identifier, so it contributes no path. The name slot is

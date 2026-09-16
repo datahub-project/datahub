@@ -223,9 +223,11 @@ def test_permits_standard_functions_over_catalog_tables():
 
 
 def test_permits_bigquery_dataset_qualified_information_schema():
-    # BigQuery addresses it as <dataset>.INFORMATION_SCHEMA.<VIEW>, and because
-    # BigQuery table names may contain dots its dialect parses the last two
-    # parts as one name -- so the schema marker is not in the `db` slot.
+    # BigQuery addresses it as <dataset>.INFORMATION_SCHEMA.<VIEW>, and its
+    # dialect leaves the last two parts in one identifier slot -- so the schema
+    # marker is not in the `db` slot and the slot has to be split to find it.
+    # That is a parser behaviour, not a naming rule: a BigQuery table name
+    # cannot itself contain a dot (see _slot_pieces).
     check_query_scope(
         "SELECT table_name FROM mydataset.INFORMATION_SCHEMA.TABLES",
         platform="bigquery",
@@ -236,6 +238,44 @@ def test_permits_bigquery_project_qualified_information_schema():
     check_query_scope(
         "SELECT table_name FROM myproject.mydataset.INFORMATION_SCHEMA.TABLES",
         platform="bigquery",
+    )
+
+
+@pytest.mark.parametrize(
+    ("platform", "sql"),
+    [
+        ("postgres", 'SELECT * FROM "information_schema.tables"'),
+        ("mysql", "SELECT * FROM `information_schema.tables`"),
+        ("snowflake", 'SELECT * FROM "snowflake.account_usage.tables"'),
+    ],
+)
+def test_a_dotted_name_is_a_name_everywhere_but_bigquery(platform, sql):
+    """A quoted identifier that CONTAINS dots must not decompose into a path.
+
+    Each of these names one user table whose name literally contains dots. If
+    the slot were split, the pieces would spell a path the scope permits and
+    the read would be waved through -- the same substitution shape as the
+    lookalike-catalog bug, one level lower.
+
+    What stops it is `_DOT_IN_SLOT_DIALECTS` holding bigquery alone, and
+    nothing tested that. Adding a dialect to that set to fix some future
+    parsing complaint is a one-word change that opens the bypass, so this is
+    the test that fails when someone makes it.
+    """
+    with pytest.raises(SqlScopeError, match="not schema-qualified"):
+        check_query_scope(sql, platform=platform)
+
+
+def test_bigquery_splits_the_slot_even_though_the_parser_calls_it_quoted():
+    """The split cannot key on `Identifier.quoted`, which is why it keys on the dialect.
+
+    sqlglot reports quoted=True for the name slot of an UNQUOTED BigQuery
+    `myds.INFORMATION_SCHEMA.TABLES`, so gating the split on `quoted is False`
+    would refuse every legitimate BigQuery catalog query. Pinned here because
+    that is the obvious-looking fix for the case above.
+    """
+    check_query_scope(
+        "SELECT table_name FROM myds.INFORMATION_SCHEMA.TABLES", platform="bigquery"
     )
 
 
