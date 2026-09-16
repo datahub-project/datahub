@@ -1,4 +1,5 @@
 import datetime as _dt
+import json
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
@@ -27,7 +28,12 @@ from datahub.ingestion.source.sigma.data_classes import (
     Workspace,
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource, _WorkbookWarehouseIndex
-from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
+from datahub.ingestion.source.sigma.sigma_api import (
+    BASE_ELEMENT_TYPES,
+    INGESTED_ELEMENT_TYPES,
+    SigmaAPI,
+    _error_body,
+)
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     OwnershipClass,
@@ -35,10 +41,11 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def _create_sigma_api() -> SigmaAPI:
+def _create_sigma_api(**config_overrides: object) -> SigmaAPI:
     config = SigmaSourceConfig(
         client_id="test_client_id",
         client_secret="test_secret",
+        **config_overrides,  # type: ignore[arg-type]
     )
     report = SigmaSourceReport()
 
@@ -87,9 +94,10 @@ class TestTokenRefreshOn401:
 
 
 def _make_element(element_id: str = "elem1", name: str = "My Chart") -> MagicMock:
-    element = MagicMock(spec=["elementId", "name"])
+    element = MagicMock(spec=["elementId", "name", "type"])
     element.elementId = element_id
     element.name = name
+    element.type = "visualization"
     return element
 
 
@@ -691,6 +699,131 @@ class TestGetElementUpstreamSources:
         assert isinstance(result["good_ds"], DatasetUpstream)
         assert len(api.report.warnings) == 1  # malformed-edge warning only
 
+    def test_union_node_is_walked_through_like_a_join(self) -> None:
+        """A union combines inputs and holds no data of its own.
+
+        Found unhandled on a live tenant: every element behind a union node
+        lost its upstreams entirely, for the same reason a join would have
+        before joins were walked through.
+        """
+        api = _create_sigma_api()
+        element = _make_element()
+        workbook = _make_workbook()
+
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        "union_node": {"nodeId": "union_node", "type": "union"},
+                        "src_ds": {
+                            "nodeId": "src_ds",
+                            "name": "Upstream Dataset",
+                            "type": "dataset",
+                        },
+                    },
+                    "edges": [
+                        {"source": "union_node", "target": "tgt_node"},
+                        {"source": "src_ds", "target": "union_node"},
+                    ],
+                }
+            ),
+        ):
+            result = api._get_element_upstream_sources(element, workbook)
+
+        # The dataset behind the union is reached; the union itself is not an
+        # upstream in its own right.
+        assert "src_ds" in result
+        assert "union_node" not in result
+        assert api.report.workbook_lineage_pass_through_nodes == {"union": 1}
+        assert api.report.workbook_lineage_node_types_unhandled == {}
+
+    def _datasheet_result(self, node_id: str) -> Dict[str, Any]:
+        """Walk one 'datasheet' node feeding the element under test."""
+        api = _create_sigma_api()
+        self._last_api = api
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        # Shape confirmed on a live tenant: no name, no sources.
+                        node_id: {"nodeId": node_id, "type": "datasheet"},
+                    },
+                    "edges": [{"source": node_id, "target": "tgt_node"}],
+                }
+            ),
+        ):
+            return api._get_element_upstream_sources(_make_element(), _make_workbook())
+
+    def test_datasheet_node_with_an_element_id_becomes_a_sheet_upstream(self) -> None:
+        """171 of these on one tenant, every one of them dropped as unknown."""
+        result = self._datasheet_result("elem-abc")
+
+        assert isinstance(result["elem-abc"], SheetUpstream)
+        assert result["elem-abc"].element_id == "elem-abc"
+        assert self._last_api.report.workbook_lineage_datasheet_as_sheet == 1
+        assert self._last_api.report.workbook_lineage_node_types_unhandled == {}
+
+    def test_datasheet_node_with_an_inode_id_is_counted_not_guessed(self) -> None:
+        """An inode carries no name here, so there is nothing to resolve it by.
+
+        Emitting a nameless DatasetUpstream would only add a counted drop
+        further downstream, and treating the inode as an element id would
+        fabricate a reference to an element that does not exist.
+        """
+        result = self._datasheet_result("inode-abc123")
+
+        assert result == {}
+        assert self._last_api.report.workbook_lineage_datasheet_inode_unresolved == 1
+        assert self._last_api.report.workbook_lineage_datasheet_as_sheet == 0
+
+    def test_datafile_node_is_a_leaf_not_an_unhandled_type(self) -> None:
+        """An uploaded file has no dataset on any platform behind it."""
+        api = _create_sigma_api()
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        "file-1": {
+                            "nodeId": "file-1",
+                            "name": "An Upload",
+                            "type": "datafile",
+                        },
+                    },
+                    "edges": [{"source": "file-1", "target": "tgt_node"}],
+                }
+            ),
+        ):
+            result = api._get_element_upstream_sources(
+                _make_element(), _make_workbook()
+            )
+
+        assert result == {}
+        assert api.report.workbook_lineage_datafile_leaf == 1
+        # Must stop counting against the "types we have never looked at" total.
+        assert api.report.workbook_lineage_node_types_unhandled == {}
+        assert api.report.warnings == []
+
     def test_request_exception_is_reported_and_returns_empty(self) -> None:
         api = _create_sigma_api()
         element = _make_element()
@@ -704,6 +837,30 @@ class TestGetElementUpstreamSources:
             result = api._get_element_upstream_sources(element, workbook)
 
         assert result == {}
+        assert len(api.report.warnings) == 1
+        assert api.report.workbook_element_lineage_fetch_failed == 1
+
+    def test_http_error_is_counted_not_only_warned(self) -> None:
+        """The counter must fire from the handler that catches the error.
+
+        This method swallows HTTP failures and returns empty, so an increment
+        placed only in the caller's ``except`` never runs. On a live tenant 200
+        elements failed with HTTP 409 while the counter read 0, so the report
+        claimed every element had been fetched cleanly.
+        """
+        api = _create_sigma_api()
+        response = MagicMock(status_code=409)
+        response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "409 Client Error: Conflict", response=response
+        )
+        with patch.object(api, "_get_api_call", return_value=response):
+            for i in range(3):
+                api._get_element_upstream_sources(
+                    _make_element(f"elem{i}"), _make_workbook()
+                )
+
+        assert api.report.workbook_element_lineage_fetch_failed == 3
+        # Deduplicated: the magnitude lives in the counter, not in 3 copies.
         assert len(api.report.warnings) == 1
 
     @pytest.mark.parametrize("status_code", [500, 403, 400])
@@ -720,11 +877,57 @@ class TestGetElementUpstreamSources:
         assert len(api.report.warnings) == 0
 
 
+class TestNonDataElementsAreNotMalformed:
+    """Layout elements have no name, so the model rejects them -- correctly.
+
+    Counting them as malformed made pagination_malformed_entries_dropped read
+    5 on a tenant where nothing was actually malformed, which is the number an
+    operator would check to see whether real data failed to parse.
+    """
+
+    def _entries(self, api: SigmaAPI, entries: list) -> list:
+        with patch.object(api, "_paginated_raw_entries", return_value=entries):
+            return api._paginated_entries(
+                "http://x/dataModels/dm-1/elements",
+                SigmaDataModelElement,
+                "Unable to fetch elements for data model 'dm-1'.",
+            )
+
+    def test_control_and_divider_are_skipped_not_counted_as_malformed(self) -> None:
+        api = _create_sigma_api()
+        parsed = self._entries(
+            api,
+            [
+                {"elementId": "a", "type": "control"},
+                {"elementId": "b", "type": "divider"},
+                {"elementId": "c", "name": "Real", "type": "table"},
+            ],
+        )
+
+        assert [e.elementId for e in parsed] == ["c"]
+        assert api.report.pagination_malformed_entries_dropped == 0
+        assert api.report.non_data_elements_skipped == {"control": 1, "divider": 1}
+
+    def test_a_genuinely_malformed_data_entry_still_counts(self) -> None:
+        """The signal the layout noise was burying."""
+        api = _create_sigma_api()
+        parsed = self._entries(api, [{"elementId": "a", "type": "table"}])
+
+        assert parsed == []
+        assert api.report.pagination_malformed_entries_dropped == 1
+        assert api.report.non_data_elements_skipped == {}
+
+
 class TestGetElementInputDetails:
     """Unit tests for SigmaSource._get_element_input_details."""
 
     def _make_source(self) -> SigmaSource:
         source = SigmaSource.__new__(SigmaSource)
+        # __new__ skips __init__, so attributes a real instance always
+        # has must be set here or diagnostics reading them raise.
+        # Mirrors SigmaSource.__init__, which __new__ skips. Calling the real
+        # initialiser keeps this from drifting again.
+        source._init_diagnostic_state()
         source.config = SigmaSourceConfig(
             client_id="x",
             client_secret="y",
@@ -2876,3 +3079,295 @@ class TestGetWorkbookLineageHttp:
             result = api.get_workbook_lineage("wb-1")
         assert result is None
         assert api.report.warnings
+
+
+def _error_response(status_code: int) -> MagicMock:
+    """Response mock whose ``raise_for_status`` behaves like requests'."""
+    resp = MagicMock(status_code=status_code)
+    resp.raise_for_status.side_effect = requests.HTTPError(
+        f"{status_code} Client Error", response=resp
+    )
+    return resp
+
+
+class TestPaginationAbortAccounting:
+    """Every abort must be counted, however many share a warning title.
+
+    Report warnings are grouped by title, so ``warnings.total_elements`` stops
+    rising after the first abort of a given kind. Detecting a per-call abort by
+    watching that number therefore flagged the FIRST truncated endpoint and
+    silently missed every one after it -- on one tenant, 29 aborts read as 0.
+    """
+
+    def _failing(self) -> requests.Response:
+        resp = requests.Response()
+        resp.status_code = 400
+        resp._content = b"{}"
+        resp.url = "https://api.example.com/x"
+        return resp
+
+    def test_every_abort_is_counted_not_just_the_first(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=self._failing()):
+            for _ in range(3):
+                api._paginated_raw_entries("https://api.example.com/x", "ctx")
+        assert api.report.pagination_aborted == 3
+        # The warnings themselves still collapse to one titled entry -- which is
+        # precisely why the counter cannot be derived from them.
+        assert api.report.warnings.total_elements == 1
+
+    def test_workbook_columns_abort_flags_each_workbook(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=self._failing()):
+            api.get_workbook_column_formulas("wb-1")
+            api.get_workbook_column_formulas("wb-2")
+        assert api.report.column_formulas_fetch_partial == 2
+
+    def test_successful_fetch_is_not_flagged_partial(self) -> None:
+        """An unrelated warning during the call must not fake a partial fetch."""
+        api = _create_sigma_api()
+        ok = _paginated_response([{"elementId": "e1", "name": "c", "formula": "1"}])
+        with patch.object(api, "_get_api_call", return_value=ok):
+            api.report.warning(title="Something else", message="m")
+            api.get_workbook_column_formulas("wb-1")
+        assert api.report.column_formulas_fetch_partial == 0
+
+    def test_data_model_columns_abort_is_visible(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=self._failing()):
+            api._get_data_model_columns("dm-1")
+        assert api.report.data_model_columns_fetch_partial == 1
+
+
+class TestApiFailuresReachTheReport:
+    """``_log_http_error`` is the terminal handler for most API failures.
+
+    It used to log a context-free ``HTTP status-code = 404`` at WARNING, put
+    the only identifying detail on a DEBUG line, and touch the report not at
+    all -- so an operator not running with ``--debug`` saw a bare status code,
+    and the ingestion report showed nothing. On one tenant (2026-09) that hid
+    26 failures across three status codes.
+    """
+
+    def test_an_http_failure_is_counted_and_reported_with_context(self) -> None:
+        api = _create_sigma_api()
+        response = requests.Response()
+        response.status_code = 404
+        try:
+            raise requests.exceptions.HTTPError(response=response)
+        except requests.exceptions.HTTPError:
+            api._log_http_error(message="Unable to fetch workspace 'ws-1'.")
+
+        assert api.report.api_call_failures_by_status == {"404": 1}
+        assert len(api.report.warnings) == 1
+        assert "ws-1" in api.report.warnings[0].context[0]
+
+    def test_a_failure_with_no_response_is_keyed_by_exception_type(self) -> None:
+        """A connection error has no status code but is still a failed call."""
+        api = _create_sigma_api()
+        try:
+            raise requests.exceptions.ConnectionError("refused")
+        except requests.exceptions.ConnectionError:
+            api._log_http_error(message="Unable to fetch datasets.")
+
+        assert api.report.api_call_failures_by_status == {"ConnectionError": 1}
+
+    def test_a_caller_with_its_own_warning_is_not_double_reported(self) -> None:
+        """The counter must still fire even when the warning is suppressed.
+
+        Pagination aborts already emit a warning naming the endpoint, the URL
+        and how many rows survived. Adding a second, vaguer one for the same
+        failure would make the report harder to read, but dropping the count
+        would put us back to invisible.
+        """
+        api = _create_sigma_api()
+        response = requests.Response()
+        response.status_code = 500
+        try:
+            raise requests.exceptions.HTTPError(response=response)
+        except requests.exceptions.HTTPError:
+            api._log_http_error(message="ctx", report_warning=False)
+
+        assert api.report.api_call_failures_by_status == {"500": 1}
+        assert api.report.warnings == []
+
+    def test_sigma_error_codes_are_bucketed_separately_from_status(self) -> None:
+        """The status is too coarse to act on; Sigma's ``code`` is not.
+
+        On one tenant the nine 400s were three unrelated problems needing three
+        different fixes, and a single ``400: 9`` said none of that.
+        """
+        api = _create_sigma_api()
+        for code in ("inode_archived", "unable_to_produce_query", "inode_archived"):
+            response = requests.Response()
+            response.status_code = 409
+            response._content = json.dumps(
+                {"message": "whatever", "code": code}
+            ).encode()
+            try:
+                raise requests.exceptions.HTTPError(response=response)
+            except requests.exceptions.HTTPError:
+                api._log_http_error(message="ctx", report_warning=False)
+
+        assert api.report.api_call_failures_by_sigma_code == {
+            "inode_archived": 2,
+            "unable_to_produce_query": 1,
+        }
+        # The status bucket is unchanged, so existing reads of it still work.
+        assert api.report.api_call_failures_by_status == {"409": 3}
+
+    def test_a_non_json_body_leaves_the_code_bucket_empty(self) -> None:
+        """Reading the body must never raise: the call has already failed.
+
+        An HTML error page from a proxy in front of Sigma is the realistic
+        case, and it must count under the status like any other failure.
+        """
+        api = _create_sigma_api()
+        response = requests.Response()
+        response.status_code = 502
+        response._content = b"<html>Bad Gateway</html>"
+        try:
+            raise requests.exceptions.HTTPError(response=response)
+        except requests.exceptions.HTTPError:
+            api._log_http_error(message="ctx", report_warning=False)
+
+        assert api.report.api_call_failures_by_sigma_code == {}
+        assert api.report.api_call_failures_by_status == {"502": 1}
+
+
+class TestPivotAndInputTableOptOut:
+    """``ingest_pivot_and_input_tables=False`` restores the previous entity set.
+
+    Default-on adds ~1,200 chart entities on the reference tenant, so the
+    escape hatch an existing installation would reach for needs coverage of its
+    own — the default-on path being tested says nothing about it.
+    """
+
+    def test_disabled_admits_only_the_original_two_types(self) -> None:
+        api = _create_sigma_api(ingest_pivot_and_input_tables=False)
+        assert api.ingested_element_types == BASE_ELEMENT_TYPES
+        assert "pivot-table" not in api.ingested_element_types
+        assert "input-table" not in api.ingested_element_types
+
+    def test_enabled_by_default_admits_all_four(self) -> None:
+        api = _create_sigma_api()
+        assert api.ingested_element_types == INGESTED_ELEMENT_TYPES
+
+    def test_a_pivot_table_is_skipped_when_disabled(self) -> None:
+        """A pivot element is admitted or skipped purely by the flag."""
+        api = _create_sigma_api(ingest_pivot_and_input_tables=False)
+        workbook, page = _make_workbook(), MagicMock(pageId="p1", name="Page 1")
+        entry = {
+            "elementId": "pivot1",
+            "name": "A Pivot",
+            "type": "pivot-table",
+            "url": "https://example.com/p",
+        }
+        with patch.object(
+            api, "_get_api_call", return_value=_lineage_response({"entries": [entry]})
+        ):
+            elements = api.get_page_elements(workbook, page)
+
+        assert elements == []
+        assert api.report.workbook_elements_skipped_by_type == {"pivot-table": 1}
+
+
+class TestFailedCallsCarryTheServersExplanation:
+    """A 4xx that Sigma explains in its body read as an unexplained failure.
+
+    ``requests`` puts only "400 Client Error: Bad Request for url: ..." into
+    the exception text. On one tenant (2026-09) 12 workbooks aborted their
+    /columns fetch that way, costing 37,655 chart columns their formulas, with
+    nothing in the log saying why.
+    """
+
+    def _fail_with(
+        self, status: int, body: str, headers: Optional[Dict] = None
+    ) -> requests.exceptions.HTTPError:
+        response = requests.Response()
+        response.status_code = status
+        response._content = body.encode()
+        response.headers.update(headers or {})
+        return requests.exceptions.HTTPError(response=response)
+
+    def test_the_response_body_reaches_the_report(self) -> None:
+        api = _create_sigma_api()
+        try:
+            raise self._fail_with(400, '{"message":"workbook is being edited"}')
+        except requests.exceptions.HTTPError:
+            api._log_http_error(message="Unable to fetch columns for workbook 'wb-1'.")
+
+        context = api.report.warnings[0].context[0]
+        assert "workbook is being edited" in context
+        assert "http_status=400" in context
+
+    def test_retry_after_is_surfaced_when_the_server_sends_it(self) -> None:
+        """Decides whether a 409 is worth retrying or is terminal."""
+        api = _create_sigma_api()
+        try:
+            raise self._fail_with(409, "conflict", {"Retry-After": "30"})
+        except requests.exceptions.HTTPError:
+            api._log_http_error(message="Unable to fetch columns.")
+
+        assert "retry_after=30" in api.report.warnings[0].context[0]
+
+    def test_an_unreadable_body_does_not_raise(self) -> None:
+        """The call has already failed; reading the body must not fail too."""
+        response = MagicMock()
+        type(response).text = property(
+            lambda self: (_ for _ in ()).throw(ValueError("undecodable"))
+        )
+        assert _error_body(response) is None
+
+
+class TestEnumerationFailuresBlockStaleDeletion:
+    """A dead listing call must be a failure, not a warning.
+
+    Stale-entity removal soft-deletes whatever a previous run emitted and this
+    one did not, and the framework's protection is to skip that pass when the
+    source reported a FAILURE. This connector reported everything as a warning
+    (71 call sites, zero failures), so the guard could never fire for it -- one
+    failed /dataModels call would have looked like every Data Model was deleted.
+    """
+
+    def test_a_failed_entity_listing_reports_a_failure(self) -> None:
+        api = _create_sigma_api()
+        response = requests.Response()
+        response.status_code = 500
+        with patch.object(
+            api,
+            "_get_api_call",
+            side_effect=requests.exceptions.HTTPError(response=response),
+        ):
+            api._paginated_raw_entries(
+                "http://x/dataModels",
+                "Unable to fetch data models.",
+                enumerates_entities=True,
+            )
+
+        assert api.report.entity_enumeration_failed == 1
+        assert len(api.report.failures) == 1
+
+    def test_a_failed_detail_call_stays_a_warning(self) -> None:
+        """A workbook whose /columns dies is thinner, not missing.
+
+        Escalating this would suppress stale-entity removal for the whole run
+        over something that costs no entities -- on one tenant 15 such aborts
+        happened while every workbook was still emitted.
+        """
+        api = _create_sigma_api()
+        response = requests.Response()
+        response.status_code = 409
+        with patch.object(
+            api,
+            "_get_api_call",
+            side_effect=requests.exceptions.HTTPError(response=response),
+        ):
+            api._paginated_raw_entries(
+                "http://x/workbooks/wb-1/columns",
+                "Unable to fetch column formulas for workbook 'wb-1'.",
+            )
+
+        assert api.report.entity_enumeration_failed == 0
+        assert api.report.failures == []
+        assert len(api.report.warnings) == 1
