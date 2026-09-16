@@ -27,6 +27,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 import com.datahub.util.exception.ESQueryException;
@@ -2054,13 +2055,11 @@ public class GraphQueryPITDAOTest {
   }
 
   @Test(timeOut = 10000)
-  public void testGetImpactLineageTimeoutExceptionExactMessageFormat() throws Exception {
-    // Test the exact timeout exception message format from getImpactLineage
-    // Covers the else block (lines 1373-1386) that throws IllegalStateException with:
-    // "Timed out while fetching lineage... Operation exceeded the configured timeout."
-    // and "Lineage operation timed out after %d seconds. Entity: %s, Direction: %s, MaxHops: %d.
-    //      Consider increasing the timeout or set partialResults to true to return partial
-    // results."
+  public void testGetImpactLineageSliceTimeoutStrictThrowsLineageTimeout() throws Exception {
+    // Slice-level timeout: every search after the first sleeps past the 2s budget, so
+    // processSliceFutures' future.get() times out and strict mode must surface a
+    // LineageTimeoutException (cause: java.util.concurrent.TimeoutException). The BFS-level
+    // (between-hops) site is covered by GraphQueryBaseDAOImpactTimeoutTest.
     Urn sourceUrn =
         Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
 
@@ -2114,114 +2113,27 @@ public class GraphQueryPITDAOTest {
     // Override to delay second hop to cause timeout in main loop
     when(mockClient.search(
             any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(searchResponse) // First hop returns quickly
+        .thenReturn(searchResponse) // slice 0, page 1
         .thenAnswer(
             invocation -> {
-              Thread.sleep(timeoutSeconds * 1000 + 500); // Exceeds timeout
+              Thread.sleep(
+                  timeoutSeconds * 1000
+                      + 500); // every later page (other slice, page 2) overruns the budget
               return searchResponse;
             });
 
     // Should throw IllegalStateException with exact message format
-    try {
-      dao.getImpactLineage(operationContext, sourceUrn, filters, 2);
-      fail("Should throw IllegalStateException when timeout occurs with partialResults=false");
-    } catch (IllegalStateException e) {
-      String message = e.getMessage();
-      Assert.assertNotNull(message, "Exception message should not be null");
-      // The timeout can trip in the main loop ("Lineage operation timed out after ...") or in a
-      // slice ("Slice N timed out after ..."). Which one wins is a timing race, so assert the
-      // distinct contract type (both sites now throw LineageTimeoutException) rather than an exact,
-      // path-dependent message; keep the message check non-exact.
-      Assert.assertTrue(
-          e instanceof LineageTimeoutException,
-          "Timeout should surface as LineageTimeoutException. Got: " + e.getClass().getName());
-      Assert.assertTrue(
-          message.contains("timed out") || message.contains("timeout"),
-          "Message should indicate a timeout. Got: " + message);
-    } catch (RuntimeException e) {
-      // Check if wrapped - unwrap to find IllegalStateException in the cause chain
-      // The IllegalStateException may be wrapped multiple times:
-      // - RuntimeException("Failed to execute slice-based search", RuntimeException("Slice X
-      // failed", ExecutionException(IllegalStateException)))
-      // - Or RuntimeException("Slice X timed out", TimeoutException)
-      Throwable cause = e;
-      IllegalStateException foundIllegalStateException = null;
+    LineageTimeoutException thrown =
+        expectThrows(
+            LineageTimeoutException.class,
+            () -> dao.getImpactLineage(operationContext, sourceUrn, filters, 2));
 
-      // Traverse the entire cause chain to find IllegalStateException
-      while (cause != null && foundIllegalStateException == null) {
-        if (cause instanceof IllegalStateException) {
-          String message = cause.getMessage();
-          if (message != null && message.contains("Lineage operation timed out after")) {
-            foundIllegalStateException = (IllegalStateException) cause;
-            break;
-          }
-        }
-        // Also check if it's an ExecutionException (from CompletableFuture) and unwrap its cause
-        if (cause instanceof java.util.concurrent.ExecutionException && cause.getCause() != null) {
-          cause = cause.getCause();
-          continue;
-        }
-        cause = cause.getCause();
-      }
-
-      if (foundIllegalStateException != null) {
-        String message = foundIllegalStateException.getMessage();
-        Assert.assertNotNull(message, "Exception message should not be null");
-        Assert.assertTrue(
-            message.contains("Lineage operation timed out after"),
-            "Exception should contain 'Lineage operation timed out after'. Got: " + message);
-        Assert.assertTrue(
-            message.contains(String.valueOf(timeoutSeconds)),
-            "Exception should contain timeout seconds (" + timeoutSeconds + "). Got: " + message);
-        Assert.assertTrue(
-            message.contains("Consider increasing the timeout or set partialResults to true"),
-            "Exception should suggest increasing timeout or setting partialResults. Got: "
-                + message);
-      } else {
-        // If we didn't find IllegalStateException, check if any exception in the chain contains
-        // timeout info
-        // This handles cases where the timeout happens at a different level (e.g., slice processing
-        // timeout)
-        Throwable checkCause = e;
-        boolean foundTimeoutMessage = false;
-        while (checkCause != null && !foundTimeoutMessage) {
-          String msg = checkCause.getMessage();
-          if (msg != null
-              && (msg.contains("timed out")
-                  || msg.contains("timeout")
-                  || msg.contains("Lineage operation timed out"))) {
-            foundTimeoutMessage = true;
-            // Verify it has the expected timeout content
-            Assert.assertTrue(
-                msg.contains("timeout")
-                    || msg.contains("timed out")
-                    || msg.contains("Lineage operation timed out"),
-                "Exception should mention timeout. Got: " + msg);
-            break;
-          }
-          if (checkCause instanceof java.util.concurrent.ExecutionException
-              && checkCause.getCause() != null) {
-            checkCause = checkCause.getCause();
-          } else {
-            checkCause = checkCause.getCause();
-          }
-        }
-        if (!foundTimeoutMessage) {
-          throw new AssertionError(
-              "Expected IllegalStateException with timeout message in exception chain, got: "
-                  + e.getClass().getSimpleName()
-                  + " - "
-                  + e.getMessage()
-                  + (e.getCause() != null
-                      ? " (cause: "
-                          + e.getCause().getClass().getSimpleName()
-                          + " - "
-                          + e.getCause().getMessage()
-                          + ")"
-                      : ""));
-        }
-      }
-    }
+    Assert.assertTrue(
+        thrown.getMessage().contains("timed out"),
+        "Message should indicate a timeout. Got: " + thrown.getMessage());
+    Assert.assertTrue(
+        thrown.getCause() instanceof java.util.concurrent.TimeoutException,
+        "Slice-level timeouts wrap the future.get() TimeoutException. Got: " + thrown.getCause());
   }
 
   @Test(timeOut = 10000)
