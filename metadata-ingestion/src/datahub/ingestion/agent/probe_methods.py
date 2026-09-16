@@ -344,6 +344,22 @@ def config_class_for(source_type: str) -> Any:
         raise ValueError(
             f"unknown or unloadable source type '{source_type}': {exc}"
         ) from exc
+    except ImportError as exc:
+        # A source_type may be a dotted/colon import path to a source outside
+        # this repo, so a typo in one is the caller's mistake and belongs at
+        # exit 2 -- it surfaced as ModuleNotFoundError("No module named 'my'")
+        # instead, which is not in _USER_ERRORS and so exits 1, telling an
+        # agent to retry a name it should be fixing.
+        #
+        # Only for a path the CALLER wrote, which is what preserves the rule
+        # above: no registered source type contains "." or ":" (checked across
+        # all 119), so an ImportError from inside a registered plugin's own
+        # module still propagates to exit 1, where a deployment defect belongs.
+        if "." in source_type or ":" in source_type:
+            raise ValueError(
+                f"unknown or unloadable source type '{source_type}': {exc}"
+            ) from exc
+        raise
     get_config_class = getattr(source_cls, "get_config_class", None)
     return get_config_class() if get_config_class is not None else None
 

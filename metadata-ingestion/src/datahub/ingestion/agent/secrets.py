@@ -58,8 +58,18 @@ class DatahubEnvResolver:
             return None
         import yaml
 
-        with open(DATAHUB_CONFIG_PATH) as stream:
-            data = yaml.safe_load(stream) or {}
+        try:
+            with open(DATAHUB_CONFIG_PATH) as stream:
+                data = yaml.safe_load(stream) or {}
+        except (OSError, yaml.YAMLError):
+            # Declining, not failing. A resolver that cannot read its own
+            # config has not resolved the ref, and saying so lets the next
+            # resolver try and the recipe fail by NAME. Raising instead sent
+            # a yaml.ParserError out of `recipe validate` as an internal
+            # error, so a recipe with an unresolvable ${REF} was answered with
+            # a YAML syntax complaint about a file it never mentioned -- with
+            # the local path in the message.
+            return None
         # Read the file directly rather than through get_url_and_token(): that
         # path raises on a missing config and warns on an expired token, and
         # this command emits JSON on stdout.

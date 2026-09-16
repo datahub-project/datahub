@@ -621,3 +621,20 @@ def test_discovery_survives_a_recipe_that_does_not_validate_yet():
 
     assert [s.command for s in partial] == [s.command for s in full]
     assert [s.command for s in partial] == [s.command for s in none_given]
+
+
+@pytest.mark.parametrize(
+    "source_type", ["my.module:Class", "a.b.c", "x:y:z", "definitely_not_a_source"]
+)
+def test_an_unresolvable_source_type_is_a_user_error(source_type):
+    """DataHub takes a dotted import path as a source type, so a typo in one
+    is user input -- and it surfaced as ModuleNotFoundError("No module named
+    'my'"), which is not in the CLI's _USER_ERRORS and so exits as an
+    internal failure. An agent reads that as "retry", when the answer is
+    "fix the name".
+
+    A registered-but-broken plugin stays an internal error: that is the
+    deployment's problem, not the caller's.
+    """
+    with pytest.raises(ValueError):
+        pm.config_class_for(source_type)

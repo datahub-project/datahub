@@ -303,3 +303,39 @@ def test_a_top_level_plaintext_secret_is_reported_once_not_twice():
     named = [w for w in _warnings_of(result) if "'password' contains" in w]
     assert len(named) == 1, _warnings_of(result)
     assert _nested_warnings(result) == [], _warnings_of(result)
+
+
+def test_an_unreadable_datahubenv_does_not_crash_validate(tmp_path, monkeypatch):
+    """A resolver that cannot read its own config has not resolved the ref.
+
+    yaml.ParserError escaped `validate` as an internal error, so a recipe with
+    an unresolvable ${REF} reported a YAML syntax error about a file the
+    recipe never mentioned -- with the local path in the message. Declining
+    lets the next resolver try and, failing that, lets the recipe fail by
+    name, which is the answer the caller can act on.
+    """
+    import datahub.cli.config_utils as cu
+
+    bad = tmp_path / ".datahubenv"
+    bad.write_text("gms:\n  server: [unclosed\n")
+    monkeypatch.setattr(cu, "DATAHUB_CONFIG_PATH", str(bad))
+
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "postgres",
+                "config": {
+                    "host_port": "h:5432",
+                    "username": "u",
+                    "password": "${NO_SUCH_REF}",
+                    "database": "d",
+                },
+            }
+        }
+    )
+
+    assert result["valid"] is False
+    errors = result["errors"]
+    assert isinstance(errors, list)
+    assert any("NO_SUCH_REF" in str(e) for e in errors), errors
+    assert not any("yaml" in str(e).lower() for e in errors), errors
