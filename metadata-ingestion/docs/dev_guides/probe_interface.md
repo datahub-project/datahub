@@ -523,10 +523,15 @@ Two things in `agent/redact.py` do act on results, and neither is a general net:
 
 - `register_secrets` masks credentials drawn from the recipe wherever they appear in output.
 - `mask_identity_columns` masks values under the column names in `WITHHELD_COLUMN_NAMES`
-  (`user_name`, `query_text` and the like). It exists for the relations that are catalog metadata
-  by definition but carry identity or query text in particular columns — Snowflake's
-  `access_history` is the case it was written for. Apply it in your provider when you admit such a
-  relation; nothing applies it for you.
+  (`user_name`, `login_name`, `email` and the like). It exists for the relations that are catalog metadata
+  by definition but carry identity in particular columns — Snowflake's `access_history` is the
+  case it was written for. Apply it in your provider when you admit such a relation; nothing
+  applies it for you.
+
+  Query TEXT is a different mechanism, and not this one: a relation carrying it is kept out of
+  the scope entirely rather than admitted and masked, which is why Snowflake lists
+  `access_history` and not `query_history`. Masking a column withholds a value; excluding a
+  relation withholds the relation.
 
 So a relation you admit is your judgement, not the framework's. If it has columns like those,
 mask them.

@@ -240,11 +240,20 @@ def check_query_scope(
     write: exp.Expr
     for write in statement.find_all(*_WRITE_NODES):
         keyword = _STATEMENT_KEYWORDS.get(type(write))
+        # The CTE sentence only when the write is actually in one. It is the
+        # caller's rewrite guidance, and a nested `SELECT ... INTO` or a
+        # `FOR UPDATE` was being told to look for a CTE it does not have.
+        in_cte = any(isinstance(ancestor, exp.CTE) for ancestor in _ancestors(write))
+        because = (
+            " A data-modifying CTE is still a write, however the query reads "
+            "at the top level."
+            if in_cte
+            else " It is refused wherever it appears, including nested inside a SELECT."
+        )
         raise SqlScopeError(
             f"only SELECT queries are permitted; this contains "
             f"{'a ' + keyword if keyword else 'a statement'} "
-            f"that the probe cannot clear as read-only. A data-modifying CTE "
-            f"is still a write, however the query reads at the top level"
+            f"that the probe cannot clear as read-only.{because}"
         )
 
     # Before walking tables: a projection-only call such as
@@ -289,6 +298,16 @@ def check_query_scope(
             "table in information_schema); this query names none, so it "
             "inspects server state rather than catalog metadata"
         )
+
+
+def _ancestors(node: exp.Expr) -> List[exp.Expr]:
+    """The node's parents, innermost first."""
+    chain: List[exp.Expr] = []
+    current = node.parent
+    while current is not None:
+        chain.append(current)
+        current = current.parent
+    return chain
 
 
 def _check_withheld_columns(statement: exp.Expr) -> None:

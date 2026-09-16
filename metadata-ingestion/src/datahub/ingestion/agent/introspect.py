@@ -122,7 +122,10 @@ def _warn_convention(config_cls: type, kind: ProbeNodeKind, name: str) -> None:
     reader in filter_check.py survived four commits of deliberate hook removal
     for exactly that reason.
     """
-    key = (config_cls.__name__, str(kind))
+    # Qualified, because two connectors can ship config classes with the same
+    # __name__ and the second one's warning would be swallowed by the first's
+    # -- silencing exactly the connector nobody has looked at yet.
+    key = (f"{config_cls.__module__}.{config_cls.__qualname__}", str(kind))
     if key in _CONVENTION_WARNED:
         return
     _CONVENTION_WARNED.add(key)
