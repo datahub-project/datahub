@@ -50,13 +50,14 @@ export class GroupEntity implements Entity<CorpGroup> {
             urn={data.urn}
             name={this.displayName(data)}
             description={data.info?.description}
-            // memberCount.total is the authoritative total (fetched by the owner fragment); fall back
-            // to the length of the fetched members list so previews that only carry info.members still
-            // show a count instead of 0.
+            // memberCount.total is the authoritative total (via the shared corpGroupMemberCount
+            // fragment); fall back to the fetched members list length so previews that only carry
+            // info.members still show a count. Nullish coalescing preserves an authoritative 0
+            // instead of falling through to a stale members-list length.
             membersCount={
-                (data as any)?.memberCount?.total ||
-                (data as any)?.relationships?.total ||
-                data.info?.members?.length ||
+                (data as any)?.memberCount?.total ??
+                (data as any)?.relationships?.total ??
+                data.info?.members?.length ??
                 0
             }
         />
