@@ -976,6 +976,23 @@ class _FailingGraph(FakeGraph):
         super().emit_mcp(mcp)
 
 
+class _ReadFailingGraph(FakeGraph):
+    """FakeGraph that raises when reading schemaMetadata for a targeted dataset."""
+
+    def __init__(
+        self, store: Dict[str, Dict[str, _Aspect]], *, fail_dataset: str
+    ) -> None:
+        super().__init__(store)
+        self._fail_dataset = fail_dataset
+
+    def get_aspect(
+        self, entity_urn: str, aspect_type: Type[_Aspect], version: int = 0
+    ) -> Optional[_Aspect]:
+        if entity_urn == self._fail_dataset and aspect_type is SchemaMetadataClass:
+            raise RuntimeError("simulated GMS read failure")
+        return super().get_aspect(entity_urn, aspect_type, version)
+
+
 class TestFailureHandling:
     def test_schema_field_write_failure_keeps_source_and_reports(self):
         old_sf = _sf("product2id")
@@ -1074,6 +1091,66 @@ class TestFailureHandling:
         )
         assert result.error is None
         assert any("could not be parsed" in s for s in result.skipped)
+
+    def test_read_failure_on_one_dataset_does_not_abort_batch(self):
+        # A read failure on one dataset in a multi-dataset run is isolated to that
+        # dataset: it is reported as an error while the rest of the batch still
+        # migrates normally.
+        bad_ds = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.bad,PROD)"
+        )
+        good_old = _sf("product2id")
+        good_new = _sf("Product2Id")
+        graph = _ReadFailingGraph(
+            {
+                bad_ds: {"schemaMetadata": _schema("Whatever")},
+                _DATASET: {"schemaMetadata": _schema("Product2Id")},
+                good_old: {"documentation": _doc("stranded")},
+            },
+            fail_dataset=bad_ds,
+        )
+        report = run_migration(
+            graph,  # type: ignore[arg-type]
+            [bad_ds, _DATASET],
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        by_urn = {r.dataset_urn: r for r in report.results}
+        assert by_urn[bad_ds].error is not None  # bad dataset surfaced as an error
+        # the healthy dataset in the same batch still fully migrated
+        assert by_urn[_DATASET].error is None
+        assert graph._store[good_new]["documentation"] == _doc("stranded")
+        assert good_old in graph.soft_deleted
+
+    def test_sibling_field_still_processed_after_write_failure(self):
+        # Two stranded fields on one dataset; the write for one fails. The other,
+        # unaffected field must still be re-anchored and its source soft-deleted.
+        fail_old, fail_new = _sf("alpha"), _sf("Alpha")
+        ok_old, ok_new = _sf("beta"), _sf("Beta")
+        graph = _FailingGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Alpha", "Beta")},
+                fail_old: {"documentation": _doc("alpha doc")},
+                ok_old: {"documentation": _doc("beta doc")},
+            },
+            fail_urn_contains="Alpha",
+            fail_aspect="documentation",
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        # sibling migrated despite the other field's failure
+        assert graph._store[ok_new]["documentation"] == _doc("beta doc")
+        assert ok_old in graph.soft_deleted
+        # failed field kept and surfaced
+        assert fail_old not in graph.soft_deleted
+        assert fail_new not in graph._store
+        assert any("failed to write" in s and "alpha" in s for s in result.skipped)
 
 
 class TestRunMigrationReport:

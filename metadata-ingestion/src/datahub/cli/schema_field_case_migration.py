@@ -468,6 +468,13 @@ def _reconcile_schema_field_entities(
                     left_behind = True
                     continue
             assert to_emit is not None
+            if existing_dest.get(name) == to_emit:
+                # The destination already carries exactly this value — from a prior
+                # run under --keep-source-fields (where the stale source is never
+                # deleted, so it is rediscovered every time), or from automation
+                # that put it there. Skip the redundant write and do not count it as
+                # a re-anchoring, so repeated runs stay a no-op in the report.
+                continue
             if not dry_run:
                 try:
                     graph.emit_mcp(
@@ -475,6 +482,8 @@ def _reconcile_schema_field_entities(
                             entityUrn=new_schema_field_urn, aspect=to_emit
                         )
                     )
+                except (click.Abort, KeyboardInterrupt):
+                    raise
                 except Exception as e:
                     # A per-field write failure is attributed and isolated: the rest
                     # of the field's aspects and the rest of the dataset still run,
@@ -501,6 +510,8 @@ def _reconcile_schema_field_entities(
         if delete_source and not dry_run and not left_behind:
             try:
                 graph.soft_delete_entity(schema_field_urn)
+            except (click.Abort, KeyboardInterrupt):
+                raise
             except Exception as e:
                 log.warning(f"Failed to soft-delete '{schema_field_urn}': {e}")
                 result.skipped.append(
@@ -573,6 +584,8 @@ def _reconcile_editable_schema_metadata(
                     ),
                 )
             )
+        except (click.Abort, KeyboardInterrupt):
+            raise
         except Exception as e:
             # Report the write only if it lands: leave editable_updated False and
             # surface the failure rather than claiming a rewrite that did not happen.

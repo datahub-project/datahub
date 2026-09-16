@@ -57,6 +57,7 @@ class FakeGraph:
     def __init__(self) -> None:
         self.store: Dict[str, Dict[str, _Aspect]] = {}
         self.soft_deleted: set = set()
+        self.emitted: List[MetadataChangeProposalWrapper] = []
 
         class _Config:
             server = "http://fake"
@@ -115,6 +116,7 @@ class FakeGraph:
         assert mcp.entityUrn is not None
         aspect = mcp.aspect
         assert aspect is not None
+        self.emitted.append(mcp)
         self.store.setdefault(mcp.entityUrn, {})[aspect.ASPECT_NAME] = aspect
         self.soft_deleted.discard(mcp.entityUrn)
 
@@ -418,7 +420,7 @@ def test_idempotent_second_run_is_noop() -> None:
 def test_idempotent_keep_source_second_run() -> None:
     # Under --keep-source-fields the stale field is never soft-deleted, so it is
     # rediscovered on every run. Re-anchoring must still converge: the second pass
-    # re-unions the same values onto the destination without duplicating them.
+    # must report no work, issue no redundant writes, and add nothing new.
     g = _seed()
     run_migration(
         g,  # type: ignore[arg-type]
@@ -429,7 +431,8 @@ def test_idempotent_keep_source_second_run() -> None:
     )
     dest = sf(D_BASIC, "Product2Id")
     after_first = dict(g.store[dest])
-    run_migration(
+    g.emitted.clear()
+    second = run_migration(
         g,  # type: ignore[arg-type]
         ALL,
         dry_run=False,
@@ -441,6 +444,10 @@ def test_idempotent_keep_source_second_run() -> None:
     tags = g.store[dest]["globalTags"]
     assert isinstance(tags, GlobalTagsClass)
     assert len(tags.tags) == 1  # union deduped, not doubled
+    # The report must stay a no-op: nothing re-anchored and no redundant writes.
+    assert sum(len(r.remaps) for r in second.results) == 0
+    assert all(not r.editable_updated for r in second.results)
+    assert g.emitted == []
 
 
 def test_dry_run_writes_nothing() -> None:
