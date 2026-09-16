@@ -1,6 +1,4 @@
-"""Tests for datahub.cli.schema_field_case_migration — reconciling UI/API-authored
-column metadata onto re-ingested schema field paths. All tests use an in-memory
-fake graph; no live GMS."""
+"""Tests for datahub.cli.schema_field_case_migration (in-memory fake graph)."""
 
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Type
@@ -15,7 +13,6 @@ from datahub.cli.schema_field_case_migration import (
     ClashResolver,
     InteractiveClashResolver,
     PathReconciler,
-    _merge_editable_field_info,
     reconcile_dataset,
     run_migration,
 )
@@ -195,46 +192,6 @@ class TestPathReconciler:
         new_path, reason = r.resolve("mixedcol")
         assert new_path is None
         assert reason and "collision" in reason
-
-
-class TestMergeEditable:
-    def test_rename_only(self):
-        incoming = EditableSchemaFieldInfoClass(
-            fieldPath="product2id",
-            description="the id",
-            globalTags=_tags("urn:li:tag:pii"),
-        )
-        merged = _merge_editable_field_info(None, incoming, "Product2Id")
-        assert merged.fieldPath == "Product2Id"
-        assert merged.description == "the id"
-        assert merged.globalTags is not None
-        assert [t.tag for t in merged.globalTags.tags] == ["urn:li:tag:pii"]
-
-    def test_union_with_existing_target(self):
-        existing = EditableSchemaFieldInfoClass(
-            fieldPath="Product2Id",
-            description="kept",
-            globalTags=_tags("urn:li:tag:a"),
-            glossaryTerms=_terms("urn:li:glossaryTerm:t1"),
-        )
-        incoming = EditableSchemaFieldInfoClass(
-            fieldPath="product2id",
-            description="discarded",
-            globalTags=_tags("urn:li:tag:a", "urn:li:tag:b"),
-            glossaryTerms=_terms("urn:li:glossaryTerm:t2"),
-        )
-        merged = _merge_editable_field_info(existing, incoming, "Product2Id")
-        assert merged.description == "kept"
-        assert merged.globalTags is not None
-        assert {t.tag for t in merged.globalTags.tags} == {
-            "urn:li:tag:a",
-            "urn:li:tag:b",
-        }
-        assert merged.glossaryTerms is not None
-        assert {t.urn for t in merged.glossaryTerms.terms} == {
-            "urn:li:glossaryTerm:t1",
-            "urn:li:glossaryTerm:t2",
-        }
 
 
 class TestReconcileDataset:

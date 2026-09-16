@@ -1,7 +1,5 @@
-"""End-to-end reconciliation tests for the schema-field-case migration against an
-in-memory fake graph. The store stands in for GMS: writes are reflected so
-re-reads are consistent, soft-deletes are honoured by discovery, and schemaField
-entities are discovered via their parent, exactly as the real graph behaves."""
+"""End-to-end schema-field-case reconciliation tests against an in-memory fake
+graph (writes reflected, soft-deletes honoured, schemaFields found via parent)."""
 
 from typing import Dict, Iterator, List, Optional, Type
 

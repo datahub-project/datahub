@@ -1,13 +1,5 @@
-"""Re-anchor column metadata after a connector changes column field-path casing.
-
-A casing change (Snowflake ``preserve_column_case``, or any connector that used
-to lowercase everything) makes re-ingestion rewrite ``schemaMetadata`` with new
-field paths, orphaning column-level metadata on the old paths: the dataset's
-``editableSchemaMetadata`` entries and aspects on the ``schemaField`` entities
-(whose urns embed the field path). This reconciles both onto the current schema
-by a case-insensitive path match, making no assumption about the transform so it
-works for any connector.
-"""
+"""Re-anchor column metadata (editableSchemaMetadata + schemaField aspects) onto
+re-ingested field paths after a connector changes column-name casing."""
 
 import logging
 from dataclasses import dataclass, field
