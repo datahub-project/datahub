@@ -706,3 +706,37 @@ def test_a_hypothetical_pattern_is_normalized_the_way_the_recipe_would_be():
     ]
     # `tried` still echoes what the caller asked for, not the rewritten form.
     assert hypothetical.tried == {"allow": ["^analytics$"], "deny": []}
+
+
+def test_an_explicit_schema_override_beats_the_shared_convention():
+    """Specific beats general, which is what the hook's own docstring promises.
+
+    `probe_schema_verdict_override` is documented as "checked before the
+    generic check", and the code ran _qualified_schema_match first and only
+    consulted the override when that returned None -- so a connector that
+    declared an override AND enabled match_fully_qualified_names would never
+    have its override called. The shared convention would answer first and
+    the connector's own statement about its matching would be dead.
+
+    Inert today, because only the base class defines the hook and it returns
+    None. Pinned now so the contract is true before a connector relies on it,
+    and because the rest of this module already layers this way --
+    _hinted_pattern_field wins over the name convention "because it is exact
+    by construction".
+    """
+    from datahub.ingestion.agent.verdicts import SchemaMatch
+    from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+
+    def _override(self, schema, parent_path=()):
+        return SchemaMatch(included=True, target=f"override::{schema}")
+
+    original = BigQueryV2Config.probe_schema_verdict_override
+    BigQueryV2Config.probe_schema_verdict_override = _override  # type: ignore[method-assign]
+    try:
+        # match_fully_qualified_names defaults True here, so the shared
+        # convention has an answer and would win under the old order.
+        verdicts = _verdicts(_bq([], projects=("proj_a",), allow="^analytics$"))
+    finally:
+        BigQueryV2Config.probe_schema_verdict_override = original  # type: ignore[method-assign]
+
+    assert verdicts["analytics"] == (True, "override::analytics")

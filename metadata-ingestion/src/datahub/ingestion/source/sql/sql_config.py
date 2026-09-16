@@ -223,8 +223,12 @@ class SQLCommonConfig(
         is_schema_allowed, datahub.configuration.pattern_utils). Return None
         (the default) to keep sql_probe.py's generic bare-name check; a
         SchemaMatch reports both the verdict and the string it matched, so the
-        result can say what actually decided rather than the bare name. Checked before the generic
-        check on every SQL Schema-level node; see RedshiftConfig's override.
+        result can say what actually decided rather than the bare name.
+        Checked before the generic check on every SQL Schema-level node, so a
+        connector that declares one is not second-guessed by the shared
+        match_fully_qualified_names convention. No connector overrides it
+        today -- the hook stays because that convention is a convention, not a
+        guarantee.
         """
         return None
 

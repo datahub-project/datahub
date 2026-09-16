@@ -245,18 +245,24 @@ def _structural_verdict(
     }:
         return Verdict(False, "default_schema")
 
-    match = _qualified_schema_match(config, name, pattern_field, parent_path)
+    # The connector's own statement first, the shared convention second.
+    # Running the convention first meant a connector that declared an override
+    # AND enabled match_fully_qualified_names never had its override called --
+    # the convention always had an answer, so the explicit declaration was
+    # dead. That inverts the hook's own docstring ("checked before the generic
+    # check") and the layering this module uses everywhere else:
+    # _hinted_pattern_field wins over the name convention "because it is exact
+    # by construction". Inert today, since only the base class defines the
+    # hook and it returns None -- which is the right time to get the order
+    # right, before a connector depends on it.
+    override = getattr(config, "probe_schema_verdict_override", None)
+    match = (
+        override(schema=name, parent_path=tuple(parent_path))
+        if callable(override)
+        else None
+    )
     if match is None:
-        # A connector whose qualified matching is not the shared
-        # match_fully_qualified_names convention can still declare its own.
-        # None does today; the hook stays because the convention is a
-        # convention, not a guarantee.
-        override = getattr(config, "probe_schema_verdict_override", None)
-        match = (
-            override(schema=name, parent_path=tuple(parent_path))
-            if callable(override)
-            else None
-        )
+        match = _qualified_schema_match(config, name, pattern_field, parent_path)
     if match is not None:
         # The override did the matching itself, so it is the only thing that knows
         # which string decided -- carry it out rather than reporting the bare name.
