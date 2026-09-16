@@ -12,7 +12,10 @@ import com.linkedin.datahub.graphql.generated.DomainAssociation;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.domain.DomainAssociationArray;
 import com.linkedin.domain.Domains;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.Map;
 import org.mockito.MockedStatic;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -34,6 +37,11 @@ public class DomainAssociationMapperTest {
     domainUrn = Urn.createFromString(TEST_DOMAIN_URN);
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
     mockQueryContext = mock(QueryContext.class);
+    OperationContext operationContext = mock(OperationContext.class);
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(mockQueryContext.getOperationContext()).thenReturn(operationContext);
+    when(operationContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    when(aspectRetriever.entityExists(any(), any())).thenReturn(Map.of(domainUrn, true));
   }
 
   @Test
@@ -90,6 +98,25 @@ public class DomainAssociationMapperTest {
     domains.setDomains(new UrnArray());
 
     DomainAssociation result = DomainAssociationMapper.map(null, domains, TEST_ENTITY_URN);
+
+    assertNull(result);
+  }
+
+  @Test
+  public void testMapReturnsNullWhenDomainDoesNotExist() {
+    Domains domains = new Domains();
+    domains.setDomains(new UrnArray(domainUrn));
+    com.linkedin.domain.DomainAssociation assoc = new com.linkedin.domain.DomainAssociation();
+    assoc.setDomain(domainUrn);
+    domains.setDomainAssociations(new DomainAssociationArray(assoc));
+
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    OperationContext operationContext = mockQueryContext.getOperationContext();
+    when(aspectRetriever.entityExists(any(), any())).thenReturn(Map.of(domainUrn, false));
+    when(operationContext.getAspectRetriever()).thenReturn(aspectRetriever);
+
+    DomainAssociation result =
+        DomainAssociationMapper.map(mockQueryContext, domains, TEST_ENTITY_URN);
 
     assertNull(result);
   }

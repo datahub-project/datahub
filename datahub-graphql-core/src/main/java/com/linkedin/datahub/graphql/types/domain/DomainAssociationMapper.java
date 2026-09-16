@@ -8,6 +8,9 @@ import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainAssociation;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.MetadataAttributionMapper;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -35,6 +38,9 @@ public class DomainAssociationMapper {
       com.linkedin.domain.DomainAssociation association =
           domains.getDomainAssociations().getFirst();
       Urn domainUrn = association.getDomain();
+      if (context != null && !domainEntityExists(context, domainUrn)) {
+        return null;
+      }
       if (context == null || canView(context.getOperationContext(), domainUrn)) {
         DomainAssociation gqlAssociation = new DomainAssociation();
         gqlAssociation.setDomain(
@@ -48,5 +54,19 @@ public class DomainAssociationMapper {
       }
     }
     return null;
+  }
+
+  private static boolean domainEntityExists(@Nonnull QueryContext context, @Nonnull Urn domainUrn) {
+    try {
+      AspectRetriever aspectRetriever = context.getOperationContext().getAspectRetriever();
+      if (aspectRetriever == null) {
+        return true;
+      }
+      Map<Urn, Boolean> exists =
+          aspectRetriever.entityExists(context.getOperationContext(), Set.of(domainUrn));
+      return Boolean.TRUE.equals(exists.get(domainUrn));
+    } catch (RuntimeException e) {
+      return true;
+    }
   }
 }
