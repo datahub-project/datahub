@@ -203,8 +203,15 @@ def _recipe_from_stdin() -> Dict[str, object]:
             # unmaskable-literals list). Dropping the entry lets resolution
             # fail by name, which is the honest answer. load_config_file does
             # not coerce either.
+            #
+            # An empty string is kept, though: it is a value the caller chose,
+            # and dropping it left nothing for MappingResolver, so EnvVarResolver
+            # went on to read the ambient variable of the same name -- the
+            # fall-through the envelope exists to prevent. The registry drops it
+            # on its own (it is below MIN_SECRET_LENGTH), and _with_stdin_secrets
+            # keeps it out of the redaction set, where "" would match everything.
             _stdin_secrets.update(
-                {str(k): v for k, v in secrets.items() if isinstance(v, str) and v}
+                {str(k): v for k, v in secrets.items() if isinstance(v, str)}
             )
             # Feed the masking backstop the `recipe` group installs: its
             # excepthook, logging handlers and stdout wrapper all read the

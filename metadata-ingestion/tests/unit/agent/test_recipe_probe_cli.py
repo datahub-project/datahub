@@ -862,3 +862,21 @@ def test_a_null_envelope_secret_fails_to_resolve_instead_of_becoming_None(monkey
     loaded = rc._load_recipe("-")
     with pytest.raises(ValueError, match=r"PROBE_TEST_REF"):
         rc._resolve_for_probe(loaded)
+
+
+def test_an_empty_envelope_secret_does_not_fall_through_to_the_environment(
+    monkeypatch,
+):
+    """An empty string is a value the caller chose, not a missing entry.
+
+    The strings-only filter also dropped falsey ones, so `{"REF": ""}` left
+    nothing for MappingResolver and EnvVarResolver went on to read the ambient
+    variable -- the exact fall-through the envelope exists to prevent. A caller
+    piping an empty credential must get an empty credential.
+    """
+    monkeypatch.setenv("PROBE_TEST_REF", "from-env")
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr("sys.stdin", io.StringIO(_envelope({"PROBE_TEST_REF": ""})))
+
+    _t, config, _s = rc._resolve_for_probe(rc._load_recipe("-"))
+    assert config["password"] == ""
