@@ -105,17 +105,29 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
         probe.api_base_url = workspace_uri
         return probe
 
-    def _listing(self, fetch: Callable[[], List[str]]) -> List[str]:
+    def _listing(
+        self, fetch: Callable[[], List[str]], *, note_on_success: str = ""
+    ) -> List[str]:
         """Run one listing, turning a soft error into a warning rather than a
         silent empty result -- the distinction between "nothing here" and "I
-        could not look" is the whole point of a diagnostic."""
+        could not look" is the whole point of a diagnostic.
+
+        `note_on_success` is a narrowing the caller wants explained, and it is
+        attached HERE so it cannot outlive the listing it explains. Appended by
+        the caller instead, it rode along with a failure: a 403 on /spaces came
+        back as [] plus "Mode filtered personal spaces out server-side",
+        offering a config reason for an outcome the config did not cause.
+        """
         try:
-            return fetch()
+            names = fetch()
         except ProbeSoftError as exc:
             message = str(exc)
             if message not in self.warnings:
                 self.warnings.append(message)
             return []
+        if note_on_success and note_on_success not in self.warnings:
+            self.warnings.append(note_on_success)
+        return names
 
     @probe_method(kind="Space")
     def spaces(self) -> List[str]:
@@ -129,19 +141,17 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
         excluded. A short list with no explanation is the failure this
         interface exists to prevent, so the narrowing is reported as a
         warning rather than left for the caller to notice."""
-        names = self._listing(
-            lambda: [_space_pattern_name(space) for space in _fetch_spaces(self)]
-        )
-        if self.config.exclude_personal_collections:
-            narrowed = (
+        return self._listing(
+            lambda: [_space_pattern_name(space) for space in _fetch_spaces(self)],
+            note_on_success=(
                 "exclude_personal_collections is set, so Mode filtered personal "
                 "spaces out server-side (?filter=custom); they are absent from "
                 "this list rather than reported as excluded, and ingestion will "
                 "not see them either"
             )
-            if narrowed not in self.warnings:
-                self.warnings.append(narrowed)
-        return names
+            if self.config.exclude_personal_collections
+            else "",
+        )
 
     # parent_params on these three, as the SQL family does for `schema`: the
     # container travels back in the result, so `probe filter` needs no

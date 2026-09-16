@@ -830,7 +830,7 @@ def run_probe_method(
         if isinstance(result, list) and len(result) > limit:
             result = result[:limit]
             truncated = True
-    elif not spec.shapes_own_result and isinstance(result, list):
+    elif not spec.shapes_own_result and isinstance(result, (list, dict)):
         # A command that declares no row_limit_param still must not flood the
         # reader, and still must not report a cut-short list as complete.
         # MAX_PROBE_ITEMS' own docstring calls itself "the most items any
@@ -847,8 +847,18 @@ def run_probe_method(
         # here. Capping the fetch would need the limit pushed into each
         # fetcher, which is the row_limit_param those commands do not
         # declare.
+        # Mappings as well as lists. The list in the paragraph above names
+        # Hex's connections(), which returns a Dict keyed by connection id --
+        # so the very case the comment claimed to cover was the one
+        # `isinstance(result, list)` excluded, and a large workspace returned
+        # every connection with truncated: false. Dicts preserve insertion
+        # order, so the kept half is the first half rather than a sample.
         if len(result) > MAX_PROBE_ITEMS:
-            result = result[:MAX_PROBE_ITEMS]
+            result = (
+                dict(list(result.items())[:MAX_PROBE_ITEMS])
+                if isinstance(result, dict)
+                else result[:MAX_PROBE_ITEMS]
+            )
             truncated = True
     return ProbeMethodResult(
         source_type=source_type,

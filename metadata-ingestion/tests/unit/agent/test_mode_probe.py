@@ -656,3 +656,42 @@ def test_a_paging_failure_keeps_the_spaces_already_read():
         "nothing for this workspace"
     )
     assert source.report.failures, "and the failure must still be reported"
+
+
+def test_a_failed_space_list_is_not_explained_as_config_narrowing(monkeypatch):
+    """Two different reasons for a short list must not be conflated.
+
+    `spaces()` appended the exclude_personal_collections note whenever the
+    flag was set, including after _listing had already turned a fetch failure
+    into []. A 403 on /spaces therefore came back as an empty list plus
+    "Mode filtered personal spaces out server-side" -- offering a config
+    reason for an outcome the config did not cause, which is the
+    confidently-wrong answer this interface exists to prevent.
+
+    The failure warning stays; only the explanation that no longer applies
+    goes away.
+    """
+
+    import datahub.ingestion.source.mode_probe as mp
+
+    def _boom(source):
+        raise ProbeSoftError("could not list spaces: 403 Forbidden")
+
+    monkeypatch.setattr(mp, "_fetch_spaces", _boom)
+
+    probe = _probe(_cfg(exclude_personal_collections=True))
+    assert probe.spaces() == []
+
+    assert any("403" in w for w in probe.warnings), probe.warnings
+    assert not [w for w in probe.warnings if "exclude_personal_collections" in w], (
+        probe.warnings
+    )
+
+
+def test_a_successful_space_list_still_explains_the_narrowing():
+    """The converse, so the fix is not "stop explaining"."""
+    probe = _probe(_cfg(exclude_personal_collections=True))
+    probe.spaces()
+    assert any("exclude_personal_collections" in w for w in probe.warnings), (
+        probe.warnings
+    )

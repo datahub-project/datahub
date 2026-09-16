@@ -505,6 +505,11 @@ class _UnboundedProvider:
         "No row limit declared."
         return [f"n{i}" for i in range(pm.MAX_PROBE_ITEMS + 25)]
 
+    @probe_method()
+    def everything_keyed(self) -> dict:
+        "No row limit declared, and keyed -- Hex's connections() shape."
+        return {f"k{i}": {"name": f"n{i}"} for i in range(pm.MAX_PROBE_ITEMS + 25)}
+
 
 def test_a_listing_with_no_declared_row_limit_is_still_capped(monkeypatch):
     """MAX_PROBE_ITEMS calls itself "the most items any probe command may
@@ -532,6 +537,35 @@ def test_a_listing_with_no_declared_row_limit_is_still_capped(monkeypatch):
     assert isinstance(result.result, list)
     assert len(result.result) == pm.MAX_PROBE_ITEMS
     assert result.truncated is True, "a cut-short listing must say so"
+
+
+def test_a_keyed_listing_is_capped_the_same_way(monkeypatch):
+    """The cap was wired to `isinstance(result, list)`, and the branch's own
+    comment names "Hex's connections" as a case it covers -- which it did not,
+    because connections() returns a Dict keyed by connection id. A large
+    workspace therefore returned every connection and reported
+    truncated: false, which is the exact claim the cap exists to stop.
+    """
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _UnboundedProvider)
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls):
+            return _UnboundedProvider
+
+        @classmethod
+        def model_validate(cls, d):
+            return cls()
+
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+
+    result = pm.run_probe_method("x", {}, "everything_keyed", {})
+    assert isinstance(result.result, dict)
+    assert len(result.result) == pm.MAX_PROBE_ITEMS
+    assert result.truncated is True, "a cut-short mapping must say so"
+    # Insertion order is the fetch order, so the kept half is the first half
+    # rather than an arbitrary sample.
+    assert "k0" in result.result and f"k{pm.MAX_PROBE_ITEMS + 24}" not in result.result
 
 
 def test_a_short_listing_with_no_row_limit_is_not_marked_truncated(monkeypatch):
