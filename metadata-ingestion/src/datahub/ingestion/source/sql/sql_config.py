@@ -71,14 +71,14 @@ class SQLFilterConfig(ConfigModel):
         return values
 
 
-# Said by every probe_filter_target override whose connector qualifies on a
-# container the caller did not name. One string, because three near-identical
-# ones is how they drift.
-_NO_PARENT_WARNING = (
-    "no parent {level} given, so these were judged on 'schema.table'; "
-    "ingestion matches the fully qualified name, so pass the containing "
-    "{level} to get the verdict it actually makes"
-)
+# A `_NO_PARENT_WARNING` template lived here, shared by the
+# probe_filter_target overrides that each warned about an unnamed container --
+# "one string, because three near-identical ones is how they drift". It is
+# gone because the drift is now prevented a better way: no override emits that
+# warning any more, filter_check does, once, at the point that discovers the
+# container is missing. A single emitter cannot disagree with itself, and the
+# template had already fallen out of use while two variants grew in
+# filter_check -- an anti-drift device that had itself drifted.
 
 
 class SQLCommonConfig(

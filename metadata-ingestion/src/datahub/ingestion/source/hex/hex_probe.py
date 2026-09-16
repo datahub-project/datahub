@@ -174,7 +174,8 @@ class HexMetadataProbe(RestApiPassthrough):
         # which this probe deliberately does not run -- so reporting
         # len(item.upstream_datasets) meant reporting 0 for every project,
         # including projects with lineage. A number that is always zero reads
-        # as an answer, which is worse than not offering it: use `probe sql`
+        # as an answer, which is worse than not offering it: use
+        # `probe queried_tables` (Hex exposes no `sql` command)
         # or the lineage the connector emits.
         detail: Dict[str, object] = {
             "name": item.title,
