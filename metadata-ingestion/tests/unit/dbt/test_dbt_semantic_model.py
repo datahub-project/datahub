@@ -1906,9 +1906,10 @@ def _running_expression(raw: Dict[str, Any]) -> Optional[str]:
 def test_a_cumulative_metric_says_how_it_accumulates():
     # Without the note its expression is the aggregation it is built on, so a
     # running total and a plain total read identically.
-    assert _running_expression(
-        _cumulative(window={"count": 7, "granularity": "day"})
-    ) == "count(orders.order_count) /* cumulative over 7 day */"
+    assert (
+        _running_expression(_cumulative(window={"count": 7, "granularity": "day"}))
+        == "count(orders.order_count) /* cumulative over 7 day */"
+    )
     assert _running_expression(_cumulative(grain_to_date="month")) == (
         "count(orders.order_count) /* cumulative to date by month */"
     )
