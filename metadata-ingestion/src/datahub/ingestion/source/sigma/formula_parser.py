@@ -152,7 +152,10 @@ class BracketRef:
 
     Sigma documents the three-part form as ``[Element/Relationship/Column]``,
     where the MIDDLE segment names a relationship defined in the data model --
-    NOT a source element. Relationships are renamed independently of any
+    NOT a source element. Sigma's own related-columns example is
+    ``[TRIP/Start Station Details/Dock Count]``: ``TRIP`` is the element the
+    calculated column is added to, ``Start Station Details`` is the
+    relationship, and ``Dock Count`` is the column reached through it. Relationships are renamed independently of any
     element, so matching a middle segment against element names is unsound: it
     misses whenever a relationship has been renamed, and can match the wrong
     element when a relationship happens to share an element's name. For that
