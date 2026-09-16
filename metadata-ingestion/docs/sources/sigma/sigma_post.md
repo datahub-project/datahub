@@ -112,6 +112,43 @@ Sigma connection record omits `database`/`schema`, set `default_database` in
 | `chart_warehouse_table_node_skipped`   | Lineage node missing `name` field or has unexpected ID format; skipped                                            |
 | `chart_warehouse_table_name_ambiguous` | Table name matched multiple warehouse URNs; edge skipped — set `default_database` in `connection_to_platform_map` |
 
+#### Sigma Dataset -> warehouse table lineage
+
+Sigma ended support for datasets as a data source on 2026-09-15. A workbook element reading through
+a Sigma Dataset still answers `/v2/workbooks/{id}/elements/{id}/query` with HTTP 200, but the body
+no longer carries SQL — and that SQL was the only place the dataset's warehouse table was named.
+
+When an element has no SQL at all, the connector resolves the dataset's warehouse table structurally
+instead: `/v2/datasets/{id}/sources` names the table by inode, and `/v2/connections/paths/{inodeId}`
+resolves that inode to a `connectionId` plus a path. The URN is then built through the connection
+registry, so per-connection `default_database`, `env`, `platform_instance` and
+`convert_urns_to_lowercase` all apply, exactly as for Data Model element and chart warehouse edges.
+No `chart_sources_platform_mapping` entry is needed.
+
+This route is a **stopgap**. It depends on the deprecated dataset API, so it will stop returning
+anything once Sigma removes those endpoints; migrate datasets to Data Models to keep lineage. A
+404/410 from `/sources` is treated as "endpoint removed" and warned about once per run.
+
+Known limitations:
+
+- Only `type: table` sources resolve. Datasets backed by a CSV upload, by another dataset, or by
+  custom SQL have no warehouse table to point at and are counted under
+  `dataset_warehouse_no_table_sources`.
+- A dataset excluded by `workspace_pattern` is absent from the dataset listing, so its
+  `datasetId` is unknown and no lookup can be made. Widen the pattern to recover that lineage.
+
+| Counter                                 | Meaning                                                                           |
+| --------------------------------------- | --------------------------------------------------------------------------------- |
+| `dataset_warehouse_upstream_from_inode` | Sigma Datasets whose warehouse table(s) were recovered via this route             |
+| `dataset_warehouse_no_table_sources`    | Datasets whose sources held no `type: table` entry (CSV, dataset-on-dataset, SQL) |
+| `dataset_warehouse_unknown_connection`  | Table's `connectionId` not in the registry, or platform unmappable                |
+| `dataset_warehouse_unlisted_dataset`    | Dataset absent from `/v2/datasets` (usually `workspace_pattern`); no lookup made  |
+| `dataset_sources_lookup_failed`         | `/datasets/{id}/sources` returned non-200, raised, or was not a JSON list         |
+| `dataset_sources_lookup_rate_limited`   | Subset of the above: 429 after retries                                            |
+| `dataset_sources_endpoint_removed`      | `/datasets/{id}/sources` returned 404/410; endpoint treated as gone for the run   |
+| `connection_path_lookup_failed`         | `/connections/paths/{inodeId}` failed or returned an unusable body                |
+| `connection_path_lookup_rate_limited`   | Subset of the above: 429 after retries                                            |
+
 #### Workbook chart inputFields warehouse column-level qualification
 
 When `extract_lineage: true` (default), the connector qualifies chart column `InputFields` to
@@ -167,6 +204,12 @@ etc.) — it auto-resolves the platform from the connection record and covers al
 have a `connectionId` on hand (DM warehouse table lineage, DM and workbook customSQL parsing,
 chart inputFields qualification). Use `chart_sources_platform_mapping` only when the chart's SQL
 parser path fires and you cannot reach the connection via `connection_to_platform_map`.
+
+Note that since Sigma's dataset deprecation, an element backed by a Sigma Dataset usually exposes
+no `element.query` at all, so the SQL parser path does not fire and this mapping has no effect on
+it. That lineage comes from
+[Sigma Dataset -> warehouse table lineage](#sigma-dataset---warehouse-table-lineage) instead, which
+resolves the connection itself and needs no mapping.
 
 ##### Example - For just one specific chart's external upstream data sources
 

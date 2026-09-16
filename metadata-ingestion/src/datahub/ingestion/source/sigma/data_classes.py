@@ -81,6 +81,18 @@ class SigmaDataset(BaseModel):
         return self.url.split("/")[-1]
 
 
+class ConnectionPath(BaseModel):
+    """A warehouse table's connection and path, from /connections/paths/{inodeId}.
+
+    ``path`` is the catalog path already split into components, normally
+    ``[DB, SCHEMA, TABLE]``, or ``[SCHEMA, TABLE]`` on platforms with no
+    database layer.
+    """
+
+    connection_id: str
+    path: List[str]
+
+
 class DatasetUpstream(BaseModel):
     type: Literal["dataset"] = "dataset"
     # Optional: Sigma's lineage payloads can carry ``name: null`` for

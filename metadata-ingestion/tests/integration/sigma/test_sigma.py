@@ -7799,11 +7799,10 @@ def test_dataset_warehouse_upstream_survives_empty_element_sql(
     Sigma Dataset -> warehouse table edge was derived.
 
     ``/datasets/{id}/sources`` still names the source table by inode and
-    ``/files/{inodeId}`` still resolves it, so the edge is recoverable
-    structurally rather than textually. Shapes below are the ones the live API
-    returns.
+    ``/connections/paths/{inodeId}`` still resolves it to a connection plus a
+    path, so the edge is recoverable structurally rather than textually. Shapes
+    below are the ones the live API returns.
     """
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"  # noqa: F841
     output_path = f"{tmp_path}/sigma_dataset_inode_mces.json"
 
     override_data: Dict[str, Dict] = {
@@ -7828,17 +7827,15 @@ def test_dataset_warehouse_upstream_survives_empty_element_sql(
                 {"type": "table", "inodeId": "14139218-f19c-408f-bcb5-be88ee9f3659"}
             ],
         },
-        "https://aws-api.sigmacomputing.com/v2/files/14139218-f19c-408f-bcb5-be88ee9f3659": {
+        # Carries the connectionId, so the warehouse URN is built through the
+        # connection registry rather than chart_sources_platform_mapping.
+        # conn-test-snowflake is the default /v2/connections mock entry.
+        "https://aws-api.sigmacomputing.com/v2/connections/paths/14139218-f19c-408f-bcb5-be88ee9f3659": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "id": "14139218-f19c-408f-bcb5-be88ee9f3659",
-                "urlId": "BSN0bEB8oOABQN653C1wR",
-                "name": "PETS",
-                "type": "table",
-                "parentId": "0be1e9ae-af29-4e8d-8a1d-e23f135e047b",
-                "path": "Connection Root/LONG_TAIL_COMPANIONS/ADOPTION",
-                "isArchived": False,
+                "connectionId": "conn-test-snowflake",
+                "path": ["LONG_TAIL_COMPANIONS", "ADOPTION", "PETS"],
             },
         },
     }
@@ -7884,5 +7881,42 @@ def test_dataset_warehouse_upstream_survives_empty_element_sql(
     ]
     assert expected_upstream in upstreams, (
         "Sigma Dataset -> warehouse edge must be derived from "
-        "/datasets/{id}/sources + /files/{inodeId} when the element SQL is empty"
+        "/datasets/{id}/sources + /connections/paths/{inodeId} when the element "
+        "SQL is empty"
     )
+
+    # The same missing dict entry also dropped the Sigma Dataset from
+    # ChartInfo.inputs, so assert that edge came back for both dataset-backed
+    # charts rather than trusting the upstreamLineage aspect alone.
+    inputs_by_chart = {
+        mce["entityUrn"]: [i["string"] for i in mce["aspect"]["json"]["inputs"]]
+        for mce in mces
+        if mce.get("aspectName") == "chartInfo"
+    }
+    for element_id in ("Ml9C5ezT5W", "tQJu5N1l81"):
+        chart_urn = f"urn:li:chart:(sigma,{element_id})"
+        assert sigma_dataset_urn in inputs_by_chart[chart_urn], (
+            f"chart {element_id} must keep its Sigma Dataset input; "
+            f"got {inputs_by_chart[chart_urn]}"
+        )
+
+    # /sources is fetched once per dataset, not once per referencing element:
+    # two charts read this dataset, and the cache must collapse that to one
+    # call. Guards the cache against a refactor that resolves per element.
+    sources_calls = [
+        r
+        for r in requests_mock.request_history
+        if r.path.endswith("/v2/datasets/8891fd40-5470-4ff2-a74f-6e61ee44d3fc/sources")
+    ]
+    assert len(sources_calls) == 1, (
+        f"expected exactly 1 /sources call for the dataset, got {len(sources_calls)}"
+    )
+
+    report = _sigma_report(pipeline)
+    assert report.dataset_warehouse_upstream_from_inode == 1, (
+        "counter is per dataset, not per referencing element; got "
+        f"{report.dataset_warehouse_upstream_from_inode}"
+    )
+    assert report.dataset_warehouse_unknown_connection == 0
+    assert report.dataset_sources_lookup_failed == 0
+    assert report.connection_path_lookup_failed == 0

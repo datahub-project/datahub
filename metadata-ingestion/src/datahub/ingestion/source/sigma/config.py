@@ -432,17 +432,33 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # --- Sigma Dataset -> warehouse table, via /datasets/{id}/sources ---
     # Replaces the SQL-name match that Sigma's 2026-09-15 dataset deprecation
     # broke (a dataset-backed element's /query now returns 200 with no SQL).
+    # Every counter below is per Sigma Dataset, not per referencing element.
     #
-    # Edges recovered through the inode route, once per dataset.
+    # Datasets whose warehouse table(s) were recovered through this route.
     dataset_warehouse_upstream_from_inode: int = 0
+    # Datasets whose /sources listed no type=table entry: a CSV upload, a
+    # dataset-on-dataset, or a custom-SQL dataset. Not an error.
+    dataset_warehouse_no_table_sources: int = 0
     # /datasets/{id}/sources returned non-200, raised, or was not a JSON list.
     dataset_sources_lookup_failed: int = 0
-    # /files path was not Connection Root/<SCHEMA> or /<DB>/<SCHEMA>.
-    dataset_warehouse_path_unparseable: int = 0
-    # No warehouse table resolved: no type=table source, a bad inode, or no
-    # chart_sources_platform_mapping entry to supply the platform. That dataset
-    # gets no warehouse lineage and its chart columns stay self-referencing.
-    dataset_warehouse_unresolved: int = 0
+    # Sub-bucket of the above: 429 after retries.
+    dataset_sources_lookup_rate_limited: int = 0
+    # /datasets/{id}/sources returned 404/410. Sigma deprecated the dataset API,
+    # so this most likely means the endpoint is gone; warned once per run.
+    dataset_sources_endpoint_removed: int = 0
+    # /connections/paths/{inodeId} failed or returned an unusable body, so the
+    # table could not be tied to a connection.
+    connection_path_lookup_failed: int = 0
+    # Sub-bucket of the above: 429 after retries.
+    connection_path_lookup_rate_limited: int = 0
+    # The table's connectionId is absent from the connection registry or is
+    # not mappable to a DataHub platform. Mirrors
+    # dm_element_warehouse_unknown_connection for this route.
+    dataset_warehouse_unknown_connection: int = 0
+    # An element reads a Sigma Dataset that /v2/datasets did not return, so its
+    # datasetId is unknown and /sources cannot be called. Usually
+    # workspace_pattern excludes that dataset's workspace.
+    dataset_warehouse_unlisted_dataset: int = 0
 
 
 class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):

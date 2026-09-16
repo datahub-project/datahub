@@ -2876,3 +2876,107 @@ class TestGetWorkbookLineageHttp:
             result = api.get_workbook_lineage("wb-1")
         assert result is None
         assert api.report.warnings
+
+
+def _response(status_code: int, json_body: Any = None) -> MagicMock:
+    response = MagicMock()
+    response.status_code = status_code
+    response.json.return_value = json_body
+    return response
+
+
+class TestGetDatasetSources:
+    """/datasets/{id}/sources: a bare list, on a deprecated endpoint."""
+
+    def test_returns_entries_on_200(self) -> None:
+        api = _create_sigma_api()
+        entries = [{"type": "table", "inodeId": "inode-1"}]
+        with patch.object(api, "_get_api_call", return_value=_response(200, entries)):
+            assert api.get_dataset_sources("ds-1") == entries
+
+    def test_non_list_body_is_a_failure(self) -> None:
+        # The envelope every other Sigma endpoint uses. Coercing it would
+        # silently resolve zero sources instead of surfacing the change.
+        api = _create_sigma_api()
+        with patch.object(
+            api, "_get_api_call", return_value=_response(200, {"entries": []})
+        ):
+            assert api.get_dataset_sources("ds-1") is None
+        assert api.report.dataset_sources_lookup_failed == 1
+
+    def test_non_200_counts_as_failure(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=_response(500)):
+            assert api.get_dataset_sources("ds-1") is None
+        assert api.report.dataset_sources_lookup_failed == 1
+
+    def test_429_counted_separately(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=_response(429)):
+            assert api.get_dataset_sources("ds-1") is None
+        assert api.report.dataset_sources_lookup_rate_limited == 1
+        assert api.report.dataset_sources_lookup_failed == 0
+
+    def test_exception_is_contained(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", side_effect=requests.RequestException):
+            assert api.get_dataset_sources("ds-1") is None
+        assert api.report.dataset_sources_lookup_failed == 1
+
+    @pytest.mark.parametrize("status", [404, 410])
+    def test_endpoint_removed_short_circuits_after_first_call(
+        self, status: int
+    ) -> None:
+        # Sigma retired the dataset API, so 404/410 means "gone" rather than
+        # "this dataset is odd": stop calling and warn once, instead of one
+        # warning per dataset on a tenant past removal.
+        api = _create_sigma_api()
+        with patch.object(
+            api, "_get_api_call", return_value=_response(status)
+        ) as mocked:
+            assert api.get_dataset_sources("ds-1") is None
+            assert api.get_dataset_sources("ds-2") is None
+            assert mocked.call_count == 1
+        assert api.report.dataset_sources_endpoint_removed == 1
+        assert len(api.report.warnings) == 1
+
+
+class TestGetConnectionPath:
+    """/connections/paths/{inodeId}: the connectionId + split path."""
+
+    def test_returns_connection_and_path(self) -> None:
+        api = _create_sigma_api()
+        body = {"connectionId": "conn-1", "path": ["DB", "SCHEMA", "TABLE"]}
+        with patch.object(api, "_get_api_call", return_value=_response(200, body)):
+            result = api.get_connection_path("inode-1")
+        assert result is not None
+        assert result.connection_id == "conn-1"
+        assert result.path == ["DB", "SCHEMA", "TABLE"]
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"path": ["DB", "SCHEMA", "TABLE"]},  # no connectionId
+            {"connectionId": "", "path": ["DB", "SCHEMA", "TABLE"]},
+            {"connectionId": "conn-1", "path": "DB/SCHEMA/TABLE"},  # not a list
+            {"connectionId": "conn-1", "path": ["DB", ""]},  # empty segment
+        ],
+    )
+    def test_unusable_body_is_a_failure(self, body: Dict[str, Any]) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=_response(200, body)):
+            assert api.get_connection_path("inode-1") is None
+        assert api.report.connection_path_lookup_failed == 1
+
+    def test_429_counted_separately(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=_response(429)):
+            assert api.get_connection_path("inode-1") is None
+        assert api.report.connection_path_lookup_rate_limited == 1
+        assert api.report.connection_path_lookup_failed == 0
+
+    def test_exception_is_contained(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", side_effect=requests.RequestException):
+            assert api.get_connection_path("inode-1") is None
+        assert api.report.connection_path_lookup_failed == 1

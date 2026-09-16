@@ -28,6 +28,7 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    ConnectionPath,
     CustomSqlEntry,
     DataModelElementUpstream,
     DatasetUpstream,
@@ -63,6 +64,10 @@ class SigmaAPI:
         # report summary readable on large tenants with repeated unknown
         # node types.
         self._unknown_lineage_node_types_warned: Set[str] = set()
+        # Sigma's dataset API is deprecated; once /datasets/{id}/sources
+        # answers 404/410 the endpoint is treated as removed for the rest of
+        # the run rather than retried once per dataset.
+        self._dataset_sources_endpoint_gone = False
         self.session = requests.Session()
 
         # Configure retry strategy for 429/503 with exponential backoff.
@@ -1231,11 +1236,49 @@ class SigmaAPI:
         list, not the ``{"entries": [...]}`` envelope other Sigma endpoints use,
         and not paginated. A non-list body is a failure rather than coerced, so
         an envelope change surfaces instead of silently resolving zero sources.
+
+        Sigma marks this endpoint deprecated alongside the rest of the dataset
+        API, so this whole route is a stopgap: it exists to keep lineage alive
+        for datasets that have not been migrated to Data Models yet, and will
+        stop returning anything once Sigma removes it. 404/410 is therefore
+        treated as "endpoint gone" and warned about once per run.
         """
+        if self._dataset_sources_endpoint_gone:
+            return None
         logger.debug("Fetching sources for dataset '%s'.", dataset_id)
         url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}/sources"
         try:
             response = self._get_api_call(url)
+            if response.status_code in (404, 410):
+                # Sigma has deprecated the dataset API; 404/410 most likely means
+                # the endpoint itself is gone rather than this dataset being odd.
+                # Warn once and stop calling it, so a tenant past removal does not
+                # get one misleading per-dataset warning for every dataset.
+                self.report.dataset_sources_endpoint_removed += 1
+                if not self._dataset_sources_endpoint_gone:
+                    self._dataset_sources_endpoint_gone = True
+                    self.report.warning(
+                        title="Sigma dataset sources endpoint unavailable",
+                        message=(
+                            "/datasets/{id}/sources returned 404/410. Sigma retired "
+                            "the dataset API on 2026-09-15, so it may have been "
+                            "removed. Sigma Datasets will get no warehouse "
+                            "upstreamLineage; migrate them to Data Models."
+                        ),
+                        context=f"dataset_id={dataset_id}, http_status={response.status_code}",
+                    )
+                return None
+            if response.status_code == 429:
+                self.report.dataset_sources_lookup_rate_limited += 1
+                self.report.warning(
+                    title="Sigma API rate-limited on /datasets/{id}/sources",
+                    message=(
+                        "Retry budget exhausted on a 429. Warehouse upstream will be "
+                        "missing for this Sigma Dataset. Re-run the ingestion to recover."
+                    ),
+                    context=f"dataset_id={dataset_id}, http_status=429",
+                )
+                return None
             if response.status_code != 200:
                 self.report.dataset_sources_lookup_failed += 1
                 self.report.warning(
@@ -1271,6 +1314,83 @@ class SigmaAPI:
                     "its warehouse upstream is skipped."
                 ),
                 context=f"dataset_id={dataset_id}",
+                exc=e,
+            )
+            return None
+
+    def get_connection_path(self, inode_id: str) -> Optional[ConnectionPath]:
+        """Resolve a warehouse-table inode to its connection and path components.
+
+        ``GET /v2/connections/paths/{inodeId}`` returns
+        ``{"connectionId": "<uuid>", "path": ["DB", "SCHEMA", "TABLE"]}``.
+
+        Preferred over ``/files/{inodeId}`` for warehouse tables: it carries the
+        ``connectionId`` (so the URN can be built through the connection
+        registry like every other warehouse route) and gives the path already
+        split into components instead of a ``Connection Root/...`` string.
+
+        Callers cache; this always makes a live call.
+        """
+        logger.debug("Fetching connection path for inode '%s'.", inode_id)
+        url = f"{self.config.api_url}/connections/paths/{quote(inode_id, safe='')}"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code == 429:
+                self.report.connection_path_lookup_rate_limited += 1
+                self.report.warning(
+                    title="Sigma API rate-limited on /connections/paths lookup",
+                    message=(
+                        "Retry budget exhausted on a 429. Warehouse upstream will be "
+                        "missing for this table. Re-run the ingestion to recover."
+                    ),
+                    context=f"inode_id={inode_id}, http_status=429",
+                )
+                return None
+            if response.status_code != 200:
+                self.report.connection_path_lookup_failed += 1
+                self.report.warning(
+                    title="Sigma /connections/paths lookup returned non-200",
+                    message=(
+                        "Unable to resolve a warehouse table's connection and path. "
+                        "Warehouse upstream will be missing for this table."
+                    ),
+                    context=f"inode_id={inode_id}, http_status={response.status_code}",
+                )
+                return None
+            body = response.json()
+            connection_id = body.get("connectionId")
+            path = body.get("path")
+            if not isinstance(connection_id, str) or not connection_id:
+                self.report.connection_path_lookup_failed += 1
+                self.report.warning(
+                    title="Sigma /connections/paths response missing connectionId",
+                    message=(
+                        "Cannot map the table to a warehouse platform without a "
+                        "connectionId; warehouse upstream is skipped."
+                    ),
+                    context=f"inode_id={inode_id}, keys={sorted(body)!r}",
+                )
+                return None
+            if not isinstance(path, list) or not all(
+                isinstance(p, str) and p for p in path
+            ):
+                self.report.connection_path_lookup_failed += 1
+                self.report.warning(
+                    title="Sigma /connections/paths returned an unexpected path",
+                    message=(
+                        "Expected `path` to be a list of non-empty strings; "
+                        "warehouse upstream is skipped for this table."
+                    ),
+                    context=f"inode_id={inode_id}, path={path!r}",
+                )
+                return None
+            return ConnectionPath(connection_id=connection_id, path=path)
+        except Exception as e:
+            self.report.connection_path_lookup_failed += 1
+            self.report.warning(
+                title="Sigma /connections/paths lookup failed",
+                message="Exception while resolving a table's connection path; warehouse upstream skipped.",
+                context=f"inode_id={inode_id}",
                 exc=e,
             )
             return None
