@@ -20,8 +20,11 @@ public class GraphQueryTimeoutsTest {
   }
 
   @Test
-  public void testTreatsNullDrainAsZero() {
-    // 50 + 0 + 10 = 60 -> "55s" is too short and is raised to 60s.
+  public void testZeroDrainOnlyAddsMargin() {
+    // A zero drain contributes nothing: 50 + 0 + 10 = 60 -> "55s" is too short and is raised to
+    // 60s.
+    // The null-drain case is mapped to 0 by the caller (GraphQueryPITDAO), not by this pure method,
+    // which takes a primitive int.
     assertEquals(GraphQueryTimeouts.computeEffectiveKeepAlive("55s", 50, 0), "60s");
   }
 }

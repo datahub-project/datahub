@@ -1393,6 +1393,14 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         }
 
         if (remainingTime < 0) {
+          // Meter both the strict (throw) and partial (degraded) timeout so the timeout rate is
+          // observable regardless of partialResults. Keep the tag keys identical to the slice
+          // sites ({phase} only) — Micrometer's Prometheus registry rejects the same metric name
+          // registered with a different set of tag keys.
+          if (metricUtils != null) {
+            metricUtils.incrementMicrometer(
+                GraphQueryConstants.LINEAGE_TIMEOUT_METRIC, 1, "phase", "graph_walk");
+          }
           if (allowPartialResults) {
             log.warn(
                 "Timed out while fetching lineage for {} with direction {}, maxHops {}. Returning partial results. {} ms reserved for second query phase.",
@@ -1408,15 +1416,6 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                 entityUrn,
                 lineageGraphFilters.getLineageDirection(),
                 maxHops);
-            if (metricUtils != null) {
-              metricUtils.incrementMicrometer(
-                  GraphQueryConstants.LINEAGE_TIMEOUT_METRIC,
-                  1,
-                  "phase",
-                  "graph_walk",
-                  "direction",
-                  String.valueOf(lineageGraphFilters.getLineageDirection()));
-            }
             throw new LineageTimeoutException(
                 String.format(
                     "Lineage operation timed out after %d seconds. Entity: %s, Direction: %s, MaxHops: %d. Consider increasing the timeout or set partialResults to true to return partial results.",

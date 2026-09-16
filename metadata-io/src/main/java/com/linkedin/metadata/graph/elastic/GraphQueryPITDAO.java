@@ -9,6 +9,7 @@ import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -258,12 +259,15 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(query);
         searchSourceBuilder.size(pageSize);
-        // Bound the shard search server-side so ES stops working when we hit our wall-clock budget;
-        // the graph timeout is otherwise only a Java-side deadline and ES keeps running (and
-        // holding
-        // the PIT) after we stop waiting. Best-effort per-search timeout, not the overall budget.
+        // Bound the shard search server-side so ES aborts at our wall-clock budget instead of
+        // running on (and holding the PIT) after we stop waiting. Clamp to the time actually left
+        // on this slice's deadline so a page started late cannot run for the full configured
+        // timeout past the deadline. Best-effort per-search timeout; see isTimedOut handling below.
+        long remainingSeconds =
+            Math.max(1L, (long) Math.ceil((deadline - System.currentTimeMillis()) / 1000.0));
         searchSourceBuilder.timeout(
-            TimeValue.timeValueSeconds(config.getSearch().getGraph().getTimeoutSeconds()));
+            TimeValue.timeValueSeconds(
+                Math.min(config.getSearch().getGraph().getTimeoutSeconds(), remainingSeconds)));
 
         // Add sorting for consistent results and search_after using Edge sort fields
         ESUtils.buildSortOrder(searchSourceBuilder, Edge.EDGE_SORT_CRITERION, List.of(), false);
@@ -293,6 +297,24 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                 },
                 MetricUtils.DROPWIZARD_NAME,
                 MetricUtils.name(this.getClass(), "esQuery"));
+
+        // A server-side timeout returns truncated (possibly empty) hits with timedOut=true. Do NOT
+        // treat that page as a completed slice — otherwise incomplete lineage is returned as
+        // complete. Throw the distinct timeout so strict mode surfaces DEADLINE_EXCEEDED and
+        // partial mode marks the hop partial (via processSliceFutures' exception handling). Metered
+        // with the same {phase} tag key as the other timeout sites.
+        if (response != null && response.isTimedOut()) {
+          if (metricUtils != null) {
+            metricUtils.incrementMicrometer(
+                GraphQueryConstants.LINEAGE_TIMEOUT_METRIC, 1, "phase", "slice_search");
+          }
+          throw new LineageTimeoutException(
+              "Slice "
+                  + sliceId
+                  + " search timed out server-side after "
+                  + config.getSearch().getGraph().getTimeoutSeconds()
+                  + " seconds");
+        }
 
         if (response == null
             || response.getHits() == null
@@ -336,6 +358,10 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
           break;
         }
       }
+    } catch (LineageTimeoutException e) {
+      // Preserve the distinct timeout type so processSliceFutures/GraphQL map it to
+      // DEADLINE_EXCEEDED instead of the generic wrapper below (which would surface SERVER_ERROR).
+      throw e;
     } catch (Exception e) {
       log.error("Failed to execute PIT search for slice {}", sliceId, e);
       throw new RuntimeException("Failed to execute PIT search for slice " + sliceId, e);
