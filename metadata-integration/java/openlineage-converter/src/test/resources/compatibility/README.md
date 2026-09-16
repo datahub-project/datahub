@@ -73,10 +73,16 @@ being dropped is a visible decision rather than something nobody noticed.
 | `lifecycleStateChange` | 12     | `Operation`                                                        |
 | `outputStatistics`     | 6      | `Operation`                                                        |
 
-Non-standard vendor facets (`gcp_*`, `airflowDagRun`, `airflowState`, `spark_applicationDetails`,
-`spark_unknown`) fall through the `processRunFacetEntry` switch. `environment-properties` and
-`sourceCode` are the two worth revisiting: both are widely emitted and both have somewhere obvious
-to land.
+The non-standard **run** facets `gcp_dataproc_spark`, `airflowDagRun`, `airflowState`,
+`spark_applicationDetails`, `spark_unknown` and `environment-properties` fall through the
+`processRunFacetEntry` switch. `gcp_lineage` is a **job** facet, so it never reaches that switch —
+the job path reads named facets and ignores the rest. `environment-properties` and `sourceCode` are
+the two worth revisiting: both are widely emitted and both have somewhere obvious to land.
+
+Upstream ships a `scenario.md` beside each scenario. Those are not vendored: several describe a
+different scenario than the events beside them — `spark_dataproc_simple_producer_test` documents a
+BigQuery "simplest run event" while its events are Spark writing HDFS `t1` to `t2`. The tables in
+this file are derived from the events themselves instead.
 
 ## Golden comparison
 

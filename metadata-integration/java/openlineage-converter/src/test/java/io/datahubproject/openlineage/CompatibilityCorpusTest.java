@@ -17,8 +17,11 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import org.testng.annotations.Test;
 
@@ -102,6 +105,70 @@ public class CompatibilityCorpusTest {
     assertFacetProducesAspect("schema", "schemaMetadata", null);
     assertFacetProducesAspect("lifecycleStateChange", "operation", null);
     assertFacetProducesAspect("outputStatistics", "operation", null);
+  }
+
+  /**
+   * The README records which of the corpus's facets DataHub stores and which it drops. That record
+   * is only worth having if it cannot drift, so the corpus's facet inventory is pinned here: a
+   * re-vendor that introduces or removes a facet fails until someone revisits the inventory.
+   *
+   * <p>The converter side is already covered — {@code CompatibilityGoldenTest} fails if a facet
+   * starts or stops producing output.
+   */
+  @Test
+  public void corpusFacetInventoryMatchesTheReadme() throws Exception {
+    Set<String> run = new TreeSet<>();
+    Set<String> job = new TreeSet<>();
+    Set<String> ds = new TreeSet<>();
+    for (File f : corpus()) {
+      JsonNode e = MAPPER.readTree(read(f));
+      e.path("run").path("facets").fieldNames().forEachRemaining(run::add);
+      e.path("job").path("facets").fieldNames().forEachRemaining(job::add);
+      for (String side : new String[] {"inputs", "outputs"}) {
+        for (JsonNode d : e.path(side)) {
+          for (String holder : new String[] {"facets", "inputFacets", "outputFacets"}) {
+            d.path(holder).fieldNames().forEachRemaining(ds::add);
+          }
+        }
+      }
+    }
+
+    assertEquals(
+        run,
+        new TreeSet<>(
+            Arrays.asList(
+                "airflow",
+                "airflowDagRun",
+                "airflowState",
+                "environment-properties",
+                "externalQuery",
+                "gcp_dataproc_spark",
+                "nominalTime",
+                "parent",
+                "processing_engine",
+                "spark.logicalPlan",
+                "spark_applicationDetails",
+                "spark_jobDetails",
+                "spark_properties",
+                "spark_unknown",
+                "unknownSourceAttribute")),
+        "run facets changed; revisit the inventory in the corpus README");
+    assertEquals(
+        job,
+        new TreeSet<>(
+            Arrays.asList("airflow", "gcp_lineage", "jobType", "ownership", "sourceCode", "sql")),
+        "job facets changed; revisit the inventory in the corpus README");
+    assertEquals(
+        ds,
+        new TreeSet<>(
+            Arrays.asList(
+                "columnLineage",
+                "dataSource",
+                "lifecycleStateChange",
+                "outputStatistics",
+                "schema",
+                "symlinks")),
+        "dataset facets changed; revisit the inventory in the corpus README");
   }
 
   private void assertFacetProducesAspect(String facet, String aspectName, String mustContain)
