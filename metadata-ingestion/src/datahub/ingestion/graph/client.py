@@ -318,35 +318,21 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 # revert to the global default.
                 default_emit_mode=emitter._default_emit_mode,
             ),
-            # The source emitter has already settled its credentials; this
-            # rebuild must reproduce that decision, not make a fresh one. A
-            # DatahubClientConfig cannot express "these absent credentials are
-            # deliberate", so without this the constructor would re-resolve
-            # DATAHUB_AUTH_TYPE for what looks like a tokenless server — minting
-            # bearer tokens for the very host the datahub-rest sink's origin
-            # guard just refused, and raising outright when DATAHUB_AUTH_TYPE is
-            # set but malformed (an emitter built with auth= has _token None, so
-            # the rebuilt config looks credential-free). The verbatim copy below
-            # is what actually carries the credentials across.
+            # Don't re-resolve env auth on the rebuild: the reconstructed config
+            # looks credential-free (an auth=-built emitter has _token None), so
+            # the constructor would re-run DATAHUB_AUTH_TYPE — bypassing the
+            # sink's origin guard, or raising on a malformed value. The verbatim
+            # copy below carries the already-settled credentials instead.
             resolve_env_auth=False,
         )
-        # Carry the source emitter's resolved auth verbatim — including None.
-        # The declarative AuthConfig is not recoverable from a live emitter, so
-        # copying the resolved object is what stops a graph built from an
-        # OAuth-authenticated emitter from silently losing its credentials.
-        # Static tokens and system auth are baked headers, re-derived from
-        # `token` and extra_headers above, so this only ever moves OAuth.
-        #
-        # Known edge: the derived graph's config.auth stays None. Anything that
-        # re-derives a client from this graph's CONFIG rather than its session —
-        # emit_all() / make_rest_sink() via _make_rest_sink_config() — therefore
-        # resolves auth from scratch, and the datahub-rest sink applies its
-        # origin guard when doing so. With env OAuth on an explicit host and
-        # DATAHUB_GMS_URL unset or mismatched, that guard declines: reads through
-        # this graph stay authenticated while bulk emits go out unauthenticated.
-        # TODO(oauth): retain the declarative AuthConfig on the config alongside
-        # the resolved auth, so derived configs keep it and this divergence goes
-        # away. See the follow-up noted in PR #18547.
+        # Carry the source emitter's resolved auth verbatim (including None): the
+        # declarative AuthConfig is not recoverable from a live emitter, so
+        # re-resolving from the rebuilt config would drop OAuth credentials, or —
+        # under the sink's origin guard — attach them to a host it just refused.
+        # Static tokens / system auth are baked headers, re-derived from `token`
+        # and extra_headers above, so this only ever moves OAuth.
+        # TODO(oauth): also retain the declarative AuthConfig on the config, so a
+        # client re-derived from graph.config keeps it, not just the session.
         graph._session.auth = emitter._session.auth
         return graph
 

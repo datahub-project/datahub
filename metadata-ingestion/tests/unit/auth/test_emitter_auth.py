@@ -20,12 +20,9 @@ def test_emitter_static_token_still_works():
 
 @pytest.mark.parametrize("token", [None, ""])
 def test_emitter_explicit_host_uses_env_oauth(monkeypatch, token):
-    # No real token/auth passed + DATAHUB_AUTH_TYPE set -> the emitter resolves
-    # env OAuth even for an explicit host (not just the __from_env__ sentinel).
-    # An empty-string token counts as "no token": that is how a blank password
-    # arrives from a URI/env-defined Airflow connection, and it bakes no
-    # Authorization header, so suppressing env OAuth for it would leave the
-    # client silently unauthenticated.
+    # No token/auth + DATAHUB_AUTH_TYPE set -> env OAuth resolves even for an
+    # explicit host (not just the __from_env__ sentinel). token="" counts as no
+    # token (a blank Airflow-connection password), same as None.
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
     monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "http://idp/token")
     monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")

@@ -241,9 +241,8 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         auth_config = config.auth
         if auth_config is None and not config.token:
             # A credential-free sink block inherits env OAuth (DATAHUB_AUTH_TYPE);
-            # explicit credentials in the block always win over the environment.
-            # origin_guard=True: a recipe can aim the sink at any host, so env
-            # OAuth attaches only when the server matches DATAHUB_GMS_URL.
+            # explicit credentials in the block always win. origin_guard=True
+            # keeps it to the DATAHUB_GMS_URL origin (a recipe can aim anywhere).
             env_auth = resolve_env_auth_config(config.server, origin_guard=True)
             if env_auth is not None:
                 auth_config = env_auth

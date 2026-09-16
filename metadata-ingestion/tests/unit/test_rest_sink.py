@@ -509,12 +509,10 @@ def test_sink_declines_env_oauth_on_origin_mismatch(monkeypatch):
         config, DatahubRestSink._resolve_auth(config)
     )
     assert emitter._session.auth is None
-    # The guard must survive the emitter -> graph rebuild: pipeline bootstrap
-    # does `self.graph = self.sink.to_graph()`, and from_emitter reconstructs a
-    # DatahubClientConfig that cannot express "these missing credentials are
-    # deliberate". Without carrying the source emitter's auth verbatim, the
-    # derived graph re-resolves env OAuth and sends env-minted bearer tokens to
-    # the very host the sink refused.
+    # The guard must survive the emitter -> graph rebuild (pipeline bootstrap
+    # does `self.graph = self.sink.to_graph()`): from_emitter must carry the
+    # source auth verbatim, or the derived graph re-resolves and sends tokens to
+    # the host the sink refused.
     assert emitter.to_graph()._session.auth is None
 
 
