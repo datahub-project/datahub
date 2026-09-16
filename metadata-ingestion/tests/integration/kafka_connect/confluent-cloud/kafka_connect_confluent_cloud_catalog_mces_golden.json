@@ -10,6 +10,7 @@
                 "team": "data-platform",
                 "tier": "1"
             },
+            "externalUrl": "https://confluent.cloud/environments/env-00000/clusters/cluster-123/connectors/sources/source_postgres_cdc_01",
             "name": "source_postgres_cdc_01",
             "description": "Source connector using `PostgresCdcSource` plugin."
         }
@@ -224,6 +225,7 @@
                 "transforms.Transform0.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
                 "connection.url": "postgres://postgres-replica.us-west-2.rds.amazonaws.com:5432/reporting_db"
             },
+            "externalUrl": "https://confluent.cloud/environments/env-00000/clusters/cluster-123/connectors/sinks/sink_postgres_01",
             "name": "sink_postgres_01",
             "description": "Sink connector using `PostgresSink` plugin."
         }
@@ -321,6 +323,7 @@
                 "tasks.max": "5",
                 "topics": "analytics.transactions, analytics.order_events"
             },
+            "externalUrl": "https://confluent.cloud/environments/env-00000/clusters/cluster-123/connectors/sinks/sink_snowflake_01",
             "name": "sink_snowflake_01",
             "description": "Sink connector using `SnowflakeSink` plugin."
         }
@@ -588,6 +591,7 @@
     "aspect": {
         "json": {
             "customProperties": {},
+            "externalUrl": "https://confluent.cloud/environments/env-00000/clusters/cluster-123/connectors/sources/outbox-source-connector",
             "name": "outbox-source-connector",
             "description": "Source connector using `MySqlCdcSource` plugin."
         }
