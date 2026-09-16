@@ -37,8 +37,25 @@ const DEFAULTS = {
 } as const;
 
 export const PLATFORM_URN = 'urn:li:dataPlatform:snowflake';
-export const largeDatasetUrn = (columns: number, propertiesPerField: number, termsPerField: number): string =>
-  `urn:li:dataset:(${PLATFORM_URN},scale_smoke.schema_tab.wide_table_${columns}c_${propertiesPerField}p_${termsPerField}t,PROD)`;
+
+/** Every option that shapes the generated data is part of the dataset's identity, so two
+ *  differently-configured fixtures can never be mistaken for one another on the server. */
+export const largeDatasetName = (o: Required<LargeDatasetOptions>): string =>
+  `wide_table_${o.columns}c_${o.propertiesPerField}of${o.propertyPool}p_${o.termsPerField}of${o.termPool}t_s${o.seed}`;
+export const largeDatasetUrn = (o: Required<LargeDatasetOptions>): string =>
+  `urn:li:dataset:(${PLATFORM_URN},scale_smoke.schema_tab.${largeDatasetName(o)},PROD)`;
+
+function validateOptions(o: Required<LargeDatasetOptions>): void {
+  const problems: string[] = [];
+  if (!Number.isInteger(o.columns) || o.columns < 1)
+    problems.push(`columns must be a positive integer (got ${o.columns})`);
+  if (o.propertiesPerField > o.propertyPool)
+    problems.push(`propertiesPerField (${o.propertiesPerField}) exceeds propertyPool (${o.propertyPool})`);
+  if (o.termsPerField > o.termPool)
+    problems.push(`termsPerField (${o.termsPerField}) exceeds termPool (${o.termPool})`);
+  if (o.propertiesPerField < 0 || o.termsPerField < 0) problems.push('per-field counts must not be negative');
+  if (problems.length) throw new Error(`large dataset options invalid: ${problems.join('; ')}`);
+}
 
 const ADJECTIVES = [
   'primary',
@@ -173,7 +190,8 @@ export interface LargeDataset {
 
 /** Pure: describes the dataset without touching the server. */
 export function buildLargeDataset(options: LargeDatasetOptions): LargeDataset {
-  const o = { ...DEFAULTS, ...options };
+  const o: Required<LargeDatasetOptions> = { ...DEFAULTS, ...options };
+  validateOptions(o);
   const rnd = prng(o.seed);
 
   const properties: ScaleProperty[] = Array.from({ length: o.propertyPool }, (_, i) => {
@@ -199,8 +217,8 @@ export function buildLargeDataset(options: LargeDatasetOptions): LargeDataset {
   });
 
   return {
-    datasetUrn: largeDatasetUrn(o.columns, o.propertiesPerField, o.termsPerField),
-    datasetName: `wide_table_${o.columns}c_${o.propertiesPerField}p_${o.termsPerField}t`,
+    datasetUrn: largeDatasetUrn(o),
+    datasetName: largeDatasetName(o),
     seed: o.seed,
     properties,
     terms,

@@ -78,8 +78,9 @@ export class SchemaScalePage extends BasePage {
       }
       await route.continue();
     };
-    await this.page.route(/\/api\/v2\/graphql/, handler);
-    return () => this.page.unroute(/\/api\/v2\/graphql/, handler);
+    // Match any GraphQL endpoint path (/api/v2/graphql today) rather than pinning a version.
+    await this.page.route(/\/graphql(\?|$)/, handler);
+    return () => this.page.unroute(/\/graphql(\?|$)/, handler);
   }
 
   row(fieldPath: string): Locator {
