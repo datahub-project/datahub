@@ -10,6 +10,7 @@ package com.linkedin.datahub.graphql.resolvers.semantic;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
+import static org.apache.commons.lang3.StringUtils.isBlank;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -69,8 +70,14 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
     final QueryContext context = environment.getContext();
     final SearchInput input = bindArgument(environment.getArgument("input"), SearchInput.class);
     final String entityName = EntityTypeMapper.getName(input.getType());
-    // escape forward slash since it is a reserved character in Elasticsearch
-    final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
+    // The query text only feeds the embedding provider (kNN); it never reaches a query_string
+    // clause, so it is passed as typed. Escaping "/" would change the embedded text.
+    final String query = input.getQuery();
+    // A blank query embeds to a fixed sentinel vector under the classical provider, so kNN would
+    // return arbitrary nearest documents instead of failing. Reject it before any service call.
+    if (isBlank(query)) {
+      throw new IllegalArgumentException("Semantic search requires a non-empty query");
+    }
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
@@ -79,7 +86,7 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
     if (inputFlags != null) {
       searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
     } else {
-      searchFlags = applyDefaultSearchFlags(null, sanitizedQuery, SEARCH_RESOLVER_DEFAULTS);
+      searchFlags = applyDefaultSearchFlags(null, query, SEARCH_RESOLVER_DEFAULTS);
     }
 
     return GraphQLConcurrencyUtils.supplyAsync(
@@ -100,7 +107,7 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
                 _semanticSearchService.semanticSearch(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     List.of(entityName),
-                    sanitizedQuery,
+                    query,
                     ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()),
                     Collections.emptyList(),
                     start,
