@@ -88,24 +88,26 @@ implement exactly this one hook and nothing else in this guide. Everything below
 
 ### The provider
 
-| Member                         | When you need it                                                                              |
-| ------------------------------ | --------------------------------------------------------------------------------------------- |
-| `__enter__` / `__exit__`       | always — it is the `ProbeProvider` protocol, and `__exit__` is where the connection closes    |
-| at least one `@probe_method`   | always                                                                                        |
-| `sql_dialect: str`             | if any method declares `scoped_sql_param` — a name sqlglot resolves                           |
-| `api_allowlist: Sequence[str]` | if any method declares `scoped_path_param` — `("GET /spaces", "GET /spaces/{token}/reports")` |
-| `warnings: List[str]`          | if a listing degrades instead of failing; `run_probe_method` reads it back                    |
+| Member                         | When you need it                                                                                                                                       |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `__enter__` / `__exit__`       | always — it is the `ProbeProvider` protocol, and `__exit__` is where the connection closes                                                             |
+| at least one `@probe_method`   | always                                                                                                                                                 |
+| `sql_dialect: str`             | if any method declares `scoped_sql_param` — a name sqlglot resolves                                                                                    |
+| `api_allowlist: Sequence[str]` | if any method declares `scoped_path_param` — `("GET /spaces", "GET /spaces/{token}/reports")`                                                          |
+| `warnings: List[str]`          | if a listing degrades instead of failing; `run_probe_method` reads it back                                                                             |
+| `probe_report`                 | if you reuse your ingestion fetchers — return the `SourceReport` and its warnings and failures are read off it, instead of translating entries by hand |
 
 ### `@probe_method` options
 
-| Option              | Effect                                                                                                                                                                                    |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`              | command name; defaults to the method name                                                                                                                                                 |
-| `kind`              | the DataHub subtype the returned names are, so `probe filter` picks the right `*_pattern` without the caller guessing a string. Omit only when the caller chooses what comes back (`sql`) |
-| `scoped_sql_param`  | names the parameter carrying raw SQL; the framework scope-checks it first                                                                                                                 |
-| `scoped_path_param` | names the parameter carrying an API path; allowlist-checked first                                                                                                                         |
-| `row_limit_param`   | names the parameter bounding the result; clamped to `1..MAX_PROBE_ITEMS` before the fetch                                                                                                 |
-| `parent_params`     | names the parameters identifying the container these names live under; the result reports their values, so a caller need not restate them as `--parent`                                   |
+| Option              | Effect                                                                                                                                                                                                                                                                                             |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`              | command name; defaults to the method name                                                                                                                                                                                                                                                          |
+| `kind`              | the DataHub subtype the returned names are, so `probe filter` picks the right `*_pattern` without the caller guessing a string. Omit only when the caller chooses what comes back (`sql`)                                                                                                          |
+| `scoped_sql_param`  | names the parameter carrying raw SQL; the framework scope-checks it first                                                                                                                                                                                                                          |
+| `scoped_path_param` | names the parameter carrying an API path; allowlist-checked first                                                                                                                                                                                                                                  |
+| `row_limit_param`   | names the parameter bounding the result; clamped to `1..MAX_PROBE_ITEMS` before the fetch                                                                                                                                                                                                          |
+| `parent_params`     | names the parameters identifying the container these names live under; the result reports their values, so a caller need not restate them as `--parent`                                                                                                                                            |
+| `shapes_own_result` | set when the method returns its own envelope and does its own truncation accounting, rather than a bare list. Stops the framework fetching one past the limit as well, which would hand the caller one item too many and compute `truncated` against the wrong number. `sql` is the only one today |
 
 Parameters must be annotated `str`, `int` or `bool` (or `Optional` of those) and the docstring is
 required — it is the help text the agent reads.
@@ -136,6 +138,37 @@ identifier; otherwise the default, the bare name, is already right.
 Copy the signatures exactly. `probe_schema_verdict_override` is invoked as `override(schema=name)`,
 so the parameter name is part of the contract — renaming it to `schema_name` raises at probe time,
 not at import.
+
+**Where the container comes from when the caller names none: `Qualifier`.** A qualified name is
+`<container>.<schema>[.<entity>]`, and the container normally comes from the caller, because a
+recipe may span several databases or projects and only the caller knows which it is asking about.
+Mark the config field to fall back to, and the common single-container recipe stays answerable
+without a `--parent`:
+
+```python
+project_ids: Annotated[List[str], Qualifier()] = Field(...)
+```
+
+A list field qualifies only when it pins exactly one value — several have no single answer, and
+guessing produces a confident verdict about a different object. `Qualifier(authoritative=True)`
+inverts the precedence so the config beats the caller: Redshift connects to exactly one database,
+so honouring a different `--parent` would answer about a database the recipe does not read.
+
+**Levels you deliberately do not filter: `probe_unfiltered_kinds`.** Return the kinds your source
+reports whole:
+
+```python
+@classmethod
+def probe_unfiltered_kinds(cls) -> Set[str]:
+    return {"Dataset", "Query"}      # Mode filters above these, not at them
+```
+
+Worth declaring even though the verdict is the same either way. "Nothing filters this level" and
+"the filter for this level lost its annotation" both report everything included, and without this
+they are indistinguishable — which is how Teradata's `database_pattern` went unnoticed. Declaring
+it makes `probe filter` say `filtering: "unfiltered"` rather than `"unresolved"`. A source that
+declares a kind unfiltered _and_ has a field the name convention would find is contradicting
+itself, and a contract test refuses that rather than resolving it silently.
 
 ### The SQL family's listings come from the Inspector, not from a query
 
@@ -264,6 +297,19 @@ behave differently from ingestion on the same call.
   also permits `GET /projects/export`. Where a sibling route exists that you do not want reachable,
   do not allowlist the `{id}` shape above it — Hex omits that entry for this reason, and loses
   nothing, because its typed commands already return project metadata.
+
+**Query parameters are part of the request, so they are part of the allowlist.** An entry may
+name the parameters permitted on that endpoint, after a `?` and separated by `&`:
+
+```python
+api_allowlist = ("GET /projects?include&limit", "GET /projects/{id}/runs")
+```
+
+`GET /projects/{id}/runs` names none, so a request carrying any query parameter is refused. Names
+only, deliberately — a value is opaque to the gate, so `?include` permits `include=anything`.
+Naming the parameter is you asserting the endpoint is safe with it, the same judgement the path
+allowlist already rests on. Parameters bind to the endpoint that declared them rather than to the
+allowlist as a whole, so one listed on a harmless endpoint cannot widen a different one.
 
 Leaving an allowlist unset is not a way to allow everything: it permits nothing, and the refusal
 says the _provider_ is incomplete rather than blaming the caller's path.
@@ -451,9 +497,20 @@ Worth knowing because it is the argument against adding a second naming site bac
 A test can catch two hooks disagreeing; one hook cannot disagree with itself.
 
 **Probe output is metadata only** — names, types, constraints, DDL, counts. Never table rows,
-column values, or message payloads. This one is convention, enforced by review and by the docstring
-rule on `@probe_method`: nothing checks a return value's contents, and `agent/redact.py` is not the
-net — it masks credentials drawn from the recipe, not data drawn from the source.
+column values, or message payloads. Mostly convention, enforced by review and by the docstring rule
+on `@probe_method`: nothing checks that a return value holds only metadata.
+
+Two things in `agent/redact.py` do act on results, and neither is a general net:
+
+- `register_secrets` masks credentials drawn from the recipe wherever they appear in output.
+- `mask_identity_columns` masks values under the column names in `WITHHELD_COLUMN_NAMES`
+  (`user_name`, `query_text` and the like). It exists for the relations that are catalog metadata
+  by definition but carry identity or query text in particular columns — Snowflake's
+  `access_history` is the case it was written for. Apply it in your provider when you admit such a
+  relation; nothing applies it for you.
+
+So a relation you admit is your judgement, not the framework's. If it has columns like those,
+mask them.
 
 ## Making verdicts match ingestion
 
