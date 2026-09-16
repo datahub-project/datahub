@@ -299,6 +299,13 @@ public class EntityRelationshipsResultResolver
     }
 
     relationships = filterByRelatedEntityTypes(relationships, relatedEntityTypes);
+    if (relationshipTypes.size() > 1) {
+      // A user in a group via both ingested and native membership yields two edges; collapse them
+      // so "my groups" shows each group once (issue #14471). The full set is already in memory
+      // here,
+      // so this dedup is exact and cheap.
+      relationships = dedupByNeighborUrn(relationships);
+    }
     List<EntityRelationship> page = paginateRelationships(relationships, start, count);
     EntityRelationshipsResult result =
         mapEntityRelationshipsFromList(
@@ -381,16 +388,18 @@ public class EntityRelationshipsResultResolver
       total = relationships.size();
       relationships = paginateRelationships(relationships, start, count);
     } else {
-      // A neighbor URN can appear at most once per relationship type, so the same member is only
-      // duplicated when more than one type is requested (e.g. group members via IsMemberOfGroup +
-      // IsMemberOfNativeGroup, issue #14471). Both dedup and relatedEntityTypes filtering need the
-      // full neighbor set before paginating/counting, so fetch up to the membership graph's
-      // bounds.maxEdges cap (via MembershipReadSpec) and fail closed if truncated.
+      // A neighbor URN appears at most once per relationship type, so the same member is only
+      // duplicated when more than one type is requested (group members via IsMemberOfGroup +
+      // IsMemberOfNativeGroup, issue #14471). We collapse duplicates within the fetched page and
+      // leave the total as the raw edge count. An exact cross-page/count dedup would require
+      // pre-fetching the whole membership set (up to bounds.maxEdges) on every read — including the
+      // hover-card count that rides on ownershipFields — which costs far more than the rare
+      // dual-membership it corrects. relatedEntityTypes filtering still needs the full set, so that
+      // path alone keeps the capped fetch + fail-closed behavior.
       int fetchCap = spec.getRelatedTypeFilterFetchCap();
       boolean needsDedup = relationshipTypes.size() > 1;
-      boolean fetchAll = filterByRelatedType || needsDedup;
-      int fetchStart = fetchAll ? 0 : (start != null ? start : 0);
-      int fetchCount = fetchAll ? fetchCap : (count != null ? count : Integer.MAX_VALUE);
+      int fetchStart = filterByRelatedType ? 0 : (start != null ? start : 0);
+      int fetchCount = filterByRelatedType ? fetchCap : (count != null ? count : Integer.MAX_VALUE);
       MembershipNeighborResult result =
           BoundMembershipAccess.listRelated(
               context.getOperationContext(),
@@ -409,15 +418,17 @@ public class EntityRelationshipsResultResolver
                           .setEntity(UrnUtils.getUrn(neighbor.neighborUrn()))
                           .setType(neighbor.relationshipType()))
               .collect(Collectors.toList());
-      if (fetchAll) {
+      if (filterByRelatedType) {
+        // Filtering pages after the fetch, so fetch the full set (capped) and fail closed if it was
+        // truncated, to keep filtered totals/pages accurate.
         if (result instanceof MembershipNeighborResult.Hit hit
             && hit.total() > relationships.size()) {
           throw new IllegalStateException(
               "Membership listing for "
                   + urn
-                  + " exceeds fetch cap ("
+                  + " exceeds relatedEntityTypes fetch cap ("
                   + fetchCap
-                  + " from membership bounds.maxEdges); refusing truncated filter/dedup results");
+                  + " from membership bounds.maxEdges); refusing truncated filter+page results");
         }
         relationships = filterByRelatedEntityTypes(relationships, relatedEntityTypes);
         if (needsDedup) {
@@ -426,6 +437,11 @@ public class EntityRelationshipsResultResolver
         total = relationships.size();
         relationships = paginateRelationships(relationships, start, count);
       } else {
+        if (needsDedup) {
+          relationships = dedupByNeighborUrn(relationships);
+        }
+        // Raw edge total when available (keeps hover/search counts cheap); the page above collapses
+        // same-page duplicates. Falls back to the deduped size when no authoritative total exists.
         total =
             result instanceof MembershipNeighborResult.Hit hit ? hit.total() : relationships.size();
       }

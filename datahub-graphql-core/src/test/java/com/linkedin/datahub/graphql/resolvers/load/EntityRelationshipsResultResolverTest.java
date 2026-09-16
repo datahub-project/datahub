@@ -940,8 +940,10 @@ public class EntityRelationshipsResultResolverTest {
   /**
    * A member of a group via BOTH ingested ({@code IsMemberOfGroup}) and native ({@code
    * IsMemberOfNativeGroup}) membership yields two membership edges to the same corpuser. The
-   * members list and count must collapse them to a single unique member (issue #14471), preferring
-   * the native (GUI-managed) edge.
+   * members list must collapse them to a single unique member (issue #14471), preferring the native
+   * (GUI-managed) edge. The total stays the raw edge count: per-page dedup keeps the read cheap
+   * (fetch only the requested page) rather than pre-scanning the whole membership set to correct
+   * the rare dual-membership count.
    */
   @Test
   public void testCorpGroupIncomingMembersDeduplicatesAcrossMembershipEdgeTypes()
@@ -1009,12 +1011,27 @@ public class EntityRelationshipsResultResolverTest {
 
     EntityRelationshipsResult result = resolver.get(mockEnv).get();
 
-    assertEquals(result.getTotal().intValue(), 1);
+    // Raw edge total (2) is preserved; the returned list is deduped to the single unique member.
+    assertEquals(result.getTotal().intValue(), 2);
     assertEquals(result.getCount().intValue(), 1);
     assertEquals(result.getRelationships().size(), 1);
     assertEquals(result.getRelationships().get(0).getEntity().getUrn(), memberUrn.toString());
     assertEquals(result.getRelationships().get(0).getType(), "IsMemberOfNativeGroup");
     verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+
+    // Per-page dedup must not pre-scan the membership set: the resolver fetches only the requested
+    // page size (10), never the bounds.maxEdges cap.
+    verify(entityGraphCache)
+        .listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(groupUrn.toString()),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfGroup", "IsMemberOfNativeGroup")),
+            eq(1),
+            eq(0),
+            eq(10),
+            any(ReadMode.class));
   }
 
   /**
