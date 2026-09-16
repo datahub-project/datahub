@@ -138,7 +138,15 @@ def resolve_emit_semantic_model_entities(
         )
         return ResolvedEmitDecision(
             enabled=False,
-            reason="no graph client and recipe did not explicitly request emission",
+            # Unset and explicit false are different states and lead to
+            # different advice, so they must not share a reason: unset would
+            # have auto-enabled against a capable managed server.
+            reason=(
+                "recipe explicitly set to false (force-off)"
+                if recipe_value is False
+                else "no graph client, so no managed server to follow; emission "
+                "stays off unless the recipe sets it to true"
+            ),
             is_saas=False,
             version=None,
             metrics_enabled=None,
@@ -183,7 +191,10 @@ def resolve_emit_semantic_model_entities(
             reason=(
                 "OSS server; enabled by explicit recipe request"
                 if recipe_value
-                else "OSS server; recipe did not explicitly request emission"
+                else "recipe explicitly set to false (force-off)"
+                if recipe_value is False
+                else "OSS server, so there is no managed server to follow; "
+                "emission stays off unless the recipe sets it to true"
             ),
             is_saas=False,
             version=version,

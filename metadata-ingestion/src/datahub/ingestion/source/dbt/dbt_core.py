@@ -610,8 +610,16 @@ def extract_dbt_metrics(
 
 def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBTMetric:
     type_params = metric_node.get("type_params")
-    if not isinstance(type_params, dict):
+    if type_params is None:
         type_params = {}
+    elif not isinstance(type_params, dict):
+        # Not a parse crash, so the per-entry guard would never engage -- and
+        # everything a metric is computed from lives in here, so the metric
+        # would be published with neither an expression nor an upstream. Raised
+        # so it is dropped and reported like any other unreadable entry.
+        raise ValueError(
+            f"type_params is {type(type_params).__name__}, expected an object"
+        )
 
     metric_type = metric_node.get("type") or METRIC_TYPE_SIMPLE
 

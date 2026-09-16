@@ -1175,6 +1175,14 @@ class TestDbtSemanticModelsCli:
     def _invoke(self, *args: str) -> Result:
         return CliRunner().invoke(dbt_semantic_models, list(args))
 
+    @pytest.mark.parametrize("option", ["--mapping-file", "--urn-file"])
+    def test_a_missing_file_is_a_usage_error_not_a_traceback(self, option: str) -> None:
+        """click.Path(exists=True) as the sibling snowflake command uses."""
+        result = self._invoke(option, "/nope/x.tsv")
+
+        assert result.exit_code == 2
+        assert "does not exist" in result.output
+
     @patch("datahub.cli.migrate.dbt_migration.run_migration")
     @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
     @patch("datahub.cli.migrate.get_default_graph")

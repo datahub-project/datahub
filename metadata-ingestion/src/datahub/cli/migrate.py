@@ -1357,7 +1357,7 @@ def _read_urn_pairs_from_file(path: str) -> Dict[str, str]:
 )
 @click.option(
     "--mapping-file",
-    type=str,
+    type=click.Path(exists=True, dir_okay=False),
     default=None,
     help="File of explicit '<source urn><TAB><destination urn>' pairs, one per "
     "line. Takes precedence over every other mapping option.",
@@ -1379,7 +1379,7 @@ def _read_urn_pairs_from_file(path: str) -> Dict[str, str]:
 )
 @click.option(
     "--urn-file",
-    type=str,
+    type=click.Path(exists=True, dir_okay=False),
     default=None,
     help="File of source urns, one per line ('#' comments allowed).",
 )

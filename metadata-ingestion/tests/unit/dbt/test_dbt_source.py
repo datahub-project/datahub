@@ -4963,6 +4963,37 @@ def test_one_unreadable_metric_does_not_drop_the_others() -> None:
     assert any(w.title == "Could not read a dbt metric" for w in report.warnings)
 
 
+def test_a_metric_with_an_unreadable_type_params_is_dropped_not_published() -> None:
+    """Everything a metric is computed from lives in type_params.
+
+    A wrong shape there does not raise, so the per-entry guard never engaged
+    and the metric was published with neither an expression nor an upstream --
+    the one thing a metric cannot be missing.
+    """
+    report = DBTSourceReport()
+    manifest: Dict[str, Any] = {
+        "metric.p.bad": {"name": "bad", "type_params": "not-an-object"},
+        "metric.p.good": {
+            "name": "good",
+            "type": "simple",
+            "type_params": {"measure": {"name": "m"}},
+        },
+    }
+    metrics = extract_dbt_metrics(manifest, "dbt:", report)
+
+    assert [m.name for m in metrics] == ["good"]
+    warning = next(
+        w for w in report.warnings if w.title == "Could not read a dbt metric"
+    )
+    assert "metric.p.bad" in " ".join(warning.context)
+
+
+def test_a_metric_without_type_params_is_still_read() -> None:
+    """Absent is not malformed -- the parser stays defensive about omissions."""
+    metrics = extract_dbt_metrics({"metric.p.x": {"name": "x"}}, "dbt:")
+    assert [m.name for m in metrics] == ["x"]
+
+
 def test_a_non_string_metric_expr_does_not_crash_emission() -> None:
     """`_metric_computation` strips it, so a manifest value must be coerced."""
     metrics = extract_dbt_metrics(
