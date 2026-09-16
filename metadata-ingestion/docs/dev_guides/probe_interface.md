@@ -453,8 +453,27 @@ outside the allowlist. It is **weaker in kind** than the SQL gate and the docs s
 parity: there is no parser, so it can only match an allowlist, and whether a listed endpoint
 returns metadata or user data is the judgement of whoever listed it.
 
-**Neither is a security boundary.** They narrow what a probe can reach; the enforcement boundary
-is the database's own grants. Recommend a read-only role scoped to catalog metadata.
+**Two boundaries, and they bound different things.** The gates decide what the probe may
+**request**; the credential's own grants decide what it may **see**. Both are enforcement, at
+different layers, and neither substitutes for the other:
+
+- **The gates are a boundary on requests, and a bypass in one is a bug.** A query that escapes the
+  scope check reaches a relation the source never admitted, and a path that escapes the allowlist
+  reaches an endpoint nobody listed — with the recipe's credential, whatever that credential is
+  permitted to do. `SELECT ... INTO OUTFILE` and `COPY INTO 's3://…'` were fixed here for that
+  reason: each turned a read the gate had cleared into a write to somewhere it never examined.
+  Report a hole in either gate as a security bug, not a missing feature.
+- **The grants are the boundary on data, and the gates cannot replace them.** The gate reasons
+  about which relations a query names, not about what those relations contain for this caller. A
+  schema admitted whole still yields only the rows the credential may read. So give the probe a
+  least-privilege, read-only role scoped to catalog metadata: it is what bounds the blast radius
+  of any gate bug, including the next one.
+
+The practical rule for a connector author is that admitting a relation is a decision the gate then
+enforces — it does not second-guess it. `information_schema` illustrates both edges: it is catalog
+metadata by definition, and it also holds `processlist` and `*_privileges`, where MySQL shows other
+sessions' in-flight SQL to a credential holding `PROCESS`. The gate admits what you listed; the
+credential decides what that shows.
 
 **A passthrough does not replace typed methods.** A raw record leaves the caller to guess which
 field a pattern is matched against; for a Mode Space that is the raw `name` with no token
