@@ -67,6 +67,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -372,16 +373,43 @@ public class OpenLineageToDataHub {
     return globalTags;
   }
 
+  private static final String DOMAIN_ENTITY_TYPE = "domain";
+
   public static Domains generateDomains(List<String> domains) {
-    domains.sort(String::compareToIgnoreCase);
+    // Copy before sorting: the caller's list is a shared, possibly immutable config value.
+    List<String> sortedDomains = domains == null ? new ArrayList<>() : new ArrayList<>(domains);
+    sortedDomains.sort(String::compareToIgnoreCase);
     Domains datahubDomains = new Domains();
     UrnArray domainArray = new UrnArray();
-    for (String domain : domains) {
+    for (String domain : sortedDomains) {
       try {
-        domainArray.add(Urn.createFromString(domain));
+        Urn domainUrn = Urn.createFromString(domain);
+        if (!DOMAIN_ENTITY_TYPE.equals(domainUrn.getEntityType())) {
+          log.warn(
+              "Skipping '{}': expected a domain URN (urn:li:domain:<id>) but got entity type '{}'.",
+              domain,
+              domainUrn.getEntityType());
+          continue;
+        }
+        // "urn:li:domain" parses with entity type "domain" but carries no id, so the entity key
+        // has to be checked separately.
+        if (domainUrn.getEntityKey().size() == 0) {
+          log.warn("Skipping '{}': a domain URN must carry an id (urn:li:domain:<id>).", domain);
+          continue;
+        }
+        domainArray.add(domainUrn);
       } catch (URISyntaxException e) {
-        log.warn("Unable to create domain urn for domain urn: {}", domain);
+        log.warn(
+            "Skipping domain '{}': a full domain URN is required (urn:li:domain:<id>), "
+                + "a domain name cannot be resolved here.",
+            domain);
       }
+    }
+    if (domainArray.isEmpty() && !sortedDomains.isEmpty()) {
+      log.warn(
+          "None of the configured domains {} could be parsed as domain URNs; "
+              + "no domains aspect will be emitted.",
+          domains);
     }
     datahubDomains.setDomains(domainArray);
     return datahubDomains;
@@ -448,6 +476,12 @@ public class OpenLineageToDataHub {
 
     GlobalTags tags = generateTags(event);
     jobBuilder.flowGlobalTags(tags);
+
+    // OpenLineage has no domain facet, so domains come from configuration only. An empty or
+    // fully-rejected list yields an empty aspect, which DatahubJob then declines to emit.
+    Domains domains = generateDomains(datahubConf.getDomains());
+    jobBuilder.flowDomains(domains);
+    jobBuilder.jobDomains(domains);
 
     DatahubJob datahubJob = jobBuilder.build();
     convertJobToDataJob(datahubJob, event, datahubConf);

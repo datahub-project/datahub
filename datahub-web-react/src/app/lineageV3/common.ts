@@ -366,21 +366,6 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     setOutputPortsOnly: () => {},
 });
 
-/**
- * Urns of the entities drawn as a single node with `urn`, i.e. its siblings -- a dbt model and the
- * warehouse table it produces, say. Both shapes are read, as the lineage query populates
- * `siblingsSearch` for a combined entity and `siblings` for a separated one.
- */
-export function getSiblingUrns(urn: Urn, nodes: NodeContext['nodes']): Urn[] {
-    const properties = nodes.get(urn)?.entity?.genericEntityProperties;
-    return [
-        ...(properties?.siblings?.siblings ?? []),
-        ...(properties?.siblingsSearch?.searchResults?.map((result) => result?.entity) ?? []),
-    ]
-        .map((sibling) => sibling?.urn)
-        .filter((siblingUrn): siblingUrn is Urn => !!siblingUrn);
-}
-
 export function getParents(node: LineageNode, adjacencyList: NodeContext['adjacencyList']): string[] {
     if (node.type === LINEAGE_FILTER_TYPE) return [node.parent];
     if (!node.direction) return [];

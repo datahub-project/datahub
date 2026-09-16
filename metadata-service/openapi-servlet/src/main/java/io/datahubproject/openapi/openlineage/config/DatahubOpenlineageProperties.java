@@ -1,5 +1,7 @@
 package io.datahubproject.openapi.openlineage.config;
 
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -13,6 +15,9 @@ public class DatahubOpenlineageProperties {
   private String pipelineName;
   private String orchestrator;
   private String env;
+  // Full domain URNs (urn:li:domain:<id>). OpenLineage carries no domain facet, so domains for
+  // events arriving on this endpoint can only be supplied here.
+  private List<String> domains = new ArrayList<>();
 
   // Platform configuration
   private String platformInstance;

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { detectBrowserLanguage, isSupportedLanguage } from '@app/i18n/utils';
+import { LOCALE_MAP } from '@app/i18n/constants';
+import { detectBrowserLanguage, isSupportedLanguage, pickEffectiveLanguage } from '@app/i18n/utils';
+import { SUPPORTED_LANGUAGES } from '@src/i18n/supportedLanguages';
 
 describe('isSupportedLanguage', () => {
     it('returns true for supported languages', () => {
@@ -13,6 +15,52 @@ describe('isSupportedLanguage', () => {
         expect(isSupportedLanguage('unsupported')).toBe(false);
         expect(isSupportedLanguage('')).toBe(false);
         expect(isSupportedLanguage('EN')).toBe(false);
+    });
+
+    it('stays in sync with LOCALE_MAP', () => {
+        expect([...SUPPORTED_LANGUAGES].sort()).toEqual(Object.keys(LOCALE_MAP).sort());
+    });
+});
+
+describe('pickEffectiveLanguage', () => {
+    it('returns the default language when i18n is disabled', () => {
+        expect(
+            pickEffectiveLanguage({
+                i18nEnabled: false,
+                userLanguage: 'de',
+                browserLanguage: 'fr',
+            }),
+        ).toBe('en');
+    });
+
+    it('prefers an explicit supported user language', () => {
+        expect(
+            pickEffectiveLanguage({
+                i18nEnabled: true,
+                userLanguage: 'de',
+                browserLanguage: 'fr',
+            }),
+        ).toBe('de');
+    });
+
+    it('uses the browser language when there is no supported user preference', () => {
+        expect(
+            pickEffectiveLanguage({
+                i18nEnabled: true,
+                userLanguage: null,
+                browserLanguage: 'ja',
+            }),
+        ).toBe('ja');
+    });
+
+    it('falls back to the default when neither user nor browser language is supported', () => {
+        expect(
+            pickEffectiveLanguage({
+                i18nEnabled: true,
+                userLanguage: 'unsupported',
+                browserLanguage: undefined,
+            }),
+        ).toBe('en');
     });
 });
 
@@ -46,7 +94,7 @@ describe('detectBrowserLanguage', () => {
 
     it('returns the first supported language in preference order', () => {
         // Use unsupported tags first so preference order is exercised past them.
-        stubLanguages(['ko-KR', 'zh-CN', 'fr-FR', 'de']);
+        stubLanguages(['ko-KR', 'th-TH', 'fr-FR', 'de']);
         expect(detectBrowserLanguage()).toBe('fr');
     });
 
@@ -58,7 +106,29 @@ describe('detectBrowserLanguage', () => {
     });
 
     it('returns undefined when no preferred language is supported', () => {
-        stubLanguages(['ko-KR', 'zh-CN']);
+        stubLanguages(['ko-KR', 'th-TH']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+    });
+
+    it('maps Simplified Chinese tags to zh-CN', () => {
+        stubLanguages(['zh-CN']);
+        expect(detectBrowserLanguage()).toBe('zh-CN');
+        stubLanguages(['zh-Hans']);
+        expect(detectBrowserLanguage()).toBe('zh-CN');
+        stubLanguages(['zh']);
+        expect(detectBrowserLanguage()).toBe('zh-CN');
+        stubLanguages(['zh-SG']);
+        expect(detectBrowserLanguage()).toBe('zh-CN');
+    });
+
+    it('does not map Traditional Chinese tags to zh-CN', () => {
+        stubLanguages(['zh-TW']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh-Hant']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh-HK']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh-MO']);
         expect(detectBrowserLanguage()).toBeUndefined();
     });
 

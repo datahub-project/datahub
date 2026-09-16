@@ -35,7 +35,7 @@
     "freshness.popoverContent": "{{updateType}} {{lastUpdatedAgo}}",
     "health.assertionsPassing": "Todas las Assertions están pasando",
     "health.noActiveIncidents": "No hay incidencias activas",
-    "health.testsPassing": "Todas las pruebas están pasando",
+    "health.noFailingGovernanceTests": "No hay pruebas de gobernanza fallidas",
     "lineage.downstreamCount_one": "{{count}} downstream",
     "lineage.downstreamCount_other": "{{count}} downstreams",
     "lineage.upstreamCount_one": "{{count}} upstream",

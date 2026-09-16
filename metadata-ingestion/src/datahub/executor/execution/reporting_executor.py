@@ -288,7 +288,7 @@ class ReportingExecutor(DefaultExecutor):
             and ((len(structured_report) + len(report)) > max_length)
         ):
             exec_id = exec_request.exec_id if exec_request else "unknown"
-            message = f"{exec_id} structured report exceeded limit of {max_length} chars and was truncated."
+            message = f"{exec_id} report and structured report exceeded the combined limit of {max_length} chars, so the structured report was removed."
             logger.warning(message)
             structured_report = None
             report = f"WARNING: {message}\n{report}"
@@ -297,8 +297,10 @@ class ReportingExecutor(DefaultExecutor):
             exec_id = exec_request.exec_id if exec_request else "unknown"
             message = f"{exec_id} report exceeded limit of {max_length} chars and was truncated."
             logger.warning(message)
-            report = report[:max_length]
-            report = f"WARNING: {message}\n{report}"
+            # Prefix first, then truncate: truncating before prepending leaves the
+            # result over the limit by the length of the prefix.
+            prefix = f"WARNING: {message}\n"
+            report = (prefix + report)[:max_length]
 
         # Build the arguments for ExecutionRequestResultClass
         result_args = {
@@ -314,14 +316,6 @@ class ReportingExecutor(DefaultExecutor):
             if structured_report and exec_request
             else None,
         }
-
-        # Included only when configured. The ExecutionRequestResult aspect does not
-        # declare executorInstanceId, and generated aspect classes reject unknown
-        # keyword arguments, so passing it unconditionally would fail. Deployments
-        # that set it supply a custom models package whose aspect declares the field
-        # (see datahub.utilities._custom_package_loader).
-        if self._config.executor_instance_id is not None:
-            result_args["executorInstanceId"] = self._config.executor_instance_id
 
         return ExecutionRequestResultClass(**result_args)  # type: ignore[arg-type]
 

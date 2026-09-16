@@ -427,8 +427,22 @@ public class DeleteEntityService {
       String aspectName,
       RecordTemplate prevAspect,
       @Nonnull CascadeOperationContext cascade) {
-    final Optional<RollbackResult> rollbackResult =
-        _entityService.deleteAspect(opContext, urn.toString(), aspectName, new HashMap<>(), true);
+    final Optional<RollbackResult> rollbackResult;
+    try {
+      rollbackResult =
+          _entityService.deleteAspect(opContext, urn.toString(), aspectName, new HashMap<>(), true);
+    } catch (IllegalArgumentException e) {
+      // Delete-time guards can reject individual aspect deletions — e.g. the propertyDefinition
+      // of an ACTIVE structured property that references the deleted entity requires a prior
+      // soft delete. Leave that aspect in place and continue the cascade for the remaining
+      // references instead of aborting cleanup mid-loop.
+      log.warn(
+          "Reference cleanup skipped deleting aspect {} of {}; the aspect was left in place: {}",
+          aspectName,
+          urn,
+          e.getMessage());
+      return;
+    }
     if (rollbackResult.isEmpty() || rollbackResult.get().getNewValue() != null) {
       log.error(
           "Failed to delete aspect with references. Before {}, after: null, please check GMS logs"

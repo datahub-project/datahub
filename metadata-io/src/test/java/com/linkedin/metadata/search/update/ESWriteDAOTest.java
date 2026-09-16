@@ -18,6 +18,8 @@ import static org.testng.Assert.fail;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -83,13 +85,32 @@ public class ESWriteDAOTest {
   public void setup() {
     MockitoAnnotations.openMocks(this);
 
-    esWriteDAO =
-        new ESWriteDAO(
-            TEST_OS_SEARCH_CONFIG.toBuilder()
-                .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(NUM_RETRIES).build())
-                .build(),
-            mockSearchClient,
-            mockBulkProcessor);
+    esWriteDAO = new ESWriteDAO(searchConfig(true), mockSearchClient, mockBulkProcessor);
+  }
+
+  private static ElasticSearchConfiguration searchConfig(boolean v3Enabled) {
+    EntityIndexConfiguration entityIndex = TEST_OS_SEARCH_CONFIG.getEntityIndex();
+    return TEST_OS_SEARCH_CONFIG.toBuilder()
+        .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(NUM_RETRIES).build())
+        .entityIndex(
+            entityIndex.toBuilder()
+                .v3(entityIndex.getV3().toBuilder().enabled(v3Enabled).build())
+                .build())
+        .build();
+  }
+
+  @Test
+  public void testSearchGroupWritesSkippedWhenV3Disabled() {
+    ESWriteDAO v3DisabledDAO =
+        new ESWriteDAO(searchConfig(false), mockSearchClient, mockBulkProcessor);
+
+    v3DisabledDAO.upsertDocumentBySearchGroup(
+        opContext, "test_group", "{\"field\":\"value\"}", TEST_DOC_ID);
+    v3DisabledDAO.deleteDocumentBySearchGroup(opContext, "test_group", TEST_DOC_ID);
+    v3DisabledDAO.applyScriptUpdateBySearchGroup(
+        opContext, "test_group", TEST_DOC_ID, "ctx._source.x=1", Map.of(), Map.of());
+
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
   }
 
   @Test

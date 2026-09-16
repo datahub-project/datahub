@@ -103,4 +103,5 @@ export const AlertErrorMessage = styled.div(({ theme }) => ({
     fontSize: '13px',
     overflowWrap: 'break-word' as const,
     wordBreak: 'break-all' as const,
+    marginTop: '8px',
 }));

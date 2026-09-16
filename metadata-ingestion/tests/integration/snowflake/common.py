@@ -5,8 +5,12 @@ from datetime import datetime, timezone
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake import snowflake_query
+from datahub.ingestion.source.snowflake.constants import SnowflakeShowKind
 from datahub.ingestion.source.snowflake.snowflake_queries import QueryLogQueryBuilder
-from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    SHOW_STREAM_MAX_PAGE_SIZE,
+    SnowflakeQuery,
+)
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 NUM_TABLES = 10
@@ -411,7 +415,9 @@ def default_query_results(  # noqa: C901
             }
             for tbl_idx in range(1, num_tables + 1)
         ]
-    elif query == SnowflakeQuery.show_views_for_database("TEST_DB"):
+    elif query == SnowflakeQuery.show_objects_for_database(
+        SnowflakeShowKind.VIEWS, "TEST_DB"
+    ):
         # TODO: Add tests for view pagination.
         return [
             {
@@ -591,7 +597,9 @@ def default_query_results(  # noqa: C901
                 "NUMERIC_SCALE": 0,
             },
         ]
-    elif query == SnowflakeQuery.streams_for_database("TEST_DB"):
+    elif query == SnowflakeQuery.show_objects_for_database(
+        SnowflakeShowKind.STREAMS, "TEST_DB", limit=SHOW_STREAM_MAX_PAGE_SIZE
+    ):
         # TODO: Add tests for stream pagination.
         return [
             {
@@ -614,8 +622,14 @@ def default_query_results(  # noqa: C901
             for stream_idx in range(1, num_streams + 1)
         ]
     elif (
-        query == SnowflakeQuery.streams_for_database("DEMO_DATABASE")
-        or query == SnowflakeQuery.streams_for_database("CUSTOMER_360")
+        query
+        == SnowflakeQuery.show_objects_for_database(
+            SnowflakeShowKind.STREAMS, "DEMO_DATABASE", limit=SHOW_STREAM_MAX_PAGE_SIZE
+        )
+        or query
+        == SnowflakeQuery.show_objects_for_database(
+            SnowflakeShowKind.STREAMS, "CUSTOMER_360", limit=SHOW_STREAM_MAX_PAGE_SIZE
+        )
         or query
         in (
             SnowflakeQuery.use_database("TEST_DB"),
@@ -1164,7 +1178,9 @@ def default_query_results(  # noqa: C901
         ]
     elif query == SnowflakeQuery.show_pipes_for_schema("TEST2_SCHEMA", "TEST_DB"):
         return []
-    elif query == SnowflakeQuery.show_dynamic_tables_for_database("TEST_DB"):
+    elif query == SnowflakeQuery.show_objects_for_database(
+        SnowflakeShowKind.DYNAMIC_TABLES, "TEST_DB"
+    ):
         # Return dynamic table definitions for TABLE_2 which should be a dynamic table
         return [
             {
@@ -1184,9 +1200,11 @@ def default_query_results(  # noqa: C901
                 "owner_role_type": "ROLE",
             }
         ]
-    elif query == SnowflakeQuery.show_dynamic_tables_for_database(
-        "DEMO_DATABASE"
-    ) or query == SnowflakeQuery.show_dynamic_tables_for_database("CUSTOMER_360"):
+    elif query == SnowflakeQuery.show_objects_for_database(
+        SnowflakeShowKind.DYNAMIC_TABLES, "DEMO_DATABASE"
+    ) or query == SnowflakeQuery.show_objects_for_database(
+        SnowflakeShowKind.DYNAMIC_TABLES, "CUSTOMER_360"
+    ):
         return []
     elif query == "SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE":
         # SHOW AVAILABLE LISTINGS returns lowercase column names

@@ -529,6 +529,51 @@ public class BuildIndicesIncrementalStepTest {
   }
 
   @Test
+  public void testLookupSkipsThrowingServiceAndFindsBuilderInNextService() throws Throwable {
+    // The index-builder lookup catches per-service exceptions (e.g. the message-less
+    // UnsupportedOperationException from the structured-property merge) and keeps checking the
+    // remaining services. A throwing service placed before the good one must be skipped, not
+    // abort the lookup: were the catch removed, the exception would escape to the executable's
+    // outer catch, the step would FAIL, and the builder below would never be invoked.
+    ElasticSearchIndexed throwingService = mock(ElasticSearchIndexed.class);
+    when(throwingService.buildReindexConfigs(any(), any()))
+        .thenReturn(List.of())
+        .thenThrow(new UnsupportedOperationException());
+
+    step =
+        new BuildIndicesIncrementalStep(
+            opContext,
+            List.of(throwingService, indexedService),
+            Set.of(),
+            entityService,
+            UPGRADE_VERSION,
+            buildIndicesConfig);
+
+    IncrementalReindexResult incrementalResult =
+        new IncrementalReindexResult(
+            NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, 0L, Map.of());
+    when(indexBuilder.buildIndexIncremental(
+            any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
+        .thenReturn(incrementalResult);
+    PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L));
+    when(indexBuilder.pollReindexCompletion(
+            any(OperationContext.class),
+            eq(INDEX_NAME),
+            eq(NEXT_INDEX_NAME),
+            any(),
+            anyInt(),
+            anyMap(),
+            eq("task1")))
+        .thenReturn(pollResult);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder)
+        .buildIndexIncremental(any(OperationContext.class), any(), eq(UPGRADE_VERSION));
+  }
+
+  @Test
   public void testExceptionReturnsFailed() throws Throwable {
     when(indexBuilder.buildIndexIncremental(any(OperationContext.class), any(), anyString()))
         .thenThrow(new RuntimeException("ES connection error"));

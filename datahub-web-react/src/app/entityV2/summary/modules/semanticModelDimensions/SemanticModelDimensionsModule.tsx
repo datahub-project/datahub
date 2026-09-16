@@ -1,140 +1,113 @@
-import { Pill, Text, radius } from '@components';
+import { Pill, Text, Tooltip } from '@components';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
 import { Function } from '@phosphor-icons/react/dist/csr/Function';
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { ColorOptions } from '@components/theme/config';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import analytics, { EventType } from '@app/analytics';
 import { useAllSemanticModelMemberDatasets } from '@app/entityV2/summary/modules/semanticModelDatasets/useSemanticModelMemberDatasets';
+import {
+    DimensionPillKind,
+    getDimensionGroups,
+    getDimensionPillKind,
+} from '@app/entityV2/summary/modules/semanticModelDimensions/utils';
+import {
+    getSemanticModelDatasetDisplayName,
+    getSemanticModelDatasetLabel,
+} from '@app/entityV2/summary/modules/shared/semanticModelDatasetUtils';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
+import ModuleEntityIconSlot from '@app/homeV3/module/components/ModuleEntityIconSlot';
+import ModuleEntityLink from '@app/homeV3/module/components/ModuleEntityLink';
+import ModuleEntityName from '@app/homeV3/module/components/ModuleEntityName';
+import ModulePillRow from '@app/homeV3/module/components/ModulePillRow';
+import ModuleSecondaryText from '@app/homeV3/module/components/ModuleSecondaryText';
 import { ModuleProps } from '@app/homeV3/module/types';
-import { PlatformIcon } from '@app/searchV2/autoCompleteV2/components/icon/PlatformIcon';
+import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { DataPlatform, Dataset, EntityType, SchemaField, SemanticFieldType } from '@types';
+import { DataHubPageModuleType, Dataset } from '@types';
 
-type EntityDataWithPlatform = {
-    platform?: DataPlatform | null;
-};
-
-type DimensionGroup = {
-    datasetName: string;
-    platform?: DataPlatform | null;
-    source?: Dataset | null;
-    fields: SchemaField[];
+const DIMENSION_PILL_UI: Record<DimensionPillKind, { color: ColorOptions; leftIcon?: React.ComponentType<any> }> = {
+    time: { color: 'blue', leftIcon: Clock },
+    calculated: { color: 'yellow', leftIcon: Function },
+    plain: { color: 'gray' },
 };
 
 const DatasetGroup = styled.div`
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px 4px;
-    border-bottom: 1px solid ${(props) => props.theme.colors.border};
-
-    &:last-child {
-        border-bottom: none;
-    }
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 13px 8px 8px;
 `;
 
-const DatasetHeader = styled.div`
+const GroupBody = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+`;
+
+const HeaderRow = styled.div`
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
     min-width: 0;
 `;
 
-const IconContainer = styled.div`
+const HeaderLink = styled(ModuleEntityLink)`
     display: flex;
-    justify-content: center;
     align-items: center;
-    background: ${(props) => props.theme.colors.bgSurface};
-    height: 28px;
-    width: 28px;
-    border-radius: ${radius.full};
-    flex-shrink: 0;
-`;
-
-const DatasetName = styled(Text).attrs({ size: 'sm', weight: 'semiBold' })`
+    gap: 16px;
+    min-width: 0;
+    flex: 1;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 `;
 
-const PillsRow = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-`;
-
-const StyledLink = styled(Link)`
-    color: inherit;
-    text-decoration: none;
-
-    &:hover ${DatasetName} {
+const DatasetName = styled(ModuleEntityName)`
+    ${HeaderLink}:hover & {
         text-decoration: underline;
     }
 `;
 
-const PLATFORM_ICON_SIZE = 16;
-
-function isCalculatedDimension(field: SchemaField): boolean {
-    const fieldPath = field.fieldPath ?? '';
-    const annotation = field.schemaFieldEntity?.semanticFieldAnnotation;
-    return (annotation?.expression?.dialects ?? []).some((dialect) => {
-        const expression = (dialect.expression ?? '').trim();
-        if (!expression) {
-            return false;
-        }
-        return expression.toLowerCase() !== fieldPath.toLowerCase();
-    });
-}
-
-function getDimensionPillProps(field: SchemaField): {
-    color: ColorOptions;
-    leftIcon?: React.ComponentType<any>;
-} {
-    if (field.schemaFieldEntity?.semanticFieldAnnotation?.dimension?.isTime) {
-        return { color: 'blue', leftIcon: Clock };
-    }
-    if (isCalculatedDimension(field)) {
-        return { color: 'yellow', leftIcon: Function };
-    }
-    return { color: 'gray' };
-}
-
 export default function SemanticModelDimensionsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
-    const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
+    const { templateType } = usePageTemplateContext();
     const { datasets, loading } = useAllSemanticModelMemberDatasets();
 
-    const typedData = entityData as EntityDataWithPlatform | null;
-    const fallbackPlatform = typedData?.platform;
+    const groups = useMemo(() => getDimensionGroups(datasets), [datasets]);
 
-    const groups: DimensionGroup[] = useMemo(() => {
-        return datasets
-            .map((dataset): DimensionGroup | null => {
-                const fields = (dataset.schema?.fields ?? []).filter(
-                    (field) => field.schemaFieldEntity?.semanticFieldAnnotation?.type === SemanticFieldType.Dimension,
-                );
-                if (!fields.length) {
-                    return null;
-                }
-                return {
-                    datasetName: dataset.semanticModelProperties?.alias || dataset.name,
-                    platform: dataset.platform ?? fallbackPlatform,
-                    source: dataset,
-                    fields,
-                };
-            })
-            .filter((group): group is DimensionGroup => group !== null);
-    }, [datasets, fallbackPlatform]);
+    const onDatasetClick = useCallback(
+        (datasetUrn: string) => {
+            analytics.event({
+                type: EventType.HomePageTemplateModuleAssetClick,
+                moduleType: DataHubPageModuleType.SemanticModelDimensions,
+                assetUrn: datasetUrn,
+                location: templateType,
+            });
+        },
+        [templateType],
+    );
+
+    const renderHover = useCallback((dataset: Dataset, children: React.ReactNode) => {
+        const alias = dataset.semanticModelProperties?.alias;
+        const name = getSemanticModelDatasetDisplayName(dataset);
+        const hoverText = alias ? `${alias} - ${name}` : name;
+        return (
+            <Tooltip title={<Text size="sm">{hoverText}</Text>} placement="bottom">
+                {children}
+            </Tooltip>
+        );
+    }, []);
 
     if (!loading && !groups.length) {
         return (
@@ -151,41 +124,39 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
     return (
         <LargeModule {...props} loading={loading} dataTestId="semantic-model-dimensions-module">
             {groups.map((group) => {
-                const headerContent = (
-                    <DatasetHeader>
-                        {group.platform && (
-                            <IconContainer>
-                                <PlatformIcon platform={group.platform} size={PLATFORM_ICON_SIZE} />
-                            </IconContainer>
-                        )}
-                        <DatasetName>{group.datasetName}</DatasetName>
-                    </DatasetHeader>
-                );
+                const label = getSemanticModelDatasetLabel(group.dataset);
+                const typeName = entityRegistry.getEntityName(group.dataset.type) ?? group.dataset.type;
+                const datasetUrl = entityRegistry.getEntityUrl(group.dataset.type, group.dataset.urn);
 
                 return (
-                    <DatasetGroup key={group.datasetName}>
-                        {group.source?.urn && group.source.type === EntityType.Dataset ? (
-                            <StyledLink to={entityRegistry.getEntityUrl(group.source.type, group.source.urn)}>
-                                {headerContent}
-                            </StyledLink>
-                        ) : (
-                            headerContent
-                        )}
-                        <PillsRow>
-                            {group.fields.map((field) => {
-                                const fieldPath = field.fieldPath ?? '';
-                                const { color, leftIcon } = getDimensionPillProps(field);
-                                return (
-                                    <Pill
-                                        key={`${group.datasetName}-${fieldPath}`}
-                                        label={fieldPath}
-                                        color={color}
-                                        size="sm"
-                                        leftIcon={leftIcon}
-                                    />
-                                );
-                            })}
-                        </PillsRow>
+                    <DatasetGroup key={group.dataset.urn}>
+                        <GroupBody>
+                            <HeaderRow>
+                                <HeaderLink to={datasetUrl} onClick={() => onDatasetClick(group.dataset.urn)}>
+                                    <ModuleEntityIconSlot>
+                                        <EntityIcon entity={group.dataset} />
+                                    </ModuleEntityIconSlot>
+                                    {renderHover(group.dataset, <DatasetName displayName={label} />)}
+                                </HeaderLink>
+                                <ModuleSecondaryText>{typeName}</ModuleSecondaryText>
+                            </HeaderRow>
+                            <ModulePillRow>
+                                {group.fields.map((field) => {
+                                    const fieldPath = field.fieldPath ?? '';
+                                    const { color, leftIcon } = DIMENSION_PILL_UI[getDimensionPillKind(field)];
+                                    return (
+                                        <Pill
+                                            key={`${group.dataset.urn}-${fieldPath}`}
+                                            label={fieldPath}
+                                            color={color}
+                                            size="sm"
+                                            leftIcon={leftIcon}
+                                            clickable={false}
+                                        />
+                                    );
+                                })}
+                            </ModulePillRow>
+                        </GroupBody>
                     </DatasetGroup>
                 );
             })}

@@ -496,7 +496,7 @@ class PowerBiReportServerDashboardSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("PowerBI Report Server")
 @config_class(PowerBiReportServerDashboardSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
     """

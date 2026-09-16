@@ -2,7 +2,7 @@
 
 import logging
 import sqlite3
-from typing import Any, List
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,12 +14,14 @@ from datahub.ingestion.source.ge_profiling_config import (
     ProfilingIsolationLevel,
 )
 from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
+from datahub.ingestion.source.sql.postgres.source import BOX, CITEXT, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
 from datahub.metadata.schema_classes import DatasetFieldProfileClass
+from datahub.utilities.stats_collections import float_top_k_dict
 
 
 @pytest.fixture
@@ -76,6 +78,10 @@ def mock_report():
     report = MagicMock(spec=SQLSourceReport)
     report.report_dropped = MagicMock()
     report.warning = MagicMock()
+    report.info = MagicMock()
+    # Dataclass fields with default_factory are not class attributes, so a spec'd mock
+    # does not expose them; wire the real TopKDict so the profiler's finally block can write.
+    report.profiling_time_taken_per_table_secs = float_top_k_dict()
     return report
 
 
@@ -126,6 +132,25 @@ class TestSQLAlchemyProfiler:
         # NullType stringifies to "NULL"; this is how Databricks VARIANT columns
         # (reflected as NullType) get skipped for profiling instead of erroring.
         assert profiler._should_ignore_column(sa.types.NullType(), "payload")
+
+    def test_should_ignore_column_postgres_no_equality_types(
+        self, sqlite_engine, profiler_config, mock_report
+    ):
+        """Postgres geometric/xml columns have no equality operator, so
+        COUNT(DISTINCT col) errors; they must be excluded from field profiling.
+        """
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=profiler_config,
+            platform="postgres",
+            env="TEST",
+        )
+        assert profiler._should_ignore_column(BOX(), "bbox")
+        assert profiler._should_ignore_column(XML(), "doc")
+        # Types with btree operator classes profile fine and must not be skipped.
+        assert not profiler._should_ignore_column(LTREE(), "tree_path")
+        assert not profiler._should_ignore_column(CITEXT(), "ci")
 
     def test_generate_profiles_empty_list(self, profiler):
         """Test generate_profiles with empty request list."""
@@ -1292,3 +1317,46 @@ class TestIgnoreSamplingColumnNames:
             == []
         )
         adapter.field_path_for.assert_not_called()
+
+
+class TestQueryCombinerWiring:
+    """The flatten knobs are useless if the config never reaches the combiner."""
+
+    def _combiner_kwargs(
+        self, sqlite_engine: Any, mock_report: Any, config: ProfilingConfig
+    ) -> Dict[str, Any]:
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler"
+            ".SQLAlchemyQueryCombiner"
+        ) as combiner_cls:
+            list(profiler.generate_profiles(requests=[], max_workers=1))
+        return dict(combiner_cls.call_args.kwargs)
+
+    def test_flatten_knobs_reach_the_combiner(
+        self, sqlite_engine: Any, mock_report: Any
+    ) -> None:
+        config = ProfilingConfig(
+            enabled=True,
+            query_combiner_flatten_enabled=True,
+            max_distinct_per_statement=3,
+        )
+        kwargs = self._combiner_kwargs(sqlite_engine, mock_report, config)
+
+        assert kwargs["flatten_enabled"] is True
+        assert kwargs["max_distinct_per_statement"] == 3
+
+    def test_defaults_leave_flattening_off(
+        self, sqlite_engine: Any, mock_report: Any
+    ) -> None:
+        kwargs = self._combiner_kwargs(
+            sqlite_engine, mock_report, ProfilingConfig(enabled=True)
+        )
+
+        assert kwargs["flatten_enabled"] is False

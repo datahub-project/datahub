@@ -8,6 +8,11 @@ query getEntities(
         urn
         type
         ...searchResultFields
+        ... on OwnershipTypeEntity {
+            info {
+                name
+            }
+        }
     }
 }
 

@@ -64,7 +64,7 @@
     "page.subtitle": "Create and manage custom properties for your data assets",
     "page.title": "Structured Properties",
     "permissionTooltip": "Must have permission to manage structured properties. Ask your DataHub administrator.",
-    "table.confirmDeleteText": "Are you sure you want to delete? Deleting will remove this structured property from all assets it's currently on.",
+    "table.confirmDeleteText": "Are you sure you want to delete? This will first soft-delete the property and then permanently delete it, removing it from all assets it's currently on. The property's qualified name may remain reserved in the search index and cannot be reused for a new property until the affected indices are reindexed.",
     "table.confirmDeleteTitle": "Confirm Delete",
     "table.copyUrn": "Copy Urn",
     "table.createdByColumn": "Created By",

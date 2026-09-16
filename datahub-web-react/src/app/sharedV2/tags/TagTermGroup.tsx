@@ -243,6 +243,7 @@ export default function TagTermGroup({
                         refetch={refetch}
                         fontSize={fontSize}
                         showOneAndCount={showOneAndCount}
+                        context={orderedTerm.term.context}
                     />
                 );
 
@@ -271,6 +272,7 @@ export default function TagTermGroup({
                         refetch={refetch}
                         fontSize={fontSize}
                         showOneAndCount={showOneAndCount}
+                        context={orderedTag.tag.context}
                     />
                 );
 

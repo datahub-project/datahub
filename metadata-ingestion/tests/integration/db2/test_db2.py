@@ -1,7 +1,9 @@
 import logging
 import os
 import platform
+import queue
 import subprocess
+import threading
 
 import pytest
 import sqlalchemy
@@ -16,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.integration_batch_4
 DB2_PORT = 50000
+DB2_URL = f"db2+ibm_db://db2inst1:password@localhost:{DB2_PORT}/testdb"
 
 
 @pytest.fixture(scope="module")
@@ -23,13 +26,88 @@ def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/db2"
 
 
-def is_db2_up(container_name: str) -> bool:
-    cmd = f"docker logs {container_name} 2>&1 | grep 'Setup has completed.'"
-    ret = subprocess.run(
-        cmd,
-        shell=True,
+def _shell(cmd: str) -> str:
+    return subprocess.run(
+        cmd, shell=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def _db2_setup_failure() -> str | None:
+    """The container's setup script is fail-open: on CREATE DATABASE failure it
+    logs "(!) Failed to create ..." / an SQL error and still reports setup as
+    completed, so the server comes up without the database and readiness would
+    poll out the full timeout. Detect the failure to abort immediately."""
+    logs = _shell("docker logs testdb2 2>&1")
+    for line in logs.splitlines():
+        if "(!) Failed to create" in line or "SQL0293N" in line:
+            return line.strip()
+    return None
+
+
+def _db2_environment_diagnostics() -> str:
+    """Facts needed to diagnose a CREATE DATABASE failure: what filesystem the
+    database path actually sits on, kernel async-I/O headroom, and the DB2
+    diagnostic log entries with the underlying OS error."""
+    return "\n".join(
+        [
+            "--- df -T /database ---",
+            _shell("docker exec testdb2 df -T /database /database/data 2>&1"),
+            "--- mount options ---",
+            _shell(
+                "docker exec testdb2 sh -c 'mount | grep -E \"/database| / \"' 2>&1"
+            ),
+            "--- aio limits (aio-nr / aio-max-nr) ---",
+            _shell(
+                "docker exec testdb2 sh -c 'cat /proc/sys/fs/aio-nr /proc/sys/fs/aio-max-nr' 2>&1"
+            ),
+            "--- device sector sizes ---",
+            _shell(
+                "docker exec testdb2 sh -c 'cat /sys/block/*/queue/logical_block_size /sys/block/*/queue/physical_block_size 2>/dev/null; blockdev --getss --getpbsz /dev/mapper/root 2>&1'"
+            ),
+            "--- db2diag root errors (first Severe/Error entries with OS errno) ---",
+            _shell(
+                "docker exec testdb2 sh -c \"grep -B3 -A22 -E 'LEVEL: (Severe|Error)' /database/config/db2inst1/sqllib/db2dump/DIAG0000/db2diag.log | head -220\" 2>&1"
+            ),
+        ]
     )
-    return ret.returncode == 0
+
+
+def _attempt_db2_connection() -> bool:
+    engine = sqlalchemy.create_engine(DB2_URL)
+    try:
+        with engine.connect():
+            return True
+    except Exception:
+        return False
+    finally:
+        engine.dispose()
+
+
+def is_db2_up() -> bool:
+    """Readiness = the test database accepts a connection. The container log
+    line "Setup has completed." is printed even when database creation failed
+    (the setup script only warns and keeps going), so log-grepping cannot
+    signal readiness.
+
+    The attempt runs in a daemon thread with a hard bound: the poll loop's
+    overall timeout only ticks between checker calls, so a stalled handshake
+    inside connect() must neither block the loop nor - were the thread
+    non-daemon - the interpreter exit."""
+    setup_failure = _db2_setup_failure()
+    if setup_failure is not None:
+        raise RuntimeError(
+            f"DB2 container setup failed: {setup_failure!r}.\n"
+            f"{_db2_environment_diagnostics()}"
+        )
+
+    outcome: "queue.Queue[bool]" = queue.Queue(maxsize=1)
+    threading.Thread(
+        target=lambda: outcome.put(_attempt_db2_connection()), daemon=True
+    ).start()
+    try:
+        return outcome.get(timeout=30)
+    except queue.Empty:
+        return False
 
 
 def _split_statements(sql):
@@ -67,15 +145,13 @@ def db2_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             "testdb2",
             DB2_PORT,
             timeout=600,
-            checker=lambda: is_db2_up("testdb2"),
+            checker=is_db2_up,
         )
 
         setup_filename = test_resources_dir / "setup" / "setup.sql"
         statements = _split_statements(open(setup_filename).read())
 
-        engine = sqlalchemy.create_engine(
-            f"db2+ibm_db://db2inst1:password@localhost:{DB2_PORT}/testdb"
-        )
+        engine = sqlalchemy.create_engine(DB2_URL)
         with engine.begin() as conn:
             for statement in statements:
                 logger.info("Executing SQL: " + statement)

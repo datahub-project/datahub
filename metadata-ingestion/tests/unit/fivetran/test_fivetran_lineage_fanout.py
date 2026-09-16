@@ -27,7 +27,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
-from datahub.metadata.urns import DataFlowUrn
+from datahub.metadata.urns import DataFlowUrn, DatasetUrn
 
 CONNECTOR_ID = "my_connector_id"
 DESTINATION_ID = "test_destination"
@@ -296,6 +296,49 @@ def test_no_column_lineage_when_source_urn_unresolved(source):
     )
 
     assert fgls == []
+
+
+def test_empty_column_names_skipped_from_fine_grained_lineage(source):
+    """Blank Fivetran column names build invalid schemaField URNs that GMS
+    rejects with 422, failing the whole ingest batch (including table lineage).
+    Skip those edges; keep padded names unchanged for URN fidelity."""
+    lineage = TableLineage(
+        source_table="dbo.orders",
+        destination_table="dbo.orders",
+        column_lineage=[
+            ColumnLineage(source_column="", destination_column=""),
+            ColumnLineage(source_column="  ", destination_column="id"),
+            ColumnLineage(source_column="id", destination_column=""),
+            ColumnLineage(source_column=None, destination_column="id"),  # type: ignore[arg-type]
+            ColumnLineage(source_column=" id ", destination_column="id"),
+            ColumnLineage(source_column="id", destination_column="id"),
+            ColumnLineage(source_column="name", destination_column="name"),
+        ],
+    )
+    input_urn = DatasetUrn.create_from_ids(
+        platform_id="mssql",
+        table_name="src_db.dbo.orders",
+        env="PROD",
+    )
+    destination_details = source.resolve_destination_details(DESTINATION_ID)
+    output_urn = source.build_destination_urn("dbo.orders", destination_details)
+
+    fgls = source._build_fine_grained_lineages(lineage, input_urn, output_urn)
+
+    assert source.report.num_column_lineage_edges_skipped_blank_name == 4
+    warnings = [
+        w
+        for w in source.report._structured_logs.warnings
+        if w.title == "Column lineage skipped due to blank column name"
+    ]
+    assert len(warnings) == 1
+    assert len(fgls) == 3
+    assert fgls[0].upstreams == [f"urn:li:schemaField:({input_urn}, id )"]
+    assert fgls[0].downstreams == [f"urn:li:schemaField:({output_urn},id)"]
+    assert fgls[1].upstreams == [f"urn:li:schemaField:({input_urn},id)"]
+    assert fgls[1].downstreams == [f"urn:li:schemaField:({output_urn},id)"]
+    assert fgls[2].upstreams == [f"urn:li:schemaField:({input_urn},name)"]
+    assert fgls[2].downstreams == [f"urn:li:schemaField:({output_urn},name)"]
 
 
 def test_stale_removal_processor_is_wired(source):

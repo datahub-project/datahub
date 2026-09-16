@@ -178,6 +178,87 @@ def test_search_reports_uses_report_object_type(
     assert reports[0].id == "report-1"
 
 
+def test_search_metrics_uses_metric_object_type(monkeypatch: MonkeyPatch) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    captured_params: Optional[Dict[str, Any]] = None
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        nonlocal captured_params
+        captured_params = params
+        return {"result": [{"id": "metric-1", "name": "Revenue"}]}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    metrics = list(client.search_metrics(project_id="project-1"))
+
+    assert captured_params is not None
+    assert captured_params["type"] == "7"
+    assert metrics[0].id == "metric-1"
+
+
+def test_get_attribute_relationships_calls_system_hierarchy_endpoint(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    captured: Dict[str, Any] = {}
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        captured["path"] = path
+        captured["project_id"] = project_id
+        return {"relationships": []}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    result = client.get_attribute_relationships("project-1", "ATTR1")
+
+    assert (
+        captured["path"] == "/api/model/systemHierarchy/attributes/ATTR1/relationships"
+    )
+    assert captured["project_id"] == "project-1"
+    assert result == {"relationships": []}
+
+
+def test_get_consolidation_model_calls_consolidations_endpoint(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    captured: Dict[str, Any] = {}
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        captured["path"] = path
+        captured["project_id"] = project_id
+        return {"elements": []}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    result = client.get_consolidation_model("project-1", "CONSOL1")
+
+    assert captured["path"] == "/api/model/consolidations/CONSOL1"
+    assert captured["project_id"] == "project-1"
+    assert result == {"elements": []}
+
+
 def test_list_datasources_reads_datasource_management_response(
     monkeypatch: MonkeyPatch,
 ) -> None:

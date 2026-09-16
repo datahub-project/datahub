@@ -571,12 +571,12 @@ class SnowflakeIdentifierBuilder:
         return name.replace('"', '""')
 
     @staticmethod
-    def get_quoted_identifier_for_database(db_name):
+    def get_quoted_identifier_for_database(db_name: str) -> str:
         db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
         return f'"{db_name}"'
 
     @staticmethod
-    def get_quoted_identifier_for_schema(db_name, schema_name):
+    def get_quoted_identifier_for_schema(db_name: str, schema_name: str) -> str:
         db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
         schema_name = SnowflakeIdentifierBuilder._escape_identifier(schema_name)
         return f'"{db_name}"."{schema_name}"'

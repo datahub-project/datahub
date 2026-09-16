@@ -462,6 +462,26 @@ public class KafkaConsumerPoolTest {
   }
 
   @Test
+  public void testReturnConsumerAfterShutdownIsIdempotent() throws InterruptedException {
+    KafkaConsumerPool pool =
+        new KafkaConsumerPool(
+            consumerFactory, 1, 1, Duration.ofSeconds(2), Duration.ofMinutes(5), null);
+
+    CheckedConsumer checkedConsumer =
+        pool.borrowConsumer(100, TimeUnit.MILLISECONDS, "PlatformEvent_v1");
+    assertNotNull(checkedConsumer);
+
+    pool.shutdownPool();
+    assertEquals(pool.getTotalConsumersCreated().get(), 0);
+
+    pool.returnConsumer(checkedConsumer);
+    pool.returnConsumer(checkedConsumer);
+
+    assertEquals(pool.getTotalConsumersCreated().get(), 0);
+    verify(checkedConsumer.getConsumer(), times(1)).close();
+  }
+
+  @Test
   public void testReturnConsumerWhenQueueFull() throws InterruptedException {
     KafkaConsumerPool pool =
         new KafkaConsumerPool(

@@ -1,42 +1,24 @@
-import os
+from datahub.ingestion.graph.client import get_default_graph
+from datahub.metadata.schema_classes import ActorsClass, RolePropertiesClass
+from datahub.metadata.urns import RoleUrn
 
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+graph = get_default_graph()
 
-# Create a DataHub REST emitter
-gms_server = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
-token = os.getenv("DATAHUB_GMS_TOKEN")
-emitter = DatahubRestEmitter(gms_server=gms_server, token=token)
+role_urn = RoleUrn("snowflake_reader_role")
 
-# Query a role entity by URN
-role_urn = "urn:li:role:snowflake_reader_role"
+props = graph.get_aspect(entity_urn=str(role_urn), aspect_type=RolePropertiesClass)
+if props is None:
+    raise SystemExit(f"Role not found: {role_urn}")
 
-# Get the role entity
-role_entity = emitter._session.get(
-    f"{emitter._gms_server}/entities/{role_urn.replace(':', '%3A').replace('(', '%28').replace(')', '%29')}"
-)
+print(f"Role URN: {role_urn}")
+print(f"Name: {props.name}")
+print(f"Description: {props.description}")
+print(f"Type: {props.type}")
+print(f"Request URL: {props.requestUrl}")
 
-if role_entity.status_code == 200:
-    role_data = role_entity.json()
-    print(f"Role URN: {role_data.get('urn')}")
-
-    # Extract role properties
-    if "aspects" in role_data:
-        aspects = role_data["aspects"]
-
-        # Role properties
-        if "roleProperties" in aspects:
-            props = aspects["roleProperties"]["value"]
-            print(f"Name: {props.get('name')}")
-            print(f"Description: {props.get('description')}")
-            print(f"Type: {props.get('type')}")
-            print(f"Request URL: {props.get('requestUrl')}")
-
-        # Actors (users and groups)
-        if "actors" in aspects:
-            actors = aspects["actors"]["value"]
-            if "users" in actors:
-                print(f"Users: {[u['user'] for u in actors['users']]}")
-            if "groups" in actors:
-                print(f"Groups: {[g['group'] for g in actors['groups']]}")
-else:
-    print(f"Failed to retrieve role: {role_entity.status_code}")
+actors = graph.get_aspect(entity_urn=str(role_urn), aspect_type=ActorsClass)
+if actors is not None:
+    if actors.users:
+        print(f"Users: {[u.user for u in actors.users]}")
+    if actors.groups:
+        print(f"Groups: {[g.group for g in actors.groups]}")

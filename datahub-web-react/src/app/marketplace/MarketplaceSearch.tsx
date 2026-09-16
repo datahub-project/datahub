@@ -1,18 +1,21 @@
+import { SearchBar } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import EntityAutocompleteDropdown from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/EntityAutocompleteDropdown';
+type Props = {
+    value: string;
+    onChange: (value: string) => void;
+};
 
-import { EntityType } from '@types';
-
-export default function MarketplaceSearch() {
+export default function MarketplaceSearch({ value, onChange }: Props) {
     const { t } = useTranslation('misc');
 
     return (
-        <EntityAutocompleteDropdown
-            entityTypes={[EntityType.DataProduct]}
+        <SearchBar
             placeholder={t('marketplace.searchPlaceholder')}
-            dataTestId="marketplace-sidebar-search-input"
+            value={value}
+            onChange={onChange}
+            data-testid="marketplace-sidebar-search-input"
         />
     );
 }

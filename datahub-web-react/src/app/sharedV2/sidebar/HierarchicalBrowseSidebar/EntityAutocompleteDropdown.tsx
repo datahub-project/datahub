@@ -48,7 +48,7 @@ type Props = {
 
 /**
  * Debounced autocomplete search bar with dropdown results, shared by hierarchical
- * browse sidebars (glossary, marketplace, etc.).
+ * browse sidebars (glossary, data products, etc.).
  */
 export default function EntityAutocompleteDropdown({ entityTypes, placeholder, dataTestId }: Props) {
     const [searchInput, setSearchInput] = useState('');

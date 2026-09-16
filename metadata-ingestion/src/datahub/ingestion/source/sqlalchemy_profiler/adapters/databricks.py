@@ -11,7 +11,6 @@ from databricks.sqlalchemy.dialect import (
     DatabricksDecimal,
     DatabricksTimestamp,
 )
-from sqlalchemy.engine import Connection
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.type_api import TypeEngine
@@ -19,6 +18,7 @@ from sqlalchemy.sql.type_api import TypeEngine
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
+    ProfilingConnection,
 )
 
 logger = logging.getLogger(__name__)
@@ -160,7 +160,7 @@ class DatabricksAdapter(PlatformAdapter):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         """
@@ -187,7 +187,7 @@ class DatabricksAdapter(PlatformAdapter):
             f"approx_percentile({quoted_column}, {array_str})"
         ).label("quantiles")
         query = sa.select([databricks_expr]).select_from(table)
-        result = conn.execute(query).scalar()
+        result = conn.execute_rows(query).scalar()
         logger.debug(
             f"Databricks quantiles for {column}: result type={type(result)}, "
             f"value={result}, expected_length={len(quantiles)}"

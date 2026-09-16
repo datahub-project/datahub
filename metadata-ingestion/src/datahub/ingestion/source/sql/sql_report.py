@@ -2,13 +2,19 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    SQLAlchemyQueryCombinerReport,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
-from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
+from datahub.utilities.stats_collections import (
+    TopKDict,
+    float_top_k_dict,
+    int_top_k_dict,
+)
 
 
 @dataclass
@@ -32,6 +38,15 @@ class DetailedProfilerReportMixin:
 
     num_tables_not_eligible_profiling: Dict[str, int] = field(
         default_factory=int_top_k_dict
+    )
+
+    # Per-table profiling elapsed time (seconds), keyed by pretty_name. Survives a
+    # run that dies early (islice in run/pipeline.py, or an OOM) — exactly when an
+    # operator most needs to know which table cost the most. TopKDict bounds the
+    # rendered top-N, not memory (every entry is retained); the top-N is global across
+    # the whole run, not per-database.
+    profiling_time_taken_per_table_secs: TopKDict[str, float] = field(
+        default_factory=float_top_k_dict
     )
 
 

@@ -67,6 +67,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
@@ -510,6 +511,17 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           buildLineageGraphFiltersQuery(opContext, entityType, urns, lineageGraphFilters)
               .ifPresent(entityTypeQueries::should);
         });
+
+    // No should clauses means no entity type in this hop has registered lineage edges.
+    // minimumShouldMatch does not apply to a bool query without should clauses, so the
+    // clause-less bool would degrade to match_all -- dropping the source-urn filter and
+    // scanning the whole graph index. Such an entity genuinely has no lineage: match none.
+    if (entityTypeQueries.should().isEmpty()) {
+      log.debug(
+          "No registered lineage edges for entity types {}; matching none",
+          urnsPerEntityType.keySet());
+      return new MatchNoneQueryBuilder();
+    }
     entityTypeQueries.minimumShouldMatch(1);
 
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();

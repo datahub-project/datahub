@@ -116,7 +116,7 @@ export function useUpdateDocumentTitleMutation() {
     const [updateContentsMutation] = useUpdateDocumentContentsMutation();
 
     const updateTitle = useCallback(
-        async (urn: string, newTitle: string) => {
+        async (urn: string, newTitle: string, documentType?: string) => {
             // Get old title for rollback
             const oldTitle = getNode(urn)?.title;
 
@@ -141,6 +141,7 @@ export function useUpdateDocumentTitleMutation() {
                     type: EventType.EditDocumentEvent,
                     documentUrn: urn,
                     editType: DocumentEditType.Title,
+                    documentType,
                 });
 
                 return true;

@@ -157,12 +157,13 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
           if (!urns.isEmpty()) {
             urns = entityService.exists(opContext, urns);
             urns.forEach(
-                urn ->
-                    elasticSearchService.upsertDocument(
-                        opContext,
-                        DATA_PROCESS_INSTANCE_ENTITY_NAME,
-                        json.toString(),
-                        indexConvention.getEntityDocumentId(urn)));
+                urn -> {
+                  elasticSearchService.upsertDocument(
+                      opContext,
+                      DATA_PROCESS_INSTANCE_ENTITY_NAME,
+                      json.toString(),
+                      indexConvention.getEntityDocumentId(urn));
+                });
           }
           if (aggregation.afterKey() == null) {
             break;
