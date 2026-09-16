@@ -12,7 +12,10 @@ from unittest.mock import patch
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sigma.config import SigmaSourceConfig
+from datahub.ingestion.source.sigma.config import (
+    PlatformDetail,
+    SigmaSourceConfig,
+)
 from datahub.ingestion.source.sigma.connection_registry import (
     SigmaConnectionRecord,
     SigmaConnectionRegistry,
@@ -256,7 +259,19 @@ class TestDatasetWarehouseRefs:
             ):
                 first = source._get_dataset_warehouse_refs("url-1")
                 second = source._get_dataset_warehouse_refs("url-1")
-        assert first == second
+        # Assert the contents, not just that the two calls agree: [] == [] would
+        # satisfy equality plus the call count even if nothing resolved, which
+        # made this pass while the route produced no refs at all.
+        expected = [
+            _WarehouseTableRef(
+                connection_id=_SNOWFLAKE_CONN_ID,
+                db="DB",
+                schema="SCHEMA",
+                table="TABLE",
+            )
+        ]
+        assert first == expected
+        assert second == expected
         assert mocked_sources.call_count == 1
 
     def test_unmappable_connection_counts_once_per_dataset(self) -> None:
@@ -282,16 +297,21 @@ class TestDatasetWarehouseRefs:
 
 
 class TestPlatformMappingEnvWarning:
-    """env / platform_instance set only on the legacy mapping is now ignored."""
+    """The mapping's env / platform_instance vs. the URN actually emitted.
 
-    def _source(
-        self, mapping: Dict[str, Dict[str, object]], **cfg: object
-    ) -> SigmaSource:
+    The comparison is against the *effective* env and instance, which come from
+    a connection_to_platform_map entry when one exists. WarehouseConnectionConfig
+    supplies its own env default, so an override that sets only
+    default_database still moves the env -- that case must warn, and the
+    opposite case must not.
+    """
+
+    def _source(self, recipe_env: str = "PROD", **cfg: object) -> SigmaSource:
         config = SigmaSourceConfig.model_validate(
             {
                 "client_id": "test",
                 "client_secret": "test",
-                "chart_sources_platform_mapping": mapping,
+                "env": recipe_env,
                 **cfg,
             }
         )
@@ -317,71 +337,82 @@ class TestPlatformMappingEnvWarning:
             connection_id=_SNOWFLAKE_CONN_ID, db="DB", schema="S", table="T"
         )
 
-    def _warn_calls(self, source: SigmaSource, times: int = 1) -> int:
-        """Number of reporter.warning CALLS, not report entries.
-
-        StructuredLogs keys entries on title+message, so repeated identical
-        warnings collapse into one entry -- counting entries would pass even
-        with the dedup set removed.
-        """
+    def _warn_calls(
+        self, source: SigmaSource, detail: Optional[PlatformDetail], times: int = 1
+    ) -> int:
+        """reporter.warning CALLS, not entries: identical warnings collapse."""
         with patch.object(
             source.reporter, "warning", wraps=source.reporter.warning
         ) as spy:
             for _ in range(times):
-                source._warn_if_platform_mapping_env_ignored(self._ref())
+                source._warn_if_platform_mapping_env_ignored(self._ref(), detail)
             return spy.call_count
 
-    def test_warns_once_when_platform_instance_only_on_mapping(self) -> None:
-        source = self._source(
-            {"ws/wb": {"data_source_platform": "snowflake", "platform_instance": "mi"}}
-        )
-        assert self._warn_calls(source, times=2) == 1
+    @staticmethod
+    def _detail(platform: str = "snowflake", **kw: object) -> PlatformDetail:
+        return PlatformDetail.model_validate({"data_source_platform": platform, **kw})
 
-    def test_warns_when_env_set_explicitly(self) -> None:
+    def test_warns_when_default_database_only_override_moves_the_env(self) -> None:
+        # Recipe DEV, mapping DEV, override sets only default_database. The URN
+        # is emitted with the override's inherited PROD, so the SQL route's DEV
+        # spelling is silently lost -- this must warn.
         source = self._source(
-            {"ws/wb": {"data_source_platform": "snowflake", "env": "DEV"}}
-        )
-        assert self._warn_calls(source) == 1
-
-    def test_warns_when_env_only_defaulted_but_recipe_env_differs(self) -> None:
-        # PlatformDetail.env defaults to PROD, so the URN diverges even though
-        # the mapping never mentions env. The message must not claim it was set.
-        source = self._source(
-            {"ws/wb": {"data_source_platform": "snowflake"}}, env="DEV"
-        )
-        before = len(source.reporter.warnings)
-        source._warn_if_platform_mapping_env_ignored(self._ref())
-        assert len(source.reporter.warnings) == before + 1
-        assert "defaulted" in str(list(source.reporter.warnings)[-1])
-
-    def test_silent_for_a_mapping_on_another_platform(self) -> None:
-        # A postgres-only mapping says nothing about a Snowflake connection.
-        source = self._source(
-            {"ws/wb": {"data_source_platform": "postgres", "platform_instance": "mi"}}
-        )
-        assert self._warn_calls(source) == 0
-
-    def test_silent_when_mapping_adds_nothing(self) -> None:
-        source = self._source({"ws/wb": {"data_source_platform": "snowflake"}})
-        assert self._warn_calls(source) == 0
-
-    def test_warns_when_override_sets_only_default_database(self) -> None:
-        # An override that supplies neither env nor platform_instance leaves
-        # both unconfigured for this connection, so the mapping's values are
-        # still being ignored. WarehouseConnectionConfig inherits an env
-        # default, so presence of the entry is not enough to tell.
-        source = self._source(
-            {"ws/wb": {"data_source_platform": "snowflake", "platform_instance": "mi"}},
+            recipe_env="DEV",
             connection_to_platform_map={_SNOWFLAKE_CONN_ID: {"default_database": "DB"}},
         )
-        assert self._warn_calls(source) == 1
+        assert self._warn_calls(source, self._detail(env="DEV")) == 1
 
-    def test_silent_when_connection_has_an_override(self) -> None:
+    def test_silent_when_the_mapping_already_matches_the_effective_env(self) -> None:
+        # Recipe DEV, mapping env unset (so PROD), same override (so PROD). The
+        # emitted URN matches what the SQL route produced; warning here would be
+        # false and would misreport the recipe's env as the one in use.
         source = self._source(
-            {"ws/wb": {"data_source_platform": "snowflake", "platform_instance": "mi"}},
-            connection_to_platform_map={_SNOWFLAKE_CONN_ID: {"env": "DEV"}},
+            recipe_env="DEV",
+            connection_to_platform_map={_SNOWFLAKE_CONN_ID: {"default_database": "DB"}},
         )
-        assert self._warn_calls(source) == 0
+        assert self._warn_calls(source, self._detail()) == 0
+
+    def test_warns_once_when_platform_instance_only_on_mapping(self) -> None:
+        source = self._source()
+        assert (
+            self._warn_calls(source, self._detail(platform_instance="mi"), times=2) == 1
+        )
+
+    def test_platform_instance_still_reported_when_override_sets_only_env(
+        self,
+    ) -> None:
+        # Per-field: an override that sets env says nothing about
+        # platform_instance, so the mapping's instance is still being dropped.
+        source = self._source(
+            connection_to_platform_map={_SNOWFLAKE_CONN_ID: {"env": "PROD"}},
+        )
+        assert self._warn_calls(source, self._detail(platform_instance="mi")) == 1
+
+    def test_silent_when_override_supplies_both(self) -> None:
+        source = self._source(
+            connection_to_platform_map={
+                _SNOWFLAKE_CONN_ID: {"env": "DEV", "platform_instance": "mi"}
+            },
+        )
+        assert (
+            self._warn_calls(source, self._detail(env="DEV", platform_instance="mi"))
+            == 0
+        )
+
+    def test_silent_for_a_mapping_on_another_platform(self) -> None:
+        source = self._source()
+        assert (
+            self._warn_calls(source, self._detail("postgres", platform_instance="mi"))
+            == 0
+        )
+
+    def test_silent_when_mapping_adds_nothing(self) -> None:
+        source = self._source()
+        assert self._warn_calls(source, self._detail()) == 0
+
+    def test_silent_without_a_mapping_for_this_element(self) -> None:
+        source = self._source()
+        assert self._warn_calls(source, None) == 0
 
 
 class TestFallbackGate:
@@ -564,7 +595,7 @@ class TestDatasetListingFailure:
         with patch.object(source.reporter, "info") as spy:
             assert source._get_dataset_warehouse_refs("unknown-url-id") == []
             spy.assert_called_once()
-            assert "listing failed" in spy.call_args.kwargs["title"]
+            assert "listing incomplete" in spy.call_args.kwargs["title"]
 
     def test_unlisted_reason_names_workspace_pattern_otherwise(self) -> None:
         source = _make_source()

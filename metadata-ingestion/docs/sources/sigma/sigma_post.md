@@ -123,6 +123,8 @@ instead: `/v2/datasets/{id}/sources` names the table by inode, and `/v2/connecti
 resolves that inode to a `connectionId` plus a path. The URN is then built through the connection
 registry, so per-connection `default_database`, `env`, `platform_instance` and
 `convert_urns_to_lowercase` all apply, exactly as for Data Model element and chart warehouse edges.
+Note `convert_urns_to_lowercase` only changes the default for platforms DataHub lower-cases
+(Snowflake); set it explicitly to force lower-casing on any other platform.
 No `chart_sources_platform_mapping` entry is needed.
 
 Note the trigger is "the element's SQL named no warehouse table", which is wider than
@@ -162,10 +164,6 @@ Known limitations:
   does not need an element, but it is driven from chart resolution, so a dataset read only by a
   Data Model, or by nothing at all (`migrationStatus: not-required`), is not resolved. This matches
   the pre-deprecation SQL route, which was also per element.
-- A dataset excluded by `workspace_pattern` gets no warehouse lineage even though the
-  pre-deprecation SQL route could emit it, because that route did not need the dataset listing.
-  Aspects are no longer emitted for datasets the run did not ingest; widen the pattern if you want
-  that lineage.
 - On a tenant still serving SQL, a dataset reachable both through a matching
   `chart_sources_platform_mapping` (SQL) and through this route can get either spelling of the URN
   depending on which element is processed first. Set `connection_to_platform_map` to make the two
@@ -179,20 +177,21 @@ Known limitations:
   "default_database not configured" warning does not know the difference yet, so ignore it
   for two-level connections and check a few edges if your warehouse reports two-part paths.
 
-| Counter                                 | Meaning                                                                           |
-| --------------------------------------- | --------------------------------------------------------------------------------- |
-| `dataset_warehouse_upstream_from_inode` | Sigma Datasets whose warehouse table(s) were recovered via this route             |
-| `dataset_warehouse_no_table_sources`    | Datasets whose sources held no `type: table` entry (CSV, dataset-on-dataset, SQL) |
-| `dataset_warehouse_unknown_connection`  | Table's `connectionId` not in the registry, or platform unmappable                |
-| `dataset_warehouse_unlisted_dataset`    | Dataset absent from `/v2/datasets` (usually `workspace_pattern`); no lookup made  |
-| `dataset_sources_lookup_failed`         | `/datasets/{id}/sources` returned non-200, raised, or was not a JSON list         |
-| `dataset_sources_lookup_rate_limited`   | Subset of the above: 429 after retries                                            |
-| `dataset_sources_endpoint_removed`      | `/datasets/{id}/sources` returned 404/410; endpoint treated as gone for the run   |
-| `connection_path_lookup_failed`         | `/connections/paths/{inodeId}` failed or returned an unusable body                |
-| `connection_path_lookup_rate_limited`   | Subset of the above: 429 after retries                                            |
-| `dataset_sources_not_found`             | Subset of `lookup_failed`: 404 for one dataset (deleted after the listing)        |
-| `dataset_sources_skipped_endpoint_gone` | Datasets skipped with no request once the endpoint was latched as removed         |
-| `datasets_listing_failed`               | `/v2/datasets` could not be listed, so no dataset lineage resolves this run       |
+| Counter                                    | Meaning                                                                           |
+| ------------------------------------------ | --------------------------------------------------------------------------------- |
+| `dataset_warehouse_upstream_from_inode`    | Sigma Datasets whose warehouse table(s) were recovered via this route             |
+| `dataset_warehouse_table_entry_incomplete` | A source entry named a table but was unusable (not an object, or no inodeId)      |
+| `dataset_warehouse_no_table_sources`       | Datasets whose sources held no `type: table` entry (CSV, dataset-on-dataset, SQL) |
+| `dataset_warehouse_unknown_connection`     | Table's `connectionId` not in the registry, or platform unmappable                |
+| `dataset_warehouse_unlisted_dataset`       | Dataset absent from `/v2/datasets` (usually `workspace_pattern`); no lookup made  |
+| `dataset_sources_lookup_failed`            | `/datasets/{id}/sources` returned non-200, raised, or was not a JSON list         |
+| `dataset_sources_lookup_rate_limited`      | Subset of the above: 429 after retries                                            |
+| `dataset_sources_endpoint_removed`         | `/datasets/{id}/sources` returned 404/410; endpoint treated as gone for the run   |
+| `connection_path_lookup_failed`            | `/connections/paths/{inodeId}` failed or returned an unusable body                |
+| `connection_path_lookup_rate_limited`      | Subset of the above: 429 after retries                                            |
+| `dataset_sources_not_found`                | Subset of `lookup_failed`: 404 for one dataset (deleted after the listing)        |
+| `dataset_sources_skipped_endpoint_gone`    | Datasets skipped with no request once the endpoint was latched as removed         |
+| `datasets_listing_failed`                  | `/v2/datasets` could not be listed, so no dataset lineage resolves this run       |
 
 Each Sigma Dataset also carries its Sigma-reported `migrationStatus` as a `datasetProperties`
 custom property — `not-migrated`, `migrated`, or `not-required` (referenced by nothing, so

@@ -233,14 +233,20 @@ def _normalize_warehouse_identifier(name: str, platform: str, lowercase: bool) -
 
 @dataclass(frozen=True)
 class _WarehouseTableRef:
-    """Resolved warehouse table coordinates derived from a /files response."""
+    """Resolved warehouse table coordinates.
+
+    Sourced from a /files response on the DM and workbook routes, and from
+    /connections/paths on the Sigma Dataset route.
+    """
 
     connection_id: str
     db: Optional[str]
     schema: str
     table: str
 
-    def fq_name(self, platform: str, *, lowercase: bool = True) -> str:
+    def fq_name(
+        self, platform: str, *, lowercase: bool = True, force: bool = False
+    ) -> str:
         # db is None for platforms with a 2-segment path (e.g. Redshift:
         # "Connection Root/<SCHEMA>"). Emit schema.table (never "None.schema.table")
         # so the URN matches what the warehouse connector produces for that platform.
@@ -251,7 +257,9 @@ class _WarehouseTableRef:
             if self.db is None
             else f"{self.db}.{self.schema}.{self.table}"
         )
-        if platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
+        # ``force`` means the operator set convert_urns_to_lowercase explicitly,
+        # so honour it on platforms outside _WAREHOUSE_LOWERCASE_PLATFORMS too.
+        if lowercase and (force or platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS):
             return name.lower()
         return name
 
@@ -779,17 +787,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.dataset_warehouse_unlisted_dataset += 1
             if dataset_url_id not in self._dataset_unlisted_warned:
                 self._dataset_unlisted_warned.add(dataset_url_id)
-                if self.reporter.datasets_listing_failed:
+                if self.reporter.datasets_listing_failed or (
+                    self.reporter.datasets_dropped_missing_file_metadata
+                ):
                     # The listing itself failed, so this is not a filtering
                     # choice. Already warned once by the API layer; keep this
                     # per-dataset entry an info so the cause stays singular.
                     self.reporter.info(
-                        title="Sigma Dataset unresolvable: dataset listing failed",
+                        title="Sigma Dataset unresolvable: listing incomplete",
                         message=(
-                            "A workbook element reads a Sigma Dataset, but "
-                            "/v2/datasets could not be listed this run, so its "
-                            "warehouse table cannot be looked up. See the "
-                            "'Sigma dataset listing failed' warning."
+                            "A workbook element reads a Sigma Dataset that the "
+                            "listing did not return, and the listing itself was "
+                            "incomplete this run -- either it failed outright, or "
+                            "datasets were dropped for missing file metadata. So "
+                            "this is not necessarily a workspace_pattern choice; "
+                            "see the listing warning and the "
+                            "datasets_dropped_missing_file_metadata counter."
                         ),
                         context=f"dataset_url_id={dataset_url_id}",
                     )
@@ -956,75 +969,75 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         return db
 
-    def _warn_if_platform_mapping_env_ignored(self, ref: _WarehouseTableRef) -> None:
-        """Warn when env / platform_instance are set only on the legacy mapping.
+    def _warn_if_platform_mapping_env_ignored(
+        self, ref: _WarehouseTableRef, platform_details: Optional[PlatformDetail]
+    ) -> None:
+        """Warn when this element's mapping sets env / platform_instance that the
+        emitted URN does not use.
 
         Before Sigma's dataset deprecation these edges came from the SQL parser,
-        which took env and platform_instance from
-        ``chart_sources_platform_mapping``. This route takes them from
-        ``connection_to_platform_map`` instead, so a recipe that configured them
-        only on the mapping silently starts emitting a different URN.
+        which read ``chart_sources_platform_mapping``. This route resolves
+        through the connection registry instead, so values configured only on
+        the mapping are silently dropped.
 
-        Only mappings for this table's own platform are considered: a
-        postgres-only mapping says nothing about a Snowflake connection.
+        Compared against the *effective* env and instance, not the recipe's:
+        ``_warehouse_ref_to_urn`` takes both from a
+        ``connection_to_platform_map`` entry when one exists, and
+        ``WarehouseConnectionConfig`` supplies its own ``env`` default, so an
+        override that sets only ``default_database`` still moves the env. Each
+        field is judged on its own, since an override that sets ``env`` says
+        nothing about ``platform_instance``.
+
+        ``platform_details`` is the mapping entry the SQL route would have used
+        for this element, so the message cites that mapping rather than any
+        mapping that happens to share the platform.
         """
-        connection_id = ref.connection_id
-        override = self.config.connection_to_platform_map.get(connection_id)
-        if override is not None and (
-            "env" in override.model_fields_set
-            or "platform_instance" in override.model_fields_set
-        ):
-            # Only an override that actually supplies env or platform_instance
-            # makes the mapping irrelevant. An entry that sets just
-            # default_database leaves both unconfigured for this connection, so
-            # the mapping's values are still being silently ignored.
-            # model_fields_set rather than a None check: WarehouseConnectionConfig
-            # inherits an env default, so an omitted env is not None.
+        if platform_details is None:
             return
+        connection_id = ref.connection_id
         if connection_id in self._platform_mapping_env_warned:
             return
         record = self.connection_registry.get(connection_id)
         if record is None:
             return
+        if platform_details.data_source_platform.lower() != (
+            record.datahub_platform.lower()
+        ):
+            return
 
-        explicit_env: List[str] = []
-        implicit_env: List[str] = []
-        instance: List[str] = []
-        for path, detail in self.config.chart_sources_platform_mapping.items():
-            if detail.data_source_platform.lower() != record.datahub_platform.lower():
-                continue
-            if detail.platform_instance is not None:
-                instance.append(path)
-            if detail.env != self.config.env:
-                # PlatformDetail.env defaults to PROD, so the URN can diverge
-                # even when the recipe never set it. Distinguish the two: the
-                # advice is the same but the explanation is not.
-                (
-                    explicit_env if "env" in detail.model_fields_set else implicit_env
-                ).append(path)
-        if not (explicit_env or implicit_env or instance):
+        override = self.config.connection_to_platform_map.get(connection_id)
+        set_fields = override.model_fields_set if override else set()
+        effective_env = override.env if override else self.config.env
+        effective_instance = override.platform_instance if override else None
+
+        reasons: List[str] = []
+        if (
+            "platform_instance" not in set_fields
+            and platform_details.platform_instance != effective_instance
+        ):
+            reasons.append(
+                f"mapping platform_instance={platform_details.platform_instance!r} "
+                f"but the URN uses {effective_instance!r}"
+            )
+        if "env" not in set_fields and platform_details.env != effective_env:
+            explicit = "env" in platform_details.model_fields_set
+            reasons.append(
+                f"mapping env={platform_details.env!r} "
+                f"({'set' if explicit else 'defaulted'}) but the URN uses "
+                f"{effective_env!r}"
+            )
+        if not reasons:
             return
 
         self._platform_mapping_env_warned.add(connection_id)
-        reasons: List[str] = []
-        if instance:
-            reasons.append(f"platform_instance set on {instance!r}")
-        if explicit_env:
-            reasons.append(f"env set on {explicit_env!r}")
-        if implicit_env:
-            reasons.append(
-                f"env defaulted to {_DEFAULT_PLATFORM_DETAIL_ENV} on {implicit_env!r}, "
-                f"which differs from this recipe's env ({self.config.env})"
-            )
         self.reporter.warning(
-            title="Sigma Dataset warehouse URN ignores chart_sources_platform_mapping env",
+            title="Sigma Dataset warehouse URN ignores chart_sources_platform_mapping",
             message=(
                 "Sigma Dataset warehouse lineage is resolved through the "
                 "connection registry and does not read "
-                "chart_sources_platform_mapping, so the emitted URN uses this "
-                "recipe's env with no platform instance. Add this connectionId "
-                "to connection_to_platform_map with the env and "
-                "platform_instance your warehouse connector used."
+                "chart_sources_platform_mapping. Set env / platform_instance on "
+                "connection_to_platform_map.<connectionId> to match the URNs "
+                "your warehouse connector produced."
             ),
             context=(
                 f"connectionId={connection_id}, platform={record.datahub_platform}, "
@@ -1032,7 +1045,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ),
         )
 
-    def _resolve_dataset_warehouse_upstreams(self, dataset_url_id: str) -> List[str]:
+    def _resolve_dataset_warehouse_upstreams(
+        self, dataset_url_id: str, platform_details: Optional[PlatformDetail] = None
+    ) -> List[str]:
         """Warehouse Dataset URNs for a Sigma Dataset, via the inode route.
 
         Routes through _resolve_dm_element_warehouse_upstream so per-connection
@@ -1059,7 +1074,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             # Only worth mentioning once an edge is actually being emitted; a
             # connection that resolves to nothing has no URN to get wrong.
-            self._warn_if_platform_mapping_env_ignored(ref)
+            self._warn_if_platform_mapping_env_ignored(ref, platform_details)
             upstream_urns.append(urn)
         if first_time:
             # Both counters are per dataset: a dataset with two unmappable
@@ -1236,7 +1251,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # where the connector was run with that flag set to False.  Default=True
         # matches both the Snowflake connector default and most other platforms.
         lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
-        fq = ref.fq_name(record.datahub_platform, lowercase=lowercase)
+        # fq_name only lowercases platforms in _WAREHOUSE_LOWERCASE_PLATFORMS, so
+        # the flag is otherwise a no-op. The pre-deprecation SQL route lowercased
+        # every platform except bigquery/db2, so honour an explicitly-set flag on
+        # any platform -- that is the only way back to the old spelling.
+        force_case = (
+            conn_override is not None
+            and "convert_urns_to_lowercase" in conn_override.model_fields_set
+        )
+        fq = ref.fq_name(record.datahub_platform, lowercase=lowercase, force=force_case)
         # Use per-connection env / platform_instance overrides so the emitted
         # URN matches what the warehouse connector actually produced.  Falls
         # back to the Sigma recipe's own env + platform_instance=None, which
@@ -3700,6 +3723,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         dataset_inputs: Dict[str, List[str]],
         sql_parser_in_tables: List[str],
         sql_named_tables: bool,
+        platform_details: Optional[PlatformDetail] = None,
     ) -> None:
         """Map a workbook element's Sigma Dataset upstream to its warehouse tables.
 
@@ -3772,7 +3796,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # they gain a correct edge here rather than a duplicate one.
             return
 
-        warehouse_urns = self._resolve_dataset_warehouse_upstreams(sigma_dataset_id)
+        warehouse_urns = self._resolve_dataset_warehouse_upstreams(
+            sigma_dataset_id, platform_details
+        )
         if warehouse_urns:
             dataset_inputs[dataset_urn] = warehouse_urns
 
@@ -3833,6 +3859,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     dataset_inputs=dataset_inputs,
                     sql_parser_in_tables=sql_parser_in_tables,
                     sql_named_tables=sql_named_tables,
+                    platform_details=data_source_platform_details,
                 )
             elif isinstance(upstream, SheetUpstream):
                 chart_urn = elementId_to_chart_urn.get(upstream.element_id)

@@ -453,8 +453,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Sub-bucket of dataset_sources_lookup_failed: /sources returned 404 for one
     # dataset, i.e. it was deleted or re-permissioned after the listing.
     dataset_sources_not_found: int = 0
-    # 1 once the endpoint is concluded to be removed (410, or repeated 404s with
-    # nothing having succeeded). Set at most once per run.
+    # 1 once the endpoint is concluded to be removed: a 410, or a 404/409 that a
+    # re-probe confirms (of a known-good dataset, or of the dataset API itself
+    # before anything has succeeded). Set at most once per run.
     dataset_sources_endpoint_removed: int = 0
     # Datasets skipped without a request because the endpoint was already
     # latched as removed. Shows how much lineage the latch cost.
@@ -479,6 +480,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # without this the resulting lineage loss looks like a workspace_pattern
     # choice rather than the endpoint going away.
     datasets_listing_failed: int = 0
+    # Datasets present in the listing but dropped because /files metadata was
+    # missing for them. _get_files_metadata returning {} drops every dataset
+    # without raising, so this distinguishes that from a workspace_pattern
+    # exclusion when a dataset later turns out to be unresolvable.
+    datasets_dropped_missing_file_metadata: int = 0
 
 
 class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):

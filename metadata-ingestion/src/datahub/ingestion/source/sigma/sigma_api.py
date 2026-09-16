@@ -51,6 +51,13 @@ from datahub.ingestion.source.sigma.data_classes import (
 # Logger instance
 logger = logging.getLogger(__name__)
 
+# Statuses /datasets/{id}/sources uses for "cannot resolve this dataset". Sigma
+# answers 409 inode_archived rather than 404 for an unresolvable dataset
+# (verified live), so both are treated the same.
+_DATASET_SOURCES_NOT_FOUND_STATUSES = frozenset({404, 409})
+# Not-founds with zero successes before escalating from info to a warning.
+_DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD = 3
+
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -72,6 +79,10 @@ class SigmaAPI:
         # Set once any /sources call returns 200, which proves the endpoint
         # exists and downgrades a later 404 to a per-dataset miss.
         self._dataset_sources_succeeded = False
+        # A dataset whose /sources answered 200 this run, re-queried to tell
+        # "endpoint removed" from "this dataset is gone".
+        self._known_good_dataset_id: Optional[str] = None
+        self._dataset_sources_not_found_warned = False
         self.session = requests.Session()
 
         # Configure retry strategy for 429/503 with exponential backoff.
@@ -299,6 +310,11 @@ class SigmaAPI:
                     dataset = SigmaDataset.model_validate(dataset_dict)
 
                     if dataset.datasetId not in dataset_files_metadata:
+                        # Counted as well as dropped: _get_files_metadata returns
+                        # {} on failure, which silently drops every dataset. The
+                        # counter lets the warehouse route tell that apart from a
+                        # workspace_pattern exclusion.
+                        self.report.datasets_dropped_missing_file_metadata += 1
                         self.report.datasets.dropped(
                             f"{dataset.name} ({dataset.datasetId}) (missing file metadata)"
                         )
@@ -354,9 +370,10 @@ class SigmaAPI:
                 title="Sigma dataset listing failed",
                 message=(
                     "/v2/datasets could not be listed, so no Sigma Dataset "
-                    "warehouse lineage can be resolved this run. Sigma retired "
-                    "the dataset API on 2026-09-15, so the endpoint may have "
-                    "been removed; migrate datasets to Data Models."
+                    "warehouse lineage can be resolved this run. The exception is "
+                    "attached: a 404/410 suggests Sigma has removed the "
+                    "deprecated dataset API, while a validation or transport "
+                    "error points at one payload or at connectivity."
                 ),
                 exc=e,
             )
@@ -1249,6 +1266,20 @@ class SigmaAPI:
 
         data_model.elements = elements
 
+    def _dataset_sources_gone_for(self, dataset_id: str) -> bool:
+        """Whether /sources now fails for a dataset that answered 200 earlier."""
+        url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}/sources"
+        try:
+            return (
+                self._get_api_call(url).status_code
+                in _DATASET_SOURCES_NOT_FOUND_STATUSES
+            )
+        except Exception:
+            logger.debug(
+                "Re-probe of /sources failed for %r; assuming alive.", dataset_id
+            )
+            return False
+
     def _dataset_api_is_gone(self, dataset_id: str) -> bool:
         """Whether the deprecated dataset API itself has been removed.
 
@@ -1310,28 +1341,65 @@ class SigmaAPI:
                 # 410 Gone is unambiguous: the endpoint is retired. Latch at once.
                 self._mark_dataset_sources_gone(dataset_id, 410)
                 return None
-            if response.status_code == 404:
+            if response.status_code in _DATASET_SOURCES_NOT_FOUND_STATUSES:
                 # Ambiguous on its own: the endpoint may be retired, or just this
                 # dataset may have been deleted or re-permissioned since the
-                # listing (workbooks are processed long after it). Ask the dataset
-                # API directly rather than inferring from a run of 404s, which
-                # depends on processing order and on which other statuses
-                # intervened.
-                if self._dataset_api_is_gone(dataset_id):
-                    self._mark_dataset_sources_gone(dataset_id, 404)
+                # listing (workbooks are processed long after it). Note Sigma
+                # answers 409 inode_archived, not 404, for a dataset it cannot
+                # resolve -- verified against a live tenant -- so both statuses
+                # land here.
+                status = response.status_code
+                if self._known_good_dataset_id is not None:
+                    # Cheapest decisive check: re-ask for a dataset whose
+                    # /sources answered 200 earlier this run. If that now fails
+                    # too, the endpoint went away rather than this dataset.
+                    if self._dataset_sources_gone_for(self._known_good_dataset_id):
+                        self._mark_dataset_sources_gone(dataset_id, status)
+                        return None
+                elif self._dataset_api_is_gone(dataset_id):
+                    # Nothing has succeeded yet, so fall back to asking whether
+                    # the dataset API as a whole still answers.
+                    self._mark_dataset_sources_gone(dataset_id, status)
                     return None
                 self.report.dataset_sources_lookup_failed += 1
                 self.report.dataset_sources_not_found += 1
-                self.report.info(
-                    title="Sigma dataset sources not found for one dataset",
-                    message=(
-                        "/datasets/{id}/sources returned 404 while the dataset API "
-                        "itself still responds, so this dataset was most likely "
-                        "deleted or re-permissioned after the listing. Its "
-                        "warehouse upstreamLineage will be missing."
-                    ),
-                    context=f"dataset_id={dataset_id}, http_status=404",
-                )
+                if (
+                    not self._dataset_sources_succeeded
+                    and self.report.dataset_sources_not_found
+                    >= _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD
+                ):
+                    # Every dataset missing and none ever resolved is not a run of
+                    # deleted datasets. Escalate once: identical infos collapse
+                    # into a single entry, so the run would otherwise look clean
+                    # while losing all dataset lineage.
+                    if not self._dataset_sources_not_found_warned:
+                        self._dataset_sources_not_found_warned = True
+                        self.report.warning(
+                            title="Sigma dataset sources unavailable for every dataset",
+                            message=(
+                                "/datasets/{id}/sources has not resolved for any "
+                                "dataset this run. Sigma is retiring the dataset "
+                                "API, so the endpoint may be partially removed; no "
+                                "Sigma Dataset will get warehouse upstreamLineage. "
+                                "Migrate datasets to Data Models."
+                            ),
+                            context=(
+                                f"not_found={self.report.dataset_sources_not_found}, "
+                                f"last_dataset_id={dataset_id}"
+                            ),
+                        )
+                else:
+                    self.report.info(
+                        title="Sigma dataset sources not found for one dataset",
+                        message=(
+                            "/datasets/{id}/sources did not resolve while the "
+                            "dataset API itself still responds, so this dataset "
+                            "was most likely deleted or re-permissioned after the "
+                            "listing. Its warehouse upstreamLineage will be "
+                            "missing."
+                        ),
+                        context=f"dataset_id={dataset_id}, http_status={status}",
+                    )
                 return None
             if response.status_code == 429:
                 self.report.dataset_sources_lookup_failed += 1
@@ -1373,6 +1441,8 @@ class SigmaAPI:
                 )
                 return None
             self._dataset_sources_succeeded = True
+            if self._known_good_dataset_id is None:
+                self._known_good_dataset_id = dataset_id
             return entries
         except Exception as e:
             self.report.dataset_sources_lookup_failed += 1
@@ -1428,6 +1498,19 @@ class SigmaAPI:
                 )
                 return None
             body = response.json()
+            if not isinstance(body, dict):
+                # Explicit, like get_dataset_sources: otherwise body.get() raises
+                # and is reported as a generic exception.
+                self.report.connection_path_lookup_failed += 1
+                self.report.warning(
+                    title="Sigma /connections/paths returned an unexpected body",
+                    message=(
+                        "Expected a JSON object with connectionId and path; "
+                        "warehouse upstream is skipped for this table."
+                    ),
+                    context=f"inode_id={inode_id}, body_type={type(body).__name__}",
+                )
+                return None
             connection_id = body.get("connectionId")
             path = body.get("path")
             if not isinstance(connection_id, str) or not connection_id:
