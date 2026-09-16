@@ -560,3 +560,30 @@ def test_a_short_listing_with_no_row_limit_is_not_marked_truncated(monkeypatch):
     result = pm.run_probe_method("x", {}, "everything", {})
     assert result.result == ["a", "b"]
     assert result.truncated is False
+
+
+def test_discovery_survives_a_recipe_that_does_not_validate_yet():
+    """`probe methods` is the agent's first call on a recipe it is still writing.
+
+    list_probe_methods takes the config only to ask a CLASSMETHOD
+    (probe_kind_overrides) which kind a per-recipe command reports -- its own
+    docstring says "Still connection-free". Building the config to ask that
+    question made an incomplete recipe fail the whole command: a postgres
+    recipe missing host_port exited 2 with no methods listed, so the agent
+    could not discover the commands that would tell it what to fix.
+
+    The kinds degrade to the un-overridden ones, which is what a caller
+    passing no config gets anyway.
+    """
+    complete = {
+        "host_port": "h:5432",
+        "username": "u",
+        "password": "p",
+        "database": "d",
+    }
+    full = list_probe_methods("postgres", config_dict=complete)
+    partial = list_probe_methods("postgres", config_dict={"username": "u"})
+    none_given = list_probe_methods("postgres")
+
+    assert [s.command for s in partial] == [s.command for s in full]
+    assert [s.command for s in partial] == [s.command for s in none_given]

@@ -416,7 +416,18 @@ def list_probe_methods(
     config_cls = config_class_for(source_type)
     if config_cls is None:
         return specs
-    overrides = overrides_for(config_cls.model_validate(config_dict)) or {}
+    try:
+        config = config_cls.model_validate(config_dict)
+    except Exception:
+        # Discovery is connection-free AND recipe-incomplete-free. The config
+        # is built only to ask a classmethod which kind a per-recipe command
+        # reports; a recipe still being written cannot answer that, and the
+        # un-overridden kinds are what a caller passing no config gets anyway.
+        # Failing instead made `probe methods` -- the agent's first call, and
+        # the one that lists the commands telling it what to fix -- exit 2 on
+        # a recipe missing any required field.
+        return specs
+    overrides = overrides_for(config) or {}
     return [
         replace(spec, kind=str(overrides[spec.command]))
         if spec.command in overrides
