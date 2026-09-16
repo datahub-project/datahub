@@ -14,7 +14,7 @@ Each rule below is proved to fire against a deliberately-bad provider, because a
 lint whose failure path is never exercised is a lint nobody can trust.
 """
 
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import pytest
 
@@ -64,21 +64,49 @@ def _violations(spec: ProbeMethodSpec) -> List[str]:
     return found
 
 
-def _scan() -> Tuple[Dict[str, List[str]], Set[str], List[str]]:
+def _absent_extra(exc: BaseException) -> Optional[str]:
+    """The third-party package this source needed, when that is why it failed.
+
+    The registry reports both causes as the same ValueError ("unknown or
+    unloadable source type ..."), so the surface type cannot tell an
+    uninstalled extra from a provider that is actually broken. The cause chain
+    can: a missing extra arrives as
+    ValueError <- ConfigurationError <- ModuleNotFoundError naming the package.
+
+    A missing module under `datahub` is our own code, so it counts as breakage
+    rather than an absent extra.
+    """
+    cur: Optional[BaseException] = exc
+    while cur is not None:
+        if isinstance(cur, ModuleNotFoundError) and cur.name:
+            root = cur.name.split(".")[0]
+            return None if root == "datahub" else root
+        cur = cur.__cause__ or cur.__context__
+    return None
+
+
+def _scan() -> Tuple[Dict[str, List[str]], Set[str], List[str], List[str]]:
     """Walk every registered source's probe provider.
 
-    Returns findings keyed by "source.command", the sources actually scanned, and
-    the sources that could not be loaded -- the last of those is returned rather
-    than swallowed so a shrinking scan shows up instead of looking like success.
+    Returns findings keyed by "source.command", the sources actually scanned,
+    the sources that are broken, and the sources whose extra is simply not
+    installed. The last two are returned rather than swallowed so a shrinking
+    scan shows up instead of looking like success, and they are kept apart
+    because only one of them is a defect.
     """
     findings: Dict[str, List[str]] = {}
     scanned: Set[str] = set()
-    unloadable: List[str] = []
+    broken: List[str] = []
+    absent: List[str] = []
     for source_type in sorted(source_registry.mapping):
         try:
             provider_cls = _provider_class(source_type)
         except Exception as exc:
-            unloadable.append(f"{source_type}: {type(exc).__name__}")
+            extra = _absent_extra(exc)
+            if extra:
+                absent.append(f"{source_type}: needs {extra}")
+            else:
+                broken.append(f"{source_type}: {type(exc).__name__}: {exc}")
             continue
         if provider_cls is None:
             continue
@@ -87,11 +115,11 @@ def _scan() -> Tuple[Dict[str, List[str]], Set[str], List[str]]:
             problems = _violations(spec)
             if problems:
                 findings[f"{source_type}.{command}"] = problems
-    return findings, scanned, unloadable
+    return findings, scanned, broken, absent
 
 
 def test_no_probe_method_takes_a_dangerous_parameter_without_declaring_a_gate():
-    findings, _, _ = _scan()
+    findings, _, _, _ = _scan()
     assert findings == {}, (
         "these probe methods take a parameter the framework cannot check, because "
         "the method never declared it -- add the matching scoped_sql_param / "
@@ -102,21 +130,28 @@ def test_no_probe_method_takes_a_dangerous_parameter_without_declaring_a_gate():
 def test_the_scan_actually_reached_providers():
     # Guards the test above against passing vacuously: if plugin loading breaks,
     # _scan() finds nothing to check and every rule here trivially holds.
-    _, scanned, unloadable = _scan()
+    _, scanned, broken, absent = _scan()
     missing = [s for s in _MUST_BE_SCANNED if s not in scanned]
     assert not missing, (
         f"expected probe support on {missing} but the scan did not reach it; "
-        f"unloadable sources: {unloadable}"
+        f"broken: {broken}; extras not installed: {absent}"
     )
-    # `unloadable` was computed and only ever interpolated into the message
+    # A provider that fails to load was once only interpolated into the message
     # above, so the scan could lose most of its providers with every guard
     # still green. probe_provider_class imports the provider module lazily, so
-    # a provider whose import breaks leaves the *config* loadable -- the
-    # `checked > 20` guards elsewhere keep passing while the tripwire below
-    # inspects a fraction of the specs it claims to.
-    assert unloadable == [], (
-        f"{len(unloadable)} providers could not be loaded, so the gate scan "
-        f"silently skipped them: {unloadable}"
+    # a provider whose import breaks leaves the *config* loadable -- and the
+    # count guard below does not catch it either, because one broken provider
+    # out of 33 still clears 25.
+    #
+    # Asserted on `broken` and not on `absent`: this file's own contract is
+    # that only _MUST_BE_SCANNED is guaranteed in a minimal environment, so
+    # requiring every provider to load would fail wherever an optional extra
+    # is not installed -- an environment fact, not a defect. Verified by
+    # hiding snowflake, google, confluent_kafka, databricks and pyhive: 18
+    # sources stop loading, all of them classified absent, none broken.
+    assert broken == [], (
+        f"{len(broken)} providers are installed but could not be loaded, so "
+        f"the gate scan silently skipped them: {broken}"
     )
     assert len(scanned) >= 25, (
         f"only {len(scanned)} providers scanned; the tripwire is inspecting "
@@ -618,16 +653,19 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
         "probe_schema_verdict_override": {"schema", "parent_path"},
         # Widened with `database` when Snowflake and BigQuery turned out to
         # be judging tables on `schema.entity` while ingestion matched three
-        # parts. Three implementations now (the base, Snowflake, Redshift),
-        # which is also what keeps the `checked` guard below non-vacuous
-        # after the schema overrides collapsed into the framework.
+        # parts. Those two fixes landed in the framework, not as config
+        # overrides: walking the registry, the only implementations are the
+        # base and UnityCatalogSourceConfig. Earlier versions of this comment
+        # named Snowflake, Redshift and BigQuery, none of which override it.
         "probe_filter_target": {"schema", "entity", "warn", "database"},
     }
 
     problems = []
     checked = 0
+    implementers_by_hook: Dict[str, List[type]] = {}
     for hook, kwargs in required_kwargs.items():
-        implementers = [SQLCommonConfig]
+        implementers: List[type] = [SQLCommonConfig]
+        implementers_by_hook[hook] = implementers
         for source_type in sorted(source_registry.mapping):
             try:
                 config_cls = config_class_for(source_type)
@@ -659,9 +697,16 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
                 )
 
     assert not problems, "\n  ".join(problems)
-    assert checked >= 3, (
-        f"only {checked} implementations checked; expected the base plus the "
-        "Redshift and BigQuery overrides"
+
+    # Per hook, not a sum. `checked` totalled 3 across the two hooks -- one
+    # for probe_schema_verdict_override and two for probe_filter_target -- so
+    # `checked >= 3` was already satisfied without either hook having an
+    # override to check the base against, which is the case worth catching.
+    for hook, found in implementers_by_hook.items():
+        assert SQLCommonConfig in found, f"{hook}: the base was not checked"
+    assert len(implementers_by_hook["probe_filter_target"]) >= 2, (
+        "probe_filter_target has no override left, so this test compares the "
+        "base signature against nothing and cannot see a drift"
     )
 
 
@@ -874,7 +919,7 @@ def test_methods_declares_every_recipe_dependent_kind_that_run_reports():
     assert len(found) > 20, f"only {len(found)} SQL sources discovered; the scan broke"
 
     disagreed = {}
-    skipped = []
+    skipped: List[str] = []
     checked = 0
     for source_type, config_cls in found.items():
         provider_cls = _provider_class(source_type)
@@ -909,7 +954,16 @@ def test_methods_declares_every_recipe_dependent_kind_that_run_reports():
                     f"run would say {kind!r}"
                 )
 
-    assert checked > 5, f"only {checked} sources declared kind overrides; scan broke"
+    # `skipped` is reported rather than asserted on: which connectors reject
+    # the generic recipe is a property of the fixture, not of kind agreement,
+    # so pinning the list would fail every time a connector gains a required
+    # field. It earns its place here -- when the scan does break, "only 3
+    # sources declared kind overrides" is unactionable without knowing which
+    # ones fell out on the way.
+    assert checked > 5, (
+        f"only {checked} sources declared kind overrides; scan broke. "
+        f"skipped as unfixturable: {sorted(skipped)}"
+    )
     assert not disagreed, (
         "probe methods and probe run disagree about a command's kind, so an "
         "agent reading methods cannot pick the right --kind:\n  "

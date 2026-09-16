@@ -26,24 +26,22 @@ from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 # db2 and starrocks are imported inside the two tests that need them, and not
 # up here with the rest.
 #
-# The reason is only true of db2, and this comment claimed it of both until a
-# reviewer checked setup.py: `starrocks>=1.3.3,<2.0` is in the `[dev]` block
-# unconditionally, so its dialect is installed wherever these tests run.
-# db2's is not unconditional -- "ibm_db_sa==0.4.3; platform_machine ==
-# 'x86_64' or platform_system == 'Darwin'" -- so it is present on a Mac or an
-# x86_64 runner and absent on, say, linux aarch64.
+# Both are necessary, not stylistic. This comment twice claimed otherwise --
+# first that only db2 needed it, then that `starrocks>=1.3.3,<2.0` sits in the
+# `[dev]` block unconditionally. Neither is in `[dev]`. setup.py maps "dev" to
+# dev_requirements, which is base_dev_requirements, and that plugin list names
+# neither; both are in full_test_dev_requirements, exposed as the
+# `integration-tests` extra. So a plain `[dev]` environment has neither
+# dialect, and a module-scope import of either would turn this file's
+# collection into an error and take all of its tests down with it, instead of
+# failing the one test that needs the dialect.
 #
-# Both imports stay local anyway, and starrocks' is now insurance rather than
-# necessity: it works today only because neither module imports its driver at
-# import time, and nothing enforces that. A top-level `import ibm_db_sa`
-# added to db2.py would turn this file's collection into an error and take
-# all of its tests down with it, instead of failing the one test that needs
-# db2.
-#
-# db2 cannot be added to `[dev]` to make the guarantee real: its requirement is
-# platform-conditional ("ibm_db_sa==0.4.3; platform_machine == 'x86_64' or
-# platform_system == 'Darwin'"), so there is no environment where it always
-# installs. Keeping the import local is what bounds the damage to one test.
+# db2 is additionally platform-conditional even under `integration-tests`:
+# "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system ==
+# 'Darwin'", so it is present on a Mac or an x86_64 runner and absent on, say,
+# linux aarch64. There is therefore no extra that would make db2 a safe
+# module-scope import anywhere. Keeping both local is what bounds the damage
+# to one test.
 #
 # The other connectors here are safe at module scope, checked rather than
 # assumed: athena, bigquery, druid, kafka, mode, postgres, redshift, snowflake,
@@ -235,7 +233,8 @@ def test_db2_shim_still_applies_the_uppercase_db_name_override():
     (uninitialized) Db2Source instance, not a generic stand-in carrying only
     the base get_db_name, or this override's super() call would either raise
     or silently skip the uppercasing."""
-    # Local: db2's driver is outside `[dev]` -- see the note beside the imports.
+    # Local: db2's driver is outside `[dev]`, and platform-conditional even
+    # under `integration-tests` -- see the note beside the imports.
     from datahub.ingestion.source.sql.db2 import Db2Config
 
     config = Db2Config(host_port="localhost:50000", database="mydb")
@@ -258,9 +257,8 @@ def test_starrocks_shim_primes_current_catalog_to_its_init_state():
     fix (every table reported excluded_by: table_pattern while ingestion
     ingested them all). No warning: this is a real (if partial -- external
     catalogs still can't be resolved) answer, not a degrade."""
-    # Local for symmetry with the db2 test, not because the dialect is
-    # missing: `[dev]` does install starrocks. See the note beside the
-    # imports.
+    # Local because the dialect really can be missing: starrocks is in the
+    # `integration-tests` extra, not `[dev]`. See the note beside the imports.
     from datahub.ingestion.source.sql.starrocks import StarRocksConfig
 
     config = StarRocksConfig()

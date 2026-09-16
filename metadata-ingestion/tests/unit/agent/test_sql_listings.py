@@ -149,10 +149,6 @@ def test_passthrough_sql_is_not_reparsed_for_bind_parameters():
     Asserted on the call rather than the outcome, because the outcome needs a
     server: what matters is that the driver gets the string untouched.
     """
-    from datahub.ingestion.source.sql.sqlalchemy_probe import (
-        SqlAlchemyMetadataProbe,
-    )
-
     sent = []
 
     class _Result:
@@ -201,8 +197,6 @@ def test_a_two_tier_recipe_lists_only_the_databases_it_reads():
     probe advertised containers ingestion would never read, which is the one
     thing this command exists not to do.
     """
-    from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
-
     probe = _probe("mysql")
 
     # Nothing pinned: every container the server shows, which is right for a

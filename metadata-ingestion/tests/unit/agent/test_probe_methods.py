@@ -619,8 +619,29 @@ def test_discovery_survives_a_recipe_that_does_not_validate_yet():
     partial = list_probe_methods("postgres", config_dict={"username": "u"})
     none_given = list_probe_methods("postgres")
 
+    def kinds(specs):
+        return {spec.command: spec.kind for spec in specs}
+
     assert [s.command for s in partial] == [s.command for s in full]
     assert [s.command for s in partial] == [s.command for s in none_given]
+
+    # The commands above cannot catch a kind regression: probe_kind_overrides
+    # only ever changes `kind`, so the three lists are identical by
+    # construction and this test would pass with the degrade broken.
+    #
+    # The kinds are where the behaviour is. An incomplete recipe degrades to
+    # exactly what passing no config gives...
+    assert kinds(partial) == kinds(none_given)
+    # ...and that really is a degrade rather than two connectors agreeing on
+    # None by accident: a complete postgres recipe resolves `containers` to
+    # Schema, which is the override the incomplete one cannot ask for.
+    assert kinds(full)["containers"] == "Schema"
+    assert kinds(partial)["containers"] is None
+    # Everything not driven by the config is unaffected either way, so the
+    # degrade is scoped to the per-recipe answer and does not flatten the
+    # class-level kinds.
+    assert kinds(full)["tables"] == "Table"
+    assert kinds(partial)["tables"] == "Table"
 
 
 @pytest.mark.parametrize(
