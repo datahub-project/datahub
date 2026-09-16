@@ -361,6 +361,23 @@ def _check_withheld_columns(statement: exp.Expr) -> None:
                 "`SELECT *` and read the real column names"
             )
 
+    # NATURAL is the implicit form of the same hole, and the reason the USING
+    # fix below was not finished: it joins on every commonly-named column
+    # without naming one, so the walk sees nothing -- while access_history and
+    # users share `user_name`, and a count over that join answers "is this
+    # person here" as directly as the explicit form does.
+    #
+    # Refused rather than resolved. Knowing which columns two relations share
+    # needs their schemas, which this gate does not have and must not guess
+    # at; an explicit ON or USING says what it joins on and stays permitted.
+    for join in statement.find_all(exp.Join):
+        if str(join.args.get("method") or "").upper() == "NATURAL":
+            raise SqlScopeError(
+                "a NATURAL JOIN matches columns implicitly, so it can join on "
+                "a withheld column without naming it; say what you are joining "
+                "on with ON or USING"
+            )
+
     using_names = [
         identifier
         for join in statement.find_all(exp.Join)

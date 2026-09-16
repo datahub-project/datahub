@@ -719,3 +719,39 @@ def test_a_harmless_builtin_is_still_allowed():
         "SELECT table_name FROM information_schema.tables WHERE created > CURRENT_DATE",
         platform="postgres",
     )
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT count(*) FROM snowflake.account_usage.access_history "
+        "NATURAL JOIN snowflake.account_usage.users",
+        "SELECT count(*) FROM snowflake.account_usage.access_history "
+        "NATURAL LEFT JOIN snowflake.account_usage.users",
+    ],
+)
+def test_a_natural_join_cannot_join_on_a_withheld_column(sql):
+    """The implicit form of the USING hole, and the reason that fix was not
+    finished.
+
+    NATURAL JOIN joins on every commonly-named column without naming any of
+    them, so the walk that now catches `USING (user_name)` sees nothing --
+    while access_history and users share exactly that column, and a count
+    over the join answers "is this person here" just as directly.
+
+    Refused rather than resolved: knowing which columns two relations share
+    needs their schemas, which this gate does not have and must not guess at.
+    An explicit ON or USING says what it joins on and is still accepted.
+    """
+    with pytest.raises(SqlScopeError, match="NATURAL"):
+        check_query_scope(sql, platform="snowflake", scope=_IDENTITY_SCOPE)
+
+
+def test_an_explicit_join_is_still_allowed():
+    """The control: the refusal is of the implicit form, not of joins."""
+    check_query_scope(
+        "SELECT count(*) FROM snowflake.account_usage.access_history a "
+        "JOIN snowflake.account_usage.users b ON a.query_id = b.name",
+        platform="snowflake",
+        scope=_IDENTITY_SCOPE,
+    )
