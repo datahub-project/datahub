@@ -56,12 +56,12 @@ public class RestliUtils {
         DatabaseTransactionConflictException conflict =
             findCause(throwable, DatabaseTransactionConflictException.class);
         LineageTimeoutException lineageTimeout =
-            findCause(throwable, LineageTimeoutException.class);
+            conflict == null ? findCause(throwable, LineageTimeoutException.class) : null;
         if (conflict != null) {
           finalException = databaseTransactionConflict(conflict);
         } else if (lineageTimeout != null) {
           // Same classification as the GraphQL DEADLINE_EXCEEDED mapping, so SDK/CLI callers can
-          // tell a graph-query deadline from an outage instead of retrying a generic 500.
+          // tell a graph-query deadline from an outage (clients already retry 500 and 504 alike).
           finalException =
               new RestLiServiceException(
                   HttpStatus.S_504_GATEWAY_TIMEOUT, lineageTimeout.getMessage(), lineageTimeout);

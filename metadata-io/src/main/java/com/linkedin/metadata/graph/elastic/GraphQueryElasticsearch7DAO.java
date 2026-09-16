@@ -123,7 +123,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
           sliceTimedOut,
           allowPartialResults);
     } finally {
-      // Match PIT DAO: cancel(true) only interrupts; bounded wait so slices can clear scroll.
+      // Match the PIT DAO: this wait returns as soon as the futures are cancelled (see there).
       cancelAndDrainSliceFutures(sliceFutures);
     }
   }
@@ -162,7 +162,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
 
     try {
       if (System.currentTimeMillis() >= deadline) {
-        log.warn("Slice {} timed out before initial scroll search", sliceId);
+        stopSliceOnTimeout(sliceId, "hop deadline passed", allowPartialResults, sliceTimedOut);
         return sliceRelationships;
       }
 

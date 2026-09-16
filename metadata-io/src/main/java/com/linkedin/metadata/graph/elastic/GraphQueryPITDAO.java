@@ -188,9 +188,10 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
           sliceTimedOut,
           allowPartialResults);
     } finally {
-      // Cancel any still-running slice futures, then wait (bounded, see GraphQueryConstants) before
-      // deleting the shared PIT. cancel(true) only sends an interrupt — without waiting, slices
-      // blocked inside client.search() may still be executing against a deleted PIT.
+      // Cancel any still-running slice futures before deleting the shared PIT. Note this wait
+      // returns as soon as the futures are cancelled (cancel(true) completes them and does not
+      // interrupt the supplier), so a slice mid-request can still hit a deleted PIT; a real
+      // completion signal is a planned follow-up.
       cancelAndDrainSliceFutures(sliceFutures);
       ESUtils.cleanupPointInTime(opContext, client, pitId, "lineage search: " + entityUrns);
     }
@@ -242,7 +243,6 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
           throw new RuntimeException("Slice " + sliceId + " was interrupted");
         }
 
-        // Check timeout before processing
         // Hop deadline passed between pages: same policy as a server-side timed_out page.
         if (System.currentTimeMillis() >= deadline) {
           stopSliceOnTimeout(sliceId, "hop deadline passed", allowPartialResults, sliceTimedOut);

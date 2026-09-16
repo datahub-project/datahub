@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph.elastic;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -194,6 +195,26 @@ public class ProcessSliceFuturesPartialResultsTest {
     LineageSliceFetchResult result = harness.invokeProcessSliceFutures(futures, 0, false);
 
     assertEquals(result.getLineageRelationships().size(), 1);
-    assertTrue(!result.isPartial(), "all slices returned: the hop is complete");
+    assertFalse(result.isPartial(), "all slices returned: the hop is complete");
+  }
+
+  @Test(timeOut = 15_000)
+  public void testDisallowPartial_budgetSpentButLaterSlicesAlreadyDone_returnsCompleteResult()
+      throws Exception {
+    Harness harness = new Harness(TEST_OS_SEARCH_CONFIG);
+    List<CompletableFuture<List<LineageRelationship>>> futures = new ArrayList<>();
+    futures.add(
+        CompletableFuture.completedFuture(
+            List.of(rel("urn:li:dataset:(urn:li:dataPlatform:test,a,PROD)"))));
+    futures.add(
+        CompletableFuture.completedFuture(
+            List.of(rel("urn:li:dataset:(urn:li:dataPlatform:test,b,PROD)"))));
+
+    // remainingTime=0 after slice 0, but slice 1 has already finished: nothing is pending, so
+    // strict mode must read it and return the complete hop rather than throw.
+    LineageSliceFetchResult result = harness.invokeProcessSliceFutures(futures, 0, false);
+
+    assertEquals(result.getLineageRelationships().size(), 2);
+    assertFalse(result.isPartial(), "all slices finished: the hop is complete");
   }
 }

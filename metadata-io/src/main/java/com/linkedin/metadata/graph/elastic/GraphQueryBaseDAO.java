@@ -1200,8 +1200,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         Set<Urn> discoveredEntities =
             entitiesPerInputUrn.computeIfAbsent(inputUrn, k -> new HashSet<>());
 
-        // If we're not exploring multiple paths and we've already seen this entity for this
-        // input, skip
+        // If we're not exploring multiple paths and we've already seen this entity for this input,
+        // skip
         if (!exploreMultiplePaths && discoveredEntities.contains(newEntityUrn)) {
           continue;
         }
@@ -1850,10 +1850,12 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             slicePartial = true;
             break;
           }
-          if (i + 1 >= sliceFutures.size()) {
-            // Every slice returned normally, so the hop is complete even though the budget is
-            // spent; the BFS-level deadline check decides whether another hop may start.
-            break;
+          if (sliceFutures.stream().skip(i + 1).allMatch(CompletableFuture::isDone)) {
+            // Every remaining slice has already finished (or none remain): a slice that returned
+            // normally in strict mode completed all its pages, so the hop is complete even though
+            // the budget is spent. Keep reading (get() returns immediately) instead of failing;
+            // the BFS-level deadline check decides whether another hop may start.
+            continue;
           }
           // Strict mode: the hop budget is gone with later slices unread. Returning what we have
           // would report truncated lineage as complete; fail exactly like a timed-out slice.
