@@ -483,15 +483,63 @@ public class ESSearchDAO {
       @Nullable Filter requestParams,
       @Nullable Integer limit) {
     try {
-      Pair<SearchRequest, AutocompleteRequestHandler> searchRequestAndBuilder =
-          buildAutocompleteRequest(opContext, entityName, query, field, requestParams, limit);
-      SearchResponse searchResponse =
-          client.search(opContext, searchRequestAndBuilder.getLeft(), RequestOptions.DEFAULT);
-      return searchRequestAndBuilder.getRight().extractResult(opContext, searchResponse, query);
+      // First pass: strict (every typed token must prefix-match, for the configured people
+      // entities; identical to the ranking-only query for everything else).
+      Pair<AutoCompleteResult, AutocompleteRequestHandler> strict =
+          runAutocompletePass(
+              opContext,
+              entityName,
+              query,
+              field,
+              requestParams,
+              limit,
+              AutocompleteRequestHandler.QueryMode.STRICT_ALL_TOKENS);
+      AutoCompleteResult result = strict.getLeft();
+      AutocompleteRequestHandler handler = strict.getRight();
+      if (isEmpty(result) && handler.strictPassApplies(query)) {
+        // Fallback pass: the strict query narrowed this query and found nothing (a token nothing
+        // matches, or one from a field we do not autocomplete on). Re-run the pre-existing
+        // ranking-only query so the user still gets suggestions instead of an empty list.
+        log.debug(
+            "Autocomplete for '{}' on {}: strict pass matched nothing; running ranking-only pass",
+            query,
+            entityName);
+        result =
+            runAutocompletePass(
+                    opContext,
+                    entityName,
+                    query,
+                    field,
+                    requestParams,
+                    limit,
+                    AutocompleteRequestHandler.QueryMode.RANKING_ONLY)
+                .getLeft();
+      }
+      return result;
     } catch (Exception e) {
       log.error("Auto complete query failed:" + e.getMessage());
       throw new ESQueryException("Auto complete query failed:", e);
     }
+  }
+
+  private static boolean isEmpty(AutoCompleteResult result) {
+    return !result.hasEntities() || result.getEntities().isEmpty();
+  }
+
+  /** One autocomplete pass in the given mode: build, run, extract. */
+  private Pair<AutoCompleteResult, AutocompleteRequestHandler> runAutocompletePass(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String query,
+      @Nullable String field,
+      @Nullable Filter requestParams,
+      @Nullable Integer limit,
+      @Nonnull AutocompleteRequestHandler.QueryMode mode)
+      throws java.io.IOException {
+    Pair<SearchRequest, AutocompleteRequestHandler> built =
+        buildAutocompleteRequest(opContext, entityName, query, field, requestParams, limit, mode);
+    SearchResponse response = client.search(opContext, built.getLeft(), RequestOptions.DEFAULT);
+    return Pair.of(built.getRight().extractResult(opContext, response, query), built.getRight());
   }
 
   @VisibleForTesting
@@ -502,6 +550,25 @@ public class ESSearchDAO {
       @Nullable String field,
       @Nullable Filter requestParams,
       @Nullable Integer limit) {
+    return buildAutocompleteRequest(
+        opContext,
+        entityName,
+        query,
+        field,
+        requestParams,
+        limit,
+        AutocompleteRequestHandler.QueryMode.STRICT_ALL_TOKENS);
+  }
+
+  @VisibleForTesting
+  public Pair<SearchRequest, AutocompleteRequestHandler> buildAutocompleteRequest(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String query,
+      @Nullable String field,
+      @Nullable Filter requestParams,
+      @Nullable Integer limit,
+      @Nonnull AutocompleteRequestHandler.QueryMode mode) {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     AutocompleteRequestHandler builder =
@@ -520,7 +587,8 @@ public class ESSearchDAO {
             field,
             transformFilterForEntities(
                 opContext, requestParams, indexConvention, rewriteEntityTypeToIndex()),
-            limit);
+            limit,
+            mode);
     req.indices(entityIndexName(opContext, entityName));
     return Pair.of(req, builder);
   }

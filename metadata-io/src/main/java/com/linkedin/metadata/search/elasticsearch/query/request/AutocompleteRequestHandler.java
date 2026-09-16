@@ -3,10 +3,12 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import static com.linkedin.metadata.search.utils.ESAccessControlUtil.restrictUrn;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.search.AutocompleteQueryConfiguration;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
@@ -33,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -128,6 +131,24 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
                 searchServiceConfiguration));
   }
 
+  /**
+   * Autocomplete runs as up to two passes (see {@code ESSearchDAO#autoComplete}):
+   *
+   * <ul>
+   *   <li>{@link #STRICT_ALL_TOKENS} — the first pass. For the entity types listed in {@code
+   *       allTokensMustPrefixMatchEntities} and a query of two or more tokens, every token must
+   *       prefix-match (one MUST clause per token, see {@link #perTokenPrefixMusts}). For every
+   *       other entity or a single token this is the same query as {@link #RANKING_ONLY}.
+   *   <li>{@link #RANKING_ONLY} — the fallback pass, run only when the strict pass returned nothing
+   *       for a query it actually narrowed ({@link #strictPassApplies}). The pre-existing query:
+   *       SHOULD clauses rank, nothing is required, so results never go empty.
+   * </ul>
+   */
+  public enum QueryMode {
+    STRICT_ALL_TOKENS,
+    RANKING_ONLY
+  }
+
   public SearchRequest getSearchRequest(
       @Nonnull OperationContext opContext,
       @Nullable String entityName,
@@ -135,6 +156,18 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       @Nullable String field,
       @Nullable Filter filter,
       @Nullable Integer limit) {
+    return getSearchRequest(
+        opContext, entityName, input, field, filter, limit, QueryMode.STRICT_ALL_TOKENS);
+  }
+
+  public SearchRequest getSearchRequest(
+      @Nonnull OperationContext opContext,
+      @Nullable String entityName,
+      @Nonnull String input,
+      @Nullable String field,
+      @Nullable Filter filter,
+      @Nullable Integer limit,
+      @Nonnull QueryMode mode) {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, limit));
@@ -162,7 +195,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
                 CustomConfiguration::getAutoCompleteFieldConfigDefault));
 
     // Add autocomplete query
-    baseQuery.should(getQuery(opContext, customAutocompleteConfig, configuredFields, input));
+    baseQuery.should(getQuery(opContext, customAutocompleteConfig, configuredFields, input, mode));
 
     // Apply default filters
     BoolQueryBuilder queryWithDefaultFilters =
@@ -263,6 +296,16 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       @Nullable AutocompleteConfiguration customAutocompleteConfig,
       List<Pair<String, String>> baseFields,
       @Nonnull String query) {
+    return getQuery(
+        operationContext, customAutocompleteConfig, baseFields, query, QueryMode.STRICT_ALL_TOKENS);
+  }
+
+  public BoolQueryBuilder getQuery(
+      @Nonnull OperationContext operationContext,
+      @Nullable AutocompleteConfiguration customAutocompleteConfig,
+      List<Pair<String, String>> baseFields,
+      @Nonnull String query,
+      @Nonnull QueryMode mode) {
 
     // Apply field configuration
     List<Pair<String, String>> configuredFields =
@@ -280,7 +323,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
                         operationContext.getObjectMapper(), cac, query))
             .orElse(QueryBuilders.boolQuery());
 
-    getAutocompleteQuery(customAutocompleteConfig, configuredFields, query)
+    getAutocompleteQuery(customAutocompleteConfig, configuredFields, query, mode)
         .ifPresent(finalQuery::should);
 
     if (!finalQuery.should().isEmpty()) {
@@ -293,18 +336,21 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   private Optional<QueryBuilder> getAutocompleteQuery(
       @Nullable AutocompleteConfiguration customConfig,
       List<Pair<String, String>> autocompleteFields,
-      @Nonnull String query) {
+      @Nonnull String query,
+      @Nonnull QueryMode mode) {
     Optional<QueryBuilder> result = Optional.empty();
 
     if (customConfig == null || customConfig.isDefaultQuery()) {
-      result = Optional.of(defaultQuery(autocompleteFields, query));
+      result = Optional.of(defaultQuery(autocompleteFields, query, mode));
     }
 
     return result;
   }
 
   private BoolQueryBuilder defaultQuery(
-      List<Pair<String, String>> autocompleteFields, @Nonnull String query) {
+      List<Pair<String, String>> autocompleteFields,
+      @Nonnull String query,
+      @Nonnull QueryMode mode) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
     // Search for exact matches with higher boost and ngram matches
@@ -337,7 +383,97 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
           finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldName + ".delimited", query));
         });
     finalQuery.should(multiMatchQueryBuilder);
+    if (mode == QueryMode.STRICT_ALL_TOKENS) {
+      perTokenPrefixMusts(autocompleteFields, query).forEach(finalQuery::must);
+    }
     return finalQuery;
+  }
+
+  /** Never more MUST clauses than this, however long the pasted string is. */
+  public static final int MAX_PREFIX_MATCH_TOKENS = 6;
+
+  // Characters the standard tokenizer also breaks on; apostrophes stay inside a token
+  // ("O'Brien" is indexed as one term), periods and quotes are trimmed off the ends ("J.K." ->
+  // "J.K", "\"Bob\"" -> "Bob").
+  private static final Pattern TOKEN_SEPARATORS = Pattern.compile("[\\s\\-_/,;:()\\[\\]{}<>|+*&]+");
+  private static final Pattern TOKEN_TRIM = Pattern.compile("^[.'\"`]+|[.'\"`]+$");
+
+  /**
+   * Tokens of an autocomplete query the way the index side sees them: split on whitespace AND on
+   * the punctuation the standard tokenizer splits on, trimmed of surrounding punctuation, empties
+   * dropped, capped at {@link #MAX_PREFIX_MATCH_TOKENS}. "Mary-Jane O'Brien" -> [Mary, Jane,
+   * O'Brien]; "Smith, John" -> [Smith, John]; "J.K. Rowling" -> [J.K, Rowling].
+   */
+  @VisibleForTesting
+  public static List<String> prefixMatchTokens(@Nonnull String query) {
+    List<String> tokens = new ArrayList<>();
+    for (String raw : TOKEN_SEPARATORS.split(query.trim())) {
+      String token = TOKEN_TRIM.matcher(raw).replaceAll("");
+      if (!token.isEmpty()) {
+        tokens.add(token);
+      }
+      if (tokens.size() == MAX_PREFIX_MATCH_TOKENS) {
+        break;
+      }
+    }
+    return tokens;
+  }
+
+  private boolean allTokensMustPrefixMatchEnabled() {
+    AutocompleteQueryConfiguration config =
+        Optional.ofNullable(searchConfiguration.getSearch().getAutocomplete())
+            .orElseGet(AutocompleteQueryConfiguration::new);
+    return Optional.ofNullable(config.getAllTokensMustPrefixMatchEntities())
+        .orElse(List.of())
+        .stream()
+        .anyMatch(name -> name.trim().equalsIgnoreCase(entitySpec.getName()));
+  }
+
+  /**
+   * True when the {@link QueryMode#STRICT_ALL_TOKENS} pass actually narrows this query (a listed
+   * entity, two or more tokens) — i.e. when a zero-result strict pass is worth a {@link
+   * QueryMode#RANKING_ONLY} fallback pass. False means both modes build the same query.
+   */
+  public boolean strictPassApplies(@Nonnull String query) {
+    return allTokensMustPrefixMatchEnabled() && prefixMatchTokens(query).size() >= 2;
+  }
+
+  /**
+   * People pickers (owners filter, add owners, assignees) send a name as several tokens. The
+   * default {@code bool_prefix} multi_match treats only the LAST token as a prefix and scores a
+   * prefix with a constant, so for "John K" the whole-term match "John Fitzgerald" outranks
+   * "Johnathan Killroy" even though only the latter matches both tokens; a higher IDF for "john" on
+   * a real-sized index makes the gap arbitrarily large, so no additive boost can fix ranking. For
+   * the configured entities ({@code
+   * elasticsearch.search.autocomplete.allTokensMustPrefixMatchEntities}) require EVERY typed token
+   * to prefix-match some autocomplete field (one MUST per token); the existing clauses stay as
+   * SHOULDs and keep doing the ranking among the survivors. Single-token queries are untouched, as
+   * is every other entity.
+   *
+   * <p>Deliberately not {@code operator=AND} on the existing multi_match: there only the last token
+   * is a prefix, so "john" would have to match "johnathan" as a whole term and the user would
+   * disappear from the list.
+   *
+   * <p>Strictness costs recall ("Jon K" matches nobody), so {@code ESSearchDAO.autoComplete}
+   * retries a zero-result strict pass as {@link QueryMode#RANKING_ONLY} ({@link
+   * #strictPassApplies}): ranking improves wherever it can, results never disappear.
+   */
+  private List<QueryBuilder> perTokenPrefixMusts(
+      List<Pair<String, String>> autocompleteFields, @Nonnull String query) {
+    List<String> tokens = prefixMatchTokens(query);
+    if (!allTokensMustPrefixMatchEnabled() || tokens.size() < 2) {
+      return List.of();
+    }
+    List<QueryBuilder> musts = new ArrayList<>();
+    for (String token : tokens) {
+      // A single-term bool_prefix is a prefix query on the search_as_you_type field, so "john"
+      // matches "johnathan".
+      MultiMatchQueryBuilder tokenPrefix =
+          QueryBuilders.multiMatchQuery(token).type(MultiMatchQueryBuilder.Type.BOOL_PREFIX);
+      autocompleteFields.forEach(pair -> tokenPrefix.field(pair.getLeft() + ".ngram"));
+      musts.add(tokenPrefix);
+    }
+    return musts;
   }
 
   @Override

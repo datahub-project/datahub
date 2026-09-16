@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.query.request;
 
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
@@ -636,6 +637,97 @@ public class AutocompleteRequestHandlerTest {
             .collect(Collectors.toList());
 
     assertTrue(isLatestQueries.isEmpty(), "Expected to find no queries");
+  }
+
+  @Test
+  public void testAllTokensMustPrefixMatchForPeopleEntities() {
+    // corpuser is in the default allTokensMustPrefixMatchEntities list; the class-level `handler`
+    // (testEntity)
+    // is not, so it doubles as the unchanged-shape control below.
+    AutocompleteRequestHandler corpUserHandler =
+        AutocompleteRequestHandler.getBuilder(
+            nonMockOpContext,
+            nonMockOpContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME),
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    BoolQueryBuilder multiToken = defaultQueryOf(corpUserHandler, "John K");
+    assertEquals(multiToken.must().size(), 2, "one MUST prefix clause per typed token");
+    assertEquals(((MultiMatchQueryBuilder) multiToken.must().get(0)).value(), "John");
+    assertEquals(((MultiMatchQueryBuilder) multiToken.must().get(1)).value(), "K");
+    for (QueryBuilder must : multiToken.must()) {
+      MultiMatchQueryBuilder tokenPrefix = (MultiMatchQueryBuilder) must;
+      assertEquals(tokenPrefix.type(), MultiMatchQueryBuilder.Type.BOOL_PREFIX);
+      assertTrue(tokenPrefix.fields().containsKey("fullName.ngram"));
+      assertTrue(tokenPrefix.fields().keySet().stream().allMatch(f -> f.endsWith(".ngram")));
+    }
+    // The existing ranking clauses are untouched: still SHOULDs, still min_should_match 1.
+    assertTrue(multiToken.should().stream().anyMatch(MultiMatchQueryBuilder.class::isInstance));
+    assertEquals(multiToken.minimumShouldMatch(), "1");
+
+    // A single token is unchanged, for people and non-people alike.
+    assertTrue(defaultQueryOf(corpUserHandler, "John").must().isEmpty());
+    // A non-people entity is unchanged even for a multi-token query.
+    assertTrue(defaultQueryOf(handler, "John K").must().isEmpty());
+  }
+
+  @Test
+  public void testPrefixMatchTokenization() {
+    // Split on whitespace AND the punctuation the standard tokenizer splits on; surrounding
+    // periods/quotes trimmed; apostrophes inside a word kept; empties dropped; capped.
+    assertEquals(
+        AutocompleteRequestHandler.prefixMatchTokens("Mary-Jane O'Brien"),
+        List.of("Mary", "Jane", "O'Brien"));
+    assertEquals(
+        AutocompleteRequestHandler.prefixMatchTokens("Smith, John"), List.of("Smith", "John"));
+    assertEquals(
+        AutocompleteRequestHandler.prefixMatchTokens("  J.K. Rowling "), List.of("J.K", "Rowling"));
+    assertEquals(
+        AutocompleteRequestHandler.prefixMatchTokens("\"Bob\" Smith"), List.of("Bob", "Smith"));
+    assertEquals(
+        AutocompleteRequestHandler.prefixMatchTokens("a b c d e f g h").size(),
+        AutocompleteRequestHandler.MAX_PREFIX_MATCH_TOKENS);
+    assertEquals(AutocompleteRequestHandler.prefixMatchTokens(" - , "), List.of());
+  }
+
+  @Test
+  public void testAllTokensMustPrefixMatchCanBeRelaxedForTheFallbackQuery() {
+    AutocompleteRequestHandler corpUserHandler =
+        AutocompleteRequestHandler.getBuilder(
+            nonMockOpContext,
+            nonMockOpContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME),
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
+    // Punctuated multi-token names count as multi-token (normalized) ...
+    assertTrue(corpUserHandler.strictPassApplies("Smith, John"));
+    assertEquals(defaultQueryOf(corpUserHandler, "Smith, John").must().size(), 2);
+    // ... a single token does not, whatever the punctuation.
+    assertFalse(corpUserHandler.strictPassApplies("O'Brien"));
+    // A non-people entity never applies it.
+    assertFalse(handler.strictPassApplies("John K"));
+    // The RANKING_ONLY pass (what ESSearchDAO falls back to on zero results) has no MUSTs but the
+    // same ranking SHOULDs.
+    BoolQueryBuilder relaxed =
+        defaultQueryOf(
+            corpUserHandler, "John K", AutocompleteRequestHandler.QueryMode.RANKING_ONLY);
+    assertTrue(relaxed.must().isEmpty());
+    assertTrue(relaxed.should().stream().anyMatch(MultiMatchQueryBuilder.class::isInstance));
+  }
+
+  private BoolQueryBuilder defaultQueryOf(AutocompleteRequestHandler h, String input) {
+    return defaultQueryOf(h, input, AutocompleteRequestHandler.QueryMode.STRICT_ALL_TOKENS);
+  }
+
+  private BoolQueryBuilder defaultQueryOf(
+      AutocompleteRequestHandler h, String input, AutocompleteRequestHandler.QueryMode mode) {
+    SearchRequest request = h.getSearchRequest(nonMockOpContext, null, input, null, null, 10, mode);
+    BoolQueryBuilder wrapper =
+        (BoolQueryBuilder) ((FunctionScoreQueryBuilder) request.source().query()).query();
+    return (BoolQueryBuilder) extractNestedQuery(wrapper);
   }
 
   private static QueryBuilder extractNestedQuery(BoolQueryBuilder nested) {
