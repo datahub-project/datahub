@@ -134,3 +134,38 @@ def test_bigquery_labels_the_job_so_probe_spend_is_separable():
 
     BigQueryMetadataProbe(_Client()).execute_catalog_query("SELECT 1", limit=1)
     assert captured["labels"] == {"application": PROBE_QUERY_LABEL}
+
+
+def test_program_name_goes_to_pymysql_drivers_and_no_others():
+    """`program_name` is a PyMySQL feature, not a MySQL one.
+
+    The lookup was keyed on the dialect with the driver stripped, so every
+    `mysql://` URI got it -- including `mysql+mysqlconnector`, whose connect()
+    validates its keyword arguments and rejects the unknown one. That is the
+    failure the test below names as the reason for leaving dialects
+    unlabelled: "a label the driver rejects is a connection failure, which is
+    a far worse outcome than an anonymous query."
+
+    Keying on the driver also picks up Doris for free -- it defaults to
+    `doris+pymysql`, uses the same driver, and was unlabelled only because
+    `doris` was missing from a dialect list.
+    """
+    for url in (
+        "mysql+pymysql://h/db",
+        "mariadb+pymysql://h/db",
+        "doris+pymysql://h/db",
+    ):
+        connect_args = _options_for(url)["connect_args"]
+        assert connect_args["program_name"] == PROBE_QUERY_LABEL, url
+
+    for url in (
+        "mysql+mysqlconnector://h/db",
+        "mysql+mysqldb://h/db",
+        # Bare `mysql://` is MySQLdb in SQLAlchemy, not PyMySQL. Every
+        # DataHub config in this family defaults to an explicit +pymysql, so
+        # this shape only arrives from a hand-written sqlalchemy_uri.
+        "mysql://h/db",
+    ):
+        options = _options_for(url)
+        connect_args = options.get("connect_args", {})
+        assert "program_name" not in connect_args, url

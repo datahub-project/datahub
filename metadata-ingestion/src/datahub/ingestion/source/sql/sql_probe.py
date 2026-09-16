@@ -171,17 +171,35 @@ _ATTRIBUTION_CONNECT_ARGS: Dict[str, str] = {
     # yet. The session has it (current_setting), and STL_CONNECTION_LOG records
     # it per connection for anyone holding that grant.
     "redshift": "application_name",
-    # MySQL has no application_name. PyMySQL sends program_name as a connection
-    # attribute instead, which surfaces in
-    # performance_schema.session_connect_attrs -- weaker, since it names the
-    # session rather than each statement, but it is what this family offers.
-    "mysql": "program_name",
-    "mariadb": "program_name",
+}
+
+# Keyed on the DRIVER, because program_name is a PyMySQL feature rather than a
+# MySQL one. MySQL has no application_name; PyMySQL sends program_name as a
+# connection attribute instead, which surfaces in
+# performance_schema.session_connect_attrs -- weaker, since it names the
+# session rather than each statement, but it is what this family offers.
+#
+# Keyed on the dialect with the driver stripped, as it was, every `mysql://`
+# URI got it -- including `mysql+mysqlconnector`, whose connect() validates
+# its keyword arguments and rejects the unknown one. That is exactly the
+# outcome the rule above exists to avoid: an unlabelled connection is honest,
+# a label the driver rejects is a connection failure.
+#
+# It also picks up Doris, which defaults to `doris+pymysql` and was unlabelled
+# only for being absent from a dialect list.
+_ATTRIBUTION_DRIVER_CONNECT_ARGS: Dict[str, str] = {
+    "pymysql": "program_name",
 }
 
 
 def _scheme_of(url: str) -> str:
     return url.split("://", 1)[0].split("+", 1)[0].lower()
+
+
+def _driver_of(url: str) -> str:
+    """The `+driver` half of the scheme, or "" when the URI names none."""
+    head = url.split("://", 1)[0].lower()
+    return head.split("+", 1)[1] if "+" in head else ""
 
 
 def install_statement_timeout(engine: Any, url: str, seconds: Optional[int]) -> None:
@@ -204,7 +222,12 @@ def _timeout_connect_args(url: str, seconds: Optional[int]) -> Dict[str, Any]:
 
 
 def _attribution_connect_args(url: str) -> Dict[str, Any]:
-    kwarg = _ATTRIBUTION_CONNECT_ARGS.get(_scheme_of(url))
+    # Dialect first (application_name is a server parameter, so every driver
+    # for that dialect carries it), then driver (program_name is the driver's
+    # own feature and travels with it across dialects).
+    kwarg = _ATTRIBUTION_CONNECT_ARGS.get(_scheme_of(url)) or (
+        _ATTRIBUTION_DRIVER_CONNECT_ARGS.get(_driver_of(url))
+    )
     return {kwarg: PROBE_QUERY_LABEL} if kwarg else {}
 
 
