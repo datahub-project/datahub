@@ -1,0 +1,196 @@
+{
+  "eventTime": "2024-10-16T16:53:47.541Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "RUNNING",
+  "run": {
+    "runId": "0192963f-f6f8-71c0-8380-500bc70883ee",
+    "facets": {
+      "parent": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ParentRunFacet.json#/$defs/ParentRunFacet",
+        "run": {
+          "runId": "0192963f-929e-731b-a075-9bb14bf41d38"
+        },
+        "job": {
+          "namespace": "default",
+          "name": "shakespeare_on_spark"
+        }
+      },
+      "spark_properties": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "properties": {
+          "spark.master": "yarn",
+          "spark.app.name": "Shakespeare on Spark"
+        }
+      },
+      "processing_engine": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+        "version": "3.5.1",
+        "name": "spark",
+        "openlineageAdapterVersion": "1.23.0"
+      },
+      "spark_jobDetails": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "jobId": 2
+      },
+      "gcp_dataproc_spark": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/GcpDataprocRunFacet.json#/$defs/GcpDataprocRunFacet",
+        "clusterUuid": "a47b5791-881b-4e83-a3cc-547fe97e5caf",
+        "jobId": "a27383af-64db-4893-b03b-c472ab0512cf",
+        "jobUuid": "a27383af-64db-4893-b03b-c472ab0512cf",
+        "queryNodeName": "adaptive_spark_plan",
+        "appName": "Shakespeare on Spark",
+        "clusterName": "dataproc-producer-test",
+        "appId": "application_1729097245443_0002",
+        "projectId": "gcp-open-lineage-testing"
+      }
+    }
+  },
+  "job": {
+    "namespace": "default",
+    "name": "shakespeare_on_spark.adaptive_spark_plan.outputs_1729097570970",
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "processingType": "BATCH",
+        "integration": "SPARK",
+        "jobType": "SQL_JOB"
+      },
+      "gcp_lineage": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/GcpLineageJobFacet.json#/$defs/GcpLineageJobFacet",
+        "origin": {
+          "sourceType": "DATAPROC",
+          "name": "projects/gcp-open-lineage-testing/regions/us-west1/clusters/dataproc-producer-test"
+        }
+      }
+    }
+  },
+  "inputs": [],
+  "outputs": [
+    {
+      "namespace": "file",
+      "name": "/tmp/outputs/1729097570970",
+      "facets": {
+        "dataSource": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+          "name": "file",
+          "uri": "file"
+        },
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "name": "word",
+              "type": "string",
+              "description": "A single unique word (where whitespace is the delimiter) extracted from a corpus."
+            },
+            {
+              "name": "sum(word_count)",
+              "type": "long"
+            }
+          ]
+        },
+        "columnLineage": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+          "fields": {
+            "word": {
+              "inputFields": [
+                {
+                  "namespace": "bigquery",
+                  "name": "bigquery-public-data.samples.shakespeare",
+                  "field": "word_count",
+                  "transformations": [
+                    {
+                      "type": "INDIRECT",
+                      "subtype": "FILTER",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                },
+                {
+                  "namespace": "bigquery",
+                  "name": "bigquery-public-data.samples.shakespeare",
+                  "field": "word",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    },
+                    {
+                      "type": "INDIRECT",
+                      "subtype": "GROUP_BY",
+                      "description": "",
+                      "masking": false
+                    },
+                    {
+                      "type": "INDIRECT",
+                      "subtype": "FILTER",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "sum(word_count)": {
+              "inputFields": [
+                {
+                  "namespace": "bigquery",
+                  "name": "bigquery-public-data.samples.shakespeare",
+                  "field": "word",
+                  "transformations": [
+                    {
+                      "type": "INDIRECT",
+                      "subtype": "GROUP_BY",
+                      "description": "",
+                      "masking": false
+                    },
+                    {
+                      "type": "INDIRECT",
+                      "subtype": "FILTER",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                },
+                {
+                  "namespace": "bigquery",
+                  "name": "bigquery-public-data.samples.shakespeare",
+                  "field": "word_count",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "AGGREGATION",
+                      "description": "",
+                      "masking": false
+                    },
+                    {
+                      "type": "INDIRECT",
+                      "subtype": "FILTER",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "outputFacets": {}
+    }
+  ]
+}

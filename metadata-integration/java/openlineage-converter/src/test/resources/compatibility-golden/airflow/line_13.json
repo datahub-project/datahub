@@ -1,0 +1,121 @@
+[ {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(airflow,gcs_hook,airflow)",
+  "aspectName" : "dataFlowInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "openlineageAdapterVersion" : "1.14.0",
+      "processingEngineVersion" : "3.0.0.dev0",
+      "processingEngine" : "Airflow"
+    },
+    "name" : "gcs_hook"
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(airflow,gcs_hook,airflow)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,gcs_hook,airflow),gcs_hook)",
+  "aspectName" : "dataJobInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "processingType" : "BATCH",
+      "openlineageAdapterVersion" : "1.14.0",
+      "processingEngineVersion" : "3.0.0.dev0",
+      "integration" : "AIRFLOW",
+      "processingEngine" : "Airflow",
+      "jobType" : "DAG"
+    },
+    "created" : {
+      "time" : 1732626636695
+    },
+    "name" : "gcs_hook",
+    "flowUrn" : "urn:li:dataFlow:(airflow,gcs_hook,airflow)",
+    "type" : {
+      "string" : "airflow"
+    }
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,gcs_hook,airflow),gcs_hook)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,gcs_hook,airflow),gcs_hook)",
+  "aspectName" : "ownership",
+  "changeType" : "PATCH",
+  "aspect" : {
+    "arrayPrimaryKeys" : {
+      "owners" : [ "owner", "type", "typeUrn", "attribution␟source" ]
+    },
+    "patch" : [ {
+      "op" : "add",
+      "path" : "/owners/urn:li:corpuser:***/TECHNICAL_OWNER//",
+      "value" : {
+        "owner" : "urn:li:corpuser:***",
+        "type" : "TECHNICAL_OWNER"
+      }
+    } ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936898-5bd1-70bf-9ca2-4953116e45e1",
+  "aspectName" : "dataProcessInstanceInput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "inputs" : [ ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936898-5bd1-70bf-9ca2-4953116e45e1",
+  "aspectName" : "dataProcessInstanceOutput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "outputs" : [ ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936898-5bd1-70bf-9ca2-4953116e45e1",
+  "aspectName" : "dataProcessInstanceProperties",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "01936898-5bd1-70bf-9ca2-4953116e45e1",
+    "customProperties" : {
+      "nominalEndTime" : "2024-11-26T13:10:35.729678Z",
+      "nominalStartTime" : "2024-11-26T13:10:35.729678Z"
+    },
+    "created" : {
+      "actor" : "urn:li:corpuser:datahub",
+      "time" : 1732626636695
+    }
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936898-5bd1-70bf-9ca2-4953116e45e1",
+  "aspectName" : "dataProcessInstanceRunEvent",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "timestampMillis" : 1732626636695,
+    "status" : "STARTED"
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936898-5bd1-70bf-9ca2-4953116e45e1",
+  "aspectName" : "dataProcessInstanceRelationships",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "parentTemplate" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,gcs_hook,airflow),gcs_hook)",
+    "upstreamInstances" : [ ]
+  }
+} ]

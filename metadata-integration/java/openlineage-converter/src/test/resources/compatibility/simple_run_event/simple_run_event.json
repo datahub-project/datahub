@@ -1,0 +1,31 @@
+{
+  "eventTime": "2023-04-04T13:21:16.098Z",
+  "eventType": "COMPLETE",
+  "inputs": [
+    {
+      "name": "test.table.input",
+      "namespace": "bigquery",
+      "facets": {},
+      "inputFacets": {}
+    }
+  ],
+  "job": {
+    "name": "job_name",
+    "namespace": "job_namespace",
+    "facets": {}
+  },
+  "outputs": [
+    {
+      "name": "test.table.output",
+      "namespace": "bigquery",
+      "facets": {},
+      "outputFacets": {}
+    }
+  ],
+  "producer": "producer",
+  "run": {
+    "runId": "run_id",
+    "facets": {}
+  },
+  "schemaURL": "https://openlineage.io/spec/1-0-5/OpenLineage.json#/$defs/RunEvent"
+}

@@ -1,0 +1,203 @@
+[ {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(airflow,gcs_hook,airflow)",
+  "aspectName" : "dataFlowInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "owner" : "airflow",
+      "dag_id" : "gcs_hook",
+      "fileloc" : "/files/dags/dag_gcs_hook.py",
+      "timetable_summary" : "None",
+      "start_date" : "2024-07-03T00:00:00+00:00",
+      "tags" : "[]"
+    },
+    "name" : "gcs_hook"
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(airflow,gcs_hook,airflow)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,gcs_hook,airflow),gcs_hook.copy_task)",
+  "aspectName" : "dataJobInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "ignore_first_depends_on_past" : "false",
+      "processingType" : "BATCH",
+      "trigger_rule" : "all_success",
+      "outlets" : "[]",
+      "retry_exponential_backoff" : "false",
+      "task_id" : "copy_task",
+      "type" : "operator",
+      "operator_class_path" : "***.providers.standard.operators.python.PythonOperator",
+      "jobType" : "TASK",
+      "priority_weight" : "1",
+      "owner" : "***",
+      "wait_for_past_depends_before_skipping" : "false",
+      "depends_on_past" : "false",
+      "downstream_task_ids" : "['download_to_file', 'compose_task', 'download_to_data']",
+      "inlets" : "[]",
+      "operator_class" : "PythonOperator",
+      "retries" : "0",
+      "upstream_task_ids" : "['upload_from_data']",
+      "integration" : "AIRFLOW",
+      "name" : "PythonOperator",
+      "mapped" : "false",
+      "multiple_outputs" : "false",
+      "wait_for_downstream" : "false",
+      "queue" : "default",
+      "weight_rule" : "<<non-serializable: _DownstreamPriorityWeightStrategy>>"
+    },
+    "created" : {
+      "time" : 1732626644755
+    },
+    "name" : "copy_task",
+    "flowUrn" : "urn:li:dataFlow:(airflow,gcs_hook,airflow)",
+    "type" : {
+      "string" : "airflow"
+    }
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,gcs_hook,airflow),gcs_hook.copy_task)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(airflow,gcs_hook,airflow)",
+  "aspectName" : "globalTags",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "tags" : [ ]
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:gcs,mock-bucket/uploaded_data.txt,PROD)",
+  "aspectName" : "datasetKey",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "mock-bucket/uploaded_data.txt",
+    "platform" : "urn:li:dataPlatform:gcs",
+    "origin" : "PROD"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:gcs,mock-bucket/uploaded_data.txt,PROD)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:gcs,mock-bucket/copy_of_uploaded_data.txt,PROD)",
+  "aspectName" : "datasetKey",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "mock-bucket/copy_of_uploaded_data.txt",
+    "platform" : "urn:li:dataPlatform:gcs",
+    "origin" : "PROD"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:gcs,mock-bucket/copy_of_uploaded_data.txt,PROD)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,gcs_hook,airflow),gcs_hook.copy_task)",
+  "aspectName" : "dataJobInputOutput",
+  "changeType" : "PATCH",
+  "aspect" : [ {
+    "op" : "add",
+    "path" : "/inputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:gcs,mock-bucket~1uploaded_data.txt,PROD)",
+    "value" : {
+      "destinationUrn" : "urn:li:dataset:(urn:li:dataPlatform:gcs,mock-bucket/uploaded_data.txt,PROD)",
+      "lastModified" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      },
+      "created" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      }
+    }
+  }, {
+    "op" : "add",
+    "path" : "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:gcs,mock-bucket~1copy_of_uploaded_data.txt,PROD)",
+    "value" : {
+      "destinationUrn" : "urn:li:dataset:(urn:li:dataPlatform:gcs,mock-bucket/copy_of_uploaded_data.txt,PROD)",
+      "lastModified" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      },
+      "created" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      }
+    }
+  } ]
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936898-5bd1-7008-a3b8-5dea7d6595a7",
+  "aspectName" : "dataProcessInstanceInput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "inputs" : [ "urn:li:dataset:(urn:li:dataPlatform:gcs,mock-bucket/uploaded_data.txt,PROD)" ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936898-5bd1-7008-a3b8-5dea7d6595a7",
+  "aspectName" : "dataProcessInstanceOutput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "outputs" : [ "urn:li:dataset:(urn:li:dataPlatform:gcs,mock-bucket/copy_of_uploaded_data.txt,PROD)" ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936898-5bd1-7008-a3b8-5dea7d6595a7",
+  "aspectName" : "dataProcessInstanceProperties",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "01936898-5bd1-7008-a3b8-5dea7d6595a7",
+    "created" : {
+      "actor" : "urn:li:corpuser:datahub",
+      "time" : 1732626644755
+    }
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936898-5bd1-7008-a3b8-5dea7d6595a7",
+  "aspectName" : "dataProcessInstanceRunEvent",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "result" : {
+      "type" : "SUCCESS",
+      "nativeResultType" : "COMPLETE"
+    },
+    "timestampMillis" : 1732626644755,
+    "status" : "COMPLETE"
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936898-5bd1-7008-a3b8-5dea7d6595a7",
+  "aspectName" : "dataProcessInstanceRelationships",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "parentTemplate" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,gcs_hook,airflow),gcs_hook.copy_task)",
+    "upstreamInstances" : [ ]
+  }
+} ]

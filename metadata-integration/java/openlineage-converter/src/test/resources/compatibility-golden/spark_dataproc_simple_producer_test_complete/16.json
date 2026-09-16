@@ -1,0 +1,107 @@
+[ {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,cl_i_test_application,default)",
+  "aspectName" : "dataFlowInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "spark.master" : "local",
+      "openlineageAdapterVersion" : "1.23.0",
+      "processingEngineVersion" : "3.5.1",
+      "spark.app.name" : "CLI test application",
+      "processingEngine" : "spark"
+    },
+    "name" : "cl_i_test_application"
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(spark,cl_i_test_application,default)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,cl_i_test_application,default),cl_i_test_application)",
+  "aspectName" : "dataJobInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "spark.master" : "local",
+      "processingType" : "NONE",
+      "openlineageAdapterVersion" : "1.23.0",
+      "processingEngineVersion" : "3.5.1",
+      "integration" : "SPARK",
+      "spark.app.name" : "CLI test application",
+      "processingEngine" : "spark",
+      "jobType" : "APPLICATION"
+    },
+    "created" : {
+      "time" : 1729156712504
+    },
+    "name" : "cl_i_test_application",
+    "flowUrn" : "urn:li:dataFlow:(spark,cl_i_test_application,default)",
+    "type" : {
+      "string" : "spark"
+    }
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(spark,cl_i_test_application,default),cl_i_test_application)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019299c5-12f5-7946-b5b2-c6abab662e20",
+  "aspectName" : "dataProcessInstanceInput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "inputs" : [ ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019299c5-12f5-7946-b5b2-c6abab662e20",
+  "aspectName" : "dataProcessInstanceOutput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "outputs" : [ ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019299c5-12f5-7946-b5b2-c6abab662e20",
+  "aspectName" : "dataProcessInstanceProperties",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "019299c5-12f5-7946-b5b2-c6abab662e20",
+    "created" : {
+      "actor" : "urn:li:corpuser:datahub",
+      "time" : 1729156712504
+    }
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019299c5-12f5-7946-b5b2-c6abab662e20",
+  "aspectName" : "dataProcessInstanceRunEvent",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "result" : {
+      "type" : "SUCCESS",
+      "nativeResultType" : "COMPLETE"
+    },
+    "timestampMillis" : 1729156712504,
+    "status" : "COMPLETE"
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:019299c5-12f5-7946-b5b2-c6abab662e20",
+  "aspectName" : "dataProcessInstanceRelationships",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "parentTemplate" : "urn:li:dataJob:(urn:li:dataFlow:(spark,cl_i_test_application,default),cl_i_test_application)",
+    "upstreamInstances" : [ ]
+  }
+} ]

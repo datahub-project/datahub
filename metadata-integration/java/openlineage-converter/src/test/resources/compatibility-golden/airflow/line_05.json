@@ -1,0 +1,327 @@
+[ {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(airflow,BQ,airflow)",
+  "aspectName" : "dataFlowInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "owner" : "airflow",
+      "dag_id" : "BQ",
+      "fileloc" : "/files/dags/bq.py",
+      "timetable_summary" : "None",
+      "start_date" : "2024-01-01T00:00:00+00:00",
+      "tags" : "[]"
+    },
+    "name" : "BQ"
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(airflow,BQ,airflow)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,BQ,airflow),BQ.copy)",
+  "aspectName" : "dataJobInfo",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "customProperties" : {
+      "ignore_first_depends_on_past" : "false",
+      "owner" : "***",
+      "wait_for_past_depends_before_skipping" : "false",
+      "processingType" : "BATCH",
+      "depends_on_past" : "false",
+      "trigger_rule" : "all_success",
+      "outlets" : "[]",
+      "retry_exponential_backoff" : "false",
+      "task_id" : "copy",
+      "downstream_task_ids" : "['download']",
+      "operator_class_path" : "***.providers.google.cloud.transfers.bigquery_to_bigquery.BigQueryToBigQueryOperator",
+      "inlets" : "[]",
+      "operator_class" : "BigQueryToBigQueryOperator",
+      "retries" : "0",
+      "upstream_task_ids" : "['upload']",
+      "integration" : "AIRFLOW",
+      "mapped" : "false",
+      "multiple_outputs" : "false",
+      "jobType" : "TASK",
+      "priority_weight" : "1",
+      "wait_for_downstream" : "false",
+      "queue" : "default",
+      "weight_rule" : "<<non-serializable: _DownstreamPriorityWeightStrategy>>"
+    },
+    "created" : {
+      "time" : 1732626334626
+    },
+    "name" : "copy",
+    "flowUrn" : "urn:li:dataFlow:(airflow,BQ,airflow)",
+    "type" : {
+      "string" : "airflow"
+    }
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,BQ,airflow),BQ.copy)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataFlow",
+  "entityUrn" : "urn:li:dataFlow:(airflow,BQ,airflow)",
+  "aspectName" : "globalTags",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "tags" : [ ]
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload,PROD)",
+  "aspectName" : "datasetKey",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "mock-project.test.upload",
+    "platform" : "urn:li:dataPlatform:bigquery",
+    "origin" : "PROD"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload,PROD)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload,PROD)",
+  "aspectName" : "schemaMetadata",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "platformSchema" : {
+      "com.linkedin.schema.MySqlDDL" : {
+        "tableSchema" : "[{\"name\":\"a\",\"type\":\"INTEGER\",\"fields\":[]},{\"name\":\"b\",\"type\":\"INTEGER\",\"fields\":[]},{\"name\":\"c\",\"type\":\"INTEGER\",\"fields\":[]},{\"name\":\"d\",\"type\":\"INTEGER\",\"fields\":[]}]"
+      }
+    },
+    "schemaName" : "",
+    "fields" : [ {
+      "fieldPath" : "a",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "INTEGER"
+    }, {
+      "fieldPath" : "b",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "INTEGER"
+    }, {
+      "fieldPath" : "c",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "INTEGER"
+    }, {
+      "fieldPath" : "d",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "INTEGER"
+    } ],
+    "version" : 1,
+    "hash" : "",
+    "platform" : "urn:li:dataPlatform:bigquery"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload_cp,PROD)",
+  "aspectName" : "datasetKey",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "mock-project.test.upload_cp",
+    "platform" : "urn:li:dataPlatform:bigquery",
+    "origin" : "PROD"
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload_cp,PROD)",
+  "aspectName" : "status",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "removed" : false
+  }
+}, {
+  "entityType" : "dataset",
+  "entityUrn" : "urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload_cp,PROD)",
+  "aspectName" : "schemaMetadata",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "platformSchema" : {
+      "com.linkedin.schema.MySqlDDL" : {
+        "tableSchema" : "[{\"name\":\"a\",\"type\":\"INTEGER\",\"fields\":[]},{\"name\":\"b\",\"type\":\"INTEGER\",\"fields\":[]},{\"name\":\"c\",\"type\":\"INTEGER\",\"fields\":[]},{\"name\":\"d\",\"type\":\"INTEGER\",\"fields\":[]}]"
+      }
+    },
+    "schemaName" : "",
+    "fields" : [ {
+      "fieldPath" : "a",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "INTEGER"
+    }, {
+      "fieldPath" : "b",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "INTEGER"
+    }, {
+      "fieldPath" : "c",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "INTEGER"
+    }, {
+      "fieldPath" : "d",
+      "type" : {
+        "type" : {
+          "com.linkedin.schema.NumberType" : { }
+        }
+      },
+      "nativeDataType" : "INTEGER"
+    } ],
+    "version" : 1,
+    "hash" : "",
+    "platform" : "urn:li:dataPlatform:bigquery"
+  }
+}, {
+  "entityType" : "dataJob",
+  "entityUrn" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,BQ,airflow),BQ.copy)",
+  "aspectName" : "dataJobInputOutput",
+  "changeType" : "PATCH",
+  "aspect" : [ {
+    "op" : "add",
+    "path" : "/inputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload,PROD)",
+    "value" : {
+      "destinationUrn" : "urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload,PROD)",
+      "lastModified" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      },
+      "created" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      }
+    }
+  }, {
+    "op" : "add",
+    "path" : "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload_cp,PROD)",
+    "value" : {
+      "destinationUrn" : "urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload_cp,PROD)",
+      "lastModified" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      },
+      "created" : {
+        "time" : "<WALL_CLOCK>",
+        "actor" : "urn:li:corpuser:UNKNOWN"
+      }
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/TRANSFORM/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload_cp,PROD),a)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload,PROD),a)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/TRANSFORM/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload_cp,PROD),b)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload,PROD),b)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/TRANSFORM/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload_cp,PROD),c)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload,PROD),c)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  }, {
+    "op" : "add",
+    "path" : "/fineGrainedLineages/TRANSFORM/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload_cp,PROD),d)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload,PROD),d)",
+    "value" : {
+      "confidenceScore" : 0.5
+    }
+  } ]
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936893-9751-7b10-a4a7-cd7454722d0f",
+  "aspectName" : "dataProcessInstanceInput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "inputs" : [ "urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload,PROD)" ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936893-9751-7b10-a4a7-cd7454722d0f",
+  "aspectName" : "dataProcessInstanceOutput",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "outputs" : [ "urn:li:dataset:(urn:li:dataPlatform:bigquery,mock-project.test.upload_cp,PROD)" ]
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936893-9751-7b10-a4a7-cd7454722d0f",
+  "aspectName" : "dataProcessInstanceProperties",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "name" : "01936893-9751-7b10-a4a7-cd7454722d0f",
+    "customProperties" : {
+      "externalQuerySource" : "bigquery",
+      "externalQueryId" : "***_1732626332070201_3cff1da525a6e01f42e15d1dc755f7c2"
+    },
+    "created" : {
+      "actor" : "urn:li:corpuser:datahub",
+      "time" : 1732626334626
+    }
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936893-9751-7b10-a4a7-cd7454722d0f",
+  "aspectName" : "dataProcessInstanceRunEvent",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "result" : {
+      "type" : "SUCCESS",
+      "nativeResultType" : "COMPLETE"
+    },
+    "timestampMillis" : 1732626334626,
+    "status" : "COMPLETE"
+  }
+}, {
+  "entityType" : "dataProcessInstance",
+  "entityUrn" : "urn:li:dataProcessInstance:01936893-9751-7b10-a4a7-cd7454722d0f",
+  "aspectName" : "dataProcessInstanceRelationships",
+  "changeType" : "UPSERT",
+  "aspect" : {
+    "parentTemplate" : "urn:li:dataJob:(urn:li:dataFlow:(airflow,BQ,airflow),BQ.copy)",
+    "upstreamInstances" : [ ]
+  }
+} ]

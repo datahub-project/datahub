@@ -1,0 +1,42 @@
+{
+  "eventTime": "2024-11-26T13:10:46.731930+00:00",
+  "eventType": "COMPLETE",
+  "inputs": [],
+  "job": {
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "integration": "AIRFLOW",
+        "jobType": "DAG",
+        "processingType": "BATCH"
+      }
+    },
+    "name": "gcs_hook",
+    "namespace": "airflow"
+  },
+  "outputs": [],
+  "producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+  "run": {
+    "facets": {
+      "airflowState": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "dagRunState": "success",
+        "tasksState": {
+          "compose_task": "success",
+          "copy_task": "success",
+          "delete": "success",
+          "download_to_data": "success",
+          "download_to_file": "success",
+          "rewrite_task": "success",
+          "upload_for_deletion": "success",
+          "upload_from_data": "success",
+          "upload_from_file": "success"
+        }
+      }
+    },
+    "runId": "01936898-5bd1-70bf-9ca2-4953116e45e1"
+  },
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent"
+}
