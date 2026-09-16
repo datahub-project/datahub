@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -154,6 +155,10 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
       // One budget shared across all slices of this hop (see GraphQueryBaseDAO); null == unlimited.
       final AtomicInteger sharedRemaining = newSharedRelationshipBudget(maxRelations);
+      // Set by any slice that stops early on a server-side timeout so the hop is marked partial
+      // even
+      // when the wall-clock budget was not exhausted (see markPartialIfSliceSearchTimedOut).
+      final AtomicBoolean sliceSearchTimedOut = new AtomicBoolean(false);
 
       for (int sliceId = 0; sliceId < slices; sliceId++) {
         final int currentSliceId = sliceId;
@@ -179,7 +184,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                       entityUrns,
                       allowPartialResults,
                       tempPitId,
-                      keepAlive);
+                      keepAlive,
+                      sliceSearchTimedOut);
                 },
                 pitExecutor); // Use dedicated thread pool with CallerRunsPolicy for backpressure
         sliceFutures.add(sliceFuture);
@@ -187,10 +193,15 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
       // Reuse the common slice coordination logic. If the shared budget ended exhausted, the hop
       // was truncated at maxRelations — report partial explicitly, since the outer unique-entity
-      // limit check can miss it when cross-slice duplicates merge away.
-      return markPartialIfSharedBudgetExhausted(
-          processSliceFutures(sliceFutures, remainingTime, allowPartialResults),
-          sharedRemaining,
+      // limit check can miss it when cross-slice duplicates merge away. Likewise mark partial when
+      // a
+      // slice stopped on a server-side timeout (its collected results are incomplete).
+      return markPartialIfSliceSearchTimedOut(
+          markPartialIfSharedBudgetExhausted(
+              processSliceFutures(sliceFutures, remainingTime, allowPartialResults),
+              sharedRemaining,
+              allowPartialResults),
+          sliceSearchTimedOut,
           allowPartialResults);
     } finally {
       // Cancel any still-running slice futures, then wait (bounded, see GraphQueryConstants) before
@@ -226,7 +237,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       Set<Urn> entityUrns,
       boolean allowPartialResults,
       String pitId,
-      String keepAlive) {
+      String keepAlive,
+      AtomicBoolean sliceSearchTimedOut) {
 
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
     Object[] searchAfter = null;
@@ -307,6 +319,9 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         // mode throws DEADLINE_EXCEEDED; partial mode keeps the pages this slice already collected
         // and stops paginating (rather than discarding them). See handleSearchTimeout.
         if (handleSearchTimeout(response, sliceId, allowPartialResults, remainingSeconds)) {
+          // Partial mode: flag the hop partial so the incomplete results are not reported as
+          // complete (strict mode already threw inside handleSearchTimeout).
+          sliceSearchTimedOut.set(true);
           break;
         }
 

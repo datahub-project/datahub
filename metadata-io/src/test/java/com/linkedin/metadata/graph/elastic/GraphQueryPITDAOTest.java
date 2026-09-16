@@ -2304,12 +2304,12 @@ public class GraphQueryPITDAOTest {
 
   @Test(timeOut = 10000)
   public void testSliceSearchServerSideTimeoutPartialModeKeepsCollectedResults() throws Exception {
-    // Partial mode: when a later page reports timedOut=true, the slice must keep the relationships
-    // it
-    // already collected on earlier pages instead of throwing them away. Before the fix the slice
-    // threw, and processSliceFutures' partial branch retrieved zero for it — silent data loss, so
-    // the
-    // whole response came back empty (getTotal 0) despite a full page having been fetched.
+    // Partial mode: when a page reports timedOut=true, the slice must keep the relationships it
+    // already collected on earlier pages instead of throwing them away, and the hop must be marked
+    // partial so incomplete lineage is not reported as complete. Before the fix the slice threw and
+    // processSliceFutures' partial branch retrieved zero for it (silent data loss); a naive break
+    // would keep the data but leave isPartial=false. Bind responses per slice id so slice 0
+    // deterministically fetches a page and then times out on its next page.
     Urn sourceUrn =
         Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
 
@@ -2345,8 +2345,6 @@ public class GraphQueryPITDAOTest {
             any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
-    // First search call returns a full page of relationships; the next one reports a server-side
-    // timeout. Only the first slice to run consumes the real page; the rest see the timed-out page.
     SearchResponse page1 =
         createFakeSearchResponse(
             createFakeLineageHits(
@@ -2364,19 +2362,39 @@ public class GraphQueryPITDAOTest {
                 "DownstreamOf"),
             2);
     when(timedOutPage.isTimedOut()).thenReturn(true);
+    SearchResponse emptyResponse = createEmptySearchResponse(0);
+
+    // Slice 0: first page returns 3 relationships, second page reports the server-side timeout.
+    // Every other slice returns empty immediately, so slice 0 is the sole contributor.
+    java.util.concurrent.atomic.AtomicInteger slice0Calls =
+        new java.util.concurrent.atomic.AtomicInteger(0);
     when(mockClient.search(
             any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(page1)
-        .thenReturn(timedOutPage);
+        .thenAnswer(
+            invocation -> {
+              SearchRequest req = invocation.getArgument(1);
+              int sliceId =
+                  (req.source() != null && req.source().slice() != null)
+                      ? req.source().slice().getId()
+                      : -1;
+              if (sliceId == 0) {
+                return slice0Calls.getAndIncrement() == 0 ? page1 : timedOutPage;
+              }
+              return emptyResponse;
+            });
 
     LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
 
     Assert.assertNotNull(response, "Response must not be null in partial mode");
+    Assert.assertEquals(
+        response.getTotal(),
+        3,
+        "Partial mode must keep the 3 relationships collected before the server-side timeout (pre-fix"
+            + " this was 0)");
     Assert.assertTrue(
-        response.getTotal() >= 1,
-        "Partial mode must keep the relationships collected before the server-side timeout instead of"
-            + " discarding them (pre-fix this was 0). Got: "
-            + response.getTotal());
+        response.isPartial(),
+        "A server-side timeout must mark the hop partial so truncated lineage is not reported as"
+            + " complete");
   }
 
   @Test

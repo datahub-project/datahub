@@ -54,6 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -1754,6 +1755,24 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         || fetch.isPartial()
         || sharedRemaining == null
         || sharedRemaining.get() > 0) {
+      return fetch;
+    }
+    return new LineageSliceFetchResult(fetch.getLineageRelationships(), true);
+  }
+
+  /**
+   * Mark a hop partial when a slice stopped early on a server-side search timeout ({@code
+   * timedOut=true}) in partial mode. The slice keeps and returns the relationships it already
+   * collected, but it cannot flag itself partial through {@link #processSliceFutures} (which infers
+   * partial only from an exception or an exhausted wait budget). So the slice sets a shared flag
+   * and the hop is marked partial here — otherwise a server-side timeout could return truncated
+   * lineage as complete ({@code isPartial=false}).
+   */
+  static LineageSliceFetchResult markPartialIfSliceSearchTimedOut(
+      LineageSliceFetchResult fetch,
+      AtomicBoolean sliceSearchTimedOut,
+      boolean allowPartialResults) {
+    if (!allowPartialResults || fetch.isPartial() || !sliceSearchTimedOut.get()) {
       return fetch;
     }
     return new LineageSliceFetchResult(fetch.getLineageRelationships(), true);

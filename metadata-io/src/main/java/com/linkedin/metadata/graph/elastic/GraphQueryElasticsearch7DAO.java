@@ -18,8 +18,10 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -79,6 +81,9 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
     List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
     // One budget shared across all slices of this hop (see GraphQueryBaseDAO); null == unlimited.
     final AtomicInteger sharedRemaining = newSharedRelationshipBudget(maxRelations);
+    // Set by any slice that stops early on a server-side timeout so the hop is marked partial even
+    // when the wall-clock budget was not exhausted (see markPartialIfSliceSearchTimedOut).
+    final AtomicBoolean sliceSearchTimedOut = new AtomicBoolean(false);
     try {
       for (int sliceId = 0; sliceId < slices; sliceId++) {
         final int currentSliceId = sliceId;
@@ -101,17 +106,23 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
                       slices,
                       remainingTime,
                       entityUrns,
-                      allowPartialResults);
+                      allowPartialResults,
+                      sliceSearchTimedOut);
                 });
         sliceFutures.add(sliceFuture);
       }
 
       // Reuse the existing slice coordination logic. If the shared budget ended exhausted, the hop
       // was truncated at maxRelations — report partial explicitly, since the outer unique-entity
-      // limit check can miss it when cross-slice duplicates merge away.
-      return markPartialIfSharedBudgetExhausted(
-          processSliceFutures(sliceFutures, remainingTime, allowPartialResults),
-          sharedRemaining,
+      // limit check can miss it when cross-slice duplicates merge away. Likewise mark partial when
+      // a
+      // slice stopped on a server-side timeout (its collected results are incomplete).
+      return markPartialIfSliceSearchTimedOut(
+          markPartialIfSharedBudgetExhausted(
+              processSliceFutures(sliceFutures, remainingTime, allowPartialResults),
+              sharedRemaining,
+              allowPartialResults),
+          sliceSearchTimedOut,
           allowPartialResults);
     } finally {
       // Match PIT DAO: cancel(true) only interrupts; bounded wait so slices can clear scroll.
@@ -143,11 +154,24 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       int totalSlices,
       long remainingTime,
       Set<Urn> entityUrns,
-      boolean allowPartialResults) {
+      boolean allowPartialResults,
+      AtomicBoolean sliceSearchTimedOut) {
 
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
     String scrollId = null;
-    String keepAlive = config.getSearch().getGraph().getImpact().getKeepAlive();
+    // Derive keepAlive from the query budget so the scroll context always outlives the traversal +
+    // drain, mirroring the PIT DAO; otherwise a long scroll can lose its context during the
+    // post-timeout drain (search_context_missing). sliceFutureDrainTimeoutSeconds is required
+    // (cancelAndDrainSliceFutures requireNonNull's it).
+    int drainTimeoutSeconds =
+        Objects.requireNonNull(
+            config.getSearch().getGraph().getSliceFutureDrainTimeoutSeconds(),
+            "elasticsearch.search.graph.sliceFutureDrainTimeoutSeconds must be configured");
+    String keepAlive =
+        GraphQueryTimeouts.computeEffectiveKeepAlive(
+            config.getSearch().getGraph().getImpact().getKeepAlive(),
+            config.getSearch().getGraph().getTimeoutSeconds(),
+            drainTimeoutSeconds);
     long deadline = System.currentTimeMillis() + remainingTime;
 
     try {
@@ -202,6 +226,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       // strict mode throws DEADLINE_EXCEEDED; partial mode returns what was collected (nothing
       // yet).
       if (handleSearchTimeout(response, sliceId, allowPartialResults, remainingSeconds)) {
+        sliceSearchTimedOut.set(true); // partial mode: flag the hop partial (strict mode threw)
         return sliceRelationships;
       }
 
@@ -278,6 +303,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
         long remainingSecs =
             Math.max(1L, (long) Math.ceil((deadline - System.currentTimeMillis()) / 1000.0));
         if (handleSearchTimeout(response, sliceId, allowPartialResults, remainingSecs)) {
+          sliceSearchTimedOut.set(true); // partial mode: flag the hop partial (strict mode threw)
           break;
         }
 
