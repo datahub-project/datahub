@@ -191,9 +191,11 @@ class SQLCommonConfig(
         sql_probe._identifier_target) has no get_identifier to call for it.
         Return the exact string ingestion filters table_pattern/view_pattern
         against, or None (the default) to let that shim keep resolving it.
-        Checked before the shim on every SQL Table-level node; see
-        RedshiftConfig, UnityCatalogSourceConfig, SnowflakeV2Config and
-        BigQueryV2Config for the overrides.
+        Checked before the shim on every SQL Table-level node.
+        UnityCatalogSourceConfig is the only override left: where the container
+        is pinned by a config field, Qualifier states that declaratively and
+        the shim resolves the rest, which is how Redshift, Snowflake and
+        BigQuery stopped needing one.
 
         `database` is the container above the schema when the caller supplied
         one -- parent_path[0] on a source whose hierarchy has a level above

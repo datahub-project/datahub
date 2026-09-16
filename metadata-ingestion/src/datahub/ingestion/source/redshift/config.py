@@ -40,9 +40,11 @@ logger = logging.Logger(__name__)
 def dataset_name(database: str, schema: str, table: str) -> str:
     """The identifier table_pattern/view_pattern is matched against.
 
-    Shared by ingestion (redshift.py) and the probe hook below
-    (RedshiftConfig.probe_filter_target) so both sides filter on the same
-    string; they used to build it independently and disagreed.
+    Shared by ingestion (redshift.py) and the probe, so both sides filter on
+    the same string; they used to build it independently and disagreed. The
+    probe reaches it through the `Qualifier(authoritative=True)` on `database`
+    below rather than through an override of its own -- Redshift connects to
+    exactly one database, so the config is the authority on which.
     """
     return f"{database}.{schema}.{table}"
 

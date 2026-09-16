@@ -320,15 +320,25 @@ says the _provider_ is incomplete rather than blaming the caller's path.
 nothing in `agent/` reads it. It is the SQL family's own extension point, consulted by the
 `get_identifier` shim in `sql_probe.py` that `SQLCommonConfig.probe_match_target` routes to.
 Override it when your real `Source` is not a `SQLAlchemySource`, so that shim has no
-`get_identifier` to call — `RedshiftConfig` and `UnityCatalogSourceConfig` are the two that do:
+`get_identifier` to call. `UnityCatalogSourceConfig` is the only one left that does — where the
+container is pinned by a config field, `Qualifier` says so declaratively and the shim resolves the
+rest, which is how Redshift dropped its override:
 
 ```python
 def probe_filter_target(
-    self, schema: str, entity: str, warn: Callable[[str], None]
+    self,
+    schema: str,
+    entity: str,
+    warn: Callable[[str], None],
+    database: Optional[str] = None,
 ) -> Optional[str]:
     """The exact string ingestion filters table_pattern/view_pattern against,
     or None to let the shim keep resolving it."""
 ```
+
+Take `database` even if you ignore it. It is passed by keyword on every call — it is the
+container above the schema when the caller supplied one — so a three-argument override raises
+`TypeError` at probe time rather than at import.
 
 Call `warn` if you fall back to something less precise than your real ingestion identifier; it
 feeds the same warnings list, deduplicated by message so one connector-wide reason is reported once.
@@ -562,7 +572,8 @@ silently matches nothing.
 Never re-derive it. The SQL family routes through `SQLCommonConfig.probe_match_target`, which
 calls the connector's own `get_identifier` via the shim in `sql_probe.py`; a connector whose
 real Source isn't a `SQLAlchemySource` overrides `probe_filter_target` instead (see
-`RedshiftConfig`, `UnityCatalogSourceConfig`). A connector whose display name **is** its filter
+`UnityCatalogSourceConfig`), or declares `Qualifier` on the field that pins the container (see
+`RedshiftConfig`). A connector whose display name **is** its filter
 target — Kafka topics, Mode spaces — needs no hook at all.
 
 Note the shim resolves a _table's_ identifier. Container kinds (Schema, Database) match on the
