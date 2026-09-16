@@ -1,0 +1,22 @@
+namespace com.linkedin.knowledge
+
+import com.linkedin.common.Urn
+
+/**
+ * The parent document of the document. 
+ */
+record ParentDocument {
+    /**
+     * The hierarchical parent document for this document. 
+     */
+    @Relationship = {
+        "name": "IsChildOf",
+        "entityTypes": ["document"]
+    }
+    @Searchable = {
+        "fieldName": "parentDocument",
+        "fieldType": "URN",
+        "queryByDefault": false
+    }
+    document: Urn
+}

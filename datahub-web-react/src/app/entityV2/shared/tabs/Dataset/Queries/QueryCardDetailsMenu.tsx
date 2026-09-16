@@ -1,7 +1,10 @@
 import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, Modal, message } from 'antd';
-import React from 'react';
+import { Dropdown, Menu, message } from 'antd';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useDeleteQueryMutation } from '@graphql/query.generated';
 
@@ -9,21 +12,24 @@ const StyledMoreOutlined = styled(MoreOutlined)`
     font-size: 14px;
 `;
 
-export type Props = {
+type Props = {
     urn: string;
     onDeleted?: (urn: string) => void;
     index?: number;
 };
 
 export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.actions');
     const [deleteQueryMutation] = useDeleteQueryMutation();
+    const [showConfirmationModal, setShowConfirmationModa] = useState(false);
 
     const deleteQuery = () => {
         deleteQueryMutation({ variables: { urn } })
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Deleted Query!`,
+                        content: t('queryCard.deleteSuccess'),
                         duration: 3,
                     });
                     onDeleted?.(urn);
@@ -31,36 +37,35 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: 'Failed to delete Query! An unexpected error occurred' });
+                message.error({ content: t('queryCard.deleteError') });
             });
     };
 
-    const confirmDeleteQuery = () => {
-        Modal.confirm({
-            title: `Delete Query`,
-            content: `Are you sure you want to delete this query?`,
-            onOk() {
-                deleteQuery();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     return (
-        <Dropdown
-            overlay={
-                <Menu>
-                    <Menu.Item key="0" onClick={confirmDeleteQuery} data-testid={`query-delete-button-${index}`}>
-                        <DeleteOutlined /> &nbsp; Delete
-                    </Menu.Item>
-                </Menu>
-            }
-            trigger={['click']}
-        >
-            <StyledMoreOutlined data-testid={`query-more-button-${index}`} />
-        </Dropdown>
+        <>
+            <Dropdown
+                overlay={
+                    <Menu>
+                        <Menu.Item
+                            key="0"
+                            onClick={() => setShowConfirmationModa(true)}
+                            data-testid={`query-delete-button-${index}`}
+                        >
+                            <DeleteOutlined /> &nbsp; {tc('delete')}
+                        </Menu.Item>
+                    </Menu>
+                }
+                trigger={['click']}
+            >
+                <StyledMoreOutlined data-testid={`query-more-button-${index}`} />
+            </Dropdown>
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModa(false)}
+                handleConfirm={deleteQuery}
+                modalTitle={t('queryCard.deleteConfirmTitle')}
+                modalText={t('queryCard.deleteConfirmBody')}
+            />
+        </>
     );
 }

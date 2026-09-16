@@ -3,10 +3,12 @@ import { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { PreviewContextProps } from '@app/entityV2/shared/PreviewContext';
+import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
 import { EntityPreviewTag } from '@app/recommendations/renderer/component/EntityPreviewTag';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType, SchemaFieldEntity } from '@types';
@@ -19,8 +21,16 @@ const NameWrapper = styled.span<{ addMargin: boolean }>`
 `;
 
 const StyledArrow = styled(ArrowRightOutlined)`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin: 0 4px;
+`;
+
+const FullWidthContainer = styled.span`
+    max-width: 100%;
+`;
+
+const StyledPlatformIcon = styled(PlatformIcon)`
+    padding: 0;
 `;
 
 type CompactEntityNameProps = {
@@ -30,6 +40,8 @@ type CompactEntityNameProps = {
     placement?: TooltipPlacement;
     onClick?: () => void;
     linkUrlParams?: Record<string, string | boolean>;
+    showMargin?: boolean;
+    previewContext?: PreviewContextProps;
 };
 
 export const CompactEntityNameComponent = ({
@@ -39,6 +51,8 @@ export const CompactEntityNameComponent = ({
     placement,
     onClick,
     linkUrlParams,
+    showMargin = true,
+    previewContext,
 }: CompactEntityNameProps) => {
     const entityRegistry = useEntityRegistry();
 
@@ -49,14 +63,16 @@ export const CompactEntityNameComponent = ({
 
     if (entity.type === EntityType.SchemaField) {
         const { parent, fieldPath } = entity as SchemaFieldEntity;
-        processedEntity = parent;
-        columnName = fieldPath;
+        processedEntity = parent ?? { urn: entity.urn, type: EntityType.Dataset };
+        columnName = decodeSchemaField(downgradeV2FieldPath(fieldPath) || '');
     }
 
     const genericProps = entityRegistry.getGenericEntityProperties(processedEntity.type, processedEntity);
     const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
     const displayName = entityRegistry.getDisplayName(processedEntity.type, processedEntity);
-    const fallbackIcon = entityRegistry.getIcon(processedEntity.type, 12, IconStyleType.ACCENT);
+    const fallbackIcon = (
+        <StyledPlatformIcon platform={genericProps?.platform} size={12} alt={genericProps?.platform?.name} />
+    );
     const url = entityRegistry.getEntityUrl(processedEntity.type, processedEntity.urn, linkUrlParams);
 
     return (
@@ -66,8 +82,9 @@ export const CompactEntityNameComponent = ({
                 canOpen={showFullTooltip}
                 placement={placement}
                 showArrow={false}
+                previewContext={previewContext}
             >
-                <span>
+                <FullWidthContainer>
                     <EntityPreviewTag
                         showNameTooltip={!showFullTooltip}
                         displayName={displayName}
@@ -80,8 +97,9 @@ export const CompactEntityNameComponent = ({
                         onClick={onClick}
                         columnName={columnName}
                         dataTestId={`compact-entity-link-${processedEntity.urn}`}
+                        showMargin={showMargin}
                     />
-                </span>
+                </FullWidthContainer>
             </HoverEntityTooltip>
             {showArrow && <StyledArrow />}
         </NameWrapper>

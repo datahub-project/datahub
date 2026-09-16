@@ -33,7 +33,6 @@ import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.iceberg.*;
-import org.apache.iceberg.aws.s3.S3FileIO;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SupportsNamespaces;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -65,6 +64,8 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
 
   private final CloseableGroup closeableGroup;
 
+  private final VendedCredentialsS3FileIO.VendedS3ClientCache vendedS3ClientCache;
+
   private final DataHubIcebergWarehouse warehouse;
 
   private final String warehouseRoot;
@@ -91,6 +92,8 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
 
     this.closeableGroup = new CloseableGroup();
     this.closeableGroup.setSuppressCloseFailure(true);
+    this.vendedS3ClientCache = new VendedCredentialsS3FileIO.VendedS3ClientCache();
+    this.closeableGroup.addCloseable(this.vendedS3ClientCache);
   }
 
   @Override
@@ -178,8 +181,9 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
 
     int nLevels = namespace.length();
     Urn parentContainerUrn = null;
+    String[] parentLevels = null;
     if (nLevels > 1) {
-      String[] parentLevels = Arrays.copyOfRange(namespace.levels(), 0, nLevels - 1);
+      parentLevels = Arrays.copyOfRange(namespace.levels(), 0, nLevels - 1);
       parentContainerUrn = containerUrn(platformInstance(), parentLevels);
       if (!entityService.exists(operationContext, parentContainerUrn)) {
         throw new NoSuchNamespaceException(
@@ -195,6 +199,10 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
 
     containerBatch.aspect(
         SUB_TYPES_ASPECT_NAME, new SubTypes().setTypeNames(new StringArray(CONTAINER_SUB_TYPE)));
+
+    containerBatch.aspect(
+        BROWSE_PATHS_V2_ASPECT_NAME,
+        Utils.browsePathsForContainer(platformInstance(), parentLevels));
 
     ingestBatch(icebergBatch);
 
@@ -413,12 +421,13 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
     public FileIO createIO(
         String platformInstance, PoliciesConfig.Privilege privilege, Set<String> locations) {
 
-      FileIO io = new S3FileIO();
-      Map<String, String> creds =
-          credentialProvider.getCredentials(
-              new S3CredentialProvider.CredentialsCacheKey(platformInstance, privilege, locations),
-              warehouse.getStorageProviderCredentials());
-      io.initialize(creds);
+      FileIO io =
+          VendedCredentialsS3FileIO.create(
+              credentialProvider.getCredentials(
+                  new S3CredentialProvider.CredentialsCacheKey(
+                      platformInstance, privilege, locations),
+                  warehouse.getStorageProviderCredentials()),
+              vendedS3ClientCache);
       closeableGroup.addCloseable(io);
       return io;
     }

@@ -265,7 +265,7 @@ public class UpdateQueryResolverTest {
                         TEST_DATASET_URN_2.getEntityType(), TEST_DATASET_URN_2.toString())),
                 editAllResult2);
 
-    when(mockContext.getOperationContext().authorize(any(), any()))
+    when(mockContext.getOperationContext().authorize(any(), any(), any()))
         .thenAnswer(
             args ->
                 responses.getOrDefault(

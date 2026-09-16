@@ -1,0 +1,13 @@
+{
+    "addAttribute": "Lägg till attribut",
+    "addError": "Kunde inte lägga till: \n {{error}}",
+    "addSuccess": "Attributet har lagts till!",
+    "modal.addTitle": "Lägg till {{entityName}}",
+    "modal.removeTitle": "Ta bort {{entityName}}",
+    "removeAttributeError": "Kunde inte ta bort attributet: \n {{error}}",
+    "removeConfirm.content": "Är du säker på att du vill ta bort attributet {{attributeName}}?",
+    "removeConfirm.title": "Vill du ta bort attributet {{attributeName}}?",
+    "removeError": "Kunde inte ta bort: \n {{error}}",
+    "removeSuccess": "Attributet har tagits bort!",
+    "searchPlaceholder": "Sök efter {{entityName}}..."
+}

@@ -19,21 +19,30 @@ public class ElasticSearchSystemMetadataServiceFactory {
   @Qualifier("baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
+  @Bean(name = "esSystemMetadataDAO")
+  @Nonnull
+  public ESSystemMetadataDAO esSystemMetadataDAO(
+      final ConfigurationProvider configurationProvider) {
+    return new ESSystemMetadataDAO(
+        components.getSearchClient(),
+        components.getIndexConvention(),
+        components.getBulkProcessor(),
+        components.getConfig().getBulkProcessor().getNumRetries(),
+        configurationProvider.getSystemMetadataService());
+  }
+
   @Bean(name = "elasticSearchSystemMetadataService")
   @Nonnull
   protected ElasticSearchSystemMetadataService getInstance(
+      @Qualifier("esSystemMetadataDAO") final ESSystemMetadataDAO esSystemMetadataDAO,
       @Value("${elasticsearch.idHashAlgo}") final String elasticIdHashAlgo,
       final ConfigurationProvider configurationProvider) {
     return new ElasticSearchSystemMetadataService(
         components.getBulkProcessor(),
         components.getIndexConvention(),
-        new ESSystemMetadataDAO(
-            components.getSearchClient(),
-            components.getIndexConvention(),
-            components.getBulkProcessor(),
-            components.getNumRetries()),
+        esSystemMetadataDAO,
         components.getIndexBuilder(),
         elasticIdHashAlgo,
-        configurationProvider.getElasticSearch());
+        configurationProvider.getSystemMetadataService());
   }
 }

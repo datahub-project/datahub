@@ -14,7 +14,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     GcsLineageProviderConfig,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
+from datahub.ingestion.source.bigquery_v2.common import (
+    BigQueryFilter,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.lineage import (
     BigqueryLineageExtractor,
     LineageEdge,
@@ -93,6 +96,7 @@ def test_lineage_with_timestamps(lineage_entries: List[QueryEvent]) -> None:
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
     )
 
     bq_table = BigQueryTableRef.from_string_name(
@@ -113,13 +117,15 @@ def test_lineage_with_timestamps(lineage_entries: List[QueryEvent]) -> None:
 
 
 def test_column_level_lineage(lineage_entries: List[QueryEvent]) -> None:
-    config = BigQueryV2Config(extract_column_lineage=True, incremental_lineage=False)
+    # extract_column_lineage is not read here; it is applied in gen_lineage.
+    config = BigQueryV2Config(incremental_lineage=False)
     report = BigQueryV2Report()
     extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
         config,
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
     )
 
     bq_table = BigQueryTableRef.from_string_name(
@@ -140,6 +146,60 @@ def test_column_level_lineage(lineage_entries: List[QueryEvent]) -> None:
     assert (
         upstream_lineage.fineGrainedLineages
         and len(upstream_lineage.fineGrainedLineages) == 2
+    )
+
+
+def _fine_grained_lineage_from_gen_lineage(
+    lineage_entries: List[QueryEvent], *, extract_column_lineage: bool
+) -> Optional[List[models.FineGrainedLineageClass]]:
+    config = BigQueryV2Config(
+        extract_column_lineage=extract_column_lineage, incremental_lineage=False
+    )
+    report = BigQueryV2Report()
+    extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
+        config,
+        report,
+        schema_resolver=SchemaResolver(platform="bigquery"),
+        identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
+    )
+    table_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_table,PROD)"
+
+    upstream_lineage = extractor.get_lineage_for_table(
+        bq_table=BigQueryTableRef.from_string_name(
+            "projects/my_project/datasets/my_dataset/tables/my_table"
+        ),
+        bq_table_urn=table_urn,
+        lineage_metadata=extractor._create_lineage_map(lineage_entries[:1]),
+    )
+    assert upstream_lineage
+    assert upstream_lineage.fineGrainedLineages
+
+    workunits = list(extractor.gen_lineage(table_urn, upstream_lineage))
+    assert len(workunits) == 1
+    aspect = workunits[0].get_aspect_of_type(models.UpstreamLineageClass)
+    assert aspect
+    return aspect.fineGrainedLineages
+
+
+def test_gen_lineage_keeps_fine_grained_lineage_when_extract_column_lineage_enabled(
+    lineage_entries: List[QueryEvent],
+) -> None:
+    fine_grained = _fine_grained_lineage_from_gen_lineage(
+        lineage_entries, extract_column_lineage=True
+    )
+    assert fine_grained is not None
+    assert len(fine_grained) == 2
+
+
+def test_gen_lineage_strips_fine_grained_lineage_when_extract_column_lineage_disabled(
+    lineage_entries: List[QueryEvent],
+) -> None:
+    assert (
+        _fine_grained_lineage_from_gen_lineage(
+            lineage_entries, extract_column_lineage=False
+        )
+        is None
     )
 
 
@@ -196,6 +256,7 @@ def test_lineage_for_external_bq_table(mock_datahub_graph_instance):
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
     )
 
     upstream_lineage = extractor.get_lineage_for_external_table(
@@ -265,6 +326,7 @@ def test_lineage_for_external_bq_table_no_column_lineage(mock_datahub_graph_inst
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
     )
 
     upstream_lineage = extractor.get_lineage_for_external_table(
@@ -306,6 +368,7 @@ def test_lineage_for_external_table_with_non_gcs_uri(mock_datahub_graph_instance
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
     )
 
     upstream_lineage = extractor.get_lineage_for_external_table(
@@ -344,6 +407,7 @@ def test_lineage_for_external_table_path_not_matching_specs(
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
     )
 
     upstream_lineage = extractor.get_lineage_for_external_table(

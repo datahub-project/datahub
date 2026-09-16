@@ -35,6 +35,22 @@ public interface SearchRetriever {
           .setFilterNonLatestVersions(false);
 
   /**
+   * Same as {@link #RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS} but includes soft-deleted
+   * entities. Used by maintenance / heal paths that must scrub stale mirrors so a later restore
+   * cannot resurrect membership.
+   */
+  SearchFlags RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS_INCLUDE_SOFT_DELETED =
+      new SearchFlags()
+          .setFulltext(false)
+          .setMaxAggValues(20)
+          .setSkipCache(true)
+          .setSkipAggregates(true)
+          .setSkipHighlighting(true)
+          .setIncludeSoftDeleted(true)
+          .setIncludeRestricted(false)
+          .setFilterNonLatestVersions(false);
+
+  /**
    * Allows for configuring the sort, should only be used when sort specified is unique. More often
    * the default is desirable to just use the urnSort
    */
@@ -42,7 +58,7 @@ public interface SearchRetriever {
       @Nonnull List<String> entities,
       @Nullable Filter filters,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       List<SortCriterion> sortCriteria,
       @Nullable SearchFlags searchFlags);
 
@@ -59,7 +75,7 @@ public interface SearchRetriever {
       @Nonnull List<String> entities,
       @Nullable Filter filters,
       @Nullable String scrollId,
-      int count) {
+      @Nullable Integer count) {
     SortCriterion urnSort = new SortCriterion();
     urnSort.setField("urn");
     urnSort.setOrder(SortOrder.ASCENDING);
@@ -76,7 +92,7 @@ public interface SearchRetriever {
         @Nonnull List<String> entities,
         @Nullable Filter filters,
         @Nullable String scrollId,
-        int count,
+        @Nullable Integer count,
         List<SortCriterion> sortCriteria,
         @Nullable SearchFlags searchFlags) {
       ScrollResult empty = new ScrollResult();

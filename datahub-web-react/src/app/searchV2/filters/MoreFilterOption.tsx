@@ -1,6 +1,7 @@
 import { RightOutlined } from '@ant-design/icons';
+import { Typography } from 'antd';
 import React, { useRef } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { IconWrapper } from '@app/searchV2/filters/SearchFilterView';
 import { MoreFilterOptionLabel } from '@app/searchV2/filters/styledComponents';
@@ -14,6 +15,7 @@ import { FacetFilterInput, FacetMetadata } from '@types';
 const IconNameWrapper = styled.span`
     display: flex;
     align-items: center;
+    overflow: hidden;
 `;
 
 const StyledValueSelector = styled(ValueSelector)<{ width: number; height: number; isElementOutsideWindow: boolean }>`
@@ -35,6 +37,7 @@ interface Props {
 }
 
 export default function MoreFilterOption({ filter, filterPredicates, activeFilters, onChangeFilters }: Props) {
+    const theme = useTheme();
     const { finalAggregations, updateFilters, numActiveFilters, manuallyUpdateFilters } = useSearchFilterDropdown({
         filter,
         activeFilters,
@@ -71,7 +74,18 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
             >
                 <IconNameWrapper>
                     {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                    {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                    <Typography.Text
+                        ellipsis={{
+                            tooltip: {
+                                title: displayName,
+                                showArrow: false,
+                                overlayInnerStyle: { color: theme.colors.textSecondary },
+                                placement: 'left',
+                            },
+                        }}
+                    >
+                        {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                    </Typography.Text>
                 </IconNameWrapper>
                 <StyledRightOutlined />
             </MoreFilterOptionLabel>

@@ -1,15 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Minus } from '@phosphor-icons/react/dist/csr/Minus';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import {
     CheckboxBase,
+    CheckboxBox,
     CheckboxContainer,
     CheckboxGroupContainer,
-    Checkmark,
+    HiddenInput,
     Label,
     Required,
-    StyledCheckbox,
 } from '@components/components/Checkbox/components';
 import { CheckboxGroupProps, CheckboxProps } from '@components/components/Checkbox/types';
+import { getCheckIconSize } from '@components/components/Checkbox/utils';
+import { Tooltip } from '@components/components/Tooltip';
 
 export const checkboxDefaults: CheckboxProps = {
     error: '',
@@ -18,11 +22,13 @@ export const checkboxDefaults: CheckboxProps = {
     isIntermediate: false,
     isRequired: false,
     setIsChecked: () => {},
-    size: 'md',
+    size: 'sm',
+    justifyContent: 'center',
 };
 
 export const Checkbox = ({
     label = checkboxDefaults.label,
+    labelTooltip,
     error = checkboxDefaults.error,
     isChecked = checkboxDefaults.isChecked,
     isDisabled = checkboxDefaults.isDisabled,
@@ -31,6 +37,10 @@ export const Checkbox = ({
     setIsChecked = checkboxDefaults.setIsChecked,
     size = checkboxDefaults.size,
     onCheckboxChange,
+    dataTestId,
+    justifyContent = checkboxDefaults.justifyContent,
+    gap,
+    shouldHandleLabelClicks,
     ...props
 }: CheckboxProps) => {
     const [checked, setChecked] = useState(isChecked || false);
@@ -41,40 +51,55 @@ export const Checkbox = ({
 
     const id = props.id || `checkbox-${label}`;
 
+    const onClick = useCallback(
+        (e: React.MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (!isDisabled) {
+                setChecked(!checked);
+                setIsChecked?.(!checked);
+                onCheckboxChange?.(!checked);
+            }
+        },
+        [setIsChecked, onCheckboxChange, checked, isDisabled],
+    );
+
+    const isActive = checked || isIntermediate || false;
+    const iconSize = getCheckIconSize(size || 'sm');
+
     return (
-        <CheckboxContainer>
+        <CheckboxContainer justifyContent={justifyContent} gap={gap}>
             {label ? (
-                <Label aria-label={label}>
-                    {label} {isRequired && <Required>*</Required>}
-                </Label>
+                <Tooltip title={labelTooltip}>
+                    <Label
+                        aria-label={label}
+                        clickable={shouldHandleLabelClicks}
+                        onClick={shouldHandleLabelClicks ? onClick : undefined}
+                    >
+                        {label} {isRequired && <Required>*</Required>}
+                    </Label>
+                </Tooltip>
             ) : null}
             <CheckboxBase
-                onClick={() => {
-                    if (!isDisabled) {
-                        setChecked(!checked);
-                        setIsChecked?.(!checked);
-                        onCheckboxChange?.();
-                    }
-                }}
+                onClick={onClick}
+                data-testid={dataTestId || 'checkbox-base'}
+                data-disabled={isDisabled}
+                data-checked={isActive}
+                $size={size || 'sm'}
             >
-                <StyledCheckbox
+                <HiddenInput
                     type="checkbox"
-                    id="checked-input"
-                    checked={checked || isIntermediate || false}
+                    checked={isActive}
                     disabled={isDisabled || false}
-                    error={error || ''}
                     onChange={() => null}
                     aria-labelledby={id}
                     aria-checked={checked}
                     {...props}
                 />
-                <Checkmark
-                    intermediate={isIntermediate || false}
-                    error={error || ''}
-                    disabled={isDisabled || false}
-                    checked={checked || false}
-                    size={size || 'md'}
-                />
+                <CheckboxBox $checked={isActive} $error={!!error} $disabled={isDisabled || false} $size={size || 'sm'}>
+                    {isIntermediate && <Minus size={iconSize} weight="bold" />}
+                    {!isIntermediate && checked && <Check size={iconSize} weight="bold" />}
+                </CheckboxBox>
             </CheckboxBase>
         </CheckboxContainer>
     );

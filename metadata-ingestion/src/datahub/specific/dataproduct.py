@@ -8,7 +8,14 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
 )
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.domains import HasDomainsPatch
+from datahub.specific.aspect_helpers.institutional_memory import (
+    HasInstitutionalMemoryPatch,
+)
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
+from datahub.specific.aspect_helpers.structured_properties import (
+    HasStructuredPropertiesPatch,
+)
 from datahub.specific.aspect_helpers.tags import HasTagsPatch
 from datahub.specific.aspect_helpers.terms import HasTermsPatch
 
@@ -16,8 +23,11 @@ from datahub.specific.aspect_helpers.terms import HasTermsPatch
 class DataProductPatchBuilder(
     HasOwnershipPatch,
     HasCustomPropertiesPatch,
+    HasStructuredPropertiesPatch,
     HasTagsPatch,
     HasTermsPatch,
+    HasDomainsPatch,
+    HasInstitutionalMemoryPatch,
     MetadataPatchProposal,
 ):
     def __init__(
@@ -65,12 +75,16 @@ class DataProductPatchBuilder(
         )
         return self
 
-    def add_asset(self, asset_urn: str) -> "DataProductPatchBuilder":
+    def add_asset(
+        self, asset_urn: str, output_port: bool = False
+    ) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "add",
             path=("assets", asset_urn),
-            value=DataProductAssociation(destinationUrn=asset_urn),
+            value=DataProductAssociation(
+                destinationUrn=asset_urn, outputPort=output_port
+            ),
         )
         return self
 
@@ -89,5 +103,14 @@ class DataProductPatchBuilder(
             "add",
             path=("externalUrl",),
             value=external_url,
+        )
+        return self
+
+    def set_parent_data_product(self, parent_urn: str) -> "DataProductPatchBuilder":
+        self._add_patch(
+            DataProductProperties.ASPECT_NAME,
+            "add",
+            path=("parentDataProduct",),
+            value=parent_urn,
         )
         return self

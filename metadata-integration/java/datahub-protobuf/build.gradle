@@ -17,7 +17,7 @@ ext {
 }
 
 application {
-    mainClassName = javaMainClass
+    mainClass = javaMainClass
 }
 
 dependencies {
@@ -48,7 +48,7 @@ task compileProtobuf {
         ].collectMany { it.collect() }.each { f ->
             def input = basePath.relativize(Paths.get(f.getAbsolutePath()))
             println(input.toString() + " => " + input.toString().replace(".proto", ".protoc"))
-            exec {
+            execOps.exec {
                 workingDir "${projectDir}/src/test/resources"
                 commandLine 'protoc', '--proto_path=.', '--include_imports', '--include_source_info',
                         "--descriptor_set_out=${input.toString().replace(".proto", ".protoc")}",
@@ -82,9 +82,9 @@ shadowJar {
                 it.name
             }
   dependencies {
-    exclude(dependency {
+    exclude {
             exclude_modules.contains(it.name)
-        })
+        }
 
   }
   mergeServiceFiles()
@@ -105,8 +105,10 @@ shadowJar {
     relocate 'org.slf4j', 'datahub.shaded.slf4j'
     relocate 'com.github.benmanes.caffeine', 'datahub.shaded.com.github.benmanes.caffeine'
     relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
+    relocate 'org.jspecify', 'datahub.shaded.org.jspecify'
     relocate 'org.jgrapht', 'datahub.shaded.org.jgrapht'
     relocate 'org.jheaps', 'datahub.shaded.org.jheaps'
+    relocate 'org.apfloat', 'datahub.shaded.org.apfloat'
     relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
     relocate 'org.apache.hc', 'datahub.shaded.org.apache.hc'
  
@@ -135,7 +137,7 @@ task javadocJar(type: Jar) {
 publishing {
   publications {
     shadow(MavenPublication) {
-      publication -> project.shadow.component(publication)
+      from components.shadow
       pom {
         name = 'Datahub Protobuf'
         group = 'io.acryl'
@@ -170,8 +172,8 @@ publishing {
 
   repositories {
     maven {
-      def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-      def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+      def releasesRepoUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
+      def snapshotsRepoUrl = "https://ossrh-staging-api.central.sonatype.com/content/repositories/snapshots/"
       def ossrhUsername = System.getenv('RELEASE_USERNAME')
       def ossrhPassword = System.getenv('RELEASE_PASSWORD')
       credentials {
@@ -191,9 +193,9 @@ signing {
 }
 
 nexusStaging {
-    serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
-    username = System.getenv("NEXUS_USERNAME")
-    password = System.getenv("NEXUS_PASSWORD")
+    serverUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/" //required only for projects registered in Sonatype after 2021-02-24
+    username = System.getenv("RELEASE_USERNAME")
+    password = System.getenv("RELEASE_PASSWORD")
 }
 
 startScripts.dependsOn shadowJar

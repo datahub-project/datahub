@@ -1,6 +1,5 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Union
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.source.powerbi.config import (
@@ -34,14 +33,23 @@ class ResolvePlatformInstanceFromDatasetTypeMapping(
     def get_platform_instance(
         self, data_platform_detail: PowerBIPlatformDetail
     ) -> PlatformDetail:
-        platform: Union[str, PlatformDetail] = self.config.dataset_type_mapping[
+        powerbi_platform_name = (
             data_platform_detail.data_platform_pair.powerbi_data_platform_name
-        ]
+        )
+
+        platform = self.config.get_from_dataset_type_mapping(powerbi_platform_name)
+
+        if platform is None:
+            logger.debug(
+                f"Platform '{powerbi_platform_name}' not found in dataset_type_mapping. "
+                "Returning empty PlatformDetail."
+            )
+            return PlatformDetail.model_validate({})
 
         if isinstance(platform, PlatformDetail):
             return platform
 
-        return PlatformDetail.parse_obj({})
+        return PlatformDetail.model_validate({})
 
 
 class ResolvePlatformInstanceFromServerToPlatformInstance(
@@ -50,14 +58,22 @@ class ResolvePlatformInstanceFromServerToPlatformInstance(
     def get_platform_instance(
         self, data_platform_detail: PowerBIPlatformDetail
     ) -> PlatformDetail:
-        return (
-            self.config.server_to_platform_instance[
-                data_platform_detail.data_platform_server
-            ]
-            if data_platform_detail.data_platform_server
-            in self.config.server_to_platform_instance
-            else PlatformDetail.parse_obj({})
-        )
+        server = data_platform_detail.data_platform_server
+        if not server:
+            return PlatformDetail.model_validate({})
+
+        mapping = self.config.server_to_platform_instance
+        if server in mapping:
+            return mapping[server]
+
+        # Oracle TNS aliases are case-insensitive in the source system but recipe
+        # keys are case-sensitive strings; fall back to case-insensitive match.
+        server_lower = server.lower()
+        for key, value in mapping.items():
+            if key.lower() == server_lower:
+                return value
+
+        return PlatformDetail.model_validate({})
 
 
 def create_dataplatform_instance_resolver(

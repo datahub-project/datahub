@@ -1,0 +1,104 @@
+import { Text, Tooltip } from '@components';
+import i18next from 'i18next';
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
+import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import BaseProperty from '@app/entityV2/summary/properties/property/properties/BaseProperty';
+import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
+import { SimpleSelect } from '@src/alchemy-components';
+
+import { Document, DocumentState } from '@types';
+
+const StatusSelectWrapper = styled.div``;
+
+const statusOptions = [
+    {
+        get label() {
+            return i18next.t('entity.profile.summary:documentStatus.published');
+        },
+        value: DocumentState.Published,
+    },
+    {
+        get label() {
+            return i18next.t('entity.profile.summary:documentStatus.draft');
+        },
+        value: DocumentState.Unpublished,
+    },
+];
+
+export default function DocumentStatusProperty(props: PropertyComponentProps) {
+    const { t } = useTranslation('entity.profile.summary');
+    const { urn, entityData } = useEntityData();
+    const document = entityData as Document;
+    const refetch = useRefetch();
+    const { canEditState } = useDocumentPermissions(urn);
+    const { updateStatus } = useUpdateDocument();
+
+    const serverStatus = document?.info?.status?.state;
+    const [optimisticStatus, setOptimisticStatus] = useState<DocumentState | undefined>(serverStatus);
+
+    // Sync optimistic state with server state when it changes
+    useEffect(() => {
+        setOptimisticStatus(serverStatus);
+    }, [serverStatus]);
+
+    const handleStatusChange = async (values: string[]) => {
+        const newStatus = values[0] as DocumentState;
+        const previousStatus = optimisticStatus;
+
+        // Optimistically update the UI immediately
+        setOptimisticStatus(newStatus);
+
+        try {
+            await updateStatus({
+                urn,
+                state: newStatus,
+            });
+            await refetch();
+        } catch (error) {
+            // Revert to previous status if the mutation fails
+            console.error('[DocumentStatusProperty] Update failed, reverting to:', previousStatus);
+            setOptimisticStatus(previousStatus);
+        }
+    };
+
+    const renderValue = () => {
+        if (!optimisticStatus) return <span>-</span>;
+
+        if (!canEditState) {
+            const displayLabel = statusOptions.find((o) => o.value === optimisticStatus)?.label ?? optimisticStatus;
+            return <Text>{displayLabel}</Text>;
+        }
+
+        return (
+            <StatusSelectWrapper>
+                <Tooltip title={t('documentStatus.publishTooltip')} placement="top">
+                    <div data-testid="document-status-select">
+                        <SimpleSelect
+                            values={[optimisticStatus]}
+                            onUpdate={handleStatusChange}
+                            isDisabled={false}
+                            options={statusOptions}
+                            size="sm"
+                            width="fit-content"
+                            showClear={false}
+                        />
+                    </div>
+                </Tooltip>
+            </StatusSelectWrapper>
+        );
+    };
+
+    return (
+        <BaseProperty
+            {...props}
+            values={optimisticStatus ? [optimisticStatus] : []}
+            renderValue={renderValue}
+            maxValues={1}
+        />
+    );
+}

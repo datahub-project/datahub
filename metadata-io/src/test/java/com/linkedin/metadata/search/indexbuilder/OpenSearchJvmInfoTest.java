@@ -1,7 +1,14 @@
 package com.linkedin.metadata.search.indexbuilder;
 
+import static org.mockito.ArgumentMatchers.any;
+
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.OpenSearchJvmInfo;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -9,9 +16,6 @@ import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
 import org.mockito.*;
 import org.opensearch.client.Request;
-import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
-import org.opensearch.client.RestHighLevelClient;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -19,11 +23,12 @@ import org.testng.annotations.Test;
 
 public class OpenSearchJvmInfoTest {
 
-  @Mock private RestHighLevelClient highLevelClient;
+  private static final OperationContext TEST_OP_CONTEXT =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
-  @Mock private RestClient lowLevelClient;
+  @Mock private SearchClientShim<?> highLevelClient;
 
-  @Mock private Response response;
+  @Mock private RawResponse response;
 
   @Mock private HttpEntity httpEntity;
 
@@ -33,9 +38,12 @@ public class OpenSearchJvmInfoTest {
   private ObjectMapper objectMapper;
 
   @BeforeMethod
-  void setUp() {
+  void setUp() throws IOException {
     MockitoAnnotations.openMocks(this);
-    Mockito.when(highLevelClient.getLowLevelClient()).thenReturn(lowLevelClient);
+    Mockito.when(
+            highLevelClient.performLowLevelRequest(
+                any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(response);
     openSearchJvmInfo = new OpenSearchJvmInfo(highLevelClient);
     objectMapper = new ObjectMapper();
   }
@@ -43,7 +51,6 @@ public class OpenSearchJvmInfoTest {
   @Test
   void testConstructor() {
     Assert.assertNotNull(openSearchJvmInfo);
-    Mockito.verify(highLevelClient).getLowLevelClient();
   }
 
   @Test
@@ -53,7 +60,8 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    Map<String, OpenSearchJvmInfo.JvmHeapInfo> result = openSearchJvmInfo.getDataNodeJvmHeap();
+    Map<String, OpenSearchJvmInfo.JvmHeapInfo> result =
+        openSearchJvmInfo.getDataNodeJvmHeap(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertNotNull(result);
@@ -69,7 +77,8 @@ public class OpenSearchJvmInfoTest {
 
     // Verify the request was made correctly
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    Mockito.verify(lowLevelClient).performRequest(requestCaptor.capture());
+    Mockito.verify(highLevelClient)
+        .performLowLevelRequest(Mockito.any(OperationFingerprint.class), requestCaptor.capture());
     Request capturedRequest = requestCaptor.getValue();
     Assert.assertEquals(capturedRequest.getMethod(), "GET");
     Assert.assertEquals(capturedRequest.getEndpoint(), "/_nodes/stats");
@@ -82,7 +91,8 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    Map<String, OpenSearchJvmInfo.JvmHeapInfo> result = openSearchJvmInfo.getDataNodeJvmHeap();
+    Map<String, OpenSearchJvmInfo.JvmHeapInfo> result =
+        openSearchJvmInfo.getDataNodeJvmHeap(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertNotNull(result);
@@ -96,7 +106,8 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    Map<String, OpenSearchJvmInfo.JvmHeapInfo> result = openSearchJvmInfo.getDataNodeJvmHeap();
+    Map<String, OpenSearchJvmInfo.JvmHeapInfo> result =
+        openSearchJvmInfo.getDataNodeJvmHeap(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertNotNull(result);
@@ -106,11 +117,13 @@ public class OpenSearchJvmInfoTest {
   @Test(expectedExceptions = IOException.class)
   void testGetDataNodeJvmHeap_IOExceptionThrown() throws IOException {
     // Arrange
-    Mockito.when(lowLevelClient.performRequest(ArgumentMatchers.any(Request.class)))
+    Mockito.when(
+            highLevelClient.performLowLevelRequest(
+                any(OperationFingerprint.class), any(Request.class)))
         .thenThrow(new IOException("Connection failed"));
 
     // Act & Assert
-    openSearchJvmInfo.getDataNodeJvmHeap();
+    openSearchJvmInfo.getDataNodeJvmHeap(TEST_OP_CONTEXT);
   }
 
   @Test
@@ -121,7 +134,7 @@ public class OpenSearchJvmInfoTest {
 
     // Act
     OpenSearchJvmInfo.JvmHeapInfo result =
-        openSearchJvmInfo.getSpecificDataNodeJvmHeap("data-node-1");
+        openSearchJvmInfo.getSpecificDataNodeJvmHeap(TEST_OP_CONTEXT, "data-node-1");
 
     // Assert
     Assert.assertNotNull(result);
@@ -137,7 +150,7 @@ public class OpenSearchJvmInfoTest {
 
     // Act
     OpenSearchJvmInfo.JvmHeapInfo result =
-        openSearchJvmInfo.getSpecificDataNodeJvmHeap("non-existent-node");
+        openSearchJvmInfo.getSpecificDataNodeJvmHeap(TEST_OP_CONTEXT, "non-existent-node");
 
     // Assert
     Assert.assertNull(result);
@@ -150,7 +163,7 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    long result = openSearchJvmInfo.getTotalDataNodesHeapCapacity();
+    long result = openSearchJvmInfo.getTotalDataNodesHeapCapacity(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertEquals(result, 12884901888L); // 4GB + 8GB = 12GB in bytes
@@ -163,7 +176,7 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    long result = openSearchJvmInfo.getTotalDataNodesHeapUsed();
+    long result = openSearchJvmInfo.getTotalDataNodesHeapUsed(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertEquals(result, 6442450944L); // 2GB + 4GB = 6GB in bytes
@@ -176,7 +189,7 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    double result = openSearchJvmInfo.getAverageDataNodesHeapUsagePercentage();
+    double result = openSearchJvmInfo.getAverageDataNodesHeapUsagePercentage(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertEquals(result, 62.5, 0.01); // (75 + 50) / 2 = 62.5
@@ -189,7 +202,7 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    double result = openSearchJvmInfo.getAverageDataNodeMaxHeapSize();
+    double result = openSearchJvmInfo.getAverageDataNodeMaxHeapSize(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertEquals(result, 6442450944.0, 0.01); // (4GB + 8GB) / 2 = 6GB in bytes
@@ -202,7 +215,7 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    double result = openSearchJvmInfo.getAverageDataNodeMaxHeapSizeGB();
+    double result = openSearchJvmInfo.getAverageDataNodeMaxHeapSizeGB(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertEquals(result, 6.0, 0.01); // 6GB
@@ -215,7 +228,7 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    double result = openSearchJvmInfo.getAverageDataNodeMaxHeapSize();
+    double result = openSearchJvmInfo.getAverageDataNodeMaxHeapSize(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertEquals(result, 0.0);
@@ -228,7 +241,8 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    OpenSearchJvmInfo.HeapSizeStats result = openSearchJvmInfo.getDataNodeHeapSizeStats();
+    OpenSearchJvmInfo.HeapSizeStats result =
+        openSearchJvmInfo.getDataNodeHeapSizeStats(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertNotNull(result);
@@ -246,7 +260,8 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    OpenSearchJvmInfo.HeapSizeStats result = openSearchJvmInfo.getDataNodeHeapSizeStats();
+    OpenSearchJvmInfo.HeapSizeStats result =
+        openSearchJvmInfo.getDataNodeHeapSizeStats(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertNotNull(result);
@@ -264,7 +279,8 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    List<OpenSearchJvmInfo.DataNodeInfo> result = openSearchJvmInfo.listDataNodesWithHeapDetails();
+    List<OpenSearchJvmInfo.DataNodeInfo> result =
+        openSearchJvmInfo.listDataNodesWithHeapDetails(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertNotNull(result);
@@ -469,7 +485,8 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    Map<String, OpenSearchJvmInfo.JvmHeapInfo> result = openSearchJvmInfo.getDataNodeJvmHeap();
+    Map<String, OpenSearchJvmInfo.JvmHeapInfo> result =
+        openSearchJvmInfo.getDataNodeJvmHeap(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertEquals(result.size(), 1);
@@ -484,7 +501,8 @@ public class OpenSearchJvmInfoTest {
     setupMockResponse(mockResponse);
 
     // Act
-    Map<String, OpenSearchJvmInfo.JvmHeapInfo> result = openSearchJvmInfo.getDataNodeJvmHeap();
+    Map<String, OpenSearchJvmInfo.JvmHeapInfo> result =
+        openSearchJvmInfo.getDataNodeJvmHeap(TEST_OP_CONTEXT);
 
     // Assert
     Assert.assertEquals(result.size(), 1); // Only the node with JVM info should be included
@@ -492,7 +510,9 @@ public class OpenSearchJvmInfoTest {
   }
 
   private void setupMockResponse(String responseBody) throws IOException {
-    Mockito.when(lowLevelClient.performRequest(ArgumentMatchers.any(Request.class)))
+    Mockito.when(
+            highLevelClient.performLowLevelRequest(
+                any(OperationFingerprint.class), any(Request.class)))
         .thenReturn(response);
     Mockito.when(response.getEntity()).thenReturn(httpEntity);
     Mockito.when(httpEntity.getContent())

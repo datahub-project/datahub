@@ -97,9 +97,21 @@ export enum EntityCapabilityType {
      */
     LINEAGE,
     /**
+     * Assigning an application to a entity
+     */
+    APPLICATIONS,
+    /**
+     * Related context documents for this entity
+     */
+    RELATED_DOCUMENTS,
+    /**
      * Assigning Business Attribute to a entity
      */
     BUSINESS_ATTRIBUTES,
+    /**
+     * Forms associated with an entity
+     */
+    FORMS,
 }
 
 /**

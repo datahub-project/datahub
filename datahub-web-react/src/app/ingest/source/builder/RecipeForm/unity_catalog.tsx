@@ -2,8 +2,6 @@ import React from 'react';
 
 import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
-export const UNITY_CATALOG = 'unity-catalog';
-
 export const TOKEN: RecipeField = {
     name: 'token',
     label: 'Token',
@@ -26,18 +24,14 @@ export const WORKSPACE_URL: RecipeField = {
     rules: null,
 };
 
-export const INCLUDE_TABLE_LINEAGE: RecipeField = {
-    name: 'include_table_lineage',
-    label: 'Include Table Lineage',
-    tooltip: (
-        <div>
-            Extract Table Lineage from Unity Catalog. Note that this requires that your Databricks accounts meets
-            certain requirements. View them{' '}
-            <a href="https://docs.databricks.com/data-governance/unity-catalog/data-lineage.html#requirements">here</a>
-        </div>
-    ),
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.include_table_lineage',
+export const WAREHOUSE_ID: RecipeField = {
+    name: 'warehouse_id',
+    label: 'Warehouse Id',
+    tooltip: 'The id of the warehouse to run queries. If not provided, we will use the default for the workspace.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.warehouse_id',
+    placeholder: 'fab3e5ee0bcbfc56',
+    required: true,
     rules: null,
 };
 

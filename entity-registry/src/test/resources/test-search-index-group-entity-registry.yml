@@ -1,0 +1,37 @@
+id: test-search-index-group-registry
+entities:
+  - name: dataset
+    keyAspect: datasetKey
+    category: core
+    aspects:
+      - datasetProperties
+      - schemaMetadata
+      - status
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - chartInfo
+      - status
+  - name: dataProcessInstance
+    keyAspect: dataProcessInstanceKey
+    aspects: []
+  - name: query
+    keyAspect: queryKey
+    aspects: []
+  - name: schemaField
+    keyAspect: schemaFieldKey
+    aspects: []
+  - name: dataHubPolicy
+    keyAspect: dataHubPolicyKey
+    category: internal
+    aspects: []
+  - name: dataHubExecutionRequest
+    keyAspect: dataHubExecutionRequestKey
+    category: internal
+    aspects: []
+  - name: testEntity
+    keyAspect: testEntityKey
+    viewUnrestricted: true
+    aspects: []
+events:
+  - name: testEvent

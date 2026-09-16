@@ -1,0 +1,510 @@
+[
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snaplogic,685013b9da1804dd3b4037e8,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "externalUrl": "https://elastic.snaplogic.com/sl/designer.html?v=21818#pipe_snode=685013b9da1804dd3b4037e8",
+        "name": "Datahub Demo 3",
+        "description": ""
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "snaplogic-test.tonyschema.accounts",
+        "qualifiedName": "snaplogic-test.tonyschema.accounts",
+        "tags": []
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "snaplogic-test.tonyschema.accounts",
+        "platform": "urn:li:dataPlatform:mssql",
+        "version": 0,
+        "created": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "Id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "IsDeleted",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "MasterRecordId",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "Name",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "Type",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "account_id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "contact_name",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          }
+        ]
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1",
+        "qualifiedName": "Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1",
+        "tags": []
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1",
+        "platform": "urn:li:dataPlatform:snaplogic",
+        "version": 0,
+        "created": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "Id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "IsDeleted",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "MasterRecordId",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "Name",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "Type",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "account_id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "contact_name",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          }
+        ]
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snaplogic,685013b9da1804dd3b4037e8,PROD),Datahub Demo 3:Azure Synapse SQL - Select:2faf1220-44e8-4a52-a093-48f1e4d7d79a)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "externalUrl": "https://elastic.snaplogic.com/sl/designer.html?v=21818#pipe_snode=685013b9da1804dd3b4037e8",
+        "name": "Datahub Demo 3:Azure Synapse SQL - Select",
+        "description": "",
+        "type": {
+          "string": "SNAPLOGIC_SNAP"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snaplogic,685013b9da1804dd3b4037e8,PROD),Datahub Demo 3:Azure Synapse SQL - Select:2faf1220-44e8-4a52-a093-48f1e4d7d79a)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+      "json": {
+        "inputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD)"
+        ],
+        "outputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD)"
+        ],
+        "inputDatasetFields": [
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),Id)",
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),IsDeleted)",
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),MasterRecordId)",
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),Name)",
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),Type)",
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),account_id)",
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),contact_name)"
+        ],
+        "outputDatasetFields": [
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),Id)",
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),IsDeleted)",
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),MasterRecordId)",
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),Name)",
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),Type)",
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),account_id)",
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),contact_name)"
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),IsDeleted)"
+            ],
+            "downstreamType": "FIELD_SET",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),IsDeleted)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),Type)"
+            ],
+            "downstreamType": "FIELD_SET",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),Type)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),contact_name)"
+            ],
+            "downstreamType": "FIELD_SET",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),contact_name)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),account_id)"
+            ],
+            "downstreamType": "FIELD_SET",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),account_id)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),Id)"
+            ],
+            "downstreamType": "FIELD_SET",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),Id)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),MasterRecordId)"
+            ],
+            "downstreamType": "FIELD_SET",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),MasterRecordId)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD),Name)"
+            ],
+            "downstreamType": "FIELD_SET",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD),Name)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snaplogic,685013b9da1804dd3b4037e8,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snaplogic,685013b9da1804dd3b4037e8,PROD),Datahub Demo 3:Azure Synapse SQL - Select:2faf1220-44e8-4a52-a093-48f1e4d7d79a)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  }
+]

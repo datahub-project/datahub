@@ -39,7 +39,7 @@ class AddDatasetTerms(DatasetTermsTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetTerms":
-        config = AddDatasetTermsConfig.parse_obj(config_dict)
+        config = AddDatasetTermsConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -120,7 +120,7 @@ class SimpleAddDatasetTerms(AddDatasetTerms):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SimpleAddDatasetTerms":
-        config = SimpleDatasetTermsConfig.parse_obj(config_dict)
+        config = SimpleDatasetTermsConfig.model_validate(config_dict)
         return cls(config, ctx)
 
 
@@ -147,5 +147,5 @@ class PatternAddDatasetTerms(AddDatasetTerms):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "PatternAddDatasetTerms":
-        config = PatternDatasetTermsConfig.parse_obj(config_dict)
+        config = PatternDatasetTermsConfig.model_validate(config_dict)
         return cls(config, ctx)

@@ -1,13 +1,12 @@
-import * as Muicon from '@mui/icons-material';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { hexToRgba, useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
+import { useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
+import { useMuiIcons } from '@app/sharedV2/icons/useMuiIcons';
 
 import { Domain } from '@types';
 
-const DomainIconContainer = styled.div<{ color: string; size: number }>`
+const DomainIconContainer = styled.div<{ $color: string; size: number }>`
     display: flex;
     align-items: center;
     justify-content: center;
@@ -15,13 +14,13 @@ const DomainIconContainer = styled.div<{ color: string; size: number }>`
     height: ${(props) => props.size}px;
     width: ${(props) => props.size}px;
     min-width: ${(props) => props.size}px;
-    background-color: ${({ color }) => color};
+    color: ${(props) => `color-mix(in srgb, ${props.$color} 75%, ${props.theme.colors.text})`};
+    background-color: ${(props) => `color-mix(in srgb, ${props.$color} 12%, ${props.theme.colors.bg})`};
 `;
 
-const DomainCharacterIcon = styled.div<{ color: string; $fontSize: number }>`
+const DomainCharacterIcon = styled.div<{ $fontSize: number }>`
     font-size: ${(props) => (props.$fontSize ? props.$fontSize : '20')}px;
-    font-weight: 500;
-    color: ${({ color }) => color};
+    font-weight: 600;
 `;
 
 type Props = {
@@ -32,33 +31,31 @@ type Props = {
     onClick?: () => void;
 };
 
-// looks through the object keys of Muicon and finds the best match for the search string
+// looks through the object keys of the icons module and finds the best match for the search string
 // returns the icon if found, otherwise returns undefined
-function getIcon(search: string): React.ElementType | undefined {
-    // If the search string is empty or consists only of whitespace after trimming,
-    // return undefined to signify that no valid search string is present.
+function getIcon(search: string, icons: Record<string, React.ElementType>): React.ElementType | undefined {
     if (!search.trim()) return undefined;
 
-    const icon = Object.keys(Muicon).find((key) => key.toLowerCase().includes(search.toLowerCase()));
-    return icon ? Muicon[icon] : undefined;
+    const icon = Object.keys(icons).find((key) => key.toLowerCase().includes(search.toLowerCase()));
+    return icon ? icons[icon] : undefined;
 }
 
 export const DomainColoredIcon = ({ iconColor, domain, size = 40, fontSize = 20, onClick }: Props): JSX.Element => {
+    const icons = useMuiIcons();
     const iconName = domain?.displayProperties?.icon?.name || '';
-    const MaterialIcon = getIcon(iconName);
+    const MaterialIcon = icons ? getIcon(iconName, icons) : undefined;
 
     const generateColor = useGenerateDomainColorFromPalette();
     const domainColor = domain?.displayProperties?.colorHex || generateColor(domain?.urn || '');
-    const domainBackgroundColor = hexToRgba(iconColor || domainColor, 1.0);
+
+    const domainHexColor = iconColor || domainColor;
 
     return (
-        <DomainIconContainer color={domainBackgroundColor} size={size} onClick={onClick}>
+        <DomainIconContainer $color={domainHexColor} size={size} onClick={onClick}>
             {MaterialIcon ? (
-                <MaterialIcon style={{ color: `${REDESIGN_COLORS.WHITE}` }} fontSize="large" sx={{ px: 1 }} />
+                <MaterialIcon style={{ color: 'currentColor', fontSize }} />
             ) : (
-                <DomainCharacterIcon color={`${REDESIGN_COLORS.WHITE}`} $fontSize={fontSize}>
-                    {domain?.properties?.name.charAt(0)}
-                </DomainCharacterIcon>
+                <DomainCharacterIcon $fontSize={fontSize}>{domain?.properties?.name.charAt(0)}</DomainCharacterIcon>
             )}
         </DomainIconContainer>
     );

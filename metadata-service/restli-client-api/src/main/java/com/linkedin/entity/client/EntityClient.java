@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -27,6 +28,7 @@ import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
@@ -34,6 +36,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -138,7 +141,7 @@ public interface EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      int limit,
+      @Nullable Integer limit,
       @Nullable String field)
       throws RemoteInvocationException;
 
@@ -156,7 +159,7 @@ public interface EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      int limit)
+      @Nullable Integer limit)
       throws RemoteInvocationException;
 
   /**
@@ -175,7 +178,7 @@ public interface EntityClient {
       @Nonnull String path,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int limit)
+      @Nullable Integer limit)
       throws RemoteInvocationException;
 
   /**
@@ -197,7 +200,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException;
 
   /**
@@ -219,7 +222,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException;
 
   @Deprecated
@@ -253,7 +256,7 @@ public interface EntityClient {
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException;
 
   /**
@@ -272,7 +275,7 @@ public interface EntityClient {
       @Nonnull String entity,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException;
 
   /**
@@ -293,7 +296,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException;
 
   /**
@@ -314,7 +317,7 @@ public interface EntityClient {
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
-      int count,
+      @Nullable Integer count,
       List<SortCriterion> sortCriteria)
       throws RemoteInvocationException {
     return searchAcrossEntities(
@@ -339,7 +342,7 @@ public interface EntityClient {
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
-      int count,
+      @Nullable Integer count,
       List<SortCriterion> sortCriteria,
       @Nonnull List<String> facets)
       throws RemoteInvocationException;
@@ -366,7 +369,7 @@ public interface EntityClient {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       List<SortCriterion> sortCriteria,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     return scrollAcrossEntities(
         opContext, entities, input, filter, scrollId, keepAlive, sortCriteria, count, List.of());
@@ -392,7 +395,7 @@ public interface EntityClient {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       List<SortCriterion> sortCriteria,
-      int count,
+      @Nullable Integer limit,
       List<String> facets)
       throws RemoteInvocationException;
 
@@ -407,7 +410,7 @@ public interface EntityClient {
    * @param filter the request map with fields and values as filters to be applied to search hits
    * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param start index to start the search from
-   * @param count the number of search hits to return
+   * @param limit the number of search hits to return
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -421,7 +424,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer limit)
       throws RemoteInvocationException;
 
   /**
@@ -436,7 +439,7 @@ public interface EntityClient {
    * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll ID indicating offset
    * @param keepAlive string representation of time to keep point in time alive, ex: 5m
-   * @param count the number of search hits to return of roundtrips for UI visualizations.
+   * @param limit the number of search hits to return of roundtrips for UI visualizations.
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -452,7 +455,7 @@ public interface EntityClient {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int count)
+      @Nullable Integer limit)
       throws RemoteInvocationException;
 
   /**
@@ -487,7 +490,7 @@ public interface EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       final int start,
-      final int count)
+      @Nullable Integer limit)
       throws RemoteInvocationException;
 
   /** Hard delete an entity with a particular urn. */
@@ -505,7 +508,7 @@ public interface EntityClient {
    * @param filter search filters
    * @param sortCriteria sort criteria
    * @param start start offset for search results
-   * @param count max number of search results requested
+   * @param limit max number of search results requested
    * @return a set of {@link SearchResult}s
    * @throws RemoteInvocationException when unable to execute request
    */
@@ -515,7 +518,7 @@ public interface EntityClient {
       @Nonnull Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer limit)
       throws RemoteInvocationException;
 
   /**
@@ -541,6 +544,15 @@ public interface EntityClient {
    */
   boolean exists(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull Boolean includeSoftDelete)
+      throws RemoteInvocationException;
+
+  /**
+   * Returns the subset of urns whose entities exist (have materialized aspects, not hard-deleted).
+   *
+   * @param urns urns to check
+   * @return urns that exist
+   */
+  Set<Urn> filterExistingUrns(@Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns)
       throws RemoteInvocationException;
 
   @Nullable
@@ -675,6 +687,10 @@ public interface EntityClient {
         .get(aspectName);
   }
 
+  // Routes through the 4-arg batchGetV2 so SystemEntityClient implementations can intercept
+  // it with a cache. The 5-arg overload bypasses that cache. When alwaysIncludeKeyAspect is
+  // requested, the key aspect is synthesized from the URN after the cached fetch — zero DB
+  // cost, no cache-key pollution, and no contract change on other batchGetV2 callers.
   @Nonnull
   default Map<Urn, Map<String, Aspect>> getLatestAspects(
       @Nonnull OperationContext opContext,
@@ -683,10 +699,26 @@ public interface EntityClient {
       @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
-    return entityResponseToAspectMap(
-        batchGetV2(opContext, entityName, urns, aspectNames, alwaysIncludeKeyAspect));
+    Map<Urn, Map<String, Aspect>> result =
+        entityResponseToAspectMap(batchGetV2(opContext, entityName, urns, aspectNames));
+    if (alwaysIncludeKeyAspect != null && alwaysIncludeKeyAspect) {
+      EntityRegistry registry = opContext.getEntityRegistry();
+      for (Urn urn : urns) {
+        Map<String, Aspect> aspects = result.computeIfAbsent(urn, k -> new HashMap<>());
+        String keyName = opContext.getKeyAspectName(urn);
+        if (!aspects.containsKey(keyName)) {
+          RecordTemplate key = EntityApiUtils.buildKeyAspect(registry, urn);
+          aspects.put(keyName, new Aspect(key.data()));
+        }
+      }
+    }
+    return result;
   }
 
+  // Same cache-routing rationale as getLatestAspects above. When alwaysIncludeKeyAspect is
+  // requested, the call falls through to the uncached 5-arg batchGetV2 because SystemAspect
+  // carries DB metadata (version, createdOn, systemMetadata) that cannot be synthesized from
+  // the URN alone.
   @Nonnull
   default Map<Urn, Map<String, SystemAspect>> getLatestSystemAspect(
       @Nonnull OperationContext opContext,
@@ -695,8 +727,12 @@ public interface EntityClient {
       @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
+    if (alwaysIncludeKeyAspect != null && alwaysIncludeKeyAspect) {
+      return entityResponseToSystemAspectMap(
+          batchGetV2(opContext, entityName, urns, aspectNames, true),
+          opContext.getEntityRegistry());
+    }
     return entityResponseToSystemAspectMap(
-        batchGetV2(opContext, entityName, urns, aspectNames, alwaysIncludeKeyAspect),
-        opContext.getEntityRegistry());
+        batchGetV2(opContext, entityName, urns, aspectNames), opContext.getEntityRegistry());
   }
 }

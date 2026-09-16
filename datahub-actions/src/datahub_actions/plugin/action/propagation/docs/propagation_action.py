@@ -132,10 +132,11 @@ class DocPropagationAction(Action):
     def __init__(self, config: DocPropagationConfig, ctx: PipelineContext):
         super().__init__()
         self.action_urn: str
-        if not ctx.pipeline_name.startswith("urn:li:dataHubAction"):
-            self.action_urn = f"urn:li:dataHubAction:{ctx.pipeline_name}"
+        if "urn:li:dataHubAction:" in ctx.pipeline_name:
+            action_urn_part = ctx.pipeline_name.split("urn:li:dataHubAction:")[1]
+            self.action_urn = f"urn:li:dataHubAction:{action_urn_part}"
         else:
-            self.action_urn = ctx.pipeline_name
+            self.action_urn = f"urn:li:dataHubAction:{ctx.pipeline_name}"
 
         self.config: DocPropagationConfig = config
         self.last_config_refresh: float = 0
@@ -161,7 +162,7 @@ class DocPropagationAction(Action):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        action_config = DocPropagationConfig.parse_obj(config_dict or {})
+        action_config = DocPropagationConfig.model_validate(config_dict or {})
         logger.info(f"Doc Propagation Config action configured with {action_config}")
         return cls(action_config, ctx)
 
@@ -280,7 +281,7 @@ class DocPropagationAction(Action):
                     if current_documentation_instance.attribution
                     else {}
                 )
-                source_details_parsed: SourceDetails = SourceDetails.parse_obj(
+                source_details_parsed: SourceDetails = SourceDetails.model_validate(
                     source_details
                 )
                 should_stop_propagation, reason = self.should_stop_propagation(
@@ -442,7 +443,7 @@ class DocPropagationAction(Action):
             # otherwise, we add a new documentation entry sourced by this action
             for doc_association in documentations.documentations[:]:
                 if doc_association.attribution and doc_association.attribution.source:
-                    source_details_parsed: SourceDetails = SourceDetails.parse_obj(
+                    source_details_parsed: SourceDetails = SourceDetails.model_validate(
                         doc_association.attribution.sourceDetail
                     )
                     if doc_association.attribution.source == self.action_urn and (
@@ -680,7 +681,7 @@ class DocPropagationAction(Action):
             f"Downstreams: {downstreams} for {doc_propagation_directive.entity}"
         )
         entity_urn = doc_propagation_directive.entity
-        propagated_context = SourceDetails.parse_obj(context.dict())
+        propagated_context = SourceDetails.model_validate(context.model_dump())
         propagated_context.propagation_relationship = RelationshipType.LINEAGE
         propagated_context.propagation_direction = DirectionType.DOWN
         propagated_entities_this_hop_count = 0
@@ -753,7 +754,7 @@ class DocPropagationAction(Action):
         )
         logger.debug(f"Upstreams: {upstreams} for {doc_propagation_directive.entity}")
         entity_urn = doc_propagation_directive.entity
-        propagated_context = SourceDetails.parse_obj(context.dict())
+        propagated_context = SourceDetails.model_validate(context.model_dump())
         propagated_context.propagation_relationship = RelationshipType.LINEAGE
         propagated_context.propagation_direction = DirectionType.UP
         propagated_entities_this_hop_count = 0
@@ -819,7 +820,7 @@ class DocPropagationAction(Action):
         assert self.ctx.graph
         entity_urn = doc_propagation_directive.entity
         siblings = get_unique_siblings(self.ctx.graph, entity_urn)
-        propagated_context = SourceDetails.parse_obj(context.dict())
+        propagated_context = SourceDetails.model_validate(context.model_dump())
         propagated_context.propagation_relationship = RelationshipType.SIBLING
         propagated_context.propagation_direction = DirectionType.ALL
 

@@ -3,8 +3,11 @@ package com.linkedin.datahub.graphql.types.glossary.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.Forms;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -13,17 +16,26 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryNodeProperties;
+import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.AssetSettingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.datahub.graphql.util.EntityResponseUtils;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.metadata.key.GlossaryNodeKey;
+import com.linkedin.settings.asset.AssetSettings;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -45,18 +57,39 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
     result.setType(EntityType.GLOSSARY_NODE);
     Urn entityUrn = entityResponse.getUrn();
 
+    // Getting of created timestamp from key aspect as we can't get this data in default way
+    ResolvedAuditStamp createdAuditStampFromKeyAspect =
+        EntityResponseUtils.extractAspectCreatedAuditStamp(
+            entityResponse, GLOSSARY_NODE_KEY_ASPECT_NAME);
+
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<GlossaryNode> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(
         GLOSSARY_NODE_INFO_ASPECT_NAME,
         (glossaryNode, dataMap) ->
-            glossaryNode.setProperties(mapGlossaryNodeProperties(dataMap, entityUrn)));
+            glossaryNode.setProperties(
+                mapGlossaryNodeProperties(dataMap, entityUrn, createdAuditStampFromKeyAspect)));
     mappingHelper.mapToResult(GLOSSARY_NODE_KEY_ASPECT_NAME, this::mapGlossaryNodeKey);
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (glossaryNode, dataMap) ->
             glossaryNode.setOwnership(
                 OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        GLOBAL_TAGS_ASPECT_NAME,
+        (glossaryNode, dataMap) ->
+            glossaryNode.setTags(
+                GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn)));
+    mappingHelper.mapToResult(context, DOMAINS_ASPECT_NAME, this::mapDomains);
+    mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (glossaryNode, dataMap) -> mapApplicationAssociation(context, glossaryNode, dataMap));
+    mappingHelper.mapToResult(
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        (glossaryNode, dataMap) ->
+            glossaryNode.setInstitutionalMemory(
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
@@ -72,6 +105,10 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
         ((glossaryNode, dataMap) ->
             glossaryNode.setDisplayProperties(
                 DisplayPropertiesMapper.map(context, new DisplayProperties(dataMap)))));
+    mappingHelper.mapToResult(
+        ASSET_SETTINGS_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setSettings(AssetSettingsMapper.map(new AssetSettings(dataMap)))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), GlossaryNode.class);
@@ -81,7 +118,9 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
   }
 
   private GlossaryNodeProperties mapGlossaryNodeProperties(
-      @Nonnull DataMap dataMap, @Nonnull final Urn entityUrn) {
+      @Nonnull DataMap dataMap,
+      @Nonnull final Urn entityUrn,
+      final ResolvedAuditStamp createdAuditStamp) {
     GlossaryNodeInfo glossaryNodeInfo = new GlossaryNodeInfo(dataMap);
     GlossaryNodeProperties result = new GlossaryNodeProperties();
     result.setDescription(glossaryNodeInfo.getDefinition());
@@ -92,7 +131,27 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
       result.setCustomProperties(
           CustomPropertiesMapper.map(glossaryNodeInfo.getCustomProperties(), entityUrn));
     }
+    result.setCreatedOn(createdAuditStamp);
     return result;
+  }
+
+  private void mapDomains(
+      @Nullable QueryContext context,
+      @Nonnull GlossaryNode glossaryNode,
+      @Nonnull DataMap dataMap) {
+    final Domains domains = new Domains(dataMap);
+    glossaryNode.setDomain(DomainAssociationMapper.map(context, domains, glossaryNode.getUrn()));
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context,
+      @Nonnull GlossaryNode glossaryNode,
+      @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    final java.util.List<com.linkedin.datahub.graphql.generated.ApplicationAssociation>
+        applicationAssociations =
+            ApplicationAssociationMapper.mapList(context, applications, glossaryNode.getUrn());
+    glossaryNode.setApplications(applicationAssociations);
   }
 
   private void mapGlossaryNodeKey(@Nonnull GlossaryNode glossaryNode, @Nonnull DataMap dataMap) {

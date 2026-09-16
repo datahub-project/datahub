@@ -32,7 +32,7 @@ class TagsToTermMapper(TagsToTermTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "TagsToTermMapper":
-        config = TagsToTermMapperConfig.parse_obj(config_dict)
+        config = TagsToTermMapperConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod

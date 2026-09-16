@@ -1,0 +1,385 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6c294d5ac2524fd2cb8c5065568b6e8e",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "hive",
+                "env": "PROD",
+                "database": "spark_catalog"
+            },
+            "name": "spark_catalog",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128104,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6c294d5ac2524fd2cb8c5065568b6e8e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128104,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6c294d5ac2524fd2cb8c5065568b6e8e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hive"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128104,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6c294d5ac2524fd2cb8c5065568b6e8e",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Catalog"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128104,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6c294d5ac2524fd2cb8c5065568b6e8e",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128104,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5420d862f68e3b50f7ea3a6b4661dfed",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:6c294d5ac2524fd2cb8c5065568b6e8e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128152,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5420d862f68e3b50f7ea3a6b4661dfed",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "hive",
+                "env": "PROD",
+                "database": "spark_catalog",
+                "schema": "test_db"
+            },
+            "name": "test_db",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128152,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5420d862f68e3b50f7ea3a6b4661dfed",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128152,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5420d862f68e3b50f7ea3a6b4661dfed",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hive"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128152,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5420d862f68e3b50f7ea3a6b4661dfed",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128152,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5420d862f68e3b50f7ea3a6b4661dfed",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:6c294d5ac2524fd2cb8c5065568b6e8e",
+                    "urn": "urn:li:container:6c294d5ac2524fd2cb8c5065568b6e8e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128152,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5420d862f68e3b50f7ea3a6b4661dfed"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128158,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "users"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/spark.table.version",
+                "value": "2.0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1765965473"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "MANAGED_TABLE"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_location",
+                "value": "file:/opt/hive/data/warehouse/spark_catalog/test_db.db/users"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/create_date",
+                "value": "2025-12-17"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128158,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test_db.users",
+                        "platform": "urn:li:dataPlatform:hive",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[type=long].user_id",
+                                "nullable": true,
+                                "description": "Spark user ID",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "bigint",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].username",
+                                "nullable": true,
+                                "description": "Spark username",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=boolean].active",
+                                "nullable": true,
+                                "description": "Is active",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                    }
+                                },
+                                "nativeDataType": "boolean",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128158,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128159,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:6c294d5ac2524fd2cb8c5065568b6e8e",
+                    "urn": "urn:li:container:6c294d5ac2524fd2cb8c5065568b6e8e"
+                },
+                {
+                    "id": "urn:li:container:5420d862f68e3b50f7ea3a6b4661dfed",
+                    "urn": "urn:li:container:5420d862f68e3b50f7ea3a6b4661dfed"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128159,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

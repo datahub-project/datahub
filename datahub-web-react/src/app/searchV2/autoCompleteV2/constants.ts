@@ -1,13 +1,28 @@
-import { FontColorLevelOptions, FontColorOptions } from '@components/theme/config';
+import { VariantElementsPropsMapping, VariantProps } from '@app/searchV2/autoCompleteV2/types';
 
-export const NAME_COLOR: FontColorOptions = 'gray';
-export const NAME_COLOR_LEVEL: FontColorLevelOptions = 600;
+const DEFAULT_STYLES: VariantProps = {
+    showEntityPopover: true,
+    nameWeight: 'semiBold',
+    nameCanBeHovered: true,
+    nameFontSize: 'md',
+};
 
-export const SUBTITLE_COLOR: FontColorOptions = 'gray';
-export const SUBTITLE_COLOR_LEVEL: FontColorLevelOptions = 600;
-
-export const MATCH_COLOR: FontColorOptions = 'gray';
-export const MATCH_COLOR_LEVEL: FontColorLevelOptions = 1700;
-
-export const TYPE_COLOR: FontColorOptions = 'gray';
-export const TYPE_COLOR_LEVEL: FontColorLevelOptions = 600;
+export const VARIANT_STYLES: VariantElementsPropsMapping = new Map([
+    ['default', DEFAULT_STYLES],
+    [
+        'searchBar',
+        {
+            ...DEFAULT_STYLES,
+            showEntityPopover: false,
+            nameCanBeHovered: false,
+            nameWeight: 'normal',
+        },
+    ],
+    [
+        'select',
+        {
+            ...DEFAULT_STYLES,
+            nameCanBeHovered: false,
+        },
+    ],
+]);

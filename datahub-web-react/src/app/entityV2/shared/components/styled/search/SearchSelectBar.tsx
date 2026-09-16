@@ -1,9 +1,11 @@
-import { Button, Checkbox, Modal, Typography } from 'antd';
-import React from 'react';
+import { Button, Checkbox, Text } from '@components';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EntityAndType } from '@app/entity/shared/types';
 import { SearchSelectActions } from '@app/entityV2/shared/components/styled/search/SearchSelectActions';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityFormContext } from '@src/app/entity/shared/entityForm/EntityFormContext';
 
 const CheckboxContainer = styled.div`
@@ -24,6 +26,10 @@ const CancelButton = styled(Button)`
     }
 `;
 
+const SelectionText = styled(Text)`
+    white-space: nowrap;
+`;
+
 const StyledCheckbox = styled(Checkbox)`
     margin-right: 12px;
     padding-bottom: 0px;
@@ -31,7 +37,7 @@ const StyledCheckbox = styled(Checkbox)`
 
 const StyledButton = styled(Button)`
     margin-left: 8px;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
 `;
 
 type Props = {
@@ -68,21 +74,15 @@ export const SearchSelectBar = ({
     areAllEntitiesSelected,
     setAreAllEntitiesSelected,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const { isInFormContext } = useEntityFormContext();
+
+    const [showClearSelectionModal, setShowClearSelectionModal] = useState(false);
     const selectedEntityCount = selectedEntities.length;
     const onClickCancel = () => {
         if (selectedEntityCount > 0) {
-            Modal.confirm({
-                title: `Exit Selection`,
-                content: `Are you sure you want to exit? ${selectedEntityCount} selection(s) will be cleared.`,
-                onOk() {
-                    onCancel?.();
-                },
-                onCancel() {},
-                okText: 'Yes',
-                maskClosable: true,
-                closable: true,
-            });
+            setShowClearSelectionModal(true);
         } else {
             onCancel?.();
         }
@@ -92,31 +92,29 @@ export const SearchSelectBar = ({
         <>
             <CheckboxContainer>
                 <StyledCheckbox
-                    checked={isSelectAll || areAllEntitiesSelected}
-                    onChange={(e) => {
-                        onChangeSelectAll(e.target.checked as boolean);
+                    isChecked={isSelectAll || areAllEntitiesSelected}
+                    onCheckboxChange={(checked) => {
+                        onChangeSelectAll(checked);
                         setAreAllEntitiesSelected?.(false);
                     }}
                     id="search-select-bar"
-                    disabled={limit !== undefined && limit > 0}
+                    isDisabled={limit !== undefined && limit > 0}
                 />
-                <Typography.Text strong type="secondary">
-                    {areAllEntitiesSelected ? (
-                        <>All {totalResults} assets selected</>
-                    ) : (
-                        <>{selectedEntityCount} selected</>
-                    )}
-                </Typography.Text>
+                <SelectionText type="span" weight="bold" color="textSecondary">
+                    {areAllEntitiesSelected
+                        ? t('embeddedSearch.allAssetsSelectedCount', { count: totalResults })
+                        : t('embeddedSearch.selectedCount', { count: selectedEntityCount })}
+                </SelectionText>
                 {areAllEntitiesSelected && (
                     <StyledButton
-                        type="text"
+                        variant="text"
                         onClick={() => {
                             onChangeSelectAll(false);
                             setAreAllEntitiesSelected?.(false);
                             setSelectedEntities([]);
                         }}
                     >
-                        Clear selection
+                        {t('embeddedSearch.clearSelection')}
                     </StyledButton>
                 )}
             </CheckboxContainer>
@@ -124,12 +122,19 @@ export const SearchSelectBar = ({
                 <ActionsContainer>
                     {showActions && <SearchSelectActions selectedEntities={selectedEntities} refetch={refetch} />}
                     {showCancel && (
-                        <CancelButton onClick={onClickCancel} type="link">
-                            Done
+                        <CancelButton onClick={onClickCancel} variant="link">
+                            {tc('done')}
                         </CancelButton>
                     )}
                 </ActionsContainer>
             )}
+            <ConfirmationModal
+                isOpen={showClearSelectionModal}
+                handleClose={() => setShowClearSelectionModal(false)}
+                handleConfirm={() => onCancel?.()}
+                modalTitle={t('embeddedSearch.exitSelectionTitle')}
+                modalText={t('embeddedSearch.exitSelectionText', { count: selectedEntityCount })}
+            />
         </>
     );
 };

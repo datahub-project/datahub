@@ -1,0 +1,13 @@
+# Semantic Search endpoints for DataHub
+
+extend type Query {
+  """
+  Full text semantic search against a specific DataHub Entity Type
+  """
+  semanticSearch(input: SearchInput!): SearchResults
+
+  """
+  Semantic search across DataHub entities
+  """
+  semanticSearchAcrossEntities(input: SearchAcrossEntitiesInput!): SearchResults
+}

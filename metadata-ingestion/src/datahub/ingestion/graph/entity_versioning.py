@@ -17,6 +17,7 @@ class DataHubGraphProtocol(Protocol):
         variables: Optional[Dict],
         operation_name: Optional[str] = None,
         format_exception: bool = True,
+        strip_unsupported_fields: bool = True,
     ) -> Dict: ...
 
     def get_aspect(

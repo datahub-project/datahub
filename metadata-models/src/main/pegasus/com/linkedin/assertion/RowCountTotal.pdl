@@ -19,4 +19,9 @@ record RowCountTotal {
   * Note that only numeric parameter types are valid inputs: NUMBER.
   */
   parameters: AssertionStdParameters
+
+  /**
+   * Optional configuration for assigning severities to failed row count total assertions.
+   */
+  failureSeverityConfig: optional AssertionFailureSeverityConfig
 }

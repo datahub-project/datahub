@@ -1,13 +1,13 @@
-import { FolderOutlined } from '@ant-design/icons';
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { EntityType, Owner, ParentNodesResult } from '@types';
+import { EntityType, GlossaryNode, Owner, ParentNodesResult } from '@types';
 
 export const Preview = ({
     urn,
@@ -26,9 +26,19 @@ export const Preview = ({
     owners?: Array<Owner> | null;
     parentNodes?: ParentNodesResult | null;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const iconEntity = useMemo(
+        () =>
+            ({
+                urn,
+                type: EntityType.GlossaryNode,
+                displayProperties: data?.displayProperties ?? undefined,
+                parentNodes: parentNodes ?? undefined,
+            }) as Pick<GlossaryNode, 'urn' | 'type' | 'displayProperties' | 'parentNodes'>,
+        [urn, data?.displayProperties, parentNodes],
+    );
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.GlossaryNode, urn)}
@@ -37,7 +47,7 @@ export const Preview = ({
             data={data}
             description={description || ''}
             owners={owners}
-            logoComponent={<FolderOutlined style={{ fontSize: '20px' }} />}
+            entityIcon={<GlossaryEntityIcon entity={iconEntity} size={32} iconSize={18} />}
             entityType={EntityType.GlossaryNode}
             parentEntities={parentNodes?.nodes}
             headerDropdownItems={headerDropdownItems}

@@ -33,6 +33,7 @@ def test_snowflake_tag_pattern():
             include_column_lineage=False,
             include_usage_stats=False,
             include_operational_stats=False,
+            use_queries_v2=False,
             extract_tags=TagOption.without_lineage,
         )
 
@@ -76,6 +77,7 @@ def test_snowflake_tag_pattern_deny():
             include_column_lineage=False,
             include_usage_stats=False,
             include_operational_stats=False,
+            use_queries_v2=False,
             extract_tags=TagOption.without_lineage,
         )
 
@@ -116,6 +118,7 @@ def test_snowflake_structured_property_pattern_deny():
             schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
             extract_tags_as_structured_properties=True,
             structured_properties_template_cache_invalidation_interval=0,
+            use_queries_v2=False,
             tag_pattern=AllowDenyPattern(
                 deny=["TEST_DB.TEST_SCHEMA.my_tag_2:my_value_2"]
             ),

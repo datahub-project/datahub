@@ -35,7 +35,7 @@ services:
       - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
       - CATALOG_S3_ENDPOINT=http://minio:9000
   minio:
-    image: minio/minio
+    image: quay.io/minio/minio
     container_name: minio
     environment:
       - MINIO_ROOT_USER=admin
@@ -52,7 +52,7 @@ services:
   mc:
     depends_on:
       - minio
-    image: minio/mc
+    image: quay.io/minio/mc
     container_name: mc
     networks:
       iceberg_net:
@@ -66,7 +66,14 @@ services:
       /usr/bin/mc rm -r --force minio/warehouse;
       /usr/bin/mc mb minio/warehouse;
       /usr/bin/mc anonymous set public minio/warehouse;
-      exit 0;
+      touch /tmp/mc_done;
+      tail -f /dev/null;
       "
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/mc_done"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 networks:
   iceberg_net:

@@ -1,8 +1,9 @@
 package com.linkedin.metadata.timeseries.elastic;
 
+import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
+import static com.linkedin.metadata.Constants.MAX_JACKSON_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
-import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -10,8 +11,8 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -21,7 +22,6 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
-import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
@@ -55,24 +55,66 @@ public class UsageServiceUtil {
         Integer.parseInt(
             System.getenv()
                 .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    int maxNameLength =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
     OBJECT_MAPPER
         .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+        .setStreamReadConstraints(
+            StreamReadConstraints.builder()
+                .maxStringLength(maxSize)
+                .maxNameLength(maxNameLength)
+                .build());
   }
 
   private UsageServiceUtil() {}
 
   public static final String USAGE_STATS_ENTITY_NAME = "dataset";
   public static final String USAGE_STATS_ASPECT_NAME = "datasetUsageStatistics";
-  private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
-  public static final String ES_NULL_VALUE = "NULL";
+
+  // Field paths of the datasetUsageStatistics aspect used in aggregations. Shared so the per-URN
+  // path here and the batched DataLoader (DatasetStatsSummaryBatchLoader) stay in lockstep.
+  public static final String FIELD_UNIQUE_USER_COUNT = "uniqueUserCount";
+  public static final String FIELD_TOTAL_SQL_QUERIES = "totalSqlQueries";
+  public static final String FIELD_TOP_SQL_QUERIES = "topSqlQueries";
+  public static final String FIELD_USER_COUNTS_USER = "userCounts.user";
+  public static final String FIELD_USER_COUNTS_COUNT = "userCounts.count";
+  public static final String FIELD_USER_COUNTS_EMAIL = "userCounts.userEmail";
+
+  public static AggregationSpec latestAggSpec(@Nonnull String fieldPath) {
+    return new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath(fieldPath);
+  }
+
+  public static AggregationSpec sumAggSpec(@Nonnull String fieldPath) {
+    return new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath(fieldPath);
+  }
+
+  /** DATE grouping bucket on {@code @timestamp} at the given window interval / time zone. */
+  public static GroupingBucket usageTimestampBucket(
+      @Nonnull WindowDuration duration, @Nullable String timeZone) {
+    return new GroupingBucket()
+        .setKey(Constants.ES_FIELD_TIMESTAMP)
+        .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+        .setTimeWindowSize(
+            new TimeWindowSize().setMultiple(1).setUnit(TimeseriesUtils.windowToInterval(duration)))
+        .setTimeZone(timeZone, SetMode.IGNORE_NULL);
+  }
+
+  /** STRING grouping bucket on {@code userCounts.user}. */
+  public static GroupingBucket userCountsGroupingBucket() {
+    return new GroupingBucket()
+        .setKey(FIELD_USER_COUNTS_USER)
+        .setType(GroupingBucketType.STRING_GROUPING_BUCKET);
+  }
 
   public static UsageQueryResult queryRange(
       @Nonnull OperationContext opContext,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
       @Nonnull String resource,
       @Nonnull WindowDuration duration,
-      UsageTimeRange range) {
+      UsageTimeRange range,
+      @Nullable String timeZone) {
 
     final long now = Instant.now().toEpochMilli();
     return query(
@@ -80,9 +122,10 @@ public class UsageServiceUtil {
         timeseriesAspectService,
         resource,
         duration,
-        convertRangeToStartTime(range, now),
+        TimeseriesUtils.convertRangeToStartTime(range, now),
         now,
-        null);
+        null,
+        timeZone);
   }
 
   public static UsageQueryResult query(
@@ -92,27 +135,13 @@ public class UsageServiceUtil {
       @Nonnull WindowDuration duration,
       @Nullable Long startTime,
       @Nullable Long endTime,
-      @Nullable Integer maxBuckets) {
+      @Nullable Integer maxBuckets,
+      @Nullable String timeZone) {
 
     // 1. Populate the filter. This is common for all queries.
     Filter filter = new Filter();
-    ArrayList<Criterion> criteria = new ArrayList<>();
-    Criterion hasUrnCriterion = buildCriterion("urn", Condition.EQUAL, resource);
-
-    criteria.add(hasUrnCriterion);
-    if (startTime != null) {
-      Criterion startTimeCriterion =
-          buildCriterion(
-              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, startTime.toString());
-
-      criteria.add(startTimeCriterion);
-    }
-    if (endTime != null) {
-      Criterion endTimeCriterion =
-          buildCriterion(ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, endTime.toString());
-      criteria.add(endTimeCriterion);
-    }
-
+    ArrayList<Criterion> criteria =
+        TimeseriesUtils.createCommonFilterCriteria(resource, startTime, endTime);
     filter.setOr(
         new ConjunctiveCriterionArray(
             new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))));
@@ -124,10 +153,12 @@ public class UsageServiceUtil {
     UsageAggregationArray buckets =
         opContext.withSpan(
             "getBuckets",
-            () -> getBuckets(opContext, timeseriesAspectService, filter, resource, duration),
+            () ->
+                getBuckets(
+                    opContext, timeseriesAspectService, filter, resource, duration, timeZone),
             MetricUtils.DROPWIZARD_NAME,
             MetricUtils.name(UsageServiceUtil.class, "getBuckets"));
-    log.info("Usage stats for resource {} returned {} buckets", resource, buckets.size());
+    log.debug("Usage stats for resource {} returned {} buckets", resource, buckets.size());
 
     // 3. Get aggregations.
     UsageQueryResultAggregations aggregations =
@@ -136,7 +167,7 @@ public class UsageServiceUtil {
             () -> getAggregations(opContext, timeseriesAspectService, filter),
             MetricUtils.DROPWIZARD_NAME,
             MetricUtils.name(UsageServiceUtil.class, "getAggregations"));
-    log.info("Usage stats aggregation for resource {}", resource);
+    log.debug("Usage stats aggregation for resource {}", resource);
 
     // 4. Compute totalSqlQuery count from the buckets itself.
     // We want to avoid issuing an additional query with a sum aggregation.
@@ -163,7 +194,8 @@ public class UsageServiceUtil {
       @Nonnull TimeseriesAspectService timeseriesAspectService,
       @Nonnull Filter filter,
       @Nonnull String resource,
-      @Nonnull WindowDuration duration) {
+      @Nonnull WindowDuration duration,
+      @Nullable String timeZone) {
     // NOTE: We will not populate the per-bucket userCounts and fieldCounts in this implementation
     // because
     // (a) it is very expensive to compute the un-explode equivalent queries for timeseries field
@@ -174,29 +206,16 @@ public class UsageServiceUtil {
 
     // 1. Construct the aggregation specs for latest value of uniqueUserCount, totalSqlQueries &
     // topSqlQueries.
-    AggregationSpec uniqueUserCountAgg =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.LATEST)
-            .setFieldPath("uniqueUserCount");
-    AggregationSpec totalSqlQueriesAgg =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.LATEST)
-            .setFieldPath("totalSqlQueries");
-    AggregationSpec topSqlQueriesAgg =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.LATEST)
-            .setFieldPath("topSqlQueries");
     AggregationSpec[] aggregationSpecs =
-        new AggregationSpec[] {uniqueUserCountAgg, totalSqlQueriesAgg, topSqlQueriesAgg};
+        new AggregationSpec[] {
+          latestAggSpec(FIELD_UNIQUE_USER_COUNT),
+          latestAggSpec(FIELD_TOTAL_SQL_QUERIES),
+          latestAggSpec(FIELD_TOP_SQL_QUERIES)
+        };
 
     // 2. Construct the Grouping buckets with just the ts bucket.
-
-    GroupingBucket timestampBucket = new GroupingBucket();
-    timestampBucket
-        .setKey(ES_FIELD_TIMESTAMP)
-        .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
-        .setTimeWindowSize(new TimeWindowSize().setMultiple(1).setUnit(windowToInterval(duration)));
-    GroupingBucket[] groupingBuckets = new GroupingBucket[] {timestampBucket};
+    GroupingBucket[] groupingBuckets =
+        new GroupingBucket[] {usageTimestampBucket(duration, timeZone)};
 
     // 3. Query
     GenericTable result =
@@ -220,21 +239,21 @@ public class UsageServiceUtil {
         throw new IllegalArgumentException("Invalid resource", e);
       }
       UsageAggregationMetrics usageAggregationMetrics = new UsageAggregationMetrics();
-      if (!row.get(1).equals(ES_NULL_VALUE)) {
+      if (!row.get(1).equals(Constants.ES_NULL_VALUE)) {
         try {
           usageAggregationMetrics.setUniqueUserCount(Integer.valueOf(row.get(1)));
         } catch (NumberFormatException e) {
           throw new IllegalArgumentException("Failed to convert uniqueUserCount from ES to int", e);
         }
       }
-      if (!row.get(2).equals(ES_NULL_VALUE)) {
+      if (!row.get(2).equals(Constants.ES_NULL_VALUE)) {
         try {
           usageAggregationMetrics.setTotalSqlQueries(Integer.valueOf(row.get(2)));
         } catch (NumberFormatException e) {
           throw new IllegalArgumentException("Failed to convert totalSqlQueries from ES to int", e);
         }
       }
-      if (!row.get(3).equals(ES_NULL_VALUE)) {
+      if (!row.get(3).equals(Constants.ES_NULL_VALUE)) {
         try {
           usageAggregationMetrics.setTopSqlQueries(
               OBJECT_MAPPER.readValue(row.get(3), StringArray.class));
@@ -271,24 +290,12 @@ public class UsageServiceUtil {
       @Nonnull OperationContext opContext,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
       Filter filter) {
-    // Sum aggregation on userCounts.count
-    AggregationSpec sumUserCountsCountAggSpec =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.SUM)
-            .setFieldPath("userCounts.count");
-    AggregationSpec latestUserEmailAggSpec =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.LATEST)
-            .setFieldPath("userCounts.userEmail");
+    // Sum aggregation on userCounts.count + latest userCounts.userEmail, grouped by userCounts.user
     AggregationSpec[] aggregationSpecs =
-        new AggregationSpec[] {sumUserCountsCountAggSpec, latestUserEmailAggSpec};
-
-    // String grouping bucket on userCounts.user
-    GroupingBucket userGroupingBucket =
-        new GroupingBucket()
-            .setKey("userCounts.user")
-            .setType(GroupingBucketType.STRING_GROUPING_BUCKET);
-    GroupingBucket[] groupingBuckets = new GroupingBucket[] {userGroupingBucket};
+        new AggregationSpec[] {
+          sumAggSpec(FIELD_USER_COUNTS_COUNT), latestAggSpec(FIELD_USER_COUNTS_EMAIL)
+        };
+    GroupingBucket[] groupingBuckets = new GroupingBucket[] {userCountsGroupingBucket()};
 
     // Query backend
     GenericTable result =
@@ -308,7 +315,7 @@ public class UsageServiceUtil {
       } catch (URISyntaxException e) {
         log.error("Failed to convert {} to urn. Exception: {}", row.get(0), e);
       }
-      if (!row.get(1).equals(ES_NULL_VALUE)) {
+      if (!row.get(1).equals(Constants.ES_NULL_VALUE)) {
         try {
           userUsageCount.setCount(Integer.valueOf(row.get(1)));
         } catch (NumberFormatException e) {
@@ -316,7 +323,7 @@ public class UsageServiceUtil {
               "Failed to convert user usage count from ES to int", e);
         }
       }
-      if (!row.get(2).equals(ES_NULL_VALUE)) {
+      if (!row.get(2).equals(Constants.ES_NULL_VALUE)) {
         userUsageCount.setUserEmail(row.get(2));
       }
       userUsageCounts.add(userUsageCount);
@@ -357,7 +364,7 @@ public class UsageServiceUtil {
     for (StringArray row : result.getRows()) {
       FieldUsageCounts fieldUsageCount = new FieldUsageCounts();
       fieldUsageCount.setFieldName(row.get(0));
-      if (!row.get(1).equals(ES_NULL_VALUE)) {
+      if (!row.get(1).equals(Constants.ES_NULL_VALUE)) {
         try {
           fieldUsageCount.setCount(Integer.valueOf(row.get(1)));
         } catch (NumberFormatException e) {
@@ -368,53 +375,5 @@ public class UsageServiceUtil {
       fieldUsageCounts.add(fieldUsageCount);
     }
     return fieldUsageCounts;
-  }
-
-  public static CalendarInterval windowToInterval(@Nonnull WindowDuration duration) {
-    switch (duration) {
-      case HOUR:
-        return CalendarInterval.HOUR;
-      case DAY:
-        return CalendarInterval.DAY;
-      case WEEK:
-        return CalendarInterval.WEEK;
-      case MONTH:
-        return CalendarInterval.MONTH;
-      case YEAR:
-        return CalendarInterval.YEAR;
-      default:
-        throw new IllegalArgumentException("Unsupported duration value" + duration);
-    }
-  }
-
-  @Nonnull
-  private static Long convertRangeToStartTime(
-      @Nonnull UsageTimeRange range, long currentEpochMillis) {
-    // TRICKY: since start_time must be before the bucket's start, we actually
-    // need to subtract extra from the current time to ensure that we get precisely
-    // what we're looking for. Note that start_time and end_time are both inclusive,
-    // so we must also do an off-by-one adjustment.
-    final long oneHourMillis = 60 * 60 * 1000;
-    final long oneDayMillis = 24 * oneHourMillis;
-
-    if (range == UsageTimeRange.HOUR) {
-      return currentEpochMillis - (2 * oneHourMillis + 1);
-    } else if (range == UsageTimeRange.DAY) {
-      return currentEpochMillis - (2 * oneDayMillis + 1);
-    } else if (range == UsageTimeRange.WEEK) {
-      return currentEpochMillis - (8 * oneDayMillis + 1);
-    } else if (range == UsageTimeRange.MONTH) {
-      // Assuming month is last 30 days.
-      return currentEpochMillis - (31 * oneDayMillis + 1);
-    } else if (range == UsageTimeRange.QUARTER) {
-      // Assuming a quarter is 91 days.
-      return currentEpochMillis - (92 * oneDayMillis + 1);
-    } else if (range == UsageTimeRange.YEAR) {
-      return currentEpochMillis - (366 * oneDayMillis + 1);
-    } else if (range == UsageTimeRange.ALL) {
-      return 0L;
-    } else {
-      throw new IllegalArgumentException("invalid UsageTimeRange enum state: " + range.name());
-    }
   }
 }

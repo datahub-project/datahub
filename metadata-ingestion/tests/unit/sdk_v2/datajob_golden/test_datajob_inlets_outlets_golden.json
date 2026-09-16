@@ -19,7 +19,7 @@
         "json": {
             "path": [
                 {
-                    "id": "example_dag",
+                    "id": "urn:li:dataFlow:(airflow,example_dag,PROD)",
                     "urn": "urn:li:dataFlow:(airflow,example_dag,PROD)"
                 }
             ]
@@ -38,7 +38,8 @@
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)"
+            "flowUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)",
+            "env": "PROD"
         }
     }
 },

@@ -1,0 +1,48 @@
+# HMS 3.x Docker Compose for Catalog Testing
+#
+# This provides an HMS 3.x environment for testing the hive-metastore connector
+# with multi-catalog support. Uses the official Apache Hive 3.1.3 image with
+# embedded Derby database.
+#
+# Features tested:
+# - Multi-catalog support (hive, spark_catalog, iceberg_catalog)
+# - Namespace isolation (same db/table names in different catalogs)
+# - catalog_name config option
+# - include_catalog_name_in_ids config option for URN generation
+#
+# Usage:
+#   cd metadata-ingestion/tests/integration/hive-metastore
+#
+#   # Start HMS
+#   docker compose -f docker-compose.hms3.yml up -d
+#
+#   # Wait for HMS to be ready (~1-2 minutes)
+#   docker compose -f docker-compose.hms3.yml logs -f hive-metastore-hms3
+#
+#   # Setup test data (run from host machine)
+#   python hms3/setup-catalogs.py --host localhost --port 9084
+#
+#   # Cleanup
+#   docker compose -f docker-compose.hms3.yml down -v
+
+services:
+  # HMS 3.x using Apache Hive official image with embedded Derby
+  hive-metastore-hms3:
+    image: apache/hive:3.1.3
+    container_name: hive-metastore-hms3
+    environment:
+      SERVICE_NAME: metastore
+    ports:
+      - "9084:9083"  # Use 9084 to avoid conflict with other HMS instances
+    volumes:
+      - hms3-data:/opt/hive/data
+      - ./hms3/setup-catalogs.py:/opt/setup-catalogs.py:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9083 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
+volumes:
+  hms3-data:

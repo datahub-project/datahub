@@ -1,0 +1,46 @@
+namespace com.linkedin.common
+
+/**
+ * A single chunk of text with its embedding vector.
+ * 
+ * Chunks enable semantic search over long documents by breaking them
+ * into smaller, semantically coherent pieces that fit within model
+ * context windows.
+ */
+record EmbeddingChunk {
+
+  /**
+   * Zero-based position/index of this chunk within the document.
+   */
+  position: int
+
+  /**
+   * The embedding vector for this chunk.
+   * Dimensionality depends on the model (e.g., 1024 for Cohere v3).
+   */
+  vector: array[float]
+
+  /**
+   * Character offset from start of source text.
+   * Used for highlighting and navigation. Optional for privacy.
+   */
+  characterOffset: optional int
+
+  /**
+   * Character length of the chunk in source text.
+   * Optional for privacy-sensitive use cases.
+   */
+  characterLength: optional int
+
+  /**
+   * Estimated token count for this chunk.
+   */
+  tokenCount: optional int
+
+  /**
+   * Original text of this chunk.
+   * OPTIONAL: May be omitted for privacy-sensitive data sources
+   * where only embeddings should be stored, not source text.
+   */
+  text: optional string
+}

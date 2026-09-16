@@ -32,7 +32,7 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     def create(
         cls, config_dict: Dict[str, Any], ctx: PipelineContext
     ) -> "FileIngestionCheckpointingProvider":
-        config = FileIngestionStateProviderConfig.parse_obj(config_dict)
+        config = FileIngestionStateProviderConfig.model_validate(config_dict)
         return cls(config)
 
     def get_latest_checkpoint(

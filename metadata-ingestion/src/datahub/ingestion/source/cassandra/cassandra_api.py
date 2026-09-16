@@ -103,6 +103,7 @@ class CassandraAPI:
     def __init__(self, config: CassandraSourceConfig, report: SourceReport):
         self.config = config
         self.report = report
+        self._cassandra_cluster: Optional[Cluster] = None
         self._cassandra_session: Optional[Session] = None
 
     def authenticate(self) -> bool:
@@ -118,7 +119,7 @@ class CassandraAPI:
                 profile = ExecutionProfile(request_timeout=cloud_config.request_timeout)
                 auth_provider = PlainTextAuthProvider(
                     "token",
-                    cloud_config.token,
+                    cloud_config.token.get_secret_value(),
                 )
                 cluster = Cluster(
                     cloud=cluster_cloud_config,
@@ -127,12 +128,29 @@ class CassandraAPI:
                     protocol_version=ProtocolVersion.V4,
                 )
 
+                self._cassandra_cluster = cluster
                 self._cassandra_session = cluster.connect()
                 return True
 
             ssl_context = None
             if self.config.ssl_ca_certs:
-                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                # Map SSL version string to ssl module constant
+                ssl_version_map = {
+                    "TLS_CLIENT": ssl.PROTOCOL_TLS_CLIENT,
+                    "TLSv1": ssl.PROTOCOL_TLSv1,
+                    "TLSv1_1": ssl.PROTOCOL_TLSv1_1,
+                    "TLSv1_2": ssl.PROTOCOL_TLSv1_2,
+                    "TLSv1_3": ssl.PROTOCOL_TLSv1_2,  # Python's ssl module uses TLSv1_2 for TLS 1.3
+                }
+
+                ssl_protocol = (
+                    ssl_version_map.get(
+                        self.config.ssl_version, ssl.PROTOCOL_TLS_CLIENT
+                    )
+                    if self.config.ssl_version
+                    else ssl.PROTOCOL_TLS_CLIENT
+                )
+                ssl_context = ssl.SSLContext(ssl_protocol)
                 ssl_context.load_verify_locations(self.config.ssl_ca_certs)
                 if self.config.ssl_certfile and self.config.ssl_keyfile:
                     ssl_context.load_cert_chain(
@@ -148,7 +166,8 @@ class CassandraAPI:
 
             if self.config.username and self.config.password:
                 auth_provider = PlainTextAuthProvider(
-                    username=self.config.username, password=self.config.password
+                    username=self.config.username,
+                    password=self.config.password.get_secret_value(),
                 )
                 cluster = Cluster(
                     [self.config.contact_point],
@@ -165,6 +184,7 @@ class CassandraAPI:
                     load_balancing_policy=None,
                 )
 
+            self._cassandra_cluster = cluster
             self._cassandra_session = cluster.connect()
             return True
         except OperationTimedOut as e:
@@ -336,9 +356,7 @@ class CassandraAPI:
             result_set = self._cassandra_session.execute(query).all()
             return result_set
         except DriverException as e:
-            self.report.warning(
-                message="Failed to fetch stats for keyspace", context=str(e), exc=e
-            )
+            self.report.warning(message="Failed to fetch stats for keyspace", exc=e)
             return []
         except Exception:
             self.report.warning(
@@ -348,6 +366,11 @@ class CassandraAPI:
             return []
 
     def close(self):
-        """Close the Cassandra session."""
+        """Close the Cassandra session and cluster."""
         if self._cassandra_session:
             self._cassandra_session.shutdown()
+        if self._cassandra_cluster:
+            # Session.shutdown() only closes this session's connection pools; the
+            # cluster's control connection and IO reactor thread keep running until
+            # Cluster.shutdown() is called, which can crash the interpreter on exit.
+            self._cassandra_cluster.shutdown()

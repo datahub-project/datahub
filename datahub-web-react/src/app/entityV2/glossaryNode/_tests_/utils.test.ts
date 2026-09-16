@@ -1,5 +1,5 @@
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
+import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 
 import { EntityType } from '@types';
 

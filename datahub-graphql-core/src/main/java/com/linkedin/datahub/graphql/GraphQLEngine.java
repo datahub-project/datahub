@@ -4,6 +4,11 @@ import static graphql.schema.idl.RuntimeWiring.*;
 
 import com.linkedin.datahub.graphql.exception.DataHubDataFetcherExceptionHandler;
 import com.linkedin.datahub.graphql.instrumentation.DataHubFieldComplexityCalculator;
+import com.linkedin.datahub.graphql.instrumentation.OtelContextCaptureInstrumentation;
+import com.linkedin.metadata.config.GraphQLConfiguration;
+import com.linkedin.metadata.system_telemetry.GraphQLOtelResolverInstrumentation;
+import com.linkedin.metadata.system_telemetry.GraphQLTimingInstrumentation;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
@@ -12,14 +17,19 @@ import graphql.analysis.MaxQueryDepthInstrumentation;
 import graphql.execution.instrumentation.ChainedInstrumentation;
 import graphql.execution.instrumentation.Instrumentation;
 import graphql.execution.instrumentation.tracing.TracingInstrumentation;
+import graphql.execution.values.InputInterceptor;
+import graphql.execution.values.legacycoercing.LegacyCoercingInputInterceptor;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import graphql.schema.visibility.NoIntrospectionGraphqlFieldVisibility;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.instrumentation.graphql.v20_0.GraphQLTelemetry;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -27,6 +37,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.dataloader.DataLoader;
 
 /**
@@ -39,24 +50,22 @@ import org.dataloader.DataLoader;
  * <p>In addition, it provides a simplified 'execute' API that accepts a 1) query string and 2) set
  * of variables.
  */
+@Slf4j
 public class GraphQLEngine {
 
   private final GraphQL _graphQL;
   private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _dataLoaderSuppliers;
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
-  private final boolean graphQLQueryIntrospectionEnabled;
 
   private GraphQLEngine(
       @Nonnull final List<String> schemas,
       @Nonnull final RuntimeWiring runtimeWiring,
       @Nonnull final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers,
-      @Nonnull final int graphQLQueryComplexityLimit,
-      @Nonnull final int graphQLQueryDepthLimit,
-      @Nonnull final boolean graphQLQueryIntrospectionEnabled) {
-    this.graphQLQueryComplexityLimit = graphQLQueryComplexityLimit;
-    this.graphQLQueryDepthLimit = graphQLQueryDepthLimit;
-    this.graphQLQueryIntrospectionEnabled = graphQLQueryIntrospectionEnabled;
+      @Nonnull GraphQLConfiguration graphQLConfiguration,
+      MetricUtils metricUtils) {
+    this.graphQLQueryComplexityLimit = graphQLConfiguration.getQuery().getComplexityLimit();
+    this.graphQLQueryDepthLimit = graphQLConfiguration.getQuery().getDepthLimit();
 
     _dataLoaderSuppliers = dataLoaderSuppliers;
 
@@ -77,12 +86,47 @@ public class GraphQLEngine {
     /*
      * Instantiate engine
      */
-    List<Instrumentation> instrumentations = new ArrayList<>(3);
+    List<Instrumentation> instrumentations = new ArrayList<>();
     instrumentations.add(new TracingInstrumentation());
     instrumentations.add(new MaxQueryDepthInstrumentation(graphQLQueryDepthLimit));
     instrumentations.add(
         new MaxQueryComplexityInstrumentation(
             graphQLQueryComplexityLimit, new DataHubFieldComplexityCalculator()));
+
+    if (metricUtils != null && graphQLConfiguration.getMetrics().isEnabled()) {
+      instrumentations.add(
+          new GraphQLTimingInstrumentation(
+              metricUtils.getRegistry(),
+              graphQLConfiguration.getMetrics(),
+              graphQLConfiguration.getShapeLogging()));
+    }
+
+    if (graphQLConfiguration.getOtel() != null
+        && graphQLConfiguration.getOtel().isEnableOtelGraphqlTraces()) {
+      // Order matters: GraphQLTelemetry must be registered before OtelContextCaptureInstrumentation
+      // so that, when ChainedInstrumentation invokes beginExecution in registration order,
+      // GraphQLTelemetry has already made the operation span current by the time the capture
+      // instrumentation samples Context.current().
+      instrumentations.add(
+          GraphQLTelemetry.builder(GlobalOpenTelemetry.get()).build().createInstrumentation());
+      instrumentations.add(OtelContextCaptureInstrumentation.INSTANCE);
+
+      // Custom, filtered resolver-level spans. Registered after GraphQLTelemetry so the operation
+      // span is already current; only selected fields get a span (no span explosion).
+      if (graphQLConfiguration.getOtel().getResolverSpans() != null
+          && graphQLConfiguration.getOtel().getResolverSpans().isEnabled()) {
+        instrumentations.add(
+            new GraphQLOtelResolverInstrumentation(
+                graphQLConfiguration.getOtel().getResolverSpans(), GlobalOpenTelemetry.get()));
+      }
+    } else if (graphQLConfiguration.getOtel() != null
+        && graphQLConfiguration.getOtel().getResolverSpans() != null
+        && graphQLConfiguration.getOtel().getResolverSpans().isEnabled()) {
+      // Misconfiguration: resolver spans require the GraphQL OTel instrumentation to be on.
+      log.warn(
+          "graphQL.otel.resolverSpans.enabled=true but graphQL.otel.enableOtelGraphqlTraces=false; "
+              + "resolver spans will NOT be emitted. Set ENABLE_OTEL_GRAPHQL_TRACES=true to enable.");
+    }
     ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);
     _graphQL =
         new GraphQL.Builder(graphQLSchema)
@@ -104,6 +148,20 @@ public class GraphQLEngine {
     /*
      * Construct execution input
      */
+    // Build graphQLContext as a mutable map so OtelContextCaptureInstrumentation can look up the
+    // registry by class key and call setOtelContext once the operation span is active.
+    Map<Object, Object> graphqlContextMap = new LinkedHashMap<>();
+    // https://www.graphql-java.com/documentation/upgrade-notes/#how-to-use-the-inputinterceptor-to-use-the-legacy-parsevalue-behaviour-prior-to-v220
+    graphqlContextMap.put(InputInterceptor.class, LegacyCoercingInputInterceptor.migratesValues());
+    graphqlContextMap.put(QueryContext.class, context);
+    // need this to log actor in logging/instrumentation layer.
+    // QueryContext and SpringQueryContext exist in packages which cause circular deps added to the
+    // instrumentation package.
+    graphqlContextMap.put(
+        GraphQLTimingInstrumentation.GRAPHQL_CONTEXT_ACTOR_KEY,
+        context != null && context.getActor() != null ? context.getActor() : "no_actor_present");
+    graphqlContextMap.put(LazyDataLoaderRegistry.class, register);
+
     ExecutionInput executionInput =
         ExecutionInput.newExecutionInput()
             .query(query)
@@ -111,6 +169,7 @@ public class GraphQLEngine {
             .variables(variables)
             .dataLoaderRegistry(register)
             .context(context)
+            .graphQLContext(graphqlContextMap)
             .build();
 
     /*
@@ -134,9 +193,8 @@ public class GraphQLEngine {
     private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _loaderSuppliers =
         new HashMap<>();
     private final RuntimeWiring.Builder _runtimeWiringBuilder = newRuntimeWiring();
-    private int graphQLQueryComplexityLimit = 2000;
-    private int graphQLQueryDepthLimit = 50;
-    private boolean graphQLQueryIntrospectionEnabled = true;
+    private GraphQLConfiguration graphQLConfiguration;
+    private MetricUtils metricUtils;
 
     /**
      * Used to add a schema file containing the GQL types resolved by the engine.
@@ -184,25 +242,20 @@ public class GraphQLEngine {
      * any required data + type resolvers.
      */
     public Builder configureRuntimeWiring(final Consumer<RuntimeWiring.Builder> builderFunc) {
-      if (!this.graphQLQueryIntrospectionEnabled)
+      if (!this.graphQLConfiguration.getQuery().isIntrospectionEnabled())
         _runtimeWiringBuilder.fieldVisibility(
             NoIntrospectionGraphqlFieldVisibility.NO_INTROSPECTION_FIELD_VISIBILITY);
       builderFunc.accept(_runtimeWiringBuilder);
       return this;
     }
 
-    public Builder setGraphQLQueryComplexityLimit(final int queryComplexityLimit) {
-      this.graphQLQueryComplexityLimit = queryComplexityLimit;
+    public Builder setGraphQLConfiguration(final GraphQLConfiguration graphQLConfiguration) {
+      this.graphQLConfiguration = graphQLConfiguration;
       return this;
     }
 
-    public Builder setGraphQLQueryDepthLimit(final int queryDepthLimit) {
-      this.graphQLQueryDepthLimit = queryDepthLimit;
-      return this;
-    }
-
-    public Builder setGraphQLQueryIntrospectionEnabled(final boolean introspectionEnabled) {
-      this.graphQLQueryIntrospectionEnabled = introspectionEnabled;
+    public Builder setMetricUtils(MetricUtils metricUtils) {
+      this.metricUtils = metricUtils;
       return this;
     }
 
@@ -212,9 +265,8 @@ public class GraphQLEngine {
           _schemas,
           _runtimeWiringBuilder.build(),
           _loaderSuppliers,
-          graphQLQueryComplexityLimit,
-          graphQLQueryDepthLimit,
-          graphQLQueryIntrospectionEnabled);
+          graphQLConfiguration,
+          metricUtils);
     }
   }
 }

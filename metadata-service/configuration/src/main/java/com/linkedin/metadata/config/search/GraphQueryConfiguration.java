@@ -31,12 +31,23 @@ public class GraphQueryConfiguration {
   /** Maximum lineage hops */
   private int lineageMaxHops;
 
-  /** Maximum impact analysis max hops */
-  private int impactMaxHops;
+  /** Impact analysis configuration */
+  private ImpactConfiguration impact;
 
   /** Maximum threads used in lineage queries * */
   private int maxThreads;
 
   /** reduce query nesting * */
   private boolean queryOptimization;
+
+  /** Enable creation of point in time snapshots for graph queries */
+  private boolean pointInTimeCreationEnabled;
+
+  /**
+   * Seconds to wait (after {@code cancel(true)}) for all parallel graph slice futures to finish
+   * before releasing shared PIT or clearing scroll; one {@link
+   * java.util.concurrent.CompletableFuture#allOf} wait uses this bound. Must be set via
+   * configuration (no Java default).
+   */
+  private Integer sliceFutureDrainTimeoutSeconds;
 }

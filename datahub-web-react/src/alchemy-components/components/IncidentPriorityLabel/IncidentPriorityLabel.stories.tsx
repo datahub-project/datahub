@@ -1,5 +1,4 @@
 import { Meta, StoryObj } from '@storybook/react';
-import React from 'react';
 
 import { IncidentPriorityLabel } from '@components/components/IncidentPriorityLabel/IncidentPriorityLabel';
 
@@ -24,19 +23,11 @@ const meta: Meta<typeof IncidentPriorityLabel> = {
                 type: { summary: '"CRITICAL" | "HIGH" | "MEDIUM" | "LOW"' },
             },
         },
-        title: {
-            description: 'Incident string containing title',
-            control: { type: 'text' },
-            table: {
-                type: { summary: 'title: string' },
-            },
-        },
     },
 
     // Default props
     args: {
         priority: 'CRITICAL',
-        title: 'Critical',
     },
 };
 
@@ -45,42 +36,35 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Sandbox Story
-export const sandbox: Story = {
-    render: (props) => <IncidentPriorityLabel {...props} />,
-};
+export const sandbox: Story = {};
 
 // Example Stories
 export const criticalPriority: Story = {
     args: {
         priority: 'CRITICAL',
-        title: 'Critical',
     },
 };
 
 export const highPriority: Story = {
     args: {
         priority: 'HIGH',
-        title: 'High',
     },
 };
 
 export const mediumPriority: Story = {
     args: {
         priority: 'MEDIUM',
-        title: 'Medium',
     },
 };
 
 export const lowPriority: Story = {
     args: {
         priority: 'LOW',
-        title: 'Low',
     },
 };
 
 export const unknownPriority: Story = {
     args: {
         priority: 'UNKNOWN',
-        title: 'Unknown',
     },
 };

@@ -1,5 +1,6 @@
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
@@ -16,10 +17,12 @@ import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { CorpUser, EntityPrivileges, IncidentType } from '@src/types.generated';
 
 export const useIncidentsTableColumns = (refetch: () => void, privileges?: EntityPrivileges) => {
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tl } = useTranslation('common.labels');
     return useMemo(() => {
         const columns = [
             {
-                title: 'Name',
+                title: tl('name'),
                 dataIndex: 'name',
                 key: 'name',
                 render: (record) =>
@@ -34,7 +37,7 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 },
             },
             {
-                title: 'Stage',
+                title: t('field.stageLabel'),
                 dataIndex: 'stage',
                 key: 'stage',
                 render: (record) =>
@@ -46,7 +49,7 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 width: '15%',
             },
             {
-                title: 'Category',
+                title: tl('category'),
                 dataIndex: 'type',
                 key: 'type',
                 render: (record) => {
@@ -67,7 +70,7 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 width: '12%',
             },
             {
-                title: 'Opened',
+                title: t('column.opened'),
                 dataIndex: 'created',
                 key: 'created',
                 render: (record) => {
@@ -79,9 +82,9 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 width: '12%',
             },
             {
-                title: 'Assets',
+                title: t('column.assets'),
                 dataIndex: 'linkedAssets',
-                tooltipTitle: 'Linked Assets',
+                tooltipTitle: t('field.linkedAssetsLabel'),
                 key: 'linkedAssets',
                 width: '9%',
                 render: (record) =>
@@ -95,7 +98,7 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 },
             },
             {
-                title: 'Assignees',
+                title: t('field.assigneesLabel'),
                 dataIndex: 'assignees',
                 key: 'assignees',
                 width: '12%',
@@ -123,10 +126,11 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
             },
         ];
         return columns;
-    }, [privileges, refetch]);
+    }, [privileges, refetch, t, tl]);
 };
 
 export const useIncidentURNCopyLink = (Urn: string) => {
+    const { t } = useTranslation('entity.profile.incident');
     const onCopyLink = () => {
         const assertionUrn = Urn;
 
@@ -142,10 +146,10 @@ export const useIncidentURNCopyLink = (Urn: string) => {
         // Copy the URL to the clipboard
         navigator.clipboard.writeText(incidentUrl).then(
             () => {
-                message.success('Link copied to clipboard!');
+                message.success(t('toast.linkCopied'));
             },
             () => {
-                message.error('Failed to copy link to clipboard.');
+                message.error(t('toast.linkCopyFailed'));
             },
         );
     };

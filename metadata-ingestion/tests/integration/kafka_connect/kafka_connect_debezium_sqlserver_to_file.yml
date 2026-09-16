@@ -1,0 +1,18 @@
+---
+run_id: kafka-connect-debezium-sqlserver-3-level-run
+
+# Test configuration for Debezium SQL Server connector with 3-level container in the topic name (database.schema.table)
+
+source:
+  type: "kafka-connect"
+  config:
+    connect_uri: "http://localhost:28083"    
+    connector_patterns:
+      allow:
+        - debezium-sqlserver-connector
+    convert_lineage_urns_to_lowercase: true
+
+sink:
+  type: file
+  config:
+    filename: "./kafka_connect_mces.json"

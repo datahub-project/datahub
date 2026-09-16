@@ -1,0 +1,71 @@
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix trading: <https://bank.com/trading/loans/> .
+@prefix finance: <https://bank.com/finance/accounts/> .
+@prefix regulatory: <https://federalreserve.gov/regulatory/reports/y9c/> .
+@prefix custom: <trading:terms/> .
+
+# Trading Domain Glossary Terms
+trading:Customer_Name a skos:Concept ;
+    rdfs:label "Customer Name" ;
+    skos:definition "The name of the customer" ;
+    dcterms:source "Trading System" .
+
+trading:Loan_Amount a skos:Concept ;
+    rdfs:label "Loan Amount" ;
+    skos:definition "The principal amount of the loan" ;
+    dcterms:source "Trading System" .
+
+trading:Interest_Rate a skos:Concept ;
+    rdfs:label "Interest Rate" ;
+    skos:definition "The annual interest rate for the loan" ;
+    dcterms:source "Trading System" .
+
+# Finance Domain Glossary Terms
+finance:Account_ID a skos:Concept ;
+    rdfs:label "Account ID" ;
+    skos:definition "Unique identifier for an account" ;
+    dcterms:source "Finance System" .
+
+finance:Balance a skos:Concept ;
+    rdfs:label "Account Balance" ;
+    skos:definition "Current balance in the account" ;
+    dcterms:source "Finance System" .
+
+finance:Transaction_Date a skos:Concept ;
+    rdfs:label "Transaction Date" ;
+    skos:definition "Date when the transaction occurred" ;
+    dcterms:source "Finance System" .
+
+# Regulatory Domain Glossary Terms
+regulatory:Total_Assets a skos:Concept ;
+    rdfs:label "Total Assets" ;
+    skos:definition "Total assets as reported in FR Y-9C" ;
+    dcterms:source "Regulatory Reporting" .
+
+regulatory:Total_Liabilities a skos:Concept ;
+    rdfs:label "Total Liabilities" ;
+    skos:definition "Total liabilities as reported in FR Y-9C" ;
+    dcterms:source "Regulatory Reporting" .
+
+regulatory:Net_Income a skos:Concept ;
+    rdfs:label "Net Income" ;
+    skos:definition "Net income as reported in FR Y-9C" ;
+    dcterms:source "Regulatory Reporting" .
+
+# Custom Scheme Glossary Terms
+custom:Loan_Type a skos:Concept ;
+    rdfs:label "Loan Type" ;
+    skos:definition "Type of loan (e.g., mortgage, personal, business)" ;
+    dcterms:source "Custom Trading Terms" .
+
+custom:Collateral a skos:Concept ;
+    rdfs:label "Collateral" ;
+    skos:definition "Assets pledged as security for a loan" ;
+    dcterms:source "Custom Trading Terms" .
+
+# Cross-domain relationships
+trading:Loan_Amount skos:related finance:Balance .
+finance:Account_ID skos:related trading:Customer_Name .
+regulatory:Total_Assets skos:broader finance:Balance .

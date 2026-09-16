@@ -1,9 +1,11 @@
 import {
     addOrUpdatePoliciesInList,
+    createCriterionValue,
     getFieldCondition,
     getFieldValues,
     removeFromListPoliciesCache,
     setFieldValues,
+    toStartsWithValues,
     updateListPoliciesCache,
 } from '@app/permissions/policy/policyUtils';
 
@@ -260,5 +262,28 @@ describe('setFieldValues', () => {
                 },
             ],
         });
+    });
+});
+
+describe('toStartsWithValues', () => {
+    it('should keep a non-empty prefix', () => {
+        expect(toStartsWithValues('urn:li:dataset:(')).toEqual(['urn:li:dataset:(']);
+    });
+
+    it('should drop the criterion entirely when the prefix is cleared', () => {
+        // Persisting values: [{ value: '' }] would leave the policy matching nothing.
+        const filter = {
+            criteria: [
+                {
+                    field: 'TAG',
+                    values: [{ value: 'urn:li:tag:pii' }],
+                    condition: PolicyMatchCondition.StartsWith,
+                },
+            ],
+        };
+
+        const cleared = toStartsWithValues('').map(createCriterionValue);
+
+        expect(setFieldValues(filter, 'TAG', cleared)).toMatchObject({ criteria: [] });
     });
 });

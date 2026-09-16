@@ -1,11 +1,11 @@
 import { Button, Text, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import OwnersSection from '@app/domainV2/OwnersSection';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingest/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
-import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const ControlsContainer = styled.div`
@@ -18,21 +18,9 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
-export const NameSourceStep = ({
-    state,
-    updateState,
-    prev,
-    submit,
-    sourceRefetch,
-    isEditing,
-    selectedSource,
-}: StepProps) => {
-    const [existingOwners, setExistingOwners] = useState<any[]>(selectedSource?.ownership?.owners || []);
-    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
-
-    useEffect(() => {
-        setExistingOwners(selectedSource?.ownership?.owners || []);
-    }, [selectedSource?.ownership?.owners]);
+export const NameSourceStep = ({ state, updateState, prev, submit, selectedSource }: StepProps) => {
+    const existingOwnerUrns = (selectedSource?.ownership?.owners || []).map((o) => o.owner.urn);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>(existingOwnerUrns);
 
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
@@ -42,10 +30,12 @@ export const NameSourceStep = ({
         updateState(newState);
     };
 
-    const setOwners = (newOwners: PendingOwner[]) => {
+    const handleOwnerUrnsChange = (urns: string[]) => {
+        setSelectedOwnerUrns(urns);
+        const newUrns = urns.filter((urn) => !existingOwnerUrns.includes(urn));
         const newState: SourceBuilderState = {
             ...state,
-            owners: newOwners,
+            owners: newUrns,
         };
         updateState(newState);
     };
@@ -84,7 +74,7 @@ export const NameSourceStep = ({
     };
 
     const retrieveExtraEnvs = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -93,7 +83,7 @@ export const NameSourceStep = ({
     };
 
     const setExtraEnvs = (envs: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const indxOfEnvVars: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
         const value = { key: ExtraEnvKey, value: envs };
         if (indxOfEnvVars > -1) {
@@ -112,7 +102,7 @@ export const NameSourceStep = ({
     };
 
     const retrieveExtraDataHubPlugins = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -121,7 +111,7 @@ export const NameSourceStep = ({
     };
 
     const setExtraDataHubPlugins = (plugins: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const indxOfPlugins: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
         const value = { key: ExtraPluginKey, value: plugins };
         if (indxOfPlugins > -1) {
@@ -140,7 +130,7 @@ export const NameSourceStep = ({
     };
 
     const retrieveExtraReqs = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -149,7 +139,7 @@ export const NameSourceStep = ({
     };
 
     const setExtraReqs = (reqs: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const indxOfReqs: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
         const value = { key: ExtraReqKey, value: reqs };
         if (indxOfReqs > -1) {
@@ -193,14 +183,7 @@ export const NameSourceStep = ({
                         onBlur={(event) => handleBlur(event, setName)}
                     />
                 </Form.Item>
-                <OwnersSection
-                    selectedOwnerUrns={selectedOwnerUrns}
-                    setSelectedOwnerUrns={setSelectedOwnerUrns}
-                    existingOwners={existingOwners}
-                    onChange={setOwners}
-                    sourceRefetch={sourceRefetch}
-                    isEditForm={isEditing}
-                />
+                <OwnersSection selectedOwnerUrns={selectedOwnerUrns} setSelectedOwnerUrns={handleOwnerUrnsChange} />
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         {/* NOTE: Executor ID is OSS-only, used by actions pod */}
@@ -296,6 +279,7 @@ export const NameSourceStep = ({
                         <Button
                             disabled={!(state.name !== undefined && state.name.length > 0)}
                             onClick={() => onClickCreate(true)}
+                            data-testid="ingestion-source-save-and-run-button"
                         >
                             Save & Run
                         </Button>

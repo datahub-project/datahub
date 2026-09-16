@@ -55,7 +55,8 @@ public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFutu
           () -> {
             try {
               PolicyEngine.PolicyGrantedPrivileges evalResult =
-                  dataHubAuthorizer.getGrantedPrivileges(actor, resourceSpec);
+                  dataHubAuthorizer.getGrantedPrivileges(
+                      actor, resourceSpec, context.getOperationContext());
 
               List<PolicyEvaluationDetail> evaluationDetailList = null;
 

@@ -22,6 +22,7 @@ services:
     ports:
       - "5432:5432"
   namenode:
+    platform: linux/amd64
     image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
     volumes:
       - namenode:/hadoop/dfs/name
@@ -32,6 +33,7 @@ services:
     ports:
       - "50070"
   datanode:
+    platform: linux/amd64
     image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
     volumes:
       - datanode:/hadoop/dfs/data
@@ -42,6 +44,7 @@ services:
     ports:
       - "50075"
   hive-server:
+    platform: linux/amd64
     image: bde2020/hive:2.3.2-postgresql-metastore
     container_name: "testhiveserver2"
     env_file:
@@ -54,6 +57,7 @@ services:
     volumes:
       - ./setup/hive_setup.sql:/hive_setup.sql
   hive-metastore:
+    platform: linux/amd64
     image: bde2020/hive:2.3.2-postgresql-metastore
     env_file:
       - ./setup/hadoop-hive.env
@@ -63,6 +67,7 @@ services:
     ports:
       - "9083:9083"
   hive-metastore-postgresql:
+    platform: linux/amd64
     image: bde2020/hive-metastore-postgresql:2.3.0
 #  presto-coordinator:
 #    image: shawnzhu/prestodb:0.181

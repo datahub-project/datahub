@@ -1,20 +1,6 @@
 package com.datahub.authorization;
 
-import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_TABLE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.NOTEBOOK_ENTITY_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
@@ -26,7 +12,6 @@ import static com.linkedin.metadata.authorization.PoliciesConfig.API_PRIVILEGE_M
 import static com.linkedin.metadata.authorization.PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.authorization.ApiGroup;
@@ -45,14 +30,15 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
+import jakarta.annotation.PostConstruct;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.annotation.PostConstruct;
 import org.apache.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -70,6 +56,9 @@ import org.springframework.stereotype.Component;
  * flag. GraphQL is always enabled and should use is...() functions.
  */
 @Component
+// TODO: Condense abstractions here, should ideally be on public entrypoint here with an Auth
+// Request Wrapper to reduce
+//       complexity of tracking flows
 public class AuthUtil {
 
   // Since all methods of this class are static, need to postConstruct to initialize the static var
@@ -88,27 +77,37 @@ public class AuthUtil {
     AuthUtil.isRestApiAuthorizationEnabled = this.restApiAuthorizationEnabled;
   }
 
+  public static boolean isRestApiAuthorizationEnabled() {
+    return isRestApiAuthorizationEnabled;
+  }
+
   /**
-   * This should generally follow the policy creation UI with a few exceptions for users, groups,
-   * containers, etc so that the platform still functions as expected.
+   * Effective view-unrestricted entity types for a request. Resolved once onto {@link
+   * com.datahub.authorization.config.ViewAuthorizationConfiguration#getEffectiveUnrestrictedEntityTypes()}
+   * from {@code authorization.view.unrestrictedEntityTypes} (YAML/env). When unset, returns an
+   * empty set — with view authorization enabled, every entity type is restricted.
    */
-  public static final Set<String> VIEW_RESTRICTED_ENTITY_TYPES =
-      ImmutableSet.of(
-          DATASET_ENTITY_NAME,
-          DASHBOARD_ENTITY_NAME,
-          CHART_ENTITY_NAME,
-          ML_MODEL_ENTITY_NAME,
-          ML_FEATURE_ENTITY_NAME,
-          ML_MODEL_GROUP_ENTITY_NAME,
-          ML_FEATURE_TABLE_ENTITY_NAME,
-          ML_PRIMARY_KEY_ENTITY_NAME,
-          DATA_FLOW_ENTITY_NAME,
-          DATA_JOB_ENTITY_NAME,
-          GLOSSARY_TERM_ENTITY_NAME,
-          GLOSSARY_NODE_ENTITY_NAME,
-          DOMAIN_ENTITY_NAME,
-          DATA_PRODUCT_ENTITY_NAME,
-          NOTEBOOK_ENTITY_NAME);
+  @Nonnull
+  public static Set<String> getViewUnrestrictedEntityTypes(
+      @Nullable com.datahub.authorization.config.ViewAuthorizationConfiguration config) {
+    if (config != null && config.getEffectiveUnrestrictedEntityTypes() != null) {
+      return config.getEffectiveUnrestrictedEntityTypes();
+    }
+    return Set.of();
+  }
+
+  /**
+   * Whether {@code entityType} is subject to view authorization checks. When view authorization is
+   * disabled this is unused by callers; when enabled, returns {@code true} unless the type is in
+   * the unrestricted set (case-insensitive).
+   */
+  public static boolean isViewRestrictedEntityType(
+      @Nullable com.datahub.authorization.config.ViewAuthorizationConfiguration config,
+      @Nonnull String entityType) {
+    final String needle = entityType.toLowerCase(java.util.Locale.ROOT);
+    return getViewUnrestrictedEntityTypes(config).stream()
+        .noneMatch(name -> name.toLowerCase(java.util.Locale.ROOT).equals(needle));
+  }
 
   /** OpenAPI/Rest.li Methods */
   public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorized(
@@ -116,6 +115,22 @@ public class AuthUtil {
       @Nonnull final ApiGroup apiGroup,
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final Collection<MetadataChangeProposal> mcps) {
+    return isAPIAuthorized(session, apiGroup, entityRegistry, mcps, null);
+  }
+
+  /**
+   * Authorize MCPs with optional entity-existence awareness. When {@code entityExists} is provided,
+   * UPSERT/UPDATE/RESTATE against a non-existent entity use the CREATE privilege path ({@code
+   * CREATE_ENTITY}), and CREATE_ENTITY against an existing entity uses the UPDATE privilege path
+   * ({@code EDIT_ENTITY}) so create-only callers cannot overwrite. PATCH always uses UPDATE ({@code
+   * EDIT_ENTITY}), never CREATE.
+   */
+  public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorized(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final ApiGroup apiGroup,
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final Collection<MetadataChangeProposal> mcps,
+      @Nullable final Map<Urn, Boolean> entityExists) {
 
     List<Pair<Pair<ChangeType, Urn>, MetadataChangeProposal>> changeUrnMCPs =
         mcps.stream()
@@ -135,7 +150,8 @@ public class AuthUtil {
         isAPIAuthorizedUrns(
             session,
             apiGroup,
-            changeUrnMCPs.stream().map(Pair::getFirst).collect(Collectors.toSet()));
+            changeUrnMCPs.stream().map(Pair::getFirst).collect(Collectors.toSet()),
+            entityExists);
 
     return changeUrnMCPs.stream()
         .map(
@@ -151,38 +167,83 @@ public class AuthUtil {
       @Nonnull final AuthorizationSession session,
       @Nonnull final ApiGroup apiGroup,
       @Nonnull final Collection<Pair<ChangeType, Urn>> changeTypeUrns) {
+    return isAPIAuthorizedUrns(session, apiGroup, changeTypeUrns, null);
+  }
+
+  /**
+   * @param entityExists optional map of URN → whether the entity already exists (key aspect
+   *     present). When null, behavior matches the historical change-type-only privilege mapping.
+   *     When non-null, only URNs present as keys use existence-aware remapping; a missing key falls
+   *     back to the historical change-type-only mapping for that URN (does not treat absence as
+   *     "does not exist").
+   */
+  public static Map<Pair<ChangeType, Urn>, Integer> isAPIAuthorizedUrns(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final ApiGroup apiGroup,
+      @Nonnull final Collection<Pair<ChangeType, Urn>> changeTypeUrns,
+      @Nullable final Map<Urn, Boolean> entityExists) {
 
     return changeTypeUrns.stream()
         .distinct()
         .map(
             changeTypePair -> {
               final Urn urn = changeTypePair.getSecond();
+              final boolean existenceKnown = entityExists != null && entityExists.containsKey(urn);
+              final boolean exists = existenceKnown && Boolean.TRUE.equals(entityExists.get(urn));
               switch (changeTypePair.getFirst()) {
                 case CREATE:
-                case UPSERT:
-                case UPDATE:
-                case RESTATE:
-                case PATCH:
+                  // Aspect-level create-if-not-exists: privilege remains EDIT_ENTITY.
                   if (!isAPIAuthorized(
                       session,
                       lookupAPIPrivilege(apiGroup, UPDATE, urn.getEntityType()),
-                      new EntitySpec(urn.getEntityType(), urn.toString()))) {
+                      new EntitySpec(urn.getEntityType(), urn.toString()),
+                      Collections.emptyList())) {
+                    return Pair.of(changeTypePair, HttpStatus.SC_FORBIDDEN);
+                  }
+                  break;
+                case UPSERT:
+                case UPDATE:
+                case RESTATE:
+                  {
+                    final ApiOperation apiOperation = existenceKnown && !exists ? CREATE : UPDATE;
+                    if (!isAPIAuthorized(
+                        session,
+                        lookupAPIPrivilege(apiGroup, apiOperation, urn.getEntityType()),
+                        new EntitySpec(urn.getEntityType(), urn.toString()),
+                        Collections.emptyList())) {
+                      return Pair.of(changeTypePair, HttpStatus.SC_FORBIDDEN);
+                    }
+                    break;
+                  }
+                case PATCH:
+                  // PATCH never uses CREATE_ENTITY — always Edit Entity.
+                  if (!isAPIAuthorized(
+                      session,
+                      lookupAPIPrivilege(apiGroup, UPDATE, urn.getEntityType()),
+                      new EntitySpec(urn.getEntityType(), urn.toString()),
+                      Collections.emptyList())) {
                     return Pair.of(changeTypePair, HttpStatus.SC_FORBIDDEN);
                   }
                   break;
                 case CREATE_ENTITY:
-                  if (!isAPIAuthorized(
-                      session,
-                      lookupAPIPrivilege(apiGroup, CREATE, urn.getEntityType()),
-                      new EntitySpec(urn.getEntityType(), urn.toString()))) {
-                    return Pair.of(changeTypePair, HttpStatus.SC_FORBIDDEN);
+                  {
+                    // Entity must not exist for CREATE_ENTITY privilege; if it exists require EDIT.
+                    final ApiOperation apiOperation = existenceKnown && exists ? UPDATE : CREATE;
+                    if (!isAPIAuthorized(
+                        session,
+                        lookupAPIPrivilege(apiGroup, apiOperation, urn.getEntityType()),
+                        new EntitySpec(urn.getEntityType(), urn.toString()),
+                        Collections.emptyList())) {
+                      return Pair.of(changeTypePair, HttpStatus.SC_FORBIDDEN);
+                    }
+                    break;
                   }
-                  break;
                 case DELETE:
                   if (!isAPIAuthorized(
                       session,
                       lookupAPIPrivilege(apiGroup, DELETE, urn.getEntityType()),
-                      new EntitySpec(urn.getEntityType(), urn.toString()))) {
+                      new EntitySpec(urn.getEntityType(), urn.toString()),
+                      Collections.emptyList())) {
                     return Pair.of(changeTypePair, HttpStatus.SC_FORBIDDEN);
                   }
                   break;
@@ -242,7 +303,10 @@ public class AuthUtil {
             .collect(Collectors.toList());
 
     return isAPIAuthorized(
-        session, lookupAPIPrivilege(apiGroup, apiOperation, null), resourceSpecs);
+        session,
+        lookupAPIPrivilege(apiGroup, apiOperation, null),
+        resourceSpecs,
+        Collections.emptyList());
   }
 
   public static boolean isAPIAuthorizedEntityUrns(
@@ -261,7 +325,100 @@ public class AuthUtil {
                 isAPIAuthorized(
                     session,
                     lookupAPIPrivilege(ENTITY, apiOperation, entry.getKey()),
-                    entry.getValue()));
+                    entry.getValue(),
+                    Collections.emptyList()));
+  }
+
+  public static boolean isAPIAuthorizedEntityUrnsWithSubResources(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final ApiOperation apiOperation,
+      @Nonnull final Collection<Urn> urns,
+      @Nonnull final Collection<Urn> subResources) {
+
+    Map<String, List<EntitySpec>> resourceSpecs =
+        urns.stream()
+            .map(urn -> new EntitySpec(urn.getEntityType(), urn.toString()))
+            .collect(Collectors.groupingBy(EntitySpec::getType));
+
+    Set<EntitySpec> subResourceSpecs =
+        subResources.stream()
+            .map(urn -> new EntitySpec(urn.getEntityType(), urn.toString()))
+            .collect(Collectors.toSet());
+
+    return resourceSpecs.entrySet().stream()
+        .allMatch(
+            entry ->
+                isAPIAuthorized(
+                    session,
+                    lookupAPIPrivilege(ENTITY, apiOperation, entry.getKey()),
+                    entry.getValue(),
+                    subResourceSpecs));
+  }
+
+  /** Authorizes a request when REST API authorization is enabled. */
+  public static boolean isAPIAuthorized(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final DisjunctivePrivilegeGroup privilegeGroup,
+      @Nullable final EntitySpec resourceSpec,
+      @Nonnull final Collection<EntitySpec> subResources) {
+    if (AuthUtil.isRestApiAuthorizationEnabled) {
+      return isAuthorized(session, privilegeGroup, resourceSpec, subResources);
+    }
+    return true;
+  }
+
+  /** Returns the tag-specific privilege required to modify tags on an entity. */
+  public static PoliciesConfig.Privilege tagModificationPrivilege(
+      @Nonnull final Urn entityUrn, final boolean fieldLevelTags) {
+    if (fieldLevelTags && DATASET_ENTITY_NAME.equals(entityUrn.getEntityType())) {
+      return PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE;
+    }
+    return PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE;
+  }
+
+  /** Either {@code EDIT_ENTITY} or the specific tag privilege is sufficient. */
+  public static DisjunctivePrivilegeGroup tagModificationPrivilegeGroup(
+      @Nonnull final PoliciesConfig.Privilege specificTagPrivilege) {
+    return new DisjunctivePrivilegeGroup(
+        List.of(
+            new ConjunctivePrivilegeGroup(List.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())),
+            new ConjunctivePrivilegeGroup(List.of(specificTagPrivilege.getType()))));
+  }
+
+  public static boolean isAuthorizedForTagModification(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Collection<Urn> tagUrns,
+      @Nonnull final PoliciesConfig.Privilege specificTagPrivilege) {
+    if (tagUrns.isEmpty()) {
+      return true;
+    }
+    return isAuthorized(
+        session,
+        tagModificationPrivilegeGroup(specificTagPrivilege),
+        new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()),
+        tagSubResourceSpecs(tagUrns));
+  }
+
+  public static boolean isAPIAuthorizedForTagModification(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Collection<Urn> tagUrns,
+      @Nonnull final PoliciesConfig.Privilege specificTagPrivilege) {
+    if (tagUrns.isEmpty()) {
+      return true;
+    }
+    return isAPIAuthorized(
+        session,
+        tagModificationPrivilegeGroup(specificTagPrivilege),
+        new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()),
+        tagSubResourceSpecs(tagUrns));
+  }
+
+  private static Set<EntitySpec> tagSubResourceSpecs(@Nonnull final Collection<Urn> tagUrns) {
+    return tagUrns.stream()
+        .map(urn -> new EntitySpec(urn.getEntityType(), urn.toString()))
+        .collect(Collectors.toSet());
   }
 
   public static boolean isAPIAuthorizedEntityType(
@@ -300,7 +457,8 @@ public class AuthUtil {
                 isAPIAuthorized(
                     session,
                     lookupAPIPrivilege(apiGroup, apiOperation, entityType),
-                    new EntitySpec(entityType, "")));
+                    new EntitySpec(entityType, ""),
+                    Collections.emptyList()));
   }
 
   public static boolean isAPIAuthorized(
@@ -308,20 +466,25 @@ public class AuthUtil {
       @Nonnull final ApiGroup apiGroup,
       @Nonnull final ApiOperation apiOperation) {
     return isAPIAuthorized(
-        session, lookupAPIPrivilege(apiGroup, apiOperation, null), (EntitySpec) null);
+        session,
+        lookupAPIPrivilege(apiGroup, apiOperation, null),
+        (EntitySpec) null,
+        Collections.emptyList());
   }
 
   public static boolean isAPIAuthorized(
       @Nonnull final AuthorizationSession session,
       @Nonnull final PoliciesConfig.Privilege privilege,
       @Nullable final EntitySpec resource) {
-    return isAPIAuthorized(session, Disjunctive.disjoint(privilege), resource);
+    return isAPIAuthorized(
+        session, Disjunctive.disjoint(privilege), resource, Collections.emptyList());
   }
 
   public static boolean isAPIAuthorized(
       @Nonnull final AuthorizationSession session,
       @Nonnull final PoliciesConfig.Privilege privilege) {
-    return isAPIAuthorized(session, Disjunctive.disjoint(privilege), (EntitySpec) null);
+    return isAPIAuthorized(
+        session, Disjunctive.disjoint(privilege), (EntitySpec) null, Collections.emptyList());
   }
 
   /**
@@ -337,7 +500,8 @@ public class AuthUtil {
     return isAPIAuthorized(
         session,
         Disjunctive.disjoint(privilege, MANAGE_SYSTEM_OPERATIONS_PRIVILEGE),
-        (EntitySpec) null);
+        (EntitySpec) null,
+        Collections.emptyList());
   }
 
   public static boolean isAPIOperationsAuthorized(
@@ -345,22 +509,41 @@ public class AuthUtil {
       @Nonnull final PoliciesConfig.Privilege privilege,
       @Nullable final EntitySpec resource) {
     return isAPIAuthorized(
-        session, Disjunctive.disjoint(privilege, MANAGE_SYSTEM_OPERATIONS_PRIVILEGE), resource);
+        session,
+        Disjunctive.disjoint(privilege, MANAGE_SYSTEM_OPERATIONS_PRIVILEGE),
+        resource,
+        Collections.emptyList());
+  }
+
+  public static boolean isAPIOperationsAuthorized(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final PoliciesConfig.Privilege privilege,
+      @Nullable final EntitySpec resource,
+      @Nonnull final Collection<EntitySpec> subResources) {
+    return isAPIAuthorized(
+        session,
+        Disjunctive.disjoint(privilege, MANAGE_SYSTEM_OPERATIONS_PRIVILEGE),
+        resource,
+        subResources);
   }
 
   private static boolean isAPIAuthorized(
       @Nonnull final AuthorizationSession session,
       @Nonnull final Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges,
-      @Nullable final EntitySpec resource) {
-    return isAPIAuthorized(session, privileges, resource != null ? List.of(resource) : List.of());
+      @Nullable final EntitySpec resource,
+      @Nonnull final Collection<EntitySpec> subResources) {
+    return isAPIAuthorized(
+        session, privileges, resource != null ? List.of(resource) : List.of(), subResources);
   }
 
   private static boolean isAPIAuthorized(
       @Nonnull final AuthorizationSession session,
       @Nonnull final Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges,
-      @Nonnull final Collection<EntitySpec> resources) {
+      @Nonnull final Collection<EntitySpec> resources,
+      @Nonnull final Collection<EntitySpec> subResources) {
     if (AuthUtil.isRestApiAuthorizationEnabled) {
-      return isAuthorized(session, buildDisjunctivePrivilegeGroup(privileges), resources);
+      return isAuthorized(
+          session, buildDisjunctivePrivilegeGroup(privileges), resources, subResources);
     } else {
       return true;
     }
@@ -456,9 +639,17 @@ public class AuthUtil {
       @Nonnull final AuthorizationSession session,
       @Nonnull final DisjunctivePrivilegeGroup privilegeGroup,
       @Nullable final EntitySpec resourceSpec) {
+    return isAuthorized(session, privilegeGroup, resourceSpec, Collections.emptyList());
+  }
+
+  public static boolean isAuthorized(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final DisjunctivePrivilegeGroup privilegeGroup,
+      @Nullable final EntitySpec resourceSpec,
+      @Nonnull final Collection<EntitySpec> subResources) {
 
     for (ConjunctivePrivilegeGroup conjunctive : privilegeGroup.getAuthorizedPrivilegeGroups()) {
-      if (isAuthorized(session, conjunctive, resourceSpec)) {
+      if (isAuthorized(session, conjunctive, resourceSpec, subResources)) {
         return true;
       }
     }
@@ -469,7 +660,8 @@ public class AuthUtil {
   private static boolean isAuthorized(
       @Nonnull final AuthorizationSession session,
       @Nonnull final ConjunctivePrivilegeGroup requiredPrivileges,
-      @Nullable final EntitySpec resourceSpec) {
+      @Nullable final EntitySpec resourceSpec,
+      @Nonnull final Collection<EntitySpec> subResources) {
 
     // if no privileges are required, deny
     if (requiredPrivileges.getRequiredPrivileges().isEmpty()) {
@@ -479,7 +671,7 @@ public class AuthUtil {
     // Each privilege in a group _must_ all be true to permit the operation.
     for (final String privilege : requiredPrivileges.getRequiredPrivileges()) {
       // Create and evaluate an Authorization request.
-      if (isDenied(session, privilege, resourceSpec)) {
+      if (isDenied(session, privilege, resourceSpec, subResources)) {
         // Short circuit.
         return false;
       }
@@ -490,13 +682,15 @@ public class AuthUtil {
   private static boolean isAuthorized(
       @Nonnull final AuthorizationSession session,
       @Nonnull final DisjunctivePrivilegeGroup privilegeGroup,
-      @Nonnull final Collection<EntitySpec> resourceSpecs) {
+      @Nonnull final Collection<EntitySpec> resourceSpecs,
+      @Nonnull final Collection<EntitySpec> subResources) {
 
     if (resourceSpecs.isEmpty()) {
       return isAuthorized(session, privilegeGroup, (EntitySpec) null);
     }
 
-    return resourceSpecs.stream().allMatch(spec -> isAuthorized(session, privilegeGroup, spec));
+    return resourceSpecs.stream()
+        .allMatch(spec -> isAuthorized(session, privilegeGroup, spec, subResources));
   }
 
   /** Common Methods */
@@ -520,7 +714,7 @@ public class AuthUtil {
         API_PRIVILEGE_MAP.getOrDefault(apiGroup, Map.of());
 
     switch (apiOperation) {
-        // Manage is a conjunction of UPDATE and DELETE
+      // Manage is a conjunction of UPDATE and DELETE
       case MANAGE:
         return Disjunctive.conjoin(
             privMap.getOrDefault(ApiOperation.UPDATE, DENY_ACCESS),
@@ -552,7 +746,7 @@ public class AuthUtil {
                       entityType, API_PRIVILEGE_MAP.getOrDefault(ApiGroup.ENTITY, Map.of()));
 
               switch (apiOperation) {
-                  // Manage is a conjunction of UPDATE and DELETE
+                // Manage is a conjunction of UPDATE and DELETE
                 case MANAGE:
                   return Pair.of(
                       entityType,
@@ -596,9 +790,10 @@ public class AuthUtil {
   private static boolean isDenied(
       @Nonnull final AuthorizationSession session,
       @Nonnull final String privilege,
-      @Nullable final EntitySpec resourceSpec) {
+      @Nullable final EntitySpec resourceSpec,
+      @Nonnull final Collection<EntitySpec> subResources) {
     // Create and evaluate an Authorization request.
-    final AuthorizationResult result = session.authorize(privilege, resourceSpec);
+    final AuthorizationResult result = session.authorize(privilege, resourceSpec, subResources);
     return AuthorizationResult.Type.DENY.equals(result.getType());
   }
 

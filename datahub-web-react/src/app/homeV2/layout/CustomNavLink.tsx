@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -9,7 +10,7 @@ const OptionContainer = styled.div``;
 
 const LinkTitle = styled.span`
     display: block;
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     font: 700 12px/20px Mulish;
     white-space: break-spaces;
 `;
@@ -21,7 +22,7 @@ const TitleWrapper = styled.div`
 
 const DescriptionWrapper = styled.span`
     display: block;
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     white-space: break-spaces;
 
     display: block;
@@ -41,6 +42,7 @@ const CustomNavLink: React.FC<Props> = ({
     menuItem: { title, showNewTag, description, link, target, rel, isHidden, onClick },
     key,
 }) => {
+    const { t: tc } = useTranslation('common.actions');
     if (isHidden) {
         return null;
     }
@@ -79,7 +81,7 @@ const CustomNavLink: React.FC<Props> = ({
                 <LinkTitle>{title}</LinkTitle>
                 {showNewTag && (
                     <PillWrapper>
-                        <Pill label="New" size="xs" clickable={false} color="blue" />
+                        <Pill label={tc('new')} size="xs" clickable={false} color="blue" />
                     </PillWrapper>
                 )}
             </TitleWrapper>

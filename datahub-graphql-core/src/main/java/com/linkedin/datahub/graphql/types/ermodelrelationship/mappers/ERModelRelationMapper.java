@@ -13,6 +13,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
+import com.linkedin.datahub.graphql.generated.ERModelRelationshipCardinality;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.RelationshipFieldMapping;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -141,6 +142,9 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
                 ermodelrelationProperties.hasRelationshipFieldMappings()
                     ? this.mapERModelRelationFieldMappings(ermodelrelationProperties)
                     : null)
+            .setCardinality(
+                ERModelRelationshipCardinality.valueOf(
+                    ermodelrelationProperties.getCardinality().name()))
             .build());
 
     if (ermodelrelationProperties.hasCreated()

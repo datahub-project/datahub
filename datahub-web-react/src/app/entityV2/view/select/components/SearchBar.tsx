@@ -1,0 +1,112 @@
+import { SearchOutlined } from '@ant-design/icons';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { Input } from 'antd';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+
+const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?: string; $fullWidth?: boolean }>`
+    ${(props) => !props.$isShowNavBarRedesign && 'max-width: 330px;'}
+    background-color: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.colors.bg : props.theme.colors.bgSurfaceDarker};
+    border-radius: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '7px')};
+
+    ${(props) => !props.$isShowNavBarRedesign && 'border: unset;'}
+
+    ${(props) => props.$isShowNavBarRedesign && props.$minWidth && `min-width: ${props.$minWidth};`}
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        ${props.$fullWidth && 'width: 100%;'}
+        height: 40px;
+        border: 1px solid;
+        border-color: ${props.theme.colors.border};
+        box-shadow: ${props.theme.colors.shadowXs};
+
+        &&:hover {
+            border-color: ${props.theme.colors.borderBrand};
+        }
+
+        &.ant-input-affix-wrapper-focused {
+            border-color: ${props.theme.colors.borderBrand};
+        }
+        
+        & .ant-input::placeholder {
+            color: ${props.theme.colors.textPlaceholder};
+        }
+
+        & .ant-input-prefix {
+            margin-right: 8px;
+            svg {
+                color: ${props.theme.colors.icon}
+            }
+        }
+    `}
+
+    & .ant-input {
+        background-color: transparent;
+        ${(props) => !props.$isShowNavBarRedesign && `color: ${props.theme.colors.textTertiary};`}
+        ${(props) => props.$isShowNavBarRedesign && 'font-size: 14px;'}
+    }
+`;
+
+const SearchOutlinedStyle = styled(SearchOutlined)`
+    color: ${(props) => props.theme.colors.icon};
+`;
+
+const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean; $fullWidth?: boolean }>`
+    ${(props) => props.$fullWidth && 'width: 100%;'}
+    .search-manage-container {
+        ${(props) => props.$fullWidth && 'width: 100%;'}
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        .manage {
+            color: ${(props) =>
+                props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : props.theme.colors.iconBrand};
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+    }
+`;
+
+interface Props {
+    onClickManageViews: () => void;
+    onChangeSearch: (text: any) => void;
+    minWidth?: string;
+    fullWidth?: boolean;
+}
+
+export default function SearchBar({ onClickManageViews, onChangeSearch, minWidth, fullWidth }: Props) {
+    const { t } = useTranslation('entity.views');
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    return (
+        <Wrapper $fullWidth={fullWidth} $isShowNavBarRedesign={isShowNavBarRedesign}>
+            <div className="search-manage-container">
+                <StyledInput
+                    className="style-input-container"
+                    placeholder={
+                        isShowNavBarRedesign
+                            ? t('viewSelect.searchPlaceholder')
+                            : t('viewSelect.searchPlaceholderLegacy')
+                    }
+                    onChange={onChangeSearch}
+                    allowClear
+                    prefix={isShowNavBarRedesign ? <MagnifyingGlass size={20} /> : <SearchOutlinedStyle />}
+                    data-testid="search-overlay-input"
+                    $isShowNavBarRedesign={isShowNavBarRedesign}
+                    $fullWidth={fullWidth}
+                    $minWidth={minWidth}
+                />
+                <div className="manage" onClick={() => onClickManageViews()} role="none">
+                    {t('viewSelect.manageAll')}
+                </div>
+            </div>
+        </Wrapper>
+    );
+}

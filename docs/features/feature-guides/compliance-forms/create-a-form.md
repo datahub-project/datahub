@@ -22,7 +22,11 @@ Managing Compliance Forms via the DataHub UI is only available in DataHub Cloud.
 
 ### Prerequisites
 
-In order to create, edit, or remove Compliance Forms, you must have the **Manage Compliance Forms** Platform privilege.
+In order to create, edit, or remove Compliance Forms, or to assign them to assets (including dynamic assignment filters), you must have the **Manage Compliance Forms** Platform privilege.
+
+:::note API parity
+Through the UI and the GraphQL mutations (`batchAssignForm`, `batchRemoveForm`, `createDynamicFormAssignment`), **Manage Compliance Forms** is sufficient to assign forms. Writing the `forms` or `dynamicFormAssignment` aspects directly through OpenAPI, Rest.li, or CLI metadata emitters additionally requires **Edit Entity** on the target, because those APIs authorize every aspect write as a generic entity update (unless REST API authorization is disabled). Completing or verifying a form that has already been assigned to you does not require **Manage Compliance Forms** on any API.
+:::
 
 ### Step 1: Create a new Compliance Form
 
@@ -117,8 +121,12 @@ With the Questions and assigned Assets defined, the next step is to select the A
 
 In the **Add Recipients** section, decide who is responsible for completing the Form:
 
-- **Asset Owners:** Any User that is assigned to one of the in-scope Assets will be able to complete the Form. This is useful for larger initiatives when you may not know the full set of Users.
+- **Asset Owners:** Any User that is assigned to one of the in-scope Assets will be able to complete the Form. This is useful for larger initiatives when you may not know the full set of Users. You can optionally restrict the assignment to specific ownership types (Technical Owner, Data Steward, Business Owner, or any custom ownership type) — when no types are selected, all owners are assigned regardless of type.
 - **Specific Users and/or Groups:** Select a specific set of Users and/or Groups within DataHub. This is useful when Ownership of the Assets may be poorly-defined.
+
+Additionally, you can configure notification preferences:
+
+- **Send notifications to assignees when this form is published:** Check this option to automatically notify assignees when the Form becomes available. If enabled, assignees will receive notifications through their configured channels (email and/or Slack in DataHub Cloud) in addition to seeing the task in their DataHub Task Center (DataHub Cloud only).
 
 <p align="center">
   <img 
@@ -129,7 +137,13 @@ In the **Add Recipients** section, decide who is responsible for completing the 
 
 ### Step 5: Publish your Form
 
-After defining the Questions, assigning Assets, and selecting the Assignees, your Form is ready to be published. Once published, Assignees will be notified to complete the Form for the Assets they are responsible for.
+After defining the Questions, assigning Assets, and selecting the Assignees, your Form is ready to be published.
+
+Once published:
+
+- Assignees will have a task waiting in their **DataHub Task Center** (DataHub Cloud only)
+- If you enabled notifications and assignees have configured email and/or Slack notifications (DataHub Cloud only), they will be notified through those channels
+- As new assets become eligible for the Form over time, net-new owners will automatically be notified and assigned the Form
 
 To publish a Form, simply click **Publish**.
 
@@ -168,7 +182,11 @@ You sure can! Please keep in mind that an Asset will only be considered Document
 
 **How will DataHub Users know that a Compliance Form has been assigned to them?**
 
-They have to check the Inbox on the navigation bar. There are no off-platform notifications for Compliance Forms at this time.
+Assignees will be notified in multiple ways:
+
+- A task will appear in their **DataHub Task Center** (DataHub Cloud only)
+- If notifications were enabled when the Form was published and assignees have configured email and/or Slack notifications (DataHub Cloud only), they will receive notifications through those channels
+- As new assets become eligible for existing Forms, net-new owners will automatically be notified and assigned the Form
 
 **How do I track the progress of Form completion?**
 

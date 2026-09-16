@@ -2,8 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.load;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.EntitySpec;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -11,9 +10,8 @@ import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -29,6 +27,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.dataloader.DataLoader;
 
 /**
  * Generic GraphQL resolver responsible for resolving a list of TimeSeries Aspect Types. The purpose
@@ -51,13 +50,14 @@ public class TimeSeriesAspectResolver
   private final String _aspectName;
   private final BiFunction<QueryContext, EnvelopedAspect, TimeSeriesAspect> _aspectMapper;
   private final SortCriterion _sort;
+  private final boolean _batchLoadEnabled;
 
   public TimeSeriesAspectResolver(
       final EntityClient client,
       final String entityName,
       final String aspectName,
       final BiFunction<QueryContext, EnvelopedAspect, TimeSeriesAspect> aspectMapper) {
-    this(client, entityName, aspectName, aspectMapper, null);
+    this(client, entityName, aspectName, aspectMapper, null, true);
   }
 
   public TimeSeriesAspectResolver(
@@ -66,53 +66,84 @@ public class TimeSeriesAspectResolver
       final String aspectName,
       final BiFunction<QueryContext, EnvelopedAspect, TimeSeriesAspect> aspectMapper,
       final SortCriterion sort) {
+    this(client, entityName, aspectName, aspectMapper, sort, true);
+  }
+
+  public TimeSeriesAspectResolver(
+      final EntityClient client,
+      final String entityName,
+      final String aspectName,
+      final BiFunction<QueryContext, EnvelopedAspect, TimeSeriesAspect> aspectMapper,
+      final SortCriterion sort,
+      final boolean batchLoadEnabled) {
     _client = client;
     _entityName = entityName;
     _aspectName = aspectName;
     _aspectMapper = aspectMapper;
     _sort = sort;
+    _batchLoadEnabled = batchLoadEnabled;
   }
 
   /** Check whether the actor is authorized to fetch the timeseries aspect given the resource urn */
   private boolean isAuthorized(QueryContext context, String urn) {
-    if (_entityName.equals(Constants.DATASET_ENTITY_NAME)
-        && _aspectName.equals(Constants.DATASET_PROFILE_ASPECT_NAME)) {
-      return AuthUtil.isAuthorized(
-          context.getOperationContext(),
-          PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE,
-          new EntitySpec(_entityName, urn));
-    }
-    return true;
+    return TimeseriesAuthUtil.canViewAspect(
+        context.getOperationContext(), UrnUtils.getUrn(urn), _entityName, _aspectName);
   }
 
   @Override
   public CompletableFuture<List<TimeSeriesAspect>> get(DataFetchingEnvironment environment) {
+    final QueryContext context = environment.getContext();
+    final String urn = ((Entity) environment.getSource()).getUrn();
+
+    // Auth is checked eagerly per-URN before DataLoader dispatch. Unauthorized URNs never
+    // submit a key to the loader, so they cannot receive or leak data from authorized URNs
+    // that are batched in the same request.
+    if (!isAuthorized(context, urn)) {
+      return CompletableFuture.completedFuture(Collections.emptyList());
+    }
+
+    final Long maybeStartTimeMillis = environment.getArgumentOrDefault("startTimeMillis", null);
+    final Long maybeEndTimeMillis = environment.getArgumentOrDefault("endTimeMillis", null);
+    final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
+    final FilterInput maybeFilters =
+        environment.getArgument("filter") != null
+            ? bindArgument(environment.getArgument("filter"), FilterInput.class)
+            : null;
+    final Filter maybeFilter = buildFilters(maybeFilters);
+
+    final DataLoader<TimeseriesAspectBatchLoader.Key, List<EnvelopedAspect>> loader =
+        _batchLoadEnabled
+            ? environment
+                .getDataLoaderRegistry()
+                .getDataLoader(TimeseriesAspectBatchLoader.LOADER_NAME)
+            : null;
+
+    if (loader != null) {
+      final TimeseriesAspectBatchLoader.Key key =
+          new TimeseriesAspectBatchLoader.Key(
+              urn,
+              _entityName,
+              _aspectName,
+              maybeStartTimeMillis,
+              maybeEndTimeMillis,
+              maybeLimit,
+              maybeFilter,
+              _sort);
+      return loader
+          .load(key)
+          .thenApply(
+              aspects ->
+                  aspects.stream()
+                      .map(a -> _aspectMapper.apply(context, a))
+                      .collect(Collectors.toList()));
+    }
+
+    // Fallback: direct single-URN call when no DataLoader is registered.
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          final QueryContext context = environment.getContext();
-          // Fetch the urn, assuming the parent has an urn field.
-          // todo: what if the parent urn isn't projected?
-          final String urn = ((Entity) environment.getSource()).getUrn();
-
-          if (!isAuthorized(context, urn)) {
-            return Collections.emptyList();
-          }
-
-          final Long maybeStartTimeMillis =
-              environment.getArgumentOrDefault("startTimeMillis", null);
-          final Long maybeEndTimeMillis = environment.getArgumentOrDefault("endTimeMillis", null);
-          // Max number of aspects to return.
-          final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
-          final FilterInput maybeFilters =
-              environment.getArgument("filter") != null
-                  ? bindArgument(environment.getArgument("filter"), FilterInput.class)
-                  : null;
-          final SortCriterion maybeSort = _sort;
-
           try {
-            // Step 1: Get aspects.
-            List<EnvelopedAspect> aspects =
-                _client.getTimeseriesAspectValues(
+            return _client
+                .getTimeseriesAspectValues(
                     context.getOperationContext(),
                     urn,
                     _entityName,
@@ -120,11 +151,9 @@ public class TimeSeriesAspectResolver
                     maybeStartTimeMillis,
                     maybeEndTimeMillis,
                     maybeLimit,
-                    buildFilters(maybeFilters),
-                    maybeSort);
-
-            // Step 2: Bind profiles into GraphQL strong types.
-            return aspects.stream()
+                    maybeFilter,
+                    _sort)
+                .stream()
                 .map(a -> _aspectMapper.apply(context, a))
                 .collect(Collectors.toList());
           } catch (RemoteInvocationException e) {

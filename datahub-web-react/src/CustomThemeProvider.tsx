@@ -1,41 +1,36 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ThemeProvider } from 'styled-components';
 
-import { loadThemeIdFromLocalStorage } from '@app/useSetAppTheme';
-import defaultThemeConfig from '@conf/theme/theme_light.config.json';
+import GlobalThemeStyles from '@app/theme/GlobalThemeStyles';
+import { useCustomThemeId } from '@app/useSetAppTheme';
+import themes from '@conf/theme/themes';
 import { Theme } from '@conf/theme/types';
 import { CustomThemeContext } from '@src/customThemeContext';
 
 interface Props {
     children: React.ReactNode;
-    skipSetTheme?: boolean;
+    isDarkMode?: boolean;
+    injectGlobalStyles?: boolean;
 }
 
-const CustomThemeProvider = ({ children, skipSetTheme }: Props) => {
-    const [currentTheme, setTheme] = useState<Theme>(defaultThemeConfig);
-    const customThemeId = loadThemeIdFromLocalStorage();
+const CustomThemeProvider = ({ children, isDarkMode = false, injectGlobalStyles = false }: Props) => {
+    // Note: AppConfigContext not provided yet, so this call relies on the DEFAULT_APP_CONFIG
+    const customThemeId = useCustomThemeId();
 
-    useEffect(() => {
-        // use provided customThemeId and set in useSetAppTheme.tsx if it exists
-        if (customThemeId) return;
-
-        if (import.meta.env.DEV) {
-            import(/* @vite-ignore */ `./conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
-                setTheme(theme);
-            });
-        } else if (!skipSetTheme) {
-            // Send a request to the server to get the theme config.
-            fetch(`/assets/conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`)
-                .then((response) => response.json())
-                .then((theme) => {
-                    setTheme(theme);
-                });
-        }
-    }, [skipSetTheme, customThemeId]);
+    // Note: If custom theme id is a json file, it will only be loaded later in useSetAppTheme
+    let defaultTheme = themes.themeV2;
+    if (isDarkMode) {
+        defaultTheme = themes.themeV2Dark;
+    }
+    const customTheme = customThemeId ? themes[customThemeId] : null;
+    const [theme, setTheme] = useState<Theme>(customTheme ?? defaultTheme);
 
     return (
-        <CustomThemeContext.Provider value={{ theme: currentTheme, updateTheme: setTheme }}>
-            <ThemeProvider theme={currentTheme}>{children}</ThemeProvider>
+        <CustomThemeContext.Provider value={{ theme, updateTheme: setTheme }}>
+            <ThemeProvider theme={theme}>
+                {injectGlobalStyles && <GlobalThemeStyles />}
+                {children}
+            </ThemeProvider>
         </CustomThemeContext.Provider>
     );
 };

@@ -1,8 +1,8 @@
 import { ClockCircleOutlined, LineChartOutlined } from '@ant-design/icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import LookbackWindowSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/LookbackWindowSelect';
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 
@@ -21,9 +21,9 @@ const TabContainer = styled.div`
 `;
 
 const StatsTabViewSwitch = styled.div<{ isActive: boolean }>`
-    background: ${({ isActive, theme }) => (isActive ? `${theme.styles['primary-color']}` : 'transperent')};
+    background: ${({ isActive, theme }) => (isActive ? `${theme.colors.buttonFillBrand}` : 'transperent')};
     border-radius: 4px;
-    color: ${({ isActive }) => (isActive ? '#fff' : '#56668E')};
+    color: ${({ isActive, theme }) => (isActive ? theme.colors.bg : theme.colors.textSecondary)};
     cursor: pointer;
     display: flex;
     font-size: 14px;
@@ -43,7 +43,7 @@ const SwitchWrapper = styled.div`
     display: flex;
     width: 250px;
     width: 100%;
-    background: ${REDESIGN_COLORS.BACKGROUND_GRAY_3};
+    background: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const ReportedAtLabel = styled.div`
@@ -51,7 +51,7 @@ const ReportedAtLabel = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ActionContainer = styled.div`
@@ -78,6 +78,7 @@ export default function StatsSidebarHeader({
     setLookbackWindow,
     reportedAt,
 }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const handleTabClick = (type: StatsViewType) => {
         setActiveTab(type);
     };
@@ -97,14 +98,14 @@ export default function StatsSidebarHeader({
                     onClick={() => handleTabClick(StatsViewType.LATEST)}
                 >
                     <LineChartOutlined />
-                    Stats & Insights
+                    {t('statsSidebar.statsAndInsights')}
                 </StatsTabViewSwitch>
                 <StatsTabViewSwitch
                     isActive={activeTab === StatsViewType.HISTORICAL}
                     onClick={() => handleTabClick(StatsViewType.HISTORICAL)}
                 >
                     <ClockCircleOutlined />
-                    Historical Stats
+                    {t('statsSidebar.historicalStats')}
                 </StatsTabViewSwitch>
             </SwitchWrapper>
             <ActionContainer>{actionView}</ActionContainer>

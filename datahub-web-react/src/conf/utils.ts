@@ -7,11 +7,12 @@
          '/Validation/Assertions': '/Quality/List',
     }
  *  */
+import { Location } from 'history';
 
-export const getRedirectUrl = (newRoutes: { [key: string]: string }) => {
-    let newPathname = `${window.location.pathname}${window.location.search}`;
+export const getRedirectUrl = (newRoutes: { [key: string]: string }, location: Location) => {
+    let newPathname = `${location.pathname}`;
     if (!newRoutes) {
-        return newPathname;
+        return `${newPathname}${location.search}`;
     }
 
     // eslint-disable-next-line no-restricted-syntax
@@ -22,5 +23,5 @@ export const getRedirectUrl = (newRoutes: { [key: string]: string }) => {
         }
     }
 
-    return `${newPathname}${window.location.search}`;
+    return `${newPathname}${location.search}`;
 };

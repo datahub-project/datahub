@@ -1,19 +1,25 @@
-import { Button, Modal, Select, Tag, message } from 'antd';
+import { Modal } from '@components';
+import { Select, Tag, message } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
 import { getParentEntities } from '@app/searchV2/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
-import TermLabel from '@app/shared/TermLabel';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useAddRelatedTermsMutation } from '@graphql/glossaryTerm.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { EntityType, SearchResult, TermRelationshipType } from '@types';
+import { DataHubPageModuleType, EntityType, SearchResult, TermRelationshipType } from '@types';
 
 const StyledSelect = styled(Select)`
     width: 480px;
@@ -23,6 +29,7 @@ const SearchResultContainer = styled.div`
     display: flex;
     flex-direction: column;
     justify-content: center;
+    font-size: 12px;
 `;
 
 interface Props {
@@ -33,6 +40,9 @@ interface Props {
 function AddRelatedTermsModal(props: Props) {
     const { onClose, relationshipType } = props;
 
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
     const [inputValue, setInputValue] = useState('');
     const [selectedUrns, setSelectedUrns] = useState<any[]>([]);
     const [selectedTerms, setSelectedTerms] = useState<any[]>([]);
@@ -40,6 +50,8 @@ function AddRelatedTermsModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const { urn: entityDataUrn } = useEntityData();
     const refetch = useRefetch();
+    const { reloadByKeyType } = useReloadableContext();
+    const generateTermColor = useGenerateGlossaryColorFromPalette();
 
     const [AddRelatedTerms] = useAddRelatedTermsMutation();
 
@@ -55,16 +67,21 @@ function AddRelatedTermsModal(props: Props) {
         })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to move: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('glossaryTerm.moveError', { error: e.message || '' }), duration: 3 });
             })
             .finally(() => {
-                message.loading({ content: 'Adding...', duration: 2 });
+                message.loading({ content: t('glossaryTerm.adding'), duration: 2 });
                 setTimeout(() => {
                     message.success({
-                        content: 'Added Related Terms!',
+                        content: t('glossaryTerm.addedRelatedTermsSuccess'),
                         duration: 2,
                     });
                     refetch();
+                    // Reload modules
+                    // RelatedTerms - update related terms module on term summary tab
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.RelatedTerms),
+                    ]);
                 }, 2000);
             });
         onClose();
@@ -82,7 +99,11 @@ function AddRelatedTermsModal(props: Props) {
                 <Select.Option value={result.entity.urn} key={result.entity.urn} name={displayName}>
                     <SearchResultContainer>
                         <ParentEntities parentEntities={getParentEntities(result.entity) || []} />
-                        <TermLabel name={displayName} />
+                        <GlossaryTermPill
+                            name={displayName}
+                            color={generateTermColor(result.entity.urn)}
+                            variant="borderless"
+                        />
                     </SearchResultContainer>
                 </Select.Option>
             );
@@ -108,7 +129,19 @@ function AddRelatedTermsModal(props: Props) {
         const newUrns = [...selectedUrns, urn];
         setSelectedUrns(newUrns);
         const selectedSearchOption = tagSearchOptions.find((option) => option.props.value === urn);
-        setSelectedTerms([...selectedTerms, { urn, component: <TermLabel name={selectedSearchOption?.props.name} /> }]);
+        setSelectedTerms([
+            ...selectedTerms,
+            {
+                urn,
+                component: (
+                    <GlossaryTermPill
+                        name={selectedSearchOption?.props.name}
+                        color={generateTermColor(urn)}
+                        variant="borderless"
+                    />
+                ),
+            },
+        ]);
     };
 
     // When a Tag or term search result is deselected, remove the urn from the Owners
@@ -124,7 +157,13 @@ function AddRelatedTermsModal(props: Props) {
         setIsFocusedOnInput(false);
         const newUrns = [...selectedUrns, urn];
         setSelectedUrns(newUrns);
-        setSelectedTerms([...selectedTerms, { urn, component: <TermLabel name={displayName} /> }]);
+        setSelectedTerms([
+            ...selectedTerms,
+            {
+                urn,
+                component: <GlossaryTermPill name={displayName} color={generateTermColor(urn)} variant="borderless" />,
+            },
+        ]);
     }
 
     function clearInput() {
@@ -157,7 +196,7 @@ function AddRelatedTermsModal(props: Props) {
                     alignItems: 'center',
                     whiteSpace: 'nowrap',
                     opacity: 1,
-                    color: '#434343',
+                    color: theme.colors.text,
                     lineHeight: '16px',
                 }}
             >
@@ -170,26 +209,30 @@ function AddRelatedTermsModal(props: Props) {
 
     return (
         <Modal
-            title="Add Related Terms"
-            visible
+            title={t('glossaryTerm.addRelatedTermsTitle')}
+            open
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button type="primary" onClick={addTerms} disabled={!selectedUrns.length}>
-                        Add
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: tc('cancel'),
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: tc('add'),
+                    onClick: addTerms,
+                    variant: 'filled',
+                    disabled: !selectedUrns.length,
+                    buttonDataTestId: 'submit-button',
+                },
+            ]}
         >
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <StyledSelect
                     autoFocus
                     mode="multiple"
                     filterOption={false}
-                    placeholder="Search for Glossary Terms..."
+                    placeholder={t('glossaryTerm.searchForTermsPlaceholder')}
                     showSearch
                     defaultActiveFirstOption={false}
                     onSelect={(asset: any) => onSelectValue(asset)}
@@ -206,6 +249,7 @@ function AddRelatedTermsModal(props: Props) {
                     onFocus={() => setIsFocusedOnInput(true)}
                     onBlur={handleBlur}
                     dropdownStyle={isShowingGlossaryBrowser || !inputValue ? { display: 'none' } : {}}
+                    data-testid="related-terms-select"
                 >
                     {tagSearchOptions}
                 </StyledSelect>

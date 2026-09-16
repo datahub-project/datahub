@@ -1,0 +1,13 @@
+{
+    "graph.empty": "Tälle kohteelle ei ole toistaiseksi kerätty tilastoja.",
+    "graph.rowCount_one": "{{formattedCount}} rivi",
+    "graph.rowCount_other": "{{formattedCount}} riviä",
+    "graph.statName": "rivimäärä",
+    "graph.title": "Rivimäärä",
+    "percentile.high": "Korkea",
+    "percentile.low": "Matala",
+    "percentile.med": "Keski",
+    "upstream.directUpstreams": "Suorat ylävirran kohteet",
+    "upstream.indirectUpstreams": "Epäsuorat ylävirran kohteet",
+    "upstream.unhealthy": "Osa ylävirran kohteista ei ole kunnossa"
+}

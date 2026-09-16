@@ -1,15 +1,14 @@
-import { InputHTMLAttributes } from 'react';
+import React, { InputHTMLAttributes } from 'react';
 import { CSSProperties } from 'styled-components';
 
-import { IconNames } from '@components/components/Icon';
 import { ColorOptions, SizeOptions } from '@components/theme/config';
 
-export type SwitchLabelPosition = 'left' | 'top';
+export type SwitchLabelPosition = 'left' | 'top' | 'right';
 
 export interface SwitchProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
     label: string;
     labelPosition?: SwitchLabelPosition;
-    icon?: IconNames;
+    icon?: React.ComponentType<any>;
     colorScheme?: ColorOptions;
     size?: SizeOptions;
     isSquare?: boolean;

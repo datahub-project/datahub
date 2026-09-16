@@ -1,8 +1,22 @@
 ---
-description: Learn how to upload and use the DataHub Cloud Chrome extension (beta) locally before it's available on the Chrome store.
+description: Learn how to use the DataHub Cloud Chrome extension.
 ---
 
 # DataHub Cloud Chrome Extension
+
+## Supported Tools
+
+The DataHub Cloud Chrome extension currently supports the following platforms and entity types:
+
+- **Looker** - Dashboards and Explores
+- **Tableau** - Workbooks, Views, and Datasources
+- **PowerBI** - Dashboards and Reports
+- **BigQuery** - Datasets, Tables, Sharded Tables, and Partitioned Tables
+- **Databricks** - Catalogs, Databases, and Tables
+- **Mode Analytics** - Reports, Charts, Queries, and Datasets
+- **Superset/Preset** - Dashboards and Charts
+- **Hex** - Projects and Components
+- **Metabase** - Dashboards, Questions, and Models
 
 ## Installing the Extension
 
@@ -64,9 +78,9 @@ Once you have everything configured on your extension, it's time to use it!
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/extension_view_in_looker.png"/>
 </p>
 
-## Advanced: Self-Hosted DataHub
+## Advanced: DataHub Core
 
-If you are using the DataHub Cloud Chrome extension for your self-hosted DataHub instance, everything above is applicable. However, there is one additional step you must take in order to set up your instance to be compatible with the extension.
+If you are using the DataHub Cloud Chrome extension for your DataHub Core instance, everything above is applicable. However, there is one additional step you must take in order to set up your instance to be compatible with the extension.
 
 ### Configure Auth Cookies
 

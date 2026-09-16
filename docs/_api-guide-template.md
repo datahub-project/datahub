@@ -19,7 +19,7 @@ etc.
 
 ## Prerequisites
 
-For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. For detailed steps, please refer to [Datahub Quickstart Guide]<relative_link_to_quickstart_page>
+For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. For detailed steps, please refer to [DataHub Quickstart Guide]<relative_link_to_quickstart_page>
 
 <!-- If there's any specific setup required before starting the tutorial, list them here.
 For example, it can be installing a certain version of CLI, or some admonition like below.

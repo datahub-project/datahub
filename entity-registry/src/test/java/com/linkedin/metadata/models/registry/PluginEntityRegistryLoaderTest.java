@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
 import static com.linkedin.metadata.models.registry.TestConstants.*;
+import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.data.schema.ArrayDataSchema;
@@ -76,7 +77,7 @@ public class PluginEntityRegistryLoaderTest {
 
     MergedEntityRegistry configEntityRegistry = new MergedEntityRegistry(baseEntityRegistry);
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 60, null)
+        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 60, true, null)
             .withBaseRegistry(configEntityRegistry)
             .start(true);
     assertEquals(pluginEntityRegistryLoader.getPatchRegistries().size(), 1);
@@ -90,10 +91,42 @@ public class PluginEntityRegistryLoaderTest {
     assertEquals(loadResult.getLoadResult(), LoadStatus.FAILURE);
   }
 
-  private EntityRegistry getBaseEntityRegistry() {
+  @Test
+  public void testPluginEntityRegistryWillIgnoreFailure()
+      throws InterruptedException, EntityRegistryException {
+    boolean ignoreFailure = true;
+    PluginEntityRegistryLoader pluginEntityRegistryLoader =
+        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 60, ignoreFailure, null)
+            .withBaseRegistry(getFaultyEntityRegistry());
+
+    try {
+      // Start the loader but ignore any failure.
+      pluginEntityRegistryLoader.start(true);
+    } catch (Exception e) {
+      fail("Expected no exception, but got: " + e);
+    }
+  }
+
+  @Test
+  public void testPluginEntityRegistryNotIgnoreFailure()
+      throws InterruptedException, EntityRegistryException {
+    boolean ignoreFailure = false;
+    PluginEntityRegistryLoader pluginEntityRegistryLoader =
+        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 60, ignoreFailure, null)
+            .withBaseRegistry(getFaultyEntityRegistry());
+
+    try {
+      pluginEntityRegistryLoader.start(true);
+      fail("Expected Exception to be thrown");
+    } catch (Exception e) {
+      assertTrue(e instanceof RuntimeException);
+    }
+  }
+
+  private EntityRegistry getBaseEntityRegistry(boolean useOptimizedEntityLoading) {
     final AspectSpec keyAspectSpec =
         new AspectSpec(
-            new AspectAnnotation("datasetKey", false, false, null),
+            new AspectAnnotation("datasetKey", false, false, null, 1L),
             Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
@@ -101,8 +134,13 @@ public class PluginEntityRegistryLoaderTest {
             Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
-            (RecordDataSchema) DataSchemaFactory.getInstance().getAspectSchema("datasetKey").get(),
-            DataSchemaFactory.getInstance().getAspectClass("datasetKey").get());
+            (RecordDataSchema)
+                DataSchemaFactory.getInstance(useOptimizedEntityLoading)
+                    .getAspectSchema("datasetKey")
+                    .get(),
+            DataSchemaFactory.getInstance(useOptimizedEntityLoading)
+                .getAspectClass("datasetKey")
+                .get());
 
     final Map<String, EntitySpec> entitySpecMap = new HashMap<>(1);
     List<AspectSpec> aspectSpecList = new ArrayList<>(1);
@@ -111,7 +149,10 @@ public class PluginEntityRegistryLoaderTest {
         new DefaultEntitySpec(
             aspectSpecList,
             new EntityAnnotation("dataset", "datasetKey"),
-            (RecordDataSchema) DataSchemaFactory.getInstance().getEntitySchema("dataset").get());
+            (RecordDataSchema)
+                DataSchemaFactory.getInstance(useOptimizedEntityLoading)
+                    .getEntitySchema("dataset")
+                    .get());
 
     entitySpecMap.put("dataset", baseEntitySpec);
 
@@ -120,7 +161,10 @@ public class PluginEntityRegistryLoaderTest {
         new DefaultEventSpec(
             "testEvent",
             new EventAnnotation("testEvent"),
-            (RecordDataSchema) DataSchemaFactory.getInstance().getEventSchema("testEvent").get());
+            (RecordDataSchema)
+                DataSchemaFactory.getInstance(useOptimizedEntityLoading)
+                    .getEventSchema("testEvent")
+                    .get());
     eventSpecMap.put("testevent", baseEventSpec);
 
     EntityRegistry baseEntityRegistry =
@@ -167,12 +211,30 @@ public class PluginEntityRegistryLoaderTest {
     return baseEntityRegistry;
   }
 
+  private MergedEntityRegistry getFaultyEntityRegistry() throws EntityRegistryException {
+    MergedEntityRegistry mergedEntityRegistry = mock(MergedEntityRegistry.class);
+    when(mergedEntityRegistry.apply(any(EntityRegistry.class)))
+        .thenThrow(new RuntimeException("Error!"));
+    return mergedEntityRegistry;
+  }
+
   @Test
   public void testEntityRegistryWithGoodBase() throws FileNotFoundException, InterruptedException {
+    testEntityRegistryWithGoodBase_withParams(false);
+  }
 
-    MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(getBaseEntityRegistry());
+  @Test
+  public void testEntityRegistryWithGoodBase_optimizedEntityLoading()
+      throws FileNotFoundException, InterruptedException {
+    testEntityRegistryWithGoodBase_withParams(true);
+  }
+
+  public void testEntityRegistryWithGoodBase_withParams(boolean useOptimizedEntityLoading)
+      throws InterruptedException {
+    MergedEntityRegistry mergedEntityRegistry =
+        new MergedEntityRegistry(getBaseEntityRegistry(useOptimizedEntityLoading));
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(BASE_DIRECTORY, 60, null)
+        new PluginEntityRegistryLoader(BASE_DIRECTORY, 60, true, null)
             .withBaseRegistry(mergedEntityRegistry)
             .start(true);
     assertEquals(pluginEntityRegistryLoader.getPatchRegistries().size(), 1);
@@ -213,11 +275,22 @@ public class PluginEntityRegistryLoaderTest {
    * to load registries that represent unsafe evolutions.
    */
   public void testEntityRegistryVersioning() throws InterruptedException {
-    MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(getBaseEntityRegistry());
+    testEntityRegistryVersioningWithParams(false);
+  }
+
+  @Test
+  public void testEntityRegistryVersioning_optimised() throws InterruptedException {
+    testEntityRegistryVersioningWithParams(true);
+  }
+
+  public void testEntityRegistryVersioningWithParams(boolean useOptimizedEntityLoading)
+      throws InterruptedException {
+    MergedEntityRegistry mergedEntityRegistry =
+        new MergedEntityRegistry(getBaseEntityRegistry(useOptimizedEntityLoading));
     String multiversionPluginDir = "src/test_plugins/";
 
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(multiversionPluginDir, 60, null)
+        new PluginEntityRegistryLoader(multiversionPluginDir, 60, true, null)
             .withBaseRegistry(mergedEntityRegistry)
             .start(true);
     Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>>

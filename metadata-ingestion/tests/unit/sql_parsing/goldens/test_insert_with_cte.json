@@ -1,0 +1,72 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "195448498ded7a1b4df767cf0a5ec53e2fa4c7b011234bafe0a60ff9d7d11c1d",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,db.schema.source_table,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,db.schema.target_table,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,db.schema.target_table,PROD)",
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,db.schema.source_table,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[source_table].[id] AS [id]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,db.schema.target_table,PROD)",
+                "column": "name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,db.schema.source_table,PROD)",
+                    "column": "name"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[source_table].[name] AS [name]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,db.schema.target_table,PROD)",
+                "column": "value",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,db.schema.source_table,PROD)",
+                    "column": "value"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[source_table].[value] AS [value]"
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "WITH temp_cte AS (SELECT id AS id, name AS name, value AS value FROM db.schema.source_table) INSERT INTO db.schema.target_table (id, name, value) SELECT id, name, value FROM temp_cte"
+    }
+}

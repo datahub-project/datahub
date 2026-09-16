@@ -1,8 +1,9 @@
-import { BookOutlined } from '@ant-design/icons';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -10,18 +11,27 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
 import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
 
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
-
-const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean }>`
+const StyledTag = styled(Tag)<{ fontSize?: number; $highlightTerm?: boolean; $showOneAndCount?: boolean }>`
     &&& {
         ${(props) =>
-            props.highlightTerm &&
+            props.$highlightTerm &&
             `
-                background: ${props.theme.styles['highlight-color']};
-                border: 1px solid ${props.theme.styles['highlight-border-color']};
+                background: ${props.theme.colors.bgSurfaceBrand};
+                border: 1px solid ${props.theme.colors.borderBrand};
             `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
+    color: ${(props) => props.theme.colors.textSecondary};
+    font-weight: 400;
+    ${(props) =>
+        props.$showOneAndCount &&
+        `
+            width: 100%;
+            max-width: max-content;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        `}
 `;
 
 interface Props {
@@ -34,6 +44,7 @@ interface Props {
     fontSize?: number;
     onOpenModal?: () => void;
     refetch?: () => Promise<any>;
+    showOneAndCount?: boolean;
 }
 
 export default function TermContent({
@@ -46,7 +57,12 @@ export default function TermContent({
     fontSize,
     onOpenModal,
     refetch,
+    showOneAndCount,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const entityRegistry = useEntityRegistry();
     const [removeTermMutation] = useRemoveTermMutation();
     const highlightTerm = useHasMatchedFieldByUrn(term.term.urn, 'glossaryTerms');
@@ -55,8 +71,8 @@ export default function TermContent({
         onOpenModal?.();
         const termName = termToRemove && entityRegistry.getDisplayName(termToRemove.term.type, termToRemove.term);
         Modal.confirm({
-            title: `Do you want to remove ${termName} term?`,
-            content: `Are you sure you want to remove the ${termName} term?`,
+            title: t('removeTermConfirmTitle', { name: termName }),
+            content: t('removeTermConfirmContent', { name: termName }),
             onOk() {
                 if (termToRemove.associatedUrn || entityUrn) {
                     removeTermMutation({
@@ -71,18 +87,18 @@ export default function TermContent({
                     })
                         .then(({ errors }) => {
                             if (!errors) {
-                                message.success({ content: 'Removed Term!', duration: 2 });
+                                message.success({ content: t('removeTermSuccess'), duration: 2 });
                             }
                         })
                         .then(refetch)
                         .catch((e) => {
                             message.destroy();
-                            message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
+                            message.error({ content: t('removeTermError', { error: e.message || '' }), duration: 3 });
                         });
                 }
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });
@@ -97,9 +113,12 @@ export default function TermContent({
                 removeTerm(term);
             }}
             fontSize={fontSize}
-            highlightTerm={highlightTerm}
+            $highlightTerm={highlightTerm}
+            $showOneAndCount={showOneAndCount}
         >
-            <BookOutlined style={{ marginRight: '4px' }} />
+            <BookmarkSimple
+                style={{ fill: theme.colors.icon, marginRight: '4px', marginBottom: 4, verticalAlign: 'middle' }}
+            />
             <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>
                 {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
             </Highlight>

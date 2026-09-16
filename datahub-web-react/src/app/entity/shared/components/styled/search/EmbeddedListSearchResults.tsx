@@ -1,22 +1,25 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
+import { Text } from '@components';
 import { Button, Pagination, Spin, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import { Trans, useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router';
+import styled, { useTheme } from 'styled-components';
 
 import {
     EntityActionProps,
     EntitySearchResults,
 } from '@app/entity/shared/components/styled/search/EntitySearchResults';
 import MatchingViewsLabel from '@app/entity/shared/components/styled/search/MatchingViewsLabel';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityAndType } from '@app/entity/shared/types';
 import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
 import { combineSiblingsInSearchResults } from '@app/search/utils/combineSiblingsInSearchResults';
 import { UnionType } from '@app/search/utils/constants';
+import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
 
-import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
+import { Dataset, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
 
 const SearchBody = styled.div`
     height: 100%;
@@ -35,7 +38,7 @@ const FiltersContainer = styled.div`
     max-width: 260px;
     min-width: 260px;
     border-right: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 const ResultContainer = styled.div`
@@ -48,7 +51,7 @@ const PaginationInfoContainer = styled.span`
     padding: 8px;
     padding-left: 16px;
     border-top: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -69,7 +72,7 @@ const LoadingContainer = styled.div`
 
 const StyledLoading = styled(LoadingOutlined)`
     font-size: 32px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding-bottom: 18px;
 ]`;
 
@@ -80,6 +83,17 @@ const ErrorMessage = styled.div`
     width: 100%;
     text-align: center;
     flex: 1;
+`;
+
+const WarningMessage = styled.div`
+    gap: 8px;
+    padding: 8px;
+    display: flex;
+    margin: 8px 16px 0 16px
+    align-items: center;
+    color: ${(props) => props.theme.colors.textWarning};
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
+    border-radius: 8px;
 `;
 
 const StyledLinkButton = styled(Button)`
@@ -110,7 +124,13 @@ interface Props {
     onClickLessHops?: () => void;
     onLineageClick?: () => void;
     isLineageTab?: boolean;
+    isViewAllMode?: boolean | false;
+    handleViewAllClickWarning?: () => void;
 }
+
+const getPlatformUrnFromSearchResponse = (searchResponse: SearchResultType | null | undefined) => {
+    return searchResponse?.facets?.find((facet) => facet.field === 'platform')?.aggregations?.[0]?.value;
+};
 
 export const EmbeddedListSearchResults = ({
     page,
@@ -135,7 +155,12 @@ export const EmbeddedListSearchResults = ({
     onClickLessHops,
     onLineageClick,
     isLineageTab = false,
+    isViewAllMode = false,
+    handleViewAllClickWarning,
 }: Props) => {
+    const { t } = useTranslation('entityV1.shared.components');
+    const theme = useTheme();
+    const history = useHistory();
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(
         showSeparateSiblings,
@@ -146,6 +171,28 @@ export const EmbeddedListSearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
+
+    const platformUrn = getPlatformUrnFromSearchResponse(searchResponse);
+    let platform: string | null = null;
+    try {
+        platform = (combinedSiblingSearchResults?.[0]?.entity as Dataset).platform?.name;
+    } catch (error) {
+        console.error('Error getting platform from search response', error);
+    }
+
+    const handleSearchAllAssetsClick = () => {
+        handleViewAllClickWarning?.();
+        if (platformUrn) {
+            const platformFilter: FacetFilterInput = {
+                field: 'platform',
+                values: [platformUrn],
+            };
+            navigateToSearchUrl({
+                filters: [platformFilter],
+                history,
+            });
+        }
+    };
 
     return (
         <>
@@ -170,15 +217,39 @@ export const EmbeddedListSearchResults = ({
                     )}
                     {isLineageTab && !loading && isServerOverloadError && (
                         <ErrorMessage>
-                            Data is too large. Please use
-                            <StyledLinkButton onClick={onLineageClick} type="link">
-                                visualize lineage
-                            </StyledLinkButton>
-                            or see less hops by clicking
-                            <StyledLinkButton onClick={onClickLessHops} type="link">
-                                here
-                            </StyledLinkButton>
+                            <Trans
+                                t={t}
+                                i18nKey="lineage.serverOverloadError"
+                                components={{
+                                    lineageLink: <StyledLinkButton onClick={onLineageClick} type="link" />,
+                                    hopsLink: <StyledLinkButton onClick={onClickLessHops} type="link" />,
+                                }}
+                            />
                         </ErrorMessage>
+                    )}
+                    {isViewAllMode && (
+                        <WarningMessage>
+                            <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
+                            <Text weight="bold" style={{ lineHeight: 'normal' }}>
+                                {t('viewAll.resultsIncomplete')}{' '}
+                                {platform && (
+                                    <span
+                                        onClick={handleSearchAllAssetsClick}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                handleSearchAllAssetsClick();
+                                            }
+                                        }}
+                                        role="button"
+                                        tabIndex={0}
+                                        style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                                    >
+                                        {t('viewAll.searchAllAssets', { platform })}
+                                    </span>
+                                )}
+                            </Text>
+                        </WarningMessage>
                     )}
                     {!loading && !isServerOverloadError && (
                         <EntitySearchResults
@@ -204,10 +275,16 @@ export const EmbeddedListSearchResults = ({
             </SearchBody>
             <PaginationInfoContainer>
                 <PaginationInfo>
-                    <b>
-                        {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                    </b>{' '}
-                    of <b>{totalResults}</b>
+                    <Trans
+                        t={t}
+                        i18nKey="pagination.range"
+                        components={{ bold: <b /> }}
+                        values={{
+                            start: lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0,
+                            end: lastResultIndex,
+                            total: totalResults,
+                        }}
+                    />
                 </PaginationInfo>
                 <StyledPagination
                     current={page}
@@ -217,7 +294,7 @@ export const EmbeddedListSearchResults = ({
                     onChange={onChangePage}
                     showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
                     onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
-                    pageSizeOptions={['10', '20', '50', '100']}
+                    pageSizeOptions={['10', '20', '30']}
                 />
                 {applyView ? <MatchingViewsLabel /> : <span />}
             </PaginationInfoContainer>

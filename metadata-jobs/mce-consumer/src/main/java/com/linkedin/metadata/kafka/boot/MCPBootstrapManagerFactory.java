@@ -6,6 +6,7 @@ import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
+import com.linkedin.metadata.config.BootstrapConfigurationSupport;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -16,6 +17,10 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
+/**
+ * MCP consumer bootstrap — {@link WaitForSystemUpdateStep} blocks on the transport-neutral {@code
+ * dataHubUpgradeKafkaListener} bean (Kafka or pgQueue).
+ */
 @Configuration
 @Conditional(MetadataChangeProposalProcessorCondition.class)
 public class MCPBootstrapManagerFactory {
@@ -30,11 +35,13 @@ public class MCPBootstrapManagerFactory {
   @Scope("singleton")
   @Nonnull
   protected BootstrapManager createInstance() {
+    final int asyncWorkerThreads =
+        BootstrapConfigurationSupport.requireAsyncWorkerThreads(_configurationProvider);
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
 
     final List<BootstrapStep> finalSteps = ImmutableList.of(waitForSystemUpdateStep);
 
-    return new BootstrapManager(finalSteps);
+    return new BootstrapManager(finalSteps, asyncWorkerThreads);
   }
 }

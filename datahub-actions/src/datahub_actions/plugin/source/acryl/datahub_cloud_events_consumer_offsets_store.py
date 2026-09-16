@@ -46,11 +46,11 @@ class EventConsumerState(BaseModel):
             return cls()
 
     def to_blob(self) -> bytes:
-        return self.json().encode()
+        return self.model_dump_json().encode()
 
     @staticmethod
     def from_blob(blob: bytes) -> "EventConsumerState":
-        return EventConsumerState.parse_raw(blob.decode())
+        return EventConsumerState.model_validate_json(blob.decode())
 
 
 class DataHubEventsConsumerPlatformResourceOffsetsStore:

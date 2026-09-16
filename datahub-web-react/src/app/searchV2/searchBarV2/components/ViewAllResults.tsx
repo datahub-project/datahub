@@ -1,14 +1,17 @@
-import { ArrowElbowDownLeft, MagnifyingGlass } from '@phosphor-icons/react';
+import { ArrowElbowDownLeft } from '@phosphor-icons/react/dist/csr/ArrowElbowDownLeft';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import KeyIcon from '@app/searchV2/searchBarV2/components/KeyIcon';
-import { Text, colors } from '@src/alchemy-components';
+import { Text } from '@src/alchemy-components';
 
 const LeftInternalContainer = styled.span`
     display: flex;
     align-items: center;
     gap: 8px;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const Container = styled.div`
@@ -20,18 +23,23 @@ const Container = styled.div`
 
 interface Props {
     searchText?: string;
+    dataTestId?: string;
 }
 
-export default function ViewAllResults({ searchText }: Props) {
+export default function ViewAllResults({ searchText, dataTestId }: Props) {
+    const { t } = useTranslation('search');
+
     return (
-        <Container>
+        <Container data-testid={dataTestId}>
             <LeftInternalContainer>
-                <MagnifyingGlass size={16} color={colors.gray[500]} />
-                <Text color="gray">
-                    View all results for&nbsp;
-                    <Text type="span" color="gray" weight="semiBold">
-                        {searchText}
-                    </Text>
+                <MagnifyingGlass size={16} />
+                <Text>
+                    <Trans
+                        t={t}
+                        i18nKey="searchBar.viewAllResults"
+                        values={{ query: searchText }}
+                        components={{ bold: <Text type="span" weight="semiBold" /> }}
+                    />
                 </Text>
             </LeftInternalContainer>
             <KeyIcon icon={ArrowElbowDownLeft} />

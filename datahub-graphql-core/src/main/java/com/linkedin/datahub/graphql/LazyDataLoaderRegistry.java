@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql;
 
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,6 +20,7 @@ import org.dataloader.DataLoaderRegistry;
 public class LazyDataLoaderRegistry extends DataLoaderRegistry {
   private final QueryContext queryContext;
   private final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers;
+  private volatile Context otelContext = null;
 
   public LazyDataLoaderRegistry(
       QueryContext queryContext,
@@ -25,6 +28,16 @@ public class LazyDataLoaderRegistry extends DataLoaderRegistry {
     super();
     this.queryContext = queryContext;
     this.dataLoaderSuppliers = new ConcurrentHashMap<>(dataLoaderSuppliers);
+  }
+
+  /**
+   * Called by {@link
+   * com.linkedin.datahub.graphql.instrumentation.OtelContextCaptureInstrumentation} at the start of
+   * each GraphQL execution, once the OTel operation span is active. Stores the OTel {@link Context}
+   * (not the DataHub {@code OperationContext}) so that DataLoader creation can re-activate it.
+   */
+  public void setOtelContext(Context ctx) {
+    this.otelContext = ctx;
   }
 
   @Override
@@ -35,6 +48,14 @@ public class LazyDataLoaderRegistry extends DataLoaderRegistry {
           Function<QueryContext, DataLoader<?, ?>> supplier = dataLoaderSuppliers.get(key);
           if (supplier == null) {
             throw new IllegalArgumentException("No DataLoader registered for key: " + key);
+          }
+          // Make the OTel operation context current while the DataLoader is created so that
+          // createDataLoader can capture it via Context.current() for batch span parenting.
+          Context ctx = otelContext;
+          if (ctx != null) {
+            try (Scope ignored = ctx.makeCurrent()) {
+              return supplier.apply(queryContext);
+            }
           }
           return supplier.apply(queryContext);
         });

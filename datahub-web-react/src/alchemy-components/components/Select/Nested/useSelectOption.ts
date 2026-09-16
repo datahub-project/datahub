@@ -8,11 +8,13 @@ interface Props<OptionType extends NestedSelectOption> {
     children: OptionType[];
     selectableChildren: OptionType[];
     implicitlySelectChildren: boolean;
+    selectChildrenWithParent: boolean;
     areParentsSelectable: boolean;
     addOptions: (nodes: OptionType[]) => void;
     removeOptions: (nodes: OptionType[]) => void;
     setSelectedOptions: React.Dispatch<React.SetStateAction<OptionType[]>>;
     handleOptionChange: (node: OptionType) => void;
+    isMultiSelect: boolean;
 }
 
 export default function useNestedOption<OptionType extends NestedSelectOption>({
@@ -22,10 +24,12 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
     selectableChildren,
     areParentsSelectable,
     implicitlySelectChildren,
+    selectChildrenWithParent,
     addOptions,
     removeOptions,
     setSelectedOptions,
     handleOptionChange,
+    isMultiSelect,
 }: Props<OptionType>) {
     const parentChildren = useMemo(() => children.filter((c) => c.isParent), [children]);
 
@@ -74,16 +78,18 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
 
     const isPartialSelected = useMemo(
         () =>
-            (!areAllChildrenSelected && areAnyChildrenSelected) ||
-            (isSelected && isParentMissingChildren) ||
-            (isSelected && areAnyUnselectableChildrenUnexpanded) ||
-            (areAnyUnselectableChildrenUnexpanded && areAnyChildrenSelected) ||
-            (isSelected && !!children.length && !areAnyChildrenSelected) ||
-            (!isSelected &&
-                areAllChildrenSelected &&
-                !isParentMissingChildren &&
-                option.isParent &&
-                areParentsSelectable),
+            areParentsSelectable && !isMultiSelect
+                ? false
+                : (!areAllChildrenSelected && areAnyChildrenSelected) ||
+                  (isSelected && isParentMissingChildren) ||
+                  (isSelected && areAnyUnselectableChildrenUnexpanded) ||
+                  (areAnyUnselectableChildrenUnexpanded && areAnyChildrenSelected) ||
+                  (isSelected && !!children.length && !areAnyChildrenSelected) ||
+                  (!isSelected &&
+                      areAllChildrenSelected &&
+                      !isParentMissingChildren &&
+                      option.isParent &&
+                      areParentsSelectable),
         [
             isSelected,
             children,
@@ -93,6 +99,7 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
             areAnyUnselectableChildrenUnexpanded,
             isParentMissingChildren,
             areParentsSelectable,
+            isMultiSelect,
         ],
     );
 
@@ -115,12 +122,25 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
     const selectOption = () => {
         if (areParentsSelectable && option.isParent && implicitlySelectChildren) {
             selectChildrenImplicitly();
+        } else if (isSelected && option.isParent && !selectChildrenWithParent) {
+            // When selectChildrenWithParent is false, deselect only the parent (children stay selected)
+            removeOptions([option]);
         } else if (isPartialSelected || (!isSelected && !areAnyChildrenSelected)) {
-            const optionsToAdd =
-                option.isParent && !areParentsSelectable ? selectableChildren : [option, ...selectableChildren];
-
-            addOptions(optionsToAdd);
-        } else if (areAllChildrenSelected) {
+            if (!isMultiSelect) {
+                // Single select: use handleOptionChange to ensure closeDropdown is called
+                handleOptionChange(option);
+            } else {
+                let optionsToAdd: OptionType[];
+                if (option.isParent && !areParentsSelectable) {
+                    optionsToAdd = selectableChildren;
+                } else if (selectChildrenWithParent) {
+                    optionsToAdd = [option, ...selectableChildren];
+                } else {
+                    optionsToAdd = [option];
+                }
+                addOptions(optionsToAdd);
+            }
+        } else if (selectChildrenWithParent && areAllChildrenSelected) {
             removeOptions([option, ...selectableChildren]);
         } else {
             handleOptionChange(option);

@@ -5,16 +5,24 @@ import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 
-@Data
 @Slf4j
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class CustomConfiguration {
   private boolean enabled;
   private String file;
+  private String searchFieldConfigDefault;
+  private String autoCompleteFieldConfigDefault;
 
   /**
    * Materialize the search configuration from a location external to main application.yaml

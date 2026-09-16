@@ -9,35 +9,36 @@ public class ExceptionUtils {
   private ExceptionUtils() {}
 
   public static ValidationExceptionCollection collectMetrics(
-      final ValidationExceptionCollection exceptions) {
-    exceptions
-        .streamAllExceptions()
-        .forEach(
-            exception -> {
-              String subTypeBaseName =
-                  String.join(
-                      DELIMITER, BASE_NAME, exception.getSubType().toString().toLowerCase());
-              // subtype count
-              MetricUtils.counter(subTypeBaseName).inc(exceptions.size());
-              // Change type count
-              MetricUtils.counter(
-                      String.join(
-                          DELIMITER,
-                          subTypeBaseName,
-                          exception.getChangeType().toString().toLowerCase()))
-                  .inc();
-              // Entity count
-              MetricUtils.counter(
-                      String.join(
-                          DELIMITER,
-                          subTypeBaseName,
-                          exception.getEntityUrn().getEntityType().toLowerCase()))
-                  .inc();
-              // Aspect count
-              MetricUtils.counter(
-                      String.join(DELIMITER, subTypeBaseName, exception.getAspectName()))
-                  .inc();
-            });
+      MetricUtils metricUtils, final ValidationExceptionCollection exceptions) {
+    if (metricUtils != null) {
+      exceptions
+          .streamAllExceptions()
+          .forEach(
+              exception -> {
+                String subTypeBaseName =
+                    String.join(
+                        DELIMITER, BASE_NAME, exception.getSubType().toString().toLowerCase());
+                // subtype count
+                metricUtils.increment(subTypeBaseName, exceptions.size());
+                // Change type count
+                metricUtils.increment(
+                    String.join(
+                        DELIMITER,
+                        subTypeBaseName,
+                        exception.getChangeType().toString().toLowerCase()),
+                    1);
+                // Entity count
+                metricUtils.increment(
+                    String.join(
+                        DELIMITER,
+                        subTypeBaseName,
+                        exception.getEntityUrn().getEntityType().toLowerCase()),
+                    1);
+                // Aspect count
+                metricUtils.increment(
+                    String.join(DELIMITER, subTypeBaseName, exception.getAspectName()), 1);
+              });
+    }
     return exceptions;
   }
 }

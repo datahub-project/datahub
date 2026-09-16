@@ -20,11 +20,11 @@ def test_config_enum():
     assert Fruit.ORANGE.value == "ORANGE"
 
     # Check that config loading works.
-    assert FruitConfig.parse_obj({}).fruit == Fruit.APPLE
-    assert FruitConfig.parse_obj({"fruit": "PEAR"}).fruit == Fruit.PEAR
-    assert FruitConfig.parse_obj({"fruit": "pear"}).fruit == Fruit.PEAR
-    assert FruitConfig.parse_obj({"fruit": "Orange"}).fruit == Fruit.ORANGE
+    assert FruitConfig.model_validate({}).fruit == Fruit.APPLE
+    assert FruitConfig.model_validate({"fruit": "PEAR"}).fruit == Fruit.PEAR
+    assert FruitConfig.model_validate({"fruit": "pear"}).fruit == Fruit.PEAR
+    assert FruitConfig.model_validate({"fruit": "Orange"}).fruit == Fruit.ORANGE
 
     # Check that errors are thrown.
     with pytest.raises(pydantic.ValidationError):
-        FruitConfig.parse_obj({"fruit": "banana"})
+        FruitConfig.model_validate({"fruit": "banana"})

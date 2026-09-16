@@ -6,7 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.IngestProposalExceptionUtils;
 import com.linkedin.datahub.graphql.generated.BatchSetDataProductInput;
 import com.linkedin.metadata.service.DataProductService;
 import graphql.schema.DataFetcher;
@@ -34,22 +34,24 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          verifyResources(resources, context);
-          verifyDataProduct(maybeDataProductUrn, context);
-
           try {
             List<Urn> resourceUrns =
                 resources.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
             if (maybeDataProductUrn != null) {
+              DataProductResolverUtils.verifyProductSideMembershipChange(
+                  maybeDataProductUrn, context, _dataProductService);
+              DataProductResolverUtils.verifyResourcesExist(
+                  resources, context, _dataProductService);
               batchSetDataProduct(maybeDataProductUrn, resourceUrns, context);
             } else {
+              DataProductResolverUtils.verifyResources(resources, context, _dataProductService);
               batchUnsetDataProduct(resourceUrns, context);
             }
             return true;
           } catch (Exception e) {
             log.error(
                 "Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-            throw new RuntimeException(
+            throw IngestProposalExceptionUtils.toGraphQLException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
         },
@@ -57,66 +59,35 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
         "get");
   }
 
-  private void verifyResources(List<String> resources, QueryContext context) {
-    for (String resource : resources) {
-      if (!_dataProductService.verifyEntityExists(
-          context.getOperationContext(), UrnUtils.getUrn(resource))) {
-        throw new RuntimeException(
-            String.format(
-                "Failed to batch set Data Product, %s in resources does not exist", resource));
-      }
-      Urn resourceUrn = UrnUtils.getUrn(resource);
-      if (!DataProductAuthorizationUtils.isAuthorizedToUpdateDataProductsForEntity(
-          context, resourceUrn)) {
-        throw new AuthorizationException(
-            "Unauthorized to perform this action. Please contact your DataHub administrator.");
-      }
-    }
-  }
-
-  private void verifyDataProduct(String maybeDataProductUrn, QueryContext context) {
-    if (maybeDataProductUrn != null
-        && !_dataProductService.verifyEntityExists(
-            context.getOperationContext(), UrnUtils.getUrn(maybeDataProductUrn))) {
-      throw new RuntimeException(
-          String.format(
-              "Failed to batch set Data Product, Data Product urn %s does not exist",
-              maybeDataProductUrn));
-    }
-  }
-
   private void batchSetDataProduct(
-      @Nonnull String dataProductUrn, List<Urn> resources, QueryContext context) {
+      @Nonnull final String dataProductUrn,
+      @Nonnull final List<Urn> resourceUrns,
+      @Nonnull final QueryContext context) {
     log.debug(
         "Batch setting Data Product. dataProduct urn: {}, resources: {}",
         dataProductUrn,
-        resources);
+        resourceUrns);
     try {
       _dataProductService.batchSetDataProduct(
-          context.getOperationContext(),
-          UrnUtils.getUrn(dataProductUrn),
-          resources,
-          UrnUtils.getUrn(context.getActorUrn()));
+          context.getOperationContext(), UrnUtils.getUrn(dataProductUrn), resourceUrns);
     } catch (Exception e) {
-      throw new RuntimeException(
+      throw IngestProposalExceptionUtils.toGraphQLException(
           String.format(
               "Failed to batch set Data Product %s to resources with urns %s!",
-              dataProductUrn, resources),
+              dataProductUrn, resourceUrns),
           e);
     }
   }
 
-  private void batchUnsetDataProduct(List<Urn> resources, QueryContext context) {
-    log.debug("Batch unsetting Data Product. resources: {}", resources);
+  private void batchUnsetDataProduct(
+      @Nonnull final List<Urn> resourceUrns, @Nonnull final QueryContext context) {
+    log.debug("Batch unsetting Data Product. resources: {}", resourceUrns);
     try {
-      for (Urn resource : resources) {
-        _dataProductService.unsetDataProduct(
-            context.getOperationContext(), resource, UrnUtils.getUrn(context.getActorUrn()));
-      }
+      _dataProductService.batchUnsetDataProduct(context.getOperationContext(), resourceUrns);
     } catch (Exception e) {
-      throw new RuntimeException(
+      throw IngestProposalExceptionUtils.toGraphQLException(
           String.format(
-              "Failed to batch unset data product for resources with urns %s!", resources),
+              "Failed to batch unset data product for resources with urns %s!", resourceUrns),
           e);
     }
   }

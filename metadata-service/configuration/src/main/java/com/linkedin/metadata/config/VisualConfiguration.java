@@ -31,4 +31,7 @@ public class VisualConfiguration {
 
   /** Boolean flag enabled shows the full title of an entity in lineage view by default */
   public boolean showFullTitleInLineage;
+
+  /** DEPRECATED: This is now controlled via the UI settings. */
+  public ApplicationConfig application;
 }

@@ -96,6 +96,22 @@ export enum EntityCapabilityType {
      * Lineage information of an entity
      */
     LINEAGE,
+    /**
+     * Assigning the entity to an application
+     */
+    APPLICATIONS,
+    /**
+     * Related context documents for this entity
+     */
+    RELATED_DOCUMENTS,
+    /**
+     * Adding a business attribute to the entity
+     */
+    BUSINESS_ATTRIBUTES,
+    /**
+     * Forms associated with an entity
+     */
+    FORMS,
 }
 
 export interface EntityMenuActions {

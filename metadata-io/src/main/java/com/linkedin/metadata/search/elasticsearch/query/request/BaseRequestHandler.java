@@ -3,10 +3,10 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import com.google.common.annotations.VisibleForTesting;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
-import java.util.Objects;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 
 public abstract class BaseRequestHandler {
@@ -25,44 +25,51 @@ public abstract class BaseRequestHandler {
 
   @VisibleForTesting
   public HighlightBuilder getDefaultHighlights(@Nonnull OperationContext opContext) {
-    return getHighlights(opContext, null);
+    return buildHighlightsWithSelectiveExpansion(opContext, getDefaultQueryFieldNames(), Set.of());
   }
 
+  /**
+   * Build highlights with selective field expansion. Only applies expansion to fields that were not
+   * explicitly configured.
+   */
   @VisibleForTesting
-  public HighlightBuilder getHighlights(
-      @Nonnull OperationContext opContext, @Nullable Collection<String> fieldsToHighlight) {
+  protected HighlightBuilder buildHighlightsWithSelectiveExpansion(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> fieldsToHighlight,
+      @Nonnull Set<String> explicitlyConfiguredFields) {
+
     HighlightBuilder highlightBuilder =
-        new HighlightBuilder()
-            // Don't set tags to get the original field value
-            .preTags("")
-            .postTags("")
-            .numOfFragments(1);
+        new HighlightBuilder().preTags("").postTags("").numOfFragments(1);
 
-    final Stream<String> fieldStream;
-    if (fieldsToHighlight == null || fieldsToHighlight.isEmpty()) {
-      fieldStream = getDefaultQueryFieldNames().stream();
-    } else {
-      // filter for valid names
-      fieldStream =
-          fieldsToHighlight.stream()
-              .filter(Objects::nonNull)
-              .filter(fieldName -> !fieldName.isEmpty())
-              .filter(getValidQueryFieldNames()::contains);
+    Set<String> addedFields = new HashSet<>();
+
+    for (String fieldName : fieldsToHighlight) {
+      if (explicitlyConfiguredFields.contains(fieldName)) {
+        // Field was explicitly configured - add as-is without expansion
+        if (addedFields.add(fieldName)) {
+          HighlightBuilder.Field field = new HighlightBuilder.Field(fieldName);
+          if (fieldName.endsWith("ngram")) {
+            field.requireFieldMatch(false).noMatchSize(200);
+          }
+          highlightBuilder.field(field);
+        }
+      } else {
+        // Field was not explicitly configured - apply expansion
+        highlightFieldExpansion(opContext, fieldName)
+            .distinct()
+            .filter(addedFields::add)
+            .map(HighlightBuilder.Field::new)
+            .map(
+                field -> {
+                  if (field.name().endsWith("ngram")) {
+                    return field.requireFieldMatch(false).noMatchSize(200);
+                  } else {
+                    return field;
+                  }
+                })
+            .forEach(highlightBuilder::field);
+      }
     }
-
-    fieldStream
-        .flatMap(fieldName -> highlightFieldExpansion(opContext, fieldName))
-        .distinct()
-        .map(HighlightBuilder.Field::new)
-        .map(
-            field -> {
-              if (field.name().endsWith("ngram")) {
-                return field.requireFieldMatch(false).noMatchSize(200);
-              } else {
-                return field;
-              }
-            })
-        .forEach(highlightBuilder::field);
 
     return highlightBuilder;
   }

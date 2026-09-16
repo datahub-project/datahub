@@ -5,9 +5,9 @@ import static org.testng.Assert.assertNotNull;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.systemmetadata.SystemMetadataServiceTestBase;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import org.jetbrains.annotations.NotNull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.testng.annotations.Test;
@@ -15,13 +15,13 @@ import org.testng.annotations.Test;
 @Import({OpenSearchSuite.class, SearchTestContainerConfiguration.class})
 public class SystemMetadataServiceOpenSearchTest extends SystemMetadataServiceTestBase {
 
-  @Autowired private RestHighLevelClient _searchClient;
+  @Autowired private SearchClientShim<?> _searchClient;
   @Autowired private ESBulkProcessor _bulkProcessor;
   @Autowired private ESIndexBuilder _esIndexBuilder;
 
   @NotNull
   @Override
-  protected RestHighLevelClient getSearchClient() {
+  protected SearchClientShim<?> getSearchClient() {
     return _searchClient;
   }
 

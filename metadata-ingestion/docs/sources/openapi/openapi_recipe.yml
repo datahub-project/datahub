@@ -1,28 +1,9 @@
 source:
   type: openapi
   config:
-    name: test_endpoint # this name will appear in DatHub
-    url: https://test_endpoint.com/
-    swagger_file: classicapi/doc/swagger.json  # where to search for the OpenApi definitions
-
-    # option 1: bearer token
-    bearer_token: "<token>"
-
-    # option 2: dynamically generated tokens, username/password is mandetory
-    get_token:
-        request_type: get
-        url_complement: api/authentication/login?username={username}&password={password}
-    username: your_username
-    password: your_password
-
-    # option 3: using basic auth
-    username: your_username
-    password: your_password
-
-    forced_examples:  # optionals
-      /accounts/groupname/{name}: ['test']
-      /accounts/username/{name}: ['test']
-    ignore_endpoints: [/ignore/this, /ignore/that, /also/that_other]  # optional, the endpoints to ignore
+    name: my_api
+    url: https://api.example.com
+    swagger_file: openapi.json
 
 sink:
   type: "datahub-rest"

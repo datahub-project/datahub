@@ -1,0 +1,53 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "ece257330e1587749d4c50d951ba0215a631d615439959fb53ca484389a69e7e",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.my_dict,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "col_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
+                    "column": "col_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"events\".\"col_id\" AS \"col_id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "dict_type",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
+                    "column": "col_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "DICTGET('default.my_dict', 'type', \"events\".\"col_id\") AS \"dict_type\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT col_id, DICTGET({?: }, {?: }, col_id) AS dict_type FROM db1.events"
+    }
+}

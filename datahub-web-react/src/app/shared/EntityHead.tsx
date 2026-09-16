@@ -1,11 +1,13 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 export const EntityHead = () => {
+    const { t } = useTranslation('shared.misc');
     const entityRegistry = useEntityRegistry();
     const { entityType, entityData } = useEntityData();
 
@@ -19,9 +21,7 @@ export const EntityHead = () => {
 
     return (
         <Helmet>
-            <title>
-                {entityDisplayName} | {type}
-            </title>
+            <title>{t('entityHead.pageTitle', { entityDisplayName, type })}</title>
         </Helmet>
     );
 };

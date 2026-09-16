@@ -1,0 +1,26 @@
+# metadata-ingestion/examples/library/corpuser_update_profile.py
+
+from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationConfig
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+
+# Update a user's editable profile information
+user = CorpUser(
+    id="jdoe",
+    email="jdoe@company.com",
+    description="Passionate about data quality and building reliable data pipelines. "
+    "10+ years of experience in data engineering.",
+    slack="@jdoe",
+    phone="+1-555-0123",
+    picture_link="https://company.com/photos/jdoe.jpg",
+)
+
+# Create graph client
+datahub_graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
+
+# Emit with override_editable=True to update editable fields
+for event in user.generate_mcp(
+    generation_config=CorpUserGenerationConfig(override_editable=True)
+):
+    datahub_graph.emit(event)
+
+print(f"Updated profile for user {user.urn}")

@@ -1,26 +1,38 @@
 import '@src/App.less';
 import '@src/AppV2.less';
 
-import { ApolloClient, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
+import { ApolloClient, ApolloLink, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import Cookies from 'js-cookie';
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
 
+import { GlobalStyles } from '@components/components/GlobalStyles';
+import { ToastRenderer } from '@components/components/Toast';
+
 import { Routes } from '@app/Routes';
+import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
+import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
+import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
 import { ErrorCodes } from '@app/shared/constants';
+import { loadIsDarkMode } from '@app/theme/useIsDarkMode';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
+import { buildGraphqlHttpUri } from '@src/graphqlHttpUri';
+import { otelOperationLink } from '@src/otelApollo';
 import possibleTypesResult from '@src/possibleTypes.generated';
+import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
 
 /*
     Construct Apollo Client
 */
-const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
+const httpLink = createHttpLink({
+    uri: ({ operationName }) => buildGraphqlHttpUri(operationName),
+});
 
 const errorLink = onError((error) => {
     const { networkError } = error;
@@ -29,11 +41,13 @@ const errorLink = onError((error) => {
         if (serverError.statusCode === ErrorCodes.Unauthorized) {
             isLoggedInVar(false);
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
-            const currentPath = window.location.pathname + window.location.search;
-            window.location.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);
+            const currentPath = removeRuntimePath(window.location.pathname) + window.location.search;
+            const authUrl = resolveRuntimePath(PageRoutes.AUTHENTICATE);
+            window.location.replace(`${authUrl}?redirect_uri=${encodeURIComponent(currentPath)}`);
         }
     }
     // Disabled behavior for now -> Components are expected to handle their errors.
+    //
     // if (graphQLErrors && graphQLErrors.length) {
     //     const firstError = graphQLErrors[0];
     //     const { extensions } = firstError;
@@ -43,13 +57,27 @@ const errorLink = onError((error) => {
     // }
 });
 
+const injectVariablesLink = new ApolloLink((operation, forward) => {
+    // eslint-disable-next-line no-param-reassign
+    operation.variables = {
+        ...operation.variables,
+        skipSiblingsSearch: showSeparateSiblingsRef.current,
+        skipLineage: hideLineageInSearchCardsRef.current,
+    };
+
+    return forward(operation);
+});
+
 const client = new ApolloClient({
     connectToDevTools: true,
-    link: errorLink.concat(httpLink),
+    link: ApolloLink.from([otelOperationLink, injectVariablesLink, errorLink, httpLink]),
     cache: new InMemoryCache({
         typePolicies: {
             Query: {
                 fields: {
+                    latestProductUpdate: {
+                        keyArgs: ['locale'],
+                    },
                     dataset: {
                         merge: (oldObj, newObj) => {
                             return { ...oldObj, ...newObj };
@@ -61,6 +89,10 @@ const client = new ApolloClient({
                         },
                     },
                 },
+            },
+            // ProductUpdate.id is a release version, not a unique cache identity across locales.
+            ProductUpdate: {
+                keyFields: false,
             },
         },
         // need to define possibleTypes to allow us to use Apollo cache with union types
@@ -78,14 +110,26 @@ const client = new ApolloClient({
 });
 
 export const InnerApp: React.VFC = () => {
+    const isDarkMode = loadIsDarkMode();
+
     return (
         <HelmetProvider>
-            <CustomThemeProvider>
+            <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
+                <GlobalStyles />
+                {/* ToastRenderer translates its own labels and sits above the router's boundary,
+                    so it needs one of its own while the locale bundle loads. */}
+                <Suspense fallback={null}>
+                    <ToastRenderer />
+                </Suspense>
+                <FilesUploadingDownloadingLatencyTracker />
+
                 <Helmet>
                     <title>{useCustomTheme().theme?.content?.title}</title>
                 </Helmet>
-                <Router>
-                    <Routes />
+                <Router basename={getRuntimeBasePath()}>
+                    <Suspense fallback={<SuspenseGlobal />}>
+                        <Routes />
+                    </Suspense>
                 </Router>
             </CustomThemeProvider>
         </HelmetProvider>

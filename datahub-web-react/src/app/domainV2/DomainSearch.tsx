@@ -1,55 +1,30 @@
-import { LoadingOutlined, SearchOutlined } from '@ant-design/icons';
-import { SearchBar } from '@components';
+import { Loader, SearchBar } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
 import DomainSearchResultItem from '@app/domainV2/DomainSearchResultItem';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ClickOutside from '@app/shared/ClickOutside';
+import {
+    SearchIconButton,
+    SearchResultsDropdown,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetAutoCompleteResultsQuery } from '@graphql/search.generated';
 import { EntityType } from '@types';
 
 const DomainSearchWrapper = styled.div`
-    flex-shrink: 0;
     position: relative;
 `;
 
-const ResultsWrapper = styled.div`
-    background-color: white;
-    border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
-    padding: 8px;
-    position: absolute;
-    max-height: 210px;
-    overflow: auto;
-    width: calc(100% - 8px);
-    left: 4px;
-    top: 55px;
-    z-index: 1;
-`;
-
-const LoadingWrapper = styled(ResultsWrapper)`
+const LoadingWrapper = styled(SearchResultsDropdown)`
     display: flex;
     justify-content: center;
     padding: 16px 0;
     font-size: 16px;
-`;
-
-const InputWrapper = styled.div`
-    padding: 12px;
-`;
-
-const SearchIcon = styled(SearchOutlined)`
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
-    padding: 16px;
-    width: 100%;
-    font-size: 20px;
 `;
 
 type Props = {
@@ -58,6 +33,7 @@ type Props = {
 };
 
 function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     const [searchInput, setSearchInput] = useState('');
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
@@ -79,24 +55,29 @@ function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
     return (
         <DomainSearchWrapper>
             {isCollapsed && unhideSidebar ? (
-                <SearchIcon onClick={unhideSidebar} />
+                <SearchIconButton
+                    type="button"
+                    onClick={unhideSidebar}
+                    aria-label={tc('search')}
+                    data-testid="domain-sidebar-search-icon"
+                >
+                    <MagnifyingGlass size={20} weight="regular" />
+                </SearchIconButton>
             ) : (
                 <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
-                    <InputWrapper>
-                        <SearchBar
-                            placeholder="Search"
-                            value={searchInput}
-                            onChange={setSearchInput}
-                            onFocus={() => setIsSearchBarFocused(true)}
-                        />
-                    </InputWrapper>
+                    <SearchBar
+                        placeholder={tc('search')}
+                        value={searchInput}
+                        onChange={setSearchInput}
+                        onFocus={() => setIsSearchBarFocused(true)}
+                    />
                     {loading && isSearchBarFocused && (
                         <LoadingWrapper>
-                            <LoadingOutlined />
+                            <Loader size="md" />
                         </LoadingWrapper>
                     )}
                     {!loading && isSearchBarFocused && !!entities?.length && (
-                        <ResultsWrapper>
+                        <SearchResultsDropdown data-testid="search-results">
                             {entities?.map((entity) => (
                                 <DomainSearchResultItem
                                     key={entity.urn}
@@ -106,7 +87,7 @@ function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
                                     onResultClick={() => setIsSearchBarFocused(false)}
                                 />
                             ))}
-                        </ResultsWrapper>
+                        </SearchResultsDropdown>
                     )}
                 </ClickOutside>
             )}

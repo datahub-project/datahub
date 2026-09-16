@@ -5,8 +5,9 @@ import re
 from pathlib import Path
 from typing import Dict, List, Type
 
+import avro.errors
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.emitter.mce_builder import (
     make_global_tag_aspect_with_tag_list,
@@ -107,7 +108,7 @@ def assert_field_paths_match(
 ) -> None:
     log_field_paths(fields)
     assert len(fields) == len(expected_field_paths)
-    for f, efp in zip(fields, expected_field_paths):
+    for f, efp in zip(fields, expected_field_paths, strict=False):
         assert f.fieldPath == efp
     assert_field_paths_are_unique(fields)
 
@@ -375,6 +376,8 @@ def test_avro_schema_to_mce_fields_with_nesting_across_records():
         "[version=2.0].[type=union].[type=Person].[type=string].firstname",
         "[version=2.0].[type=union].[type=Person].[type=string].lastname",
         "[version=2.0].[type=union].[type=Person].[type=Address].address",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].streetAddress",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].city",
     ]
     assert_field_paths_match(fields, expected_field_paths)
 
@@ -779,7 +782,7 @@ def test_ignore_exceptions():
     assert not fields
 
 
-@freeze_time("2023-09-12")
+@time_machine.travel("2023-09-12", tick=False)
 def test_avro_schema_to_mce_fields_with_field_meta_mapping():
     schema = """
 {
@@ -923,3 +926,159 @@ def test_jsonProps_propagation():
     assert fields[1].jsonProps is not None
     assert "logicalType" in json.loads(fields[1].jsonProps)
     assert json.loads(fields[1].jsonProps)["logicalType"] == "timestamp-millis"
+
+
+def test_avro_schema_array_reference_to_record_type():
+    """Test for arrays referencing record types by name."""
+    # This schema defines Address record inline first, then references it by name in array
+    schema = """
+{
+    "type": "record",
+    "name": "Person",
+    "fields": [
+        {
+            "name": "name",
+            "type": "string"
+        },
+        {
+            "name": "address",
+            "type": [
+                "null",
+                {
+                    "type": "record",
+                    "name": "Address",
+                    "fields": [
+                        {"name": "street", "type": "string"},
+                        {"name": "city", "type": "string"},
+                        {"name": "zipCode", "type": "string"}
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "addresses",
+            "type": [
+                "null",
+                {
+                    "type": "array",
+                    "items": "Address"
+                }
+            ]
+        }
+    ]
+}
+"""
+    fields = avro_schema_to_mce_fields(schema)
+
+    # Expected field paths - both direct reference and array reference should have same nested fields
+    expected_field_paths = [
+        "[version=2.0].[type=Person].[type=string].name",
+        "[version=2.0].[type=Person].[type=Address].address",
+        "[version=2.0].[type=Person].[type=Address].address.[type=string].street",
+        "[version=2.0].[type=Person].[type=Address].address.[type=string].city",
+        "[version=2.0].[type=Person].[type=Address].address.[type=string].zipCode",
+        "[version=2.0].[type=Person].[type=array].[type=Address].addresses",
+        "[version=2.0].[type=Person].[type=array].[type=Address].addresses.[type=string].street",
+        "[version=2.0].[type=Person].[type=array].[type=Address].addresses.[type=string].city",
+        "[version=2.0].[type=Person].[type=array].[type=Address].addresses.[type=string].zipCode",
+    ]
+
+    assert_field_paths_match(fields, expected_field_paths)
+
+
+def test_avro_schema_array_reference_to_record_type_elsewhere():
+    """Test for arrays referencing record types by name where the record is defined elsewhere
+    and then referenced by name in the array items.
+    """
+    # Schema that should reproduce the issue - Address defined separately from its usage
+    schema = """
+[
+    {
+        "type": "record",
+        "name": "Address",
+        "fields": [
+            {"name": "street", "type": "string"},
+            {"name": "city", "type": "string"},
+            {"name": "zipCode", "type": "string"}
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Person",
+        "fields": [
+            {
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "name": "address",
+                "type": ["null", "Address"]
+            },
+            {
+                "name": "addresses",
+                "type": [
+                    "null",
+                    {
+                        "type": "array",
+                        "items": "Address"
+                    }
+                ]
+            }
+        ]
+    }
+]
+"""
+    fields = avro_schema_to_mce_fields(schema)
+
+    # Expected behavior (after fix) - array reference should include child fields
+    expected_field_paths = [
+        "[version=2.0].[type=union]",
+        "[version=2.0].[type=union].[type=Address].[type=string].street",
+        "[version=2.0].[type=union].[type=Address].[type=string].city",
+        "[version=2.0].[type=union].[type=Address].[type=string].zipCode",
+        "[version=2.0].[type=union].[type=Person].[type=string].name",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].street",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].city",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].zipCode",
+        "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses",
+        "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses.[type=string].street",
+        "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses.[type=string].city",
+        "[version=2.0].[type=union].[type=Person].[type=array].[type=Address].addresses.[type=string].zipCode",
+    ]
+
+    assert_field_paths_match(fields, expected_field_paths)
+
+
+def test_avro_schema_to_mce_fields_with_hyphenated_namespace():
+    """Test that avro_schema_to_mce_fields can parse schemas with non-compliant
+    names (e.g., hyphens in namespace) when validate_names=False."""
+    schema_str = json.dumps(
+        {
+            "type": "record",
+            "name": "Value",
+            "namespace": "my-debezium-topic.public.users",
+            "fields": [
+                {"name": "id", "type": "int"},
+                {"name": "name", "type": "string"},
+            ],
+        }
+    )
+
+    # Default behavior (validate_names=False): parsing succeeds
+    fields = avro_schema_to_mce_fields(schema_str)
+    assert len(fields) == 2
+
+    # Explicitly with validate_names=False, parsing succeeds
+    fields = avro_schema_to_mce_fields(schema_str, validate_names=False)
+    assert len(fields) == 2
+
+    # With validate_names=True and swallow_exceptions=True, returns empty list
+    fields = avro_schema_to_mce_fields(schema_str, validate_names=True)
+    assert fields == []
+
+    # With validate_names=True and swallow_exceptions=False, raises error
+    with pytest.raises(avro.errors.SchemaParseException):
+        avro_schema_to_mce_fields(
+            schema_str, validate_names=True, swallow_exceptions=False
+        )

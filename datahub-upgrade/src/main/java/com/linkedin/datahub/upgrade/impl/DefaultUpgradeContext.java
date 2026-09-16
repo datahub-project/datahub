@@ -4,7 +4,7 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import com.linkedin.datahub.upgrade.UpgradeUtils;
+import com.linkedin.metadata.utils.EnvironmentUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +24,8 @@ public class DefaultUpgradeContext implements UpgradeContext {
   private final List<String> args;
   private final Map<String, Optional<String>> parsedArgs;
 
+  private boolean scaleDownRequired;
+
   public DefaultUpgradeContext(
       @Nonnull OperationContext opContext,
       Upgrade upgrade,
@@ -35,11 +37,21 @@ public class DefaultUpgradeContext implements UpgradeContext {
     this.report = report;
     this.previousStepResults = previousStepResults;
     this.args = args;
-    this.parsedArgs = UpgradeUtils.parseArgs(args);
+    this.parsedArgs = EnvironmentUtils.parseArgs(args);
   }
 
   @Override
   public List<UpgradeStepResult> stepResults() {
     return previousStepResults;
+  }
+
+  @Override
+  public boolean isScaleDownRequired() {
+    return scaleDownRequired;
+  }
+
+  @Override
+  public void setScaleDownRequired(boolean scaleDownRequired) {
+    this.scaleDownRequired = scaleDownRequired;
   }
 }

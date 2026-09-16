@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from freezegun import freeze_time
+import time_machine
 from sqlalchemy import ARRAY, BIGINT, INTEGER, String
 from sqlalchemy_bigquery import STRUCT
 
@@ -13,7 +13,7 @@ from datahub.utilities.sqlalchemy_type_converter import MapType
 FROZEN_TIME = "2022-12-15 10:00:00"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_athena_source_ingestion(pytestconfig, tmp_path):
     """Test Athena source ingestion and generate MCP JSON file for validation."""
     output_file_name = "athena_mce_output.json"
@@ -21,11 +21,10 @@ def test_athena_source_ingestion(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/athena"
 
     # Mock dependencies
-    with patch.object(
-        AthenaSource, "get_inspectors"
-    ) as mock_get_inspectors, patch.object(
-        AthenaSource, "get_table_properties"
-    ) as mock_get_table_properties:
+    with (
+        patch.object(AthenaSource, "get_inspectors") as mock_get_inspectors,
+        patch.object(AthenaSource, "get_table_properties") as mock_get_table_properties,
+    ):
         # Mock engine and inspectors
         mock_inspector = MagicMock()
         mock_get_inspectors.return_value = [mock_inspector]

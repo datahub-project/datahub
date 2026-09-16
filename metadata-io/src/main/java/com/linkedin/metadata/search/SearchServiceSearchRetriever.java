@@ -27,7 +27,7 @@ public class SearchServiceSearchRetriever implements SearchRetriever {
       @Nonnull List<String> entities,
       @Nullable Filter filters,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       List<SortCriterion> sortCriteria,
       @Nullable SearchFlags searchFlags) {
     List<SortCriterion> finalCriteria = new ArrayList<>(sortCriteria);

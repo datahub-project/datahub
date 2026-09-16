@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.config;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.linkedin.datahub.upgrade.conditions.ReindexDebugCondition;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;

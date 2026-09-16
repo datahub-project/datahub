@@ -18,4 +18,27 @@ record GroupingBucket {
    * Bucket size (like a day/hour etc) for the date grouping buckets.
    */
   timeWindowSize: optional TimeWindowSize
+
+  /**
+   * Optional specified time zone to take into account when grouping by date
+   */
+  timeZone: optional string
+
+  /**
+   * Maximum number of buckets to return for STRING_GROUPING_BUCKET. Defaults to MAX_TERM_BUCKETS
+   */
+  size: optional int
+
+  /**
+   * When true, STRING_GROUPING_BUCKET buckets are ordered by the value of the first
+   * aggregation spec rather than _key. Use with ascending=false for top-N by metric.
+   */
+  orderByMetric: optional boolean
+
+  /**
+   * Sort direction for bucket ordering. Defaults to true (ascending).
+   * Applies to STRING_GROUPING_BUCKET (_key order or metric order) and
+   * DATE_GROUPING_BUCKET (chronological order).
+   */
+  ascending: optional boolean
 }

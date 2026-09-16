@@ -4,13 +4,14 @@ from typing import Dict, Optional
 
 import pydantic
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
@@ -113,7 +114,11 @@ class QlikSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
     tenant_hostname: str = pydantic.Field(description="Qlik Tenant hostname")
-    api_key: str = pydantic.Field(description="Qlik API Key")
+    api_key: TransparentSecretStr = pydantic.Field(description="Qlik API Key")
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
+        default=None,
+        description="Configuration for stateful ingestion and stale metadata removal.",
+    )
     # Qlik space identifier
     space_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: testpostgres_profiler
+    environment:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: testdb
+    ports:
+      # Ephemeral: only the test process needs host access, and letting Docker
+      # pick a free port avoids colliding with a leaked container from a prior run.
+      - "5432"
+    volumes:
+      - ./setup:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+

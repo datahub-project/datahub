@@ -3,6 +3,8 @@ package com.linkedin.datahub.graphql.types.dashboard.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
+import com.linkedin.common.Access;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
@@ -29,6 +31,7 @@ import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardProperties;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.chart.mappers.InputFieldsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
@@ -46,6 +49,7 @@ import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
@@ -148,6 +152,13 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (dashboard, dataMap) -> mapApplicationAssociation(context, dashboard, dataMap));
+    mappingHelper.mapToResult(
+        ACCESS_ASPECT_NAME,
+        ((dashboard, dataMap) ->
+            dashboard.setAccess(AccessMapper.map(new Access(dataMap), entityUrn))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dashboard.class);
@@ -296,5 +307,19 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
       @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
     dashboard.setDomain(DomainAssociationMapper.map(context, domains, dashboard.getUrn()));
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context,
+      @Nonnull Dashboard dashboard,
+      @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    final java.util.List<com.linkedin.datahub.graphql.generated.ApplicationAssociation>
+        applicationAssociations =
+            ApplicationAssociationMapper.mapList(context, applications, dashboard.getUrn());
+    dashboard.setApplications(applicationAssociations);
+    if (applicationAssociations != null && !applicationAssociations.isEmpty()) {
+      dashboard.setApplication(applicationAssociations.get(0));
+    }
   }
 }

@@ -29,7 +29,7 @@ However, if you only want to build `DataHub Metadata Service` specifically:
 
 ## Dependencies
 
-Before starting `DataHub Metadata Service`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../docker/kafka-setup),  
+Before starting `DataHub Metadata Service`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../docs/how/kafka-config.md),
 [Elasticsearch](../docker/elasticsearch) and [MySQL](../docker/mysql) Docker containers are up and running.
 
 ## Start via Docker image

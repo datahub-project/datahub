@@ -12,7 +12,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,11 +27,12 @@ public final class MCPTraceReaderTest extends BaseKafkaTraceReaderTest<MetadataC
   KafkaTraceReader<MetadataChangeProposal> buildTraceReader() {
     return MCPTraceReader.builder()
         .adminClient(adminClient)
-        .consumerSupplier(() -> consumer)
+        .consumerPool(TraceConsumerPools.singleConsumer(consumer))
         .pollDurationMs(100)
         .pollMaxAttempts(3)
         .executorService(executorService)
         .timeoutSeconds(5)
+        .cancelFuturesOnTimeout(true)
         .topicName(TOPIC_NAME)
         .consumerGroupId(CONSUMER_GROUP)
         .build();
@@ -75,7 +76,7 @@ public final class MCPTraceReaderTest extends BaseKafkaTraceReaderTest<MetadataC
 
     SystemMetadata systemMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TRACE_ID);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TRACE_ID);
     systemMetadata.setProperties(new StringMap(properties));
 
     MetadataChangeProposal mcp = buildMessage(systemMetadata);

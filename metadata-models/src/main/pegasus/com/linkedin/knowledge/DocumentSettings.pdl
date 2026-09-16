@@ -1,0 +1,34 @@
+namespace com.linkedin.knowledge
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Settings specific to a document entity
+ */
+@Aspect = {
+  "name": "documentSettings"
+}
+record DocumentSettings {
+  /**
+   * Whether or not this document should be visible in the global context (e.g., global navigation, knowledge base search).
+   * When false, the document is "private" and accessible primarily through the assets it is related to.
+   * When true, the document appears in the global documents space accessible to all users.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN",
+    "queryByDefault": false
+  }
+  showInGlobalContext: boolean = true
+
+  /**
+   * Last Modified Audit stamp
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedSettings",
+      "fieldType": "DATETIME"
+    }
+  }
+  lastModified: optional AuditStamp
+}
+

@@ -1,5 +1,7 @@
+import { Editor } from '@components';
 import { Modal, message } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -7,11 +9,13 @@ import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app
 import { GenericEntityUpdate } from '@app/entity/shared/types';
 import { DescriptionEditorToolbar } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditorToolbar';
 import SourceDescription from '@app/entityV2/shared/tabs/Documentation/components/SourceDescription';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
+import useFileUpload from '@app/shared/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { UploadDownloadScenario } from '@types';
 
 const EditorContainer = styled.div`
     flex: 1;
@@ -29,9 +33,22 @@ type DescriptionEditorProps = {
 };
 
 export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
+    const { t } = useTranslation('entity.profile.documentation');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const mutationUrn = useMutationUrn();
     const { entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
+
+    const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn: mutationUrn,
+    });
+
+    const { uploadFile } = useFileUpload({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn: mutationUrn,
+    });
 
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
@@ -108,7 +125,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     };
 
     const handleSave = async () => {
-        message.loading({ content: 'Saving...' });
+        message.loading({ content: tf('saving') });
         try {
             if (updateEntity) {
                 // Use the legacy update description path.
@@ -124,7 +141,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                 entityType,
                 entityUrn: mutationUrn,
             });
-            message.success({ content: 'Description Updated', duration: 2 });
+            message.success({ content: t('descriptionUpdated'), duration: 2 });
             // Updating the localStorage after save
             delete editedDescriptions[mutationUrn];
             if (Object.keys(editedDescriptions).length === 0) {
@@ -136,7 +153,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to update description: \n ${e.message || ''}`, duration: 2 });
+                message.error({ content: t('failedToUpdateDescription', { message: e.message || '' }), duration: 2 });
             }
         }
         refetch?.();
@@ -156,11 +173,11 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
             onCancel();
         } else {
             Modal.confirm({
-                title: `Discard unsaved changes?`,
-                content: `Your changes will be lost.`,
+                title: t('discardChanges.title'),
+                content: t('discardChanges.description'),
                 onOk: onCancel,
                 onCancel() {},
-                okText: 'Yes',
+                okText: tc('yes'),
                 maskClosable: true,
                 closable: true,
             });
@@ -195,12 +212,17 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     return !loading ? (
         <>
             <EditorSourceWrapper>
-                <EditorContainer>
+                <EditorContainer data-testid="description-editor">
                     <Editor
                         key={editorKey}
                         content={updatedDescription}
                         onChange={handleEditorChange}
-                        placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
+                        placeholder={t('editorPlaceholder')}
+                        uploadFileProps={{
+                            onFileUpload: uploadFile,
+                            ...uploadFileAnalyticsCallbacks,
+                        }}
+                        hideBorder
                     />
                 </EditorContainer>
                 <SourceDescription />

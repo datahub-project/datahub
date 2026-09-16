@@ -8,16 +8,18 @@
         "json": {
             "customProperties": {
                 "platform": "powerbi",
+                "env": "DEV",
                 "workspace": "Jane Smith Workspace",
                 "workspace_id": "90E9E256-3D6D-4D38-86C8-6CCCBD8C170C",
                 "workspace_name": "Jane Smith Workspace",
                 "workspace_type": "PersonalGroup"
             },
-            "name": "Jane Smith Workspace"
+            "name": "Jane Smith Workspace",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
+        "lastObserved": 1643851800000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -76,11 +78,14 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
     "changeType": "UPSERT",
-    "aspectName": "browsePaths",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "paths": [
-                "/powerbi/Jane Smith Workspace"
+            "path": [
+                {
+                    "id": "Jane Smith Workspace",
+                    "urn": "urn:li:container:4719aeafb92339db2b69194bcbe55c9a"
+                }
             ]
         }
     },
@@ -102,6 +107,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "user1",
+            "email": "User1@foo.com",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643893200000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -134,6 +159,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "user2",
+            "email": "User2@foo.com",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643893200000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -234,6 +279,42 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1643893200000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -277,54 +358,21 @@
     }
 },
 {
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:4719aeafb92339db2b69194bcbe55c9a",
-                    "urn": "urn:li:container:4719aeafb92339db2b69194bcbe55c9a"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:User1@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:User2@foo.com",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "corpUserStatus",
     "aspect": {
         "json": {
-            "removed": false
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1643893200000,
+                "actor": "urn:li:corpuser:datahub"
+            }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
+        "lastObserved": 1643893200000,
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }

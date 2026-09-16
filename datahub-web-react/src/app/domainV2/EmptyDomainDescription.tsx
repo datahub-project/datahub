@@ -1,10 +1,9 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
-import styled from 'styled-components/macro';
+import { Trans, useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
-const StyledParagraph = styled(Typography.Paragraph)`
+const StyledParagraph = styled(Text)`
     text-align: justify;
     text-justify: inter-word;
     margin: 40px 0;
@@ -12,27 +11,32 @@ const StyledParagraph = styled(Typography.Paragraph)`
 `;
 
 function EmptyDomainDescription() {
+    const theme = useTheme();
+    const { t } = useTranslation('governance.domain');
     return (
         <>
-            <StyledParagraph type="secondary">
-                <strong style={{ color: ANTD_GRAY[8] }}>Welcome to your Data Domains!</strong> It looks like this space
-                is ready to be transformed into a well-organized data universe. Start by creating your first domain - a
-                high-level category for your data assets.
+            <StyledParagraph color="textSecondary">
+                <Trans
+                    t={t}
+                    i18nKey="empty.welcomeParagraph"
+                    components={{ bold: <strong style={{ color: theme.colors.textSecondary }} /> }}
+                />
             </StyledParagraph>
-            <StyledParagraph type="secondary">
-                <strong style={{ color: ANTD_GRAY[8] }}> Create Nested Domains:</strong> Want to dive deeper? You can
-                also create nested domains to add granularity and structure. Just like nesting Russian dolls, its all
-                about refining your organization.
+            <StyledParagraph color="textSecondary">
+                <Trans
+                    t={t}
+                    i18nKey="empty.nestedParagraph"
+                    components={{ bold: <strong style={{ color: theme.colors.textSecondary }} /> }}
+                />
             </StyledParagraph>
-            <StyledParagraph type="secondary">
-                <strong style={{ color: ANTD_GRAY[8] }}>Build Data Products</strong>: Once your domains are set, go a
-                step further! Organize your data assets into data products to realize a data mesh architecture. Data
-                products empower you to treat data as a product, making it more accessible and manageable.
+            <StyledParagraph color="textSecondary">
+                <Trans
+                    t={t}
+                    i18nKey="empty.dataProductsParagraph"
+                    components={{ bold: <strong style={{ color: theme.colors.textSecondary }} /> }}
+                />
             </StyledParagraph>
-            <StyledParagraph type="secondary">
-                Ready to embark on this data adventure? Click the Create Domain button to begin shaping your data
-                landscape!
-            </StyledParagraph>
+            <StyledParagraph color="textSecondary">{t('empty.ctaParagraph')}</StyledParagraph>
         </>
     );
 }

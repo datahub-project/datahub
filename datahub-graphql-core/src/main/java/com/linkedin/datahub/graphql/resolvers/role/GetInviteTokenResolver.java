@@ -25,7 +25,7 @@ public class GetInviteTokenResolver implements DataFetcher<CompletableFuture<Inv
   public CompletableFuture<InviteToken> get(final DataFetchingEnvironment environment)
       throws Exception {
     final QueryContext context = environment.getContext();
-    if (!canManagePolicies(context)) {
+    if (!canManageUserCredentials(context)) {
       throw new AuthorizationException(
           "Unauthorized to get invite tokens. Please contact your DataHub administrator if this needs corrective action.");
     }

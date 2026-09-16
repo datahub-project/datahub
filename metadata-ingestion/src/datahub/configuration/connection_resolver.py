@@ -1,13 +1,13 @@
-from typing import Type
+from typing import Any, Type
 
-import pydantic
+from pydantic import model_validator
 
 from datahub.ingestion.api.global_context import get_graph_context
 
 
 def auto_connection_resolver(
     connection_field: str = "connection",
-) -> classmethod:
+) -> Any:
     def _resolve_connection(cls: Type, values: dict) -> dict:
         if connection_field in values:
             connection_urn = values.pop(connection_field)
@@ -37,4 +37,4 @@ def auto_connection_resolver(
     # https://github.com/pydantic/pydantic/blob/v1.10.9/pydantic/main.py#L264
     # This hack ensures that multiple validators do not overwrite each other.
     _resolve_connection.__name__ = f"{_resolve_connection.__name__}_{connection_field}"
-    return pydantic.root_validator(pre=True, allow_reuse=True)(_resolve_connection)
+    return model_validator(mode="before")(_resolve_connection)

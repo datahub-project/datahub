@@ -55,6 +55,8 @@ describe('useGlossaryChildren', () => {
         setNodeToNewEntity: vi.fn(),
         nodeToDeletedUrn: {},
         setNodeToDeletedUrn: vi.fn(),
+        urnsToUpdate: [] as string[],
+        setUrnsToUpdate: vi.fn(),
     };
 
     beforeEach(() => {

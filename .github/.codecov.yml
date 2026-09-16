@@ -33,6 +33,12 @@ flag_management:
         - "metadata-utils/**"
         - "metadata-operation-context/**"
         - "datahub-graphql-core/**"
+    - name: datahub-actions
+      paths:
+        - "datahub-actions/**"
+    - name: datahub-agent-context
+      paths:
+        - "datahub-agent-context/**"
     - name: metadata-io
       paths:
         - "metadata-io/**"
@@ -51,6 +57,9 @@ flag_management:
     - name: ingestion-prefect
       paths:
         - "metadata-ingestion-modules/prefect-plugin/**"
+    - name: metadata-integration
+      paths:
+        - "metadata-integration/**"
 coverage:
   status:
     project: false
@@ -58,3 +67,14 @@ coverage:
       default:
         target: 75% # for new code added in the patch
         only_pulls: true
+
+ignore:
+  # Import-time / interpreter-startup hooks: their import-time wiring only runs in
+  # a fresh interpreter (before/at startup), so in-process coverage can't observe
+  # it. The observable runtime behaviour is exercised by dedicated tests instead
+  # (subprocess tests for _force_pure_python_sqlglot; the finder's find_spec in
+  # tests/unit/utilities/test_pkg_resources_shim.py). datahub/__init__.py only
+  # wires up these startup imports, so it is excluded for the same reason.
+  - "metadata-ingestion/src/datahub/_force_pure_python_sqlglot.py"
+  - "metadata-ingestion/src/datahub/_pkg_resources_finder.py"
+  - "metadata-ingestion/src/datahub/__init__.py"

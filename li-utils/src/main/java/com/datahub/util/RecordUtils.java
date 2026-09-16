@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 public class RecordUtils {
 
@@ -480,9 +480,11 @@ public class RecordUtils {
    */
   @Nullable
   private static Object invokeMethod(@Nonnull RecordTemplate record, @Nonnull String fieldName) {
-    METHOD_CACHE.putIfAbsent(record.getClass(), getMethodsFromRecordTemplate(record));
+    final Map<String, Method> methodMap =
+        METHOD_CACHE.computeIfAbsent(
+            record.getClass(), clazz -> getMethodsFromRecordTemplate(record));
     try {
-      return METHOD_CACHE.get(record.getClass()).get(fieldName).invoke(record);
+      return methodMap.get(fieldName).invoke(record);
     } catch (NullPointerException | IllegalAccessException | InvocationTargetException e) {
       throw new RuntimeException(
           String.format(

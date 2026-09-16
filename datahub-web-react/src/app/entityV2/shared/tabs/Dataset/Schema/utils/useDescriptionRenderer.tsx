@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 
+import { sanitizeRichText } from '@components/components/Editor/utils';
+
 import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import DescriptionField from '@app/entityV2/dataset/profile/schema/components/SchemaDescriptionField';
-import { pathMatchesExact } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
+import useEditableSchemaFieldInfoMaps, {
+    EditableFieldInfoMaps,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
-import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 import { EditableSchemaMetadata, SchemaField, SubResourceType } from '@types';
@@ -14,13 +17,16 @@ import { EditableSchemaMetadata, SchemaField, SubResourceType } from '@types';
 export default function useDescriptionRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
     isCompact: boolean,
+    fieldInfoMaps?: EditableFieldInfoMaps,
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
     const schemaRefetch = useSchemaRefetch();
     const [updateDescription] = useUpdateDescriptionMutation();
     const [expandedRows, setExpandedRows] = useState({});
-    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
+    const fallbackMaps = useEditableSchemaFieldInfoMaps(fieldInfoMaps ? undefined : editableSchemaMetadata);
+    const maps = fieldInfoMaps ?? fallbackMaps;
+    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata, maps);
 
     const refresh: any = () => {
         refetch?.();
@@ -28,10 +34,8 @@ export default function useDescriptionRenderer(
     };
 
     return (description: string | undefined, record: SchemaField, index: number): JSX.Element => {
-        const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
-            pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
-        );
-        const { displayedDescription, sanitizedDescription, isPropagated, sourceDetail } = extractFieldDescription(
+        const editableFieldInfo = maps.exactMap.get(record.fieldPath);
+        const { displayedDescription, sanitizedDescription, isPropagated, attribution } = extractFieldDescription(
             record,
             description,
         );
@@ -64,7 +68,8 @@ export default function useDescriptionRenderer(
                 }
                 isReadOnly
                 isPropagated={isPropagated}
-                sourceDetail={sourceDetail}
+                attribution={attribution}
+                dataTestId={`schema-field-${record.fieldPath}-description`}
             />
         );
     };

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DatasetUrn;
@@ -68,6 +69,7 @@ public class FieldPathMutatorTest {
             .setDomains(new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:domain:123"))));
     assertEquals(
         test.writeMutation(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -90,6 +92,7 @@ public class FieldPathMutatorTest {
     final SchemaMetadata schema = getMockSchemaMetadataAspect(false);
     assertEquals(
         test.writeMutation(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -113,6 +116,7 @@ public class FieldPathMutatorTest {
 
     List<Pair<ChangeMCP, Boolean>> result =
         test.writeMutation(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -137,6 +141,7 @@ public class FieldPathMutatorTest {
 
     assertEquals(
         test.writeMutation(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
@@ -159,6 +164,7 @@ public class FieldPathMutatorTest {
     final EditableSchemaMetadata schema = getMockEditableSchemaMetadataAspect(false);
     assertEquals(
         test.writeMutation(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -182,6 +188,7 @@ public class FieldPathMutatorTest {
 
     List<Pair<ChangeMCP, Boolean>> result =
         test.writeMutation(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)

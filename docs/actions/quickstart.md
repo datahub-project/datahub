@@ -1,3 +1,7 @@
+---
+description: "Quickstart guide for installing and configuring the DataHub Actions framework to react to real-time metadata change events."
+---
+
 # DataHub Actions Quickstart
 
 ## Prerequisites

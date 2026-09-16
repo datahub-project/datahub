@@ -7,6 +7,11 @@ export interface SearchBarProps {
     height?: string;
     onChange?: (value: string, event: React.ChangeEvent<HTMLInputElement>) => void;
     allowClear?: boolean;
+    clearIcon?: React.ReactNode;
     disabled?: boolean;
     suffix?: React.ReactNode;
+    forceUncontrolled?: boolean;
+    onCompositionStart?: React.CompositionEventHandler<HTMLInputElement>;
+    onCompositionEnd?: React.CompositionEventHandler<HTMLInputElement>;
+    debounceDelay?: number; // Set to 0 to avoid debouncing
 }

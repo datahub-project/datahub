@@ -24,6 +24,18 @@ extend type Query {
   Do not build on top of this API.
   """
   debugAccess(userUrn: String!): DebugAccessResult!
+
+  """
+  List service accounts stored in DataHub.
+  """
+  listServiceAccounts(
+    input: ListServiceAccountsInput!
+  ): ListServiceAccountsResult!
+
+  """
+  Get a service account by URN.
+  """
+  getServiceAccount(urn: String!): ServiceAccount
 }
 
 extend type Mutation {
@@ -36,6 +48,41 @@ extend type Mutation {
   Revokes access tokens.
   """
   revokeAccessToken(tokenId: String!): Boolean!
+
+  """
+  Creates a new service account.
+  """
+  createServiceAccount(input: CreateServiceAccountInput!): ServiceAccount!
+
+  """
+  Deletes a service account by URN.
+  """
+  deleteServiceAccount(urn: String!): Boolean!
+
+  """
+  Sets or clears the default view for a service account.
+  Requires the MANAGE_SERVICE_ACCOUNTS platform privilege.
+  Pass null for defaultView to clear the current default.
+  """
+  updateServiceAccountDefaultView(
+    input: UpdateServiceAccountDefaultViewInput!
+  ): Boolean!
+}
+
+"""
+Input required to update a service account's default view.
+"""
+input UpdateServiceAccountDefaultViewInput {
+  """
+  The URN of the service account to update.
+  """
+  urn: String!
+
+  """
+  The URN of the DataHub View to set as the default.
+  If null, the current default view will be removed.
+  """
+  defaultView: String
 }
 
 """
@@ -54,8 +101,15 @@ input GetAccessTokenInput {
 
   """
   The duration for which the Access Token is valid.
+  Exactly one of duration or durationIso must be provided.
   """
-  duration: AccessTokenDuration!
+  duration: AccessTokenDuration
+
+  """
+  ISO-8601 duration for which the Access Token is valid (e.g. P30D, PT1H, P1Y).
+  Exactly one of duration or durationIso must be provided. Not used for never-expire.
+  """
+  durationIso: String
 }
 
 input CreateAccessTokenInput {
@@ -71,8 +125,16 @@ input CreateAccessTokenInput {
 
   """
   The duration for which the Access Token is valid.
+  Exactly one of duration or durationIso must be provided.
+  Use NO_EXPIRY only when allowNoExpiry is enabled.
   """
-  duration: AccessTokenDuration!
+  duration: AccessTokenDuration
+
+  """
+  ISO-8601 duration for which the Access Token is valid (e.g. P30D, PT1H, P1Y).
+  Exactly one of duration or durationIso must be provided. Not used for never-expire.
+  """
+  durationIso: String
 
   """
   The name of the token to be generated.
@@ -93,6 +155,11 @@ enum AccessTokenType {
   Generates a personal access token
   """
   PERSONAL
+
+  """
+  Generates a service account access token
+  """
+  SERVICE_ACCOUNT
 }
 
 """
@@ -201,52 +268,58 @@ type AccessTokenMetadata implements Entity {
   """
   The primary key of the access token
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The unique identifier of the token.
   """
-  id: String!
+  id: String! @noAspects
 
   """
   The name of the token, if it exists.
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   The description of the token if defined.
   """
-  description: String
+  description: String @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   The actor associated with the Access Token.
   """
-  actorUrn: String!
+  actorUrn: String! @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   The actor who created the Access Token.
   """
-  ownerUrn: String!
+  ownerUrn: String! @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
+
+  """
+  The owner (CorpUser) who created the Access Token.
+  """
+  owner: CorpUser @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   The time when token was generated at.
   """
-  createdAt: Long!
+  createdAt: Long! @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   Time when token will be expired.
   """
-  expiresAt: Long
+  expiresAt: Long @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -330,6 +403,13 @@ type EntityPrivileges {
   canEditAssertions: Boolean
 
   """
+  Whether or not a user can update owners on assertions belonging to this entity.
+  Mirrors the assertee-delegation logic used by EDIT_ENTITY_ASSERTIONS: true when the
+  actor has Edit Owners or Edit Assertions on this entity (the assertee).
+  """
+  canEditAssertionOwners: Boolean
+
+  """
   Whether or not a user can update the deprecation status for an entity
   """
   canEditDeprecation: Boolean
@@ -363,6 +443,11 @@ type EntityPrivileges {
   Whether the user can view dataset operations
   """
   canViewDatasetOperations: Boolean
+
+  """
+  Whether the user can manage asset summary
+  """
+  canManageAssetSummary: Boolean
 }
 
 """
@@ -406,4 +491,122 @@ type DebugAccessResult {
   List of privileges that this user has directly or indirectly.
   """
   privileges: [String!]!
+}
+
+"""
+A service account represents a non-human identity for programmatic API access.
+"""
+type ServiceAccount implements Entity {
+  """
+  The primary key of the service account
+  """
+  urn: String! @noAspects
+
+  """
+  The standard Entity Type
+  """
+  type: EntityType! @noAspects
+
+  """
+  The unique name/identifier of the service account.
+  """
+  name: String! @noAspects
+
+  """
+  The display name of the service account.
+  """
+  displayName: String @noAspects
+
+  """
+  An optional description of the service account.
+  """
+  description: String @noAspects
+
+  """
+  The actor URN that created this service account.
+  """
+  createdBy: String @noAspects
+
+  """
+  The time when the service account was created.
+  May be null in list operations where full entity details are not fetched.
+  """
+  createdAt: Long @noAspects
+
+  """
+  The time when the service account was last updated.
+  """
+  updatedAt: Long @noAspects
+
+  """
+  The default DataHub View applied when this service account performs searches
+  via the MCP server. Null when no default is configured.
+  """
+  defaultView: DataHubView @noAspects
+
+  """
+  Granular API for querying edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
+}
+
+"""
+Input arguments for creating a service account
+"""
+input CreateServiceAccountInput {
+  """
+  An optional display name for the service account.
+  """
+  displayName: String
+
+  """
+  An optional description for the service account.
+  """
+  description: String
+}
+
+"""
+Input arguments for listing service accounts
+"""
+input ListServiceAccountsInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  Optional search query to filter service accounts
+  """
+  query: String
+}
+
+"""
+Results returned when listing service accounts
+"""
+type ListServiceAccountsResult {
+  """
+  The starting offset of the result set
+  """
+  start: Int!
+
+  """
+  The number of results to be returned
+  """
+  count: Int!
+
+  """
+  The total number of results in the result set
+  """
+  total: Int!
+
+  """
+  The service accounts
+  """
+  serviceAccounts: [ServiceAccount!]!
 }

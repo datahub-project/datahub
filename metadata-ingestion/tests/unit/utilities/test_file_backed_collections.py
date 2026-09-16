@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import os
 import pathlib
 import random
 import sqlite3
@@ -33,9 +34,9 @@ def test_set_use_sqlite_on_conflict():
         )
         assert cache._use_sqlite_on_conflict is False
 
-    with patch("sqlite3.sqlite_version_info", (3, 23, 1)), patch(
-        "datahub.utilities.file_backed_collections.OVERRIDE_SQLITE_VERSION_REQUIREMENT",
-        True,
+    with (
+        patch("sqlite3.sqlite_version_info", (3, 23, 1)),
+        patch.dict(os.environ, {"OVERRIDE_SQLITE_VERSION_REQ": "true"}),
     ):
         cache = FileBackedDict[int](
             tablename="cache",
@@ -430,3 +431,29 @@ def test_file_cleanup():
     assert filename.exists()
     cache.close()
     assert not filename.exists()
+
+
+def test_closed_property():
+    cache = FileBackedDict[int]()
+    assert not cache.closed
+
+    cache.close()
+    assert cache.closed
+
+    # close() guards on the connection, so a second call is a no-op rather than
+    # an error. Callers that share a dict cannot know who closes it first.
+    cache.close()
+    assert cache.closed
+
+
+def test_closed_when_shared_connection_closed_externally():
+    """For a shared dict, closing the ConnectionWrapper also closes the handle.
+
+    The dict reaches `_conn = None` via ConnectionWrapper.close() walking its
+    dependent objects, not via its own close(). This is the borrowed-dict path
+    `closed` exists for, and it is distinct from the owned path above.
+    """
+    with ConnectionWrapper() as conn:
+        cache = FileBackedDict[int](shared_connection=conn)
+        assert not cache.closed
+    assert cache.closed

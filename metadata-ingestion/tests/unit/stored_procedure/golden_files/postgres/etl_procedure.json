@@ -1,0 +1,56 @@
+[
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(postgres,default_db.default_schema.stored_procedures,PROD),etl_procedure.sql)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,default_db.public.raw_orders,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,default_db.public.processed_orders,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,default_db.public.raw_orders,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,default_db.public.processed_orders,PROD),order_id)"
+                    ],
+                    "transformOperation": "COPY: \"raw_orders\".\"id\" AS \"order_id\"",
+                    "confidenceScore": 0.2
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,default_db.public.raw_orders,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,default_db.public.processed_orders,PROD),customer_id)"
+                    ],
+                    "transformOperation": "COPY: \"raw_orders\".\"customer_id\" AS \"customer_id\"",
+                    "confidenceScore": 0.2
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,default_db.public.raw_orders,PROD),amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,default_db.public.processed_orders,PROD),total)"
+                    ],
+                    "transformOperation": "COPY: \"raw_orders\".\"amount\" AS \"total\"",
+                    "confidenceScore": 0.2
+                }
+            ]
+        }
+    }
+}
+]

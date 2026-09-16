@@ -1,0 +1,13 @@
+{
+    "addAttribute": "Add Attribute",
+    "addError": "Failed to add: \n {{error}}",
+    "addSuccess": "Added Business Attribute!",
+    "modal.addTitle": "Add {{entityName}}s",
+    "modal.removeTitle": "Remove {{entityName}}s",
+    "removeAttributeError": "Failed to remove business attribute: \n {{error}}",
+    "removeConfirm.content": "Are you sure you want to remove the {{attributeName}} attribute?",
+    "removeConfirm.title": "Do you want to remove {{attributeName}} attribute?",
+    "removeError": "Failed to remove: \n {{error}}",
+    "removeSuccess": "Removed Business Attribute!",
+    "searchPlaceholder": "Search for {{entityName}}..."
+}

@@ -3,13 +3,15 @@ package com.linkedin.metadata.search.transformer;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.SYSTEM_CREATED_FIELD;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.SYSTEM_CREATED_FIELD;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -32,6 +34,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchDocumentSanitizer;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredProperties;
@@ -39,6 +42,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -47,18 +51,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Class that provides a utility function that transforms the snapshot object into a search document
  */
 @Slf4j
-@Setter
 @RequiredArgsConstructor
 public class SearchDocumentTransformer {
   // Number of elements to index for a given array.
@@ -69,6 +70,24 @@ public class SearchDocumentTransformer {
 
   // Maximum customProperties value length
   private final int maxValueLength;
+
+  /**
+   * When true, omit string-backed structured property values whose UTF-8 length exceeds {@link
+   * #keywordMaxLength} from the search document (they remain in primary storage).
+   */
+  private final boolean dropOversizedKeywordValuesFromIndex;
+
+  /**
+   * UTF-8 byte threshold for omitting string-backed structured properties from the search document.
+   * Callers pass {@link ESUtils#KEYWORD_MAXLENGTH} unless a different configured limit is in use.
+   */
+  private final int keywordMaxLength;
+
+  /**
+   * Aspects that contain semantic/embedding data for vector search. These aspects are transformed
+   * specially to extract embeddings and write them to the search index.
+   */
+  public static final Set<String> SEMANTIC_DATA_ASPECTS = Set.of("semanticContent");
 
   private static final String BROWSE_PATH_V2_DELIMITER = "␟";
 
@@ -118,34 +137,64 @@ public class SearchDocumentTransformer {
   }
 
   /**
-   * Handle object type UPSERTS where the new value to upsert removes a previous key. Only enabling
-   * for structured properties to start with i.e.
+   * While initially created to handle object type UPSERTS where the new value to upsert removes a
+   * previous key for enabling structured properties, this has been extended for removing other
+   * fields and nested values.
+   *
+   * <p>Original Structured Properties Example
    *
    * <p>New => { "structuredProperties.foobar": "value1" } Old => { "structuredProperties.foobar":
    * "value1" "structuredProperties.foobar2": "value2" } Expected => {
    * "structuredProperties.foobar": "value1" "structuredProperties.foobar2": null }
    *
-   * @param searchDocument new document
-   * @param previousSearchDocument previous document (if not present, no-op)
-   * @return searchDocument to upsert
+   * <p>Handles removing fields that were present in the previous document but are not in the new
+   * document. This method performs a deep comparison of all fields (including nested fields) and
+   * sets any missing fields to null in the resulting document.
+   *
+   * <p>The implementation handles both: - Flat fields with dots in their names which are escaped
+   * later. (like "structuredProperties.prop1") - Actual nested object structures
+   *
+   * <p>NOTE: This method mutates the input searchDocument object.
+   *
+   * @param searchDocument The new search document (will be mutated)
+   * @param previousSearchDocument The previous search document (can be null)
+   * @return The mutated search document with removed fields set to null
    */
   public static ObjectNode handleRemoveFields(
       @Nonnull ObjectNode searchDocument, @Nullable ObjectNode previousSearchDocument) {
-    if (previousSearchDocument != null) {
-      Set<String> documentFields = objectFieldsFilter(searchDocument.fieldNames());
-      objectFieldsFilter(previousSearchDocument.fieldNames()).stream()
-          .filter(prevFieldName -> !documentFields.contains(prevFieldName))
-          .forEach(removeFieldName -> searchDocument.set(removeFieldName, null));
+    if (previousSearchDocument == null) {
+      return searchDocument;
     }
-    // no-op
+
+    // Process fields recursively
+    processFieldsForRemoval(searchDocument, previousSearchDocument);
+
     return searchDocument;
   }
 
-  private static Set<String> objectFieldsFilter(Iterator<String> fieldNames) {
-    Iterable<String> iterable = () -> fieldNames;
-    return StreamSupport.stream(iterable.spliterator(), false)
-        .filter(fieldName -> fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX))
-        .collect(Collectors.toSet());
+  /** Recursively processes fields to find and null out removed ones. */
+  private static void processFieldsForRemoval(ObjectNode current, JsonNode previous) {
+    if (previous == null || !previous.isObject()) {
+      return;
+    }
+
+    Iterator<Map.Entry<String, JsonNode>> prevFields = previous.fields();
+    while (prevFields.hasNext()) {
+      Map.Entry<String, JsonNode> entry = prevFields.next();
+      String fieldName = entry.getKey();
+      JsonNode prevValue = entry.getValue();
+      JsonNode currentValue = current.get(fieldName);
+
+      if (currentValue == null) {
+        // Field was removed, set it to null
+        current.set(fieldName, JsonNodeFactory.instance.nullNode());
+      } else if (currentValue.isObject() && prevValue.isObject()) {
+        // Both are objects, recurse into them
+        processFieldsForRemoval((ObjectNode) currentValue, prevValue);
+      }
+      // If current exists but types don't match (one is object, other isn't),
+      // we don't recurse - the field was replaced with a different type
+    }
   }
 
   public Optional<ObjectNode> transformAspect(
@@ -166,12 +215,16 @@ public class SearchDocumentTransformer {
 
     Optional<ObjectNode> result = Optional.empty();
 
+    final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+    searchDocument.put("urn", urn.toString());
+
+    // Check if the entity has any searchable aspects
+    EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
+    boolean entityHasSearchableAspects = !entitySpec.getSearchableFieldSpecs().isEmpty();
+
     if (!extractedSearchableFields.isEmpty()
         || !extractedSearchScoreFields.isEmpty()
         || !extractedSearchRefFields.isEmpty()) {
-      final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
-      searchDocument.put("urn", urn.toString());
-
       extractedSearchableFields.forEach(
           (key, values) ->
               setSearchableValue(key, values, searchDocument, forDelete, mclCreateAuditStamp));
@@ -182,11 +235,21 @@ public class SearchDocumentTransformer {
       extractedSearchScoreFields.forEach(
           (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
       result = Optional.of(searchDocument);
-    } else if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
-      final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
-      searchDocument.put("urn", urn.toString());
+    } else if (entityHasSearchableAspects) {
+      // If entity has searchable aspects but current aspect has no searchable fields,
+      // still create a search document with just the URN
+      result = Optional.of(searchDocument);
+    }
+
+    if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
       setStructuredPropertiesSearchValue(
           opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
+      result = Optional.of(searchDocument);
+    }
+
+    // Handle semantic data aspects (embeddings for vector search)
+    if (SEMANTIC_DATA_ASPECTS.contains(aspectSpec.getName())) {
+      setSemanticContentSearchValue(aspect, searchDocument, forDelete);
       result = Optional.of(searchDocument);
     }
 
@@ -279,7 +342,9 @@ public class SearchDocumentTransformer {
         fieldValues
             .subList(0, Math.min(fieldValues.size(), maxArrayLength))
             .forEach(
-                value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
+                value ->
+                    getNodeForValue(valueType, value, fieldType, fieldSpec)
+                        .ifPresent(arrayNode::add));
         searchDocument.set(fieldName, arrayNode);
       }
     } else if (valueType == DataSchema.Type.MAP && FieldType.MAP_ARRAY.equals(fieldType)) {
@@ -347,7 +412,7 @@ public class SearchDocumentTransformer {
               });
       searchDocument.set(fieldName, dictDoc);
     } else if (!fieldValues.isEmpty()) {
-      getNodeForValue(valueType, fieldValues.get(0), fieldType)
+      getNodeForValue(valueType, fieldValues.get(0), fieldType, fieldSpec)
           .ifPresent(node -> searchDocument.set(fieldName, node));
     }
   }
@@ -394,7 +459,10 @@ public class SearchDocumentTransformer {
   }
 
   private Optional<JsonNode> getNodeForValue(
-      final DataSchema.Type schemaFieldType, final Object fieldValue, final FieldType fieldType) {
+      final DataSchema.Type schemaFieldType,
+      final Object fieldValue,
+      final FieldType fieldType,
+      final SearchableFieldSpec fieldSpec) {
     switch (schemaFieldType) {
       case BOOLEAN:
         return Optional.of(JsonNodeFactory.instance.booleanNode((Boolean) fieldValue));
@@ -406,9 +474,15 @@ public class SearchDocumentTransformer {
         return Optional.of(JsonNodeFactory.instance.numberNode((Float) fieldValue));
       case DOUBLE:
         return Optional.of(JsonNodeFactory.instance.numberNode((Double) fieldValue));
-        // By default run toString
+      // By default run toString
       default:
         String value = fieldValue.toString();
+        // Sanitize text fields based on annotation flag
+        // This prevents OpenSearch indexing failures due to the 32KB term limit
+        if ((fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL)
+            && fieldSpec.getSearchableAnnotation().isSanitizeRichText()) {
+          value = SearchDocumentSanitizer.sanitizeForIndexing(value);
+        }
         return value.isEmpty()
             ? Optional.of(JsonNodeFactory.instance.nullNode())
             : Optional.of(JsonNodeFactory.instance.textNode(value));
@@ -454,7 +528,9 @@ public class SearchDocumentTransformer {
         opContext
             .getAspectRetriever()
             .getLatestAspectObjects(
-                propertyMap.keySet(), Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+                opContext,
+                propertyMap.keySet(),
+                Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
 
     if (definitions.size() < propertyMap.size()) {
       String message =
@@ -493,6 +569,7 @@ public class SearchDocumentTransformer {
                 searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
               } else {
                 ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
+                int[] omittedOversized = new int[] {0};
 
                 propertyEntry
                     .getValue()
@@ -519,20 +596,87 @@ public class SearchDocumentTransformer {
                                                   JsonNodeFactory.instance.numberNode(doubleValue));
                                           break;
                                         default:
-                                          searchValue =
-                                              propertyValue.getString().isEmpty()
-                                                  ? Optional.empty()
-                                                  : Optional.of(
-                                                      JsonNodeFactory.instance.textNode(
-                                                          propertyValue.getString()));
+                                          if (propertyValue.getString() == null
+                                              || propertyValue.getString().isEmpty()) {
+                                            searchValue = Optional.empty();
+                                          } else if (dropOversizedKeywordValuesFromIndex
+                                              && ESUtils.exceedsKeywordMaxBytes(
+                                                  propertyValue.getString(), keywordMaxLength)) {
+                                            omittedOversized[0]++;
+                                            log.warn(
+                                                "Omitting structured property {} from the search"
+                                                    + " document: value is {} UTF-8 bytes, exceeding"
+                                                    + " keywordMaxLength {}",
+                                                propertyEntry.getKey(),
+                                                propertyValue
+                                                    .getString()
+                                                    .getBytes(StandardCharsets.UTF_8)
+                                                    .length,
+                                                keywordMaxLength);
+                                            searchValue = Optional.empty();
+                                          } else {
+                                            searchValue =
+                                                Optional.of(
+                                                    JsonNodeFactory.instance.textNode(
+                                                        propertyValue.getString()));
+                                          }
                                           break;
                                       }
                                       searchValue.ifPresent(arrayNode::add);
                                     }));
 
-                searchDocument.set(fieldName, arrayNode);
+                if (arrayNode.isEmpty() && omittedOversized[0] > 0) {
+                  searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
+                } else {
+                  searchDocument.set(fieldName, arrayNode);
+                }
               }
             });
+  }
+
+  /** Sets semantic content (embeddings + skip marker) in the search document for vector search. */
+  @VisibleForTesting
+  void setSemanticContentSearchValue(
+      final RecordTemplate aspect, final ObjectNode searchDocument, final Boolean forDelete) {
+    if (forDelete || aspect == null) {
+      searchDocument.set("embeddings", JsonNodeFactory.instance.nullNode());
+      searchDocument.set("skipReason", JsonNodeFactory.instance.nullNode());
+      searchDocument.set("skippedAt", JsonNodeFactory.instance.nullNode());
+      return;
+    }
+    try {
+      // Direct pass-through - PDL camelCase matches OpenSearch camelCase
+      ObjectMapper mapper = new ObjectMapper();
+      Object embeddings = aspect.data().get("embeddings");
+      // An empty embeddings map (skip marker) must project as an explicit null: under
+      // doc_as_upsert an empty object is a merge no-op, so {} could not clear a previous
+      // model entry on an embedded -> skipped transition when the diff-mode removal pass
+      // is unavailable (e.g. FORCE_INDEXING / restore), leaving the document permanently
+      // misclassified as embedded-and-stale.
+      if (embeddings instanceof Map && ((Map<?, ?>) embeddings).isEmpty()) {
+        searchDocument.set("embeddings", JsonNodeFactory.instance.nullNode());
+      } else {
+        searchDocument.set("embeddings", mapper.valueToTree(embeddings));
+      }
+      // Skip marker fields are ALWAYS set (value or explicit null): index updates merge via
+      // doc_as_upsert, so omitting them after a real embed would leave a previous skip marker
+      // in place and misclassify an embedded document as deliberately skipped.
+      Object skipReason = aspect.data().get("skipReason");
+      searchDocument.set(
+          "skipReason",
+          skipReason != null
+              ? JsonNodeFactory.instance.textNode(skipReason.toString())
+              : JsonNodeFactory.instance.nullNode());
+      Object skippedAt = aspect.data().get("skippedAt");
+      searchDocument.set(
+          "skippedAt",
+          skippedAt instanceof Number
+              ? JsonNodeFactory.instance.numberNode(((Number) skippedAt).longValue())
+              : JsonNodeFactory.instance.nullNode());
+      log.debug("Set semantic content embeddings in search document");
+    } catch (Exception e) {
+      log.error("Error transforming SemanticContent aspect to search document", e);
+    }
   }
 
   public void setSearchableRefValue(
@@ -592,7 +736,8 @@ public class SearchDocumentTransformer {
         String entityType = eAUrn.getEntityType();
         String entityKeyAspectName = entityRegistry.getEntitySpec(entityType).getKeyAspectName();
         Optional<Aspect> entityKeyAspect =
-            Optional.ofNullable(aspectRetriever.getLatestAspectObject(eAUrn, entityKeyAspectName));
+            Optional.ofNullable(
+                aspectRetriever.getLatestAspectObject(opContext, eAUrn, entityKeyAspectName));
         if (entityKeyAspect.isEmpty()) {
           return Optional.ofNullable(JsonNodeFactory.instance.nullNode());
         }
@@ -604,7 +749,8 @@ public class SearchDocumentTransformer {
           String aspectClass = aspectSpec.getDataTemplateClass().getCanonicalName();
           if (!Constants.SKIP_REFERENCE_ASPECT.contains(aspectName)) {
             try {
-              Aspect aspectDetails = aspectRetriever.getLatestAspectObject(eAUrn, aspectName);
+              Aspect aspectDetails =
+                  aspectRetriever.getLatestAspectObject(opContext, eAUrn, aspectName);
               DataMap aspectDataMap = aspectDetails.data();
               RecordTemplate aspectRecord =
                   RecordUtils.toRecordTemplate(aspectClass, aspectDataMap);

@@ -34,16 +34,12 @@ Let's get started!
 
 ## Support
 
-Freshness Assertions are currently supported for:
+Freshness Assertions are supported in two modes:
 
-1. Snowflake
-2. Redshift
-3. BigQuery
-4. Databricks
-5. DataHub Operations (collected via ingestion)
+- **Active query** (low-latency, schedule-driven) — requires an ingestion source configured for Snowflake, Redshift, BigQuery, or Databricks. Uses Audit Log, Information Schema, Last Modified Column, High Watermark Column, or File Metadata (Databricks only) as the change source.
+- **Ingestion-driven** (any ingested platform, including Postgres, MySQL, Athena, …) — uses the DataHub `operation` aspect that is reported during ingestion. Evaluation cadence is bounded by your ingestion cadence.
 
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion**
-tab.
+See the [capabilities matrix](./assertions.md) for the full comparison of active-query vs ingestion-driven modes across all assertion types.
 
 > Note that Freshness Assertions are not yet supported if you are connecting to your warehouse
 > using the DataHub CLI.
@@ -110,6 +106,20 @@ Change Source types vary by the platform, but generally fall into these categori
   of change that was last made to a specific table (e.g. the operation itself - INSERT, UPDATE, DELETE, number of impacted rows, etc).
   Note that for Databricks, [this option](https://docs.databricks.com/en/delta/table-details.html) is only available for tables stored in Delta format.
 
+- **Platform API** (BigQuery Only): Uses the Data Warehouse's native metadata API to check when a Table was last modified. This is the
+  most cost-effective option as it does not run any SQL queries or scan any data — the metadata is retrieved via a free API call.
+  For BigQuery, this uses the [tables.get](https://cloud.google.com/bigquery/docs/reference/rest/v2/tables/get) API, which requires
+  the `bigquery.tables.get` permission (included in the `roles/bigquery.metadataViewer` role).
+  This method is only supported for Tables, not Views.
+
+  :::caution Quota considerations
+  The `tables.get` API is subject to BigQuery's [API request rate limits](https://cloud.google.com/bigquery/quotas#api_quotas_and_limits).
+  These limits are quite high, but should be considered when running this assertion against a very large number of tables on a frequent
+  schedule. DataHub Cloud automatically jitters and distributes the execution of Smart Assertions and assertions it manages on its end
+  to avoid bursts of API calls. If you are configuring your own custom schedules across many assertions, consider staggering them
+  (e.g., varying the minute offset across assertions) to avoid hitting per-minute API quotas.
+  :::
+
 - **Last Modified Column**: A Date or Timestamp column that represents the last time that a specific _row_ was touched or updated.
   Adding a Last Modified Column to each warehouse Table is a pattern is often used for existing use cases around change management.
   If this change source is used, a query will be issued to the Table to search for rows that have been modified within a specific
@@ -140,15 +150,16 @@ Freshness Assertions also have an off switch: they can be started or stopped at 
 1. **Permissions**: To create or delete Freshness Assertions for a specific entity on DataHub, you'll need to be granted the
    `Edit Assertions` and `Edit Monitors` privileges for the entity. This will be granted to Entity owners as part of the `Asset Owners - Metadata Policy`
    by default.
-2. (Optional) **Data Platform Connection**: In order to create a Freshness Assertion that queries the source data platform directly (instead of DataHub metadata), you'll need to have an **Ingestion Source** configured to your
-   Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab.
+2. (Recommended) **Data Platform Connection**: To evaluate a Freshness Assertion by querying the source data platform directly, you'll need an **Ingestion Source** configured for Snowflake, BigQuery, Redshift, or Databricks under the **Integrations** tab. If you rely on the ingestion-driven `DataHub Operation` change source, no warehouse connection is required — Operations can be reported for any ingested platform.
 
 Once these are in place, you're ready to create your Freshness Assertions!
+
+You can also apply Freshness Assertions with Anomaly Detection at scale using [Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) on the Data Health page.
 
 ### Steps
 
 1. Navigate to the Table that to monitor for freshness
-2. Click the **Validations** tab
+2. Click the **Quality** tab
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
@@ -186,14 +197,14 @@ _Check whether the table has changed in a specific window of time_
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-source-type.png"/>
 </p>
 
-- **Audit Log**: Check the Data Platform operational audit log to determine whether the table changed within the evaluation period.
-- **Information Schema**: Check the Data Platform system metadata tables to determine whether the table changed within the evaluation period.
+- **Audit Log**: Check the Data Platform operational audit log to determine whether the table changed within the evaluation period. This will filter out No-Ops (e.g. `INSERT 0`). However, the Audit Log can be delayed by several hours depending on the Data Platform. This is also a little more costly on the warehouse than Information Schema.
+- **Information Schema**: Check the Data Platform system metadata tables to determine whether the table changed within the evaluation period. This is the optimal balance between cost and accuracy for most Data Platforms.
 - **Last Modified Column**: Check for the presence of rows using a "Last Modified Time" column, which should reflect the time at which a given row was last changed in the table, to
-  determine whether the table changed within the evaluation period.
+  determine whether the table changed within the evaluation period. This issues a query to the table, which can be more expensive than Information Schema.
 - **High Watermark Column**: Monitor changes to a continuously-increasing "high watermark" column value to determine whether a table
   has been changed. This option is particularly useful for tables that grow consistently with time, for example fact or event (e.g. click-stream) tables. It is not available
-  when using a fixed lookback period.
-- **DataHub Operation**: Use DataHub Operations to determine whether the table changed within the evaluation period.
+  when using a fixed lookback period. This issues a query to the table, which can be more expensive than Information Schema.
+- **DataHub Operation**: Use DataHub Operations to determine whether the table changed within the evaluation period. This is the cheapest option, but requires that Operations are reported to DataHub. By default, Ingestion will report Operations to DataHub, which can be and infrequent. You can report Operations via the DataHub APIs for more frequent and reliable data.
 
 8. Configure actions that should be taken when the Freshness Assertion passes or fails
 
@@ -224,7 +235,7 @@ Once your assertion has run, you will begin to see Success or Failure status for
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Freshness** to open the Freshness Assertion assertions
 3. Click the "Stop" button for the assertion you wish to pause.
 
@@ -238,23 +249,17 @@ To resume the assertion, simply click **Start**.
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
 
-## Smart Assertions ⚡
+## Anomaly Detection ⚡
 
-As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
-dynamic, AI-powered Freshness Assertions that you can use to monitor the freshness of important warehouse Tables, without
-requiring any manual setup.
+Freshness Assertions support [Anomaly Detection](./anomaly-detection.md), which replaces a fixed freshness SLA with an AI-driven threshold that learns the table's normal change pattern. This is useful when a table's update cadence varies with the day of week, is seasonal, or is otherwise hard to express as a static rule.
 
-If DataHub Cloud is able to detect a pattern in the change frequency of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
-a recommended Smart Assertion under the `Validations` tab on the Table profile page:
+The ML model trains on the table's change history captured in the [`operation` aspect](../../api/tutorials/operations.md). Normally this is populated during ingestion run time.
+
+You can enable Anomaly Detection by selecting the `Detect with AI` option in the UI:
 
 <p align="left">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/smart-assertion.png"/>
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/freshness-smart-assertion.png"/>
 </p>
-
-In order to enable it, simply click **Turn On**. From this point forward, the Smart Assertion will check for changes on a cadence
-based on the Table history, by default using the **Audit Log**.
-
-Don't need it anymore? Smart Assertions can just as easily be turned off by clicking the three-dot "more" button and then **Stop**.
 
 ## Creating Freshness Assertions via API
 
@@ -289,6 +294,24 @@ mutation upsertDatasetFreshnessAssertionMonitor {
         timezone: "America/Los_Angeles"
         cron: "0 */8 * * *"
       }
+      evaluationParameters: { sourceType: INFORMATION_SCHEMA }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+To create a Freshness Assertion with Anomaly Detection:
+
+```graphql
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      inferWithAI: true
+      evaluationSchedule: { timezone: "America/Los_Angeles", cron: "0 * * * *" }
       evaluationParameters: { sourceType: INFORMATION_SCHEMA }
       mode: ACTIVE
     }

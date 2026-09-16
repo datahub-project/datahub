@@ -4,12 +4,12 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isVi
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.Constants;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.types.usage.UsageQueryResultMapper;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageTimeRange;
 import graphql.schema.DataFetcher;
@@ -31,7 +31,11 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
-    final UsageTimeRange range = UsageTimeRange.valueOf(environment.getArgument("range"));
+    final UsageTimeRange range =
+        UsageTimeRange.valueOf(environment.getArgument(Constants.RANGE_INPUT_FIELD));
+    final Long startTimeMillis =
+        environment.getArgumentOrDefault(Constants.START_TIME_MILLIS_INPUT_FIELD, null);
+    final String timeZone = environment.getArgument(Constants.TIME_ZONE_INPUT_FIELD);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -45,11 +49,20 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
           try {
             com.linkedin.usage.UsageQueryResult usageQueryResult =
                 usageClient.getUsageStats(
-                    context.getOperationContext(), resourceUrn.toString(), range);
+                    context.getOperationContext(),
+                    resourceUrn.toString(),
+                    range,
+                    startTimeMillis,
+                    timeZone);
             return UsageQueryResultMapper.map(context, usageQueryResult);
           } catch (Exception e) {
             log.error(String.format("Failed to load Usage Stats for resource %s", resourceUrn), e);
-            MetricUtils.counter(this.getClass(), "usage_stats_dropped").inc();
+            context
+                .getOperationContext()
+                .getMetricUtils()
+                .ifPresent(
+                    metricUtils ->
+                        metricUtils.increment(this.getClass(), "usage_stats_dropped", 1));
           }
 
           return UsageQueryResultMapper.EMPTY;

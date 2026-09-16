@@ -1,45 +1,36 @@
-from typing import List
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn, DatasetUrn
+from datahub.sdk import DataHubClient
 
-import datahub.emitter.mce_builder as builder
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.com.linkedin.pegasus2avro.datajob import DataJobInputOutputClass
+client = DataHubClient.from_env()
 
-# Construct the DataJobInputOutput aspect.
-input_datasets: List[str] = [
-    builder.make_dataset_urn(platform="mysql", name="librarydb.member", env="PROD"),
-    builder.make_dataset_urn(platform="mysql", name="librarydb.checkout", env="PROD"),
-]
-
-output_datasets: List[str] = [
-    builder.make_dataset_urn(
-        platform="kafka", name="debezium.topics.librarydb.member_checkout", env="PROD"
-    )
-]
-
-input_data_jobs: List[str] = [
-    builder.make_data_job_urn(
-        orchestrator="airflow", flow_id="flow1", job_id="job0", cluster="PROD"
-    )
-]
-
-datajob_input_output = DataJobInputOutputClass(
-    inputDatasets=input_datasets,
-    outputDatasets=output_datasets,
-    inputDatajobs=input_data_jobs,
+datajob_urn = DataJobUrn(
+    flow=DataFlowUrn(orchestrator="airflow", flow_id="flow1", cluster="PROD"),
+    job_id="job1",
+)
+input_dataset_urn = DatasetUrn(platform="mysql", name="librarydb.member", env="PROD")
+input_datajob_urn = DataJobUrn(
+    flow=DataFlowUrn(orchestrator="airflow", flow_id="data_pipeline", cluster="PROD"),
+    job_id="job0",
+)
+output_dataset_urn = DatasetUrn(
+    platform="kafka", name="debezium.topics.librarydb.member_checkout", env="PROD"
 )
 
-# Construct a MetadataChangeProposalWrapper object.
-# NOTE: This will overwrite all of the existing lineage information associated with this job.
-datajob_input_output_mcp = MetadataChangeProposalWrapper(
-    entityUrn=builder.make_data_job_urn(
-        orchestrator="airflow", flow_id="flow1", job_id="job1", cluster="PROD"
-    ),
-    aspect=datajob_input_output,
+
+# add datajob -> datajob lineage
+client.lineage.add_lineage(
+    upstream=input_datajob_urn,
+    downstream=datajob_urn,
 )
 
-# Create an emitter to the GMS REST API.
-emitter = DatahubRestEmitter("http://localhost:8080")
+# add dataset -> datajob lineage
+client.lineage.add_lineage(
+    upstream=input_dataset_urn,
+    downstream=datajob_urn,
+)
 
-# Emit metadata!
-emitter.emit_mcp(datajob_input_output_mcp)
+# add datajob -> dataset lineage
+client.lineage.add_lineage(
+    upstream=datajob_urn,
+    downstream=output_dataset_urn,
+)

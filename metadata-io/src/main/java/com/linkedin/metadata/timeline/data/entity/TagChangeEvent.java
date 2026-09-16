@@ -2,7 +2,7 @@ package com.linkedin.metadata.timeline.data.entity;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.urn.Urn;
+import com.linkedin.common.TagAssociation;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -27,15 +27,25 @@ public class TagChangeEvent extends ChangeEvent {
       AuditStamp auditStamp,
       SemanticChangeType semVerChange,
       String description,
-      Urn tagUrn) {
+      TagAssociation tagAssociation) {
     super(
         entityUrn,
         category,
         operation,
         modifier,
-        ImmutableMap.of("tagUrn", tagUrn.toString()),
+        buildParameters(tagAssociation),
         auditStamp,
         semVerChange,
         description);
+  }
+
+  private static ImmutableMap<String, Object> buildParameters(TagAssociation tagAssociation) {
+    return new ImmutableMap.Builder<String, Object>()
+        .put("tagUrn", tagAssociation.getTag().toString())
+        .put("context", tagAssociation.getContext() != null ? tagAssociation.getContext() : "{}")
+        .put(
+            "sourceDetails",
+            ChangeEventParameterUtils.serializeSourceDetail(tagAssociation.getAttribution()))
+        .build();
   }
 }

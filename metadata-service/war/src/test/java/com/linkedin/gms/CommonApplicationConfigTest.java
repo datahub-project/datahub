@@ -1,0 +1,263 @@
+package com.linkedin.gms;
+
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
+import java.util.Set;
+import org.eclipse.jetty.http.UriCompliance;
+import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.HttpConfiguration;
+import org.eclipse.jetty.server.HttpConnectionFactory;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
+import org.springframework.boot.jetty.servlet.JettyServletWebServerFactory;
+import org.springframework.boot.web.server.WebServerFactoryCustomizer;
+import org.springframework.core.env.Environment;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+public class CommonApplicationConfigTest {
+
+  private CommonApplicationConfig config;
+  private Environment mockEnvironment;
+
+  @BeforeMethod
+  public void setup() {
+    config = new CommonApplicationConfig();
+    mockEnvironment = mock(Environment.class);
+
+    // Mock environment properties with defaults (HTTP-only configuration)
+    when(mockEnvironment.getProperty(eq("server.port"), eq(Integer.class), eq(8080)))
+        .thenReturn(8080);
+    when(mockEnvironment.getProperty(eq("server.ssl.port"), eq(Integer.class), eq(8443)))
+        .thenReturn(8443);
+    when(mockEnvironment.getProperty(eq("server.ssl.key-store"))).thenReturn(null);
+    when(mockEnvironment.getProperty(eq("server.ssl.key-store-password"))).thenReturn(null);
+    when(mockEnvironment.getProperty(eq("server.ssl.key-store-type"), eq("PKCS12")))
+        .thenReturn("PKCS12");
+    when(mockEnvironment.getProperty(eq("server.ssl.key-alias"))).thenReturn(null);
+
+    // Use reflection to set the mocked environment
+    try {
+      java.lang.reflect.Field field = CommonApplicationConfig.class.getDeclaredField("environment");
+      field.setAccessible(true);
+      field.set(config, mockEnvironment);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to inject mocked environment", e);
+    }
+  }
+
+  private HttpConfiguration getHttpConfiguration() {
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    assertNotNull(customizer, "Jetty customizer should not be null");
+
+    JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
+    customizer.customize(factory);
+
+    Server server = new Server();
+    factory.getServerCustomizers().forEach(sc -> sc.customize(server));
+
+    assertNotNull(server.getConnectors(), "Server should have connectors configured");
+    assertTrue(server.getConnectors().length > 0, "Server should have at least one connector");
+
+    ServerConnector connector = (ServerConnector) server.getConnectors()[0];
+    HttpConnectionFactory connectionFactory =
+        connector.getConnectionFactory(HttpConnectionFactory.class);
+    assertNotNull(connectionFactory, "HttpConnectionFactory should not be null");
+
+    HttpConfiguration httpConfig = connectionFactory.getHttpConfiguration();
+    assertNotNull(httpConfig, "HttpConfiguration should not be null");
+
+    return httpConfig;
+  }
+
+  @Test
+  public void testJettyCustomizerBeanCreation() {
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    assertNotNull(customizer, "Jetty customizer bean should be created");
+  }
+
+  @Test
+  public void testRequestHeaderSizeConfiguration() {
+    HttpConfiguration httpConfig = getHttpConfiguration();
+
+    int requestHeaderSize = httpConfig.getRequestHeaderSize();
+    assertEquals(
+        requestHeaderSize,
+        32768,
+        "Request header size should be set to 32768 bytes for large JWT tokens");
+  }
+
+  @Test
+  public void testServerVersionDisclosureDisabled() {
+    HttpConfiguration httpConfig = getHttpConfiguration();
+
+    boolean sendServerVersion = httpConfig.getSendServerVersion();
+    assertFalse(
+        sendServerVersion,
+        "Server version header (Server:) must be disabled to prevent information disclosure");
+  }
+
+  @Test
+  public void testDateHeaderDisabled() {
+    HttpConfiguration httpConfig = getHttpConfiguration();
+
+    boolean sendDateHeader = httpConfig.getSendDateHeader();
+    assertFalse(
+        sendDateHeader,
+        "Date header must be disabled to prevent information disclosure and timing attacks");
+  }
+
+  @Test
+  public void testUriComplianceConfiguration() {
+    HttpConfiguration httpConfig = getHttpConfiguration();
+
+    UriCompliance compliance = httpConfig.getUriCompliance();
+    assertNotNull(compliance, "URI compliance should be configured");
+
+    // DataHub URN paths (e.g. /aspects/urn:li:dataset:(...,s3:%2F%2F...,PROD)) routinely
+    // contain URL-encoded gen-delims and slashes. These ambiguous-path violations must be
+    // explicitly allowed or Jetty 12 returns 400 before the servlet sees the request. This
+    // test pins the set of violations we depend on in production — tightening compliance
+    // without replacing this with an equivalent allow-list will fail the test and surface
+    // the regression.
+    Set<UriCompliance.Violation> allowed = compliance.getAllowed();
+    assertTrue(
+        allowed.contains(UriCompliance.Violation.AMBIGUOUS_PATH_SEPARATOR),
+        "URN paths encode '/' as %2F — AMBIGUOUS_PATH_SEPARATOR must be allowed");
+    assertTrue(
+        allowed.contains(UriCompliance.Violation.AMBIGUOUS_PATH_ENCODING),
+        "URN values can contain literal '%' — AMBIGUOUS_PATH_ENCODING must be allowed");
+    assertTrue(
+        allowed.contains(UriCompliance.Violation.AMBIGUOUS_PATH_SEGMENT),
+        "Fully-encoded URNs (%3A, %28, %29, %2C) — AMBIGUOUS_PATH_SEGMENT must be allowed");
+    assertTrue(
+        allowed.contains(UriCompliance.Violation.AMBIGUOUS_EMPTY_SEGMENT),
+        "s3:// decodes to // in the path — AMBIGUOUS_EMPTY_SEGMENT must be allowed");
+  }
+
+  @Test
+  public void testHttpPortConfiguration() {
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
+    customizer.customize(factory);
+
+    Server server = new Server();
+    factory.getServerCustomizers().forEach(sc -> sc.customize(server));
+
+    ServerConnector connector = (ServerConnector) server.getConnectors()[0];
+    assertEquals(connector.getPort(), 8080, "HTTP port should be set to 8080");
+  }
+
+  @Test
+  public void testHttpsPortPropertyRead() {
+    // Trigger the customizer to ensure properties are read
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
+    customizer.customize(factory);
+    Server server = new Server();
+    factory.getServerCustomizers().forEach(sc -> sc.customize(server));
+
+    // Verify that the HTTPS port property is read correctly
+    verify(mockEnvironment).getProperty(eq("server.ssl.port"), eq(Integer.class), eq(8443));
+  }
+
+  @Test
+  public void testSslPropertiesRead() {
+    // Trigger the customizer to ensure properties are read
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
+    customizer.customize(factory);
+    Server server = new Server();
+    factory.getServerCustomizers().forEach(sc -> sc.customize(server));
+
+    // Verify that SSL-related properties are read from environment
+    // This covers the conditional SSL configuration branches (lines 105-106, 107-108, 124)
+    verify(mockEnvironment).getProperty(eq("server.ssl.key-store"));
+    verify(mockEnvironment).getProperty(eq("server.ssl.key-store-password"));
+    verify(mockEnvironment).getProperty(eq("server.ssl.key-store-type"), eq("PKCS12"));
+    verify(mockEnvironment).getProperty(eq("server.ssl.key-alias"));
+  }
+
+  @Test
+  public void testSingleConnectorConfiguration() {
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
+    customizer.customize(factory);
+
+    Server server = new Server();
+    factory.getServerCustomizers().forEach(sc -> sc.customize(server));
+
+    Connector[] connectors = server.getConnectors();
+    assertNotNull(connectors, "Connectors should be configured");
+    assertEquals(
+        connectors.length, 1, "Should have exactly one connector (HTTP or HTTPS, not both)");
+  }
+
+  @Test
+  public void testJmxConfigurationApplied() {
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
+    customizer.customize(factory);
+
+    Server server = new Server();
+    factory.getServerCustomizers().forEach(sc -> sc.customize(server));
+
+    // Verify JMX bean was added to server
+    assertNotNull(server.getBeans(), "Server should have beans configured");
+    assertTrue(
+        server.getBeans().stream()
+            .anyMatch(bean -> bean.getClass().getName().contains("MBeanContainer")),
+        "Server should have MBeanContainer configured for JMX monitoring");
+  }
+
+  private ServerConnector applyCustomizerAndGetConnector() {
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
+    customizer.customize(factory);
+    Server server = new Server();
+    factory.getServerCustomizers().forEach(sc -> sc.customize(server));
+    return (ServerConnector) server.getConnectors()[0];
+  }
+
+  @Test
+  public void testServerAddressUnsetLeavesConnectorHostUnbound() {
+    // Default setup provides no stub for server.address, so getProperty returns null.
+    ServerConnector connector = applyCustomizerAndGetConnector();
+    assertNull(
+        connector.getHost(),
+        "Connector host should remain unset when server.address is not configured,"
+            + " so Jetty binds to all interfaces");
+  }
+
+  @Test
+  public void testServerAddressBlankLeavesConnectorHostUnbound() {
+    // Guards against misconfigurations like SERVER_ADDRESS= (empty env var).
+    when(mockEnvironment.getProperty(eq("server.address"))).thenReturn("   ");
+    ServerConnector connector = applyCustomizerAndGetConnector();
+    assertNull(
+        connector.getHost(), "Connector host should remain unset when server.address is blank");
+  }
+
+  @Test
+  public void testServerAddressValidSetsConnectorHost() {
+    when(mockEnvironment.getProperty(eq("server.address"))).thenReturn("127.0.0.1");
+    ServerConnector connector = applyCustomizerAndGetConnector();
+    assertEquals(
+        connector.getHost(),
+        "127.0.0.1",
+        "Connector host should be set to the configured server.address");
+  }
+
+  @Test(
+      expectedExceptions = IllegalArgumentException.class,
+      timeOut = 5000) // Bound DNS resolution time if the resolver is slow on invalid hostnames.
+  public void testServerAddressInvalidThrows() {
+    // The ".invalid" TLD is RFC 6761 guaranteed non-resolvable, so InetAddress.getByName
+    // is expected to throw UnknownHostException which the code wraps in IllegalArgumentException.
+    when(mockEnvironment.getProperty(eq("server.address")))
+        .thenReturn("not-a-valid-hostname.invalid");
+    applyCustomizerAndGetConnector();
+  }
+}

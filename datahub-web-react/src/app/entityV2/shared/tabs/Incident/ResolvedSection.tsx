@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 
 import {
@@ -29,6 +30,7 @@ export const ResolvedSection = ({
     resolvedDateAndTime,
     resolverImageUrl,
 }: ResolvedSectionProps) => {
+    const { t } = useTranslation('entity.profile.incident');
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
 
@@ -38,10 +40,10 @@ export const ResolvedSection = ({
 
     return (
         <ResolverInfoContainer>
-            <ResolverTitleContainer>Incident Resolved</ResolverTitleContainer>
+            <ResolverTitleContainer>{t('resolution.sectionTitle')}</ResolverTitleContainer>
             <ResolverDetailsContainer>
                 <ResolverSubTitleContainer>
-                    <ResolverSubTitle>Resolved By</ResolverSubTitle>
+                    <ResolverSubTitle>{t('resolution.resolvedBy')}</ResolverSubTitle>
                     <ResolverDetails>
                         <Avatar
                             name={resolverName}
@@ -52,11 +54,11 @@ export const ResolvedSection = ({
                     </ResolverDetails>
                 </ResolverSubTitleContainer>
                 <ResolverSubTitleContainer>
-                    <ResolverSubTitle>Note</ResolverSubTitle>
+                    <ResolverSubTitle>{t('resolution.noteLabel')}</ResolverSubTitle>
                     <ResolverDetails>{resolverMessage || '-'}</ResolverDetails>
                 </ResolverSubTitleContainer>
                 <ResolverSubTitleContainer>
-                    <ResolverSubTitle>Resolved Date and Time</ResolverSubTitle>
+                    <ResolverSubTitle>{t('resolution.resolvedDateTime')}</ResolverSubTitle>
                     <ResolverDetails>{getFormattedDateForResolver(resolvedDateAndTime)}</ResolverDetails>
                 </ResolverSubTitleContainer>
             </ResolverDetailsContainer>

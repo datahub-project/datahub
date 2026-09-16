@@ -23,6 +23,7 @@ import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -46,7 +47,7 @@ public class MapperUtils {
 
   private static List<ExtraProperty> getExtraProperties(@Nullable StringMap extraFields) {
     if (extraFields == null) {
-      return List.of();
+      return new ArrayList<>();
     } else {
       return extraFields.entrySet().stream()
           .map(

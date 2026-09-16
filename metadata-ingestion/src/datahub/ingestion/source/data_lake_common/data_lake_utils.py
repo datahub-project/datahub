@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
 
 from datahub.emitter.mcp_builder import (
     BucketKey,
@@ -25,9 +25,15 @@ from datahub.ingestion.source.data_lake_common.object_store import (
     get_object_store_bucket_name,
     get_object_store_for_uri,
 )
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.gcs.gcs_utils import (
     get_gcs_prefix,
     is_gcs_uri,
+)
+from datahub.metadata.schema_classes import (
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
 )
 
 # hide annoying debug errors from py4j
@@ -37,6 +43,37 @@ logger: logging.Logger = logging.getLogger(__name__)
 PLATFORM_S3 = "s3"
 PLATFORM_GCS = "gcs"
 PLATFORM_ABS = "abs"
+
+
+def add_partition_columns_to_schema(
+    path_spec: PathSpec, full_path: str, fields: List[SchemaFieldClass]
+) -> None:
+    # Check if using fieldPath v2 format
+    is_fieldpath_v2 = any(
+        field.fieldPath.startswith("[version=2.0]") for field in fields
+    )
+
+    # Extract partition information from path
+    partition_keys = path_spec.get_partition_from_path(full_path)
+    if not partition_keys:
+        return
+
+    # Add partition fields to schema
+    for partition_key in partition_keys:
+        fields.append(
+            SchemaFieldClass(
+                fieldPath=(
+                    f"{partition_key[0]}"
+                    if not is_fieldpath_v2
+                    else f"[version=2.0].[type=string].{partition_key[0]}"
+                ),
+                nativeDataType="string",
+                type=SchemaFieldDataTypeClass(StringTypeClass()),
+                isPartitioningKey=True,
+                nullable=False,
+                recursive=False,
+            )
+        )
 
 
 class ContainerWUCreator:
@@ -140,24 +177,59 @@ class ContainerWUCreator:
             return get_container_relative_path(path)
         raise ValueError(f"Unable to get base full path from path: {path}")
 
+    def _emit_bucket(
+        self, path: str
+    ) -> Tuple[List[MetadataWorkUnit], Optional[ContainerKey], str]:
+        """Emit the bucket/container for ``path`` (object stores only). Returns the
+        emitted workunits, the bucket key (None for non-object-store platforms), and the
+        bucket-relative base path whose components should become folder containers."""
+        if self.platform in (PLATFORM_S3, PLATFORM_GCS, PLATFORM_ABS):
+            bucket_name = self.get_bucket_name(path)
+            bucket_key = self.gen_bucket_key(bucket_name)
+            wus = list(
+                self.create_emit_containers(
+                    container_key=bucket_key,
+                    name=bucket_name,
+                    sub_types=[self.get_sub_types()],
+                    parent_container_key=None,
+                )
+            )
+            return wus, bucket_key, self.get_base_full_path(path)
+        return [], None, path
+
+    def _emit_folder_chain(
+        self, parent_key: Optional[ContainerKey], folder_names: List[str]
+    ) -> Tuple[List[MetadataWorkUnit], Optional[ContainerKey]]:
+        """Emit a Container per name in ``folder_names``, chained under ``parent_key``.
+        Returns the emitted workunits and the leaf folder's key."""
+        wus: List[MetadataWorkUnit] = []
+        for folder in folder_names:
+            abs_path = folder
+            if parent_key:
+                prefix: str = ""
+                if isinstance(parent_key, BucketKey):
+                    prefix = parent_key.bucket_name
+                elif isinstance(parent_key, FolderKey):
+                    prefix = parent_key.folder_abs_path
+                abs_path = prefix + "/" + folder
+            folder_key = self.gen_folder_key(abs_path)
+            wus.extend(
+                self.create_emit_containers(
+                    container_key=folder_key,
+                    name=folder,
+                    sub_types=[DatasetContainerSubTypes.FOLDER],
+                    parent_container_key=parent_key,
+                )
+            )
+            parent_key = folder_key
+        return wus, parent_key
+
     def create_container_hierarchy(
         self, path: str, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"Creating containers for {dataset_urn}")
-        base_full_path = path
-        parent_key = None
-        if self.platform in (PLATFORM_S3, PLATFORM_GCS, PLATFORM_ABS):
-            bucket_name = self.get_bucket_name(path)
-            bucket_key = self.gen_bucket_key(bucket_name)
-
-            yield from self.create_emit_containers(
-                container_key=bucket_key,
-                name=bucket_name,
-                sub_types=[self.get_sub_types()],
-                parent_container_key=None,
-            )
-            parent_key = bucket_key
-            base_full_path = self.get_base_full_path(path)
+        bucket_wus, parent_key, base_full_path = self._emit_bucket(path)
+        yield from bucket_wus
 
         parent_folder_path = (
             base_full_path[: base_full_path.rfind("/")]
@@ -173,23 +245,30 @@ class ContainerWUCreator:
             return
 
         if parent_folder_path:
-            for folder in parent_folder_path.split("/"):
-                abs_path = folder
-                if parent_key:
-                    prefix: str = ""
-                    if isinstance(parent_key, BucketKey):
-                        prefix = parent_key.bucket_name
-                    elif isinstance(parent_key, FolderKey):
-                        prefix = parent_key.folder_abs_path
-                    abs_path = prefix + "/" + folder
-                folder_key = self.gen_folder_key(abs_path)
-                yield from self.create_emit_containers(
-                    container_key=folder_key,
-                    name=folder,
-                    sub_types=[DatasetContainerSubTypes.FOLDER],
-                    parent_container_key=parent_key,
-                )
-                parent_key = folder_key
+            chain_wus, parent_key = self._emit_folder_chain(
+                parent_key, parent_folder_path.split("/")
+            )
+            yield from chain_wus
 
         assert parent_key is not None
         yield from add_dataset_to_container(parent_key, dataset_urn)
+
+    def create_folder_containers(self, folder_path: str) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit the bucket and every folder component of ``folder_path`` as Containers,
+        WITHOUT creating or linking any dataset.
+
+        Used by folders-only path specs to catalog storage paths (e.g. unstructured
+        media) without reading file content. Unlike create_container_hierarchy, the
+        final path component is itself a folder (not a dataset leaf), and no
+        add_dataset_to_container link is emitted.
+        """
+        bucket_wus, parent_key, base_full_path = self._emit_bucket(folder_path)
+        yield from bucket_wus
+
+        base_full_path = base_full_path.strip("/")
+        if not base_full_path:
+            return
+
+        chain_wus, _ = self._emit_folder_chain(parent_key, base_full_path.split("/"))
+        yield from chain_wus

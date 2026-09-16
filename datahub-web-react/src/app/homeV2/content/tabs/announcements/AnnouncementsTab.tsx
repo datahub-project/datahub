@@ -12,6 +12,7 @@ const List = styled.div`
     flex-direction: column;
     padding: 0px 0px 0px 0px;
     gap: 16px;
+    margin-top: 16px;
 `;
 
 export const AnnouncementsTab = () => {
@@ -23,7 +24,7 @@ export const AnnouncementsTab = () => {
     return (
         <>
             {loading && <AnnouncementsSkeleton />}
-            <List id={V2_HOME_PAGE_ANNOUNCEMENTS_ID}>
+            <List id={V2_HOME_PAGE_ANNOUNCEMENTS_ID} data-testid="home-page-announcements">
                 {sortedAnnouncements?.length ? (
                     sortedAnnouncements.map((announcement) => (
                         <AnnouncementCard

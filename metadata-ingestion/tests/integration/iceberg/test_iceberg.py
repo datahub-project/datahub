@@ -3,7 +3,7 @@ from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -14,7 +14,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
-pytestmark = pytest.mark.integration_batch_1
+pytestmark = pytest.mark.integration_batch_5
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
@@ -44,7 +44,7 @@ def spark_submit(file_path: str, args: str = "") -> None:
     assert ret.returncode == 0
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_multiprocessing_iceberg_ingest(
     docker_compose_runner, pytestconfig, tmp_path, mock_time
 ):
@@ -74,7 +74,7 @@ def test_multiprocessing_iceberg_ingest(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 
@@ -100,7 +100,7 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_iceberg_stateful_ingest(
     docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
@@ -144,12 +144,15 @@ def test_iceberg_stateful_ingest(
         "pipeline_name": "test_pipeline",
     }
 
-    with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "iceberg"
-    ) as docker_services, patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint:
+    with (
+        docker_compose_runner(
+            test_resources_dir / "docker-compose.yml", "iceberg"
+        ) as docker_services,
+        patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+    ):
         wait_for_port(docker_services, "spark-iceberg", 8888, timeout=120)
 
         # Run the create.py pyspark file to populate two tables.
@@ -212,7 +215,7 @@ def test_iceberg_stateful_ingest(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_iceberg_profiling(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 

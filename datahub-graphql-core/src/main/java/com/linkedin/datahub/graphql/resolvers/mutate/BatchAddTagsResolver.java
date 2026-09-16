@@ -17,9 +17,11 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -51,7 +53,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
             return handleAddTagsToSingleSchemaField(context, resources, tagUrns);
           }
 
-          validateInputResources(resources, context);
+          validateInputResources(resources, context, tagUrns);
 
           try {
             // Then execute the bulk add
@@ -101,7 +103,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
     resources.add(resource);
 
     try {
-      validateInputResources(resources, context);
+      validateInputResources(resources, context, tagUrns);
       batchAddTags(tagUrns, resources, context);
       return true;
     } catch (Exception e) {
@@ -128,25 +130,32 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
   }
 
   private void validateTags(@Nonnull OperationContext opContext, List<Urn> tagUrns) {
-    for (Urn tagUrn : tagUrns) {
-      LabelUtils.validateLabel(opContext, tagUrn, Constants.TAG_ENTITY_NAME, _entityService);
-    }
+    LabelUtils.validateLabels(opContext, tagUrns, Constants.TAG_ENTITY_NAME, _entityService);
   }
 
-  private void validateInputResources(List<ResourceRefInput> resources, QueryContext context) {
+  private void validateInputResources(
+      List<ResourceRefInput> resources, QueryContext context, Collection<Urn> tagUrns) {
+    final Set<Urn> existingResourceUrns =
+        LabelUtils.existingResourceUrns(context.getOperationContext(), resources, _entityService);
     for (ResourceRefInput resource : resources) {
-      validateInputResource(resource, context);
+      validateInputResource(resource, context, tagUrns, existingResourceUrns);
     }
   }
 
-  private void validateInputResource(ResourceRefInput resource, QueryContext context) {
+  private void validateInputResource(
+      ResourceRefInput resource,
+      QueryContext context,
+      Collection<Urn> tagUrns,
+      Set<Urn> existingResourceUrns) {
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    if (!LabelUtils.isAuthorizedToUpdateTags(context, resourceUrn, resource.getSubResource())) {
+    if (!LabelUtils.isAuthorizedToUpdateTags(
+        context, resourceUrn, resource.getSubResource(), tagUrns)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
     LabelUtils.validateResource(
         context.getOperationContext(),
+        existingResourceUrns,
         resourceUrn,
         resource.getSubResource(),
         resource.getSubResourceType(),

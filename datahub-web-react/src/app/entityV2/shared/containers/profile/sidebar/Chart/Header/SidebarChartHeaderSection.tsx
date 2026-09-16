@@ -1,9 +1,9 @@
 import { Tooltip } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarHeaderSectionColumns } from '@app/entityV2/shared/containers/profile/sidebar/SidebarHeaderSectionColumns';
 import SidebarTopUsersHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarTopUsersHeaderSection';
 import { getChartPopularityTier, userExists } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
@@ -11,12 +11,13 @@ import { SidebarStatsColumn, getPopularityColumn } from '@app/entityV2/shared/co
 import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 
 const StatContent = styled.div`
-    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_4};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 600;
 `;
 
 const SidebarChartHeaderSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData } = useEntityData();
     const chart = entityData as any;
 
@@ -30,6 +31,7 @@ const SidebarChartHeaderSection = () => {
             chart?.statsSummary?.viewCountPercentileLast30Days,
             chart?.statsSummary?.uniqueUserPercentileLast30Days,
         ),
+        t,
     );
     if (popularityColumn) {
         columns.push(popularityColumn);
@@ -43,7 +45,7 @@ const SidebarChartHeaderSection = () => {
         chart?.statsSummary?.topUsersLast30Days?.find((user) => userExists(user))
     ) {
         columns.push({
-            title: 'Top Users',
+            title: t('sidebar.chartHeader.topUsersColumn'),
             content: <SidebarTopUsersHeaderSection />,
         });
     }
@@ -52,9 +54,14 @@ const SidebarChartHeaderSection = () => {
      * Queries column
      */
     if (chart?.statsSummary?.queryCountLast30Days) {
+        const count = chart?.statsSummary?.queryCountLast30Days;
         columns.push({
-            title: 'Queries',
-            content: <StatContent>{formatNumber(chart?.statsSummary?.queryCountLast30Days)} queries</StatContent>,
+            title: t('sidebar.chartHeader.queriesColumn'),
+            content: (
+                <StatContent>
+                    {t('sidebar.chartHeader.queriesCount', { count, formattedCount: formatNumber(count) })}
+                </StatContent>
+            ),
         });
     }
 
@@ -62,9 +69,14 @@ const SidebarChartHeaderSection = () => {
      * Users column
      */
     if (chart?.statsSummary?.uniqueUserCountLast30Days) {
+        const count = chart?.statsSummary?.uniqueUserCountLast30Days;
         columns.push({
-            title: 'Users',
-            content: <StatContent>{formatNumber(chart?.statsSummary?.uniqueUserCountLast30Days)} users</StatContent>,
+            title: t('sidebar.chartHeader.usersColumn'),
+            content: (
+                <StatContent>
+                    {t('sidebar.chartHeader.usersCount', { count, formattedCount: formatNumber(count) })}
+                </StatContent>
+            ),
         });
     }
 
@@ -72,16 +84,20 @@ const SidebarChartHeaderSection = () => {
      * Recent Views
      */
     if (chart?.statsSummary?.viewCountLast30Days) {
+        const count = chart?.statsSummary?.viewCountLast30Days;
         columns.push({
-            title: 'Recent Views',
+            title: t('sidebar.chartHeader.recentViewsColumn'),
             content: (
                 <Tooltip
                     showArrow={false}
-                    title={`${formatNumberWithoutAbbreviation(
-                        chart?.statsSummary?.viewCountLast30Days,
-                    )} views over the past 30 days`}
+                    title={t('sidebar.chartHeader.viewsOverPast30DaysTooltip', {
+                        count,
+                        formattedCount: formatNumberWithoutAbbreviation(count),
+                    })}
                 >
-                    <StatContent>{formatNumber(chart?.statsSummary?.viewCountLast30Days)} views</StatContent>
+                    <StatContent>
+                        {t('sidebar.chartHeader.viewsCount', { count, formattedCount: formatNumber(count) })}
+                    </StatContent>
                 </Tooltip>
             ),
         });
@@ -91,14 +107,20 @@ const SidebarChartHeaderSection = () => {
      * Total Views
      */
     if (chart?.statsSummary?.viewCount) {
+        const count = chart?.statsSummary?.viewCount;
         columns.push({
-            title: 'Total Views',
+            title: t('sidebar.chartHeader.totalViewsColumn'),
             content: (
                 <Tooltip
                     showArrow={false}
-                    title={`${formatNumberWithoutAbbreviation(chart?.statsSummary?.viewCount)} views`}
+                    title={t('sidebar.chartHeader.totalViewsTooltip', {
+                        count,
+                        formattedCount: formatNumberWithoutAbbreviation(count),
+                    })}
                 >
-                    <StatContent>{formatNumber(chart?.statsSummary?.viewCount)} views</StatContent>
+                    <StatContent>
+                        {t('sidebar.chartHeader.viewsCount', { count, formattedCount: formatNumber(count) })}
+                    </StatContent>
                 </Tooltip>
             ),
         });

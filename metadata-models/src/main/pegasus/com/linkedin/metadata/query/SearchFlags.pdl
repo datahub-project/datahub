@@ -45,6 +45,14 @@ record SearchFlags {
    includeSoftDeleted:optional boolean = false
 
   /**
+   * Include entities in lifecycle stages that have hideInSearch=true.
+   * By default, entities in hidden lifecycle stages are excluded from search results.
+   * Set to true for eval queries or admin tooling that needs to discover all entities
+   * regardless of lifecycle stage settings.
+   */
+   includeHiddenLifecycleStages:optional boolean = false
+
+  /**
    * include restricted entities in results (default is to filter)
    */
    includeRestricted:optional boolean = false
@@ -53,6 +61,14 @@ record SearchFlags {
    * Include mentioned fields inside elastic highlighting query
    */
    customHighlightingFields:optional array[string]
+
+  /**
+   * Elasticsearch _source include names copied onto SearchEntity.extraFields (Java / Rest.li
+   * only — not a GraphQL SearchFlags input). Nested paths and wildcards are passed through to
+   * fetch_source; extraFields copies exact top-level _source keys. Empty or absent fetches no
+   * extra document fields — only the default urn include.
+   */
+   fetchExtraFields:optional array[string]
 
   /**
    * invoke query rewrite chain for filters based on configured rewriters
@@ -69,4 +85,31 @@ record SearchFlags {
    * Include only latest versions in version sets, default true
    */
    filterNonLatestVersions: optional boolean = true
+
+   /**
+    * Which fieldConfiguration should be applied. The possible values
+    * are defined in the configuration file `search_config.yaml`
+    */
+    fieldConfiguration:optional string
+
+  /**
+    * Sets slice parameter for elasticsearch query,
+    * to allow multiple clients to scroll the same query at once.
+    * Only supported by the ElasticSearchService
+    */
+  sliceOptions: optional record SliceOptions {
+    id: int
+    max: int
+  }
+
+  /**
+   * Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring
+   * below this floor are dropped, letting an agent abstain instead of returning weak matches. When
+   * null/unset, no floor is applied. Currently honored only by the semantic search path.
+   *
+   * The value is compared against the engine's raw kNN relevance score (cosine-derived), which is
+   * not a normalized 0..1 value; its scale depends on the embedding model and search engine, so a
+   * suitable floor must be calibrated per deployment rather than assumed.
+   */
+  minScore: optional float
 }

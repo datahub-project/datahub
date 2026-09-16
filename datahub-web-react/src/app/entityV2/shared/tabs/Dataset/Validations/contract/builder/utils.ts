@@ -2,30 +2,56 @@ import {
     DataContractBuilderState,
     DataContractCategoryType,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
+import { getDataContractCategoryFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
 
-import { DataContract } from '@types';
+import { Assertion, DataContract } from '@types';
 
-/**
- * Creates a builder state instance from a Data Contract object.
- */
 export const createBuilderState = (contract?: DataContract | null): DataContractBuilderState | undefined => {
-    if (contract) {
-        return {
-            schema:
-                (contract?.properties?.schema?.length && {
-                    assertionUrn: contract?.properties?.schema[0]?.assertion?.urn,
-                }) ||
-                undefined,
-            freshness:
-                (contract?.properties?.freshness?.length && {
-                    assertionUrn: contract?.properties?.freshness[0]?.assertion?.urn,
-                }) ||
-                undefined,
-            dataQuality:
-                contract?.properties?.dataQuality?.map((c) => ({ assertionUrn: c.assertion.urn })) || undefined,
-        };
+    if (!contract) {
+        return undefined;
     }
-    return undefined;
+    return {
+        schema:
+            (contract.properties?.schema?.length && {
+                assertionUrn: contract.properties.schema[0].assertion.urn,
+            }) ||
+            undefined,
+        freshness:
+            (contract.properties?.freshness?.length && {
+                assertionUrn: contract.properties.freshness[0].assertion.urn,
+            }) ||
+            undefined,
+        dataQuality:
+            contract.properties?.dataQuality?.map((item) => ({ assertionUrn: item.assertion.urn })) || undefined,
+    };
+};
+
+export const partitionAssertionsByContractCategory = (assertions: Assertion[]) => {
+    const freshnessAssertions: Assertion[] = [];
+    const schemaAssertions: Assertion[] = [];
+    const dataQualityAssertions: Assertion[] = [];
+
+    assertions.forEach((assertion) => {
+        switch (getDataContractCategoryFromAssertion(assertion)) {
+            case DataContractCategoryType.FRESHNESS:
+                freshnessAssertions.push(assertion);
+                break;
+            case DataContractCategoryType.SCHEMA:
+                schemaAssertions.push(assertion);
+                break;
+            case DataContractCategoryType.DATA_QUALITY:
+                dataQualityAssertions.push(assertion);
+                break;
+            default:
+                break;
+        }
+    });
+
+    return {
+        freshnessAssertions,
+        schemaAssertions,
+        dataQualityAssertions,
+    };
 };
 
 /**

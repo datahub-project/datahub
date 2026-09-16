@@ -1,0 +1,41 @@
+{
+  "pipelineId": "pipe-1",
+  "nodes": [
+    {
+      "id": "source-1",
+      "name": "orders",
+      "type": "table",
+      "platform": "bigquery",
+      "schema": "source",
+      "table": "orders"
+    },
+    {
+      "id": "source-2",
+      "name": "customers",
+      "type": "table",
+      "platform": "bigquery",
+      "schema": "source",
+      "table": "customers"
+    },
+    {
+      "id": "target-1",
+      "name": "customer_orders",
+      "type": "table",
+      "platform": "snowflake",
+      "schema": "analytics",
+      "table": "customer_orders"
+    }
+  ],
+  "edges": [
+    {
+      "sourceId": "source-1",
+      "targetId": "target-1",
+      "type": "transformation"
+    },
+    {
+      "sourceId": "source-2",
+      "targetId": "target-1",
+      "type": "transformation"
+    }
+  ]
+}

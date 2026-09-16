@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.data.Null;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.annotation.TraverserContext;
@@ -48,5 +49,9 @@ public class FieldSpecUtils {
                 .add(aspectName)
                 .addAll(context.getSchemaPathSpec())
                 .build()));
+  }
+
+  public static boolean isNullAnnotation(Object annotationObj) {
+    return annotationObj == null || annotationObj instanceof Null;
   }
 }

@@ -5,7 +5,7 @@ import {
     encodeComma,
     getDataProduct,
     getNumberWithOrdinal,
-    getPlatformName,
+    getPlatformNameFromEntityData,
     handleBatchError,
     isListSubset,
     notEmpty,
@@ -120,7 +120,7 @@ describe('getPlatformName', () => {
                 name: 'teradata',
             },
         };
-        expect(getPlatformName(entityData)).toBe('Teradata');
+        expect(getPlatformNameFromEntityData(entityData)).toBe('Teradata');
     });
 });
 

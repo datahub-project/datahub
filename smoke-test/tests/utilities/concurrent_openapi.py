@@ -2,9 +2,10 @@ import concurrent.futures
 import glob
 import json
 import logging
-import time
 
 from deepdiff import DeepDiff
+
+from tests.consistency_utils import wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +28,12 @@ def execute_request(auth_session, request):
     :param request: request dictionary
     :return: output of the request
     """
-    if "method" in request:
-        method = request.pop("method")
-    else:
-        method = "post"
+    method = request.get("method", "post")
+    url = auth_session.gms_url() + request["url"]
+    passthrough_keys = {"json", "params", "headers", "data"}
+    kwargs = {k: v for k, v in request.items() if k in passthrough_keys}
 
-    url = auth_session.gms_url() + request.pop("url")
-
-    return getattr(auth_session, method)(url, **request)
+    return getattr(auth_session, method)(url, **kwargs)
 
 
 def evaluate_test(auth_session, test_name, test_data):
@@ -48,14 +47,17 @@ def evaluate_test(auth_session, test_name, test_data):
     try:
         assert isinstance(test_data, list), "Expected test_data is a list of test steps"
         for idx, req_resp in enumerate(test_data):
-            if "description" in req_resp["request"]:
-                description = req_resp["request"].pop("description")
-            else:
-                description = None
-            if "wait" in req_resp["request"]:
-                time.sleep(req_resp["request"]["wait"])
+            description = req_resp["request"].get("description")
+            skip_reason = req_resp["request"].get("skip")
+            if skip_reason:
+                logger.info(
+                    f"Skipping step {idx}: {description or 'no description'} - {skip_reason}"
+                )
                 continue
-            url = req_resp["request"]["url"]
+            if "wait" in req_resp["request"]:
+                wait_for_writes_to_sync()
+                continue
+
             actual_resp = execute_request(auth_session, req_resp["request"])
             diff = None
             try:
@@ -84,13 +86,15 @@ def evaluate_test(auth_session, test_name, test_data):
                         logger.warning("No expected response json found")
             except Exception as e:
                 logger.error(
-                    f"Error executing step: {idx}, url: {url}, test: {test_name}"
+                    f"Error executing step: {idx}, url: {actual_resp.url}, test: {test_name}"
                 )
                 if description:
                     logger.error(f"Step {idx} Description: {description}")
                 if diff:
                     logger.error(f"Unexpected diff: {diff}")
-                logger.debug(f"Response content: {actual_resp.content}")
+                    logger.error(f"Response content: {actual_resp.content}")
+                else:
+                    logger.debug(f"Response content: {actual_resp.content}")
                 raise e
     except Exception as e:
         logger.error(f"Error executing test: {test_name}")

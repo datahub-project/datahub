@@ -1,5 +1,6 @@
 import { Pill, Tooltip } from '@components';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { RecommendedFilter } from '@app/searchV2/recommendation/types';
 
@@ -9,6 +10,7 @@ type Props = {
 };
 
 export const FilterPill = ({ filter, onToggle }: Props) => {
+    const { t } = useTranslation('search');
     // Convert the color to a valid ColorValues enum value, defaulting to gray if not found
 
     // Convert ReactNode label to string
@@ -19,9 +21,12 @@ export const FilterPill = ({ filter, onToggle }: Props) => {
             showArrow={false}
             placement="top"
             title={
-                <>
-                    View results in <b>{filter.label}</b>
-                </>
+                <Trans
+                    t={t}
+                    i18nKey="recommendation.viewResultsIn"
+                    values={{ label: labelString }}
+                    components={{ bold: <b /> }}
+                />
             }
         >
             <Pill

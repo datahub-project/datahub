@@ -8,20 +8,28 @@ import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.patch.template.Template;
 import com.linkedin.metadata.aspect.patch.template.chart.ChartInfoTemplate;
+import com.linkedin.metadata.aspect.patch.template.common.DocumentationTemplate;
+import com.linkedin.metadata.aspect.patch.template.common.DomainsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlobalTagsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlossaryTermsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.OwnershipTemplate;
+import com.linkedin.metadata.aspect.patch.template.common.SiblingsTemplate;
+import com.linkedin.metadata.aspect.patch.template.common.StatusTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.StructuredPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.VersionPropertiesTemplate;
+import com.linkedin.metadata.aspect.patch.template.container.EditableContainerPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.dashboard.DashboardInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataflow.DataFlowInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.datajob.DataJobInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.datajob.DataJobInputOutputTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataproduct.DataProductPropertiesTemplate;
+import com.linkedin.metadata.aspect.patch.template.dataproduct.DataProductsTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.DatasetPropertiesTemplate;
+import com.linkedin.metadata.aspect.patch.template.dataset.EditableDatasetPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.EditableSchemaMetadataTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.UpstreamLineageTemplate;
 import com.linkedin.metadata.aspect.patch.template.form.FormInfoTemplate;
+import com.linkedin.metadata.aspect.patch.template.ml.EditableMLModelGroupPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.structuredproperty.StructuredPropertyDefinitionTemplate;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
@@ -91,13 +99,15 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   }
 
   private AspectTemplateEngine populateTemplateEngine(Map<String, AspectSpec> aspectSpecs) {
-    // TODO: This should be more dynamic ideally, "hardcoding" for now, passing in aspect spec map
+    // TODO: This should be more dynamic ideally, "hardcoding" for now, passing in
+    // aspect spec map
     // preemptively
 
     Map<String, Template<? extends RecordTemplate>> aspectSpecTemplateMap = new HashMap<>();
     aspectSpecTemplateMap.put(OWNERSHIP_ASPECT_NAME, new OwnershipTemplate());
     aspectSpecTemplateMap.put(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesTemplate());
     aspectSpecTemplateMap.put(UPSTREAM_LINEAGE_ASPECT_NAME, new UpstreamLineageTemplate());
+    aspectSpecTemplateMap.put(DOCUMENTATION_ASPECT_NAME, new DocumentationTemplate());
     aspectSpecTemplateMap.put(GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsTemplate());
     aspectSpecTemplateMap.put(
         EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataTemplate());
@@ -106,6 +116,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(DATA_JOB_INFO_ASPECT_NAME, new DataJobInfoTemplate());
     aspectSpecTemplateMap.put(
         DATA_PRODUCT_PROPERTIES_ASPECT_NAME, new DataProductPropertiesTemplate());
+    aspectSpecTemplateMap.put(DATA_PRODUCTS_ASPECT_NAME, new DataProductsTemplate());
     aspectSpecTemplateMap.put(CHART_INFO_ASPECT_NAME, new ChartInfoTemplate());
     aspectSpecTemplateMap.put(DASHBOARD_INFO_ASPECT_NAME, new DashboardInfoTemplate());
     aspectSpecTemplateMap.put(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, new DataJobInputOutputTemplate());
@@ -115,6 +126,16 @@ public class SnapshotEntityRegistry implements EntityRegistry {
         STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, new StructuredPropertyDefinitionTemplate());
     aspectSpecTemplateMap.put(FORM_INFO_ASPECT_NAME, new FormInfoTemplate());
     aspectSpecTemplateMap.put(VERSION_PROPERTIES_ASPECT_NAME, new VersionPropertiesTemplate());
+    aspectSpecTemplateMap.put(SIBLINGS_ASPECT_NAME, new SiblingsTemplate());
+    aspectSpecTemplateMap.put(STATUS_ASPECT_NAME, new StatusTemplate());
+    aspectSpecTemplateMap.put(DOMAINS_ASPECT_NAME, new DomainsTemplate());
+    aspectSpecTemplateMap.put(
+        EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, new EditableDatasetPropertiesTemplate());
+    aspectSpecTemplateMap.put(
+        CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME, new EditableContainerPropertiesTemplate());
+    aspectSpecTemplateMap.put(
+        ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME,
+        new EditableMLModelGroupPropertiesTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 

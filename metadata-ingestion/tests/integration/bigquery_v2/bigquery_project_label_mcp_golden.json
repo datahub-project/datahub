@@ -12,12 +12,13 @@
                 "project_id": "dev"
             },
             "name": "dev",
+            "qualifiedName": "dev",
             "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-c7ra94",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -102,12 +103,13 @@
             },
             "externalUrl": "https://console.cloud.google.com/bigquery?project=dev&ws=!1m4!1m3!3m2!1sdev!2sbigquery-dataset-1",
             "name": "bigquery-dataset-1",
+            "qualifiedName": "dev.bigquery-dataset-1",
             "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-c7ra94",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -257,17 +259,6 @@
                             }
                         ]
                     },
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1643871600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false,
                     "isPartitioningKey": false
                 },
@@ -285,17 +276,6 @@
                     "globalTags": {
                         "tags": []
                     },
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1643871600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false,
                     "isPartitioningKey": false
                 }
@@ -303,8 +283,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "lastObserved": 1643868000000,
+        "runId": "bigquery-2022_02_03-07_00_00-7yyadl",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -397,38 +377,6 @@
                     "urn": "urn:li:container:ce17940c2d64e7e315e68f8d7d071b1e"
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Age",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Age"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Email_Address",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Email_Address"
         }
     },
     "systemMetadata": {

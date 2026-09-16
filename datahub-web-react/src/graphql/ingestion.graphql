@@ -20,6 +20,33 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
     }
 }
 
+query getNoOfIngestionSources($input: ListIngestionSourcesInput!) {
+    listIngestionSources(input: $input) {
+        total
+    }
+}
+
+query getIngestionSourceNames($urns: [String!]!) {
+    listIngestionSources(input: { filters: [{ field: "urn", values: $urns }] }) {
+        ingestionSources {
+            urn
+            name
+        }
+    }
+}
+
+query listIngestionSourceTypeFacets($input: ListIngestionSourcesInput!) {
+    listIngestionSources(input: $input) {
+        facets {
+            field
+            aggregations {
+                value
+                count
+            }
+        }
+    }
+}
+
 query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
     ingestionSource(urn: $urn) {
         ...ingestionSourceFields
@@ -40,6 +67,9 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
 query getIngestionExecutionRequest($urn: String!) {
     executionRequest(urn: $urn) {
         ...ingestionExecutionRequestFields
+        source {
+            ...ingestionSourceFields
+        }
     }
 }
 

@@ -1,0 +1,1 @@
+export { LoadedImage } from './LoadedImage';

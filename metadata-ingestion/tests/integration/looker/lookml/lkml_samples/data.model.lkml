@@ -1,0 +1,58 @@
+connection: "my_connection"
+
+include: "foo.view.lkml"
+include: "bar.view.lkml"
+include: "nested/*"
+include: "liquid.view.lkml"
+include: "ability.view.lkml"
+include: "dataset_owners.explore.lkml"
+include: "native_derived_table.view.lkml"
+include: "owners_refinement.view.lkml"
+include: "flights.view.lkml"
+include: "large_view.view.lkml"
+include: "problematic_view.view.lkml"
+include: "parallel_view.view.lkml"
+include: "partial_view.view.lkml"
+
+explore: aliased_explore {
+  from: my_view
+}
+
+explore: large_explore {
+  from: large_view
+}
+
+explore: problematic_explore {
+  from: problematic_view
+}
+
+explore: parallel_explore {
+  from: parallel_view
+}
+
+explore: partial_explore {
+  from: partial_view
+}
+
+explore: dataset_owners{
+  join: all_entities {
+    relationship: many_to_one
+    sql_on: ${all_entities.urn} =  ${dataset_owners.urn};;
+  }
+}
+
+explore: data_model {
+  label: "Data model!"
+  description: "Lorem ipsum"
+
+  always_filter: {
+    filters: {
+      field: is_latest_forecast
+      value: "TRUE"
+    }
+    filters: {
+      field: granularity
+      value: "day"
+    }
+  }
+}

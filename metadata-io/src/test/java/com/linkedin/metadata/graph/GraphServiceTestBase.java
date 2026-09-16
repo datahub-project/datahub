@@ -3,7 +3,7 @@ package com.linkedin.metadata.graph;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -13,7 +13,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
-import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -302,7 +301,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
   /**
    * Graph services that support multi-path search should override this method to provide a
-   * multi-path search enabled GraphService instance.
+   * multi-path search enabled GraphService instance. If the test requires a maximum or default
+   * limit, provide this as well
    *
    * @param enableMultiPathSearch sets multipath search as enabled for the graph service, defaults
    *     to doing nothing unless overridden
@@ -310,8 +310,14 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
    * @throws Exception on failure
    */
   @Nonnull
-  protected GraphService getGraphService(boolean enableMultiPathSearch) throws Exception {
+  protected GraphService getGraphService(
+      @Nullable Boolean enableMultiPathSearch, @Nullable Integer graphSearchLimit)
+      throws Exception {
     return getGraphService();
+  }
+
+  protected GraphService getGraphService(boolean enableMultiPathSearch) throws Exception {
+    return getGraphService(enableMultiPathSearch, null);
   }
 
   /**
@@ -366,7 +372,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                 lifeCycleOwnerTwo,
                 null));
 
-    edges.forEach(service::addEdge);
+    edges.forEach(edge -> service.addEdge(operationContext, edge));
     syncAfterWrite();
 
     return service;
@@ -374,7 +380,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
   protected GraphService getLineagePopulatedGraphService() throws Exception {
     return getLineagePopulatedGraphService(
-        TEST_SEARCH_CONFIG.getSearch().getGraph().isEnableMultiPathSearch());
+        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().isEnableMultiPathSearch());
   }
 
   protected GraphService getLineagePopulatedGraphService(boolean multiPathSearch) throws Exception {
@@ -399,7 +405,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             new Edge(dataJobTwoUrn, dataset2Urn, consumes, null, null, null, null, null),
             new Edge(dataJobTwoUrn, dataJobOneUrn, downstreamOf, null, null, null, null, null));
 
-    edges.forEach(service::addEdge);
+    edges.forEach(edge -> service.addEdge(operationContext, edge));
     syncAfterWrite();
 
     return service;
@@ -490,7 +496,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       throws Exception {
     GraphService service = getGraphService();
 
-    edges.forEach(service::addEdge);
+    edges.forEach(edge -> service.addEdge(operationContext, edge));
     syncAfterWrite();
 
     RelatedEntitiesResult relatedOutgoing =
@@ -1121,7 +1127,9 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     doTestFindRelatedEntitiesEntityType(
         anyType, null, downstreamOf, outgoingRelationships, service);
 
-    service.addEdge(new Edge(dataset2Urn, dataset1Urn, downstreamOf, null, null, null, null, null));
+    service.addEdge(
+        operationContext,
+        new Edge(dataset2Urn, dataset1Urn, downstreamOf, null, null, null, null, null));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(
         anyType, ImmutableSet.of("null"), downstreamOf, outgoingRelationships, service);
@@ -1133,7 +1141,9 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         service,
         downstreamOfDatasetOneRelatedEntity);
 
-    service.addEdge(new Edge(dataset1Urn, nullUrn, downstreamOf, null, null, null, null, null));
+    service.addEdge(
+        operationContext,
+        new Edge(dataset1Urn, nullUrn, downstreamOf, null, null, null, null, null));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(
         anyType,
@@ -1165,7 +1175,9 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     doTestFindRelatedEntitiesEntityType(
         anyType, null, downstreamOf, outgoingRelationships, service);
 
-    service.addEdge(new Edge(dataset2Urn, dataset1Urn, downstreamOf, null, null, null, null, null));
+    service.addEdge(
+        operationContext,
+        new Edge(dataset2Urn, dataset1Urn, downstreamOf, null, null, null, null, null));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(
         anyType, ImmutableSet.of("null"), downstreamOf, outgoingRelationships, service);
@@ -1177,7 +1189,9 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         service,
         downstreamOfDatasetOneRelatedEntity);
 
-    service.addEdge(new Edge(dataset1Urn, nullUrn, downstreamOf, null, null, null, null, null));
+    service.addEdge(
+        operationContext,
+        new Edge(dataset1Urn, nullUrn, downstreamOf, null, null, null, null, null));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(
         anyType,
@@ -1800,7 +1814,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     // populated graph asserted in testPopulatedGraphService
 
-    service.clear();
+    service.clear(operationContext);
     syncAfterWrite();
 
     // assert the modified graph: check all nodes related to upstreamOf and nextVersionOf edges
@@ -1888,7 +1902,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             .collect(Collectors.toSet());
     List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships, null);
 
-    Stream<Runnable> operations = edges.stream().map(edge -> () -> service.addEdge(edge));
+    Stream<Runnable> operations =
+        edges.stream().map(edge -> () -> service.addEdge(operationContext, edge));
 
     doTestConcurrentOp(operations);
     syncAfterWrite();
@@ -1936,7 +1951,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships, null);
 
     // add fully connected graph
-    edges.forEach(service::addEdge);
+    edges.forEach(edge -> service.addEdge(operationContext, edge));
     syncAfterWrite();
 
     // assert the graph is there
@@ -2000,7 +2015,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships, null);
 
     // add fully connected graph
-    edges.forEach(service::addEdge);
+    edges.forEach(edge -> service.addEdge(operationContext, edge));
     syncAfterWrite();
 
     // assert the graph is there
@@ -2098,10 +2113,9 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       throws Exception {
 
     GraphService service = getLineagePopulatedGraphService(attemptMultiPathAlgo);
-    // Implementations other than Neo4J and DGraph explore more of the graph to discover nodes at
+    // Implementations other than Neo4J explore more of the graph to discover nodes at
     // multiple hops
-    boolean expandedGraphAlgoEnabled =
-        (!((service instanceof Neo4jGraphService) || (service instanceof DgraphGraphService)));
+    boolean expandedGraphAlgoEnabled = (!(service instanceof Neo4jGraphService));
 
     EntityLineageResult upstreamLineage =
         service.getLineage(operationContext, dataset1Urn, LineageDirection.UPSTREAM, 0, 1000, 2);
@@ -2160,7 +2174,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     Set<String> allRelationships = Set.of(downstreamOf);
     List<Edge> edges = createHighlyConnectedGraph();
 
-    Stream<Runnable> operations = edges.stream().map(edge -> () -> service.addEdge(edge));
+    Stream<Runnable> operations =
+        edges.stream().map(edge -> () -> service.addEdge(operationContext, edge));
 
     doTestConcurrentOp(operations);
     syncAfterWrite();
@@ -2186,7 +2201,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         operationContext.withLineageFlags(f -> f.setEntitiesExploredPerHopLimit(5));
 
     EntityLineageResult lineageResult =
-        getGraphService(false)
+        getGraphService(false, 5)
             .getLineage(
                 limitedHopOpContext,
                 root,
@@ -2214,7 +2229,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertTrue(maxDegree >= 1);
 
     EntityLineageResult lineageResultMulti =
-        getGraphService(true)
+        getGraphService(true, 5)
             .getLineage(
                 limitedHopOpContext,
                 root,
@@ -2228,7 +2243,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     assertTrue(
         lineageResultMulti.getRelationships().size() >= 5
-            && lineageResultMulti.getRelationships().size() <= 20,
+            && lineageResultMulti.getRelationships().size() <= 21,
         "Size was: " + lineageResultMulti.getRelationships().size());
     relationships = lineageResultMulti.getRelationships();
     maxDegree =

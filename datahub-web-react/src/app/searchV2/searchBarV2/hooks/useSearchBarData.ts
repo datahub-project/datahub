@@ -25,7 +25,7 @@ type APIResponse = {
     loading?: boolean;
 };
 
-export type SearchResponse = {
+type SearchResponse = {
     facets?: FacetMetadata[];
     entitiesWithMatchedFields?: EntityWithMatchedFields[];
     loading?: boolean;
@@ -75,6 +75,8 @@ const useAutocompleteAPI = (): APIResponse => {
 };
 
 const useSearchAPI = (): APIResponse => {
+    const { config } = useAppConfig();
+
     const [entitiesWithMatchedFields, setEntitiesWithMatchedFields] = useState<EntityWithMatchedFields[] | undefined>();
     const [facets, setFacets] = useState<FacetMetadata[] | undefined>();
 
@@ -96,12 +98,15 @@ const useSearchAPI = (): APIResponse => {
                             viewUrn,
                             orFilters,
                             count: SEARCH_API_RESPONSE_MAX_ITEMS,
+                            searchFlags: {
+                                skipHighlighting: config?.searchFlagsConfig?.defaultSkipHighlighting || false,
+                            },
                         },
                     },
                 });
             }
         },
-        [getSearchResultsForMultiple],
+        [getSearchResultsForMultiple, config?.searchFlagsConfig?.defaultSkipHighlighting],
     );
 
     useEffect(() => {

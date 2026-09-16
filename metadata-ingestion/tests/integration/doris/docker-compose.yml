@@ -1,0 +1,42 @@
+networks:
+  doris-net:
+
+services:
+  doris-fe:
+    image: apache/doris:fe-3.0.8
+    container_name: "testdoris-fe"
+    hostname: fe
+    environment:
+      # TEST-ONLY workaround for Java 17 cgroup v2 incompatibility in GitHub Actions CI
+      # JAVA_TOOL_OPTIONS is read directly by the JVM, bypassing all wrapper scripts
+      # This fixes: NullPointerException: Cannot invoke "jdk.internal.platform.CgroupInfo.getMountPoint()"
+      # Production deployments should use proper cgroup v2 support or java 25+
+      - JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport
+    ports:
+      # Ephemeral: only the MySQL protocol port needs host access (for ingestion),
+      # and letting Docker pick a free port avoids colliding with a leaked container
+      # from a prior run. FE web UI and edit log ports aren't used from the host.
+      - "9030"
+    volumes:
+      - ./setup:/setup
+    networks:
+      - doris-net
+    entrypoint: ["/setup/fe-entrypoint.sh"]
+
+  doris-be:
+    image: apache/doris:be-3.0.8
+    container_name: "testdoris-be"
+    hostname: be
+    environment:
+      # TEST-ONLY workaround for Java 17 cgroup v2 incompatibility in GitHub Actions CI
+      # JAVA_TOOL_OPTIONS is read directly by the JVM, bypassing all wrapper scripts
+      # Production deployments should use proper cgroup v2 support or java 25+
+      - JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport
+    # No host-exposed ports: BE is only reached over the compose network (by FE).
+    volumes:
+      - ./setup:/setup
+    depends_on:
+      - doris-fe
+    networks:
+      - doris-net
+    entrypoint: ["/setup/be-entrypoint.sh"]

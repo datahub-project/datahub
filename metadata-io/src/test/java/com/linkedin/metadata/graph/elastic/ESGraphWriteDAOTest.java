@@ -1,33 +1,424 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
+import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
+import java.util.Optional;
+import org.mockito.ArgumentCaptor;
+import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.script.Script;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class ESGraphWriteDAOTest {
-  public static final IndexConvention TEST_INDEX_CONVENTION = IndexConventionImpl.noPrefix("md5");
+  public static final IndexConvention TEST_INDEX_CONVENTION =
+      IndexConventionImpl.noPrefix("md5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+
+  private ESBulkProcessor mockBulkProcessor;
+  private GraphQueryConfiguration config;
+  private ESGraphWriteDAO testDao;
+  private OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+
+  @BeforeMethod
+  public void setupTest() {
+    mockBulkProcessor = mock(ESBulkProcessor.class);
+    config = GraphQueryConfiguration.builder().graphStatusEnabled(true).build();
+    testDao = new ESGraphWriteDAO(TEST_INDEX_CONVENTION, mockBulkProcessor, 0, config);
+  }
+
+  @DataProvider(name = "writabilityConfig")
+  public Object[][] writabilityConfigProvider() {
+    return new Object[][] {
+      {true, "Writable"}, // canWrite = true, description
+      {false, "ReadOnly"} // canWrite = false, description
+    };
+  }
 
   @Test
   public void testUpdateByQuery() {
     ESBulkProcessor mockBulkProcess = mock(ESBulkProcessor.class);
-    GraphQueryConfiguration config = new GraphQueryConfiguration();
-    config.setGraphStatusEnabled(true);
+    GraphQueryConfiguration config =
+        GraphQueryConfiguration.builder().graphStatusEnabled(true).build();
     ESGraphWriteDAO test = new ESGraphWriteDAO(TEST_INDEX_CONVENTION, mockBulkProcess, 0, config);
 
-    test.updateByQuery(new Script("test"), QueryBuilders.boolQuery());
+    test.updateByQuery(opContext, new Script("test"), QueryBuilders.boolQuery());
 
     verify(mockBulkProcess)
         .updateByQuery(
-            eq(new Script("test")), eq(QueryBuilders.boolQuery()), eq("graph_service_v1"));
+            eq(opContext),
+            eq(new Script("test")),
+            eq(QueryBuilders.boolQuery()),
+            eq("graph_service_v1"));
     verifyNoMoreInteractions(mockBulkProcess);
+  }
+
+  @Test(dataProvider = "writabilityConfig")
+  public void testUpsertDocumentWithWritability(boolean canWrite, String description) {
+    // Set writability
+    testDao.setWritable(canWrite);
+
+    String docId = "testDoc" + description;
+    String document = "{\"test\": \"data\"}";
+
+    // Call upsertDocument
+    testDao.upsertDocument(opContext, docId, document);
+
+    if (canWrite) {
+      // When writable, bulkProcessor.add should be called
+      verify(mockBulkProcessor, times(1))
+          .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+    } else {
+      // When not writable, bulkProcessor.add should not be called
+      verify(mockBulkProcessor, never())
+          .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+    }
+  }
+
+  @Test(dataProvider = "writabilityConfig")
+  public void testDeleteDocumentWithWritability(boolean canWrite, String description) {
+    // Set writability
+    testDao.setWritable(canWrite);
+
+    String docId = "testDoc" + description;
+
+    // Call deleteDocument
+    testDao.deleteDocument(opContext, docId);
+
+    if (canWrite) {
+      // When writable, bulkProcessor.add should be called with DeleteRequest
+      verify(mockBulkProcessor, times(1))
+          .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
+    } else {
+      // When not writable, bulkProcessor.add should not be called
+      verify(mockBulkProcessor, never())
+          .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
+    }
+  }
+
+  @Test
+  public void testUpsertDocumentRoutesByDocId() {
+    String docId = "edge-doc-abc";
+    String document =
+        "{\"source\":{\"urn\":\"urn:li:dataset:a\"},\"destination\":{\"urn\":\"urn:li:dataset:b\"}}";
+
+    testDao.upsertDocument(opContext, docId, document);
+
+    ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(docId), captor.capture());
+    assertEquals(captor.getValue().id(), docId);
+  }
+
+  @Test
+  public void testDeleteDocumentRoutesByDocId() {
+    String docId = "edge-doc-xyz";
+
+    testDao.deleteDocument(opContext, docId);
+
+    ArgumentCaptor<DeleteRequest> captor = ArgumentCaptor.forClass(DeleteRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(docId), captor.capture());
+    assertEquals(captor.getValue().id(), docId);
+  }
+
+  @Test(dataProvider = "writabilityConfig")
+  public void testDeleteByQueryWithWritability(boolean canWrite, String description) {
+    testDao.setWritable(canWrite);
+
+    GraphFilters mockFilters = mock(GraphFilters.class);
+    BulkByScrollResponse mockResponse = mock(BulkByScrollResponse.class);
+
+    when(mockBulkProcessor.deleteByQuery(any(OperationContext.class), any(), any()))
+        .thenReturn(Optional.of(mockResponse));
+
+    BulkByScrollResponse result = testDao.deleteByQuery(opContext, mockFilters);
+
+    if (canWrite) {
+      // When writable, should call bulkProcessor.deleteByQuery and return response
+      verify(mockBulkProcessor, times(1)).deleteByQuery(any(OperationContext.class), any(), any());
+      assertNotNull(result, "Should return response when writable");
+    } else {
+      // When not writable, should not call bulkProcessor and return null
+      verify(mockBulkProcessor, never()).deleteByQuery(any(OperationContext.class), any(), any());
+      assertNull(result, "Should return null when not writable");
+    }
+  }
+
+  @Test(dataProvider = "writabilityConfig")
+  public void testDeleteByQueryWithLifecycleOwnerWritability(boolean canWrite, String description) {
+    testDao.setWritable(canWrite);
+
+    GraphFilters mockFilters = mock(GraphFilters.class);
+    String lifecycleOwner = "testOwner";
+    BulkByScrollResponse mockResponse = mock(BulkByScrollResponse.class);
+
+    when(mockBulkProcessor.deleteByQuery(any(OperationContext.class), any(), any()))
+        .thenReturn(Optional.of(mockResponse));
+
+    BulkByScrollResponse result = testDao.deleteByQuery(opContext, mockFilters, lifecycleOwner);
+
+    if (canWrite) {
+      // When writable, should call bulkProcessor.deleteByQuery and return response
+      verify(mockBulkProcessor, times(1)).deleteByQuery(any(OperationContext.class), any(), any());
+      assertNotNull(result, "Should return response when writable");
+    } else {
+      // When not writable, should not call bulkProcessor and return null
+      verify(mockBulkProcessor, never()).deleteByQuery(any(OperationContext.class), any(), any());
+      assertNull(result, "Should return null when not writable");
+    }
+  }
+
+  @Test(dataProvider = "writabilityConfig")
+  public void testUpdateByQueryWithWritability(boolean canWrite, String description) {
+    testDao.setWritable(canWrite);
+
+    Script script = new Script("test script");
+    BulkByScrollResponse mockResponse = mock(BulkByScrollResponse.class);
+
+    when(mockBulkProcessor.updateByQuery(any(OperationContext.class), any(), any(), any()))
+        .thenReturn(Optional.of(mockResponse));
+
+    BulkByScrollResponse result =
+        testDao.updateByQuery(opContext, script, QueryBuilders.boolQuery());
+
+    if (canWrite) {
+      // When writable, should call bulkProcessor.updateByQuery and return response
+      verify(mockBulkProcessor, times(1))
+          .updateByQuery(any(OperationContext.class), any(), any(), any());
+      assertNotNull(result, "Should return response when writable");
+    } else {
+      // When not writable, should not call bulkProcessor and return null
+      verify(mockBulkProcessor, never())
+          .updateByQuery(any(OperationContext.class), any(), any(), any());
+      assertNull(result, "Should return null when not writable");
+    }
+  }
+
+  @Test
+  public void testSetWritableToggle() {
+    testDao.setWritable(true);
+
+    String docId1 = "doc1";
+    String document1 = "{\"test\": \"data1\"}";
+
+    // Upsert should work when writable
+    testDao.upsertDocument(opContext, docId1, document1);
+    verify(mockBulkProcessor, times(1))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+
+    testDao.setWritable(false);
+
+    String docId2 = "doc2";
+    String document2 = "{\"test\": \"data2\"}";
+
+    testDao.upsertDocument(opContext, docId2, document2);
+
+    // Should still only have 1 call from before
+    verify(mockBulkProcessor, times(1))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+
+    testDao.setWritable(true);
+
+    String docId3 = "doc3";
+    String document3 = "{\"test\": \"data3\"}";
+
+    // Upsert should work again
+    testDao.upsertDocument(opContext, docId3, document3);
+    verify(mockBulkProcessor, times(2))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+  }
+
+  @Test
+  public void testAllWriteOperationsBlockedWhenNotWritable() {
+    testDao.setWritable(false);
+
+    testDao.upsertDocument(opContext, "doc1", "{\"test\": \"data\"}");
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+
+    testDao.deleteDocument(opContext, "doc2");
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
+
+    GraphFilters mockFilters = mock(GraphFilters.class);
+    BulkByScrollResponse deleteResult = testDao.deleteByQuery(opContext, mockFilters);
+    assertNull(deleteResult, "deleteByQuery should return null when not writable");
+    verify(mockBulkProcessor, never()).deleteByQuery(any(OperationContext.class), any(), any());
+
+    BulkByScrollResponse deleteWithOwnerResult =
+        testDao.deleteByQuery(opContext, mockFilters, "owner");
+    assertNull(deleteWithOwnerResult, "deleteByQuery should return null when not writable");
+
+    BulkByScrollResponse updateResult =
+        testDao.updateByQuery(opContext, new Script("test"), QueryBuilders.boolQuery());
+    assertNull(updateResult, "updateByQuery should return null when not writable");
+    verify(mockBulkProcessor, never())
+        .updateByQuery(any(OperationContext.class), any(), any(), any());
+
+    verifyNoMoreInteractions(mockBulkProcessor);
+  }
+
+  @Test
+  public void testWritabilityDuringMigration() {
+    testDao.setWritable(false);
+
+    // All write operations should be blocked
+    testDao.upsertDocument(opContext, "migrationDoc", "{\"test\": \"data\"}");
+    testDao.deleteDocument(opContext, "migrationDoc");
+
+    GraphFilters mockFilters = mock(GraphFilters.class);
+    BulkByScrollResponse deleteResult = testDao.deleteByQuery(opContext, mockFilters);
+    BulkByScrollResponse deleteWithOwnerResult =
+        testDao.deleteByQuery(opContext, mockFilters, "owner");
+    BulkByScrollResponse updateResult =
+        testDao.updateByQuery(opContext, new Script("test"), QueryBuilders.boolQuery());
+
+    // All should return null or not execute
+    assertNull(deleteResult, "Delete blocked during migration");
+    assertNull(deleteWithOwnerResult, "Delete with owner blocked during migration");
+    assertNull(updateResult, "Update blocked during migration");
+
+    verifyNoMoreInteractions(mockBulkProcessor);
+
+    testDao.setWritable(true);
+
+    BulkByScrollResponse mockResponse = mock(BulkByScrollResponse.class);
+    when(mockBulkProcessor.updateByQuery(any(OperationContext.class), any(), any(), any()))
+        .thenReturn(Optional.of(mockResponse));
+
+    // Writes should work again
+    BulkByScrollResponse postMigrationResult =
+        testDao.updateByQuery(opContext, new Script("post-migration"), QueryBuilders.boolQuery());
+    assertNotNull(postMigrationResult, "Writes work after migration");
+    verify(mockBulkProcessor, times(1))
+        .updateByQuery(any(OperationContext.class), any(), any(), any());
+  }
+
+  @Test
+  public void testMultipleOperationsInSequence() {
+    testDao.setWritable(true);
+
+    testDao.upsertDocument(opContext, "doc1", "{\"seq\": 1}");
+    testDao.upsertDocument(opContext, "doc2", "{\"seq\": 2}");
+    testDao.deleteDocument(opContext, "doc3");
+
+    verify(mockBulkProcessor, times(2))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1))
+        .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
+
+    testDao.setWritable(false);
+
+    testDao.upsertDocument(opContext, "doc4", "{\"seq\": 4}");
+    testDao.deleteDocument(opContext, "doc5");
+
+    // Counts should not increase
+    verify(mockBulkProcessor, times(2))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1))
+        .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
+
+    testDao.setWritable(true);
+
+    // Operations should work again
+    testDao.upsertDocument(opContext, "doc6", "{\"seq\": 6}");
+    verify(mockBulkProcessor, times(3))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+  }
+
+  @Test
+  public void testUpsertDocumentParameters() {
+    testDao.setWritable(true);
+
+    String docId = "testDocId";
+    String document = "{\"field\": \"value\"}";
+
+    testDao.upsertDocument(opContext, docId, document);
+
+    // Verify the UpdateRequest was created with correct parameters
+    verify(mockBulkProcessor, times(1))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+  }
+
+  @Test
+  public void testDeleteDocumentParameters() {
+    testDao.setWritable(true);
+
+    String docId = "testDeleteDocId";
+
+    testDao.deleteDocument(opContext, docId);
+
+    // Verify the DeleteRequest was created with correct parameters
+    verify(mockBulkProcessor, times(1))
+        .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
+  }
+
+  @Test
+  public void testDeleteByQueryReturnsBulkResponse() {
+    testDao.setWritable(true);
+
+    GraphFilters mockFilters = mock(GraphFilters.class);
+    BulkByScrollResponse mockResponse = mock(BulkByScrollResponse.class);
+
+    when(mockBulkProcessor.deleteByQuery(any(OperationContext.class), any(), any()))
+        .thenReturn(Optional.of(mockResponse));
+
+    BulkByScrollResponse result = testDao.deleteByQuery(opContext, mockFilters);
+
+    assertNotNull(result, "Should return BulkByScrollResponse when writable");
+    verify(mockBulkProcessor, times(1)).deleteByQuery(any(OperationContext.class), any(), any());
+  }
+
+  @Test
+  public void testDeleteByQueryReturnsNullWhenEmpty() {
+    testDao.setWritable(true);
+
+    GraphFilters mockFilters = mock(GraphFilters.class);
+
+    // Return empty Optional
+    when(mockBulkProcessor.deleteByQuery(any(OperationContext.class), any(), any()))
+        .thenReturn(Optional.empty());
+
+    BulkByScrollResponse result = testDao.deleteByQuery(opContext, mockFilters);
+
+    assertNull(result, "Should return null when bulkProcessor returns empty Optional");
+    verify(mockBulkProcessor, times(1)).deleteByQuery(any(OperationContext.class), any(), any());
+  }
+
+  @Test
+  public void testUpdateByQueryReturnsNullWhenEmpty() {
+    testDao.setWritable(true);
+
+    Script script = new Script("test");
+
+    // Return empty Optional
+    when(mockBulkProcessor.updateByQuery(any(OperationContext.class), any(), any(), any()))
+        .thenReturn(Optional.empty());
+
+    BulkByScrollResponse result =
+        testDao.updateByQuery(opContext, script, QueryBuilders.boolQuery());
+
+    assertNull(result, "Should return null when bulkProcessor returns empty Optional");
+    verify(mockBulkProcessor, times(1))
+        .updateByQuery(any(OperationContext.class), any(), any(), any());
   }
 }

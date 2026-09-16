@@ -15,13 +15,14 @@ from datahub.ingestion.source.common.subtypes import (
     FlowContainerSubTypes,
     JobContainerSubTypes,
 )
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataPlatformInstanceClass,
+    QueryLanguageClass,
     SubTypesClass,
 )
 
@@ -134,7 +135,9 @@ class StoredProcedure:
 
     @property
     def escape_full_name(self) -> str:
-        return f"[{self.db}].[{self.schema}].[{self.formatted_name}]"
+        return f"[{self.db}].[{self.schema}].[{self.formatted_name}]".replace(
+            "'", r"''"
+        )
 
     def to_base_procedure(self) -> BaseProcedure:
         return BaseProcedure(
@@ -145,7 +148,7 @@ class StoredProcedure:
             comment=None,
             argument_signature=None,
             return_type=None,
-            language="SQL",
+            language=QueryLanguageClass.SQL,
             extra_properties=None,
         )
 
@@ -313,7 +316,7 @@ class MSSQLDataFlow:
         type = (
             FlowContainerSubTypes.MSSQL_JOB
             if isinstance(self.entity, MSSQLJob)
-            else FlowContainerSubTypes.MSSQL_PROCEDURE_CONTAINER
+            else FlowContainerSubTypes.PROCEDURE_CONTAINER
         )
         return SubTypesClass(
             typeNames=[type],

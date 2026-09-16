@@ -1,0 +1,7 @@
+source:
+  type: slack
+  config:
+    token: "${SLACK_BOT_TOKEN}"
+
+sink:
+  # sink configs

@@ -13,6 +13,7 @@ const Container = styled.div`
     flex-direction: column;
     justify-content: start;
     gap: 8px;
+    margin-top: 16px;
 `;
 
 export const DiscoveryTab = () => {

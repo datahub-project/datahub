@@ -8,6 +8,11 @@ record EntityTypeInfo {
      * The fully qualified name for the entity type, which usually consists of a namespace
      * plus an identifier or name, e.g. datahub.dataset
      */
+    @Searchable = {
+      "fieldType": "KEYWORD",
+      "searchTier": 1,
+      "searchLabel": "qualifiedName"
+    }
     qualifiedName: string
 
     /**

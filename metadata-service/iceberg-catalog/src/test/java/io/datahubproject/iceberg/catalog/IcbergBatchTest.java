@@ -346,7 +346,7 @@ public class IcbergBatchTest {
     when(builder.mcps(
             same(icebergBatch.getMcps()), any(AuditStamp.class), same(mockRetrieverContext)))
         .thenReturn(builder);
-    when(builder.build()).thenReturn(markerBatch);
+    when(builder.build(mockOperationContext)).thenReturn(markerBatch);
 
     try (MockedStatic<AspectsBatchImpl> stsClientMockedStatic =
         mockStatic(AspectsBatchImpl.class)) {

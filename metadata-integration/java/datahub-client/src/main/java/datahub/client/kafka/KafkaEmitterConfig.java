@@ -23,6 +23,15 @@ public class KafkaEmitterConfig {
   @Builder.Default private final Map<String, String> schemaRegistryConfig = Collections.emptyMap();
   @Builder.Default private final Map<String, String> producerConfig = Collections.emptyMap();
 
+  /** Total producer construction attempts, including the first try */
+  @Builder.Default private final int initializationRetryCount = 5;
+
+  @Builder.Default private final long initializationRetryBackoffMs = 500;
+
+  @Builder.Default private final long initializationRetryMaxBackoffMs = 4000;
+
+  @Builder.Default private final long initializationRetryMaxTotalWaitMs = 15000;
+
   @Builder.Default
   private final EventFormatter eventFormatter =
       new EventFormatter(EventFormatter.Format.PEGASUS_JSON);

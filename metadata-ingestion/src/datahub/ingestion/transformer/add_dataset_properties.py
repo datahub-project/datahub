@@ -2,6 +2,8 @@ import copy
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Type, cast
 
+from pydantic import ConfigDict
+
 from datahub.configuration.common import (
     TransformerSemantics,
     TransformerSemanticsConfigModel,
@@ -25,8 +27,7 @@ class AddDatasetPropertiesResolverBase(ABC):
 class AddDatasetPropertiesConfig(TransformerSemanticsConfigModel):
     add_properties_resolver_class: Type[AddDatasetPropertiesResolverBase]
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     _resolve_properties_class = pydantic_resolve_key("add_properties_resolver_class")
 
@@ -50,7 +51,7 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetProperties":
-        config = AddDatasetPropertiesConfig.parse_obj(config_dict)
+        config = AddDatasetPropertiesConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -144,5 +145,5 @@ class SimpleAddDatasetProperties(AddDatasetProperties):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "SimpleAddDatasetProperties":
-        config = SimpleAddDatasetPropertiesConfig.parse_obj(config_dict)
+        config = SimpleAddDatasetPropertiesConfig.model_validate(config_dict)
         return cls(config, ctx)

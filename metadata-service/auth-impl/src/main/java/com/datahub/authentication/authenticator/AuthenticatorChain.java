@@ -50,6 +50,7 @@ public class AuthenticatorChain {
       @Nonnull final AuthenticationRequest context, boolean logExceptions)
       throws AuthenticationException {
     Objects.requireNonNull(context);
+
     ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
     List<Pair<String, Exception>> authenticationFailures = new ArrayList<>();
     for (final Authenticator authenticator : this.authenticators) {
@@ -103,7 +104,7 @@ public class AuthenticatorChain {
                   })
               .map(p -> Pair.of(p.getFirst(), p.getSecond().getMessage()))
               .collect(Collectors.toList());
-      log.warn(
+      log.debug(
           "Authentication chain failed to resolve a valid authentication. Errors: {}",
           shortMessage);
     }

@@ -27,7 +27,7 @@
                     "urn": "urn:li:container:753b430567bda9e9948b93636f7bdd50"
                 },
                 {
-                    "id": "example_dag",
+                    "id": "urn:li:dataFlow:(airflow,example_dag,PROD)",
                     "urn": "urn:li:dataFlow:(airflow,example_dag,PROD)"
                 }
             ]
@@ -46,7 +46,8 @@
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)"
+            "flowUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)",
+            "env": "PROD"
         }
     }
 }

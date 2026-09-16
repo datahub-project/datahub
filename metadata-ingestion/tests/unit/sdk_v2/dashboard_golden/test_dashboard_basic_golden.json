@@ -21,9 +21,7 @@
             "title": "example_dashboard",
             "description": "",
             "charts": [],
-            "chartEdges": [],
             "datasets": [],
-            "datasetEdges": [],
             "dashboards": [],
             "lastModified": {
                 "created": {

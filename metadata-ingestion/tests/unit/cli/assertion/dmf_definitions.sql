@@ -7,7 +7,7 @@
             COMMENT = 'Created via DataHub for assertion urn:li:assertion:025cce4dd4123c0f007908011a9c64d7 of type freshness'
             AS
             $$
-            select case when metric <= 3600 then 1 else 0 end from (select timediff(
+            select case when metric <= 3600.0 then 1 else 0 end from (select timediff(
                 second,
                 max(col_timestamp::TIMESTAMP_LTZ),
                 SNOWFLAKE.CORE.DATA_METRIC_SCHEDULED_TIME()

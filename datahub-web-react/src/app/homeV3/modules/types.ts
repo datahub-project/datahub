@@ -1,0 +1,12 @@
+import React from 'react';
+
+import { DataHubPageModuleType } from '@types';
+
+export type ModuleInfo = {
+    key: string;
+    urn?: string; // Filled in a case of working with an existing module (e.g. admin created modules)
+    type: DataHubPageModuleType;
+    name: string;
+    description?: string;
+    icon: React.ComponentType<any>;
+};

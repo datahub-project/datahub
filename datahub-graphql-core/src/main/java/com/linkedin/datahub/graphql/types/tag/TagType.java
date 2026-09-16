@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.types.tag;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.TAG_KEY_ASPECT_NAME;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -24,6 +26,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagUpdateInputMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -48,6 +51,12 @@ import javax.annotation.Nullable;
 public class TagType
     implements com.linkedin.datahub.graphql.types.SearchableEntityType<Tag, String>,
         MutableType<TagUpdateInput, Tag> {
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(
+          TAG_KEY_ASPECT_NAME,
+          TAG_PROPERTIES_ASPECT_NAME,
+          OWNERSHIP_ASPECT_NAME,
+          DEPRECATION_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = Collections.emptySet();
 
@@ -84,9 +93,14 @@ public class TagType
     final List<Urn> tagUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(context, name(), ASPECTS_TO_FETCH, TAG_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> tagMap =
           _entityClient.batchGetV2(
-              context.getOperationContext(), TAG_ENTITY_NAME, new HashSet<>(tagUrns), null);
+              context.getOperationContext(),
+              TAG_ENTITY_NAME,
+              new HashSet<>(tagUrns),
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : tagUrns) {
@@ -111,7 +125,7 @@ public class TagType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
@@ -131,7 +145,7 @@ public class TagType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull QueryContext context)
       throws Exception {
     final AutoCompleteResult result =

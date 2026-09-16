@@ -9,7 +9,6 @@ from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionReport,
 )
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.lossy_collections import LossyDict
@@ -65,6 +64,9 @@ class SnowflakeReport(SQLSourceReport, BaseTimeWindowReport):
     num_table_to_view_edges_scanned: int = 0
     num_view_to_table_edges_scanned: int = 0
     num_external_table_edges_scanned: int = 0
+    # semanticModel lineage is emitted directly, not via the dataset-mode view
+    # lineage path, so it needs its own counter.
+    num_semantic_model_lineage_edges_scanned: int = 0
     ignore_start_time_lineage: Optional[bool] = None
     upstream_lineage_in_report: Optional[bool] = None
     upstream_lineage: LossyDict[str, List[str]] = field(default_factory=LossyDict)
@@ -96,7 +98,6 @@ class SnowflakeV2Report(
     SnowflakeUsageReport,
     StatefulIngestionReport,
     ClassificationReportMixin,
-    IngestionStageReport,
 ):
     account_locator: Optional[str] = None
     region: Optional[str] = None
@@ -106,6 +107,11 @@ class SnowflakeV2Report(
     tags_scanned: int = 0
     streams_scanned: int = 0
     procedures_scanned: int = 0
+    streamlit_apps_scanned: int = 0
+    semantic_views_scanned: int = 0
+    stages_scanned: int = 0
+    tasks_scanned: int = 0
+    pipes_scanned: int = 0
 
     include_usage_stats: bool = False
     include_operational_stats: bool = False
@@ -118,7 +124,28 @@ class SnowflakeV2Report(
     num_streams_with_known_upstreams: int = 0
     num_upstream_lineage_edge_parsing_failed: int = 0
     num_secure_views_missing_definition: int = 0
+    num_dynamic_tables_missing_definition: int = 0
+    # No DYNAMIC_TABLE_GRAPH_HISTORY row matched the dynamic table's qualified name, so its
+    # INPUTS upstreams and target_lag fallback are unavailable. Counted because that loss is
+    # otherwise invisible: this equalling the dynamic-table count is the signature of the
+    # keying bug fixed in #19143, and of the graph-history query's filters excluding
+    # everything on an edition whose output differs from the documented one.
+    num_dynamic_tables_missing_graph_info: int = 0
     num_structured_property_templates_created: int = 0
+    # sqlglot parse failures while resolving metric-to-metric derivedFrom refs;
+    # best-effort, the metric is still emitted without those edges.
+    num_semantic_view_metric_expr_parse_failures: int = 0
+
+    marketplace_listings_scanned: int = 0
+    marketplace_listings_filtered: int = 0
+    marketplace_purchases_scanned: int = 0
+    marketplace_usage_events_processed: int = 0
+    marketplace_data_products_created: int = 0
+    marketplace_enhanced_datasets: int = 0
+
+    # Lineage consistency tracking
+    num_tables_added_from_column_lineage: int = 0
+    num_queries_with_empty_directsources: int = 0
 
     data_dictionary_cache: Optional["SnowflakeDataDictionary"] = None
 
@@ -128,11 +155,7 @@ class SnowflakeV2Report(
     # "Information schema query returned too much data. Please repeat query with more selective predicates.""
     # This will result in overall increase in time complexity
     num_get_tables_for_schema_queries: int = 0
-
-    # these will be non-zero if the user choses to enable the extract_tags = "with_lineage" option, which requires
-    # individual queries per object (database, schema, table) and an extra query per table to get the tags on the columns.
-    num_get_tags_for_object_queries: int = 0
-    num_get_tags_on_columns_for_table_queries: int = 0
+    num_get_views_for_schema_queries: int = 0
 
     num_get_streams_for_schema_queries: int = 0
 
@@ -143,6 +166,16 @@ class SnowflakeV2Report(
 
     edition: Optional[SnowflakeEdition] = None
 
+    # Server-aware resolution of semantic_views.emit_semantic_model_entities.
+    semantic_model_emission_effective: Optional[bool] = None
+    semantic_model_emission_reason: Optional[str] = None
+    semantic_model_emission_is_saas: Optional[bool] = None
+    semantic_model_emission_metrics_enabled: Optional[bool] = None
+    # Whether the server can accept semanticModel/metric in structured-property
+    # entityTypes (managed server: version only; OSS: recipe). Gates the tag extractor's
+    # entityTypes list independently of the emit decision, so it never flaps.
+    semantic_model_entity_types_capable: Optional[bool] = None
+
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
         Entity could be a view or a table or a schema or a database
@@ -151,6 +184,8 @@ class SnowflakeV2Report(
             self.tables_scanned += 1
         elif ent_type == "view":
             self.views_scanned += 1
+        elif ent_type == "semantic view":
+            self.semantic_views_scanned += 1
         elif ent_type == "schema":
             self.schemas_scanned += 1
         elif ent_type == "database":
@@ -166,6 +201,8 @@ class SnowflakeV2Report(
             self.streams_scanned += 1
         elif ent_type == "procedure":
             self.procedures_scanned += 1
+        elif ent_type == "streamlit":
+            self.streamlit_apps_scanned += 1
         else:
             raise KeyError(f"Unknown entity {ent_type}.")
 
@@ -177,3 +214,21 @@ class SnowflakeV2Report(
 
     def report_tag_processed(self, tag_name: str) -> None:
         self._processed_tags.add(tag_name)
+
+    def report_marketplace_listing_scanned(self) -> None:
+        self.marketplace_listings_scanned += 1
+
+    def report_marketplace_listing_filtered(self) -> None:
+        self.marketplace_listings_filtered += 1
+
+    def report_marketplace_purchase_scanned(self) -> None:
+        self.marketplace_purchases_scanned += 1
+
+    def report_marketplace_data_product_created(self) -> None:
+        self.marketplace_data_products_created += 1
+
+    def report_marketplace_dataset_enhanced(self) -> None:
+        self.marketplace_enhanced_datasets += 1
+
+    def report_marketplace_usage_events_processed(self, count: int) -> None:
+        self.marketplace_usage_events_processed += count

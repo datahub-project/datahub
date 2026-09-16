@@ -1,0 +1,28 @@
+from datahub.sdk import DataHubClient
+
+# Initialize the client
+client = DataHubClient.from_env()
+
+# Subscribe to all assertion changes for a dataset
+client.subscriptions.subscribe(
+    urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,purchases,PROD)",
+    subscriber_urn="urn:li:corpuser:john.doe",
+    # entity_change_types defaults to all available change types for datasets
+)
+print("Successfully subscribed to dataset notifications")
+
+# Subscribe to specific assertion changes
+client.subscriptions.subscribe(
+    urn="urn:li:assertion:your-assertion-id",
+    subscriber_urn="urn:li:corpuser:john.doe",
+    entity_change_types=["ASSERTION_PASSED", "ASSERTION_FAILED"],
+)
+print("Successfully subscribed to specific assertion changes")
+
+# Subscribe a group to assertion changes
+client.subscriptions.subscribe(
+    urn="urn:li:assertion:your-assertion-id",
+    subscriber_urn="urn:li:corpGroup:data-team",
+    entity_change_types=["ASSERTION_FAILED", "ASSERTION_ERROR"],
+)
+print("Successfully subscribed group to assertion failures and errors")

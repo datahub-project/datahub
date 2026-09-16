@@ -2,7 +2,7 @@ import { DefaultOptionType } from 'antd/lib/select';
 import { AlignType } from 'rc-trigger/lib/interface';
 import React from 'react';
 
-export type ValueType = string;
+type ValueType = string;
 
 export type OptionType = DefaultOptionType;
 
@@ -17,6 +17,7 @@ export interface AutoCompleteProps {
     defaultValue?: ValueType;
     options: OptionType[];
     open?: boolean;
+    placeholder?: string;
 
     defaultActiveFirstOption?: boolean;
     filterOption?: boolean | ((inputValue: ValueType, option?: OptionType) => boolean);
@@ -35,4 +36,7 @@ export interface AutoCompleteProps {
     style?: React.CSSProperties;
     dropdownStyle?: React.CSSProperties;
     dropdownMatchSelectWidth?: boolean | number;
+
+    clickOutsideWidth?: string;
+    shouldPreventOptionSelectingByMouseMove?: boolean;
 }

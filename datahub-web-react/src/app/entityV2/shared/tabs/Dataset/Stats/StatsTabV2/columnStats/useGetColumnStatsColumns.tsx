@@ -1,0 +1,140 @@
+import { Typography } from 'antd';
+import React from 'react';
+import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { percentStrToDecimal } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
+import { getItemKeySet } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
+import { Button } from '@src/alchemy-components';
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
+
+const ColumnName = styled(Typography.Text)`
+    color: ${(props) => props.theme.colors.text};
+`;
+
+const ViewButton = styled.div`
+    display: inline-block;
+`;
+
+interface Props {
+    tableData: Array<any>;
+    searchQuery: string;
+    setExpandedDrawerFieldPath: React.Dispatch<React.SetStateAction<string | null>>;
+}
+
+export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDrawerFieldPath }: Props) => {
+    const { t } = useTranslation('entity.profile.stats');
+    const { t: tc } = useTranslation('common.actions');
+    // Optional columns. Defines how to render a column given a value exists somewhere in the profile.
+    const optionalColumns = [
+        {
+            title: t('columnStatsTable.nullPercentageColumn'),
+            key: 'nullPercentage',
+            render: (record) => record.nullPercentage,
+            alignment: 'right' as AlignmentOptions,
+            sorter: (sourceA, sourceB) => {
+                return percentStrToDecimal(sourceA.nullPercentage) - percentStrToDecimal(sourceB.nullPercentage);
+            },
+        },
+        {
+            title: t('columnStatsTable.uniqueValuesColumn'),
+            key: 'uniqueValues',
+            render: (record) => record.uniqueValues,
+            alignment: 'right' as AlignmentOptions,
+            sorter: (sourceA, sourceB) => {
+                return sourceA.uniqueValues - sourceB.uniqueValues;
+            },
+        },
+        {
+            title: t('columnStatsTable.minColumn'),
+            key: 'min',
+            render: (record) => record.min,
+            alignment: 'right' as AlignmentOptions,
+            sorter: (sourceA, sourceB) => {
+                return sourceA.min - sourceB.min;
+            },
+        },
+        {
+            title: t('columnStatsTable.maxColumn'),
+            key: 'max',
+            render: (record) => record.max,
+            alignment: 'right' as AlignmentOptions,
+            sorter: (sourceA, sourceB) => {
+                return sourceA.max - sourceB.max;
+            },
+        },
+    ];
+
+    // Column and type columns always required.
+    const requiredColumns = [
+        {
+            title: t('columnStatsTable.columnHeader'),
+            key: 'column',
+            render: (record) => (
+                <ColumnName ellipsis={{ tooltip: record.column }}>
+                    <Highlight search={searchQuery}>{record.column}</Highlight>
+                </ColumnName>
+            ),
+            width: '30%',
+            ellipsis: true,
+            sorter: (sourceA, sourceB) => {
+                return sourceA.column.localeCompare(sourceB.column);
+            },
+        },
+        {
+            title: t('columnStatsTable.typeColumn'),
+            key: 'type',
+            render: (record) => {
+                // Handle both object format { type: 'STRING' } and direct string format
+                if (!record.type) return '';
+
+                const typeString = typeof record.type === 'string' ? record.type : record.type.type;
+                return typeString ? capitalizeFirstLetter(typeString.toLowerCase()) : '';
+            },
+            sorter: (sourceA, sourceB) => {
+                const getTypeString = (type: any): string => {
+                    if (!type) return '';
+                    return typeof type === 'string' ? type : type.type || '';
+                };
+
+                const typeA = getTypeString(sourceA.type);
+                const typeB = getTypeString(sourceB.type);
+                return typeA.localeCompare(typeB);
+            },
+        },
+    ];
+
+    // Column with action button for viewing the detailed stats
+    const viewColumn = {
+        title: '',
+        key: 'view',
+        render: (record) => (
+            <ViewButton>
+                <Button
+                    variant="text"
+                    onClick={(e) => {
+                        e.stopPropagation(); // Prevent row click
+                        setExpandedDrawerFieldPath(record.originalFieldPath);
+                    }}
+                >
+                    {tc('view')}
+                </Button>
+            </ViewButton>
+        ),
+        alignment: 'right' as AlignmentOptions,
+    };
+
+    // Retrieves a set of names of columns that should be shown based on their presence in the data profile.
+    const columnsPresent: Set<string> = getItemKeySet(tableData);
+
+    // Compute the final columns to render.
+    const columns = [
+        ...requiredColumns,
+        ...optionalColumns.filter((column) => columnsPresent.has(column.key as string)),
+        viewColumn,
+    ];
+
+    return columns;
+};

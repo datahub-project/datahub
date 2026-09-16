@@ -1,59 +1,60 @@
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { InputRef } from 'antd';
 import React, { forwardRef, useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import ViewSelectButton from '@app/entityV2/view/select/ViewSelectButton';
+import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { CommandK } from '@app/searchV2/CommandK';
-import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
-import { SearchBar, colors, radius, transition } from '@src/alchemy-components';
-import { ViewSelect } from '@src/app/entityV2/view/select/ViewSelect';
+import { Icon, SearchBar, radius, transition } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-
-const PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND = '#343444';
 
 const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
     border-width: 2px !important;
-    border-color: ${colors.gray[100]};
+    border-color: ${(props) => props.theme.colors.border};
 
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
-        border-color: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
+        background: ${props.theme.colors.bgSurfaceDarker};
+        border-color: transparent;
 
         &:hover,
         &:focus,
         &:focus-within {
-            border-color: ${props.theme.styles['primary-color']} !important;
+            border-color: ${props.theme.colors.borderBrand} !important;
         }
 
         .ant-input, .ant-input-clear-icon {
-            color: ${colors.white};
-            background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
+            color: ${props.theme.colors.textBrandOnBgFill};
+            background: ${props.theme.colors.bgSurfaceDarker};
         }
-    `}
+ `}
 `;
 
 const ViewSelectContainer = styled.div``;
 
-export const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boolean }>`
+const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boolean }>`
     background: transparent;
+    width: 100%;
+    min-width: 500px;
 
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        padding: ${radius.md};
-        transition: all ${transition.easing['ease-in']} ${transition.duration.slow};
-        border-radius: ${radius.lg} ${radius.lg} ${radius.none} ${radius.none};
-    `}
+ padding: ${radius.md};
+ transition: all ${transition.easing['ease-in']} ${transition.duration.slow};
+ border-radius: ${radius.lg} ${radius.lg} ${radius.none} ${radius.none};
+ `}
 
     ${(props) =>
         props.$open &&
         props.$isShowNavBarRedesign &&
         `
-        background: ${colors.gray[1500]};
-        box-shadow: ${BOX_SHADOW};
-    `}
+background: ${props.theme.colors.bgSurface};
+        box-shadow: ${props.theme.colors.shadowXl};
+ `}
 `;
 
 const SuffixWrapper = styled.div`
@@ -66,36 +67,49 @@ const SuffixWrapper = styled.div`
 `;
 
 interface Props {
-    value: string;
+    defaultValue?: string;
     onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onSearch?: () => void;
     onFocus?: () => void;
     onBlur?: () => void;
     onViewsClick?: () => void;
+    onClear?: () => void;
     isDropdownOpened?: boolean;
     placeholder?: string;
     showCommandK?: boolean;
     viewsEnabled?: boolean;
+    viewsWithPopover?: boolean;
+    isViewsSelectOpened?: boolean;
+    setIsViewsSelectOpened?: (value: boolean) => void;
+    width?: string;
+    onCompositionStart?: React.CompositionEventHandler<HTMLInputElement>;
+    onCompositionEnd?: React.CompositionEventHandler<HTMLInputElement>;
 }
 
 const SearchBarInput = forwardRef<InputRef, Props>(
     (
         {
-            value,
+            defaultValue,
             onChange,
             onSearch,
             onFocus,
             onBlur,
             onViewsClick,
+            onClear,
             isDropdownOpened,
             placeholder,
             showCommandK,
             viewsEnabled,
+            viewsWithPopover,
+            width,
+            isViewsSelectOpened,
+            setIsViewsSelectOpened,
+            onCompositionStart,
+            onCompositionEnd,
         },
         ref,
     ) => {
         const [isFocused, setIsFocused] = useState<boolean>(false);
-        const [isViewsSelectOpened, setIsViewsSelectOpened] = useState<boolean>(false);
         const isShowNavBarRedesign = useShowNavBarRedesign();
 
         const onFocusHandler = useCallback(() => {
@@ -116,32 +130,36 @@ const SearchBarInput = forwardRef<InputRef, Props>(
         }, []);
 
         const onViewSelectContainerClickHandler = (event: React.MouseEvent) => {
-            event.stopPropagation(); // do not open the autocomplete's dropdown by clicking on theviews button
+            event.stopPropagation(); // do not open the autocomplete's dropdown by clicking on the views button
         };
 
         const onViewsClickHandler = (isOpen: boolean) => {
-            setIsViewsSelectOpened(isOpen);
+            setIsViewsSelectOpened?.(isOpen);
             onViewsClick?.();
         };
 
         useEffect(() => {
-            // Automatically close the views select when the autocomplete's dropdown is opened event by keayboard shortcut
-            if (isDropdownOpened) setIsViewsSelectOpened(false);
-        }, [isDropdownOpened]);
+            // Automatically close the views select when the autocomplete's dropdown is opened event by keyboard shortcut
+            if (isDropdownOpened) setIsViewsSelectOpened?.(false);
+        }, [isDropdownOpened, setIsViewsSelectOpened]);
 
         return (
             <Wrapper $open={isDropdownOpened} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <StyledSearchBar
+                    defaultValue={defaultValue}
                     placeholder={placeholder}
                     onPressEnter={onSearch}
                     onKeyDown={onKeyDown}
-                    value={value}
                     onChange={(_, event) => onChange?.(event)}
                     data-testid="search-input"
                     onFocus={onFocusHandler}
                     onBlur={onBlurHandler}
                     allowClear={isDropdownOpened || isFocused}
+                    clearIcon={<Icon onClick={onClear} icon={XCircle} size="2xl" data-testid="button-clear" />}
                     ref={ref}
+                    onCompositionStart={onCompositionStart}
+                    onCompositionEnd={onCompositionEnd}
+                    forceUncontrolled
                     suffix={
                         <SuffixWrapper>
                             {(showCommandK && !isDropdownOpened && !isFocused && <CommandK />) || null}
@@ -150,12 +168,19 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                                     onClick={onViewSelectContainerClickHandler}
                                     id={V2_SEARCH_BAR_VIEWS}
                                 >
-                                    <ViewSelect isOpen={isViewsSelectOpened} onOpenChange={onViewsClickHandler} />
+                                    {viewsWithPopover ? (
+                                        <ViewSelectButtonWithPopover
+                                            isOpen={isViewsSelectOpened}
+                                            onOpenChange={onViewsClickHandler}
+                                        />
+                                    ) : (
+                                        <ViewSelectButton />
+                                    )}
                                 </ViewSelectContainer>
                             )}
                         </SuffixWrapper>
                     }
-                    width={isShowNavBarRedesign ? '664px' : '620px'}
+                    width={width ?? (isShowNavBarRedesign ? '664px' : '620px')}
                     height="44px"
                     $isShowNavBarRedesign={isShowNavBarRedesign}
                 />

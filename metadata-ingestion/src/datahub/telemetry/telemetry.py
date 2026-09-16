@@ -1,9 +1,12 @@
+import atexit
 import errno
 import json
 import logging
 import os
 import platform
+import queue
 import sys
+import threading
 import uuid
 from functools import wraps
 from pathlib import Path
@@ -16,7 +19,13 @@ from datahub._version import __version__, nice_version_name
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
+from datahub.configuration.env_vars import (
+    get_sentry_dsn,
+    get_sentry_environment,
+    get_telemetry_timeout,
+)
 from datahub.metadata.schema_classes import _custom_package_path
+from datahub.utilities.caller_context import identify_caller
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
@@ -97,20 +106,108 @@ if any(var in os.environ for var in CI_ENV_VARS):
 if _custom_package_path:
     ENV_ENABLED = False
 
-TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
+TIMEOUT = int(get_telemetry_timeout())
 MIXPANEL_ENDPOINT = "track.datahubproject.io/mp"
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
-SENTRY_DSN: Optional[str] = os.environ.get("SENTRY_DSN", None)
-SENTRY_ENVIRONMENT: str = os.environ.get("SENTRY_ENVIRONMENT", "dev")
+SENTRY_DSN: Optional[str] = get_sentry_dsn()
+SENTRY_ENVIRONMENT: str = get_sentry_environment()
 
 
-def _default_telemetry_properties() -> Dict[str, Any]:
+def _default_global_properties() -> Dict[str, Any]:
     return {
         "datahub_version": nice_version_name(),
         "python_version": platform.python_version(),
         "os": platform.system(),
         "arch": platform.machine(),
+        # caller is populated lazily in ping() to avoid subprocess calls at import time
     }
+
+
+# ---------------------------------------------------------------------------
+# Background telemetry dispatch
+#
+# Telemetry must never sit on the CLI's critical path. A *refused* connection to
+# the collector fails fast, but a *dropped* one -- a corporate proxy, firewall,
+# airgap, or any network that blackholes egress rather than rejecting it --
+# blocks for the full socket timeout on every call. Sending synchronously
+# therefore stalls startup by minutes on such networks, and silently, since it
+# is all logged at DEBUG.
+#
+# So we enqueue each send and drain it on a single daemon worker. Enqueue is
+# non-blocking and sheds load when the queue is full, so the caller never waits
+# on the network regardless of its state. At exit we flush with a small bounded
+# timeout, then abandon anything still in flight: losing best-effort telemetry
+# is fine, a multi-minute hang is not.
+# ---------------------------------------------------------------------------
+
+# The CLI emits only a handful of events per invocation, so a small bound is
+# plenty; it caps memory if the collector is unreachable and the worker stalls.
+_TELEMETRY_QUEUE_MAX_SIZE = 100
+
+# Upper bound on how long process exit waits for in-flight telemetry to drain.
+_TELEMETRY_EXIT_FLUSH_SECONDS = 1.0
+
+_telemetry_queue: queue.Queue = queue.Queue(maxsize=_TELEMETRY_QUEUE_MAX_SIZE)
+_telemetry_worker_thread: Optional[threading.Thread] = None
+_telemetry_worker_lock = threading.Lock()
+_TELEMETRY_STOP = object()
+
+
+def _telemetry_worker_loop() -> None:
+    while True:
+        task = _telemetry_queue.get()
+        if task is _TELEMETRY_STOP:
+            return
+        try:
+            task()
+        except Exception as e:
+            logger.debug(f"Error reporting telemetry: {e}")
+
+
+def _shutdown_telemetry_worker() -> None:
+    thread = _telemetry_worker_thread
+    if thread is None:
+        return
+    try:
+        _telemetry_queue.put_nowait(_TELEMETRY_STOP)
+    except queue.Full:
+        # Worker is still busy, most likely stuck on a dropped connection. It is a
+        # daemon thread, so the interpreter reaps it on exit; don't wait on it.
+        return
+    thread.join(timeout=_TELEMETRY_EXIT_FLUSH_SECONDS)
+
+
+def _ensure_telemetry_worker() -> None:
+    global _telemetry_worker_thread
+    if _telemetry_worker_thread is not None:
+        return
+    with _telemetry_worker_lock:
+        if _telemetry_worker_thread is not None:
+            return
+        thread = threading.Thread(
+            target=_telemetry_worker_loop, name="datahub-telemetry", daemon=True
+        )
+        thread.start()
+        _telemetry_worker_thread = thread
+        atexit.register(_shutdown_telemetry_worker)
+
+
+def _dispatch_telemetry(task: Callable[[], None]) -> None:
+    """Run a telemetry send on the background worker; never blocks the caller.
+
+    Starts the worker on first use and drops the event if the queue is full, so a
+    slow or blackholed collector can't stall the CLI's critical path. Never raises:
+    telemetry must not break the caller, so even a failed worker start is swallowed.
+    """
+    try:
+        _ensure_telemetry_worker()
+        _telemetry_queue.put_nowait(task)
+    except queue.Full:
+        logger.debug("Telemetry queue full, dropping event")
+    except Exception as e:
+        # Telemetry must never break the caller: swallow anything (e.g. a failed
+        # worker-thread start) rather than let it propagate into a CLI command.
+        logger.debug(f"Error dispatching telemetry: {e}")
 
 
 class Telemetry:
@@ -122,6 +219,7 @@ class Telemetry:
     context_properties: Dict[str, Any] = {}
 
     def __init__(self):
+        self.global_properties = _default_global_properties()
         self.context_properties = {}
 
         if SENTRY_DSN:
@@ -157,7 +255,13 @@ class Telemetry:
                 self.mp = Mixpanel(
                     MIXPANEL_TOKEN,
                     consumer=Consumer(
-                        request_timeout=int(TIMEOUT), api_host=MIXPANEL_ENDPOINT
+                        request_timeout=int(TIMEOUT),
+                        api_host=MIXPANEL_ENDPOINT,
+                        # Telemetry is best-effort: never retry a failed send. The
+                        # mixpanel default (retry_limit=4 -> 5 attempts) turns a
+                        # dropped connection into 5x the timeout; the background
+                        # worker below relies on each send failing fast instead.
+                        retry_limit=0,
                     ),
                 )
             except Exception as e:
@@ -247,6 +351,10 @@ class Telemetry:
 
         return False
 
+    def add_global_property(self, key: str, value: Any) -> None:
+        self.global_properties[key] = value
+        self._update_sentry_properties()
+
     def set_context(
         self,
         server: Optional["DataHubGraph"] = None,
@@ -257,16 +365,20 @@ class Telemetry:
             **(properties or {}),
         }
 
+        self._update_sentry_properties()
+
+    def _update_sentry_properties(self) -> None:
+        properties = {
+            **self.global_properties,
+            **self.context_properties,
+        }
         if self.sentry_enabled:
-            from sentry_sdk import set_tag
+            import sentry_sdk
 
-            properties = {
-                **_default_telemetry_properties(),
-                **self.context_properties,
-            }
-
-            for key in properties:
-                set_tag(key, properties[key])
+            # Note: once we're on sentry-sdk 2.1.0+, we can use sentry_sdk.set_tags(properties)
+            # See https://github.com/getsentry/sentry-python/commit/6c960d752c7c7aff3fd7469d2e9ad98f19663aa8
+            for key, value in properties.items():
+                sentry_sdk.set_tag(key, value)
 
     def init_capture_exception(self) -> None:
         if self.sentry_enabled:
@@ -297,14 +409,14 @@ class Telemetry:
             return
 
         logger.debug("Sending init telemetry")
-        try:
-            self.mp.people_set(
-                self.client_id,
-                _default_telemetry_properties(),
-            )
-        except Exception as e:
-            logger.debug(f"Error initializing telemetry: {e}")
-        self.init_track = True
+        mp = self.mp
+        client_id = self.client_id
+        # Snapshot: global_properties is mutated elsewhere (add_global_property and
+        # the lazy "caller" population in ping) and would otherwise be read by the
+        # worker thread mid-send.
+        properties = dict(self.global_properties)
+        _dispatch_telemetry(lambda: mp.people_set(client_id, properties))
+        self.tracking_init = True
 
     def ping(
         self,
@@ -324,6 +436,10 @@ class Telemetry:
 
         properties = properties or {}
 
+        # Lazily populate caller to avoid subprocess calls at import time
+        if "caller" not in self.global_properties:
+            self.global_properties["caller"] = identify_caller()
+
         # send event
         try:
             if event_name == "function-call":
@@ -334,11 +450,13 @@ class Telemetry:
                 logger.debug(f"Sending telemetry for {event_name}")
 
             properties = {
-                **_default_telemetry_properties(),
+                **self.global_properties,
                 **self.context_properties,
                 **properties,
             }
-            self.mp.track(self.client_id, event_name, properties)
+            mp = self.mp
+            client_id = self.client_id
+            _dispatch_telemetry(lambda: mp.track(client_id, event_name, properties))
         except Exception as e:
             logger.debug(f"Error reporting telemetry: {e}")
 
@@ -397,6 +515,19 @@ _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
 
+def _get_cli_context() -> Dict[str, str]:
+    """Read --context key=value pairs from the Click context, if available."""
+    try:
+        import click
+
+        ctx = click.get_current_context(silent=True)
+        if ctx and ctx.obj and isinstance(ctx.obj, dict):
+            return {f"ctx_{k}": v for k, v in ctx.obj.get("context", {}).items()}
+    except Exception:
+        pass
+    return {}
+
+
 def with_telemetry(
     *, capture_kwargs: Optional[List[str]] = None
 ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
@@ -411,6 +542,7 @@ def with_telemetry(
             telemetry_instance.init_capture_exception()
 
             call_props: Dict[str, Any] = {"function": function}
+            call_props.update(_get_cli_context())
             for kwarg in kwargs_to_track:
                 call_props[f"arg_{kwarg}"] = kwargs.get(kwarg)
 

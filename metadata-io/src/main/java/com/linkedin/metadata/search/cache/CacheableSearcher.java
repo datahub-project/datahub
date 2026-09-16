@@ -66,9 +66,17 @@ public class CacheableSearcher<K> {
               resultEntities.addAll(batchedResult.getEntities().subList(startInBatch, endInBatch));
               foundStart = true;
             }
-            // If current batch is smaller than the requested batch size, the next batch will return
-            // empty.
-            if (currentBatchSize < batchSize) {
+            // Stop once the search engine has no more matching documents beyond this batch.
+            //
+            // We compare the raw hit positions scanned so far ((batchId + 1) * batchSize) against
+            // the total hit count, rather than checking (currentBatchSize < batchSize). Hits with
+            // invalid/missing URNs are dropped before reaching here (see
+            // SearchRequestHandler#getResultSafely), so a full page of batchSize raw hits can yield
+            // fewer than batchSize entities. Using the entity count to detect the last page would
+            // either silently truncate results when a hit is skipped, or force an unnecessary extra
+            // batch fetch. The total hit count is exact within the from/size pagination window
+            // (which the search engine caps at index.max_result_window).
+            if ((long) (batchId + 1) * batchSize >= batchedResult.getNumEntities()) {
               break;
             }
             resultsSoFar += currentBatchSize;
@@ -108,7 +116,11 @@ public class CacheableSearcher<K> {
                 Span.current().setAttribute(CACHE_HIT_ATTR, false);
                 result = searcher.apply(batch);
                 cache.put(cacheKey, toJsonString(result));
-                MetricUtils.counter(this.getClass(), "getBatch_cache_miss_count").inc();
+                opContext
+                    .getMetricUtils()
+                    .ifPresent(
+                        metricUtils ->
+                            metricUtils.increment(this.getClass(), "getBatch_cache_miss_count", 1));
               } else {
                 Span.current().setAttribute(CACHE_HIT_ATTR, true);
               }

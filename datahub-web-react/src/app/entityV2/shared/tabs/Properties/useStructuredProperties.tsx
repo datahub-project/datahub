@@ -1,10 +1,12 @@
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { isPropagated } from '@app/entity/shared/propagation/utils';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { filterStructuredProperties } from '@app/entityV2/shared/tabs/Properties/utils';
+import { dedupeByUrn } from '@src/utils/dedupeByUrn';
 
 import { PropertyValue, StructuredPropertiesEntry } from '@types';
 
@@ -13,7 +15,11 @@ const typeNameToType = {
     NumberValue: { type: 'number', nativeDataType: 'float' },
 };
 
-export function mapStructuredPropertyValues(structuredPropertiesEntry: StructuredPropertiesEntry) {
+function structuredPropertyIsPropagated(structuredPropertiesEntry: StructuredPropertiesEntry) {
+    return isPropagated(structuredPropertiesEntry.attribution?.sourceDetail);
+}
+
+function mapStructuredPropertyValues(structuredPropertiesEntry: StructuredPropertiesEntry) {
     return structuredPropertiesEntry.values
         .filter((value) => !!value)
         .map((value) => ({
@@ -41,18 +47,22 @@ export function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: St
                   }
                 : undefined,
         associatedUrn: structuredPropertiesEntry.associatedUrn,
+        attribution: structuredPropertiesEntry.attribution,
     };
 }
 
 // map the properties map into a list of PropertyRow objects to render in a table
-function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
+export function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
     const structuredPropertyRows: PropertyRow[] = [];
 
-    entityData?.structuredProperties?.properties
-        ?.filter((prop) => prop.structuredProperty.exists)
-        .forEach((structuredPropertiesEntry) => {
-            structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
-        });
+    const dedupedProperties = dedupeByUrn(
+        entityData?.structuredProperties?.properties?.filter((prop) => prop.structuredProperty.exists) ?? [],
+        (prop) => prop.structuredProperty.urn,
+        structuredPropertyIsPropagated,
+    );
+    dedupedProperties.forEach((structuredPropertiesEntry) => {
+        structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
+    });
 
     return structuredPropertyRows;
 }
@@ -64,16 +74,19 @@ function getFieldStructuredPropertyRows(fieldPath: string, entityData?: GenericE
         (f) => f.fieldPath === fieldPath,
     )?.schemaFieldEntity;
 
-    schemaFieldEntity?.structuredProperties?.properties
-        ?.filter((prop) => prop.structuredProperty.exists)
-        .forEach((structuredPropertiesEntry) => {
-            structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
-        });
+    const dedupedProperties = dedupeByUrn(
+        schemaFieldEntity?.structuredProperties?.properties?.filter((prop) => prop.structuredProperty.exists) ?? [],
+        (prop) => prop.structuredProperty.urn,
+        structuredPropertyIsPropagated,
+    );
+    dedupedProperties.forEach((structuredPropertiesEntry) => {
+        structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
+    });
 
     return structuredPropertyRows;
 }
 
-export function findAllSubstrings(s: string): Array<string> {
+function findAllSubstrings(s: string): Array<string> {
     const substrings: Array<string> = [];
 
     for (let i = 0; i < s.length; i++) {
@@ -85,7 +98,7 @@ export function findAllSubstrings(s: string): Array<string> {
     return substrings;
 }
 
-export function createParentPropertyRow(displayName: string, qualifiedName: string): PropertyRow {
+function createParentPropertyRow(displayName: string, qualifiedName: string): PropertyRow {
     return {
         displayName,
         qualifiedName,
@@ -149,7 +162,7 @@ export function identifyAndAddParentRows(rows?: Array<PropertyRow>): Array<Prope
     return finalParents;
 }
 
-export function groupByParentProperty(rows?: Array<PropertyRow>): Array<PropertyRow> {
+function groupByParentProperty(rows?: Array<PropertyRow>): Array<PropertyRow> {
     /**
      * This function takes in an array of PropertyRow objects, representing parent and child properties. Parent properties
      * will not have values, but child properties will. It organizes the rows into the parent and child structure and

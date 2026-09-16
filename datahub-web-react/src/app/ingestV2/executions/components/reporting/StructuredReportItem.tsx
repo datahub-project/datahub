@@ -1,82 +1,79 @@
-import { Collapse } from 'antd';
-import React from 'react';
+import { Card, Icon, Text } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { StructuredReportItemContext } from '@app/ingestV2/executions/components/reporting/StructuredReportItemContext';
 import { StructuredReportLogEntry } from '@app/ingestV2/executions/components/reporting/types';
-import { applyOpacity } from '@app/shared/styleUtils';
 
-const StyledCollapse = styled(Collapse)<{ color: string }>`
-    background-color: ${(props) => applyOpacity(props.color, 8)};
-    border: 1px solid ${(props) => applyOpacity(props.color, 20)};
-    display: flex;
-
-    && {
-        .ant-collapse-header {
-            display: flex;
-            align-items: center;
-            overflow: auto;
-        }
-
-        .ant-collapse-item {
-            border: none;
-            width: 100%;
-        }
-    }
-`;
-
-const Item = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: start;
-    gap: 4px;
+const StyledCard = styled(Card)`
+    padding: 8px;
+    width: 100%;
 `;
 
 const Content = styled.div`
     border-radius: 8px;
+    margin-top: 8px;
+    background-color: ${(props) => props.theme.colors.bg};
+    padding: 8px;
 `;
 
-const Text = styled.div`
+const HeaderContainer = styled.div`
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    gap: 8px;
 `;
 
-const Type = styled.div`
-    font-weight: bold;
-    font-size: 14px;
-`;
-
-const Message = styled.div`
-    color: ${ANTD_GRAY[8]};
+const ChevronIcon = styled(Icon)`
+    color: ${(props) => props.theme.colors.textTertiary};
+    font-size: 12px;
 `;
 
 interface Props {
     item: StructuredReportLogEntry;
     color: string;
+    textColor?: string;
     icon?: React.ComponentType<any>;
+    defaultActiveKey?: string;
 }
 
-export function StructuredReportItem({ item, color, icon }: Props) {
-    const Icon = icon;
+export function StructuredReportItem({ item, color, textColor, icon, defaultActiveKey }: Props) {
+    const [isExpanded, setIsExpanded] = useState(defaultActiveKey === '0');
+
+    const toggleExpanded = () => {
+        setIsExpanded(!isExpanded);
+    };
+
     return (
-        <StyledCollapse color={color}>
-            <Collapse.Panel
-                header={
-                    <Item>
-                        {Icon ? <Icon style={{ fontSize: 16, color, marginRight: 12 }} /> : null}
-                        <Text>
-                            <Type>{item.title}</Type>
-                            <Message>{item.message}</Message>
-                        </Text>
-                    </Item>
-                }
-                key="0"
-            >
-                <Content>
+        <StyledCard
+            style={{ backgroundColor: color }}
+            onClick={toggleExpanded}
+            icon={
+                <HeaderContainer>
+                    {icon && <Icon icon={icon} style={{ color: textColor }} size="md" />}
+                    <ChevronIcon icon={isExpanded ? CaretUp : CaretDown} style={{ color: textColor }} size="md" />
+                </HeaderContainer>
+            }
+            title={
+                <Text style={{ color: textColor }} weight="semiBold" size="md" lineHeight="normal">
+                    {item.title}
+                </Text>
+            }
+            subTitle={
+                <Text style={{ color: textColor }} size="sm">
+                    {item.message}
+                </Text>
+            }
+            width="100%"
+            isCardClickable
+        >
+            {isExpanded && (
+                <Content onClick={(e) => e.stopPropagation()}>
                     <StructuredReportItemContext item={item} />
                 </Content>
-            </Collapse.Panel>
-        </StyledCollapse>
+            )}
+        </StyledCard>
     );
 }

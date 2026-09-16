@@ -11,7 +11,7 @@ import { PostContent } from '@types';
 const Title = styled.div<{ hasAction: boolean }>`
     ${(props) => props.hasAction && `:hover { cursor: pointer; }`}
     margin-bottom: 8px;
-    color: #403d5c;
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
     font-size: 16px;
 `;

@@ -4,8 +4,9 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -49,7 +50,7 @@ const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 export const Preview = ({
@@ -63,6 +64,7 @@ export const Preview = ({
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const url = entityRegistry.getEntityUrl(EntityType.CorpUser, urn);
+    const { propagationDetails } = usePreviewData();
 
     return (
         <PreviewContainer>
@@ -85,6 +87,7 @@ export const Preview = ({
                         <SearchTextHighlighter field="title" text={title} />
                     </TitleContainer>
                 )}
+                <HoverCardAttributionDetails propagationDetails={propagationDetails} />
             </div>
         </PreviewContainer>
     );

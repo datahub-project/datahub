@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -16,7 +17,7 @@ export enum QuickFilterField {
     Entity = '_entityType',
 }
 
-export function getQuickFilterDetails(quickFilter: QuickFilter, entityRegistry: EntityRegistry) {
+export function getQuickFilterDetails(quickFilter: QuickFilter, entityRegistry: EntityRegistry, iconColor: string) {
     let label = '';
     let icon: JSX.Element | null = null;
     if (quickFilter.field === QuickFilterField.Platform) {
@@ -24,13 +25,13 @@ export function getQuickFilterDetails(quickFilter: QuickFilter, entityRegistry: 
         const genericProps = entityRegistry.getGenericEntityProperties(EntityType.DataPlatform, quickFilter.entity);
         const logoUrl = genericProps?.platform?.properties?.logoUrl || '';
         if (logoUrl) {
-            icon = <StyledIcon alt="icon" src={logoUrl} />;
+            icon = <StyledIcon alt={i18next.t('search:autoComplete.quickFilter.iconAlt')} src={logoUrl} />;
         } else {
-            icon = entityRegistry.getIcon(EntityType.DataPlatform, 14, IconStyleType.ACCENT, 'black');
+            icon = entityRegistry.getIcon(EntityType.DataPlatform, 14, IconStyleType.ACCENT, iconColor);
         }
     } else if (quickFilter.field === QuickFilterField.Entity) {
         label = entityRegistry.getCollectionName(quickFilter.value as EntityType);
-        icon = entityRegistry.getIcon(quickFilter.value as EntityType, 14, IconStyleType.ACCENT, 'black');
+        icon = entityRegistry.getIcon(quickFilter.value as EntityType, 14, IconStyleType.ACCENT, iconColor);
     }
 
     return { label, icon };

@@ -1,0 +1,13 @@
+namespace com.linkedin.template
+
+import com.linkedin.common.Urn
+
+/**
+ * A row of modules contained in a template
+ */
+record DataHubPageTemplateRow  {
+  /**
+   * The modules that exist in this template row
+   */
+  modules: array[Urn]
+}

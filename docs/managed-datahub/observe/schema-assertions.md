@@ -32,7 +32,7 @@ Let's get started!
 
 ## Support
 
-Schema Assertions are currently supported for all data sources that provide a schema via the normal ingestion process.
+Schema Assertions are supported for all data sources that provide a schema via the normal ingestion process. Evaluation is triggered by schema-change events against the ingested schema, so Schema Assertions work on any platform where DataHub ingests schemas — there is no separate active-query mode. See the [capabilities matrix](./assertions.md).
 
 ## What is a Schema Assertion?
 
@@ -87,7 +87,6 @@ Each "expected column" is composed of a
 2. **Type**: The high-level data type of the column in the table. This type intentionally "high level" to allow for normal column widening practices
    without the risk of failing the assertion unnecessarily. For example a `varchar(64)` and a `varchar(256)` will both resolve to the same high-level
    "STRING" type. The currently supported set of data types include the following:
-
    - String
    - Number
    - Boolean
@@ -113,7 +112,7 @@ Once these are in place, you're ready to create your Schema Assertions!
 ### Steps
 
 1. Navigate to the Table you want to monitor
-2. Click the **Validations** tab
+2. Click the **Quality** tab
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
@@ -170,7 +169,7 @@ Once your assertion has run, you will begin to see Success or Failure status:
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Schema** to open the Schema Assertion
 3. Click the "Stop" button.
 

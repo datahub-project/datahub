@@ -1,0 +1,11 @@
+{
+    "accessManagement.accessAlreadyGranted": "A hozzáférés már megadva",
+    "accessManagement.accessGrantedTooltip": "Már rendelkezik hozzáféréssel ehhez a szerepkörhöz",
+    "accessManagement.columnAccess": "Hozzáférés",
+    "accessManagement.columnAccessType": "Hozzáférés típusa",
+    "accessManagement.columnRoleName": "Szerepkör neve",
+    "accessManagement.granted": "Megadva",
+    "accessManagement.request": "Kérés",
+    "accessManagement.requestAccess": "Hozzáférés kérése",
+    "accessManagement.tableAriaLabel": "Hozzáférés-kezelési szerepkörök táblázata"
+}

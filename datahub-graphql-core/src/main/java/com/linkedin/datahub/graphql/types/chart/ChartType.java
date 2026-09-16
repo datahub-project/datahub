@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.chart;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.CHART_KEY_ASPECT_NAME;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -34,6 +35,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -61,7 +63,7 @@ public class ChartType
         BrowsableEntityType<Chart, String>,
         MutableType<ChartUpdateInput, Chart> {
 
-  private static final Set<String> ASPECTS_TO_RESOLVE =
+  static final Set<String> ASPECTS_TO_RESOLVE =
       ImmutableSet.of(
           CHART_KEY_ASPECT_NAME,
           CHART_INFO_ASPECT_NAME,
@@ -82,7 +84,8 @@ public class ChartType
           BROWSE_PATHS_V2_ASPECT_NAME,
           SUB_TYPES_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
-          FORMS_ASPECT_NAME);
+          FORMS_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS =
       ImmutableSet.of("access", "queryType", "tool", "type");
 
@@ -118,12 +121,16 @@ public class ChartType
     final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     try {
 
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, CHART_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> chartMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               CHART_ENTITY_NAME,
               new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
@@ -148,7 +155,7 @@ public class ChartType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
@@ -168,7 +175,7 @@ public class ChartType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
@@ -181,7 +188,7 @@ public class ChartType
       @Nonnull List<String> path,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);

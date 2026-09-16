@@ -5,6 +5,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,9 +15,51 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class RequestInputUtil {
+  /**
+   * Keys that live on the same JSON object as aspect names in OpenAPI v3 entity documents. They are
+   * not aspects and must not be treated as unknown-aspect writes.
+   */
+  public static final Set<String> ENTITY_DOCUMENT_METADATA_KEYS = Set.of("urn", "scrollId");
+
   private RequestInputUtil() {}
+
+  public static boolean isEntityDocumentMetadataKey(@Nullable String key) {
+    return key != null && ENTITY_DOCUMENT_METADATA_KEYS.contains(key);
+  }
+
+  /**
+   * Resolve an aspect for a write. Unknown names fail loudly rather than being dropped.
+   *
+   * @throws IllegalArgumentException if the aspect is not registered on the entity type
+   */
+  @Nonnull
+  public static AspectSpec requireAspectSpec(
+      @Nullable EntitySpec entitySpec, @Nonnull String aspectName) {
+    return lookupAspectSpec(entitySpec, aspectName)
+        .orElseThrow(
+            () ->
+                new IllegalArgumentException(
+                    String.format(
+                        "Unknown aspect %s for entity %s",
+                        aspectName, entitySpec != null ? entitySpec.getName() : "unknown")));
+  }
+
+  public static Collection<String> resolveEntityNames(
+      @Nonnull EntityRegistry entityRegistry, @Nullable Set<String> entityNames) {
+    final Collection<String> resolvedEntityNames;
+    if (entityNames != null) {
+      resolvedEntityNames =
+          entityNames.stream().map(entityRegistry::getEntitySpec).map(EntitySpec::getName).toList();
+    } else {
+      resolvedEntityNames =
+          entityRegistry.getEntitySpecs().values().stream().map(EntitySpec::getName).toList();
+    }
+
+    return resolvedEntityNames;
+  }
 
   public static List<String> resolveAspectNames(
       EntityRegistry entityRegistry, Urn urn, List<String> inputAspectNames, boolean expandEmpty) {

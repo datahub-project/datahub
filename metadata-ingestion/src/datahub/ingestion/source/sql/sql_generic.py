@@ -64,20 +64,18 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
 
 @platform_name("SQLAlchemy", id="sqlalchemy")
 @config_class(SQLAlchemyGenericConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class SQLAlchemyGenericSource(SQLAlchemySource):
     """
-    The `sqlalchemy` source is useful if we don't have a pre-built source for your chosen
-    database system, but there is an [SQLAlchemy dialect](https://docs.sqlalchemy.org/en/14/dialects/)
-    defined elsewhere. In order to use this, you must `pip install` the required dialect packages yourself.
+    Generic source for databases with SQLAlchemy dialect support but no dedicated connector.
 
-    This plugin extracts the following:
-
-    - Metadata for databases, schemas, views, and tables
-    - Column types associated with each table
-    - Table, row, and column statistics via optional SQL profiling.
+    Implementation notes:
+    - Uses SQLAlchemy reflection to discover schema metadata
+    - Requires user to install appropriate dialect package separately
+    - Platform name is configurable via config.platform parameter
+    - Inherits all SQLAlchemySource capabilities (profiling, filtering, domains)
     """
 
     def __init__(self, config: SQLAlchemyGenericConfig, ctx: PipelineContext):
@@ -85,5 +83,5 @@ class SQLAlchemyGenericSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = SQLAlchemyGenericConfig.parse_obj(config_dict)
+        config = SQLAlchemyGenericConfig.model_validate(config_dict)
         return cls(config, ctx)

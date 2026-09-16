@@ -1,30 +1,44 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Icon } from '@components';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import React from 'react';
+import styled, { keyframes } from 'styled-components';
 
 import { ButtonBase } from '@components/components/Button/components';
 import { ButtonProps, ButtonPropsDefaults } from '@components/components/Button/types';
+import { Icon } from '@components/components/Icon';
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const LoadingSpinner = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+    color: currentColor;
+`;
 
 export const buttonDefaults: ButtonPropsDefaults = {
     variant: 'filled',
     color: 'primary',
+    // Intentionally undefined: when unset, getButtonColorStyles uses theme.colors.buttonFillBrand
+    // for primary/violet so configurable brand colors (and borders) apply. Only pass colorLevel
+    // when you need a specific foundation shade.
+    colorLevel: undefined,
     size: 'md',
     iconPosition: 'left',
     isCircle: false,
     isLoading: false,
-    isDisabled: false,
     isActive: false,
 };
 
 export const Button = ({
     variant = buttonDefaults.variant,
     color = buttonDefaults.color,
+    colorLevel = buttonDefaults.colorLevel,
     size = buttonDefaults.size,
     icon, // default undefined
     iconPosition = buttonDefaults.iconPosition,
     isCircle = buttonDefaults.isCircle,
     isLoading = buttonDefaults.isLoading,
-    isDisabled = buttonDefaults.isDisabled,
     isActive = buttonDefaults.isActive,
     children,
     ...props
@@ -32,18 +46,18 @@ export const Button = ({
     const styleProps = {
         variant,
         color,
+        colorLevel,
         size,
         isCircle,
         isLoading,
         isActive,
-        isDisabled,
         hasChildren: !!children,
     };
 
     if (isLoading) {
         return (
             <ButtonBase {...styleProps} {...props}>
-                <LoadingOutlined rotate={10} /> {!isCircle && children}
+                <LoadingSpinner /> {!isCircle && children}
             </ButtonBase>
         );
     }

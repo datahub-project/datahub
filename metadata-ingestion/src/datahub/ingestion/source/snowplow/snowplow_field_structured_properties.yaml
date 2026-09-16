@@ -1,0 +1,88 @@
+# Structured Property Definitions for Snowplow Field Metadata
+#
+# These structured properties track authorship and versioning information for schema fields.
+# They should be registered in DataHub before running the Snowplow connector ingestion.
+#
+# To register these properties:
+#   datahub properties upsert -f snowplow_field_structured_properties.yaml
+#
+# Or via Python API:
+#   from datahub.api.entities.structuredproperties.structuredproperties import StructuredProperties
+#   from datahub.ingestion.graph.client import DataHubGraph
+#
+#   graph = DataHubGraph(config=...)
+#   props = StructuredProperties.from_yaml("snowplow_field_structured_properties.yaml")
+#   for prop in props:
+#       for mcp in prop.generate_mcps():
+#           graph.emit_mcp(mcp)
+
+- id: io.acryl.snowplow.fieldAuthor
+  qualified_name: io.acryl.snowplow.fieldAuthor
+  type: string
+  cardinality: SINGLE
+  display_name: Field Author
+  description: |
+    The person who added this field to the Snowplow event specification or data structure.
+    This tracks the initiator of the deployment that introduced the field.
+  entity_types:
+    - schemaField
+
+- id: io.acryl.snowplow.fieldVersionAdded
+  qualified_name: io.acryl.snowplow.fieldVersionAdded
+  type: string
+  cardinality: SINGLE
+  display_name: Version Added
+  description: |
+    The schema version when this field was first added to the event specification.
+    Format: Major-Minor-Patch (e.g., "1-0-2" for version 1.0.2)
+  entity_types:
+    - schemaField
+
+- id: io.acryl.snowplow.fieldAddedTimestamp
+  qualified_name: io.acryl.snowplow.fieldAddedTimestamp
+  type: string
+  cardinality: SINGLE
+  display_name: Added Timestamp
+  description: |
+    ISO 8601 timestamp when this field was first added to the event specification.
+    Format: YYYY-MM-DDTHH:MM:SSZ (e.g., "2024-01-15T10:30:00Z")
+  entity_types:
+    - schemaField
+
+- id: io.acryl.snowplow.fieldDataClass
+  qualified_name: io.acryl.snowplow.fieldDataClass
+  type: string
+  cardinality: SINGLE
+  display_name: Data Classification
+  description: |
+    The data classification level for this field based on PII enrichment analysis.
+    Values: "pii", "sensitive", "public", "internal"
+  entity_types:
+    - schemaField
+  allowed_values:
+    - value: pii
+      description: Contains personally identifiable information
+    - value: sensitive
+      description: Contains sensitive business data
+    - value: public
+      description: Public information, safe to share externally
+    - value: internal
+      description: Internal information, not for external sharing
+
+- id: io.acryl.snowplow.fieldEventType
+  qualified_name: io.acryl.snowplow.fieldEventType
+  type: string
+  cardinality: SINGLE
+  display_name: Event Type
+  description: |
+    The type of Snowplow event this field belongs to.
+    Values: "self_describing", "atomic", "context"
+  entity_types:
+    - schemaField
+  allowed_values:
+    - value: self_describing
+      description: Custom self-describing event field
+    - value: atomic
+      description: Snowplow atomic event field
+    - value: context
+      description: Context entity field

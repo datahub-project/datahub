@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config.kafka;
 
+import com.linkedin.metadata.config.MetricsOptions;
 import lombok.Data;
 
 @Data
@@ -8,10 +9,17 @@ public class ConsumerConfiguration {
   private int maxPartitionFetchBytes;
   private boolean stopOnDeserializationError;
   private boolean healthCheckEnabled;
+  private int authExceptionRetryIntervalSeconds;
+  private int maxAuthExceptionRetries;
 
   private ConsumerOptions mcp;
   private ConsumerOptions mcl;
   private ConsumerOptions pe;
+
+  private MetricsOptions metrics;
+  private String bootstrapServers;
+  private String securityProtocol;
+  private String schemaRegistryUrl;
 
   @Data
   public static class ConsumerOptions {

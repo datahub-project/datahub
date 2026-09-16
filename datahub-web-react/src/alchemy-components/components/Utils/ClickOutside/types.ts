@@ -9,4 +9,5 @@ export interface ClickOutsideOptions {
 
 export interface ClickOutsideProps extends Omit<ClickOutsideOptions, 'wrappers'> {
     onClickOutside: ClickOutsideCallback;
+    width?: string;
 }

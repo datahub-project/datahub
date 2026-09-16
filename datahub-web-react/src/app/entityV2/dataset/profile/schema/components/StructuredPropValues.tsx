@@ -52,12 +52,14 @@ const StructuredPropValues = ({ schemaFieldEntity, propColumn }: Props) => {
                                     isRichText={isRichText}
                                     truncateText
                                     isFieldColumn
+                                    attribution={propRow?.attribution}
                                 />
                             </ValuesContainer>
                         );
                     })}
                     {hasMoreValues && (
                         <Tooltip title={tooltipContent} showArrow={false}>
+                            {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) decorative more-indicator ellipsis */}
                             <MoreIndicator>...</MoreIndicator>
                         </Tooltip>
                     )}

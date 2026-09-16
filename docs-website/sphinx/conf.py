@@ -26,8 +26,10 @@ extensions = [
     "sphinx_autodoc_typehints",
     # This enables us to autogenerate docs for our CLI.
     "sphinx_click",
+    "sphinx_markdown_builder",
 ]
 
+markdown_anchor_sections = True
 napoleon_use_param = True
 
 # Move type hint info to function description instead of signature

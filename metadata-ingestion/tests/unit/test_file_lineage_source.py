@@ -49,7 +49,7 @@ def basic_mcp():
               transformOperation: func1
         """
     config = yaml.safe_load(sample_lineage)
-    lineage_config: LineageConfig = LineageConfig.parse_obj(config)
+    lineage_config: LineageConfig = LineageConfig.model_validate(config)
     return _get_lineage_mcp(lineage_config.lineage[0], False)
 
 
@@ -90,7 +90,7 @@ def unsupported_entity_type_mcp():
                   platform: kafka
         """
     config = yaml.safe_load(sample_lineage)
-    return LineageConfig.parse_obj(config)
+    return LineageConfig.model_validate(config)
 
 
 def unsupported_upstream_entity_type_mcp():
@@ -114,7 +114,7 @@ def unsupported_upstream_entity_type_mcp():
                   platform: kafka
         """
     config = yaml.safe_load(sample_lineage)
-    return LineageConfig.parse_obj(config)
+    return LineageConfig.model_validate(config)
 
 
 def unsupported_entity_env_mcp():
@@ -154,7 +154,7 @@ def unsupported_entity_env_mcp():
                   platform: kafka
         """
     config = yaml.safe_load(sample_lineage)
-    return LineageConfig.parse_obj(config)
+    return LineageConfig.model_validate(config)
 
 
 def test_basic_lineage_entity_root_node_urn(basic_mcp):

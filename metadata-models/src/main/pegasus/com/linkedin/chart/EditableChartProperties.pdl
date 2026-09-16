@@ -16,6 +16,7 @@ record EditableChartProperties includes ChangeAuditStamps {
   @Searchable = {
     "fieldType": "TEXT",
     "fieldName": "editedDescription",
+    "sanitizeRichText": true
   }
   description: optional string
 }

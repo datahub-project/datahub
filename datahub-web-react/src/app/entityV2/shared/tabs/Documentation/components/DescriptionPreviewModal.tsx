@@ -1,10 +1,14 @@
-import { Modal } from 'antd';
-import React from 'react';
+import { Modal } from '@components';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useRouteToTab } from '@app/entity/shared/EntityContext';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreview } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreview';
 import ClickOutside from '@app/shared/ClickOutside';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+
+const DOCUMENTATION_TAB_NAME = 'Documentation';
 
 const modalStyle = {
     top: '5%',
@@ -26,21 +30,13 @@ type DescriptionPreviewModalProps = {
 };
 
 export const DescriptionPreviewModal = ({ description, editMode, onClose }: DescriptionPreviewModalProps) => {
+    const { t } = useTranslation('entity.profile.documentation');
     const routeToTab = useRouteToTab();
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
     const onConfirmClose = () => {
         if (editMode) {
-            Modal.confirm({
-                title: `Exit Editor`,
-                content: `Are you sure you want to exit the editor? Any unsaved changes will be lost.`,
-                onOk() {
-                    onClose();
-                },
-                onCancel() {},
-                okText: 'Yes',
-                maskClosable: true,
-                closable: true,
-            });
+            setShowConfirmationModal(true);
         } else {
             onClose(false);
         }
@@ -52,26 +48,33 @@ export const DescriptionPreviewModal = ({ description, editMode, onClose }: Desc
                 width="80%"
                 style={modalStyle}
                 bodyStyle={bodyStyle}
-                title={undefined}
-                visible
-                footer={null}
+                title=""
+                open
                 closable={false}
                 onCancel={onConfirmClose}
                 className="description-editor-wrapper"
+                buttons={[]}
             >
                 {(editMode && (
                     <DescriptionEditor
-                        onComplete={() => routeToTab({ tabName: 'Documentation', tabParams: { modal: true } })}
+                        onComplete={() => routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { modal: true } })}
                     />
                 )) || (
                     <DescriptionPreview
                         description={description}
                         onEdit={() =>
-                            routeToTab({ tabName: 'Documentation', tabParams: { editing: true, modal: true } })
+                            routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: true, modal: true } })
                         }
                     />
                 )}
             </Modal>
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={onClose}
+                modalTitle={t('exitViewEditor.title')}
+                modalText={t('exitViewEditor.description')}
+            />
         </ClickOutside>
     );
 };

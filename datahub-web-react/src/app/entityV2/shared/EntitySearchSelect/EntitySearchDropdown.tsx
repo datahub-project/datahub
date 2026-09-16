@@ -1,0 +1,310 @@
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useDebounce } from 'react-use';
+import styled from 'styled-components';
+
+import Dropdown from '@components/components/Dropdown/Dropdown';
+import { Input } from '@components/components/Input/Input';
+import { Loader } from '@components/components/Loader/Loader';
+import {
+    DropdownContainer,
+    LabelContainer,
+    OptionLabel,
+    OptionList,
+    StyledCheckbox,
+} from '@components/components/Select/components';
+
+import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
+import { getEntityDisplayName as getEntityDisplayNameUtil } from '@app/entityV2/shared/EntitySearchSelect/utils';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { useListIngestionSourcesQuery } from '@graphql/ingestion.generated';
+import { useGetEntitySearchResultsAutoCompleteFieldsLazyQuery } from '@graphql/search.generated';
+import { AndFilterInput, Entity, EntityType } from '@types';
+
+const SearchInputContainer = styled.div({
+    position: 'relative',
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'center',
+});
+
+const EntityOptionContainer = styled.div`
+    width: 100%;
+    flex: 1;
+`;
+
+const LoadingState = styled.div`
+    padding: 16px 12px;
+    text-align: center;
+    color: ${(props) => props.theme.colors.textTertiary};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+`;
+
+const EmptyState = styled.div`
+    padding: 16px 12px;
+    text-align: center;
+    color: ${(props) => props.theme.colors.textTertiary};
+    font-style: italic;
+`;
+
+interface EntitySearchDropdownProps {
+    entityTypes: EntityType[];
+    selectedUrns: string[];
+    onSelectionChange: (urns: string[]) => void;
+    placeholder?: string;
+    isMultiSelect?: boolean;
+    onEntitySelect?: (entity: Entity) => void; // Called when an entity is selected (for caching)
+    defaultFilters?: AndFilterInput[]; // Default filters to apply to search (e.g., filter out unpublished documents)
+    viewUrn?: string; // Optional view URN to apply to search
+    // Dropdown configuration
+    trigger: React.ReactNode; // The element that triggers the dropdown
+    open: boolean; // Controlled open state
+    onOpenChange: (open: boolean) => void; // Callback when open state changes
+    placement?: 'top' | 'bottom' | 'bottomLeft' | 'bottomRight' | 'topLeft' | 'topRight'; // Dropdown placement
+    disabled?: boolean; // Whether dropdown is disabled
+    actionButtons?: React.ReactNode; // Optional action buttons to render below the search content
+    dropdownContainerStyle?: React.CSSProperties; // Optional custom styles for dropdown container
+}
+
+/**
+ * A reusable component that renders a dropdown for entity search.
+ * Handles all search logic internally and provides a clean interface.
+ * Includes the Dropdown wrapper, so consumers don't need to wrap it themselves.
+ */
+export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
+    entityTypes,
+    selectedUrns,
+    onSelectionChange,
+    placeholder,
+    isMultiSelect = true,
+    onEntitySelect,
+    defaultFilters,
+    viewUrn,
+    trigger,
+    open,
+    onOpenChange,
+    placement = 'bottomRight',
+    disabled = false,
+    actionButtons,
+    dropdownContainerStyle,
+}) => {
+    const { t } = useTranslation('entity.shared.selectors');
+    const resolvedPlaceholder = placeholder ?? t('entitySearch.placeholder');
+    const entityRegistry = useEntityRegistryV2();
+    const [searchQuery, setSearchQuery] = useState('');
+    const prevOpenRef = useRef<boolean>(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // INGESTION_SOURCE isn't in the search index, so it is fetched separately below.
+    const hasIngestionSource = entityTypes.includes(EntityType.IngestionSource);
+    const typesToSearch = useMemo(
+        () => entityTypes.filter((type) => type !== EntityType.IngestionSource),
+        [entityTypes],
+    );
+    // An empty entityTypes means "search everything". A non-empty list that held only
+    // INGESTION_SOURCE leaves the main search nothing to do.
+    const shouldSearchEntities = entityTypes.length === 0 || typesToSearch.length > 0;
+
+    // Search functionality
+    const [searchResources, { data: resourcesSearchData, loading: searchLoading }] =
+        useGetEntitySearchResultsAutoCompleteFieldsLazyQuery();
+
+    // Debounced copy of searchQuery for the ingestion-sources query — it refetches on
+    // every variables change, so feeding it the raw per-keystroke value would fire a
+    // request per character (the main search below already debounces via useDebounce).
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+    useDebounce(() => setDebouncedSearchQuery(searchQuery), DEBOUNCE_SEARCH_MS, [searchQuery]);
+
+    const { data: ingestionSourcesData, loading: ingestionSourcesLoading } = useListIngestionSourcesQuery({
+        variables: {
+            input: {
+                start: 0,
+                count: 10,
+                query: debouncedSearchQuery || undefined,
+                filters: [
+                    {
+                        field: 'sourceType',
+                        values: ['SYSTEM'],
+                        negated: true,
+                    },
+                ],
+            },
+        },
+        skip: !hasIngestionSource,
+    });
+
+    const doSearch = useCallback(
+        (query: string) => {
+            if (!shouldSearchEntities) return;
+            searchResources({
+                variables: {
+                    input: {
+                        types: typesToSearch,
+                        query,
+                        start: 0,
+                        count: 10,
+                        orFilters: defaultFilters,
+                        viewUrn: viewUrn || undefined,
+                    },
+                },
+            });
+        },
+        [searchResources, shouldSearchEntities, typesToSearch, defaultFilters, viewUrn],
+    );
+
+    // Issue a default search when dropdown opens
+    useEffect(() => {
+        if (open && !prevOpenRef.current) {
+            doSearch('*');
+            setSearchQuery('');
+        }
+        prevOpenRef.current = open;
+    }, [open, doSearch]);
+
+    // Debounce the search to avoid too many requests when user types
+    useDebounce(
+        () => {
+            if (open) {
+                doSearch(searchQuery || '*');
+            }
+        },
+        DEBOUNCE_SEARCH_MS,
+        [searchQuery, open, doSearch],
+    );
+
+    const handleSearchChange = useCallback((value: string) => {
+        setSearchQuery(value);
+    }, []);
+
+    const getEntityDisplayName = useCallback(
+        (entity: Entity) => getEntityDisplayNameUtil(entity, entityRegistry),
+        [entityRegistry],
+    );
+
+    const entityOptions = useMemo(() => {
+        const entityResults = shouldSearchEntities
+            ? (resourcesSearchData?.searchAcrossEntities?.searchResults || []).map((result) => ({
+                  label: getEntityDisplayName(result.entity as Entity),
+                  value: result.entity.urn,
+                  entity: result.entity as Entity,
+              }))
+            : [];
+
+        const ingestionSourceResults = (ingestionSourcesData?.listIngestionSources?.ingestionSources || []).map(
+            (source) => {
+                const displayName = source.name || source.urn;
+                return {
+                    label: displayName,
+                    value: source.urn,
+                    entity: {
+                        ...source,
+                        urn: source.urn,
+                        type: EntityType.IngestionSource,
+                        name: displayName,
+                    } as Entity,
+                };
+            },
+        );
+
+        return [...entityResults, ...ingestionSourceResults];
+    }, [resourcesSearchData, ingestionSourcesData, getEntityDisplayName, shouldSearchEntities]);
+
+    const handleOptionClick = useCallback(
+        (option: { value: string; entity: Entity }) => {
+            // Notify parent about entity selection (for caching)
+            onEntitySelect?.(option.entity);
+
+            if (isMultiSelect) {
+                const newUrns = selectedUrns.includes(option.value)
+                    ? selectedUrns.filter((u) => u !== option.value)
+                    : [...selectedUrns, option.value];
+                onSelectionChange(newUrns);
+            } else {
+                // Single select - just set the one value
+                onSelectionChange([option.value]);
+            }
+        },
+        [selectedUrns, onSelectionChange, isMultiSelect, onEntitySelect],
+    );
+
+    const dropdownContent = (
+        <DropdownContainer ref={dropdownRef} style={dropdownContainerStyle}>
+            <SearchInputContainer>
+                <Input
+                    label=""
+                    value={searchQuery}
+                    setValue={handleSearchChange}
+                    placeholder={resolvedPlaceholder}
+                    icon={{ icon: MagnifyingGlass }}
+                    data-testid="entity-search-select-input"
+                />
+            </SearchInputContainer>
+            <OptionList>
+                {(searchLoading || ingestionSourcesLoading) && (
+                    <LoadingState>
+                        <Loader size="sm" />
+                    </LoadingState>
+                )}
+                {!searchLoading && !ingestionSourcesLoading && entityOptions.length === 0 && (
+                    <EmptyState>{t('entitySearch.noEntitiesFound')}</EmptyState>
+                )}
+                {!searchLoading &&
+                    !ingestionSourcesLoading &&
+                    entityOptions.map((option) => (
+                        <OptionLabel
+                            key={option.value}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleOptionClick(option);
+                            }}
+                            onMouseDown={(e) => {
+                                // Prevent default to avoid any label/checkbox default behavior
+                                e.preventDefault();
+                            }}
+                            isSelected={selectedUrns.includes(option.value)}
+                            isMultiSelect={isMultiSelect}
+                            data-testid={`entity-search-option-${option.entity.urn.split(':').pop()}`}
+                        >
+                            {isMultiSelect ? (
+                                <LabelContainer>
+                                    <EntityOptionContainer>
+                                        <EntitySearchInputResultV2 entity={option.entity} />
+                                    </EntityOptionContainer>
+                                    <StyledCheckbox
+                                        onCheckboxChange={() => handleOptionClick(option)}
+                                        isChecked={selectedUrns.includes(option.value)}
+                                        size="sm"
+                                    />
+                                </LabelContainer>
+                            ) : (
+                                <EntityOptionContainer>
+                                    <EntitySearchInputResultV2 entity={option.entity} />
+                                </EntityOptionContainer>
+                            )}
+                        </OptionLabel>
+                    ))}
+            </OptionList>
+            {actionButtons}
+        </DropdownContainer>
+    );
+
+    return (
+        <Dropdown
+            trigger={['click']}
+            open={open}
+            onOpenChange={onOpenChange}
+            placement={placement}
+            disabled={disabled}
+            dropdownRender={() => dropdownContent}
+        >
+            {trigger}
+        </Dropdown>
+    );
+};

@@ -1,0 +1,12 @@
+{
+    "viewDefinitionTab.detailsHeading": "Details",
+    "viewDefinitionTab.formatCompiled": "Compiled",
+    "viewDefinitionTab.formatFormatted": "Formatted",
+    "viewDefinitionTab.formatRaw": "Raw",
+    "viewDefinitionTab.formatSource": "Source",
+    "viewDefinitionTab.languageLabel": "Language",
+    "viewDefinitionTab.logicHeading": "Logic",
+    "viewDefinitionTab.materializedFalse": "False",
+    "viewDefinitionTab.materializedLabel": "Materialized",
+    "viewDefinitionTab.materializedTrue": "True"
+}

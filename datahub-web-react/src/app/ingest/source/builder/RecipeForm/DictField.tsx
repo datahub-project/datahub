@@ -1,6 +1,7 @@
 import { red } from '@ant-design/colors';
 import { DeleteOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Button, Form, Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -13,7 +14,7 @@ export const Label = styled.div`
     padding-bottom: 8px;
 `;
 
-export const StyledButton = styled(Button)`
+const StyledButton = styled(Button)`
     color: ${ANTD_GRAY[7]};
     margin: 10px 0 0 30px;
     width: calc(100% - 72px);

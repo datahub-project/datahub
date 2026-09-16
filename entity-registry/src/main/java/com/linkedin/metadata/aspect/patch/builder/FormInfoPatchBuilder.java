@@ -24,6 +24,7 @@ public class FormInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<FormInf
   public static final String PROMPTS_FIELD = "prompts";
   public static final String ACTORS_FIELD = "actors";
   public static final String OWNERS_FIELD = "owners";
+  public static final String OWNERSHIP_TYPES_FIELD = "ownershipTypes";
   public static final String USERS_FIELD = "users";
   public static final String GROUPS_FIELD = "groups";
 
@@ -106,40 +107,47 @@ public class FormInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<FormInf
     return this;
   }
 
-  public FormInfoPatchBuilder addAssignedUser(@Nonnull String userUrn) {
+  private FormInfoPatchBuilder addActorAssignment(@Nonnull String fieldName, @Nonnull String urn) {
     this.pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.ADD.getValue(),
-            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + USERS_FIELD + PATH_DELIM + userUrn,
-            instance.textNode(userUrn)));
+            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + fieldName + PATH_DELIM + urn,
+            instance.textNode(urn)));
     return this;
+  }
+
+  private FormInfoPatchBuilder removeActorAssignment(
+      @Nonnull String fieldName, @Nonnull String urn) {
+    this.pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + fieldName + PATH_DELIM + urn,
+            instance.textNode(urn)));
+    return this;
+  }
+
+  public FormInfoPatchBuilder addAssignedUser(@Nonnull String userUrn) {
+    return addActorAssignment(USERS_FIELD, userUrn);
   }
 
   public FormInfoPatchBuilder removeAssignedUser(@Nonnull String userUrn) {
-    this.pathValues.add(
-        ImmutableTriple.of(
-            PatchOperationType.REMOVE.getValue(),
-            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + USERS_FIELD + PATH_DELIM + userUrn,
-            instance.textNode(userUrn)));
-    return this;
+    return removeActorAssignment(USERS_FIELD, userUrn);
   }
 
   public FormInfoPatchBuilder addAssignedGroup(@Nonnull String groupUrn) {
-    this.pathValues.add(
-        ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(),
-            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + GROUPS_FIELD + PATH_DELIM + groupUrn,
-            instance.textNode(groupUrn)));
-    return this;
+    return addActorAssignment(GROUPS_FIELD, groupUrn);
   }
 
   public FormInfoPatchBuilder removeAssignedGroup(@Nonnull String groupUrn) {
-    this.pathValues.add(
-        ImmutableTriple.of(
-            PatchOperationType.REMOVE.getValue(),
-            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + GROUPS_FIELD + PATH_DELIM + groupUrn,
-            instance.textNode(groupUrn)));
-    return this;
+    return removeActorAssignment(GROUPS_FIELD, groupUrn);
+  }
+
+  public FormInfoPatchBuilder addAssignedOwnershipType(@Nonnull String ownershipTypeUrn) {
+    return addActorAssignment(OWNERSHIP_TYPES_FIELD, ownershipTypeUrn);
+  }
+
+  public FormInfoPatchBuilder removeAssignedOwnershipType(@Nonnull String ownershipTypeUrn) {
+    return removeActorAssignment(OWNERSHIP_TYPES_FIELD, ownershipTypeUrn);
   }
 
   @Override

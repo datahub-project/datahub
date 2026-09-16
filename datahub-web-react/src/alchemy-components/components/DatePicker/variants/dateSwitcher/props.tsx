@@ -6,10 +6,5 @@ import { DateSwitcherInput } from '@components/components/DatePicker/variants/da
 
 export const DateSwitcherVariantProps: VariantProps = {
     ...CommonVariantProps,
-    bordered: false,
-    allowClear: false,
-    format: 'll',
-    suffixIcon: null,
     inputRender: (props) => <DateSwitcherInput {...props} />,
-    $noDefaultPaddings: true,
 };

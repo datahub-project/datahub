@@ -1,0 +1,249 @@
+{
+    "eventTime": "2025-06-26T18:33:50.391222794Z",
+    "producer": "https://github.com/debezium/debezium/v3.2.0.CR1",
+    "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+    "eventType": "RUNNING",
+    "run": {
+      "runId": "0197ad84-7a0d-7527-9f8a-a08602319b4d",
+      "facets": {
+        "processing_engine": {
+          "_producer": "https://github.com/debezium/debezium/v3.2.0.CR1",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+          "version": "3.2.0.CR1",
+          "name": "Debezium",
+          "openlineageAdapterVersion": "1.31.0"
+        },
+        "debezium_config": {
+          "configs": [
+            "connector.class=io.debezium.connector.postgresql.PostgresConnector",
+            "database.user=postgres",
+            "database.dbname=debezium_poc_db",
+            "transforms.openlineage.type=io.debezium.transforms.openlineage.OpenLineage",
+            "slot.name=debezium",
+            "openlineage.integration.job.namespace=dbz-jobs",
+            "openlineage.integration.job.owners=Data Team=Jan Doe",
+            "openlineage.integration.config.file.path=/debezium/openlineage.yml",
+            "transforms=openlineage",
+            "database.server.name=dbserver1",
+            "schema.history.internal.kafka.bootstrap.servers=kafka:9094",
+            "database.port=5432",
+            "plugin.name=pgoutput",
+            "topic.prefix=debezium",
+            "task.class=io.debezium.connector.postgresql.PostgresConnectorTask",
+            "database.hostname=postgres",
+            "database.password=postgres",
+            "name=postgres-connector-2",
+            "table.include.list=public.product",
+            "value.converter=org.apache.kafka.connect.json.JsonConverter",
+            "openlineage.integration.job.description=Debezium Postgres Connector Job",
+            "openlineage.integration.enabled=true",
+            "openlineage.integration.job.tags=env=test"
+          ],
+          "additionalProperties": {},
+          "_producer": "https://github.com/debezium/debezium/v3.2.0.CR1",
+          "_schemaURL": "https://github.com/debezium/debezium/tree/main/debezium-core/src/main/java/io/debezium/openlineage/facets/spec/DebeziumRunFacet.json"
+        }
+      }
+    },
+    "job": {
+      "namespace": "dbz-jobs",
+      "name": "debezium.0",
+      "facets": {
+        "jobType": {
+          "_producer": "https://github.com/debezium/debezium/v3.2.0.CR1",
+          "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+          "processingType": "STREAMING",
+          "integration": "DEBEZIUM",
+          "jobType": "TASK"
+        },
+        "ownership": {
+          "_producer": "https://github.com/debezium/debezium/v3.2.0.CR1",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/OwnershipJobFacet.json#/$defs/OwnershipJobFacet",
+          "owners": [
+            {
+              "name": "Data Team",
+              "type": "Jan Doe"
+            }
+          ]
+        },
+        "tags": {
+          "_producer": "https://github.com/debezium/debezium/v3.2.0.CR1",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsJobFacet.json#/$defs/TagsJobFacet",
+          "tags": [
+            {
+              "key": "env",
+              "value": "test",
+              "source": "CONFIG"
+            }
+          ]
+        },
+        "documentation": {
+          "_producer": "https://github.com/debezium/debezium/v3.2.0.CR1",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DocumentationJobFacet.json#/$defs/DocumentationJobFacet",
+          "description": "Debezium Postgres Connector Job"
+        }
+      }
+    },
+    "inputs": [],
+    "outputs": [
+      {
+        "namespace": "kafka://kafka:9094",
+        "name": "debezium.public.product",
+        "facets": {
+          "datasetType": {
+            "_producer": "https://github.com/debezium/debezium/v3.2.0.CR1",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DatasetTypeDatasetFacet.json#/$defs/DatasetTypeDatasetFacet",
+            "datasetType": "TABLE",
+            "subType": ""
+          },
+          "schema": {
+            "_producer": "https://github.com/debezium/debezium/v3.2.0.CR1",
+            "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+            "fields": [
+              {
+                "name": "before",
+                "type": "STRUCT",
+                "fields": [
+                  {
+                    "name": "id",
+                    "type": "INT32"
+                  },
+                  {
+                    "name": "name",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "price",
+                    "type": "INT32"
+                  },
+                  {
+                    "name": "creation_date",
+                    "type": "INT64"
+                  }
+                ]
+              },
+              {
+                "name": "after",
+                "type": "STRUCT",
+                "fields": [
+                  {
+                    "name": "id",
+                    "type": "INT32"
+                  },
+                  {
+                    "name": "name",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "price",
+                    "type": "INT32"
+                  },
+                  {
+                    "name": "creation_date",
+                    "type": "INT64"
+                  }
+                ]
+              },
+              {
+                "name": "source",
+                "type": "STRUCT",
+                "fields": [
+                  {
+                    "name": "version",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "connector",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "name",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "ts_ms",
+                    "type": "INT64"
+                  },
+                  {
+                    "name": "snapshot",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "db",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "sequence",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "ts_us",
+                    "type": "INT64"
+                  },
+                  {
+                    "name": "ts_ns",
+                    "type": "INT64"
+                  },
+                  {
+                    "name": "schema",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "table",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "txId",
+                    "type": "INT64"
+                  },
+                  {
+                    "name": "lsn",
+                    "type": "INT64"
+                  },
+                  {
+                    "name": "xmin",
+                    "type": "INT64"
+                  }
+                ]
+              },
+              {
+                "name": "transaction",
+                "type": "STRUCT",
+                "fields": [
+                  {
+                    "name": "id",
+                    "type": "STRING"
+                  },
+                  {
+                    "name": "total_order",
+                    "type": "INT64"
+                  },
+                  {
+                    "name": "data_collection_order",
+                    "type": "INT64"
+                  }
+                ]
+              },
+              {
+                "name": "op",
+                "type": "STRING"
+              },
+              {
+                "name": "ts_ms",
+                "type": "INT64"
+              },
+              {
+                "name": "ts_us",
+                "type": "INT64"
+              },
+              {
+                "name": "ts_ns",
+                "type": "INT64"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+

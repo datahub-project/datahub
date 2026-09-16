@@ -10,7 +10,8 @@ source:
     password: pass
 
     # This is recommended to improve lineage quality. Ignores case-sensitivity when constructing internal identifiers.
-    convert_urns_to_lowercase: True
+    convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
 
     # Options
     # Uncomment if you need to use encryption with pytds
@@ -24,26 +25,57 @@ sink:
   # sink configs
 
 #------------------------------------------------------------------------
+#Example: with query-based lineage and usage statistics
+#This requires SQL Server 2016+ and Query Store enabled.
+#See the prerequisites documentation for setup instructions.
+# ------------------------------------------------------------------------
+
+source:
+  type: mssql
+  config:
+    host_port: localhost:1433
+    database: DemoDatabase
+    username: user
+    password: pass
+    convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
+
+    # Query-based lineage extraction
+    include_query_lineage: true
+    max_queries_to_extract: 1000
+    min_query_calls: 5
+    query_exclude_patterns:
+      - "%sys.%"
+      - "%tempdb.%"
+      - "%INFORMATION_SCHEMA%"
+      - "%msdb.%"
+      - "%#%"  # Temporary tables
+
+sink:
+  # sink configs
+
+#------------------------------------------------------------------------
 #Example: using ingestion with ODBC and encryption
 #This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
 #See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
+
+# Note: ODBC mode is automatically determined by the source type.
+# Use 'mssql-odbc' for ODBC connections, 'mssql' for non-ODBC (pytds) connections.
 # ------------------------------------------------------------------------
 
 source:
   type: mssql-odbc
   config:
-    # Coordinates
     host_port: localhost:1433
     database: DemoDatabase
-
-    # Credentials
     username: admin
     password: password
+    convert_urns_to_lowercase: true
+    convert_column_urns_to_lowercase: true
 
     # Options
-    use_odbc: "True"
     uri_args:
-      driver: "ODBC Driver 17 for SQL Server"
+      driver: "ODBC Driver 18 for SQL Server"
       Encrypt: "yes"
       TrustServerCertificate: "Yes"
       ssl: "True"

@@ -5,7 +5,7 @@
  */
 const VALIDATION_TAB_NAME_REGEX_PATTERN = '^/[^/]+/[^/]+/[^/]+/([^/]+).*';
 
-export type SelectedTab = {
+type SelectedTab = {
     basePath: string;
     selectedTab: string | undefined;
 };

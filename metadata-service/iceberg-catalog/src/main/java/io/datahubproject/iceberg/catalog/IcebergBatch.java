@@ -25,6 +25,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 public class IcebergBatch {
+  // TODO: Support patch operations in IcebergBatch
   private List<MetadataChangeProposal> mcps = new ArrayList<>();
 
   @Getter private final AuditStamp auditStamp;
@@ -153,7 +154,7 @@ public class IcebergBatch {
   public AspectsBatch asAspectsBatch() {
     return AspectsBatchImpl.builder()
         .mcps(mcps, auditStamp, operationContext.getRetrieverContext())
-        .build();
+        .build(operationContext);
   }
 
   @VisibleForTesting

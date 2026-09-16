@@ -5,7 +5,7 @@ from unittest import mock
 
 import pydantic
 import pytest
-from freezegun import freeze_time
+import time_machine
 from pydantic import Field
 
 from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
@@ -14,7 +14,7 @@ from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -94,21 +94,11 @@ class DummySource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.source_config = config
         self.reporter = DummySourceReport()
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.source_config, self.ctx
-        )
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DummySourceConfig.parse_obj(config_dict)
+        config = DummySourceConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for dataset in dummy_datasets:
@@ -154,7 +144,7 @@ class DummySource(StatefulIngestionSourceBase):
             ).as_workunit()
 
         if self.source_config.report_failure:
-            self.reporter.report_failure("Dummy error", "Error")
+            self.reporter.failure("Dummy error", "Error")
 
     def get_report(self) -> SourceReport:
         return self.reporter
@@ -170,7 +160,7 @@ def mock_generic_checkpoint_state():
         yield mock_checkpoint_state
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
     # test stateful ingestion using dummy source
     state_file_name: str = "checkpoint_state_mces.json"
@@ -214,12 +204,15 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
         },
     }
 
-    with mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
-    ) as mock_state, mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.STATEFUL_INGESTION_IGNORED_ENTITY_TYPES",
-        {},
-        # Second mock is to imitate earlier behavior where entity type check was not present when adding entity to state
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
+        ) as mock_state,
+        mock.patch(
+            "datahub.ingestion.source.state.stale_entity_removal_handler.STATEFUL_INGESTION_IGNORED_ENTITY_TYPES",
+            {},
+            # Second mock is to imitate earlier behavior where entity type check was not present when adding entity to state
+        ),
     ):
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run1 = None
@@ -320,8 +313,19 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
             report.last_state_non_deletable_entities
         )
 
+        # Verify per-entity-type deletion summary
+        summary = report.entity_type_deletion_summary
+        # dataset: 3 in previous (run 1), 2 in current (run 2), 1 actually soft-deleted
+        assert summary["dataset"].previous_checkpoint_count == 3
+        assert summary["dataset"].current_checkpoint_count == 2
+        assert summary["dataset"].soft_deleted_count == 1
+        # DPI and query were in previous state (run 1 mocked ignored types)
+        # but are non-deletable, so soft_deleted_count should be 0
+        assert summary["dataProcessInstance"].soft_deleted_count == 0
+        assert summary["query"].soft_deleted_count == 0
 
-@freeze_time(FROZEN_TIME)
+
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
     # test stateful ingestion using dummy source with pipeline execution failed in second ingestion
     state_file_name: str = "checkpoint_state_mces_failure.json"
@@ -442,3 +446,46 @@ def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
         state1 = cast(GenericCheckpointState, checkpoint1.state)
         state2 = cast(GenericCheckpointState, checkpoint2.state)
         assert state1 == state2
+
+        # Summary should still be computed even when deletions are skipped
+        report2 = pipeline_run2.source.get_report()
+        assert isinstance(report2, StaleEntityRemovalSourceReport)
+        failure_summary = report2.entity_type_deletion_summary
+        assert failure_summary["dataset"].previous_checkpoint_count == 3
+        assert failure_summary["dataset"].current_checkpoint_count == 2
+        # No actual deletions because source reported failure
+        assert failure_summary["dataset"].soft_deleted_count == 0
+
+
+def test_build_checkpoint_comparison() -> None:
+    """Verify checkpoint comparison groups counts by entity type correctly."""
+    last_state = GenericCheckpointState(serde="utf-8")
+    last_state.add_checkpoint_urn(
+        type="", urn="urn:li:dataset:(urn:li:dataPlatform:postgres,t1,PROD)"
+    )
+    last_state.add_checkpoint_urn(
+        type="", urn="urn:li:dataset:(urn:li:dataPlatform:postgres,t2,PROD)"
+    )
+    last_state.add_checkpoint_urn(type="", urn="urn:li:corpuser:user1")
+
+    cur_state = GenericCheckpointState(serde="utf-8")
+    cur_state.add_checkpoint_urn(
+        type="", urn="urn:li:dataset:(urn:li:dataPlatform:postgres,t1,PROD)"
+    )
+    cur_state.add_checkpoint_urn(type="", urn="urn:li:container:c1")
+
+    summary = StaleEntityRemovalHandler._build_checkpoint_comparison(
+        last_state, cur_state
+    )
+
+    # dataset: 2 previous, 1 current (t2 disappeared)
+    assert summary["dataset"].previous_checkpoint_count == 2
+    assert summary["dataset"].current_checkpoint_count == 1
+    # corpuser: only in previous
+    assert summary["corpuser"].previous_checkpoint_count == 1
+    assert summary["corpuser"].current_checkpoint_count == 0
+    # container: only in current
+    assert summary["container"].previous_checkpoint_count == 0
+    assert summary["container"].current_checkpoint_count == 1
+    # soft_deleted_count is 0 everywhere — only set during actual deletion loop
+    assert all(s.soft_deleted_count == 0 for s in summary.values())

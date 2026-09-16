@@ -1,12 +1,13 @@
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn, DatasetUrn
-from datahub.sdk.main_client import DataHubClient
+from datahub.sdk import DataHubClient
 
 client = DataHubClient.from_env()
 
-flow_urn = DataFlowUrn(orchestrator="airflow", flow_id="data_pipeline", cluster="PROD")
+dataflow_urn = DataFlowUrn(
+    orchestrator="airflow", flow_id="data_pipeline", cluster="PROD"
+)
 
-client.lineage.add_datajob_lineage(
-    datajob=DataJobUrn(flow=flow_urn, job_id="data_pipeline"),
-    upstreams=[DatasetUrn(platform="postgres", name="raw_data")],
-    downstreams=[DatasetUrn(platform="snowflake", name="processed_data")],
+client.lineage.add_lineage(
+    upstream=DataJobUrn(flow=dataflow_urn, job_id="data_job_1"),
+    downstream=DatasetUrn(platform="postgres", name="raw_data"),
 )

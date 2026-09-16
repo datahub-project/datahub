@@ -1,0 +1,50 @@
+import { Button, Icon, Text } from '@components';
+import { ArrowsCounterClockwise } from '@phosphor-icons/react/dist/csr/ArrowsCounterClockwise';
+import { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
+import React from 'react';
+import { FallbackProps } from 'react-error-boundary';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import SmallModule from '@app/homeV3/module/components/SmallModule';
+import { ModuleProps } from '@app/homeV3/module/types';
+
+const Container = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const StyledText = styled(Text)`
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+`;
+
+const StyledIcon = styled(Icon)`
+    flex-shrink: 0;
+`;
+
+interface Props {
+    fallbackProps: FallbackProps;
+    moduleProps: ModuleProps;
+}
+
+export default function SmallModuleFallback({ moduleProps, fallbackProps }: Props) {
+    const { t } = useTranslation('modules');
+    return (
+        <SmallModule {...moduleProps}>
+            <Container>
+                <StyledIcon icon={ExclamationMark} color="gray" colorLevel={1800} size="4xl" />
+                <StyledText weight="bold" size="lg" color="gray" colorLevel={600}>
+                    {t('error.smallText')}
+                </StyledText>
+                <Button
+                    icon={{ icon: ArrowsCounterClockwise, size: '2xl' }}
+                    variant="link"
+                    onClick={() => fallbackProps.resetErrorBoundary()}
+                />
+            </Container>
+        </SmallModule>
+    );
+}

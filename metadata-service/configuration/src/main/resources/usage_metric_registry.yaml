@@ -1,0 +1,35 @@
+# OSS API usage metric registry — paired with usage_operations.yaml taxonomy.
+metric_registry:
+  api_usage:
+    api_calls:
+      merge_kind: additive
+      value_unit: count
+      emit_when: always
+    # Report-driven (recordReportedUsage); not request-path api_calls.
+    mcp_query:
+      merge_kind: additive
+      value_unit: count
+      emit_when: reported
+    input_bytes:
+      merge_kind: additive
+      value_unit: input_bytes
+      emit_when: always
+    output_bytes:
+      merge_kind: additive
+      value_unit: output_bytes
+      emit_when: always
+    active_users:
+      merge_kind: distinct
+      distinct_key: usage_identity
+      value_unit: count
+      emit_when: activity_allowlist
+    active_readers:
+      merge_kind: distinct
+      distinct_key: usage_identity
+      value_unit: count
+      emit_when: reader_activity_allowlist
+    active_writers:
+      merge_kind: distinct
+      distinct_key: usage_identity
+      value_unit: count
+      emit_when: writer_activity_allowlist

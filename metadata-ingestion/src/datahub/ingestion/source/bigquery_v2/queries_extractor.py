@@ -1,14 +1,15 @@
 import functools
 import logging
 import pathlib
+import re
 import tempfile
 from datetime import datetime, timedelta, timezone
-from typing import Collection, Dict, Iterable, List, Optional, TypedDict
+from typing import Collection, Dict, Iterable, List, Optional, Set, TypedDict
 
 from google.cloud.bigquery import Client
-from pydantic import Field, PositiveInt
+from pydantic import Field, PositiveInt, model_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     get_time_bucket,
@@ -22,7 +23,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryBaseConfig
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    DEFAULT_REGION_QUALIFIERS,
+    BigQueryBaseConfig,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQueryQueriesExtractorReport,
 )
@@ -36,7 +40,14 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryFilter,
     BigQueryIdentifierBuilder,
 )
-from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantQueriesRunSkipHandler,
+)
+from datahub.ingestion.source.usage.usage_common import (
+    DEFAULT_QUERIES_CHARACTER_LIMIT,
+    BaseUsageConfig,
+    validate_top_n_queries_character_budget,
+)
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -86,21 +97,48 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     # TODO: Support stateful ingestion for the time windows.
     window: BaseTimeWindowConfig = BaseTimeWindowConfig()
 
-    local_temp_path: Optional[pathlib.Path] = Field(
-        default=None,
-        description="Local path to store the audit log.",
+    local_temp_path: HiddenFromDocs[Optional[pathlib.Path]] = Field(
         # TODO: For now, this is simply an advanced config to make local testing easier.
         # Eventually, we will want to store date-specific files in the directory and use it as a cache.
-        hidden_from_docs=True,
+        default=None,
+        description="Local path to store the audit log.",
     )
 
     user_email_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for user emails to filter in usage.",
+        description="Regex patterns for user emails to filter in usage. Applied client-side.",
+    )
+
+    pushdown_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of user email patterns (SQL LIKE syntax, e.g., 'bot_%', '%@%.iam.gserviceaccount.com') "
+        "to exclude from extraction. Uses case-insensitive LIKE for server-side filtering.",
+    )
+
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of user email patterns (SQL LIKE syntax, e.g., 'analyst_%@company.com') "
+        "to include in extraction. Uses case-insensitive LIKE for server-side filtering. "
+        "If empty, all users not in deny list are included.",
     )
 
     top_n_queries: PositiveInt = Field(
         default=10, description="Number of top queries to save to each table."
+    )
+
+    format_sql_queries: bool = Field(
+        default=False, description="Whether to format the SQL queries."
+    )
+
+    include_top_n_queries: bool = Field(
+        default=True, description="Whether to ingest the top_n_queries."
+    )
+
+    queries_character_limit: HiddenFromDocs[int] = Field(
+        default=DEFAULT_QUERIES_CHARACTER_LIMIT,
+        description="Total character limit for all queries in a single database call. This is a "
+        "low-level config property which should be touched with care. "
+        "Queries will be truncated to length `queries_character_limit / top_n_queries`.",
     )
 
     include_lineage: bool = True
@@ -110,10 +148,31 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     include_operations: bool = True
 
     region_qualifiers: List[str] = Field(
-        default=["region-us", "region-eu"],
+        default_factory=lambda: list(DEFAULT_REGION_QUALIFIERS),
         description="BigQuery regions to be scanned for bigquery jobs. "
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
+
+    region_qualifiers_auto_discovery: bool = Field(
+        default=False,
+        description="When True, automatically extends `region_qualifiers` with any BigQuery "
+        "regions detected from dataset locations during schema ingestion. "
+        "Defaults to False to avoid unexpected query cost increases. "
+        "Set to True if your project has datasets in regions beyond `region-us` and `region-eu`.",
+    )
+
+    @model_validator(mode="after")
+    def check_top_n_queries_character_budget(self) -> "BigQueryQueriesExtractorConfig":
+        # The main BigQuery source builds this config from an already-validated
+        # BigQueryUsageConfig (which shares this check via BaseUsageConfig), but the
+        # standalone bigquery-queries source constructs this class directly, so it
+        # needs its own copy of the check to fail at recipe parse time rather than
+        # mid-ingestion inside BaseUsageConfig(...).
+        validate_top_n_queries_character_budget(
+            top_n_queries=self.top_n_queries,
+            queries_character_limit=self.queries_character_limit,
+        )
+        return self
 
 
 class BigQueryQueriesExtractor(Closeable):
@@ -136,9 +195,11 @@ class BigQueryQueriesExtractor(Closeable):
         structured_report: SourceReport,
         filters: BigQueryFilter,
         identifiers: BigQueryIdentifierBuilder,
+        redundant_run_skip_handler: Optional[RedundantQueriesRunSkipHandler] = None,
         graph: Optional[DataHubGraph] = None,
         schema_resolver: Optional[SchemaResolver] = None,
         discovered_tables: Optional[Collection[str]] = None,
+        discovered_locations: Optional[Collection[str]] = None,
     ):
         self.connection = connection
 
@@ -157,8 +218,18 @@ class BigQueryQueriesExtractor(Closeable):
             if discovered_tables
             else None
         )
+        self.effective_region_qualifiers = _resolve_region_qualifiers(
+            configured=self.config.region_qualifiers,
+            region_qualifiers_auto_discovery=self.config.region_qualifiers_auto_discovery,
+            discovered_locations=discovered_locations,
+            report=self.report,
+            structured_report=structured_report,
+        )
 
         self.structured_report = structured_report
+        self.redundant_run_skip_handler = redundant_run_skip_handler
+
+        self.start_time, self.end_time = self._get_time_window()
 
         self.aggregator = SqlParsingAggregator(
             platform=self.identifiers.platform,
@@ -173,15 +244,18 @@ class BigQueryQueriesExtractor(Closeable):
             generate_query_usage_statistics=self.config.include_query_usage_statistics,
             usage_config=BaseUsageConfig(
                 bucket_duration=self.config.window.bucket_duration,
-                start_time=self.config.window.start_time,
-                end_time=self.config.window.end_time,
+                start_time=self.start_time,
+                end_time=self.end_time,
                 user_email_pattern=self.config.user_email_pattern,
                 top_n_queries=self.config.top_n_queries,
+                format_sql_queries=self.config.format_sql_queries,
+                include_top_n_queries=self.config.include_top_n_queries,
+                queries_character_limit=self.config.queries_character_limit,
             ),
             generate_operations=self.config.include_operations,
             is_temp_table=self.is_temp_table,
             is_allowed_table=self.is_allowed_table,
-            format_queries=False,
+            format_queries=self.config.format_sql_queries,
         )
 
         self.report.sql_aggregator = self.aggregator.report
@@ -200,6 +274,34 @@ class BigQueryQueriesExtractor(Closeable):
         logger.info(f"Using local temp path: {path}")
         return path
 
+    def _get_time_window(self) -> tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            start_time, end_time = (
+                self.redundant_run_skip_handler.suggest_run_time_window(
+                    self.config.window.start_time,
+                    self.config.window.end_time,
+                )
+            )
+        else:
+            start_time = self.config.window.start_time
+            end_time = self.config.window.end_time
+
+        # Usage statistics are aggregated per bucket (typically per day).
+        # To ensure accurate aggregated metrics, we need to align the start_time
+        # to the beginning of a bucket so that we include complete bucket periods.
+        if self.config.include_usage_statistics:
+            start_time = get_time_bucket(start_time, self.config.window.bucket_duration)
+
+        return start_time, end_time
+
+    def _update_state(self) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.update_state(
+                self.config.window.start_time,
+                self.config.window.end_time,
+                self.config.window.bucket_duration,
+            )
+
     def is_temp_table(self, name: str) -> bool:
         try:
             table = BigqueryTableIdentifier.from_string_name(name)
@@ -211,12 +313,18 @@ class BigQueryQueriesExtractor(Closeable):
             #   1. this name would be allowed by the dataset patterns, and
             #   2. we have a list of discovered tables, and
             #   3. it's not in the discovered tables list
+
             if (
                 self.filters.is_allowed(table)
                 and self.discovered_tables
-                and str(BigQueryTableRef(table)) not in self.discovered_tables
+                and self.identifiers.standardize_identifier_case(
+                    str(BigQueryTableRef(table))
+                )
+                not in self.discovered_tables
             ):
-                logger.debug(f"inferred as temp table {name}")
+                logger.debug(
+                    f"Inferred as temp table {name} (is_allowed?{self.filters.is_allowed(table)})"
+                )
                 self.report.inferred_temp_tables.add(name)
                 return True
 
@@ -229,7 +337,10 @@ class BigQueryQueriesExtractor(Closeable):
             table = BigqueryTableIdentifier.from_string_name(name)
             if (
                 self.discovered_tables
-                and str(BigQueryTableRef(table)) not in self.discovered_tables
+                and self.identifiers.standardize_identifier_case(
+                    str(BigQueryTableRef(table))
+                )
+                not in self.discovered_tables
             ):
                 logger.debug(f"not allowed table {name}")
                 return False
@@ -300,6 +411,8 @@ class BigQueryQueriesExtractor(Closeable):
             shared_connection.close()
             audit_log_file.unlink(missing_ok=True)
 
+        self._update_state()
+
     def deduplicate_queries(
         self, queries: FileBackedList[ObservedQuery]
     ) -> FileBackedDict[Dict[int, ObservedQuery]]:
@@ -340,24 +453,64 @@ class BigQueryQueriesExtractor(Closeable):
         return queries_deduped
 
     def fetch_query_log(self, project: BigqueryProject) -> Iterable[ObservedQuery]:
-        # Multi-regions from https://cloud.google.com/bigquery/docs/locations#supported_locations
-        regions = self.config.region_qualifiers
+        # See https://cloud.google.com/bigquery/docs/locations#supported_locations
+        regions = self.effective_region_qualifiers
 
+        rows_per_region: Dict[str, int] = {region: 0 for region in regions}
+        errored_regions: Set[str] = set()
         for region in regions:
-            with self.structured_report.report_exc(
-                f"Error fetching query log from BQ Project {project.id} for {region}"
-            ):
-                yield from self.fetch_region_query_log(project, region)
+            try:
+                for entry in self.fetch_region_query_log(project, region):
+                    rows_per_region[region] += 1
+                    yield entry
+            except Exception as exc:
+                errored_regions.add(region)
+                self.structured_report.failure(
+                    title="BigQuery query log fetch failed",
+                    message="Error fetching query log from BQ project for region",
+                    context=f"project={project.id} region={region}",
+                    exc=exc,
+                )
+
+        for region, count in rows_per_region.items():
+            self.report.num_queries_by_region[region] += count
+
+        if _all_scanned_regions_empty(rows_per_region, errored_regions):
+            self.structured_report.warning(
+                title="BigQuery query log empty for all scanned regions",
+                message=(
+                    "No rows returned from INFORMATION_SCHEMA.JOBS in any of the "
+                    "scanned regions. If the project's datasets live in a region "
+                    "outside this list, usage/lineage/queries extraction will be "
+                    "silently empty. Either set `region_qualifiers` explicitly to "
+                    "the regions where this project's data resides, or set "
+                    "`region_qualifiers_auto_discovery: true` to detect regions "
+                    "automatically from dataset locations."
+                ),
+                context=f"project={project.id} regions_scanned={regions}",
+            )
 
     def fetch_region_query_log(
         self, project: BigqueryProject, region: str
     ) -> Iterable[ObservedQuery]:
+        # Build user filter for pushdown if patterns are configured
+        if self.config.pushdown_deny_usernames or self.config.pushdown_allow_usernames:
+            user_filter = _build_user_filter(
+                allow_usernames=self.config.pushdown_allow_usernames,
+                deny_usernames=self.config.pushdown_deny_usernames,
+            )
+            logger.debug(f"Using pushdown user filter: {user_filter}")
+        else:
+            # No pushdown - filter client-side (existing behavior via SqlParsingAggregator)
+            user_filter = "TRUE"
+
         # Each region needs to be a different query
         query_log_query = _build_enriched_query_log_query(
             project_id=project.id,
             region=region,
-            start_time=self.config.window.start_time,
-            end_time=self.config.window.end_time,
+            start_time=self.start_time,
+            end_time=self.end_time,
+            user_filter=user_filter,
         )
 
         logger.info(f"Fetching query log from BQ Project {project.id} for {region}")
@@ -418,6 +571,277 @@ class BigQueryQueriesExtractor(Closeable):
         self.aggregator.close()
 
 
+_REGION_BODY_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+# Cross-cloud BigLake locations are not valid INFORMATION_SCHEMA qualifiers: https://cloud.google.com/bigquery/docs/locations#cross-cloud-locations
+_BIGLAKE_LOCATION_PREFIXES = ("aws-", "azure-")
+
+
+def _normalize_location_to_region_qualifier(location: str) -> Optional[str]:
+    """
+    Map a BigQuery dataset location to its INFORMATION_SCHEMA region qualifier,
+    returning None for anything that isn't a valid qualifier body.
+
+    Examples:
+        "US"            -> "region-us"
+        "EU"            -> "region-eu"
+        "europe-west1"  -> "region-europe-west1"
+        "region-us"     -> "region-us"   (already a qualifier — idempotent)
+        ""              -> None
+        "US/foo"        -> None          (rejected — would build a bad SQL identifier)
+    """
+    if not location:
+        return None
+    normalized = location.strip().lower()
+    if not normalized:
+        return None
+    body = (
+        normalized[len("region-") :] if normalized.startswith("region-") else normalized
+    )
+    if body.startswith(_BIGLAKE_LOCATION_PREFIXES):
+        return None
+    if not _REGION_BODY_RE.match(body):
+        return None
+    return normalized if normalized.startswith("region-") else f"region-{body}"
+
+
+def _resolve_region_qualifiers(
+    configured: List[str],
+    region_qualifiers_auto_discovery: bool,
+    discovered_locations: Optional[Collection[str]],
+    report: BigQueryQueriesExtractorReport,
+    structured_report: SourceReport,
+) -> List[str]:
+    """
+    Build the effective list of INFORMATION_SCHEMA region qualifiers.
+
+    When region_qualifiers_auto_discovery=True (opt-in; defaults to False), any
+    regions found in dataset locations are merged into the effective list.
+    When False, the configured list is used as-is (after normalization).
+
+    Side effects:
+      - Records the configured/auto-discovered/used breakdown on the report.
+      - Emits structured failure if any configured value is unparseable.
+      - Emits structured failure if the effective list ends up empty.
+      - Emits structured info when discovery was enabled but found no new regions.
+      - Emits structured info when discovery is disabled and uncovered regions exist.
+    """
+    seen: Set[str] = set()
+    ordered: List[str] = []
+    configured_normalized: List[str] = []
+    rejected_configured: List[str] = []
+    for region in configured:
+        normalized = _normalize_location_to_region_qualifier(region)
+        if normalized is None:
+            rejected_configured.append(region)
+            continue
+        if normalized not in seen:
+            seen.add(normalized)
+            ordered.append(normalized)
+            configured_normalized.append(normalized)
+
+    if rejected_configured:
+        structured_report.failure(
+            title="Invalid BigQuery region_qualifiers entry",
+            message=(
+                "One or more `region_qualifiers` values could not be parsed "
+                "as INFORMATION_SCHEMA region qualifiers and were skipped. "
+                "Expected forms like `region-us`, `region-europe-west1`, or "
+                "raw locations like `US` / `europe-west1`."
+            ),
+            context=f"rejected={rejected_configured}",
+        )
+
+    discovered_normalized: List[str] = []
+    for location in discovered_locations or []:
+        normalized = _normalize_location_to_region_qualifier(location)
+        if normalized:
+            discovered_normalized.append(normalized)
+        elif location and location.strip():
+            # dataset.location is well-defined; track unexpected values rather
+            # than silently dropping them and re-introducing a silent failure.
+            report.discovered_locations_unparseable.append(location)
+    discovered_normalized.sort()
+
+    auto_added: List[str] = []
+    if region_qualifiers_auto_discovery:
+        for normalized in discovered_normalized:
+            if normalized not in seen:
+                seen.add(normalized)
+                ordered.append(normalized)
+                auto_added.append(normalized)
+        if auto_added:
+            logger.info(
+                "Auto-extended region_qualifiers with %s based on discovered "
+                "dataset locations (configured: %s)",
+                auto_added,
+                configured_normalized,
+            )
+        elif discovered_locations is not None and not discovered_normalized:
+            # `None` means discovery wasn't attempted (e.g. standalone
+            # BigQueryQueriesSource); `[]` or all-unparseable means it ran
+            # but yielded nothing actionable — only that case warrants the
+            # breadcrumb.
+            structured_report.info(
+                title="BigQuery region auto-detection skipped",
+                message=(
+                    "No usable dataset locations were available from schema "
+                    "discovery, so region_qualifiers was not extended. "
+                    "If your project's data lives outside the configured "
+                    "regions, set `region_qualifiers` explicitly to avoid "
+                    "missing usage/lineage."
+                ),
+            )
+    else:
+        # Discovery disabled: surface uncovered regions so the operator can
+        # decide whether to add them to region_qualifiers.
+        uncovered = sorted({r for r in discovered_normalized if r not in seen})
+        if uncovered:
+            structured_report.info(
+                title="BigQuery regions discovered outside region_qualifiers",
+                message=(
+                    "Schema discovery found datasets in BigQuery regions that "
+                    "are not in your configured `region_qualifiers`. These "
+                    "regions are NOT being scanned. Add them to "
+                    "`region_qualifiers` if you want their usage/lineage "
+                    "extracted."
+                ),
+                context=f"uncovered_regions={uncovered}",
+            )
+
+    if not ordered:
+        if rejected_configured:
+            empty_cause = "all configured `region_qualifiers` entries were unparseable"
+        elif not configured:
+            empty_cause = "`region_qualifiers` is empty"
+        else:
+            empty_cause = "no valid qualifiers remain after parsing"
+        structured_report.failure(
+            title="BigQuery region_qualifiers resolved to empty list",
+            message=(
+                f"INFORMATION_SCHEMA.JOBS will not be scanned at all and "
+                f"usage/lineage/queries extraction will produce no rows: "
+                f"{empty_cause}. Set `region_qualifiers` to at least one "
+                f"valid qualifier (e.g. `region-us`, `region-europe-west1`)."
+            ),
+            context=f"configured={list(configured)} rejected={rejected_configured}",
+        )
+
+    report.region_qualifiers_configured = configured_normalized
+    report.region_qualifiers_auto_discovered = auto_added
+    report.region_qualifiers_used = ordered
+    return ordered
+
+
+def _all_scanned_regions_empty(
+    rows_per_region: Dict[str, int],
+    errored_regions: Set[str],
+) -> bool:
+    """
+    Return True if at least one region completed without error AND every
+    such successfully-scanned region returned zero rows. Regions that errored
+    are excluded from the gate so the "empty regions" warning isn't fired
+    misleadingly when the real failure is captured elsewhere in the report.
+    """
+    successful_counts = [
+        count
+        for region, count in rows_per_region.items()
+        if region not in errored_regions
+    ]
+    return bool(successful_counts) and sum(successful_counts) == 0
+
+
+def _is_allow_all_pattern(allow_usernames: List[str]) -> bool:
+    """
+    Check if allow patterns effectively match everything.
+
+    When detected, we skip adding the allow filter since it has no effect.
+
+    Design Choice - all() vs any():
+        Uses all() to be conservative: only treat as allow-all if ALL patterns
+        are allow-all. This preserves user intent for auditability, even if
+        logically redundant (e.g., ["%", "specific"] still generates SQL).
+
+    Recognized patterns: "%" (matches any string in SQL LIKE)
+    """
+    if not allow_usernames:
+        return True
+    allow_all_patterns = {"%"}
+    return all(pattern in allow_all_patterns for pattern in allow_usernames)
+
+
+def _escape_for_sql_like(pattern: str) -> str:
+    """
+    Escape a LIKE pattern for safe use in a BigQuery SQL string literal.
+
+    Security Note:
+        Escapes single quotes by doubling them (' → ''), which is the SQL
+        standard for escaping quotes in string literals. This prevents SQL
+        injection attacks.
+
+    Args:
+        pattern: The LIKE pattern to escape
+
+    Returns:
+        The escaped pattern safe for use in SQL LIKE clause
+    """
+    return pattern.replace("'", "''")
+
+
+def _build_user_filter(
+    allow_usernames: List[str],
+    deny_usernames: List[str],
+) -> str:
+    """
+    Convert allow/deny patterns to BigQuery SQL WHERE clause using LIKE.
+
+    Uses LOWER() for case-insensitive matching.
+    This allows pushing down user filtering to BigQuery for improved performance.
+
+    Security: Escapes single quotes by doubling them (' → '') to prevent SQL injection.
+
+    Args:
+        allow_usernames: List of LIKE patterns for users to include (% = any chars, _ = single char)
+        deny_usernames: List of LIKE patterns for users to exclude
+
+    Returns:
+        A SQL WHERE condition string, or "TRUE" if no filtering should be applied
+    """
+    conditions = []
+
+    logger.debug(
+        f"Building user filter: allow={allow_usernames}, deny={deny_usernames}"
+    )
+
+    # Handle ALLOW patterns (inclusions)
+    # Skip if it's the default "allow all" pattern
+    if allow_usernames and not _is_allow_all_pattern(allow_usernames):
+        allow_conditions = []
+        for pattern in allow_usernames:
+            # Lowercase in Python, escape for SQL safety (prevents SQL injection)
+            escaped = _escape_for_sql_like(pattern.lower())
+            logger.debug(f"Allow pattern '{pattern}' escaped to '{escaped}'")
+            # Use LOWER() on column for case-insensitive matching
+            allow_conditions.append(f"LOWER(user_email) LIKE '{escaped}'")
+        if allow_conditions:
+            conditions.append(f"({' OR '.join(allow_conditions)})")
+    elif allow_usernames:
+        logger.debug(
+            f"Skipping allow patterns {allow_usernames} - detected as 'allow all' pattern"
+        )
+
+    # Handle DENY patterns (exclusions)
+    for pattern in deny_usernames:
+        # Lowercase in Python, escape for SQL safety (prevents SQL injection)
+        escaped = _escape_for_sql_like(pattern.lower())
+        logger.debug(f"Deny pattern '{pattern}' escaped to '{escaped}'")
+        # Use LOWER() on column for case-insensitive matching
+        conditions.append(f"LOWER(user_email) NOT LIKE '{escaped}'")
+
+    result = " AND ".join(conditions) if conditions else "TRUE"
+    logger.debug(f"Generated SQL user filter: {result}")
+    return result
+
+
 def _extract_query_text(row: BigQueryJob) -> str:
     # We wrap select statements in a CTE to make them parseable as DML statement.
     # This is a workaround to support the case where the user runs a query and inserts the result into a table.
@@ -447,7 +871,23 @@ def _build_enriched_query_log_query(
     region: str,
     start_time: datetime,
     end_time: datetime,
+    user_filter: str = "TRUE",
 ) -> str:
+    """
+    Build the SQL query to fetch enriched query log from BigQuery INFORMATION_SCHEMA.JOBS.
+
+    Args:
+        project_id: The GCP project ID
+        region: The BigQuery region qualifier (e.g., "region-us", "region-eu")
+        start_time: Start of the time window for query log
+        end_time: End of the time window for query log
+        user_filter: SQL WHERE clause condition for filtering by user_email.
+                     Defaults to "TRUE" (no filtering). Use _build_user_filter()
+                     to generate this from allow/deny pattern lists.
+
+    Returns:
+        SQL query string to fetch query log
+    """
     audit_start_time = start_time.strftime(BQ_DATETIME_FORMAT)
     audit_end_time = end_time.strftime(BQ_DATETIME_FORMAT)
 
@@ -499,6 +939,7 @@ def _build_enriched_query_log_query(
             creation_time <= '{audit_end_time}' AND
             error_result is null AND
             not CONTAINS_SUBSTR(query, '.INFORMATION_SCHEMA.') AND
-            statement_type not in ({unsupported_statement_types})
+            statement_type not in ({unsupported_statement_types}) AND
+            {user_filter}
         ORDER BY creation_time
     """

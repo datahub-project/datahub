@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 from datahub.emitter.mce_builder import (
@@ -12,7 +13,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ChangeTypeClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
@@ -24,33 +24,24 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     UpstreamClass,
 )
-from tests.setup.lineage.constants import (
-    DATA_FLOW_ENTITY_TYPE,
-    DATA_FLOW_INFO_ASPECT_NAME,
-    DATA_JOB_ENTITY_TYPE,
-    DATA_JOB_INFO_ASPECT_NAME,
-    DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
-    DATASET_ENTITY_TYPE,
-)
 from tests.setup.lineage.helper_classes import Dataset, Pipeline
+
+logger = logging.getLogger(__name__)
 
 
 def create_node(dataset: Dataset) -> List[MetadataChangeProposalWrapper]:
     mcps: List[MetadataChangeProposalWrapper] = []
     dataset_urn = make_dataset_urn(platform=dataset.platform, name=dataset.id)
     data_platform_urn = make_data_platform_urn(dataset.platform)
-    print(dataset)
-    print(dataset_urn)
+    logger.info(dataset)
+    logger.info(dataset_urn)
 
     dataset_properties = DatasetPropertiesClass(
         name=dataset.id.split(".")[-1],
     )
     mcps.append(
         MetadataChangeProposalWrapper(
-            entityType=DATASET_ENTITY_TYPE,
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="datasetProperties",
             aspect=dataset_properties,
         )
     )
@@ -71,10 +62,7 @@ def create_node(dataset: Dataset) -> List[MetadataChangeProposalWrapper]:
 
     mcps.append(
         MetadataChangeProposalWrapper(
-            entityType=DATASET_ENTITY_TYPE,
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="schemaMetadata",
             aspect=dataset_schema,
         )
     )
@@ -111,10 +99,7 @@ def create_nodes_and_edges(
     data_flow_info = DataFlowInfoClass(name=airflow_dag.name)
     mcps.append(
         MetadataChangeProposalWrapper(
-            entityType=DATA_FLOW_ENTITY_TYPE,
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=data_flow_urn,
-            aspectName=DATA_FLOW_INFO_ASPECT_NAME,
             aspect=data_flow_info,
         )
     )
@@ -130,10 +115,7 @@ def create_nodes_and_edges(
         )
         mcps.append(
             MetadataChangeProposalWrapper(
-                entityType=DATA_JOB_ENTITY_TYPE,
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=data_job_urn,
-                aspectName=DATA_JOB_INFO_ASPECT_NAME,
                 aspect=data_job_info,
             )
         )
@@ -145,10 +127,7 @@ def create_nodes_and_edges(
         )
         mcps.append(
             MetadataChangeProposalWrapper(
-                entityType=DATA_JOB_ENTITY_TYPE,
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=data_job_urn,
-                aspectName=DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
                 aspect=data_job_io,
             )
         )
@@ -183,12 +162,9 @@ def create_upstream_mcp(
     timestamp_millis: int,
     run_id: str = "",
 ) -> MetadataChangeProposalWrapper:
-    print(f"Creating upstreamLineage aspect for {entity_urn}")
+    logger.info(f"Creating upstreamLineage aspect for {entity_urn}")
     mcp = MetadataChangeProposalWrapper(
-        entityType=entity_type,
         entityUrn=entity_urn,
-        changeType=ChangeTypeClass.UPSERT,
-        aspectName="upstreamLineage",
         aspect=UpstreamLineage(upstreams=upstreams),
         systemMetadata=SystemMetadata(
             lastObserved=timestamp_millis,

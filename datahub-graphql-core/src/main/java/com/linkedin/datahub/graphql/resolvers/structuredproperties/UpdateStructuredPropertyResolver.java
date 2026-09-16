@@ -114,6 +114,12 @@ public class UpdateStructuredPropertyResolver
         && !existingSettings.isShowInAssetSummary().equals(settingsInput.getShowInAssetSummary())) {
       return true;
     }
+    if (settingsInput.getHideInAssetSummaryWhenEmpty() != null
+        && !existingSettings
+            .isHideInAssetSummaryWhenEmpty()
+            .equals(settingsInput.getHideInAssetSummaryWhenEmpty())) {
+      return true;
+    }
     if (settingsInput.getShowAsAssetBadge() != null
         && !existingSettings.isShowAsAssetBadge().equals(settingsInput.getShowAsAssetBadge())) {
       return true;
@@ -147,6 +153,14 @@ public class UpdateStructuredPropertyResolver
     }
     if (settingsInput.getShowInAssetSummary() != null) {
       existingSettings.setShowInAssetSummary(settingsInput.getShowInAssetSummary());
+    }
+    if (settingsInput.getShowInAssetSummary() != null && !settingsInput.getShowInAssetSummary()) {
+      // FYI: when `showInAssetSummary` is false, `hideInAssetSummaryWhenEmpty` should be false too
+      // as it is dependent property
+      existingSettings.setHideInAssetSummaryWhenEmpty(false);
+    } else if (settingsInput.getHideInAssetSummaryWhenEmpty() != null) {
+      existingSettings.setHideInAssetSummaryWhenEmpty(
+          settingsInput.getHideInAssetSummaryWhenEmpty());
     }
     if (settingsInput.getShowAsAssetBadge() != null) {
       existingSettings.setShowAsAssetBadge(settingsInput.getShowAsAssetBadge());
@@ -203,6 +217,10 @@ public class UpdateStructuredPropertyResolver
       input.getNewEntityTypes().forEach(builder::addEntityType);
       hasUpdatedDefinition = true;
     }
+    if (input.getNewAllowedPlatforms() != null) {
+      input.getNewAllowedPlatforms().forEach(builder::addAllowedPlatform);
+      hasUpdatedDefinition = true;
+    }
 
     if (hasUpdatedDefinition) {
       builder.setLastModified(context.getOperationContext().getAuditStamp());
@@ -243,7 +261,7 @@ public class UpdateStructuredPropertyResolver
                 primitiveValue.setString(allowedValueInput.getStringValue());
               }
               if (allowedValueInput.getNumberValue() != null) {
-                primitiveValue.setDouble(allowedValueInput.getNumberValue().doubleValue());
+                primitiveValue.setDouble(allowedValueInput.getNumberValue());
               }
               value.setValue(primitiveValue);
               value.setDescription(allowedValueInput.getDescription(), SetMode.IGNORE_NULL);

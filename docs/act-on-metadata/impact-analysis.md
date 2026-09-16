@@ -1,3 +1,7 @@
+---
+description: "Use Lineage Impact Analysis in DataHub to discover upstream and downstream dependencies for datasets, dashboards, and other entities."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Lineage Impact Analysis
@@ -71,7 +75,7 @@ Note that when you download Impact Analysis results, our system properly filters
 **DataHub 201: Impact Analysis**
 
 <p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/embed/BHG_kzpQ_aQ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/BHG_kzpQ_aQ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
 </p>
 
 ### GraphQL
@@ -97,4 +101,4 @@ We currently limit the list of dependencies to 10,000 records; we suggest applyi
 
 ### Related Features
 
-- [DataHub Lineage](../generated/lineage/lineage-feature-guide.md)
+- [DataHub Lineage](../features/feature-guides/lineage.md)

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Union, overload
+from typing import TYPE_CHECKING, Optional, Union, overload
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.errors import IngestionAttributionWarning, ItemNotFoundError, SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import (
@@ -15,8 +16,13 @@ from datahub.metadata.urns import (
     DataFlowUrn,
     DataJobUrn,
     DatasetUrn,
+    DocumentUrn,
+    GlossaryNodeUrn,
+    GlossaryTermUrn,
+    MetricUrn,
     MlModelGroupUrn,
     MlModelUrn,
+    SemanticModelUrn,
     Urn,
 )
 from datahub.sdk._all_entities import ENTITY_CLASSES
@@ -27,9 +33,14 @@ from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.document import Document
 from datahub.sdk.entity import Entity
+from datahub.sdk.glossary_node import GlossaryNode
+from datahub.sdk.glossary_term import GlossaryTerm
+from datahub.sdk.metric import Metric
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
+from datahub.sdk.semantic_model import SemanticModel
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
@@ -61,6 +72,8 @@ class EntityClient:
     @overload
     def get(self, urn: DatasetUrn) -> Dataset: ...
     @overload
+    def get(self, urn: DocumentUrn) -> Document: ...
+    @overload
     def get(self, urn: MlModelUrn) -> MLModel: ...
     @overload
     def get(self, urn: MlModelGroupUrn) -> MLModelGroup: ...
@@ -72,6 +85,14 @@ class EntityClient:
     def get(self, urn: DashboardUrn) -> Dashboard: ...
     @overload
     def get(self, urn: ChartUrn) -> Chart: ...
+    @overload
+    def get(self, urn: GlossaryNodeUrn) -> GlossaryNode: ...
+    @overload
+    def get(self, urn: GlossaryTermUrn) -> GlossaryTerm: ...
+    @overload
+    def get(self, urn: SemanticModelUrn) -> SemanticModel: ...
+    @overload
+    def get(self, urn: MetricUrn) -> Metric: ...
     @overload
     def get(self, urn: Union[Urn, str]) -> Entity: ...
     def get(self, urn: UrnOrStr) -> Entity:
@@ -97,11 +118,14 @@ class EntityClient:
         except KeyError as e:
             # Try to import cloud-specific entities if not found
             try:
-                from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
-                from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
+                from acryl_datahub_cloud.sdk.entities.assertion import Assertion
+                from acryl_datahub_cloud.sdk.entities.monitor import Monitor
+                from acryl_datahub_cloud.sdk.entities.subscription import Subscription
 
                 if urn.entity_type == "assertion":
                     EntityClass = Assertion
+                elif urn.entity_type == "subscription":
+                    EntityClass = Subscription
                 elif urn.entity_type == "monitor":
                     EntityClass = Monitor
                 else:
@@ -123,17 +147,21 @@ class EntityClient:
 
         # Type narrowing for cloud-specific entities
         if urn.entity_type == "assertion":
-            from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
+            from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 
             assert isinstance(entity, Assertion)
         elif urn.entity_type == "monitor":
-            from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
+            from acryl_datahub_cloud.sdk.entities.monitor import Monitor
 
             assert isinstance(entity, Monitor)
+        elif urn.entity_type == "subscription":
+            from acryl_datahub_cloud.sdk.entities.subscription import Subscription
+
+            assert isinstance(entity, Subscription)
 
         return entity
 
-    def create(self, entity: Entity) -> None:
+    def create(self, entity: Entity, *, emit_mode: Optional[EmitMode] = None) -> None:
         mcps = []
 
         if self._graph.exists(str(entity.urn)):
@@ -152,9 +180,12 @@ class EntityClient:
         )
         mcps.extend(entity.as_mcps(models.ChangeTypeClass.CREATE))
 
-        self._graph.emit_mcps(mcps)
+        if emit_mode:
+            self._graph.emit_mcps(mcps, emit_mode=emit_mode)
+        else:
+            self._graph.emit_mcps(mcps)
 
-    def upsert(self, entity: Entity) -> None:
+    def upsert(self, entity: Entity, *, emit_mode: Optional[EmitMode] = None) -> None:
         if entity._prev_aspects is None and self._graph.exists(str(entity.urn)):
             warnings.warn(
                 f"The entity {entity.urn} already exists. This operation will partially overwrite the existing entity.",
@@ -164,9 +195,17 @@ class EntityClient:
             # TODO: If there are no previous aspects but the entity exists, should we delete aspects that are not present here?
 
         mcps = entity.as_mcps(models.ChangeTypeClass.UPSERT)
-        self._graph.emit_mcps(mcps)
+        if emit_mode:
+            self._graph.emit_mcps(mcps, emit_mode=emit_mode)
+        else:
+            self._graph.emit_mcps(mcps)
 
-    def update(self, entity: Union[Entity, MetadataPatchProposal]) -> None:
+    def update(
+        self,
+        entity: Union[Entity, MetadataPatchProposal],
+        *,
+        emit_mode: Optional[EmitMode] = None,
+    ) -> None:
         if isinstance(entity, MetadataPatchProposal):
             return self._update_patch(entity)
 
@@ -179,7 +218,10 @@ class EntityClient:
         # -> probably add a "mode" parameter that can be "update" (e.g. if not modified) or "update_force"
 
         mcps = entity.as_mcps(models.ChangeTypeClass.UPSERT)
-        self._graph.emit_mcps(mcps)
+        if emit_mode:
+            self._graph.emit_mcps(mcps, emit_mode=emit_mode)
+        else:
+            self._graph.emit_mcps(mcps)
 
     def _update_patch(
         self, updater: MetadataPatchProposal, check_exists: bool = True

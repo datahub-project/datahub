@@ -34,6 +34,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -61,7 +62,7 @@ public class DataJobType
         BrowsableEntityType<DataJob, String>,
         MutableType<DataJobUpdateInput, DataJob> {
 
-  private static final Set<String> ASPECTS_TO_RESOLVE =
+  static final Set<String> ASPECTS_TO_RESOLVE =
       ImmutableSet.of(
           DATA_JOB_KEY_ASPECT_NAME,
           DATA_JOB_INFO_ASPECT_NAME,
@@ -81,7 +82,8 @@ public class DataJobType
           SUB_TYPES_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          DATA_TRANSFORM_LOGIC_ASPECT_NAME);
+          DATA_TRANSFORM_LOGIC_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
   private final EntityClient _entityClient;
 
@@ -115,12 +117,16 @@ public class DataJobType
     final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     try {
 
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, Constants.DATA_JOB_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> dataJobMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.DATA_JOB_ENTITY_NAME,
               new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
@@ -145,7 +151,7 @@ public class DataJobType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull final QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
@@ -165,7 +171,7 @@ public class DataJobType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
@@ -178,7 +184,7 @@ public class DataJobType
       @Nonnull List<String> path,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);

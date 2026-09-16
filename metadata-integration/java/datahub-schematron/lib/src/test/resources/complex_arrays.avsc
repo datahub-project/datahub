@@ -6,7 +6,8 @@
       "name": "arrayOfString",
       "type": {
         "type": "array",
-        "items": "string"
+        "items": "string",
+        "custom-prop": "custom-value"
       }
     },
     {
@@ -15,7 +16,8 @@
         "type": "array",
         "items": {
           "type": "map",
-          "values": "string"
+          "values": "string",
+          "custom-prop": "custom-value"
         }
       }
     },
@@ -26,14 +28,17 @@
         "items": {
           "type": "record",
           "name": "ComplexType",
+          "custom-prop": "custom-value",
           "fields": [
             {
               "name": "field1",
-              "type": "string"
+              "type": "string",
+              "custom-prop-1": "custom-value-1"
             },
             {
               "name": "field2",
-              "type": "int"
+              "type": "int",
+              "custom-prop-2": "custom-value-2"
             }
           ]
         }

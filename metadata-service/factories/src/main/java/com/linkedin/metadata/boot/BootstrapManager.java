@@ -6,19 +6,44 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/** Responsible for coordinating boot-time logic. */
+/**
+ * Responsible for coordinating boot-time logic.
+ *
+ * <p>Executes bootstrap steps in two phases: 1. BLOCKING steps - Critical steps that must complete
+ * before the service is ready for traffic (e.g., loading admin policies, essential configurations,
+ * restoring search indices) 2. ASYNC steps - Background optimization steps that can run after
+ * service is ready (e.g., retention policies, background indexing tasks)
+ *
+ * <p>The health check endpoint uses areBlockingStepsComplete() to determine when the service is
+ * ready to accept traffic, ensuring critical functionality is available before routing requests.
+ *
+ * <p>Async steps run on a fixed pool sized by {@code bootstrap.async.workerThreads}. Each worker
+ * uses its own pooled JDBC connection and transactions; lowering the thread count trades bootstrap
+ * throughput for less concurrent pressure on the metadata DB pool if needed.
+ */
 @Slf4j
 @Component
 public class BootstrapManager {
 
-  private final ExecutorService _asyncExecutor = Executors.newFixedThreadPool(5);
+  private final ExecutorService _asyncExecutor;
   private final List<BootstrapStep> _bootSteps;
+  private final AtomicBoolean _blockingStepsComplete = new AtomicBoolean(false);
 
-  public BootstrapManager(final List<BootstrapStep> bootSteps) {
+  public BootstrapManager(final List<BootstrapStep> bootSteps, final int asyncWorkerThreads) {
     _bootSteps = bootSteps;
+    int threads = Math.max(1, asyncWorkerThreads);
+    _asyncExecutor = Executors.newFixedThreadPool(threads, bootstrapAsyncThreadFactory());
+  }
+
+  private static ThreadFactory bootstrapAsyncThreadFactory() {
+    final AtomicInteger seq = new AtomicInteger(1);
+    return r -> new Thread(r, "bootstrap-async-" + seq.getAndIncrement());
   }
 
   public void start(@Nonnull OperationContext systemOperationContext) {
@@ -64,5 +89,17 @@ public class BootstrapManager {
             _asyncExecutor);
       }
     }
+
+    // Mark blocking steps as complete
+    _blockingStepsComplete.set(true);
+    log.info("Bootstrap blocking steps completed. Service is ready for traffic.");
+  }
+
+  /**
+   * Returns true if all blocking bootstrap steps have completed. This is used by health checks to
+   * determine if the service is ready for traffic.
+   */
+  public boolean areBlockingStepsComplete() {
+    return _blockingStepsComplete.get();
   }
 }

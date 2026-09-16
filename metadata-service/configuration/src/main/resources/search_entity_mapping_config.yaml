@@ -1,0 +1,67 @@
+entity_mapping_config:
+  mappings:
+    dynamic: false
+    dynamic_templates:
+      - tierN:
+          match: "tier_*"
+          mapping:
+            fields:
+              full_removed_sep:
+                search_analyzer: full_removed_sep_syn
+                analyzer: full_removed_sep
+                store: true
+                type: text
+              full_stemmed:
+                search_analyzer: full_syn_stemmer
+                analyzer: full_stemmer
+                store: true
+                type: text
+              full:
+                search_analyzer: full_syn
+                analyzer: full
+                store: true
+                type: text
+            ignore_above: 100
+            normalizer: keyword_normalizer
+            store: true
+            type: keyword
+      - ownership_type_fields:
+          match: "urn:li:ownershipType:*"
+          mapping:
+            type: keyword
+            ignore_above: 255
+    properties:
+      urn:
+        type: keyword
+        ignore_above: 512
+        copy_to: ["_search.tier_4"]
+      _entityType:
+        type: keyword
+      _search:
+        dynamic: true
+        properties:
+          entityName:
+            type: keyword
+          browsePathV2:
+            type: text
+            analyzer: browse_path_v2_hierarchy
+          _system_aspectCreated_actor:
+            type: keyword
+          _system_aspectCreated_time:
+            type: date
+          _system_aspectModified_actor:
+            type: keyword
+          _system_aspectModified_time:
+            type: date
+          _system_lastObserved:
+            type: date
+          _system_lastRunId:
+            type: keyword
+          _system_runId:
+            type: keyword
+      runId:
+        type: keyword
+      systemCreated:
+        type: date
+      systemIndexModified:
+        type: date

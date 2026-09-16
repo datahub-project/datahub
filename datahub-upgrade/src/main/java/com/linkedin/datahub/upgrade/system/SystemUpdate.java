@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.kubernetes.ScaleDownEvaluationStep;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCP;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
 import java.util.LinkedList;
@@ -30,7 +31,8 @@ public class SystemUpdate implements Upgrade {
     steps = new LinkedList<>();
     cleanupSteps = new LinkedList<>();
 
-    // blocking upgrades
+    // evaluate whether any blocking upgrade requires K8 scale-down, then run blocking steps
+    steps.add(new ScaleDownEvaluationStep(blockingSystemUpgrades));
     steps.addAll(blockingSystemUpgrades.stream().flatMap(up -> up.steps().stream()).toList());
     cleanupSteps.addAll(
         blockingSystemUpgrades.stream().flatMap(up -> up.cleanupSteps().stream()).toList());

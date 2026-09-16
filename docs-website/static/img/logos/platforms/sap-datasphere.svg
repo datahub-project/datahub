@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="sap_datasphere" x="0px" y="0px" viewBox="0 0 120 135" style="enable-background:new 0 0 120 135;" xml:space="preserve">
+  <defs>
+    <linearGradient id="dsphereGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1B90FF"/>
+      <stop offset="100%" stop-color="#0057D2"/>
+    </linearGradient>
+  </defs>
+  <style type="text/css">
+    .ds-bg{fill:url(#dsphereGrad);}
+    .ds-line{fill:none;stroke:#FFFFFF;stroke-width:2.6;stroke-linecap:round;}
+    .ds-dot{fill:#FFFFFF;}
+  </style>
+  <!-- Hexagonal container matching the platform-logo family -->
+  <path class="ds-bg" d="M52,4.6L9.6,29.2c-4.9,2.9-8,8.1-8,13.8v49c0,5.7,3,11,8,13.8L52,130.4c4.9,2.9,11,2.9,16,0l42.5-24.5 c4.9-2.9,8-8.1,8-13.8V43c0-5.7-3-11-8-13.8L68,4.6C63,1.8,57,1.8,52,4.6z"/>
+  <!-- Datasphere: a sphere/globe with equator + meridian -->
+  <g transform="translate(60,67.5)">
+    <circle class="ds-line" cx="0" cy="0" r="29"/>
+    <ellipse class="ds-line" cx="0" cy="0" rx="29" ry="11"/>
+    <ellipse class="ds-line" cx="0" cy="0" rx="11" ry="29"/>
+    <!-- data nodes orbiting the sphere -->
+    <circle class="ds-dot" cx="0" cy="-29" r="4.2"/>
+    <circle class="ds-dot" cx="25.1" cy="14.5" r="4.2"/>
+    <circle class="ds-dot" cx="-25.1" cy="14.5" r="4.2"/>
+  </g>
+</svg>

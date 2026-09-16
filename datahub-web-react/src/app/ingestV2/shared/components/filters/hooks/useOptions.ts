@@ -1,13 +1,10 @@
 import { SelectOption } from '@components';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { mergeArraysOfObjects } from '@app/utils/arrayUtils';
+
 interface Option<T> extends SelectOption {
     item: T;
-}
-
-function mergeArrays<T>(arrayA: Array<T>, arrayB: Array<T>, keyGetter: (item: T) => any): Array<T> {
-    const keysFromArrayB = arrayB.map(keyGetter);
-    return [...arrayA.filter((item) => !keysFromArrayB.includes(keyGetter(item))), ...arrayB];
 }
 
 interface Response<T> {
@@ -31,14 +28,14 @@ export default function useOptions<T>(
     useEffect(() => setAppliedOptions(optionsFromDefaultItems), [optionsFromDefaultItems]);
 
     const options: Option<T>[] = useMemo(
-        () => mergeArrays(appliedOptions, optionsFromItems, (item) => item.value),
+        () => mergeArraysOfObjects(appliedOptions, optionsFromItems, (item) => item.value),
         [appliedOptions, optionsFromItems],
     );
 
     const onSelectedValuesChanged = useCallback(
         (selectedValues: string[]) => {
             setAppliedOptions((prevAppliedOptions) =>
-                mergeArrays(
+                mergeArraysOfObjects(
                     // remove unselected options
                     prevAppliedOptions.filter((option) => selectedValues.includes(option.value)),
                     // add selected options

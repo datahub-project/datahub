@@ -1,0 +1,19 @@
+version: "3.8"
+services:
+  floci-dynamodb:
+    image: floci/floci:1.5.33
+    # Unique host port (container always listens on 4566) so this emulator does
+    # not collide with the other Floci-backed suites when integration batches
+    # run in parallel processes.
+    ports:
+      - "14570:4566"
+    environment:
+      DEFAULT_REGION: us-west-2
+    # The image ships a built-in healthcheck (/_floci/health); `up --wait` in the
+    # fixture blocks until it reports healthy, so no test-layer port polling.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4566/_floci/health || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s

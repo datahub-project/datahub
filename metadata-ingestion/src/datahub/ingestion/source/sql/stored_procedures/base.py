@@ -1,12 +1,9 @@
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Callable, Dict, Iterable, Optional
+import logging
+from typing import Callable, Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
-    datahub_guid,
     make_data_flow_urn,
-    make_data_job_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
@@ -14,11 +11,11 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import (
-    FlowContainerSubTypes,
-    JobContainerSubTypes,
-)
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
+from datahub.ingestion.source.sql.stored_procedures.models import (
+    BaseProcedure,
+    get_procedure_flow_name,
+)
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DataFlowInfoClass,
@@ -32,46 +29,20 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
-
-@dataclass
-class BaseProcedure:
-    name: str
-    procedure_definition: Optional[str]
-    created: Optional[datetime]
-    last_altered: Optional[datetime]
-    comment: Optional[str]
-    argument_signature: Optional[str]
-    return_type: Optional[str]
-    language: str
-    extra_properties: Optional[Dict[str, str]]
-
-    def get_procedure_identifier(
-        self,
-    ) -> str:
-        if self.argument_signature:
-            argument_signature_hash = datahub_guid(
-                dict(argument_signature=self.argument_signature)
-            )
-            return f"{self.name}_{argument_signature_hash}"
-
-        return self.name
-
-    def to_urn(self, database_key: DatabaseKey, schema_key: Optional[SchemaKey]) -> str:
-        return make_data_job_urn(
-            orchestrator=database_key.platform,
-            flow_id=_get_procedure_flow_name(database_key, schema_key),
-            job_id=self.get_procedure_identifier(),
-            cluster=database_key.env or DEFAULT_ENV,
-            platform_instance=database_key.instance,
-        )
+logger = logging.getLogger(__name__)
 
 
 def _generate_flow_workunits(
-    database_key: DatabaseKey, schema_key: Optional[SchemaKey]
+    database_key: DatabaseKey, schema_key: Optional[SchemaKey], subtype: str
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate flow workunits for database and schema"""
+    """
+    Create DataFlow container that groups procedures/functions by schema.
 
-    procedure_flow_name = _get_procedure_flow_name(database_key, schema_key)
+    The flow acts as a logical parent for all stored procedures and functions
+    in a schema, enabling consistent organization in DataHub's browse UI.
+    """
+
+    procedure_flow_name = get_procedure_flow_name(database_key, schema_key)
 
     flow_urn = make_data_flow_urn(
         orchestrator=database_key.platform,
@@ -90,7 +61,7 @@ def _generate_flow_workunits(
     yield MetadataChangeProposalWrapper(
         entityUrn=flow_urn,
         aspect=SubTypesClass(
-            typeNames=[FlowContainerSubTypes.MSSQL_PROCEDURE_CONTAINER],
+            typeNames=[subtype],
         ),
     ).as_workunit()
 
@@ -106,22 +77,13 @@ def _generate_flow_workunits(
             ),
         ).as_workunit()
 
-    yield MetadataChangeProposalWrapper(
-        entityUrn=flow_urn,
-        aspect=ContainerClass(container=database_key.as_urn()),
-    ).as_workunit()
-
-
-def _get_procedure_flow_name(
-    database_key: DatabaseKey, schema_key: Optional[SchemaKey]
-) -> str:
-    if schema_key:
-        procedure_flow_name = (
-            f"{schema_key.database}.{schema_key.db_schema}.stored_procedures"
-        )
-    else:
-        procedure_flow_name = f"{database_key.database}.stored_procedures"
-    return procedure_flow_name
+    # Only set parent container if database name exists
+    # For two-tier sources without database names, flow is top-level
+    if database_key.database:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=ContainerClass(container=database_key.as_urn()),
+        ).as_workunit()
 
 
 def _generate_job_workunits(
@@ -137,7 +99,7 @@ def _generate_job_workunits(
         entityUrn=job_urn,
         aspect=DataJobInfoClass(
             name=procedure.name,
-            type=JobContainerSubTypes.STORED_PROCEDURE,
+            type=procedure.subtype,
             description=procedure.comment,
             customProperties=procedure.extra_properties,
         ),
@@ -146,7 +108,7 @@ def _generate_job_workunits(
     yield MetadataChangeProposalWrapper(
         entityUrn=job_urn,
         aspect=SubTypesClass(
-            typeNames=[JobContainerSubTypes.STORED_PROCEDURE],
+            typeNames=[procedure.subtype],
         ),
     ).as_workunit()
 
@@ -179,7 +141,7 @@ def _generate_job_workunits(
                             value=procedure.procedure_definition,
                             language=(
                                 QueryLanguageClass.SQL
-                                if procedure.language == "SQL"
+                                if procedure.language == QueryLanguageClass.SQL
                                 # The language field uses a pretty limited enum.
                                 # The "UNKNOWN" enum value is pretty new, so we don't want to
                                 # emit it until it has broader server-side support. As a
@@ -204,8 +166,10 @@ def generate_procedure_lineage(
     default_schema: Optional[str] = None,
     is_temp_table: Callable[[str], bool] = lambda _: False,
     raise_: bool = False,
+    report_failure: Optional[Callable[[str], None]] = None,
+    additional_input_jobs: Optional[List[str]] = None,
 ) -> Iterable[MetadataChangeProposalWrapper]:
-    if procedure.procedure_definition and procedure.language == "SQL":
+    if procedure.procedure_definition and procedure.language == QueryLanguageClass.SQL:
         datajob_input_output = parse_procedure_code(
             schema_resolver=schema_resolver,
             default_db=default_db,
@@ -213,22 +177,44 @@ def generate_procedure_lineage(
             code=procedure.procedure_definition,
             is_temp_table=is_temp_table,
             raise_=raise_,
+            procedure_name=procedure.name,
         )
+
+        if datajob_input_output and additional_input_jobs:
+            # ``additional_input_jobs`` comes from sources that read procedure
+            # dependencies from a system catalogue (e.g. Oracle's
+            # ALL_DEPENDENCIES). ``parse_procedure_code`` may have already
+            # populated ``inputDatajobs`` by parsing CALL/EXEC out of the
+            # procedure body. Both paths are authoritative, so we merge them
+            # but deduplicate to keep ``inputDatajobs`` a true set.
+            existing = list(datajob_input_output.inputDatajobs or [])
+            seen: Set[str] = set(existing)
+            for urn in additional_input_jobs:
+                if urn not in seen:
+                    existing.append(urn)
+                    seen.add(urn)
+            datajob_input_output.inputDatajobs = existing
 
         if datajob_input_output:
             yield MetadataChangeProposalWrapper(
                 entityUrn=procedure_job_urn,
                 aspect=datajob_input_output,
             )
+        else:
+            logger.warning(
+                f"Failed to extract lineage for stored procedure: {procedure.name}. "
+                f"URN: {procedure_job_urn}."
+            )
+            if report_failure:
+                report_failure(procedure.name)
 
 
 def generate_procedure_container_workunits(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
+    subtype: str,
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate container workunits for database and schema"""
-
-    yield from _generate_flow_workunits(database_key, schema_key)
+    yield from _generate_flow_workunits(database_key, schema_key, subtype)
 
 
 def generate_procedure_workunits(
@@ -236,6 +222,7 @@ def generate_procedure_workunits(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
     schema_resolver: Optional[SchemaResolver],
+    additional_input_jobs: Optional[List[str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
     yield from _generate_job_workunits(database_key, schema_key, procedure)
 
@@ -247,7 +234,12 @@ def generate_procedure_workunits(
                 schema_resolver=schema_resolver,
                 procedure=procedure,
                 procedure_job_urn=job_urn,
-                default_db=database_key.database,
-                default_schema=schema_key.db_schema if schema_key else None,
+                default_db=procedure.default_db
+                if procedure.default_db is not None
+                else database_key.database,
+                default_schema=procedure.default_schema
+                if procedure.default_schema is not None
+                else (schema_key.db_schema if schema_key else None),
+                additional_input_jobs=additional_input_jobs,
             )
         )

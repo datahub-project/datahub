@@ -68,6 +68,13 @@ input RecommendationRequestContext {
   scenario: ScenarioType!
 
   """
+  List of recommendation modules to fetch.
+  When set, acts as an additional filter to selectively load modules for a given scenario.
+  Does NOT take precedence over scenario.
+  """
+  modules: [RecommendationModuleID!]
+
+  """
   Additional context for defining the search page requesting recommendations
   """
   searchRequestContext: SearchRequestContext
@@ -76,6 +83,51 @@ input RecommendationRequestContext {
   Additional context for defining the entity page requesting recommendations
   """
   entityRequestContext: EntityRequestContext
+}
+
+"""
+Unique identifier for a recommendation module
+"""
+enum RecommendationModuleID {
+  """
+  Recommendation module for top domains
+  """
+  DOMAINS
+
+  """
+  Recommendation module for top platforms
+  """
+  PLATFORMS
+
+  """
+  Recommendation module for most popular entities
+  """
+  HIGH_USAGE_ENTITIES
+
+  """
+  Recommendation module for top glossary terms
+  """
+  TOP_TERMS
+
+  """
+  Recommendation module for top tags
+  """
+  TOP_TAGS
+
+  """
+  Recommendation module for recently edited entities
+  """
+  RECENTLY_EDITED_ENTITIES
+
+  """
+  Recommendation module for recently viewed entities
+  """
+  RECENTLY_VIEWED_ENTITIES
+
+  """
+  Recommendation module for recent searches
+  """
+  RECENT_SEARCHES
 }
 
 """

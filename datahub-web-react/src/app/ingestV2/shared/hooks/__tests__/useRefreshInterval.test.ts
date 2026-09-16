@@ -17,8 +17,7 @@ describe('useRefreshInterval Hook', () => {
 
     it('sets up interval when shouldRefreshFn returns true', () => {
         const refresh = vi.fn();
-        const shouldRefreshFn = vi.fn(() => true);
-        const { unmount } = renderHook(() => useRefreshInterval(refresh, shouldRefreshFn));
+        const { unmount } = renderHook(() => useRefreshInterval(refresh, false, true));
 
         // Advance time to trigger the interval
         vi.advanceTimersByTime(REFRESH_INTERVAL_MS);
@@ -29,23 +28,22 @@ describe('useRefreshInterval Hook', () => {
         expect(() => vi.advanceTimersByTime(REFRESH_INTERVAL_MS)).not.toThrow(); // Ensure no errors after unmount
     });
 
-    it('clears interval when shouldRefreshFn returns false', () => {
+    it('clears interval when shouldRefresh is false', () => {
         const refresh = vi.fn();
-        const shouldRefreshFn = vi.fn(() => false);
-        const { rerender } = renderHook((props) => useRefreshInterval(props.refresh, props.shouldRefreshFn), {
-            initialProps: { refresh, shouldRefreshFn: () => true }, // Start with true
+        const shouldRefresh = false;
+        const { rerender } = renderHook((props) => useRefreshInterval(props.refresh, false, false), {
+            initialProps: { refresh, shouldRefresh: true }, // Start with true
         });
 
         // Force update to trigger cleanup
-        rerender({ refresh, shouldRefreshFn });
+        rerender({ refresh, shouldRefresh });
         vi.advanceTimersByTime(REFRESH_INTERVAL_MS);
         expect(refresh).not.toHaveBeenCalled(); // Ensure refresh is not called
     });
 
     it('clears interval on unmount', () => {
         const refresh = vi.fn();
-        const shouldRefreshFn = vi.fn(() => true);
-        const { unmount } = renderHook(() => useRefreshInterval(refresh, shouldRefreshFn));
+        const { unmount } = renderHook(() => useRefreshInterval(refresh, false, true));
 
         // Verify unmount clears interval
         unmount();

@@ -14,7 +14,9 @@ import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -40,7 +42,7 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
         () -> {
 
           // First, validate the batch
-          validateInputResources(context.getOperationContext(), resources, context);
+          validateInputResources(context.getOperationContext(), resources, context, tagUrns);
 
           try {
             // Then execute the bulk add
@@ -58,21 +60,32 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
   }
 
   private void validateInputResources(
-      @Nonnull OperationContext opContext, List<ResourceRefInput> resources, QueryContext context) {
+      @Nonnull OperationContext opContext,
+      List<ResourceRefInput> resources,
+      QueryContext context,
+      Collection<Urn> tagUrns) {
+    final Set<Urn> existingResourceUrns =
+        LabelUtils.existingResourceUrns(opContext, resources, _entityService);
     for (ResourceRefInput resource : resources) {
-      validateInputResource(opContext, resource, context);
+      validateInputResource(opContext, resource, context, tagUrns, existingResourceUrns);
     }
   }
 
   private void validateInputResource(
-      @Nonnull OperationContext opContext, ResourceRefInput resource, QueryContext context) {
+      @Nonnull OperationContext opContext,
+      ResourceRefInput resource,
+      QueryContext context,
+      Collection<Urn> tagUrns,
+      Set<Urn> existingResourceUrns) {
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    if (!LabelUtils.isAuthorizedToUpdateTags(context, resourceUrn, resource.getSubResource())) {
+    if (!LabelUtils.isAuthorizedToUpdateTags(
+        context, resourceUrn, resource.getSubResource(), tagUrns)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
     LabelUtils.validateResource(
         opContext,
+        existingResourceUrns,
         resourceUrn,
         resource.getSubResource(),
         resource.getSubResourceType(),

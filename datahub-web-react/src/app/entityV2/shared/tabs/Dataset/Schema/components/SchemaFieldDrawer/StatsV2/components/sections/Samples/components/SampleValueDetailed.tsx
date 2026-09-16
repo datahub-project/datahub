@@ -1,0 +1,51 @@
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { message } from 'antd';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { Button, Text, borders, radius, spacing } from '@src/alchemy-components';
+
+interface SampleValueDetailedProps {
+    sample: string;
+}
+
+const Container = styled.div`
+    border: ${borders['1px']} ${(props) => props.theme.colors.border};
+    padding: ${spacing.md};
+    border-radius: ${radius.lg};
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+`;
+
+const Sample = styled(Text)`
+    text-wrap: auto;
+    overflow-wrap: anywhere;
+`;
+
+export default function SampleValueDetailed({ sample }: SampleValueDetailedProps) {
+    const { t: tc } = useTranslation('common.feedback');
+
+    const copySample = () => {
+        navigator.clipboard.writeText(sample);
+        message.success(tc('copiedSuccess'));
+    };
+
+    return (
+        <Container>
+            <Sample type="pre">{sample}</Sample>
+
+            <Button
+                icon={{ icon: Copy }}
+                iconPosition="left"
+                isCircle
+                onClick={copySample}
+                size="xl"
+                variant="text"
+                color="gray"
+            />
+        </Container>
+    );
+}
