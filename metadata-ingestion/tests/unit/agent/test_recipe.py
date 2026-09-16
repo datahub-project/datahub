@@ -117,9 +117,22 @@ def test_scaffold_still_emits_secrets_and_required_fields():
     assert isinstance(source, dict)
     config = source["config"]
     assert isinstance(config, dict) and config, "scaffold produced nothing"
-    assert any(str(v).startswith("${") for v in config.values()), (
-        "no secret placeholders emitted"
+
+    # `any(...)` was satisfied by a scaffold holding one placeholder and
+    # nothing else, which is the failure this test is the control for. Name
+    # what Snowflake cannot connect without instead.
+    assert "account_id" in config, config
+    assert {"password", "private_key", "token"} & set(config), (
+        "no credential field scaffolded"
     )
+    # Every CREDENTIAL is a placeholder; a plain required field is emitted
+    # empty for the author to fill in. Asserting that distinction, rather
+    # than "some value starts with ${", is what makes this a test of the
+    # scaffold's shape instead of its non-emptiness.
+    credentials = {k: v for k, v in config.items() if k != "account_id"}
+    assert credentials, config
+    assert all(str(v).startswith("${") for v in credentials.values()), credentials
+    assert config["account_id"] == "", config
 
 
 def test_validate_accepts_an_env_ref_in_a_non_string_field(monkeypatch):

@@ -329,6 +329,13 @@ def test_an_override_that_cannot_answer_says_so():
     )
     # Bare name, because nothing could qualify it.
     assert result.results[0].target == "ds1"
+    # ...and it SAYS so, which is what the test is named for. The assertion
+    # was lost in a rewrite, leaving the docstring claiming the warning is
+    # "the point of the path" while nothing here checked it fired.
+    assert any("qualified" in w for w in result.warnings), result.warnings
+    # A bare name judged against a qualified pattern excludes, which is the
+    # outcome the warning exists to explain.
+    assert all(not v.included for v in result.results)
 
     # And with the caller naming one, the qualified verdict comes back.
     answered = check_filters(
@@ -740,3 +747,56 @@ def test_an_explicit_schema_override_beats_the_shared_convention():
         BigQueryV2Config.probe_schema_verdict_override = original  # type: ignore[method-assign]
 
     assert verdicts["analytics"] == (True, "override::analytics")
+
+
+@pytest.mark.parametrize(
+    ("expected", "source_type", "config_dict", "kind"),
+    [
+        (
+            "by_pattern",
+            "postgres",
+            {
+                "host_port": "h:5432",
+                "username": "u",
+                "password": "p",
+                "database": "d",
+                "schema_pattern": {"allow": ["^public$"]},
+            },
+            "Schema",
+        ),
+        # Mode says Dataset is reported whole (probe_unfiltered_kinds).
+        (
+            "unfiltered",
+            "mode",
+            {"token": "t", "password": "p", "workspace": "w"},
+            "Dataset",
+        ),
+        # MySQL is two-tier: it declares no Schema level at all.
+        ("unresolved", "mysql", {"host_port": "h:3306", "username": "u"}, "Schema"),
+    ],
+)
+def test_the_filtering_field_reports_which_of_the_three_cases_this_is(
+    expected, source_type, config_dict, kind
+):
+    """All three states, because two of them look identical without it.
+
+    "unfiltered" and "unresolved" both report every name included -- the
+    verdict is the same and only `filtering` says whether that is the
+    source's design or a gap. That distinction is the reason the field
+    exists (a dropped annotation on Teradata's database_pattern read exactly
+    like a level with no filter), and nothing asserted any of the three.
+    """
+    result = check_filters(
+        source_type=source_type,
+        config_dict=config_dict,
+        kind=kind,
+        parent_path=[],
+        names=["public"],
+    )
+
+    assert result.filtering == expected
+    # to_dict is what the agent actually reads.
+    assert result.to_dict()["filtering"] == expected
+    # And the invariant that ties the two fields together: a field is named
+    # only when one decided.
+    assert (result.pattern_field is not None) == (expected == "by_pattern")

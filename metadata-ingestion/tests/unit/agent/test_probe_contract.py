@@ -427,8 +427,10 @@ def test_a_source_cannot_both_declare_a_kind_unfiltered_and_filter_it():
     )
 
     contradictions = []
+    checked = 0
     for source_type, config_cls in _probe_capable_configs():
         for kind in sorted(declared_unfiltered_kinds(config_cls)):
+            checked += 1
             field = _pattern_field_for_config_class(config_cls, kind)
             if field is not None:
                 contradictions.append(
@@ -436,6 +438,15 @@ def test_a_source_cannot_both_declare_a_kind_unfiltered_and_filter_it():
                     f"{field} would filter it"
                 )
     assert not contradictions, "\n  ".join(contradictions)
+    # The guard every sibling tripwire in this file has, and this one did not.
+    # _probe_capable_configs swallows a source that will not load and
+    # declared_unfiltered_kinds returns an empty set when a config cannot
+    # answer -- so if Mode drops out of the scan, the loop body never runs and
+    # "no contradictions" becomes a statement about nothing.
+    assert checked > 0, (
+        "no source declared an unfiltered kind, so this tripwire checked "
+        "nothing; Mode declares Dataset and Query (source/mode.py)"
+    )
 
 
 def test_describe_and_probe_filter_agree_about_every_field():
