@@ -7,7 +7,7 @@ import json
 import logging
 import re
 import threading
-from datetime import date, datetime
+from datetime import datetime
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -221,11 +221,6 @@ def _format_as_datetime(value: Any) -> str:
     # Parse and re-emit to guarantee ISO 8601 output.
     s = str(value)
     try:
-        # date.fromisoformat handles "YYYY-MM-DD" without expanding to
-        # "YYYY-MM-DDTHH:MM:SS"; datetime.fromisoformat handles the rest
-        # including the space-separated "YYYY-MM-DD HH:MM:SS" form.
-        if len(s) == 10:
-            return date.fromisoformat(s).isoformat()
         return datetime.fromisoformat(s).isoformat()
     except (ValueError, TypeError):
         return s

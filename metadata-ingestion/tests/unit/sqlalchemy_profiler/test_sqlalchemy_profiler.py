@@ -1478,7 +1478,7 @@ class TestFormatProfileValue:
     def test_date_string(self) -> None:
         assert (
             format_profile_value("2024-01-01", ProfilerDataType.DATETIME)
-            == "2024-01-01"
+            == "2024-01-01T00:00:00"
         )
 
     def test_datetime_unparseable_string_returned_as_is(self) -> None:
