@@ -6,7 +6,7 @@
  *   Phase 2 entirely; `loading` covers both phases unless the caller opts into structuralFirst.
  * - useGetColumnTabCount: undefined while loading, then the structural field count.
  */
-import { MockedProvider } from '@apollo/client/testing';
+import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import { waitFor } from '@testing-library/react';
 import { act, renderHook } from '@testing-library/react-hooks';
 import React from 'react';
@@ -80,7 +80,7 @@ const fullMock = {
 const slowFullMock = { ...fullMock, delay: 300 };
 
 const wrapperWith =
-    (mocks: any[]) =>
+    (mocks: MockedResponse[]) =>
     ({ children }: { children: React.ReactNode }) => (
         <MockedProvider mocks={mocks} addTypename={false}>
             {children}

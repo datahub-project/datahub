@@ -18,6 +18,7 @@ const RetryLink = styled.button`
     border: none;
     padding: 0;
     font-size: inherit;
+    font-family: inherit;
     color: ${(props) => props.theme.colors.hyperlinks};
     cursor: pointer;
     text-decoration: underline;

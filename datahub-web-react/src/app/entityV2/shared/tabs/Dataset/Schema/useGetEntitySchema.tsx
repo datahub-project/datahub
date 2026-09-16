@@ -75,11 +75,13 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean,
         errorPolicy: 'all',
     });
 
-    // Whether the full query has ever been started for this hook instance. Apollo throws
-    // when refetch() is called on a query that is still skip:true and has never fired, so
-    // refetch() below must know this at call time rather than from a render-time snapshot.
-    const fullStartedRef = useRef(false);
-    if (!skipFull) fullStartedRef.current = true;
+    // Whether the full query is currently active. Apollo throws when refetch() is called on
+    // a skipped query, so refetch() below reads this at call time rather than from a
+    // render-time snapshot. Tracks the live skip flag (not "ever started"): after
+    // navigation the full query is skipped again until the new structural result lands,
+    // and a retry in that window must leave it alone -- it starts by itself afterwards.
+    const fullActiveRef = useRef(false);
+    fullActiveRef.current = !skipFull;
 
     const mergedStructuralData = useMemo(
         () =>
@@ -99,9 +101,12 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean,
     // has never fired (Phase 1 failed, or structuralOnly), there is nothing to refetch:
     // once the structural refetch delivers data, skipFull flips and Phase 2 starts by itself.
     const refetch = useCallback(async () => {
+        // Nothing was queried (non-dataset, or the schema came with the entity): the
+        // structural query is skipped too, and refetching a skipped query throws.
+        if (!shouldLoad) return;
         await refetchStructural();
-        if (fullStartedRef.current) await refetchFull();
-    }, [refetchStructural, refetchFull]);
+        if (fullActiveRef.current) await refetchFull();
+    }, [shouldLoad, refetchStructural, refetchFull]);
 
     // True after Phase 1 resolves but before Phase 2 (tags/terms/descriptions)
     // completes. SchemaTable shows skeleton placeholders in metadata columns.
