@@ -545,8 +545,14 @@ def _metric_filter(value: Any) -> Optional[str]:
                 if isinstance(where_filter, dict)
                 and isinstance(where_filter.get("where_sql_template"), str)
             ]
+            if len(templates) > 1:
+                # AND binds tighter than OR, so joining `a OR b` to `c OR d`
+                # bare gives `a OR (b AND c) OR d` -- a different predicate
+                # than dbt's, which applies each where_filter in turn. A lone
+                # template needs no grouping, since nothing is joined to it.
+                return " AND ".join(f"({template})" for template in templates)
             if templates:
-                return " AND ".join(templates)
+                return templates[0]
     return None
 
 

@@ -4907,6 +4907,26 @@ def test_a_semantic_model_field_without_a_name_does_not_abort_the_run():
     assert parsed.discarded == ["entities[0] has no usable name"]
 
 
+def test_multiple_where_filters_keep_their_own_scope():
+    """dbt applies each where_filter in turn, so they are ANDed -- but AND
+    binds tighter than OR, and a bare join silently reassociates them."""
+    from datahub.ingestion.source.dbt.dbt_core import _metric_filter
+
+    assert _metric_filter(
+        {
+            "where_filters": [
+                {"where_sql_template": "a = 1 OR b = 2"},
+                {"where_sql_template": "c = 3 OR d = 4"},
+            ]
+        }
+    ) == "(a = 1 OR b = 2) AND (c = 3 OR d = 4)"
+    # A lone template has nothing joined to it, so it is left alone.
+    assert (
+        _metric_filter({"where_filters": [{"where_sql_template": "a = 1 OR b = 2"}]})
+        == "a = 1 OR b = 2"
+    )
+
+
 def test_a_malformed_type_params_is_reported_rather_than_dropped():
     """Every other unusable shape lands in `discarded`; this one did not."""
     parsed = parse_semantic_model(

@@ -852,13 +852,15 @@ class DbtSemanticModelMapper:
                 )
                 continue
             if key in measure_metric_keys:
-                self.report.warning(
-                    title="dbt metric shadows a create_metric measure",
-                    message="A measure with create_metric and a top-level metric "
-                    "share a name. The top-level definition is emitted, since it "
-                    "also carries a label, type and derivation.",
-                    context=metric_definition.unique_id,
-                )
+                if not self._is_dbt_generated_measure_metric(metric_definition):
+                    self.report.warning(
+                        title="dbt metric shadows a create_metric measure",
+                        message="A measure with create_metric and a top-level "
+                        "metric share a name. The top-level definition is "
+                        "emitted, since it also carries a label, type and "
+                        "derivation.",
+                        context=metric_definition.unique_id,
+                    )
                 # It is a manifest metric now, not a measure one, so move the
                 # count rather than dropping it.
                 self.report.num_metrics_from_measures -= 1
@@ -1042,6 +1044,22 @@ class DbtSemanticModelMapper:
                 located.expression, measure_predicate=measure_input.filter
             )
         return None
+
+    @staticmethod
+    def _is_dbt_generated_measure_metric(metric_definition: DBTMetric) -> bool:
+        """True when this is dbt's own copy of a `create_metric: true` measure.
+
+        dbt materializes such a measure into `metrics:` itself, as a simple
+        metric over the same-named measure. So the name overlap is dbt's doing
+        rather than an author's mistake, and warning about it would fire on
+        every `create_metric` measure in every project.
+        """
+        return (
+            metric_definition.type == METRIC_TYPE_SIMPLE
+            and len(metric_definition.measures) == 1
+            and metric_definition.measures[0].name.casefold()
+            == metric_definition.name.casefold()
+        )
 
     @staticmethod
     def _expr_is_bare_measure_name(metric_definition: DBTMetric, expr: str) -> bool:

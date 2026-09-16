@@ -849,7 +849,9 @@ def test_manifest_metric_shadows_a_same_named_create_metric_measure():
     info = next(iter(metrics.values()))
     assert info.name == "Order Total"
     assert info.description == "The richer definition"
-    assert any(
+    # No warning: this is dbt's own materialization of the measure, not an
+    # author's collision. See the two tests at the end of this file.
+    assert not any(
         w.title == "dbt metric shadows a create_metric measure"
         for w in mapper.report.warnings
     )
@@ -1816,4 +1818,66 @@ def test_owners_do_not_land_on_the_shared_project_semantic_model():
 
     assert not any(
         "semanticModel" in urn for urn, _ in _aspects(workunits, OwnershipClass)
+    )
+
+
+def test_dbts_own_copy_of_a_create_metric_measure_is_not_warned_about():
+    """dbt writes a `create_metric: true` measure into `metrics:` itself.
+
+    So the name overlap is dbt's doing, not an author's mistake, and warning
+    about it fired on every create_metric measure in every project.
+    """
+    node = _sm_node("orders", _ORDERS)  # order_total has create_metric: true
+    mapper = _mapper()
+    _emit(
+        mapper,
+        [node],
+        _metrics(
+            {
+                "metric.jaffle_shop.order_total": {
+                    "name": "order_total",
+                    "label": "Order total",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {"measure": {"name": "order_total"}},
+                }
+            }
+        ),
+    )
+
+    assert not any(
+        w.title == "dbt metric shadows a create_metric measure"
+        for w in mapper.report.warnings
+    )
+    # Still accounted for as a manifest metric rather than a measure one.
+    assert mapper.report.num_metrics_from_manifest == 1
+    assert mapper.report.num_metrics_from_measures == 0
+
+
+def test_a_genuine_name_collision_with_a_measure_is_still_warned_about():
+    """A differently-shaped metric taking the name is an author's choice."""
+    node = _sm_node("orders", _ORDERS)
+    mapper = _mapper()
+    _emit(
+        mapper,
+        [node],
+        _metrics(
+            {
+                "metric.jaffle_shop.order_total": {
+                    "name": "order_total",
+                    "label": "Order total",
+                    "description": "",
+                    "type": "ratio",
+                    "type_params": {
+                        "numerator": {"name": "a"},
+                        "denominator": {"name": "b"},
+                    },
+                }
+            }
+        ),
+    )
+
+    assert any(
+        w.title == "dbt metric shadows a create_metric measure"
+        for w in mapper.report.warnings
     )
