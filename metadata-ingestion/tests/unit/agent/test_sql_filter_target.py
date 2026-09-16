@@ -8,7 +8,10 @@ import datahub.ingestion.source.sql.sql_probe as sql_probe_module
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.sql.druid import DruidConfig
 from datahub.ingestion.source.sql.mysql import MySQLConfig
@@ -533,3 +536,73 @@ def test_a_single_pinned_container_needs_no_parent():
     assert result.results[0].target == "p1.ds1.t1"
     assert result.results[0].included is True
     assert not result.warnings, result.warnings
+
+
+@pytest.mark.parametrize(
+    ("source_type", "config_dict", "name"),
+    [
+        # Snowflake matches schemas on database.schema and implies no single
+        # database, so a bare --kind Schema has nothing to qualify against.
+        (
+            "snowflake",
+            {
+                "account_id": "a",
+                "username": "u",
+                "password": "p",
+                "warehouse": "w",
+                "match_fully_qualified_names": True,
+                "schema_pattern": {"allow": [r"^MYDB\.PUBLIC$"]},
+            },
+            "PUBLIC",
+        ),
+        # BigQuery is the worse case because it is the DEFAULT config:
+        # match_fully_qualified_names defaults true and project_ids defaults
+        # empty, so every dataset in a multi-project recipe reads excluded.
+        (
+            "bigquery",
+            {
+                "project_ids": ["p1", "p2"],
+                "dataset_pattern": {"allow": [r"^p1\.analytics$"]},
+            },
+            "analytics",
+        ),
+    ],
+)
+def test_a_schema_judged_without_its_container_warns(source_type, config_dict, name):
+    """A Schema verdict reached on the bare name must say so.
+
+    This is the inverted-verdict case: the pattern is written against
+    `container.schema`, the caller passed no --parent, and the bare name is
+    judged against a qualified pattern -- so it reads excluded when ingestion
+    would include it. The warning was gated on `probe_schema_needs_parent`,
+    a hook no config implemented any more, so it could never fire and the
+    only assertion left was a negative one.
+    """
+    result = check_filters(
+        source_type=source_type,
+        config_dict=config_dict,
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[],
+        names=[name],
+    )
+    assert any("qualified" in w for w in result.warnings), result.warnings
+
+
+def test_a_schema_with_its_container_does_not_warn():
+    """The other side: given the container, the verdict is the real one."""
+    result = check_filters(
+        source_type="snowflake",
+        config_dict={
+            "account_id": "a",
+            "username": "u",
+            "password": "p",
+            "warehouse": "w",
+            "match_fully_qualified_names": True,
+            "schema_pattern": {"allow": [r"^MYDB\.PUBLIC$"]},
+        },
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=["MYDB"],
+        names=["PUBLIC"],
+    )
+    assert result.results[0].included is True, result.results
+    assert not [w for w in result.warnings if "qualified" in w], result.warnings

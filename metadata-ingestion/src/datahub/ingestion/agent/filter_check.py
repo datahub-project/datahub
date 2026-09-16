@@ -166,30 +166,31 @@ def _match_target(config: Any, kind: str, ctx: ClassifyContext) -> str:
     return target
 
 
-def _override_needs_parent(config: Any, kind: str) -> bool:
-    """Whether this source would qualify a container name if it knew the parent.
+def _needs_parent_for_qualified_match(
+    config: Any, kind: str, parent_path: Sequence[str]
+) -> bool:
+    """Whether this verdict was reached on a bare name that should be qualified.
 
-    Asked outright. The first version inferred it by calling the verdict hook
-    with a fake schema name and reading a None answer as "needs a parent" --
-    but None also means "no override applies", which is Redshift's answer
-    whenever match_fully_qualified_names is off, its default. Every default
-    Redshift `probe filter --kind Schema` then warned that the source matches
-    on a qualified name and the caller should pass --parent, when the bare-name
-    verdict was already the one ingestion makes.
+    Asked of the config directly rather than through a hook. The previous
+    version read `probe_schema_needs_parent`, which no config implemented any
+    more -- the implementations were added with this warning, removed,
+    restored, and removed again over the life of this PR, and the reader
+    outlived them. So it always returned False and the warning below could
+    never fire, leaving the inverted verdict it exists to explain silent:
+    Snowflake with match_fully_qualified_names, and BigQuery by default, judge
+    `PUBLIC` against `^MYDB\.PUBLIC$` and report excluded where ingestion
+    includes.
 
-    A warning that fires when nothing is wrong is worse than none: it is the
-    one on the screen when a real one appears.
+    The two conditions are exactly the ones _qualified_schema_match gives up
+    on, so they are read from the same place rather than restated by a
+    connector.
     """
     if kind not in (DatasetContainerSubTypes.SCHEMA, DatasetContainerSubTypes.DATABASE):
         return False
-    asks = getattr(config, "probe_schema_needs_parent", None)
-    if not callable(asks):
+    if not getattr(config, "match_fully_qualified_names", False):
+        # The bare name is what ingestion matches too, so nothing is lost.
         return False
-    try:
-        return bool(asks())
-    except Exception:
-        # A source that cannot answer this is not one to warn about.
-        return False
+    return _qualified_container(config, parent_path) is None
 
 
 def _structural_verdict(
@@ -485,10 +486,8 @@ def check_filters(
             warn=warn,
         )
         structural = _structural_verdict(config, kind, name, pattern_field, parent_path)
-        if (
-            structural is None
-            and not parent_path
-            and _override_needs_parent(config, kind)
+        if structural is None and _needs_parent_for_qualified_match(
+            config, kind, parent_path
         ):
             # The connector has a qualified rule for this level but could not
             # apply it: it needs to know which container, and none was given.
