@@ -4,19 +4,6 @@ from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.emitter.token_provider import StaticTokenProvider, TokenProviderAuth
 
 
-@pytest.fixture(autouse=True)
-def _no_ambient_credentials(monkeypatch):
-    # The emitter resolves these from the environment, so a developer machine
-    # with any of them exported would otherwise change what these tests assert.
-    for var in (
-        "DATAHUB_AUTH_TYPE",
-        "DATAHUB_GMS_TOKEN",
-        "DATAHUB_SYSTEM_CLIENT_ID",
-        "DATAHUB_SYSTEM_CLIENT_SECRET",
-    ):
-        monkeypatch.delenv(var, raising=False)
-
-
 def test_emitter_installs_session_auth_and_skips_static_header():
     auth = TokenProviderAuth(StaticTokenProvider("tok"), retry_on_401=False)
     emitter = DataHubRestEmitter(gms_server="http://gms", auth=auth)

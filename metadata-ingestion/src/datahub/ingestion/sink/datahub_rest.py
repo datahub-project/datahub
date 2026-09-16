@@ -12,10 +12,7 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 import pydantic
 import requests
 from pydantic import field_validator
-from requests.sessions import SessionRedirectMixin
 
-from datahub.cli.cli_utils import fixup_gms_url
-from datahub.cli.config_utils import get_url_from_env
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigurationError,
@@ -44,7 +41,7 @@ from datahub.ingestion.api.sink import (
     WriteCallback,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.auth.env import build_auth_config_from_env
+from datahub.ingestion.auth.env import resolve_env_auth_config
 from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -243,45 +240,18 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         # and per refresh window, multiplied across concurrent pipelines.
         auth_config = config.auth
         if auth_config is None and not config.token:
-            # A recipe sink block that carries no credentials inherits env-based
-            # OAuth (DATAHUB_AUTH_TYPE) — without this, an explicit
-            # `sink: datahub-rest` block silently bypasses env auth and emits
-            # unauthenticated. Explicit credentials in the sink block always win
-            # over the environment.
-            env_auth = build_auth_config_from_env()
+            # A credential-free sink block inherits env OAuth (DATAHUB_AUTH_TYPE);
+            # explicit credentials in the block always win over the environment.
+            # origin_guard=True: a recipe can aim the sink at any host, so env
+            # OAuth attaches only when the server matches DATAHUB_GMS_URL.
+            env_auth = resolve_env_auth_config(config.server, origin_guard=True)
             if env_auth is not None:
-                # Env OAuth applies only to the env-configured server: merging it
-                # into a sink pointing at a different origin would mint fresh
-                # bearer tokens and send them to that other host (audience
-                # scoping limits use, not disclosure). Delegates to requests'
-                # should_strip_auth — the same rule the 401-retry guard uses —
-                # so same-origin (and the benign http->https upgrade) inherit
-                # env auth, while any other origin change skips it, loudly.
-                env_url = get_url_from_env()
-                if env_url is not None and not SessionRedirectMixin().should_strip_auth(
-                    fixup_gms_url(env_url), fixup_gms_url(config.server)
-                ):
-                    auth_config = env_auth
-                    logger.info(
-                        "datahub-rest sink has no credentials configured; using "
-                        "OAuth auth from DATAHUB_AUTH_TYPE for %s.",
-                        config.server,
-                    )
-                elif env_url is None:
-                    logger.warning(
-                        "DATAHUB_AUTH_TYPE is set but DATAHUB_GMS_URL is not; "
-                        "not applying env OAuth to the explicit datahub-rest "
-                        "sink. Set DATAHUB_GMS_URL to the sink's server to "
-                        "inherit env auth."
-                    )
-                else:
-                    logger.warning(
-                        "Not applying env OAuth (DATAHUB_AUTH_TYPE) to the "
-                        "datahub-rest sink pointing at %s — it does not match "
-                        "the env-configured server %s.",
-                        config.server,
-                        env_url,
-                    )
+                auth_config = env_auth
+                logger.info(
+                    "datahub-rest sink has no credentials configured; using "
+                    "OAuth auth from DATAHUB_AUTH_TYPE for %s.",
+                    config.server,
+                )
         if auth_config is None:
             return None
         return TokenProviderAuth(build_token_provider(auth_config))
