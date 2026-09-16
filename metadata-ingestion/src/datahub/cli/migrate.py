@@ -1373,4 +1373,4 @@ def schema_field_case(
         include_soft_deleted=include_soft_deleted,
         resolver=resolver,
     )
-    click.echo(f"{report}")
+    click.echo(report.render())

@@ -957,6 +957,168 @@ class TestInteractiveResolver:
         assert d2_old not in graph.soft_deleted
 
 
+class TestMixedPerFieldOutcome:
+    def test_clean_union_carried_conflict_reported_source_kept(self):
+        # One aspect unions cleanly onto the destination while another genuinely
+        # conflicts: the clean one is carried, the conflicting one is reported and
+        # left, and the source is kept because not everything moved.
+        old_sf = _sf("product2id")
+        new_sf = _sf("Product2Id")
+        graph = FakeGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Product2Id")},
+                old_sf: {
+                    "globalTags": _tags("urn:li:tag:pii"),
+                    "documentation": _doc("stranded doc"),
+                },
+                new_sf: {"documentation": _doc("destination doc")},  # conflicts
+            }
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        tag_writes = [
+            a
+            for (u, a) in graph.emitted
+            if u == new_sf and a.ASPECT_NAME == "globalTags"
+        ]
+        assert tag_writes and {t.tag for t in tag_writes[-1].tags} == {"urn:li:tag:pii"}
+        # destination documentation untouched, conflict surfaced
+        assert graph._store[new_sf]["documentation"] == _doc("destination doc")
+        assert any("documentation" in s for s in result.skipped)
+        # only the clean aspect is recorded as carried; source not deleted
+        assert result.remaps[0].schema_field_aspects == ["globalTags"]
+        assert old_sf not in graph.soft_deleted
+
+
+class _FailingGraph(FakeGraph):
+    """FakeGraph that raises on emit for a targeted (urn-substring, aspect)."""
+
+    def __init__(
+        self,
+        store: Dict[str, Dict[str, _Aspect]],
+        *,
+        fail_urn_contains: str,
+        fail_aspect: str,
+    ) -> None:
+        super().__init__(store)
+        self._fail_urn_contains = fail_urn_contains
+        self._fail_aspect = fail_aspect
+
+    def emit_mcp(self, mcp: MetadataChangeProposalWrapper) -> None:
+        assert mcp.entityUrn is not None and mcp.aspect is not None
+        if (
+            self._fail_urn_contains in mcp.entityUrn
+            and self._fail_aspect == mcp.aspect.ASPECT_NAME
+        ):
+            raise RuntimeError("simulated GMS write failure")
+        super().emit_mcp(mcp)
+
+
+class TestFailureHandling:
+    def test_schema_field_write_failure_keeps_source_and_reports(self):
+        old_sf = _sf("product2id")
+        graph = _FailingGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Product2Id")},
+                old_sf: {"documentation": _doc("stranded")},
+            },
+            fail_urn_contains="Product2Id",
+            fail_aspect="documentation",
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        assert old_sf not in graph.soft_deleted  # source preserved on write failure
+        assert result.error is None  # per-field handled, not a dataset-level abort
+        assert any("failed to write" in s for s in result.skipped)
+        assert not result.remaps  # nothing carried
+
+    def test_partial_field_failure_carries_survivor(self):
+        # documentation write fails but globalTags succeeds: the survivor is
+        # carried, the failure is attributed, and the source is kept.
+        old_sf = _sf("product2id")
+        new_sf = _sf("Product2Id")
+        graph = _FailingGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Product2Id")},
+                old_sf: {
+                    "documentation": _doc("stranded"),
+                    "globalTags": _tags("urn:li:tag:pii"),
+                },
+            },
+            fail_urn_contains="Product2Id",
+            fail_aspect="documentation",
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        emitted = {a.ASPECT_NAME for (u, a) in graph.emitted if u == new_sf}
+        assert emitted == {"globalTags"}
+        assert any(
+            "failed to write" in s and "documentation" in s for s in result.skipped
+        )
+        assert old_sf not in graph.soft_deleted
+        assert result.remaps[0].schema_field_aspects == ["globalTags"]
+
+    def test_editable_write_failure_not_reported_as_updated(self):
+        graph = _FailingGraph(
+            {
+                _DATASET: {
+                    "schemaMetadata": _schema("Product2Id"),
+                    "editableSchemaMetadata": EditableSchemaMetadataClass(
+                        editableSchemaFieldInfo=[
+                            EditableSchemaFieldInfoClass(
+                                fieldPath="product2id", description="d"
+                            ),
+                        ]
+                    ),
+                },
+            },
+            fail_urn_contains=_DATASET,
+            fail_aspect="editableSchemaMetadata",
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        assert result.editable_updated is False  # write failed → not claimed
+        assert any("editableSchemaMetadata rewrite failed" in s for s in result.skipped)
+        assert all(not r.editable for r in result.remaps)
+
+    def test_unparseable_schema_field_urn_is_reported(self):
+        graph = FakeGraph({_DATASET: {"schemaMetadata": _schema("Product2Id")}})
+
+        def _one_bad_urn(**kw: object) -> Iterator[str]:
+            return iter(["not-a-urn-at-all"])
+
+        graph.get_urns_by_filter = _one_bad_urn  # type: ignore[assignment]
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        assert result.error is None
+        assert any("could not be parsed" in s for s in result.skipped)
+
+
 class TestRunMigrationReport:
     def test_report_counts(self):
         old_sf = _sf("product2id")
@@ -973,7 +1135,7 @@ class TestRunMigrationReport:
             delete_source=True,
             include_soft_deleted=False,
         )
-        text = repr(report)
+        text = report.render()
         assert "Fields re-anchored = 1" in text
         assert "[Dry Run]" in text
 

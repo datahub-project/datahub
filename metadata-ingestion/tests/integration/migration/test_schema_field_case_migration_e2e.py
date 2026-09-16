@@ -417,6 +417,34 @@ def test_idempotent_second_run_is_noop() -> None:
     assert all(not r.editable_updated for r in second.results)
 
 
+def test_idempotent_keep_source_second_run() -> None:
+    # Under --keep-source-fields the stale field is never soft-deleted, so it is
+    # rediscovered on every run. Re-anchoring must still converge: the second pass
+    # re-unions the same values onto the destination without duplicating them.
+    g = _seed()
+    run_migration(
+        g,  # type: ignore[arg-type]
+        ALL,
+        dry_run=False,
+        delete_source=False,
+        include_soft_deleted=False,
+    )
+    dest = sf(D_BASIC, "Product2Id")
+    after_first = dict(g.store[dest])
+    run_migration(
+        g,  # type: ignore[arg-type]
+        ALL,
+        dry_run=False,
+        delete_source=False,
+        include_soft_deleted=False,
+    )
+    assert not g.soft_deleted  # keep-source never deletes the stale field
+    assert g.store[dest] == after_first  # second pass adds nothing new
+    tags = g.store[dest]["globalTags"]
+    assert isinstance(tags, GlobalTagsClass)
+    assert len(tags.tags) == 1  # union deduped, not doubled
+
+
 def test_dry_run_writes_nothing() -> None:
     g = _seed()
     before = {u: dict(a) for u, a in g.store.items()}

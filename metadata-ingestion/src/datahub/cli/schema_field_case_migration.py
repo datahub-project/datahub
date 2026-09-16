@@ -11,7 +11,7 @@ works for any connector.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Set, Tuple, cast
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, TypeVar, cast
 
 import click
 
@@ -226,27 +226,32 @@ def _read_schema_field_aspects(
     return {name: bag[name] for name in MIGRATED_SCHEMA_FIELD_ASPECTS if name in bag}
 
 
-def _dedup_tags(tags: Sequence[TagAssociationClass]) -> List[TagAssociationClass]:
+_AssocT = TypeVar("_AssocT", TagAssociationClass, GlossaryTermAssociationClass)
+
+
+def _dedup_associations(
+    items: Sequence[_AssocT], urn_of: Callable[[_AssocT], str]
+) -> List[_AssocT]:
     # On a duplicate urn, keep the association carrying attribution (a
-    # source-assigned / propagated / "immutable" tag) over a bare UI one, so the
-    # attribution is not silently dropped when the same tag exists on both sides.
-    by_urn: Dict[str, TagAssociationClass] = {}
-    for tag in tags:
-        prev = by_urn.get(tag.tag)
-        if prev is None or (prev.attribution is None and tag.attribution is not None):
-            by_urn[tag.tag] = tag
+    # source-assigned / propagated / "immutable" tag or term) over a bare UI one,
+    # so the attribution is not silently dropped when the same urn is on both sides.
+    by_urn: Dict[str, _AssocT] = {}
+    for item in items:
+        urn = urn_of(item)
+        prev = by_urn.get(urn)
+        if prev is None or (prev.attribution is None and item.attribution is not None):
+            by_urn[urn] = item
     return list(by_urn.values())
+
+
+def _dedup_tags(tags: Sequence[TagAssociationClass]) -> List[TagAssociationClass]:
+    return _dedup_associations(tags, lambda t: t.tag)
 
 
 def _dedup_terms(
     terms: Sequence[GlossaryTermAssociationClass],
 ) -> List[GlossaryTermAssociationClass]:
-    by_urn: Dict[str, GlossaryTermAssociationClass] = {}
-    for term in terms:
-        prev = by_urn.get(term.urn)
-        if prev is None or (prev.attribution is None and term.attribution is not None):
-            by_urn[term.urn] = term
-    return list(by_urn.values())
+    return _dedup_associations(terms, lambda t: t.urn)
 
 
 def _union_association_aspect(
@@ -382,6 +387,23 @@ def _get_or_add_remap(
     return remap
 
 
+def _resolve_or_choose(
+    reconciler: PathReconciler, resolver: ClashResolver, old_path: str, what: str
+) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve ``old_path`` to a current field path, deferring an ambiguous
+    case-only collision to the resolver. Returns ``(new_path, unresolved_reason)``
+    with exactly one non-None, so both reconcile passes share one control flow."""
+    new_path, reason = reconciler.resolve(old_path)
+    if new_path is not None:
+        return new_path, None
+    candidates = reconciler.candidates(old_path)
+    if len(candidates) > 1:
+        chosen = resolver.choose_target(old_path, candidates, what)
+        if chosen is not None:
+            return chosen, None
+    return None, reason
+
+
 def _reconcile_schema_field_entities(
     graph: DataHubGraph,
     dataset_urn: str,
@@ -399,11 +421,16 @@ def _reconcile_schema_field_entities(
     ):
         try:
             old_path = SchemaFieldUrn.from_string(schema_field_urn).field_path
-        except Exception:
+        except Exception as e:
+            # A urn we cannot parse is surfaced, not silently skipped: a systemic
+            # encoding mismatch would otherwise masquerade as "nothing to migrate".
+            log.warning(f"Could not parse schemaField urn '{schema_field_urn}': {e}")
+            result.skipped.append(
+                f"schemaField urn could not be parsed: '{schema_field_urn}' ({e})"
+            )
             continue
 
-        new_path, reason = reconciler.resolve(old_path)
-        if new_path == old_path:
+        if old_path in reconciler.current_paths:
             continue
 
         aspects = _read_schema_field_aspects(graph, schema_field_urn)
@@ -412,20 +439,14 @@ def _reconcile_schema_field_entities(
             # worth moving or reporting.
             continue
 
+        new_path, reason = _resolve_or_choose(
+            reconciler, resolver, old_path, f"aspects {sorted(aspects)}"
+        )
         if new_path is None:
-            candidates = reconciler.candidates(old_path)
-            new_path = (
-                resolver.choose_target(
-                    old_path, candidates, f"aspects {sorted(aspects)}"
-                )
-                if len(candidates) > 1
-                else None
+            result.skipped.append(
+                f"schemaField '{old_path}': {reason}; left in place: {sorted(aspects)}"
             )
-            if new_path is None:
-                result.skipped.append(
-                    f"schemaField '{old_path}': {reason}; left in place: {sorted(aspects)}"
-                )
-                continue
+            continue
 
         new_schema_field_urn = make_schema_field_urn(dataset_urn, new_path)
         # Read the destination so we never clobber metadata already sitting on the
@@ -456,11 +477,26 @@ def _reconcile_schema_field_entities(
                     continue
             assert to_emit is not None
             if not dry_run:
-                graph.emit_mcp(
-                    MetadataChangeProposalWrapper(
-                        entityUrn=new_schema_field_urn, aspect=to_emit
+                try:
+                    graph.emit_mcp(
+                        MetadataChangeProposalWrapper(
+                            entityUrn=new_schema_field_urn, aspect=to_emit
+                        )
                     )
-                )
+                except Exception as e:
+                    # A per-field write failure is attributed and isolated: the rest
+                    # of the field's aspects and the rest of the dataset still run,
+                    # and the source is kept (below) so nothing is lost.
+                    log.warning(
+                        f"Failed to write '{name}' onto '{new_path}' "
+                        f"({new_schema_field_urn}): {e}"
+                    )
+                    result.skipped.append(
+                        f"schemaField '{old_path}' -> '{new_path}': failed to write "
+                        f"'{name}' ({e}); source kept"
+                    )
+                    left_behind = True
+                    continue
             carried.append(name)
         # Only record a remap when something actually moved — a field whose sole
         # aspect hit the conflict guard carried nothing and is not a re-anchoring.
@@ -471,7 +507,14 @@ def _reconcile_schema_field_entities(
         # Keep the source field if anything could not be carried over, so the
         # un-migrated aspect is not lost behind a soft delete.
         if delete_source and not dry_run and not left_behind:
-            graph.soft_delete_entity(schema_field_urn)
+            try:
+                graph.soft_delete_entity(schema_field_urn)
+            except Exception as e:
+                log.warning(f"Failed to soft-delete '{schema_field_urn}': {e}")
+                result.skipped.append(
+                    f"schemaField '{old_path}': aspects re-anchored onto '{new_path}' "
+                    f"but soft-delete of the source failed ({e})"
+                )
 
 
 def _reconcile_editable_schema_metadata(
@@ -492,7 +535,7 @@ def _reconcile_editable_schema_metadata(
         return
 
     by_path: Dict[str, EditableSchemaFieldInfoClass] = {}
-    changed = False
+    editable_remaps: List[Tuple[str, str]] = []
 
     # Entries already on a current path are kept as-is (their own destination).
     for info in entries:
@@ -505,45 +548,52 @@ def _reconcile_editable_schema_metadata(
     for info in entries:
         if info.fieldPath in reconciler.current_paths:
             continue
-        new_path, reason = reconciler.resolve(info.fieldPath)
+        new_path, reason = _resolve_or_choose(
+            reconciler, resolver, info.fieldPath, "editable entry"
+        )
         if new_path is None:
-            candidates = reconciler.candidates(info.fieldPath)
-            new_path = (
-                resolver.choose_target(info.fieldPath, candidates, "editable entry")
-                if len(candidates) > 1
-                else None
-            )
-            if new_path is None:
-                if _has_editable_content(info):
-                    result.skipped.append(
-                        f"editableSchemaMetadata '{info.fieldPath}': {reason}"
-                    )
-                    # Keep it at its own path: the aspect below is rewritten
-                    # wholesale from ``by_path`` once any *other* entry resolves,
-                    # and an unresolved entry omitted here would be deleted
-                    # rather than left in place for manual review.
-                    by_path[info.fieldPath] = _merge_editable_field_info(
-                        by_path.get(info.fieldPath), info, info.fieldPath
-                    )
-                continue
+            if _has_editable_content(info):
+                result.skipped.append(
+                    f"editableSchemaMetadata '{info.fieldPath}': {reason}"
+                )
+                # Keep it at its own path: the aspect below is rewritten
+                # wholesale from ``by_path`` once any *other* entry resolves,
+                # and an unresolved entry omitted here would be deleted
+                # rather than left in place for manual review.
+                by_path[info.fieldPath] = _merge_editable_field_info(
+                    by_path.get(info.fieldPath), info, info.fieldPath
+                )
+            continue
         by_path[new_path] = _merge_editable_field_info(
             by_path.get(new_path), info, new_path
         )
-        changed = True
-        _get_or_add_remap(remaps, info.fieldPath, new_path).editable = True
+        editable_remaps.append((info.fieldPath, new_path))
 
-    if not changed:
+    if not editable_remaps:
         return
-    result.editable_updated = True
     if not dry_run:
-        graph.emit_mcp(
-            MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=EditableSchemaMetadataClass(
-                    editableSchemaFieldInfo=list(by_path.values())
-                ),
+        try:
+            graph.emit_mcp(
+                MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=EditableSchemaMetadataClass(
+                        editableSchemaFieldInfo=list(by_path.values())
+                    ),
+                )
             )
-        )
+        except Exception as e:
+            # Report the write only if it lands: leave editable_updated False and
+            # surface the failure rather than claiming a rewrite that did not happen.
+            log.warning(
+                f"Failed to rewrite editableSchemaMetadata for {dataset_urn}: {e}"
+            )
+            result.skipped.append(
+                f"editableSchemaMetadata rewrite failed for {dataset_urn} ({e})"
+            )
+            return
+    result.editable_updated = True
+    for old_path, new_path in editable_remaps:
+        _get_or_add_remap(remaps, old_path, new_path).editable = True
 
 
 def reconcile_dataset(
@@ -624,7 +674,7 @@ class SchemaFieldCaseMigrationReport:
     dry_run: bool
     results: List[DatasetReconcileResult] = field(default_factory=list)
 
-    def __repr__(self) -> str:
+    def render(self) -> str:
         prefix = "[Dry Run] " if self.dry_run else ""
         touched = [r for r in self.results if r.remaps or r.editable_updated]
         errored = [r for r in self.results if r.error is not None]
