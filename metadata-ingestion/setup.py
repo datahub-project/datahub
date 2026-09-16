@@ -38,11 +38,8 @@ base_requirements = {
     "sentry-sdk>=1.33.1,<3.0.0",
     # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
     "python-json-logger>=2.0.0,<5.0.0",
-    # setuptools 82.0.0 deprecated pkg_resource
-    # CVE-2025-47273 floor (>=78.1.1) is enforced for Docker via
-    # docker/snippets/ingestion/constraints.txt only — avoid a lower bound here so
-    # installs alongside Airflow constraints remain satisfiable.
-    "setuptools<82.0.0",
+    # No setuptools bound: Airflow constraint files pin it, so a floor here would
+    # break those installs. The CVE-2026-59890 floor lives in the Docker snippet.
     # Floor at 2.5.0 — the highest the airflow-plugin CI
     # tolerates (Airflow 3.0.x/3.1.x pin urllib3==2.5.0, 3.2.x pins 2.6.3). The stronger
     # >=2.7.0 floor for the remaining CVEs is applied at lock time via pyproject
@@ -214,7 +211,10 @@ profiling_ge = {
 
 sqlalchemy_lib = {
     # Required for all SQL sources.
-    # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
+    # <2 held by databricks-sql-connector and great-expectations (sqlalchemy-redshift
+    # >=1.0.0 now supports SQLAlchemy 2). Lifting this cap unblocks pkg_resources-free
+    # dialect releases (sqlalchemy-redshift, sqlalchemy-cockroachdb), then delete the
+    # pkg_resources shim; test_sqlalchemy_stays_below_2_until_shim_removed enforces it.
     "sqlalchemy>=1.4.39,<2",
     # greenlet is imported directly by datahub.utilities.sqlalchemy_query_combiner, which
     # is used by both the SQLAlchemy and GE profilers (via sql_report.py).
@@ -417,13 +417,6 @@ s3_base = {
     *cachetools_lib,
 }
 
-threading_timeout_common = {
-    "stopit==1.1.2",
-    # stopit uses pkg_resources internally, which means there's an implied
-    # dependency on setuptools.
-    # setuptools 82 removed pkg_resources.
-    "setuptools<82",
-}
 
 abs_base = {
     # CVE-2025-36068: azure-core <1.34.0 has Server-Side Request Forgery via
@@ -737,9 +730,6 @@ plugins: Dict[str, Set[str]] = {
         # https://github.com/mlflow/mlflow/pull/14795
         # Upper bound can be removed once the upstream issue is resolved,
         # or we have a reliable and backward-compatible way to handle prompt filtering.
-        # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
-        # setuptools 82 removed pkg_resources, which mlflow uses at runtime.
-        "setuptools<82",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-gc": set(),
@@ -825,7 +815,6 @@ plugins: Dict[str, Set[str]] = {
         microsoft_common
         | {"sqlparse<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
         | sqlglot_lib
-        | threading_timeout_common
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},

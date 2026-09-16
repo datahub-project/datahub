@@ -67,3 +67,9 @@ coverage:
       default:
         target: 75% # for new code added in the patch
         only_pulls: true
+
+ignore:
+  # Import-time / interpreter-startup hook: in-process coverage cannot observe
+  # meta_path registration. The finder is covered in
+  # tests/unit/utilities/test_pkg_resources_shim.py.
+  - "metadata-ingestion/src/datahub/_pkg_resources_finder.py"

@@ -304,8 +304,6 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 
 USER datahub
 
-ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
-
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION" # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
@@ -384,8 +382,6 @@ COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
 
 USER datahub
-
-ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"

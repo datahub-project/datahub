@@ -67,6 +67,12 @@ This product includes/uses Spring Framework (http://projects.spring.io/spring-fr
 Copyright (c) 2002- the original author or authors
 License: Apache 2.0 - http://www.apache.org/licenses/LICENSE-2.0
 
+This product includes/uses stopit (https://github.com/glenfant/stopit)
+Copyright (c) 2018 Gilles Lenfant
+License: MIT - http://www.opensource.org/licenses/mit-license.php
+metadata-ingestion/src/datahub/utilities/_stopit.py is a trimmed vendored copy of
+stopit 1.1.2 (the TimeoutException, async_raise, BaseTimeout and ThreadingTimeout
+subset), with the license header retained in the file.
 
 ========================================================================
 External dependencies
