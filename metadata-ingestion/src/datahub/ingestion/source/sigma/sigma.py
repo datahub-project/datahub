@@ -822,22 +822,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.dataset_warehouse_unlisted_dataset += 1
             if dataset_url_id not in self._dataset_unlisted_warned:
                 self._dataset_unlisted_warned.add(dataset_url_id)
-                if self.reporter.datasets_listing_failed or (
-                    self.reporter.datasets_dropped_missing_file_metadata
-                ):
+                if self.reporter.datasets_listing_failed:
                     # The listing itself failed, so this is not a filtering
                     # choice. Already warned once by the API layer; keep this
                     # per-dataset entry an info so the cause stays singular.
                     self.reporter.info(
-                        title="Sigma Dataset unresolvable: listing incomplete",
+                        title="Sigma Dataset unresolvable: dataset listing failed",
                         message=(
-                            "A workbook element reads a Sigma Dataset that the "
-                            "listing did not return, and the listing itself was "
-                            "incomplete this run -- either it failed outright, or "
-                            "datasets were dropped for missing file metadata. So "
-                            "this is not necessarily a workspace_pattern choice; "
-                            "see the listing warning and the "
-                            "datasets_dropped_missing_file_metadata counter."
+                            "A workbook element reads a Sigma Dataset, but "
+                            "/v2/datasets could not be listed this run, so its "
+                            "warehouse table cannot be looked up. See the "
+                            "'Sigma dataset listing failed' warning."
                         ),
                         context=f"dataset_url_id={dataset_url_id}",
                     )
@@ -849,12 +844,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             "dataset listing did not return, so its warehouse "
                             "table cannot be looked up. Usually workspace_pattern "
                             "excludes the dataset's workspace; widen it to "
-                            "recover this lineage."
+                            "recover this lineage. If "
+                            "datasets_dropped_missing_file_metadata is non-zero, "
+                            "some datasets were dropped for that reason instead -- "
+                            "which of the two applies here cannot be told apart, "
+                            "since the dropped ones are keyed by datasetId and "
+                            "that is precisely what an unlisted dataset lacks."
                         ),
-                        context=f"dataset_url_id={dataset_url_id}",
+                        context=(
+                            f"dataset_url_id={dataset_url_id}, "
+                            "dropped_missing_file_metadata="
+                            f"{self.reporter.datasets_dropped_missing_file_metadata}"
+                        ),
                     )
             self._dataset_warehouse_refs_cache[dataset_url_id] = refs
-            return refs
+            return list(refs)
 
         entries = self.sigma_api.get_dataset_sources(dataset_id)
         if entries is None:
@@ -862,7 +866,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # keeps the failure out of no_table_sources, which the docs describe
             # as the benign "this dataset has no warehouse table" case.
             self._dataset_warehouse_refs_cache[dataset_url_id] = refs
-            return refs
+            return list(refs)
 
         saw_table_source = False
         # Any entry we could not read at all. A malformed payload cannot tell us
@@ -921,7 +925,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.dataset_warehouse_no_table_sources += 1
 
         self._dataset_warehouse_refs_cache[dataset_url_id] = refs
-        return refs
+        # Copy on the way out as well as on a hit, so the caller never holds the
+        # cached list itself.
+        return list(refs)
 
     def _resolve_inode_to_warehouse_ref(
         self, inode_id: str

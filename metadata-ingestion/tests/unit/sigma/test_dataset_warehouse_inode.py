@@ -596,7 +596,18 @@ class TestDatasetListingFailure:
         with patch.object(source.reporter, "info") as spy:
             assert source._get_dataset_warehouse_refs("unknown-url-id") == []
             spy.assert_called_once()
-            assert "listing incomplete" in spy.call_args.kwargs["title"]
+            assert "listing failed" in spy.call_args.kwargs["title"]
+
+    def test_one_dropped_dataset_does_not_flip_the_diagnosis(self) -> None:
+        # datasets_dropped_missing_file_metadata is a per-dataset signal, so it
+        # must not re-label every unlisted dataset as a listing problem. Which
+        # of the two applies cannot be told apart here: dropped datasets are
+        # keyed by datasetId, which is exactly what an unlisted url_id lacks.
+        source = _make_source()
+        source.reporter.datasets_dropped_missing_file_metadata = 1
+        with patch.object(source.reporter, "info") as spy:
+            assert source._get_dataset_warehouse_refs("unknown-url-id") == []
+            assert "workspace_pattern" in spy.call_args.kwargs["message"]
 
     def test_unlisted_reason_names_workspace_pattern_otherwise(self) -> None:
         source = _make_source()

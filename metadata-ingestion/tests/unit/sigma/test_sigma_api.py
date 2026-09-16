@@ -3102,3 +3102,40 @@ class TestConnectionPathBodyShape:
             "unexpected body" in (w.title or "")
             for w in api.report.warnings  # type: ignore[attr-defined]
         )
+
+    def test_reprobe_targets_the_known_good_dataset_url(self) -> None:
+        # The re-probe must ask for the dataset that worked, not the one that
+        # just failed -- keyed by URL so a list-ordered mock cannot hide a mix-up.
+        api = _create_sigma_api()
+        calls: List[str] = []
+
+        def by_url(url: str) -> MagicMock:
+            calls.append(url)
+            if url.endswith("/datasets/ds-good/sources"):
+                return _response(200, []) if len(calls) == 1 else _response(404)
+            return _response(404)
+
+        with patch.object(api, "_get_api_call", side_effect=by_url):
+            assert api.get_dataset_sources("ds-good") == []
+            assert api.get_dataset_sources("ds-bad") is None
+        assert calls[-1].endswith("/datasets/ds-good/sources"), calls
+        assert api.report.dataset_sources_endpoint_removed == 1
+
+    def test_reprobe_success_leaves_the_route_enabled(self) -> None:
+        # Inverse: the known-good dataset still resolves, so the not-found was
+        # about that one dataset and later datasets must still be attempted.
+        api = _create_sigma_api()
+
+        def by_url(url: str) -> MagicMock:
+            return (
+                _response(404)
+                if url.endswith("/ds-bad/sources")
+                else _response(200, [])
+            )
+
+        with patch.object(api, "_get_api_call", side_effect=by_url):
+            assert api.get_dataset_sources("ds-good") == []
+            assert api.get_dataset_sources("ds-bad") is None
+            assert api.get_dataset_sources("ds-other") == []
+        assert api.report.dataset_sources_endpoint_removed == 0
+        assert api.report.dataset_sources_not_found == 1

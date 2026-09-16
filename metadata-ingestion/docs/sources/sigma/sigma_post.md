@@ -133,9 +133,12 @@ entry matches the element's path, so a recipe without one takes this route even 
 tenant still serving SQL. Those charts previously got no Sigma Dataset lineage at all.
 
 This route is a **stopgap**. It depends on the deprecated dataset API, so it will stop returning
-anything once Sigma removes those endpoints; migrate datasets to Data Models to keep lineage. A 410 from `/sources` latches the endpoint as removed at once. A 404 is ambiguous, so the
-connector asks `GET /v2/datasets/{id}`: if that is also gone the endpoint is latched and warned
-about once per run, otherwise the 404 is reported as an info for that one dataset (most likely
+A 410 from `/sources` latches the endpoint as removed at once. A 404 or 409 is ambiguous —
+Sigma answers `409 inode_archived`, not 404, for a dataset it cannot resolve — so the connector
+re-asks for a dataset whose `/sources` already succeeded this run. If that now fails too the
+endpoint is latched and warned about once; otherwise it is reported as an info for that one
+dataset (most likely deleted or re-permissioned after the listing). With nothing having
+succeeded yet, repeated not-founds escalate to a warning.
 deleted or re-permissioned after the listing).
 
 **If you set `env` or `platform_instance` in `chart_sources_platform_mapping`, copy them into
@@ -192,6 +195,7 @@ Known limitations:
 | `dataset_sources_not_found`                | Subset of `lookup_failed`: 404 for one dataset (deleted after the listing)        |
 | `dataset_sources_skipped_endpoint_gone`    | Datasets skipped with no request once the endpoint was latched as removed         |
 | `datasets_listing_failed`                  | `/v2/datasets` could not be listed, so no dataset lineage resolves this run       |
+| `datasets_dropped_missing_file_metadata`   | Datasets in the listing dropped because their `/files` metadata was missing       |
 
 Each Sigma Dataset also carries its Sigma-reported `migrationStatus` as a `datasetProperties`
 custom property — `not-migrated`, `migrated`, or `not-required` (referenced by nothing, so
