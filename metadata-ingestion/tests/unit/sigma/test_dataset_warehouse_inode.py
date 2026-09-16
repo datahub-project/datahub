@@ -125,18 +125,19 @@ class TestConnectionPathShapes:
 
 
 class TestDatasetWarehouseRefs:
-    def test_unlisted_dataset_warns_and_skips(self) -> None:
-        # The dataset is referenced by an element but absent from /v2/datasets,
-        # usually because workspace_pattern excludes its workspace. The old SQL
-        # route did not need the listing, so this is a new way to lose lineage
-        # and deserves a warning rather than a debug line.
+    def test_unlisted_dataset_is_reported_as_info_and_skipped(self) -> None:
+        # Referenced by an element but absent from /v2/datasets, usually because
+        # workspace_pattern excludes its workspace. Visible, but an info rather
+        # than a warning: excluding a workspace is normally deliberate.
         source = _make_source()
         warnings_before = len(source.reporter.warnings)
+        infos_before = len(source.reporter.infos)
         with patch.object(source.sigma_api, "get_dataset_sources") as mocked:
             assert source._get_dataset_warehouse_refs("unknown-url-id") == []
             mocked.assert_not_called()
         assert source.reporter.dataset_warehouse_unlisted_dataset == 1
-        assert len(source.reporter.warnings) == warnings_before + 1
+        assert len(source.reporter.infos) == infos_before + 1
+        assert len(source.reporter.warnings) == warnings_before
 
     @pytest.mark.parametrize(
         "entries",
@@ -158,6 +159,41 @@ class TestDatasetWarehouseRefs:
             assert source._get_dataset_warehouse_refs("url-1") == []
         assert source.reporter.dataset_warehouse_no_table_sources == 1
         assert source.reporter.dataset_sources_lookup_failed == 0
+
+    def test_failed_lookup_is_not_counted_as_no_table_sources(self) -> None:
+        # None means the lookup failed (already counted and warned inside
+        # SigmaAPI); [] means the dataset genuinely has no warehouse table. The
+        # docs call no_table_sources benign, so a failure must not land there --
+        # otherwise a retired endpoint reports every dataset as "CSV or
+        # custom SQL" instead of "endpoint gone".
+        source = _make_source()
+        source.sigma_dataset_id_by_url_id["url-1"] = "ds-uuid-1"
+        with patch.object(source.sigma_api, "get_dataset_sources", return_value=None):
+            assert source._get_dataset_warehouse_refs("url-1") == []
+        assert source.reporter.dataset_warehouse_no_table_sources == 0
+
+    def test_unmappable_connection_counted_once_for_two_tables(self) -> None:
+        # Two unmappable tables on one dataset is one unresolved dataset.
+        source = _make_source()
+        source.sigma_dataset_id_by_url_id["url-1"] = "ds-uuid-1"
+        with patch.object(
+            source.sigma_api,
+            "get_dataset_sources",
+            return_value=[
+                {"type": "table", "inodeId": "inode-1"},
+                {"type": "table", "inodeId": "inode-2"},
+            ],
+        ):
+            with patch.object(
+                source.sigma_api,
+                "get_connection_path",
+                side_effect=[
+                    ConnectionPath(connection_id="conn-absent", path=["DB", "S", "T1"]),
+                    ConnectionPath(connection_id="conn-absent", path=["DB", "S", "T2"]),
+                ],
+            ):
+                assert source._resolve_dataset_warehouse_upstreams("url-1") == []
+        assert source.reporter.dataset_warehouse_unknown_connection == 1
 
     def test_refs_are_cached_per_dataset(self) -> None:
         source = _make_source()
@@ -262,3 +298,82 @@ class TestPlatformMappingEnvWarning:
         before = len(source.reporter.warnings)
         source._warn_if_platform_mapping_env_ignored("conn-1")
         assert len(source.reporter.warnings) == before
+
+
+class TestFallbackGate:
+    """When the inode fallback fires, relative to the element's SQL.
+
+    The gate is "SQL named no warehouse tables", which is wider than "the
+    element has no SQL": the parser only runs when a
+    chart_sources_platform_mapping entry matches the element's path. Both cases
+    are pinned here so the distinction cannot drift silently again.
+    """
+
+    def _handle(
+        self, source: SigmaSource, *, sql_named_tables: bool, in_tables: List[str]
+    ) -> Dict[str, List[str]]:
+        from datahub.ingestion.source.sigma.data_classes import (
+            DatasetUpstream,
+            Element,
+            Workbook,
+        )
+
+        dataset_inputs: Dict[str, List[str]] = {}
+        source._handle_dataset_upstream(
+            upstream=DatasetUpstream(name="PETS dataset"),
+            node_id="inode-url-1",
+            element=Element(elementId="el-1", name="chart", url="http://x"),
+            workbook=Workbook(
+                workbookId="wb-1",
+                name="WB",
+                ownerId="u",
+                createdBy="u",
+                updatedBy="u",
+                createdAt="2024-01-01T00:00:00Z",
+                updatedAt="2024-01-01T00:00:00Z",
+                url="http://x",
+                path="ws",
+                latestVersion=1,
+            ),
+            dataset_inputs=dataset_inputs,
+            sql_parser_in_tables=in_tables,
+            sql_named_tables=sql_named_tables,
+        )
+        return dataset_inputs
+
+    def test_fallback_does_not_fire_when_sql_named_tables(self) -> None:
+        # The element has working SQL. Resolving the dataset here would add a
+        # second path to a table the chart already reaches directly.
+        source = _make_source()
+        with patch.object(source, "_resolve_dataset_warehouse_upstreams") as resolver:
+            self._handle(
+                source,
+                sql_named_tables=True,
+                in_tables=[
+                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t,PROD)"
+                ],
+            )
+            resolver.assert_not_called()
+
+    def test_fallback_fires_when_sql_named_nothing(self) -> None:
+        # Either the element has no SQL (post-deprecation) or no platform
+        # mapping matched, so the parser never ran. Both land here.
+        source = _make_source()
+        warehouse_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t,PROD)"
+        with patch.object(
+            source,
+            "_resolve_dataset_warehouse_upstreams",
+            return_value=[warehouse_urn],
+        ) as resolver:
+            dataset_inputs = self._handle(source, sql_named_tables=False, in_tables=[])
+            resolver.assert_called_once()
+        assert list(dataset_inputs.values()) == [[warehouse_urn]]
+
+    def test_unresolved_fallback_leaves_inputs_untouched(self) -> None:
+        # Matches pre-deprecation behaviour: the Sigma Dataset entered
+        # ChartInfo.inputs only when its warehouse table resolved.
+        source = _make_source()
+        with patch.object(
+            source, "_resolve_dataset_warehouse_upstreams", return_value=[]
+        ):
+            assert self._handle(source, sql_named_tables=False, in_tables=[]) == {}

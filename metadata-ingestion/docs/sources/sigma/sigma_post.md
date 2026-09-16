@@ -147,6 +147,16 @@ Known limitations:
   `dataset_warehouse_no_table_sources`.
 - A dataset excluded by `workspace_pattern` is absent from the dataset listing, so its
   `datasetId` is unknown and no lookup can be made. Widen the pattern to recover that lineage.
+  This is reported as an info, not a warning, since excluding a workspace is usually deliberate.
+- A Sigma Dataset whose warehouse table cannot be resolved gets no warehouse
+  `upstreamLineage`, and the chart does not list it under `chartInfo.inputs` — matching the
+  pre-deprecation behaviour, where the dataset appeared as a chart input only when its
+  warehouse table was identified.
+- A 2-segment path is read as `[SCHEMA, TABLE]` with the database taken from the connection.
+  That is correct for Redshift-style connections; for a platform that instead reports
+  `[DB, TABLE]` the emitted name would be wrong. This mirrors the existing `/files`
+  path handling and is unverified beyond Redshift — check a few edges if your warehouse
+  reports two-part paths.
 
 | Counter                                 | Meaning                                                                           |
 | --------------------------------------- | --------------------------------------------------------------------------------- |

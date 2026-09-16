@@ -1253,12 +1253,14 @@ class SigmaAPI:
         try:
             response = self._get_api_call(url)
             if response.status_code in (404, 410):
-                # Only conclude the endpoint is gone if nothing has succeeded yet
-                # this run. Once one dataset has answered 200 the endpoint plainly
-                # exists, so a later 404 is about that dataset -- latching there
-                # would drop lineage for every dataset processed afterwards.
+                # 410 Gone is unambiguous: the endpoint is retired, latch immediately.
+                # 404 is not -- a dataset deleted or re-permissioned between the
+                # /v2/datasets listing and this call also 404s -- so only conclude
+                # the endpoint is gone if nothing has succeeded yet this run.
+                # Latching on a mid-run 404 would drop lineage for every dataset
+                # processed afterwards.
                 self.report.dataset_sources_endpoint_removed += 1
-                if self._dataset_sources_succeeded:
+                if response.status_code == 404 and self._dataset_sources_succeeded:
                     self.report.warning(
                         title="Sigma dataset sources not found for one dataset",
                         message=(
@@ -1283,6 +1285,7 @@ class SigmaAPI:
                     )
                 return None
             if response.status_code == 429:
+                self.report.dataset_sources_lookup_failed += 1
                 self.report.dataset_sources_lookup_rate_limited += 1
                 self.report.warning(
                     title="Sigma API rate-limited on /datasets/{id}/sources",
@@ -1351,6 +1354,7 @@ class SigmaAPI:
         try:
             response = self._get_api_call(url)
             if response.status_code == 429:
+                self.report.connection_path_lookup_failed += 1
                 self.report.connection_path_lookup_rate_limited += 1
                 self.report.warning(
                     title="Sigma API rate-limited on /connections/paths lookup",

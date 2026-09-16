@@ -226,26 +226,6 @@ def _normalize_warehouse_identifier(name: str, platform: str, lowercase: bool) -
     return name
 
 
-def _fq_warehouse_name(
-    *,
-    db: Optional[str],
-    schema: str,
-    table: str,
-    platform: str,
-    lowercase: bool,
-) -> str:
-    """Join warehouse table coordinates into a fully-qualified, cased name.
-
-    db is None on 2-segment /files paths (e.g. Redshift), so emit schema.table
-    rather than "None.schema.table"; callers warn about the missing db at build
-    time (see _missing_default_db_warned).
-    """
-    name = f"{schema}.{table}" if db is None else f"{db}.{schema}.{table}"
-    if platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
-        return name.lower()
-    return name
-
-
 @dataclass(frozen=True)
 class _WarehouseTableRef:
     """Resolved warehouse table coordinates derived from a /files response."""
@@ -256,13 +236,19 @@ class _WarehouseTableRef:
     table: str
 
     def fq_name(self, platform: str, *, lowercase: bool = True) -> str:
-        return _fq_warehouse_name(
-            db=self.db,
-            schema=self.schema,
-            table=self.table,
-            platform=platform,
-            lowercase=lowercase,
+        # db is None for platforms with a 2-segment path (e.g. Redshift:
+        # "Connection Root/<SCHEMA>"). Emit schema.table (never "None.schema.table")
+        # so the URN matches what the warehouse connector produces for that platform.
+        # A warning is emitted at build-time (see _missing_default_db_warned) so
+        # the operator can configure default_database to get a 3-segment URN instead.
+        name = (
+            f"{self.schema}.{self.table}"
+            if self.db is None
+            else f"{self.db}.{self.schema}.{self.table}"
         )
+        if platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
+            return name.lower()
+        return name
 
 
 @dataclass
@@ -787,7 +773,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.dataset_warehouse_unlisted_dataset += 1
             if dataset_url_id not in self._dataset_unlisted_warned:
                 self._dataset_unlisted_warned.add(dataset_url_id)
-                self.reporter.warning(
+                self.reporter.info(
                     title="Sigma Dataset not in /v2/datasets; warehouse lineage skipped",
                     message=(
                         "A workbook element reads a Sigma Dataset that the dataset "
@@ -801,8 +787,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return refs
 
         entries = self.sigma_api.get_dataset_sources(dataset_id)
+        if entries is None:
+            # Lookup failed; SigmaAPI already counted and warned. Returning here
+            # keeps the failure out of no_table_sources, which the docs describe
+            # as the benign "this dataset has no warehouse table" case.
+            self._dataset_warehouse_refs_cache[dataset_url_id] = refs
+            return refs
+
         saw_table_source = False
-        for entry in entries or []:
+        for entry in entries:
             # Only type=table has a warehouse table behind it. CSV uploads,
             # dataset-on-dataset and custom-SQL datasets do not, and are
             # counted as no_table_sources rather than treated as failures.
@@ -901,18 +894,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         return db
 
-    def _warehouse_urn_for_ref(self, ref: _WarehouseTableRef) -> Optional[str]:
-        """Warehouse Dataset URN for already-resolved table coordinates.
-
-        ``_resolve_dm_element_warehouse_upstream`` is keyed by a url_id against a
-        map, which suits its DM caller; here the ref is already in hand, so wrap
-        that shape rather than repeating the registry and casing logic.
-        """
-        return self._resolve_dm_element_warehouse_upstream(
-            url_id_suffix=ref.connection_id,
-            warehouse_map={ref.connection_id: ref},
-        )
-
     def _warn_if_platform_mapping_env_ignored(self, connection_id: str) -> None:
         """Warn when env / platform_instance are set only on the legacy mapping.
 
@@ -963,12 +944,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._dataset_warehouse_counted.add(dataset_url_id)
 
         upstream_urns: List[str] = []
+        unresolved_connection = False
         for ref in self._get_dataset_warehouse_refs(dataset_url_id):
             self._warn_if_platform_mapping_env_ignored(ref.connection_id)
-            urn = self._warehouse_urn_for_ref(ref)
+            urn = self._warehouse_ref_to_urn(ref)
             if urn is None:
-                if first_time:
-                    self.reporter.dataset_warehouse_unknown_connection += 1
+                unresolved_connection = True
                 logger.debug(
                     "Sigma Dataset %s: connectionId %r is not resolvable to a "
                     "warehouse platform; warehouse upstream skipped.",
@@ -977,8 +958,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
             upstream_urns.append(urn)
-        if upstream_urns and first_time:
-            self.reporter.dataset_warehouse_upstream_from_inode += 1
+        if first_time:
+            # Both counters are per dataset: a dataset with two unmappable
+            # tables is one unresolved dataset, not two.
+            if upstream_urns:
+                self.reporter.dataset_warehouse_upstream_from_inode += 1
+            if unresolved_connection:
+                self.reporter.dataset_warehouse_unknown_connection += 1
         return upstream_urns
 
     def _build_dm_warehouse_url_id_map(
@@ -1140,16 +1126,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         ref = warehouse_map.get(url_id_suffix)
         if ref is None:
             return None
+        return self._warehouse_ref_to_urn(ref)
 
+    def _warehouse_ref_to_urn(self, ref: _WarehouseTableRef) -> Optional[str]:
+        """Build a warehouse Dataset URN from resolved table coordinates.
+
+        Shared by the DM/workbook routes (which look the ref up by inode urlId)
+        and the Sigma Dataset route (which already holds the ref). See
+        _resolve_dm_element_warehouse_upstream for the env / platform_instance /
+        casing contract.
+        """
         record = self.connection_registry.get(ref.connection_id)
         if record is None or not record.is_mappable:
             # Counter is bumped by caller gated on unresolved_seen to avoid
             # inflating on diamond source_ids.
             logger.debug(
-                "inode-%s: connectionId %r not resolvable to a warehouse platform "
-                "(missing from registry or is_mappable=False).",
-                url_id_suffix,
+                "connectionId %r not resolvable to a warehouse platform "
+                "(missing from registry or is_mappable=False); table %r skipped.",
                 ref.connection_id,
+                ref.table,
             )
             return None
 
@@ -4492,7 +4487,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.sigma_dataset_urn_by_url_id[dataset.get_urn_part()] = (
                 self._gen_sigma_dataset_urn(dataset.get_urn_part())
             )
-            # Same pre-pass, so _get_dataset_source_tables resolves regardless
+            # Same pre-pass, so _get_dataset_warehouse_refs resolves regardless
             # of emission order.
             self.sigma_dataset_id_by_url_id[dataset.get_urn_part()] = dataset.datasetId
 

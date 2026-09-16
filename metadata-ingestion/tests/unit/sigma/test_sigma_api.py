@@ -2915,7 +2915,9 @@ class TestGetDatasetSources:
         with patch.object(api, "_get_api_call", return_value=_response(429)):
             assert api.get_dataset_sources("ds-1") is None
         assert api.report.dataset_sources_lookup_rate_limited == 1
-        assert api.report.dataset_sources_lookup_failed == 0
+        # Sub-bucket: the aggregate counts it too, matching the convention the
+        # other Sigma rate-limit counters follow.
+        assert api.report.dataset_sources_lookup_failed == 1
 
     def test_exception_is_contained(self) -> None:
         api = _create_sigma_api()
@@ -2973,13 +2975,23 @@ class TestGetConnectionPath:
         with patch.object(api, "_get_api_call", return_value=_response(429)):
             assert api.get_connection_path("inode-1") is None
         assert api.report.connection_path_lookup_rate_limited == 1
-        assert api.report.connection_path_lookup_failed == 0
+        assert api.report.connection_path_lookup_failed == 1
 
     def test_exception_is_contained(self) -> None:
         api = _create_sigma_api()
         with patch.object(api, "_get_api_call", side_effect=requests.RequestException):
             assert api.get_connection_path("inode-1") is None
         assert api.report.connection_path_lookup_failed == 1
+
+    def test_410_after_a_success_still_latches(self) -> None:
+        # 410 Gone is unambiguous, so an earlier success does not soften it.
+        api = _create_sigma_api()
+        responses = [_response(200, []), _response(410), _response(200, [])]
+        with patch.object(api, "_get_api_call", side_effect=responses) as mocked:
+            assert api.get_dataset_sources("ds-a") is not None
+            assert api.get_dataset_sources("ds-b") is None
+            assert api.get_dataset_sources("ds-c") is None
+            assert mocked.call_count == 2
 
     def test_404_after_a_success_is_a_per_dataset_miss(self) -> None:
         # A 404 only means "endpoint gone" if nothing has succeeded yet. Once one
