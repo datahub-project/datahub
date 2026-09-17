@@ -116,8 +116,10 @@ def test_scaffold_does_not_overwrite_a_connectors_deny_defaults(source_type, fie
     connector is what makes the guard per-connector.
     """
     _require_connector(source_type)
+    # config_class_for stays local: it is used only here, and importing it at
+    # module scope would resolve the registry at collection time. `scaffold`
+    # is already imported at the top of this file.
     from datahub.ingestion.agent.probe_methods import config_class_for
-    from datahub.ingestion.agent.recipe import scaffold
 
     source = scaffold(source_type)["source"]
     assert isinstance(source, dict)

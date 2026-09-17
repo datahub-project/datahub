@@ -969,6 +969,16 @@ def test_methods_declares_every_recipe_dependent_kind_that_run_reports():
         checked += 1
         for command, kind in expected.items():
             if command not in declared:
+                # Not a skip. `expected` is what `probe run` would report and
+                # `declared` is what `probe methods` lists, so a command in
+                # one and not the other is the failure this test is named for
+                # -- an agent cannot discover the command at all, which is
+                # strictly worse than discovering it with the wrong kind.
+                # `continue` let that pass silently.
+                disagreed[source_type] = (
+                    f"{command}: run would report kind {kind!r} but methods "
+                    f"does not list the command at all"
+                )
                 continue
             if declared[command] != kind:
                 disagreed[source_type] = (

@@ -382,11 +382,6 @@ def test_run_probe_method_folds_the_connectors_report_into_the_result(monkeypatc
     api.report.failure(title="Listing failed", message="403 Forbidden")
     provider = _probe_for(api)
 
-    class _Provider:
-        @classmethod
-        def for_config(cls, config):
-            return provider
-
     monkeypatch.setattr(pm, "_provider_class", lambda st: type(provider))
 
     class _Config:

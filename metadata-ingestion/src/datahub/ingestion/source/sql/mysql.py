@@ -44,7 +44,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import (
-    AwsConnectionConfig,
     RDSIAMTokenManager,
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
@@ -203,13 +202,6 @@ class MySQLConnectionConfig(RDSIAMConnectionMixin):
         description="Authentication mode to use for the MySQL connection. "
         "Options are 'PASSWORD' (default) for standard username/password authentication, "
         "or 'AWS_IAM' for AWS RDS IAM authentication.",
-    )
-    aws_config: AwsConnectionConfig = Field(
-        default_factory=AwsConnectionConfig,
-        description="AWS configuration for RDS IAM authentication (only used when auth_mode is AWS_IAM). "
-        "Provides full control over AWS credentials, region, profiles, role assumption, retry logic, and proxy settings. "
-        "If not explicitly configured, boto3 will automatically use the default credential chain and region from "
-        "environment variables (AWS_DEFAULT_REGION, AWS_REGION), AWS config files (~/.aws/config), or IAM role metadata.",
     )
 
     def rds_iam_enabled(self) -> bool:
@@ -453,15 +445,18 @@ class MySQLSource(TwoTierSQLAlchemySource):
             context=formatted,
         )
 
-    def _setup_rds_iam_event_listener(
-        self, engine: "Engine", database_name: Optional[str] = None
-    ) -> None:
+    def _setup_rds_iam_event_listener(self, engine: "Engine") -> None:
         """Inject RDS IAM tokens on this engine's connections.
 
         One line, because the implementation is on the config: the probe builds
-        its own engines and can only reach setup that lives there. `database_name`
-        is unused and kept for the call sites -- the token is per host, not per
-        database.
+        its own engines and can only reach setup that lives there.
+
+        It used to take a `database_name` the body never read, passed by the
+        per-database call site. A parameter that does nothing reads as a
+        per-database token and there is no such thing -- the token is scoped
+        to host, port and user, so every engine against the same instance
+        wants the same setup. Dropped rather than documented, since the
+        comment explaining it was the only thing keeping it true.
         """
         self.config.install_rds_iam_auth(engine)
 
@@ -493,7 +488,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
             # connections (QueuePool accepts it). PR #18319 fixes the mirror-image case where the
             # same injected option breaks the NullPool usage engine — same root cause.
             db_engine = create_engine(db_url, **self.config.options)
-            self._setup_rds_iam_event_listener(db_engine, database_name=db)
+            self._setup_rds_iam_event_listener(db_engine)
             try:
                 with db_engine.connect() as conn:
                     inspector = inspect(conn)

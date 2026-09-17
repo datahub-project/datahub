@@ -214,6 +214,55 @@ def test_a_source_that_filters_on_a_qualified_identifier_still_asks():
     assert with_parent.warnings == []
 
 
+def test_describe_does_not_advertise_a_field_for_a_kind_declared_unfiltered(
+    monkeypatch,
+):
+    """The two probe commands have to agree about the same field.
+
+    That is _filter_kinds_by_field's whole reason for existing: reading only
+    the explicit annotation made `describe` report filters: null for a field
+    `probe filter` was actively filtering on, and there was no way from
+    outside to tell which of the two was lying.
+
+    One gap was left in the same shape. pattern_field_for_config gives a
+    declared-unfiltered kind top precedence and answers UNFILTERED without
+    looking anything up, but this class-level mapping never consulted the
+    declaration -- so a connector that declares a kind unfiltered while
+    keeping a same-named compatibility field had `describe` advertise the
+    field and `probe filter` answer UNFILTERED, contradicting each other
+    again.
+    """
+    from datahub.configuration.common import AllowDenyPattern
+    from datahub.ingestion.agent import introspect
+
+    class _Config:
+        dataset_pattern = AllowDenyPattern.allow_all()
+
+        @classmethod
+        def probe_unfiltered_kinds(cls):
+            return {"Dataset"}
+
+    monkeypatch.setattr(
+        introspect, "declared_kinds_for_class", lambda _st, _cls: {"Dataset"}
+    )
+    monkeypatch.setattr(
+        introspect,
+        "_pattern_field_for_config_class",
+        lambda _cls, kind: "dataset_pattern" if kind == "Dataset" else None,
+    )
+
+    mapping = introspect._filter_kinds_by_field("fake-source", _Config)
+
+    assert mapping == {}, (
+        "describe advertises dataset_pattern as filtering Dataset while "
+        "probe filter answers UNFILTERED for it"
+    )
+    # And the other command's answer, for the comparison this is about.
+    assert introspect.pattern_field_for_config(_Config(), "Dataset") == (
+        introspect.UNFILTERED
+    )
+
+
 def test_a_source_whose_unfiltered_declaration_raises_is_not_read_as_silence():
     """An indistinguishable empty answer is the bug this hook exists to fix.
 

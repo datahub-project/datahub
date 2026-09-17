@@ -412,9 +412,20 @@ def _filter_kinds_by_field(source_type: str, config_cls: type) -> Dict[str, str]
     which is what makes it safe: `procedure_pattern` and `profile_pattern` are
     real filters that gate no hierarchy level, and a blind inversion of the name
     convention would report them as levels. No declared kind, no inversion.
+
+    A kind the source declares UNFILTERED is skipped for the same
+    agree-with-the-other-command reason. pattern_field_for_config gives that
+    declaration top precedence and answers UNFILTERED without looking
+    anything up, so a connector that declares a kind unfiltered while keeping
+    a same-named compatibility field would otherwise have `describe`
+    advertise the field and `probe filter` answer UNFILTERED -- the same
+    contradiction, one door along.
     """
+    unfiltered = declared_unfiltered_kinds(config_cls)
     resolved: Dict[str, str] = {}
     for kind in sorted(declared_kinds_for_class(source_type, config_cls)):
+        if str(kind) in unfiltered:
+            continue
         field = _pattern_field_for_config_class(config_cls, kind)
         # First kind wins, and sorted() makes that deterministic rather than
         # dependent on set iteration order.

@@ -277,7 +277,10 @@ class ModeConfig(
         is exactly what happened to Teradata's database_pattern, and nothing
         noticed because the two look identical from outside.
         """
-        return {"Dataset", "Query"}
+        return {
+            str(BIAssetSubTypes.MODE_DATASET),
+            str(BIAssetSubTypes.MODE_QUERY),
+        }
 
     space_pattern: Annotated[AllowDenyPattern, Filters("Space")] = Field(
         default=AllowDenyPattern(

@@ -1,11 +1,14 @@
 from typing import Any, Dict, Optional, Tuple
 
-from pydantic import PrivateAttr
+from pydantic import Field, PrivateAttr
 from sqlalchemy import event
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
-from datahub.ingestion.source.aws.aws_common import RDSIAMTokenManager
+from datahub.ingestion.source.aws.aws_common import (
+    AwsConnectionConfig,
+    RDSIAMTokenManager,
+)
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 
@@ -44,6 +47,20 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
     def rds_iam_default_port(self) -> int:
         """The port to assume when host_port carries none."""
         raise NotImplementedError
+
+    # Declared here, on the mixin that reads it, rather than separately on
+    # every connector that mixes this in. It was duplicated verbatim in
+    # mysql.py and postgres/source.py while this file reached it through
+    # `self.aws_config  # type: ignore[attr-defined]` -- an ignore that hid a
+    # required subclass contract from mypy, so a connector could mix this in
+    # without the field and only find out at runtime with IAM enabled.
+    aws_config: AwsConnectionConfig = Field(
+        default_factory=AwsConnectionConfig,
+        description="AWS configuration for RDS IAM authentication (only used when auth_mode is AWS_IAM). "
+        "Provides full control over AWS credentials, region, profiles, role assumption, retry logic, and proxy settings. "
+        "If not explicitly configured, boto3 will automatically use the default credential chain and region from "
+        "environment variables (AWS_DEFAULT_REGION, AWS_REGION), AWS config files (~/.aws/config), or IAM role metadata.",
+    )
 
     def apply_rds_iam_ssl(self, cparams: Dict[str, Any]) -> None:
         """Require TLS. IAM tokens are bearer credentials on the wire, so this
@@ -132,7 +149,7 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
             # aws_config too: it decides which credentials sign the token, so a
             # copy that switched region or assumed role would otherwise keep
             # signing with the old one.
-            and cached.aws_config == self.aws_config  # type: ignore[attr-defined]
+            and cached.aws_config == self.aws_config
         ):
             return cached
         if port is None:
@@ -153,7 +170,7 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
             endpoint=hostname,
             username=username,
             port=port,
-            aws_config=self.aws_config,  # type: ignore[attr-defined]
+            aws_config=self.aws_config,
         )
         return self._rds_iam_manager
 
