@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.policy.mappers;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertThrows;
 
 import com.linkedin.datahub.graphql.generated.ActorFilterInput;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
@@ -28,31 +29,27 @@ public class PolicyUpdateInputInfoMapperTest {
     input.setType(PolicyType.METADATA);
     input.setState(PolicyState.ACTIVE);
     input.setPrivileges(Arrays.asList("EDIT_ENTITY_TAGS"));
-    input.setActors(new ActorFilterInput());
-    input.getActors().setAllUsers(true);
+    ActorFilterInput actors = new ActorFilterInput();
+    actors.setAllUsers(true);
+    input.setActors(actors);
+
+    ResourceFilterInput resources = new ResourceFilterInput();
+    resources.setAllResources(true);
+    input.setResources(resources);
+
     return input;
   }
 
   private static void applyResourceFilter(
       PolicyUpdateInput input, PolicyMatchCriterionInput criterion) {
-    PolicyMatchFilterInput filter = new PolicyMatchFilterInput();
-    filter.setCriteria(Arrays.asList(criterion));
-
-    ResourceFilterInput resources = new ResourceFilterInput();
-    resources.setAllResources(true);
-    resources.setFilter(filter);
-    input.setResources(resources);
+    applyResourceFilter(input, new PolicyMatchCriterionInput[] {criterion});
   }
 
   private static void applyResourceFilter(
       PolicyUpdateInput input, PolicyMatchCriterionInput... criteria) {
     PolicyMatchFilterInput filter = new PolicyMatchFilterInput();
     filter.setCriteria(Arrays.asList(criteria));
-
-    ResourceFilterInput resources = new ResourceFilterInput();
-    resources.setAllResources(true);
-    resources.setFilter(filter);
-    input.setResources(resources);
+    input.getResources().setFilter(filter);
   }
 
   private static PolicyMatchCriterionInput createStructuredPropertyCriterion(
@@ -263,5 +260,24 @@ public class PolicyUpdateInputInfoMapperTest {
     assertTrue(
         criterion.getStructuredPropertyValues() == null
             || criterion.getStructuredPropertyValues().isEmpty());
+  }
+
+  @Test
+  public void testMapInvalidStructuredPropertyUrn() {
+    PolicyUpdateInput input = createBasicPolicyInput("Invalid URN Policy");
+
+    StructuredPropertyCriterionValueInput propValue = new StructuredPropertyCriterionValueInput();
+    propValue.setPropertyUrn("malformed-urn-not-valid");
+    propValue.setValues(Arrays.asList("value1"));
+
+    PolicyMatchCriterionInput structuredPropCriterion = new PolicyMatchCriterionInput();
+    structuredPropCriterion.setField("STRUCTURED_PROPERTY");
+    structuredPropCriterion.setValues(Arrays.asList());
+    structuredPropCriterion.setStructuredPropertyValues(Arrays.asList(propValue));
+    structuredPropCriterion.setCondition(PolicyMatchCondition.EQUALS);
+
+    applyResourceFilter(input, structuredPropCriterion);
+
+    assertThrows(Exception.class, () -> mapper.map(null, input));
   }
 }

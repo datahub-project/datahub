@@ -194,12 +194,17 @@ export function usePolicy(
         if (focusPolicyUrn) {
             // If there's an URN associated with the focused policy, then we are editing an existing policy.
             updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } }).then(() => {
+                const newPolicy = {
+                    __typename: 'ListPoliciesResult',
+                    urn: focusPolicyUrn,
+                    ...savePolicy,
+                };
                 analytics.event({
                     type: EventType.UpdatePolicyEvent,
                     policyUrn: focusPolicyUrn,
                 });
                 toast.success(t('savePolicySuccess'));
-                // Refetch will update the cache with complete data
+                updateListPoliciesCache(client, newPolicy, DEFAULT_PAGE_SIZE);
                 setTimeout(() => {
                     policiesRefetch();
                 }, 1000);
@@ -207,15 +212,20 @@ export function usePolicy(
             });
         } else {
             // If there's no URN associated with the focused policy, then we are creating.
-            createPolicy({ variables: { input: toPolicyInput(savePolicy) } }).then(() => {
+            createPolicy({ variables: { input: toPolicyInput(savePolicy) } }).then((result) => {
+                const newPolicy = {
+                    __typename: 'ListPoliciesResult',
+                    urn: result?.data?.createPolicy,
+                    ...savePolicy,
+                };
                 analytics.event({
                     type: EventType.CreatePolicyEvent,
                 });
                 toast.success(t('savePolicySuccess'));
-                // Refetch will update the cache with complete data
                 setTimeout(() => {
                     policiesRefetch();
                 }, 1000);
+                updateListPoliciesCache(client, newPolicy, DEFAULT_PAGE_SIZE);
                 onClosePolicyBuilder();
             });
         }

@@ -1,4 +1,4 @@
-import { Input } from '@components';
+import { MultiValueInput } from '@components';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -7,7 +7,7 @@ import { EntitySearchSelect } from '@app/entityV2/shared/EntitySearchSelect/Enti
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
-import { mapResourceTypeToEntityType, toStartsWithValues } from '@app/permissions/policy/policyUtils';
+import { mapResourceTypeToEntityType } from '@app/permissions/policy/policyUtils';
 
 import { EntityType, PolicyMatchCondition, ResourceFilter } from '@types';
 
@@ -35,10 +35,6 @@ const SelectContainer = styled.div`
     min-width: 0;
 `;
 
-const StyledInput = styled(Input)`
-    width: 100%;
-`;
-
 export default function ResourceSelect({
     resourceSelectValue,
     resourceEntities,
@@ -53,7 +49,6 @@ export default function ResourceSelect({
     const { t } = useTranslation('settings.permissions');
 
     const isStartsWithCondition = resourceCondition === PolicyMatchCondition.StartsWith;
-    const startswithValue = isStartsWithCondition && resourceSelectValue.length > 0 ? resourceSelectValue[0] : '';
 
     const handleConditionChange = useClearOnConditionChange(resourceCondition, FIELD_TYPES.RESOURCE, onConditionChange);
 
@@ -84,10 +79,11 @@ export default function ResourceSelect({
             />
             <SelectContainer>
                 {isStartsWithCondition ? (
-                    <StyledInput
+                    <MultiValueInput
                         placeholder={t('privilegeForm.resourcePrefixPlaceholder')}
-                        value={startswithValue}
-                        onChange={(e) => onResourcesChange(toStartsWithValues(e.target.value))}
+                        values={resourceSelectValue}
+                        onUpdate={onResourcesChange}
+                        width="full"
                     />
                 ) : (
                     <EntitySearchSelect

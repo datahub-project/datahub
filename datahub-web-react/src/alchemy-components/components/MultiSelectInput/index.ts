@@ -1,1 +1,0 @@
-export { MultiSelectInput } from './MultiSelectInput';

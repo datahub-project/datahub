@@ -12,10 +12,10 @@ import {
     Label,
     NativeInput,
     TagsWrapper,
-} from '@components/components/MultiSelectInput/components';
-import { MultiSelectInputProps } from '@components/components/MultiSelectInput/types';
+} from '@components/components/MultiValueInput/components';
+import { MultiValueInputProps } from '@components/components/MultiValueInput/types';
 
-export const MultiSelectInput = ({
+export const MultiValueInput = ({
     values,
     onUpdate,
     placeholder,
@@ -28,7 +28,7 @@ export const MultiSelectInput = ({
     className,
     width = 300,
     inputType = 'text',
-}: MultiSelectInputProps) => {
+}: MultiValueInputProps) => {
     const { t } = useTranslation('alchemy');
     const [inputValue, setInputValue] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
