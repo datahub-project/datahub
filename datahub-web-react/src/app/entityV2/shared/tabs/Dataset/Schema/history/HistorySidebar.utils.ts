@@ -62,11 +62,11 @@ export { ChangeCategoryType, ChangeOperationType };
 
 // Category value type — includes generated enum values plus string constants
 // for categories that may not yet be in the locally generated TypeScript types.
-type ChangeCategoryValue = ChangeCategoryType | string;
+export type ChangeCategoryValue = ChangeCategoryType | string;
 
 export type CategoryOption = { value: ChangeCategoryValue; label: string };
 
-function getAllCategoryOptions(): CategoryOption[] {
+export function getAllCategoryOptions(): CategoryOption[] {
     return [
         {
             value: ChangeCategoryType.TechnicalSchema,
@@ -106,7 +106,7 @@ function getAllCategoryOptions(): CategoryOption[] {
 }
 
 // Supported categories per entity type, matching the backend registry in TimelineServiceImpl.java
-const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategoryValue>>> = {
+export const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategoryValue>>> = {
     [EntityType.Dataset]: new Set([
         ChangeCategoryType.TechnicalSchema,
         ChangeCategoryType.Documentation,
@@ -130,14 +130,6 @@ const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategory
     [EntityType.Domain]: new Set([
         ChangeCategoryType.Documentation,
         ChangeCategoryType.Ownership,
-        CATEGORY_STRUCTURED_PROPERTY,
-    ]),
-    [EntityType.Container]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Ownership,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        CATEGORY_DOMAIN,
         CATEGORY_STRUCTURED_PROPERTY,
     ]),
     [EntityType.DataProduct]: new Set([

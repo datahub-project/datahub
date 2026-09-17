@@ -22,7 +22,7 @@ const StyledCheckbox = styled(Checkbox)`
     :hover {
         background-color: ${(props) => props.theme.colors.bgSurface};
     }
-    width: 232px;
+    min-width: 232px;
 `;
 
 const StyledButton = styled(Button)`

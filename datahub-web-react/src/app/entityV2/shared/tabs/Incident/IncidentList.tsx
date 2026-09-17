@@ -114,6 +114,7 @@ export const IncidentList = () => {
         }
         return <Empty description={t('list.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
+
     return (
         <>
             <IncidentTitleContainer

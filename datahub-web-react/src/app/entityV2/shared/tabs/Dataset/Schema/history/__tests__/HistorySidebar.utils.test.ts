@@ -89,22 +89,6 @@ describe('getCategoryOptions', () => {
         expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
     });
 
-    it('returns Documentation, Tags, Terms, Owners, Domains, Properties for containers', () => {
-        const options = getCategoryOptions(EntityType.Container);
-        const values = options.map((o) => o.value);
-
-        expect(values).toEqual([
-            ChangeCategoryType.Documentation,
-            ChangeCategoryType.Tag,
-            ChangeCategoryType.GlossaryTerm,
-            ChangeCategoryType.Ownership,
-            CATEGORY_DOMAIN,
-            CATEGORY_STRUCTURED_PROPERTY,
-        ]);
-        expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
-        expect(values).not.toContain(CATEGORY_APPLICATION);
-    });
-
     it('falls back to all categories for entity types without a mapping', () => {
         const options = getCategoryOptions(EntityType.Chart);
         expect(options).toEqual(ALL_CATEGORY_OPTIONS);

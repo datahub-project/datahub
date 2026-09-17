@@ -84,7 +84,7 @@ export class RoleEntity implements Entity<Role> {
     };
 
     supportedCapabilities = () => {
-        return new Set([EntityCapabilityType.OWNERS, EntityCapabilityType.FORMS]);
+        return new Set([EntityCapabilityType.OWNERS]);
     };
 
     getGraphName = () => {

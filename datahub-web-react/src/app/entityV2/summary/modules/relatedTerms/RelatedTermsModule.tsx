@@ -19,38 +19,6 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { useGetRelatedTermsQuery } from '@graphql/glossary.generated';
 import { DataHubPageModuleType } from '@types';
 
-// Maps each RelatedTermTypes enum key to the query alias(es) that back it.
-// Merged bidirectional types pull from two aliases and deduplicate by URN.
-const RELATIONSHIP_ALIASES: Record<string, string[]> = {
-    isRelatedTerms: ['isRelatedTerms'],
-    hasRelatedTerms: ['hasRelatedTerms'],
-    isAChildren: ['isAChildren'],
-    containedBy: ['containedBy'],
-    relatedTermsMerged: ['relatedTo', 'relatedFrom'],
-    synonymsMerged: ['synonymOf', 'synonymWith'],
-    antonymsMerged: ['antonymOf', 'antonymWith'],
-    translatesTo: ['translatesTo'],
-    translatedFrom: ['translatedFrom'],
-    hasValue: ['hasValue'],
-    isValueOf: ['isValueOf'],
-};
-
-function getRelationshipsForType(
-    glossaryTerm: Record<string, any> | undefined | null,
-    typeKey: string,
-): Array<{ entity: any }> {
-    const aliases = RELATIONSHIP_ALIASES[typeKey] || [];
-    const seen = new Set<string>();
-    return aliases
-        .flatMap((alias) => (glossaryTerm?.[alias]?.relationships || []) as Array<{ entity: any }>)
-        .filter((rel) => {
-            const urn = rel?.entity?.urn;
-            if (!urn || seen.has(urn)) return false;
-            seen.add(urn);
-            return true;
-        });
-}
-
 export default function RelatedTermsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const entityRegistry = useEntityRegistryV2();
@@ -68,18 +36,12 @@ export default function RelatedTermsModule(props: ModuleProps) {
         history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/Related Terms`);
     };
 
-    const glossaryTerm = data?.glossaryTerm as Record<string, any> | undefined | null;
-
-    // Collect all non-empty relationship entries with their display label
-    const allEntries: Array<{ entity: any; typeLabel: string }> = [];
-    Object.keys(RelatedTermTypes).forEach((typeKey) => {
-        const rels = getRelationshipsForType(glossaryTerm, typeKey);
-        rels.filter((r) => !!r.entity).forEach((r) => {
-            allEntries.push({ entity: r.entity, typeLabel: RelatedTermTypes[typeKey] });
-        });
+    let hasData = false;
+    Object.keys(RelatedTermTypes).forEach((relationshipType) => {
+        if (data?.glossaryTerm?.[relationshipType]?.relationships?.length) {
+            hasData = true;
+        }
     });
-
-    const hasData = allEntries.length > 0;
 
     return (
         <LargeModule
@@ -97,15 +59,27 @@ export default function RelatedTermsModule(props: ModuleProps) {
                     onLinkClick={navigateToRelatedTermsTab}
                 />
             )}
-            {hasData &&
-                allEntries.map(({ entity, typeLabel }) => (
-                    <EntityItem
-                        entity={entity}
-                        key={`${typeLabel}-${entity.urn}`}
-                        moduleType={DataHubPageModuleType.RelatedTerms}
-                        customDetailsRenderer={() => <Text size="sm">{getRelatedTermTypeLabel(typeLabel)}</Text>}
-                    />
-                ))}
+            {hasData && (
+                <>
+                    {Object.keys(RelatedTermTypes).map((relationshipType) => {
+                        const relatedTerms = data?.glossaryTerm?.[relationshipType]?.relationships || [];
+                        return relatedTerms
+                            .filter((relationship) => !!relationship.entity)
+                            .map((relationship) => (
+                                <EntityItem
+                                    entity={relationship.entity}
+                                    key={relationship.entity?.urn}
+                                    moduleType={DataHubPageModuleType.RelatedTerms}
+                                    customDetailsRenderer={() => (
+                                        <Text size="sm">
+                                            {getRelatedTermTypeLabel(RelatedTermTypes[relationshipType])}
+                                        </Text>
+                                    )}
+                                />
+                            ));
+                    })}
+                </>
+            )}
         </LargeModule>
     );
 }

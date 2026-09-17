@@ -24,7 +24,7 @@ const InfoItemContainer = styled.div<{ justifyContent }>`
 
 const InfoItemContent = styled.div`
     padding-top: 8px;
-    width: 100px;
+    min-width: 100px;
 `;
 
 const NameContainer = styled.div`
