@@ -189,7 +189,7 @@ def _folder_source(**config: object) -> SapDatasphereSource:
     )
 
 
-def test_assets_parent_to_the_space_when_folders_are_disabled(requests_mock):
+def test_assets_parent_to_the_space_when_it_has_no_folders(requests_mock):
     requests_mock.get(SEARCH_URL, json={"value": []})
     source = _folder_source()
 
@@ -197,7 +197,6 @@ def test_assets_parent_to_the_space_when_folders_are_disabled(requests_mock):
     parent = source._parent_container("DEMO_SPACE", "SALES_VIEW")
 
     assert not isinstance(parent, FolderContainerKey)
-    assert requests_mock.call_count == 0
 
 
 def test_folder_containers_nest_and_capture_their_objects(requests_mock):
@@ -218,7 +217,7 @@ def test_folder_containers_nest_and_capture_their_objects(requests_mock):
             ]
         },
     )
-    source = _folder_source(include_folders=True)
+    source = _folder_source()
 
     workunits = list(source._emit_folders("DEMO_SPACE"))
 
@@ -257,7 +256,7 @@ def test_unfoldered_object_still_parents_to_the_space(requests_mock):
         SEARCH_URL,
         json={"value": [{"name": "OTHER_VIEW", "kind": "entity", "folder_name": "F"}]},
     )
-    source = _folder_source(include_folders=True)
+    source = _folder_source()
     list(source._emit_folders("DEMO_SPACE"))
 
     assert source._parent_container("DEMO_SPACE", "ROOT_VIEW") == source._space_key(
@@ -266,7 +265,7 @@ def test_unfoldered_object_still_parents_to_the_space(requests_mock):
 
 
 def test_same_named_folders_under_different_parents_stay_distinct():
-    source = _folder_source(include_folders=True)
+    source = _folder_source()
     assert source._folder_key("S", ("Sales", "Archive")) != source._folder_key(
         "S", ("Finance", "Archive")
     )

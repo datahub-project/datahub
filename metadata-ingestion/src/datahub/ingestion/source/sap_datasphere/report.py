@@ -42,7 +42,7 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     local_tables_emitted: int = 0
     columns_filtered: int = 0
     # Folder containers emitted, and objects parented to one rather than to the
-    # space root (both zero unless `include_folders` is on).
+    # space root (both zero on a tenant with no folders, or none readable).
     folders_emitted: int = 0
     objects_assigned_to_folder: int = 0
     # A space whose folder assignments could not be read from the undocumented

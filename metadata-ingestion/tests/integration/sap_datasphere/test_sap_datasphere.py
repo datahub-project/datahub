@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from typing import cast
 from unittest import mock
@@ -26,7 +27,14 @@ def _fixture(name: str) -> Path:
     return FIXTURES_DIR / name
 
 
+def _install_folder_mocks(m: rm_module.Mocker) -> None:
+    """No folders in these fixtures, so every space keeps the flat Space -> object
+    layout. Nesting is covered in tests/unit/sap_datasphere/test_sap_datasphere_folders.py."""
+    m.get(re.compile(r"/deepsea/repository/"), json={"value": []})
+
+
 def _install_mocks(m: rm_module.Mocker) -> None:
+    _install_folder_mocks(m)
     m.get(
         f"{TENANT_URL}/api/v1/datasphere/consumption/catalog/spaces",
         text=_fixture("spaces.json").read_text(),
@@ -371,6 +379,7 @@ def _lineage_analytic_model_csn() -> dict:
 
 def _install_lineage_mocks(m: rm_module.Mocker) -> None:
     """Fixtures for the federated-lineage scenario, shared by the golden and determinism tests."""
+    _install_folder_mocks(m)
     fixtures_dir = Path(__file__).parent / "fixtures"
     m.get(
         f"{TENANT_URL}/api/v1/datasphere/consumption/catalog/spaces",
@@ -674,6 +683,7 @@ def test_sap_datasphere_stale_entity_removal(
         ) as mock_checkpoint,
     ):
         mock_checkpoint.return_value = mock_datahub_graph
+        _install_folder_mocks(m)
         m.get(
             f"{TENANT_URL}/api/v1/datasphere/consumption/catalog/spaces",
             text=_fixture("spaces.json").read_text(),
@@ -740,6 +750,7 @@ def test_sap_datasphere_stale_entity_removal(
         ) as mock_checkpoint,
     ):
         mock_checkpoint.return_value = mock_datahub_graph
+        _install_folder_mocks(m)
         m.get(
             f"{TENANT_URL}/api/v1/datasphere/consumption/catalog/spaces",
             text=_fixture("spaces.json").read_text(),
@@ -801,6 +812,7 @@ def test_sap_datasphere_stale_entity_removal(
 
 def _install_federation_mocks(m: rm_module.Mocker) -> None:
     """Fixtures for the federation scenario: a data flow, a replication flow (ABAP -> BigQuery), and a HANA remote table with a SQL-quoted identifier to exercise quote-stripping."""
+    _install_folder_mocks(m)
     m.get(
         f"{TENANT_URL}/api/v1/datasphere/consumption/catalog/spaces",
         json={"value": [{"name": "FED_TEST", "label": "Federation Test Space"}]},

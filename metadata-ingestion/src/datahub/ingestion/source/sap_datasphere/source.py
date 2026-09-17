@@ -227,7 +227,7 @@ _JOB_SUBTYPE_BY_FLOW: Dict[DataFlowSubTypes, DataJobSubTypes] = {
 )
 @capability(
     SourceCapability.CONTAINERS,
-    "Spaces emitted as containers, plus their folders via `include_folders: true`",
+    "Spaces and their folders emitted as nested containers",
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Columns from OData EDMX")
 @capability(
@@ -1262,8 +1262,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
     def _emit_folders(self, space_name: str) -> Iterable[MetadataWorkUnit]:
         """Load the space's folder assignments and emit one container per folder."""
-        if not self.config.include_folders:
-            return
         records = self._client.list_folder_assignments(space_name)
         if records is None:
             return
@@ -1516,9 +1514,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
         view_properties = self._build_view_properties(csn_def)
 
-        # Space container by default; the object's folder when `include_folders`
-        # resolved one. The object kind survives as the dataset subtype either
-        # way (a UI filter facet).
+        # The object's innermost folder when one resolved, else the space. The
+        # object kind survives as the dataset subtype either way (a UI filter
+        # facet).
         dataset_parent: ContainerKey = self._parent_container(space_name, asset_name)
 
         dataset_tags = self._entity_tag_urns(custom_properties)

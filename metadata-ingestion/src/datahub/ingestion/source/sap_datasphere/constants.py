@@ -97,7 +97,8 @@ ODATA_PARAM_SKIP: Final[str] = "$skip"
 # lives in: the CSN's `_meta.dependencies.folderAssignment` is write-only and
 # reads back as null. The Repository search endpoint is the only surface that
 # exposes it, and SAP documents the Repository API as reserved for internal use
-# (KBA 3517441) — hence the opt-in `include_folders` flag.
+# (KBA 3517441), so every failure here degrades to the 2-tier Space -> object
+# layout rather than failing the space.
 REPOSITORY_SEARCH_BASE: Final[str] = "/deepsea/repository"
 REPOSITORY_SEARCH_RESOURCE: Final[str] = "search/$all"
 # Design-time scope; the trailing "*" matches every object in the space.
