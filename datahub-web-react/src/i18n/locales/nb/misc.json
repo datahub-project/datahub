@@ -22,6 +22,7 @@
     "applications.noCreatePermissionTooltip": "Du har ikke tillatelse til å opprette applikasjoner",
     "applications.pageSubtitle": "Opprett og rediger applikasjoner",
     "applications.pageTitle": "Administrer applikasjoner",
+    "applications.searchMinCharsHint": "Skriv inn minst {{minLength}} tegn for å søke",
     "applications.searchPlaceholder": "Søk i applikasjoner...",
     "authorization.unauthorizedSubtitle": "Beklager, du har ikke tilgang til denne siden.",
     "authorization.unauthorizedTitle": "Ikke autorisert",

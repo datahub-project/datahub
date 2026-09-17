@@ -13,30 +13,30 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { Domain, EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
-const Container = styled.div`
+const Container = styled.div<{ $size: number }>`
     display: flex;
     justify-content: center;
     align-items: center;
     background: ${(props) => props.theme.colors.bgSurface};
-    height: 28px;
-    width: 28px;
+    height: ${(props) => props.$size}px;
+    width: ${(props) => props.$size}px;
     border-radius: ${radius.full};
 `;
 
-const DomainContainer = styled.div`
+const DomainContainer = styled.div<{ $size: number }>`
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 28px;
-    width: 28px;
+    height: ${(props) => props.$size}px;
+    width: ${(props) => props.$size}px;
 `;
 
-const GlossaryContainer = styled.div`
+const GlossaryContainer = styled.div<{ $size: number }>`
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 28px;
-    width: 28px;
+    height: ${(props) => props.$size}px;
+    width: ${(props) => props.$size}px;
 `;
 
 const IconContainer = styled.div`
@@ -46,11 +46,16 @@ const IconContainer = styled.div`
     }
 `;
 
-const ICON_SIZE = 20;
-const SIBLING_ICON_SIZE = 16;
-const DOMAIN_ICON_SIZE = 24;
+// Default sizing for callers that don't opt into a custom `size` — kept as separate constants
+// (rather than deriving from `size`) so existing autocomplete-row callers render unchanged.
+const DEFAULT_CONTAINER_SIZE = 28;
+const DEFAULT_ICON_SIZE = 20;
+const DEFAULT_SIBLING_ICON_SIZE = 16;
+const DEFAULT_DOMAIN_ICON_SIZE = 24;
+const DEFAULT_DOMAIN_FONT_SIZE = 16;
+const DEFAULT_GLOSSARY_ICON_SIZE = 14;
 
-export default function DefaultEntityIcon({ entity, siblings }: EntityIconProps) {
+export default function DefaultEntityIcon({ entity, siblings, size }: EntityIconProps) {
     const entityRegistry = useEntityRegistryV2();
     const uniqueSiblingsByPlatform = useUniqueEntitiesByPlatformUrn(siblings);
     const hasSiblings = useMemo(() => (uniqueSiblingsByPlatform?.length ?? 0) > 0, [uniqueSiblingsByPlatform?.length]);
@@ -58,26 +63,35 @@ export default function DefaultEntityIcon({ entity, siblings }: EntityIconProps)
         () => (hasSiblings ? uniqueSiblingsByPlatform : [entity]),
         [hasSiblings, uniqueSiblingsByPlatform, entity],
     );
-    const iconSize = useMemo(() => (hasSiblings ? SIBLING_ICON_SIZE : ICON_SIZE), [hasSiblings]);
+    // A caller-provided `size` collapses the container to a tight fit around the icon (no
+    // breathing room); the default keeps the original fixed autocomplete-row proportions.
+    const containerSize = size ?? DEFAULT_CONTAINER_SIZE;
+    const iconSize = size ?? (hasSiblings ? DEFAULT_SIBLING_ICON_SIZE : DEFAULT_ICON_SIZE);
 
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const { platforms } = getEntityPlatforms(entity.type, properties);
 
     if (entity.type === EntityType.Domain) {
+        const domainIconSize = size ?? DEFAULT_DOMAIN_ICON_SIZE;
+        const domainFontSize = Math.round((domainIconSize * DEFAULT_DOMAIN_FONT_SIZE) / DEFAULT_DOMAIN_ICON_SIZE);
         return (
-            <DomainContainer>
-                <DomainColoredIcon domain={entity as Domain} size={DOMAIN_ICON_SIZE} fontSize={16} />
+            <DomainContainer $size={containerSize}>
+                <DomainColoredIcon domain={entity as Domain} size={domainIconSize} fontSize={domainFontSize} />
             </DomainContainer>
         );
     }
 
     if (entity.type === EntityType.GlossaryTerm || entity.type === EntityType.GlossaryNode) {
+        const glossaryIconSize = size ?? DEFAULT_DOMAIN_ICON_SIZE;
+        const glossaryInnerIconSize = Math.round(
+            (glossaryIconSize * DEFAULT_GLOSSARY_ICON_SIZE) / DEFAULT_DOMAIN_ICON_SIZE,
+        );
         return (
-            <GlossaryContainer>
+            <GlossaryContainer $size={containerSize}>
                 <GlossaryEntityIcon
                     entity={entity as GlossaryTerm | GlossaryNode}
-                    size={DOMAIN_ICON_SIZE}
-                    iconSize={14}
+                    size={glossaryIconSize}
+                    iconSize={glossaryInnerIconSize}
                 />
             </GlossaryContainer>
         );
@@ -85,10 +99,10 @@ export default function DefaultEntityIcon({ entity, siblings }: EntityIconProps)
 
     if (!hasSiblings && (platforms?.length ?? 0) > 1) {
         return (
-            <Container>
+            <Container $size={containerSize}>
                 {platforms?.map((platform) => (
-                    <IconContainer>
-                        <PlatformIcon platform={platform} size={SIBLING_ICON_SIZE} />
+                    <IconContainer key={platform.urn}>
+                        <PlatformIcon platform={platform} size={size ?? DEFAULT_SIBLING_ICON_SIZE} />
                     </IconContainer>
                 ))}
             </Container>
@@ -96,10 +110,10 @@ export default function DefaultEntityIcon({ entity, siblings }: EntityIconProps)
     }
 
     return (
-        <Container>
+        <Container $size={containerSize}>
             {entitiesToShowIcons?.map((entityToShowIcon) => (
-                <IconContainer>
-                    <SingleEntityIcon entity={entityToShowIcon} key={entityToShowIcon.urn} size={iconSize} />
+                <IconContainer key={entityToShowIcon.urn}>
+                    <SingleEntityIcon entity={entityToShowIcon} size={iconSize} />
                 </IconContainer>
             ))}
         </Container>

@@ -22,6 +22,7 @@
     "applications.noCreatePermissionTooltip": "Applicationを作成する権限がありません",
     "applications.pageSubtitle": "Applicationを作成・編集します",
     "applications.pageTitle": "Applicationを管理",
+    "applications.searchMinCharsHint": "検索するには少なくとも{{minLength}}文字を入力してください",
     "applications.searchPlaceholder": "Applicationを検索...",
     "authorization.unauthorizedSubtitle": "このページにアクセスする権限がありません。",
     "authorization.unauthorizedTitle": "権限がありません",
