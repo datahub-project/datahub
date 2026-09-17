@@ -210,8 +210,14 @@ def run_datahub_subprocess(cmd: list[str], stdin_data: str) -> int:
     """Launch datahub CLI, pipe stdin_data, stream masked output. Returns exit code."""
     print(f"Executing: {' '.join(cmd)}", file=sys.stderr)
 
-    registry = SecretRegistry.get_instance()
-    masking_filter = SecretMaskingFilter(secret_registry=registry)
+    # No registry named, for the reason bootstrap does not name one: a
+    # filter given one captures it for life, and this one outlives the call.
+    # Harmless here today -- this runs in the short-lived wrapper subprocess
+    # (see the module docstring), where there is one task and no masking
+    # scope to capture the wrong one -- but it is the same shape that pinned
+    # the first task's scope onto every process-wide handler in the
+    # executor. Left resolving per call so it cannot become that.
+    masking_filter = SecretMaskingFilter()
 
     process: Optional[subprocess.Popen] = None
 

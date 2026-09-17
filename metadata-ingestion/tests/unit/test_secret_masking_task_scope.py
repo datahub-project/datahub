@@ -93,36 +93,24 @@ def test_concurrent_tasks_do_not_see_each_others_secrets():
     assert "aaa-secret-aaa" in results["B_PW"], "B masked A's secret out of its output"
 
 
-def test_a_scoped_secret_is_still_maskable_outside_the_scope():
-    """SECURITY: the fail-safe floor, and the reason this is not just a
-    per-task registry.
-
-    A thread spawned inside a task does NOT inherit the ContextVar -- it
-    starts from the default and therefore resolves to the global registry.
-    If registration went only to the scope, that thread's logs would mask
-    nothing, turning a contamination bug into a disclosure one. So a scoped
-    registration is mirrored to the global, which stays the floor: possibly
-    over-masking, never under.
-    """
-    from_task = "floor-check" + "-secret"
-
-    with task_secret_scope():
-        SecretRegistry.get_instance().register_secrets_batch(
-            {"TASK_PASSWORD": from_task}
-        )
-
-    leaked = {}
-
-    def unscoped_worker() -> None:
-        leaked["out"] = SecretMaskingFilter().mask_text(f"saw {from_task} here")
-
-    t = threading.Thread(target=unscoped_worker)
-    t.start()
-    t.join(timeout=10)
-
-    assert from_task not in leaked["out"], (
-        "a thread outside any task scope masked nothing"
-    )
+# REMOVED: test_a_scoped_secret_is_still_maskable_outside_the_scope
+#
+# It asserted the mirror -- that a task's secret reached the global registry
+# so a thread outside the scope could still mask it. That mirror is gone,
+# and the test went with it rather than being adjusted, because the property
+# it pinned is one we deliberately no longer have.
+#
+# The mirror bought a floor for unscoped threads and paid for it by putting
+# every task's secrets in one shared registry, which is what made the global
+# unusable as a floor for the scoped reads that needed it: reading it would
+# have shown task B everything task A registered. Task secrets now stay in
+# their scope, the global holds process-level secrets only, and a scope
+# masks against both.
+#
+# The replacement contract is pinned by
+# test_a_raw_thread_falls_back_to_process_level_not_another_task: an
+# unscoped thread masks process-level secrets and NOT the running task's.
+# That is a real narrowing, recorded in task_secret_scope's docstring.
 
 
 def test_dispatch_async_scopes_each_task():
@@ -278,3 +266,143 @@ def test_bootstrap_installed_handlers_follow_the_running_task():
     assert a_secret in lines["B-MENTIONS-A"], (
         "an earlier task's secret is still redacted out of this task's output"
     )
+
+
+# --- the floor: process-level secrets are visible INSIDE a task -----------
+#
+# The first version of the scope mirrored task writes into the global and
+# narrowed reads to the scope alone. That closed contamination and opened a
+# leak: anything registered before a scope existed -- the envelope secrets
+# load_config_file registers, a ConfigModel's own SecretStr fields, the
+# executor's startup config -- was invisible once a task opened its scope.
+#
+# The mirror is why "just fall back to the global" was not the fix: it put
+# every task's secrets in the global, so reading it would have handed task B
+# everything task A registered. The mirror is gone; the global now holds
+# process-level secrets only and a scope reads its own PLUS the global.
+
+
+def test_a_secret_registered_before_the_scope_is_masked_inside_it():
+    """The leak. Registered with no scope active, then read from inside one."""
+    early = "early" + "-registered-credential"
+    SecretRegistry.global_instance().register_secrets_batch({"EARLY_PW": early})
+
+    with task_secret_scope():
+        out = SecretMaskingFilter().mask_text(f"saw {early}")
+
+    assert early not in out, "a process-level secret is invisible inside a task"
+
+
+def test_a_task_still_does_not_see_another_tasks_secrets():
+    """The guard on the fix, so restoring the floor cannot restore the bug."""
+    a_secret = "aaa" + "-floor-guard-a"
+    b_secret = "bbb" + "-floor-guard-b"
+
+    with task_secret_scope():
+        SecretRegistry.get_instance().register_secrets_batch({"A_PW": a_secret})
+
+    with task_secret_scope():
+        SecretRegistry.get_instance().register_secrets_batch({"B_PW": b_secret})
+        own = SecretMaskingFilter().mask_text(f"mine {b_secret}")
+        other = SecretMaskingFilter().mask_text(f"theirs {a_secret}")
+
+    assert b_secret not in own
+    assert a_secret in other, "task A's secret leaked into task B's view"
+    # And it never reached the global, which is what makes the floor safe
+    # to read from. Asserted as the raw value SURVIVING: a registry that
+    # knew the secret would have replaced it, so "still there" is the
+    # evidence it was never registered.
+    from_global = SecretMaskingFilter(
+        secret_registry=SecretRegistry.global_instance()
+    ).mask_text(f"{a_secret} outside")
+    assert a_secret in from_global, "a task secret reached the global registry"
+
+
+def test_the_floor_holds_through_bootstrap_installed_handlers():
+    """Same two properties, through the path that actually ships.
+
+    Asserted on the handler's own stream, not captured stdout: bootstrap
+    wraps stdout too, so a report printed through it is masked on the way
+    out and agrees with itself whatever the code does.
+    """
+    import io
+    import logging
+
+    from datahub.masking.bootstrap import initialize_secret_masking
+
+    process_secret = "proc" + "-level-credential"
+    task_secret = "task" + "-level-credential"
+
+    SecretRegistry.global_instance().register_secrets_batch({"PROC_PW": process_secret})
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    log = logging.getLogger("probe.scope.floor.test")
+    log.addHandler(handler)
+    log.setLevel(logging.INFO)
+    log.propagate = False
+    try:
+        initialize_secret_masking()
+        with task_secret_scope():
+            SecretRegistry.get_instance().register_secrets_batch(
+                {"TASK_PW": task_secret}
+            )
+            log.info("BOTH %s and %s", process_secret, task_secret)
+    finally:
+        log.removeHandler(handler)
+
+    line = stream.getvalue()
+    assert process_secret not in line, "process-level secret unmasked inside a task"
+    assert task_secret not in line, "the task's own secret was unmasked"
+
+
+def test_an_asyncio_child_task_inherits_the_scope():
+    """asyncio.create_task copies the context, which is how the executor's
+    subprocess-output and progress tasks stay inside their task's scope."""
+    import asyncio
+
+    secret = "async" + "-child-credential"
+    seen = {}
+
+    async def child():
+        seen["out"] = SecretMaskingFilter().mask_text(f"child saw {secret}")
+
+    async def main():
+        with task_secret_scope():
+            SecretRegistry.get_instance().register_secrets_batch({"ASYNC_PW": secret})
+            await asyncio.create_task(child())
+
+    asyncio.run(main())
+    assert secret not in seen["out"], "an asyncio child lost the task's scope"
+
+
+def test_a_raw_thread_falls_back_to_process_level_not_another_task():
+    """A raw thread does not inherit the ContextVar -- measured, not assumed.
+
+    It therefore masks process-level secrets and NOT the running task's.
+    That is the residual of dropping the mirror, and it is the safe
+    direction to fail in: a thread outside the scope must never see another
+    task's secrets either.
+    """
+    import threading
+
+    process_secret = "proc" + "-visible-everywhere"
+    task_secret = "task" + "-scoped-only"
+
+    SecretRegistry.global_instance().register_secrets_batch({"P_PW": process_secret})
+    out = {}
+
+    def worker():
+        f = SecretMaskingFilter()
+        out["proc"] = f.mask_text(process_secret)
+        out["task"] = f.mask_text(task_secret)
+
+    with task_secret_scope():
+        SecretRegistry.get_instance().register_secrets_batch({"T_PW": task_secret})
+        t = threading.Thread(target=worker)
+        t.start()
+        t.join()
+
+    assert process_secret not in out["proc"], "the floor did not reach a raw thread"
+    # Documented residual: the task's own secret is not masked there.
+    assert task_secret in out["task"]

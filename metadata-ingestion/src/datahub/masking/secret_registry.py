@@ -249,10 +249,17 @@ class SecretRegistry:
 
     MAX_SECRETS = 10000
 
-    def __init__(self, _mirror_to: Optional["SecretRegistry"] = None) -> None:
-        # Set only for a task-scoped registry (see task_secret_scope); the
-        # process-global one mirrors nowhere.
-        self._mirror_to = _mirror_to
+    def __init__(self, _parent: Optional["SecretRegistry"] = None) -> None:
+        # Set only for a task-scoped registry (see task_secret_scope), and
+        # READ-ONLY: this registry masks against its own secrets plus the
+        # parent's, and never writes into it.
+        #
+        # The first version of the scope had this the other way round -- a
+        # write mirror into the global. That put every task's secrets in one
+        # shared place, which is precisely why the global could not then be
+        # read as a floor: doing so would have shown task B everything task
+        # A registered. Reading up and writing down are not interchangeable.
+        self._parent = _parent
         self._secrets: Dict[str, str] = {}
         self._name_history: Dict[str, List[str]] = {}
         self._version = 0
@@ -261,6 +268,10 @@ class SecretRegistry:
         self._pattern: Optional[re.Pattern] = None
         self._pattern_replacements: Dict[str, str] = {}
         self._pattern_version = -1
+        # Combined-with-parent cache; see _combined_with_parent.
+        self._combined: Optional[re.Pattern] = None
+        self._combined_replacements: Dict[str, str] = {}
+        self._combined_key: Optional[Tuple[int, int]] = None
         self._registry_lock = threading.RLock()
 
     @classmethod
@@ -298,16 +309,6 @@ class SecretRegistry:
     def register_secrets_batch(self, secrets: Dict[str, str]) -> None:
         if not is_masking_enabled():
             return
-
-        # SECURITY: a task-scoped registry mirrors to the global one, and the
-        # direction matters. Reads inside the scope see only this task's
-        # secrets, which is the point -- but a thread spawned INSIDE a task
-        # does not inherit the ContextVar, so its masking resolves to the
-        # global registry. Registering only into the scope would leave that
-        # thread masking nothing, turning a contamination bug into a
-        # disclosure one. The global stays the floor.
-        if self._mirror_to is not None:
-            self._mirror_to.register_secrets_batch(secrets)
 
         accepted: Dict[str, str] = {}
         for name, value in secrets.items():
@@ -416,7 +417,54 @@ class SecretRegistry:
         with self._registry_lock:
             if self._pattern_version != self._version:
                 self._rebuild_pattern()
-            return self._pattern, self._pattern_replacements
+            own, replacements = self._pattern, self._pattern_replacements
+
+        if self._parent is None:
+            return own, replacements
+        return self._combined_with_parent(own, replacements)
+
+    def _combined_with_parent(
+        self, own: Optional[re.Pattern], replacements: Dict[str, str]
+    ) -> Tuple[Optional[re.Pattern], Dict[str, str]]:
+        """This task's secrets plus the process-level ones.
+
+        A task masks against what it was given AND what was registered
+        before any task existed -- the envelope secrets load_config_file
+        registers, a ConfigModel's own SecretStr fields, the executor's
+        startup config. Without the parent those were invisible the moment a
+        scope opened, which is a leak rather than an inconvenience.
+
+        Cached on (own version, parent version) so a change on either side
+        rebuilds and neither is rebuilt on an unchanged call. Measured at
+        1.0-1.1x a single registry for realistic secret counts.
+        """
+        parent = self._parent
+        assert parent is not None
+        parent_pattern, parent_replacements = parent.get_pattern_and_replacements()
+        if parent_pattern is None:
+            return own, replacements
+        if own is None:
+            return parent_pattern, parent_replacements
+
+        key = (self._version, parent._version)
+        with self._registry_lock:
+            if self._combined_key != key:
+                # Longest-first across BOTH, for the reason _rebuild_pattern
+                # sorts: two registered secrets can overlap, and masking the
+                # shorter first strands the longer one's tail in the output.
+                merged = dict(parent_replacements)
+                merged.update(replacements)
+                sources = sorted(merged, key=len, reverse=True)
+                try:
+                    self._combined = re.compile("|".join(re.escape(v) for v in sources))
+                except re.error:
+                    # Fail closed the way _rebuild_pattern does: mask with
+                    # whatever this scope alone can, rather than nothing.
+                    self._combined = own
+                    merged = replacements
+                self._combined_replacements = merged
+                self._combined_key = key
+            return self._combined, self._combined_replacements
 
     def _rebuild_pattern(self) -> None:
         self._pattern_version = self._version
@@ -555,10 +603,18 @@ def task_secret_scope() -> Iterator["SecretRegistry"]:
     one disarms masking for another running beside it. Scoping is, because
     it needs no coordination between tasks.
 
-    Registrations still reach the global registry (see
-    register_secrets_batch); only READS are narrowed.
+    A task's secrets stay in its scope and never reach the global, which is
+    what lets the global be read as a floor: a scope masks against its own
+    secrets PLUS the process-level ones, and never against another task's.
+
+    Residual, measured rather than assumed: a RAW thread started inside a
+    task does not inherit this ContextVar, so it masks process-level secrets
+    only. asyncio.create_task and asyncio.to_thread do inherit, which covers
+    what the executor actually uses for subprocess output and progress; a
+    raw thread that needs the scope can carry it with
+    contextvars.copy_context().
     """
-    scoped = SecretRegistry(_mirror_to=SecretRegistry.global_instance())
+    scoped = SecretRegistry(_parent=SecretRegistry.global_instance())
     token = _active_registry.set(scoped)
     try:
         yield scoped
