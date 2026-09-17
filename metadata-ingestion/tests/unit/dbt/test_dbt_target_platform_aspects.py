@@ -8,11 +8,13 @@ dataPlatformInstance).
 """
 
 import json
+import warnings
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 from unittest import mock
 
 import pytest
 
+from datahub.configuration.common import ConfigurationWarning
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt.dbt_common import DBTNode
@@ -385,12 +387,17 @@ def test_target_platform_aspects_are_prefetched_in_one_batch() -> None:
     assert other_urn not in container_reads
 
 
+# emit_target_platform_display_name defaults to True; explicitly setting it
+# here (even to the same value) marks it in pydantic's model_fields_set, which
+# the warning tests below rely on.
 DISPLAY_NAME_ENABLED = {"emit_target_platform_display_name": True}
 
 
-def test_no_display_name_by_default() -> None:
+def test_sets_display_name_by_default() -> None:
     source = create_dbt_source()
-    assert dataset_properties_patch_ops(source, create_dbt_node()) == []
+    assert dataset_properties_patch_ops(source, create_dbt_node()) == [
+        {"op": "add", "path": "/name", "value": "my_table"}
+    ]
 
 
 def test_sets_display_name_on_stub_entity_when_enabled() -> None:
@@ -479,8 +486,10 @@ def test_upgrades_instance_only_path_once_containers_exist() -> None:
     ]
 
 
-def test_display_name_requires_target_platform_instance() -> None:
-    with pytest.raises(ValueError, match="emit_target_platform_display_name"):
+def test_warns_when_display_name_explicitly_set_without_target_platform_instance() -> (
+    None
+):
+    with pytest.warns(ConfigurationWarning, match="emit_target_platform_display_name"):
         create_dbt_source(
             config_overrides={
                 **DISPLAY_NAME_ENABLED,
@@ -489,11 +498,24 @@ def test_display_name_requires_target_platform_instance() -> None:
         )
 
 
-def test_display_name_requires_instance_aspects_enabled() -> None:
-    with pytest.raises(ValueError, match="emit_target_platform_display_name"):
+def test_warns_when_display_name_explicitly_set_without_instance_aspects_enabled() -> (
+    None
+):
+    with pytest.warns(ConfigurationWarning, match="emit_target_platform_display_name"):
         create_dbt_source(
             config_overrides={
                 **DISPLAY_NAME_ENABLED,
                 "emit_target_platform_instance_aspects": False,
             }
         )
+
+
+def test_no_warning_when_display_name_left_at_default_without_target_platform_instance() -> (
+    None
+):
+    # The common case a naive default flip would break: a recipe that never
+    # touches emit_target_platform_display_name and has no target_platform_instance
+    # should not be warned about a flag it never set.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ConfigurationWarning)
+        create_dbt_source(config_overrides={"target_platform_instance": None})

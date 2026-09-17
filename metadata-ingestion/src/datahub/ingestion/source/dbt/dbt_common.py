@@ -1,5 +1,6 @@
 import logging
 import re
+import warnings
 from abc import abstractmethod
 from collections import defaultdict
 from copy import deepcopy
@@ -19,6 +20,7 @@ from typing import (
     Tuple,
     Type,
     TypedDict,
+    TypeVar,
     Union,
 )
 
@@ -37,6 +39,7 @@ from datahub.configuration.common import (
     ConfigEnum,
     ConfigModel,
     ConfigurationError,
+    ConfigurationWarning,
 )
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -184,6 +187,32 @@ _TARGET_PLATFORM_PREFETCH_ASPECT_NAMES = [
     DatasetPropertiesClass.ASPECT_NAME,
 ]
 _TARGET_PLATFORM_PREFETCH_CHUNK_SIZE = 200
+
+
+@dataclass
+class _TargetPlatformAspects:
+    """The subset of a target-platform entity's aspects the prefetch reads.
+
+    Typed so a mismatch between an aspect name and its expected type (three
+    aspect types keyed by string in the prefetch response) is a mypy error
+    rather than something only caught at runtime.
+    """
+
+    browse_path: Optional[BrowsePathsV2Class] = None
+    container: Optional[ContainerClass] = None
+    properties: Optional[DatasetPropertiesClass] = None
+
+
+_PrefetchedAspectT = TypeVar("_PrefetchedAspectT")
+
+
+def _get_prefetched_aspect(
+    aspects: Dict[str, Tuple[Any, Any]], aspect_class: Type[_PrefetchedAspectT]
+) -> Optional[_PrefetchedAspectT]:
+    entry = aspects.get(aspect_class.ASPECT_NAME)  # type: ignore[attr-defined]
+    return entry[0] if entry is not None else None
+
+
 # URN-safe chars only; names like "Revenue (USD)" become "Revenue_USD_" which can
 # collide with "Revenue [USD]" - duplicates are detected and skipped with warnings.
 _QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]+")
@@ -374,6 +403,11 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     # Semantic model entity emission statistics
     num_semantic_models_emitted: int = 0
+
+    # Target-platform sibling browse path / display name statistics
+    num_target_platform_aspect_prefetch_batches: int = 0
+    num_target_browse_paths_written: int = 0
+    num_target_display_names_set: int = 0
 
     def record_node_failure(
         self,
@@ -589,13 +623,15 @@ class DBTCommonConfig(
         "by the warehouse connector are never overwritten.",
     )
     emit_target_platform_display_name: bool = Field(
-        default=False,
+        default=True,
         description="Set a display name on target-platform entities that the warehouse "
         "connector has not ingested. Those entities have no datasetProperties, so the UI "
         "falls back to the urn and shows the full dotted path (instance.database.schema.table) "
         "rather than just the table name. Enabling this patches datasetProperties.name with "
         "the table name, matching how the warehouse connector's own entities are labelled. "
-        "Off by default because it changes how existing entities are displayed.",
+        "Has no effect unless both `target_platform_instance` is set and "
+        "`emit_target_platform_instance_aspects` is enabled - a warning is logged if set "
+        "without them.",
     )
     use_identifiers: bool = Field(
         default=False,
@@ -845,14 +881,24 @@ class DBTCommonConfig(
 
     @model_validator(mode="after")
     def validate_emit_target_platform_display_name(self) -> "DBTCommonConfig":
-        if self.emit_target_platform_display_name and not (
-            self.target_platform_instance and self.emit_target_platform_instance_aspects
+        # Defaults to True, so only warn when the user explicitly opted in -
+        # otherwise every recipe without a platform instance would warn about
+        # a flag it never touched.
+        if (
+            "emit_target_platform_display_name" in self.model_fields_set
+            and self.emit_target_platform_display_name
+            and not (
+                self.target_platform_instance
+                and self.emit_target_platform_instance_aspects
+            )
         ):
-            raise ValueError(
+            warnings.warn(
                 "`emit_target_platform_display_name` has no effect without both "
                 "`target_platform_instance` set and `emit_target_platform_instance_aspects` "
                 "enabled - it patches datasetProperties.name on the same target-platform "
-                "sibling entities those two produce."
+                "sibling entities those two produce. Ignoring it.",
+                ConfigurationWarning,
+                stacklevel=2,
             )
 
         return self
@@ -2995,7 +3041,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         mce_platform = self.config.target_platform
         mce_platform_instance = self.config.target_platform_instance
 
-        prefetched_target_platform_aspects: Optional[Dict[str, Dict[str, Any]]] = None
+        prefetched_target_platform_aspects: Optional[
+            Dict[str, _TargetPlatformAspects]
+        ] = None
         if mce_platform_instance and self.config.emit_target_platform_instance_aspects:
             candidate_urns = [
                 node.get_urn(mce_platform, self.config.env, mce_platform_instance)
@@ -3111,7 +3159,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     def _prefetch_target_platform_aspects(
         self, urns: List[str]
-    ) -> Optional[Dict[str, Dict[str, Any]]]:
+    ) -> Optional[Dict[str, _TargetPlatformAspects]]:
         """Batch-read the aspects needed to decide each target entity's browse path/display name.
 
         A prefetch entry missing for a urn is read by the caller as "this
@@ -3129,7 +3177,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not urns:
             return {}
 
-        result: Dict[str, Dict[str, Any]] = {}
+        result: Dict[str, _TargetPlatformAspects] = {}
         try:
             for chunk in more_itertools.chunked(
                 urns, _TARGET_PLATFORM_PREFETCH_CHUNK_SIZE
@@ -3139,13 +3187,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     urns=list(chunk),
                     aspects=_TARGET_PLATFORM_PREFETCH_ASPECT_NAMES,
                 )
+                self.report.num_target_platform_aspect_prefetch_batches += 1
                 for urn, aspects in entities.items():
-                    result[urn] = {
-                        aspect_name: aspect_value
-                        for aspect_name, (aspect_value, _system_metadata) in (
-                            aspects.items()
-                        )
-                    }
+                    result[urn] = _TargetPlatformAspects(
+                        browse_path=_get_prefetched_aspect(aspects, BrowsePathsV2Class),
+                        container=_get_prefetched_aspect(aspects, ContainerClass),
+                        properties=_get_prefetched_aspect(
+                            aspects, DatasetPropertiesClass
+                        ),
+                    )
         except Exception as e:
             self.report.warning(
                 title="Failed to prefetch target-platform aspects",
@@ -3162,7 +3212,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         node: DBTNode,
         node_datahub_urn: str,
-        prefetched_aspects: Optional[Dict[str, Dict[str, Any]]],
+        prefetched_aspects: Optional[Dict[str, _TargetPlatformAspects]],
     ) -> Iterable[MetadataWorkUnit]:
         """Emit dataPlatformInstance (and, when safe, browsePathsV2) for a target entity.
 
@@ -3194,9 +3244,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # skip the browse path / display name portion rather than risk
             # treating a failed read as "this entity has no container".
             return
-        entity_aspects = prefetched_aspects.get(node_datahub_urn, {})
+        entity_aspects = prefetched_aspects.get(
+            node_datahub_urn, _TargetPlatformAspects()
+        )
 
-        existing_browse_path = entity_aspects.get(BrowsePathsV2Class.ASPECT_NAME)
+        existing_browse_path = entity_aspects.browse_path
         existing_entries: List[BrowsePathEntryClass] = (
             list(existing_browse_path.path)
             if existing_browse_path is not None and existing_browse_path.path
@@ -3209,7 +3261,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return
 
         container_entries = self._resolve_container_browse_path_entries(
-            node_datahub_urn, entity_aspects.get(ContainerClass.ASPECT_NAME)
+            node_datahub_urn, entity_aspects.container
         )
         if container_entries is None:
             return
@@ -3218,6 +3270,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             BrowsePathEntryClass(id=instance_urn, urn=instance_urn)
         ] + container_entries
         if path != existing_entries:
+            self.report.num_target_browse_paths_written += 1
             yield MetadataChangeProposalWrapper(
                 entityUrn=node_datahub_urn,
                 aspect=BrowsePathsV2Class(path=path),
@@ -3231,7 +3284,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             yield from self._create_target_display_name_workunits(
                 node,
                 node_datahub_urn,
-                entity_aspects.get(DatasetPropertiesClass.ASPECT_NAME),
+                entity_aspects.properties,
             )
 
     def _create_target_display_name_workunits(
@@ -3253,6 +3306,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if existing_properties is not None and existing_properties.name:
             return
 
+        self.report.num_target_display_names_set += 1
         patch = DatasetPatchBuilder(node_datahub_urn)
         patch.set_display_name(node.name)
         for mcp in patch.build():
