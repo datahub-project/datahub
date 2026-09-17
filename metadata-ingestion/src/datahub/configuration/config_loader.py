@@ -219,6 +219,19 @@ def load_config_file(
             envelope = _json.loads(raw_stdin)
             if isinstance(envelope, dict) and "__recipe_yaml__" in envelope:
                 raw_config_file = envelope["__recipe_yaml__"]
+                # Checked before anything reads it. Handing a non-string to
+                # the YAML mechanism surfaced as `TypeError: initial_value
+                # must be str or None, not dict` from StringIO, which names
+                # nothing the caller can act on -- and building the envelope
+                # with the recipe as a nested object rather than a YAML
+                # string is the obvious mistake when assembling one
+                # programmatically. recipe_cli's own reader of this format
+                # already checked; the two disagreed.
+                if not isinstance(raw_config_file, str):
+                    raise ConfigurationError(
+                        "__recipe_yaml__ must be a string holding the recipe "
+                        f"YAML; got {type(raw_config_file).__name__}"
+                    )
                 stdin_secrets = envelope.get("__secrets__", {})
                 if stdin_secrets:
                     extra_env_vars = {**(extra_env_vars or {}), **stdin_secrets}

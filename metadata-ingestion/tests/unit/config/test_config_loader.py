@@ -219,6 +219,24 @@ class TestStdinEnvelopeWithSecrets:
         assert config["source"]["config"]["password"] == "my_secret_password"
         assert config["source"]["config"]["host"] == "localhost"
 
+    def test_a_non_string_recipe_yaml_is_named_rather_than_crashing(self) -> None:
+        """The probe CLI already checks this; the canonical loader did not.
+
+        `raw_config_file = envelope["__recipe_yaml__"]` went straight to the
+        YAML mechanism, so an envelope built with the recipe as a nested
+        object -- the obvious mistake when assembling one programmatically --
+        surfaced as `TypeError: initial_value must be str or None, not dict`
+        from StringIO. That names nothing the caller can act on, and the two
+        readers of this same envelope format disagreed about it.
+        """
+        envelope_json = json.dumps(
+            {"__recipe_yaml__": {"source": {"type": "test"}}, "__secrets__": {}}
+        )
+
+        with mock.patch("sys.stdin", io.StringIO(envelope_json)):
+            with pytest.raises(ConfigurationError, match="__recipe_yaml__"):
+                load_config_file("-", allow_stdin=True)
+
     def test_envelope_secrets_register_even_when_unreferenced(self) -> None:
         """Envelope secrets are secrets by declaration: they must become
         maskable even if the recipe never references them (e.g. the caller
