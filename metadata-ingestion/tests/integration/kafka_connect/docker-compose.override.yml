@@ -83,8 +83,13 @@ services:
       test: ["CMD-SHELL", "test -f /tmp/connectors_installed || (echo 'Not all plugins installed yet' && exit 1)"]
       interval: 10s
       timeout: 10s
-      retries: 20
-      start_period: 60s
+      # Connector plugins are cold-downloaded from Confluent Hub at container
+      # startup; on slower CI runners this can exceed the default window and
+      # fail with "container test_connect is unhealthy". Give it more headroom;
+      # a higher ceiling is free on fast runners since `up --wait` returns as
+      # soon as the container is healthy.
+      retries: 40
+      start_period: 120s
   mysqldb:
     image: mysql:8.0
     environment:
