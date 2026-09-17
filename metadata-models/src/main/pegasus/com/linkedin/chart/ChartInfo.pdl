@@ -12,7 +12,8 @@ import com.linkedin.common.Edge
  * Information about a chart
  */
 @Aspect = {
-  "name": "chartInfo"
+  "name": "chartInfo",
+  "schemaVersion": 2
 }
 record ChartInfo includes CustomProperties, ExternalReference {
 
@@ -77,7 +78,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Relationship = {
     "/*/destinationUrn": {
       "name": "Consumes",
-      "entityTypes": [ "dataset", "chart" ],
+      "entityTypes": [ "dataset", "chart", "metric" ],
       "isLineage": true,
       "createdOn": "inputEdges/*/created/time"
       "createdActor": "inputEdges/*/created/actor"

@@ -105,6 +105,23 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   datasetEdges: optional array[Edge]
 
   /**
+   * Metrics consumed by a dashboard.
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Consumes",
+      "entityTypes": [ "metric" ],
+      "isLineage": true,
+      "createdOn": "metricEdges/*/created/time"
+      "createdActor": "metricEdges/*/created/actor"
+      "updatedOn": "metricEdges/*/lastModified/time"
+      "updatedActor": "metricEdges/*/lastModified/actor"
+      "properties": "metricEdges/*/properties"
+    }
+  }
+  metricEdges: optional array[Edge]
+
+  /**
    * Dashboards included by this dashboard.
    * Some dashboard entities (e.g. PowerBI Apps) can contain other dashboards.
    *
