@@ -555,6 +555,19 @@ def test_a_missing_parent_degrades_loudly_rather_than_inventing_one(
     )
     assert any(word in w for w in result.warnings), result.warnings
 
+    # The "rather than inventing one" half, which the warning alone does not
+    # cover: a regression that guessed a container while still warning would
+    # have passed. The target stays at what was actually given --
+    # schema.entity, two parts -- rather than gaining a database or project
+    # nothing chose.
+    verdict = result.results[0]
+    assert verdict.target == "ds1.t1"
+    assert verdict.target.count(".") == 1, (
+        f"a container was invented: {verdict.target!r}"
+    )
+    # And the partial answer is still an answer, not a silent exclusion.
+    assert verdict.included is True
+
 
 def test_a_single_pinned_container_needs_no_parent():
     """The other side of the same coin: Qualifier() on project_ids means a
@@ -576,7 +589,7 @@ def test_a_single_pinned_container_needs_no_parent():
 
 
 @pytest.mark.parametrize(
-    ("source_type", "config_dict", "name"),
+    ("source_type", "config_dict", "name", "container"),
     [
         # Snowflake matches schemas on database.schema and implies no single
         # database, so a bare --kind Schema has nothing to qualify against.
@@ -591,6 +604,7 @@ def test_a_single_pinned_container_needs_no_parent():
                 "schema_pattern": {"allow": [r"^MYDB\.PUBLIC$"]},
             },
             "PUBLIC",
+            "MYDB",
         ),
         # BigQuery is the worse case because it is the DEFAULT config:
         # match_fully_qualified_names defaults true and project_ids defaults
@@ -602,10 +616,13 @@ def test_a_single_pinned_container_needs_no_parent():
                 "dataset_pattern": {"allow": [r"^p1\.analytics$"]},
             },
             "analytics",
+            "p1",
         ),
     ],
 )
-def test_a_schema_judged_without_its_container_warns(source_type, config_dict, name):
+def test_a_schema_judged_without_its_container_warns(
+    source_type, config_dict, name, container
+):
     """A Schema verdict reached on the bare name must say so.
 
     This is the inverted-verdict case: the pattern is written against
@@ -623,6 +640,26 @@ def test_a_schema_judged_without_its_container_warns(source_type, config_dict, n
         names=[name],
     )
     assert any("qualified" in w for w in result.warnings), result.warnings
+
+    # The inverted verdict itself, which the warning does not assert: the
+    # bare name is judged against a qualified pattern and so reads EXCLUDED.
+    # That is the whole reason this warns.
+    bare = result.results[0]
+    assert bare.target == name
+    assert bare.included is False
+
+    # And it really is an inversion rather than a name that is excluded
+    # either way -- given the container, the same name is included and
+    # nothing warns.
+    with_parent = check_filters(
+        source_type=source_type,
+        config_dict=config_dict,
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[container],
+        names=[name],
+    )
+    assert with_parent.results[0].included is True
+    assert not with_parent.warnings, with_parent.warnings
 
 
 def test_a_schema_with_its_container_does_not_warn():

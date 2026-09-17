@@ -97,6 +97,42 @@ def test_429_honours_retry_after(monkeypatch):
     assert slept[0] == 7.0
 
 
+def test_the_backoff_grows_exponentially_and_stops_at_the_cap(monkeypatch):
+    """The one retry behaviour the rest of this file switches off.
+
+    Every other test builds through _fetch, which passes
+    retry_backoff_multiplier=0 and max_retry_interval=0 to keep itself
+    instant -- so tenacity computes a 0-second wait each time and the
+    exponential backoff that fetch_json wires to wait_exponential was never
+    exercised, while this module's docstring listed "backoff" among what it
+    covers.
+
+    Patching time.sleep does reach tenacity here: it binds tenacity.nap.sleep,
+    a wrapper whose body calls time.sleep(seconds) by module lookup at call
+    time, so the patch lands.
+    """
+    slept: list = []
+    monkeypatch.setattr("datahub.ingestion.source.mode.time.sleep", slept.append)
+
+    session = _Session(*[_Response(status_code=504) for _ in range(5)])
+    with pytest.raises(tenacity.RetryError):
+        _fetch(
+            session,
+            retry_backoff_multiplier=1,
+            max_retry_interval=3,
+            max_attempts=5,
+        )
+
+    assert session.calls == 5
+
+    # The RateLimiter contributes a fixed slice of its own between calls;
+    # tenacity's waits are the ones that grow. Separated by value rather than
+    # by position, which stays true if the limiter's cadence changes.
+    backoff = [s for s in slept if s >= 1]
+    # 1, 2, then 4 and 8 clamped to the 3-second cap.
+    assert backoff == [1.0, 2.0, 3.0, 3.0]
+
+
 def test_504_is_retried_and_counted_separately():
     counted = []
     session = _Session(_Response(status_code=504), _Response(payload={"ok": 2}))

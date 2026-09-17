@@ -64,11 +64,22 @@ def _group() -> click.Group:
     def plain(flag: bool) -> None:
         click.echo("ok")
 
+    @root.command(name="explicit-boom")
+    @telemetry.with_telemetry()
+    def explicit_boom() -> None:
+        raise RuntimeError("boom")
+
     return root
 
 
+def _of_status(
+    pings: List[Tuple[str, Dict[str, Any]]], status: str
+) -> List[Dict[str, Any]]:
+    return [p for e, p in pings if e == "function-call" and p.get("status") == status]
+
+
 def _starts(pings: List[Tuple[str, Dict[str, Any]]]) -> List[Dict[str, Any]]:
-    return [p for e, p in pings if e == "function-call" and p.get("status") == "start"]
+    return _of_status(pings, "start")
 
 
 def test_an_explicitly_decorated_command_is_not_wrapped_twice(pings):
@@ -108,6 +119,27 @@ def test_running_the_auto_wrapper_twice_does_not_stack(pings):
     enable_auto_decorators(root)
     res = CliRunner().invoke(root, ["plain"])
     assert res.exit_code == 0, res.output
+    assert len(_starts(pings)) == 1
+
+
+def test_a_failing_command_fires_one_error_event_not_two(pings):
+    """The other half of the double-wrapping symptom, and the untested one.
+
+    This module's docstring records what the real CLI emitted before the
+    fix -- two 'start' pings AND two 'error' pings for one invocation -- but
+    every test here counted only the starts. The error path runs through a
+    different arm of with_telemetry (the except branch, status="error"), so
+    a regression that duplicated it while leaving starts alone would have
+    gone unnoticed.
+    """
+    root = _group()
+    enable_auto_decorators(root)
+
+    res = CliRunner().invoke(root, ["explicit-boom"])
+    assert res.exit_code != 0
+
+    assert len(_of_status(pings, "error")) == 1, _of_status(pings, "error")
+    # And the start it pairs with is still single, so the two counts agree.
     assert len(_starts(pings)) == 1
 
 

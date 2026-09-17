@@ -414,6 +414,17 @@ def test_project_detail_reports_what_ingestion_would_emit():
     # Counts are metadata about the asset, unlike its contents.
     assert detail["appviews_all_time"] == 42
 
+    # And upstream_datasets is ABSENT, not zero. HexProject carries the
+    # field, but only hex.py's lineage pass populates it and this probe
+    # deliberately does not run that -- so reporting its length meant
+    # reporting 0 for every project, including ones with lineage. A number
+    # that is always zero reads as an answer.
+    #
+    # Asserted rather than left to the comment in hex_probe.py, because
+    # restoring the field is a one-line change that nothing else would
+    # notice: `probe queried_tables` is the command that answers this.
+    assert "upstream_datasets" not in detail
+
 
 def test_project_tags_follow_the_flags_that_govern_them():
     # An empty `tags` must mean "the flags are off", not "the project is untagged" --
