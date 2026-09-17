@@ -414,3 +414,125 @@ def test_the_widened_hints_do_not_swallow_structural_fields():
     for key in ("partition_key", "primary_key", "key_path", "sort_key", "project_id"):
         disclosed = plain_config_values({key: "structural"}, SENSITIVE_KEY_HINTS)
         assert disclosed == {"structural"}, f"{key} is not a credential"
+
+
+def _fresh_registry():
+    from datahub.masking.secret_registry import SecretRegistry
+
+    SecretRegistry.reset_instance()
+    return SecretRegistry.get_instance()
+
+
+def test_a_disclosed_value_stays_exempt_when_a_config_model_re_registers_it():
+    """The exemption has to survive ConfigModel's own registration.
+
+    The probe subtracts what the recipe states in the clear before
+    registering envelope secrets -- but ConfigModel._register_secret_fields
+    is a mode="after" validator that registers every SecretStr on every
+    config the probe builds, and it re-registered the value the probe had
+    just exempted. The verdict's `target` then came back as
+    `***REDACTED:password***.orders`: the database name reported as a
+    password, which is also what tells a reader the two are equal.
+    """
+    from pydantic import SecretStr
+
+    from datahub.configuration.common import ConfigModel
+    from datahub.masking.masking_filter import SecretMaskingFilter
+
+    shared = "analytics_" + "warehouse"
+    raw_recipe = {
+        "source": {
+            "config": {
+                "host_port": "h:3306",
+                "database": shared,
+                "password": "${MY_PW}",
+            }
+        }
+    }
+
+    registry = _fresh_registry()
+    disclosed = plain_config_values(raw_recipe, _SENSITIVE_KEY_HINTS)
+    assert shared in disclosed
+
+    registry.declare_disclosed(disclosed)
+    registry.register_secrets_batch({"MY_PW": shared})
+
+    class _Cfg(ConfigModel):
+        database: str
+        password: SecretStr
+
+    _Cfg.model_validate({"database": shared, "password": shared})
+
+    masker = SecretMaskingFilter()
+    assert masker.mask_text(f"{shared}.orders") == f"{shared}.orders"
+
+
+def test_disclosure_evicts_a_value_that_was_already_registered():
+    """Order-independent, or the guarantee is only as good as the call order.
+
+    A value can reach the registry before its disclosure is known -- the
+    envelope path registers, then the recipe YAML is parsed for what it
+    states in the clear. Applying disclosure only to later registrations
+    would make the exemption depend on which site ran first.
+    """
+    from datahub.masking.masking_filter import SecretMaskingFilter
+
+    shared = "reporting_" + "warehouse"
+    registry = _fresh_registry()
+
+    registry.register_secrets_batch({"PW": shared})
+    assert SecretMaskingFilter().mask_text(shared) != shared
+
+    registry.declare_disclosed({shared})
+    assert SecretMaskingFilter().mask_text(shared) == shared
+
+
+def test_declaring_disclosure_does_not_exempt_an_unrelated_secret():
+    from datahub.masking.masking_filter import SecretMaskingFilter
+
+    registry = _fresh_registry()
+    registry.register_secrets_batch({"PW": "a-genuine-secret-value"})
+    registry.declare_disclosed({"some_public_database_name"})
+
+    assert "a-genuine-secret-value" not in SecretMaskingFilter().mask_text(
+        "connected with a-genuine-secret-value"
+    )
+
+
+def test_an_inline_password_equal_to_the_database_name_is_still_masked():
+    """The security-critical half of the disclosure policy.
+
+    `database: p` with `password: ${REF}` discloses the identifier and never
+    the credential, so exempting p protects nothing and only corrupts the
+    verdict. `database: p` with `password: p` INLINE discloses the credential
+    itself, and a report travels further than a recipe does -- so that value
+    must still be masked.
+
+    Worth pinning now that disclosure is a sticky, process-wide, retroactive
+    property of the value rather than a filter one caller applies to one
+    batch: getting this half backwards would be worse than the over-masking
+    it was introduced to fix.
+    """
+    import yaml
+
+    from datahub.cli.recipe_cli import _envelope_disclosed_values
+    from datahub.masking.masking_filter import SecretMaskingFilter
+
+    shared = "analytics_" + "warehouse"
+
+    def masked_target(password_value: str) -> str:
+        registry = _fresh_registry()
+        recipe_yaml = yaml.dump(
+            {
+                "source": {
+                    "type": "mysql",
+                    "config": {"database": shared, "password": password_value},
+                }
+            }
+        )
+        registry.declare_disclosed(_envelope_disclosed_values(recipe_yaml))
+        registry.register_secrets_batch({"MY_PW": shared})
+        return SecretMaskingFilter().mask_text(f"{shared}.orders")
+
+    assert masked_target("${MY_PW}") == f"{shared}.orders"
+    assert masked_target(shared) == "***REDACTED:MY_PW***.orders"

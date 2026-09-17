@@ -334,9 +334,16 @@ def _recipe_from_stdin() -> Dict[str, object]:
             # Recorded for the error path, which builds its own redaction set
             # and would otherwise union these straight back in.
             _disclosed_stdin_values.update(disclosed)
-            SecretRegistry.get_instance().register_secrets_batch(
-                {k: v for k, v in _stdin_secrets.items() if v not in disclosed}
-            )
+            registry = SecretRegistry.get_instance()
+            # Declared rather than filtered out of this one batch. Filtering
+            # here exempted the value from THIS registration and nothing
+            # else, and ConfigModel._register_secret_fields registers every
+            # SecretStr on every config the probe builds -- so the password
+            # came straight back in a few frames later and the verdict's
+            # `target` was reported as
+            # `***REDACTED:password***.***REDACTED:password***.orders`.
+            registry.declare_disclosed(disclosed)
+            registry.register_secrets_batch(_stdin_secrets)
         raw = envelope.recipe_yaml
 
     try:

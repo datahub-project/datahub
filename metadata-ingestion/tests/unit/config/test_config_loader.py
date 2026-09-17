@@ -261,6 +261,37 @@ class TestStdinEnvelopeWithSecrets:
         finally:
             SecretRegistry.reset_instance()
 
+    def test_a_malformed_envelope_still_registers_its_secrets(self) -> None:
+        """The failure path is where unmasked values do the most damage.
+
+        Envelope secrets are registered before the recipe is parsed on
+        purpose: a failure during loading is when the error text is least
+        controlled. The check on `__recipe_yaml__` raises before this path
+        ever reaches its own register call, so the secrets have to arrive on
+        the exception -- and this caller had no handler for it, so they did
+        not arrive at all.
+        """
+        secret = "tok-malformed" + "-envelope-456"
+        envelope_json = json.dumps(
+            {
+                "__recipe_yaml__": {"source": {"type": "test"}},
+                "__secrets__": {"MALFORMED_TOKEN": secret},
+            }
+        )
+
+        SecretRegistry.reset_instance()
+        try:
+            with mock.patch("sys.stdin", io.StringIO(envelope_json)):
+                with pytest.raises(ConfigurationError, match="__recipe_yaml__"):
+                    load_config_file("-", allow_stdin=True)
+
+            assert (
+                SecretRegistry.get_instance().get_secret_value("MALFORMED_TOKEN")
+                == secret
+            )
+        finally:
+            SecretRegistry.reset_instance()
+
     def test_envelope_secrets_do_not_touch_os_environ(self) -> None:
         """Secrets from the envelope must NOT be written to os.environ."""
         recipe_yaml = "source:\n  type: test\n  config:\n    token: ${SECRET_TOKEN}\n"

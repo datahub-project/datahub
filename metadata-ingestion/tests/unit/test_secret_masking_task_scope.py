@@ -9,6 +9,7 @@ over-masking into an actual leak.
 """
 
 import threading
+from unittest.mock import patch
 
 import pytest
 
@@ -406,3 +407,51 @@ def test_a_raw_thread_falls_back_to_process_level_not_another_task():
     assert process_secret not in out["proc"], "the floor did not reach a raw thread"
     # Documented residual: the task's own secret is not masked there.
     assert task_secret in out["task"]
+
+
+def test_a_registration_racing_the_combined_cache_is_not_cached_away() -> None:
+    """The combined-pattern cache must not tag old content with a new version.
+
+    get_pattern_and_replacements snapshots `own` under the lock and releases
+    it; _combined_with_parent then needs a cache key. Reading self._version
+    at THAT point -- after the snapshot -- let a register() landing in the
+    window store the pre-registration pattern under the post-registration
+    version. Every later call at that version hit the cache and masked
+    without the new secret, permanently, until some further registration
+    moved the version again.
+
+    The window is entered deterministically here rather than raced for: the
+    interleaving is the same one two threads produce.
+    """
+    parent = SecretRegistry()
+    parent.register_secret("PARENT_PW", "parent-secret-value-1")
+    scope = SecretRegistry(_parent=parent)
+    scope.register_secret("T1", "task-one-secret-value")
+
+    late = "task-two" + "-secret-value"
+    original = SecretRegistry._combined_with_parent
+    injected = False
+
+    def register_inside_the_window(
+        self: SecretRegistry, own: object, replacements: object, *rest: object
+    ) -> object:
+        nonlocal injected
+        if self is scope and not injected:
+            injected = True
+            scope.register_secret("T2", late)
+        return original(self, own, replacements, *rest)  # type: ignore[arg-type]
+
+    with patch.object(
+        SecretRegistry, "_combined_with_parent", register_inside_the_window
+    ):
+        scope.get_pattern_and_replacements()
+
+    assert injected, "the window was never entered; the test proves nothing"
+
+    pattern, replacements = scope.get_pattern_and_replacements()
+    assert pattern is not None
+    assert pattern.search(late), (
+        "a secret registered during the snapshot window was cached out of the "
+        "masking pattern"
+    )
+    assert late in replacements

@@ -3,7 +3,17 @@ import contextvars
 import os
 import re
 import threading
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
+from typing import (
+    Any,
+    Dict,
+    FrozenSet,
+    Hashable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+)
 
 from datahub.masking.constants import (
     CAPACITY_EXCEEDED_MESSAGE,
@@ -140,6 +150,12 @@ def plain_config_values(
     return found
 
 
+# Identifies a registry's pattern content. An int for a registry with no
+# parent, a nested tuple once a scope combines with one -- so it stays
+# comparable however deep the chain is.
+_VersionToken = Hashable
+
+
 _ESCAPABLE_CHARACTERS = ("\n", "\r", "\t", "\\", '"', "'")
 
 
@@ -262,6 +278,10 @@ class SecretRegistry:
         self._parent = _parent
         self._secrets: Dict[str, str] = {}
         self._name_history: Dict[str, List[str]] = {}
+        # Values the recipe states in the clear; see declare_disclosed.
+        # Replaced wholesale rather than mutated, like _secrets, so a reader
+        # without the lock always sees one consistent set.
+        self._disclosed: FrozenSet[str] = frozenset()
         self._version = 0
         self._capacity_exceeded = False
         self._compile_failed = False
@@ -271,7 +291,7 @@ class SecretRegistry:
         # Combined-with-parent cache; see _combined_with_parent.
         self._combined: Optional[re.Pattern] = None
         self._combined_replacements: Dict[str, str] = {}
-        self._combined_key: Optional[Tuple[int, int]] = None
+        self._combined_key: Optional[_VersionToken] = None
         self._registry_lock = threading.RLock()
 
     @classmethod
@@ -310,6 +330,68 @@ class SecretRegistry:
             cls._instance = None
         _active_registry.set(None)
 
+    def declare_disclosed(self, values: Set[str]) -> None:
+        """Values this recipe states in the clear, which must not be masked.
+
+        plain_config_values explains why: a secret whose value equals an
+        identifier the recipe already prints cannot be protected by masking,
+        and blanking it corrupts every unrelated place that identifier
+        appears -- a probe verdict's `target` becomes
+        `***REDACTED:password***.orders`, which is also what tells a reader
+        the password equals the database name.
+
+        The exemption used to be applied by each caller filtering its own
+        batch, and that could only ever hold for the callers that knew. It
+        did not hold for ConfigModel._register_secret_fields, which runs as a
+        mode="after" validator on every config the probe builds and
+        registers each SecretStr it can reach -- re-registering the exact
+        value the probe had just exempted, after the fact. The exemption is
+        a property of the value, so it lives with the value.
+
+        Applied retroactively as well as going forward: a value already
+        registered when its disclosure becomes known is evicted. Otherwise
+        the guarantee would depend on which of two registration sites ran
+        first, which is the kind of ordering that quietly stops holding.
+
+        Callers must subtract inline secret literals first -- a recipe with
+        `password: p` and `database: p` discloses the credential itself.
+        """
+        disclosed = frozenset(v for v in values if v)
+        if not disclosed:
+            return
+        with self._registry_lock:
+            newly = disclosed - self._disclosed
+            self._disclosed = self._disclosed | disclosed
+            if not newly:
+                return
+
+            # Out of the history first: _evict_renderings spares any
+            # rendering a retained value still produces, so a value left in
+            # history would spare its own renderings.
+            new_history = {
+                name: kept
+                for name, values_ in self._name_history.items()
+                if (kept := [v for v in values_ if v not in newly])
+            }
+            new_secrets = self._secrets.copy()
+            removed = _evict_renderings(new_secrets, new_history, sorted(newly))
+            if removed:
+                self._secrets = new_secrets
+                self._version += 1
+                logger.debug(
+                    f"Evicted {removed} rendering(s) of {len(newly)} value(s) the "
+                    f"recipe discloses in the clear (version {self._version})"
+                )
+            self._name_history = new_history
+
+    def _is_disclosed(self, value: str) -> bool:
+        registry: Optional[SecretRegistry] = self
+        while registry is not None:
+            if value in registry._disclosed:
+                return True
+            registry = registry._parent
+        return False
+
     def register_secret(self, variable_name: str, raw_value: str) -> None:
         self.register_secrets_batch({variable_name: raw_value})
 
@@ -324,6 +406,15 @@ class SecretRegistry:
             reason = _unprotectable_reason(value)
             if reason is not None:
                 logger.warning(f"Secret '{name}' is {reason}; it will NOT be masked")
+                continue
+            if self._is_disclosed(value):
+                # Same family as the reasons above, and checked here so it
+                # holds for every registration site rather than the ones
+                # that remember. See declare_disclosed.
+                logger.warning(
+                    f"Secret '{name}' equals a value the recipe states in the "
+                    f"clear; it will NOT be masked"
+                )
                 continue
             accepted[name] = value
 
@@ -421,18 +512,45 @@ class SecretRegistry:
         """Compiled masking pattern and rendering-to-name map, rebuilt when
         the registry has changed since the last build. (None, {}) when the
         registry is empty or the pattern is uncompilable."""
+        pattern, replacements, _version = self._snapshot()
+        return pattern, replacements
+
+    def _snapshot(self) -> Tuple[Optional[re.Pattern], Dict[str, str], _VersionToken]:
+        """Pattern, replacements, and a token identifying exactly this content.
+
+        The token is read under the SAME lock that read the content, and that
+        is the whole point of this method existing. The first version of the
+        combined cache snapshotted `own` under the lock, released it, and only
+        then read `self._version` for the cache key -- so a register() landing
+        in that window got the OLD pattern stored under the NEW version's key.
+        Every later call at that version hit the cache and masked without the
+        secret whose registration caused the bump, until some further
+        registration moved the version again. A fail-open inside the code
+        added to close one.
+
+        `self._pattern_version` is what `own` was built from, so it is the
+        token; `self._version` is where the registry has got to, which is not
+        the same thing the moment another thread is registering.
+        """
         with self._registry_lock:
             if self._pattern_version != self._version:
                 self._rebuild_pattern()
-            own, replacements = self._pattern, self._pattern_replacements
+            own, replacements, own_version = (
+                self._pattern,
+                self._pattern_replacements,
+                self._pattern_version,
+            )
 
         if self._parent is None:
-            return own, replacements
-        return self._combined_with_parent(own, replacements)
+            return own, replacements, own_version
+        return self._combined_with_parent(own, replacements, own_version)
 
     def _combined_with_parent(
-        self, own: Optional[re.Pattern], replacements: Dict[str, str]
-    ) -> Tuple[Optional[re.Pattern], Dict[str, str]]:
+        self,
+        own: Optional[re.Pattern],
+        replacements: Dict[str, str],
+        own_version: _VersionToken,
+    ) -> Tuple[Optional[re.Pattern], Dict[str, str], _VersionToken]:
         """This task's secrets plus the process-level ones.
 
         A task masks against what it was given AND what was registered
@@ -441,19 +559,21 @@ class SecretRegistry:
         startup config. Without the parent those were invisible the moment a
         scope opened, which is a leak rather than an inconvenience.
 
-        Cached on (own version, parent version) so a change on either side
-        rebuilds and neither is rebuilt on an unchanged call. Measured at
-        1.0-1.1x a single registry for realistic secret counts.
+        Cached on (own version, parent version) -- both taken from the
+        snapshot that produced the content, never re-read afterwards; see
+        _snapshot. A change on either side rebuilds, and neither is rebuilt on
+        an unchanged call. Measured at 1.0-1.1x a single registry for
+        realistic secret counts.
         """
         parent = self._parent
         assert parent is not None
-        parent_pattern, parent_replacements = parent.get_pattern_and_replacements()
+        parent_pattern, parent_replacements, parent_version = parent._snapshot()
+        key: _VersionToken = (own_version, parent_version)
         if parent_pattern is None:
-            return own, replacements
+            return own, replacements, key
         if own is None:
-            return parent_pattern, parent_replacements
+            return parent_pattern, parent_replacements, key
 
-        key = (self._version, parent._version)
         with self._registry_lock:
             if self._combined_key != key:
                 # Longest-first across BOTH, for the reason _rebuild_pattern
@@ -471,7 +591,7 @@ class SecretRegistry:
                     merged = replacements
                 self._combined_replacements = merged
                 self._combined_key = key
-            return self._combined, self._combined_replacements
+            return self._combined, self._combined_replacements, key
 
     def _rebuild_pattern(self) -> None:
         self._pattern_version = self._version

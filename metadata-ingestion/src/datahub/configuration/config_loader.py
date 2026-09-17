@@ -299,7 +299,19 @@ def load_config_file(
         config_mech = YamlConfigurationMechanism()
         raw_stdin = sys.stdin.read()
 
-        envelope = parse_recipe_envelope(raw_stdin)
+        try:
+            envelope = parse_recipe_envelope(raw_stdin)
+        except MalformedRecipeEnvelope as exc:
+            # The other caller of the parser -- recipe_cli -- does this too,
+            # and for the reason the exception carries its secrets at all: a
+            # failure during loading is when the error text is least
+            # controlled, so the values have to be maskable before the error
+            # travels. Leaving this path uncaught meant the exception type
+            # existed to hand secrets to a handler and half its callers had
+            # none.
+            if exc.secrets:
+                SecretRegistry.get_instance().register_secrets_batch(exc.secrets)
+            raise
         if envelope is None:
             # Plain YAML or plain JSON (which is valid YAML) — the recipe itself.
             raw_config_file = raw_stdin
