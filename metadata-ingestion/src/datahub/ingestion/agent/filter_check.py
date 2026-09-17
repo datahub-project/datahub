@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Set
 
+from pydantic import ValidationError
+
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.introspect import (
     declared_qualifier,
@@ -500,8 +502,8 @@ def check_filters(
                 type(config).__pydantic_validator__.validate_assignment(
                     config, pattern_field, pattern
                 )
-            except Exception:
-                # A connector whose validator rejects the hypothetical is
+            except ValidationError:
+                # A connector whose validator REJECTS the hypothetical is
                 # answering the question: the caller cannot write that in the
                 # recipe either. Reported rather than silently judged against
                 # the un-normalized pattern.
@@ -509,6 +511,20 @@ def check_filters(
                     "this source could not accept that pattern as written, so "
                     "the verdicts below judge it exactly as given; the recipe "
                     "may normalize it differently"
+                )
+            except Exception as exc:
+                # A validator that CRASHED is a different answer, and the
+                # message above is the wrong one for it: it tells the caller
+                # their pattern was rejected when nothing judged it. Same
+                # degrade -- this is a diagnostic command and a hard failure
+                # would be worse than a caveated answer -- but named for what
+                # happened, so the caller is not sent to fix a pattern that
+                # was never the problem.
+                warn(
+                    f"this source's validator failed while checking that "
+                    f"pattern ({type(exc).__name__}: {exc}), so the verdicts "
+                    f"below judge it exactly as given; this is a defect in "
+                    f"the connector, not in the pattern"
                 )
     else:
         pattern = recipe_pattern

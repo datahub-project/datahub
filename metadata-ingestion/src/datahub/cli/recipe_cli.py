@@ -174,8 +174,14 @@ def _fail(message: str, code: int) -> NoReturn:
 
 # Secrets handed in on stdin alongside the recipe. Module-level because the
 # resolve step happens well after loading, and threading an extra argument
-# through every probe subcommand to carry it would be noise for a value that
-# is set at most once per process.
+# through every probe subcommand to carry it would be noise.
+#
+# Reset per invocation by the `recipe` group callback, NOT merely updated.
+# An earlier version of this comment justified the global with "a value that
+# is set at most once per process", which holds for the one-shot CLI and for
+# nothing else that dispatches the group -- and the failure is not just a
+# stale read: a later recipe resolving ${REF} would get the EARLIER caller's
+# credential and register it for masking as though it had been handed it.
 _stdin_secrets: Dict[str, str] = {}
 
 # Envelope values the recipe also states in the clear under a non-sensitive
@@ -438,6 +444,13 @@ def recipe() -> None:
     from datahub.masking.bootstrap import initialize_secret_masking
 
     initialize_secret_masking()
+
+    # SECURITY: start each invocation with no envelope. These are module
+    # globals (see _stdin_secrets) and were only ever updated, so a second
+    # dispatch in the same interpreter inherited the first caller's secrets
+    # and could resolve its own ${REF}s from them.
+    _stdin_secrets.clear()
+    _disclosed_stdin_values.clear()
 
 
 def _ping_probe(command: str, source_type: str, **dims: object) -> None:

@@ -214,6 +214,33 @@ def test_a_source_that_filters_on_a_qualified_identifier_still_asks():
     assert with_parent.warnings == []
 
 
+def test_a_source_whose_unfiltered_declaration_raises_is_not_read_as_silence():
+    """An indistinguishable empty answer is the bug this hook exists to fix.
+
+    Mode's probe_unfiltered_kinds docstring says why the declaration is
+    there: it is how you tell "this level is reported whole" apart from "the
+    Filters annotation was dropped" -- which is what happened to Teradata's
+    database_pattern, and nothing noticed because the two look identical
+    from outside.
+
+    `except Exception: return set()` turned a broken hook into exactly that
+    indistinguishable silence. pattern_field_for_config would go on to
+    resolve a pattern field by convention and answer by_pattern, contradicting
+    what the connector meant to say, with nothing in the output to show for
+    it. There is no warn channel here to surface it either, so propagating is
+    the only way it can be seen.
+    """
+    from datahub.ingestion.agent.introspect import pattern_field_for_config
+
+    class _BrokenDeclaration:
+        @classmethod
+        def probe_unfiltered_kinds(cls):
+            raise RuntimeError("this connector's hook is broken")
+
+    with pytest.raises(RuntimeError, match="hook is broken"):
+        pattern_field_for_config(_BrokenDeclaration(), "Dataset")
+
+
 def test_the_unfiltered_sentinel_is_an_include_not_a_field_name():
     """UNFILTERED is a marker, not an attribute: reading it off the config asks
     for "__unfiltered__" and raises. check_filters guards it before calling,
@@ -570,6 +597,66 @@ def test_try_allow_reaches_a_source_that_decides_structurally():
     assert hypothetical.results[0].included is True, (
         "--try-allow was echoed in `tried` but not applied"
     )
+
+
+def test_a_crashing_validator_is_not_reported_as_a_rejected_pattern(monkeypatch):
+    """Two different answers used to share one message.
+
+    --try-allow re-validates the hypothetical because some connectors
+    normalize a pattern in an after-validator. A connector that REJECTS the
+    pattern is answering the caller's question, and the warning says so. A
+    connector whose validator CRASHES has answered nothing -- but
+    `except Exception` gave it the same text, sending the caller to fix a
+    pattern that was never judged.
+
+    Still a degrade rather than a hard failure: `probe filter` is a
+    diagnostic and a caveated answer beats no answer. Only the attribution
+    changes.
+    """
+    from datahub.ingestion.source.redshift.config import RedshiftConfig
+
+    real = RedshiftConfig.__pydantic_validator__
+
+    class _CrashingValidator:
+        # Everything else still works -- only the hypothetical assignment
+        # crashes, which is the shape of a buggy after-validator.
+        def __getattr__(self, name):
+            return getattr(real, name)
+
+        def validate_assignment(self, *_a, **_k):
+            raise RuntimeError("boom inside the connector validator")
+
+    monkeypatch.setattr(
+        RedshiftConfig, "__pydantic_validator__", _CrashingValidator(), raising=False
+    )
+
+    result = check_filters(
+        source_type="redshift",
+        config_dict={
+            "host_port": "h:5439",
+            "database": "dev",
+            "username": "u",
+            "password": "p",
+        },
+        kind="Schema",
+        parent_path=[],
+        names=["public"],
+        try_allow=[".*"],
+    )
+
+    blamed_the_pattern = [
+        w for w in result.warnings if "could not accept that pattern" in w
+    ]
+    blamed_the_connector = [
+        w for w in result.warnings if "validator failed while checking" in w
+    ]
+    assert not blamed_the_pattern, (
+        "a crashed validator was reported as the source rejecting the pattern"
+    )
+    assert blamed_the_connector, result.warnings
+    assert "RuntimeError" in blamed_the_connector[0]
+    # And it still answers, rather than failing the command outright.
+    assert result.results[0].included is True
 
 
 def test_try_deny_alone_keeps_the_recipes_allow_list():

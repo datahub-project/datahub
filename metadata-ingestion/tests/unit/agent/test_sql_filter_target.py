@@ -51,6 +51,45 @@ from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 # set and the latter two are in `[dev]`, so the driver arrives either way.
 
 
+def test_an_uninstalled_provider_extra_falls_back_to_the_marker():
+    """The one failure that is about the environment, not the connector.
+
+    Every probe_provider_class() is a lazy import of a provider module, so a
+    missing extra raises ImportError here -- and declares_qualifier is the
+    right answer for a provider that cannot be built.
+    """
+    from datahub.ingestion.source.sql.sql_probe import _matches_a_qualified_name
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls) -> type:
+            raise ImportError("No module named 'some_optional_driver'")
+
+    # No Qualifier marker either, so the fallback's answer is False rather
+    # than an accident of the provider check.
+    assert _matches_a_qualified_name(_Config()) is False
+
+
+def test_a_broken_provider_is_not_quietly_downgraded_to_the_marker():
+    """`except Exception: pass` hid a defect behind a weaker question.
+
+    The provider check is the arity question; declares_qualifier reads a
+    marker and is the fallback. Swallowing every exception meant an
+    installed-but-broken provider silently produced the fallback's answer,
+    which can differ -- and this function returns a bool with no warn
+    channel, so nothing in the output would say so.
+    """
+    from datahub.ingestion.source.sql.sql_probe import _matches_a_qualified_name
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls) -> type:
+            raise AttributeError("the provider module is broken")
+
+    with pytest.raises(AttributeError, match="provider module is broken"):
+        _matches_a_qualified_name(_Config())
+
+
 def _ignore_warn(message: str) -> None:
     """Default `warn` sink for tests that don't exercise a degrade path."""
 

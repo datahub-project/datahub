@@ -221,12 +221,21 @@ def declared_unfiltered_kinds(config: Any) -> Set[str]:
     """
     declared = getattr(config, "probe_unfiltered_kinds", None)
     if not callable(declared):
+        # Not declaring is the ordinary case and means exactly that.
         return set()
-    try:
-        return {str(kind) for kind in declared()}
-    except Exception:
-        # A config that cannot answer is treated as not having answered.
-        return set()
+    # Deliberately unguarded. This used to be wrapped in `except Exception:
+    # return set()`, described as "a config that cannot answer is treated as
+    # not having answered" -- but those are the two states this hook exists
+    # to keep apart. Mode's probe_unfiltered_kinds docstring makes the point:
+    # declaring is how you tell "reported whole" from "the Filters annotation
+    # was dropped", which is what happened to Teradata's database_pattern and
+    # nothing noticed because the two look identical from outside.
+    #
+    # Swallowing put that back: pattern_field_for_config would fall through to
+    # the name convention and answer by_pattern, contradicting the connector,
+    # and there is no warn channel on this path to say so. A hook that raises
+    # is a connector defect, and the caller's exit-code mapping reports it.
+    return {str(kind) for kind in declared()}
 
 
 def pattern_field_for_config(config: Any, kind: ProbeNodeKind) -> Optional[str]:

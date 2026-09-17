@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional, Tuple
 from pydantic import PrivateAttr
 from sqlalchemy import event
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 from datahub.ingestion.source.aws.aws_common import RDSIAMTokenManager
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
@@ -62,10 +63,18 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
         Falls back to host_port if the URL will not parse, which keeps a
         malformed-URL recipe reporting the error it already reported rather
         than a new one from here.
+
+        SECURITY: only the PARSE is guarded, and only against ArgumentError.
+        get_sql_alchemy_url() is called outside the try because a connector
+        that cannot build its URL is not a malformed-URL recipe -- swallowing
+        that and falling back to host_port signs the token for a host the
+        engine may never dial, which is the exact mismatch this method was
+        written to remove.
         """
+        effective_url = self.get_sql_alchemy_url()
         try:
-            url = make_url(self.get_sql_alchemy_url())
-        except Exception:
+            url = make_url(effective_url)
+        except ArgumentError:
             return parse_host_port(
                 self.host_port, default_port=self.rds_iam_default_port()
             )
@@ -86,11 +95,15 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
         neither.
 
         Falls back to the config field when the URL will not parse or carries
-        no user, which is the ordinary recipe.
+        no user, which is the ordinary recipe. Narrowed for the same reason as
+        rds_iam_endpoint: a token minted for the wrong user is rejected by RDS
+        with an error naming neither, so a connector-side failure must not be
+        rewritten into a quiet fallback.
         """
+        effective_url = self.get_sql_alchemy_url()
         try:
-            url = make_url(self.get_sql_alchemy_url())
-        except Exception:
+            url = make_url(effective_url)
+        except ArgumentError:
             return self.username
         return url.username or self.username
 

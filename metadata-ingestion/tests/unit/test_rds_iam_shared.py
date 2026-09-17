@@ -183,6 +183,36 @@ def test_iam_without_a_username_is_a_user_error(factory):
         config.rds_iam_token_manager()
 
 
+@pytest.mark.parametrize("factory", [_mysql, _postgres], ids=["mysql", "postgres"])
+def test_a_url_that_cannot_be_built_is_not_rewritten_into_a_host_fallback(
+    factory, monkeypatch
+):
+    """SECURITY: the fallback is for a malformed URL, not for any failure.
+
+    rds_iam_endpoint and rds_iam_username read the URL the engine will
+    actually dial, because a recipe setting `sqlalchemy_uri` alongside
+    host_port would otherwise have its token signed for one host and
+    presented to another. Both wrapped `make_url(self.get_sql_alchemy_url())`
+    in `except Exception`, so a connector that could not build its URL fell
+    back to host_port and username -- reintroducing exactly that mismatch,
+    silently, for a reason that has nothing to do with parsing.
+
+    RDS then rejects the token with an authentication error naming neither
+    the host it was signed for nor the one it was presented to.
+    """
+    config = factory(host_port="db.rds.amazonaws.com:5432", **_IAM)
+
+    def _broken(*_a, **_k):
+        raise RuntimeError("this connector cannot build its URL")
+
+    monkeypatch.setattr(type(config), "get_sql_alchemy_url", _broken)
+
+    with pytest.raises(RuntimeError, match="cannot build its URL"):
+        config.rds_iam_endpoint()
+    with pytest.raises(RuntimeError, match="cannot build its URL"):
+        config.rds_iam_username()
+
+
 # --- the gap this closes -----------------------------------------------------
 
 

@@ -418,7 +418,19 @@ def _matches_a_qualified_name(config: object) -> bool:
         try:
             if getter() is not SqlAlchemyMetadataProbe:
                 return True
-        except Exception:
+        except ImportError:
+            # Only this. Every probe_provider_class is a lazy import of a
+            # provider module, so an uninstalled extra is the one failure
+            # that is about the environment rather than the connector, and
+            # falling through to declares_qualifier is the right answer for
+            # it.
+            #
+            # `except Exception: pass` also swallowed a provider that is
+            # installed and broken, and the fallback is a WEAKER question --
+            # declares_qualifier reads a marker, this reads the provider --
+            # so a defect silently downgraded the arity answer with nothing
+            # to show for it. This function returns a bool and has no warn
+            # channel, so propagating is the only way it can be seen.
             pass
     # lazy: agent.introspect is only needed once a probe runs
     from datahub.ingestion.agent.introspect import declares_qualifier

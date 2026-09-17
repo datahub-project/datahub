@@ -21,7 +21,7 @@ from datahub.ingestion.agent.verdicts import ProbeSoftError
 
 
 @pytest.fixture(autouse=True)
-def _isolate_secret_registry():
+def _isolate_secret_registry(monkeypatch):
     """The registry is a process-global singleton and masking is opt-out, so a
     secret registered by one test stays registered for the rest of the session
     and would silently mask it out of a later test's output. Loading a stdin
@@ -41,6 +41,16 @@ def _isolate_secret_registry():
     # nothing registered afterwards; with clear(), it picks up the new
     # secrets and forgets the old ones.
     SecretRegistry.get_instance().clear()
+
+    # The stdin envelope globals, for the same reason and in the same place.
+    # Every test here used to reset _stdin_secrets in its own body -- 21
+    # copies of one line, which is how one of them ends up forgotten. Tests
+    # that dispatch the CLI get this from the `recipe` group callback too;
+    # the ones calling rc._load_recipe("-") directly bypass the group, so the
+    # fixture is what covers them.
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(rc, "_disclosed_stdin_values", set(), raising=False)
+
     yield
     SecretRegistry.get_instance().clear()
 
@@ -679,9 +689,55 @@ def _envelope(secrets):
     )
 
 
+def test_a_second_invocation_does_not_inherit_the_first_envelope(monkeypatch, tmp_path):
+    """_stdin_secrets is module state, and only ever updated.
+
+    Its comment called that safe because the value "is set at most once per
+    process". That is true of `datahub recipe ...` as a one-shot CLI and
+    false of every other way the group is dispatched -- this test file alone
+    resets it by hand in 21 places, which is the workaround, not the
+    contract.
+
+    The consequence is not just staleness: a later recipe resolving ${REF}
+    gets the EARLIER caller's credential, and registers it for masking as
+    though it had been handed it. Cleared in the group callback, which runs
+    exactly once per invocation.
+    """
+    monkeypatch.delenv("PROBE_TEST_REF", raising=False)
+    runner = CliRunner()
+
+    # First invocation: an envelope arrives on stdin.
+    first = runner.invoke(
+        recipe,
+        ["validate", "-"],
+        input=_envelope({"PROBE_TEST_REF": "from-the-first-run"}),
+    )
+    assert first.exit_code == 0, first.output
+    # It really was populated, so the second half is testing something.
+    assert rc._stdin_secrets == {"PROBE_TEST_REF": "from-the-first-run"}
+
+    # Second invocation, same interpreter: a recipe from a FILE, no envelope
+    # and no environment variable to resolve from.
+    path = tmp_path / "second.yml"
+    path.write_text(
+        "source:\n"
+        "  type: mysql\n"
+        "  config:\n"
+        "    host_port: h:3306\n"
+        "    username: u\n"
+        "    password: ${PROBE_TEST_REF}\n"
+    )
+    runner.invoke(recipe, ["validate", str(path)])
+
+    assert rc._stdin_secrets == {}, (
+        "the second invocation can resolve ${PROBE_TEST_REF} from the first "
+        "caller's envelope"
+    )
+    assert rc._disclosed_stdin_values == set()
+
+
 def test_a_ref_resolves_from_the_stdin_envelope_not_the_environment(monkeypatch):
     monkeypatch.delenv("PROBE_TEST_REF", raising=False)
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr(
         "sys.stdin",
         io.StringIO(_envelope({"PROBE_TEST_REF": "resolved-from-envelope"})),
@@ -698,7 +754,6 @@ def test_a_ref_resolves_from_the_stdin_envelope_not_the_environment(monkeypatch)
 
 def test_the_envelope_wins_over_a_same_named_environment_variable(monkeypatch):
     monkeypatch.setenv("PROBE_TEST_REF", "from-env")
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr(
         "sys.stdin", io.StringIO(_envelope({"PROBE_TEST_REF": "from-stdin"}))
     )
@@ -710,7 +765,6 @@ def test_the_envelope_wins_over_a_same_named_environment_variable(monkeypatch):
 def test_an_envelope_secret_is_masked_even_if_the_recipe_never_uses_it(monkeypatch):
     """A value may arrive already substituted, so 'the recipe references it' is
     not a sound test for whether it must be masked. Mirrors load_config_file."""
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr(
         "sys.stdin",
         io.StringIO(
@@ -723,7 +777,6 @@ def test_an_envelope_secret_is_masked_even_if_the_recipe_never_uses_it(monkeypat
 
 
 def test_a_plain_recipe_on_stdin_still_works(monkeypatch):
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr(
         "sys.stdin", io.StringIO("source:\n  type: mysql\n  config:\n    a: 1\n")
     )
@@ -733,14 +786,12 @@ def test_a_plain_recipe_on_stdin_still_works(monkeypatch):
 
 
 def test_empty_stdin_is_a_user_error_not_a_traceback(monkeypatch):
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr("sys.stdin", io.StringIO("   "))
     with pytest.raises(ValueError, match="no recipe received on stdin"):
         rc._load_recipe("-")
 
 
 def test_a_non_mapping_recipe_on_stdin_is_refused(monkeypatch):
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr("sys.stdin", io.StringIO("- just\n- a list\n"))
     with pytest.raises(ValueError, match="must be a YAML mapping"):
         rc._load_recipe("-")
@@ -757,7 +808,6 @@ def test_the_envelope_secret_does_not_reach_stdout(monkeypatch):
     The claim is that the value cannot be read off the command's output, which
     only the real CLI path -- resolve, run, redact, emit -- can demonstrate.
     """
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
 
     def fake_run(st, cfg, cmd, kwargs):
         # A connector echoing the resolved credential back in its payload is
@@ -783,7 +833,6 @@ def test_validate_accepts_a_ref_supplied_only_in_the_envelope(monkeypatch):
     was piped in was reported unresolvable while probe run accepted it.
     """
     monkeypatch.delenv("PROBE_TEST_REF", raising=False)
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     res = CliRunner().invoke(
         recipe,
         ["validate", "-"],
@@ -799,7 +848,6 @@ def test_validate_masks_an_envelope_secret_it_never_resolved(monkeypatch):
     Nothing else in _secrets_in_recipe would collect it, so without the stdin
     floor a pydantic error quoting input_value= emits it in the clear.
     """
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     envelope = json.dumps(
         {
             # `env` is checked against a fixed set and its error quotes the
@@ -825,7 +873,6 @@ def test_malformed_yaml_in_the_envelope_cannot_echo_the_credential(monkeypatch):
     A YAML error quotes the offending line, so the redaction has to read the
     envelope's secrets at raise time rather than at block entry.
     """
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     envelope = json.dumps(
         {
             # Unclosed quote: the parser reports the line, which carries the value.
@@ -847,7 +894,6 @@ def test_envelope_secrets_reach_the_masking_registry(monkeypatch):
     """
     from datahub.masking.masking_filter import SecretMaskingFilter
 
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr(
         "sys.stdin",
         io.StringIO(_envelope({"PROBE_TEST_REF": "resolved-from-envelope"})),
@@ -868,7 +914,6 @@ def test_a_null_envelope_secret_fails_to_resolve_instead_of_becoming_None(monkey
     also have reached the output.
     """
     monkeypatch.delenv("PROBE_TEST_REF", raising=False)
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr("sys.stdin", io.StringIO(_envelope({"PROBE_TEST_REF": None})))
 
     loaded = rc._load_recipe("-")
@@ -887,7 +932,6 @@ def test_an_empty_envelope_secret_does_not_fall_through_to_the_environment(
     piping an empty credential must get an empty credential.
     """
     monkeypatch.setenv("PROBE_TEST_REF", "from-env")
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr("sys.stdin", io.StringIO(_envelope({"PROBE_TEST_REF": ""})))
 
     _t, config, _s = rc._resolve_for_probe(rc._load_recipe("-"))
@@ -909,7 +953,6 @@ def test_a_secret_equal_to_a_plain_config_value_is_not_masked(monkeypatch):
     AND discloses the collision -- the recipe plainly says `database: datahub`,
     so the mask is the only new information in the output.
     """
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr(
         "sys.stdin",
         io.StringIO(
@@ -949,7 +992,6 @@ def test_a_secret_matching_an_inline_secret_field_is_still_masked(monkeypatch):
     recipe does, to GMS, the logs and an LLM. Only a value the raw recipe does
     not carry under a sensitive key is exempt.
     """
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr(
         "sys.stdin",
         io.StringIO(
@@ -982,7 +1024,6 @@ def test_a_ref_under_an_unrecognised_key_is_still_masked(monkeypatch):
     unmasking the very secret the ${ref} collection exists to catch. A raw
     plain literal cannot be a resolved secret, so raw-only is safe.
     """
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr(
         "sys.stdin",
         io.StringIO(
@@ -1019,7 +1060,6 @@ def test_an_envelope_secret_the_recipe_discloses_is_not_registered(monkeypatch):
     """
     from datahub.masking.masking_filter import SecretMaskingFilter
 
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr(
         "sys.stdin",
         io.StringIO(
@@ -1049,7 +1089,6 @@ def test_an_envelope_secret_the_recipe_does_not_disclose_is_still_registered(
     """The exemption must not become a hole in the backstop."""
     from datahub.masking.masking_filter import SecretMaskingFilter
 
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr(
         "sys.stdin",
         io.StringIO(
@@ -1081,7 +1120,6 @@ def test_a_malformed_envelope_recipe_still_registers_its_secrets(monkeypatch):
     """
     from datahub.masking.masking_filter import SecretMaskingFilter
 
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr(
         "sys.stdin",
         io.StringIO(
@@ -1131,7 +1169,6 @@ def test_a_malformed_envelope_is_a_user_error_not_an_internal_one(monkeypatch):
     agent reads exit 1 as "something broke, maybe retry" when the answer is
     "you built the envelope wrong, fix it", which is exit 2.
     """
-    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
     monkeypatch.setattr(
         sys,
         "stdin",
