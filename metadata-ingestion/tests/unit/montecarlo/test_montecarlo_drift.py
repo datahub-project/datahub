@@ -502,12 +502,29 @@ def test_native_parameters_severity_preferred_over_priority() -> None:
     assert params["severity"] == "CRITICAL"
 
 
+def test_native_parameters_includes_where_condition() -> None:
+    # whereCondition is a native MC row-filter; it is carried on
+    # nativeParameters (not logic) so the UI can render the filter without
+    # misrepresenting it as the monitor's SQL body.
+    definition = _definition(where_condition="amount > 100")
+    params = mc_assertion._native_parameters(definition)
+    assert params["where_condition"] == "amount > 100"
+
+
+def test_native_parameters_omits_where_condition_when_absent() -> None:
+    # _string_map drops None values, so an absent where_condition leaves no
+    # empty key on nativeParameters.
+    definition = _definition(where_condition=None)
+    params = mc_assertion._native_parameters(definition)
+    assert "where_condition" not in params
+
+
 def test_custom_assertion_logic_omits_where_condition() -> None:
     # whereCondition is a row-filter WHERE clause on metric/comparison
     # monitors, NOT the monitor's SQL body. It must not be folded into logic
     # (rendering a filter predicate as if it were the monitor SQL). With
     # customSql removed from the Monitor type, the SQL is unrecoverable and
-    # logic stays None.
+    # logic stays None. The filter is preserved on nativeParameters instead.
     definition = _definition(
         custom_sql=None, where_condition="amount > 100", monitor_type="CUSTOM_SQL"
     )
@@ -517,6 +534,8 @@ def test_custom_assertion_logic_omits_where_condition() -> None:
         definition=definition,
     )
     assert info.logic is None
+    assert info.nativeParameters is not None
+    assert info.nativeParameters.get("where_condition") == "amount > 100"
 
 
 def test_custom_assertion_logic_uses_custom_sql_when_present() -> None:

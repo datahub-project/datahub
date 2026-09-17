@@ -129,13 +129,19 @@ def _effective_description(definition: MonteCarloAssertionDef) -> Optional[str]:
 def _native_parameters(definition: MonteCarloAssertionDef) -> Dict[str, str]:
     """Native MC fields that don't map to the structured assertion slots, carried
     on nativeParameters so the UI can render them. severity / data_quality_dimension
-    / resource_id are monitor-level; comparisonType / metric / customMetric are
-    added by the comparisons path when present. severity falls back to priority
-    (the renamed field on the current Monitor/CustomRule schema)."""
+    / resource_id / where_condition are monitor-level; comparisonType / metric /
+    customMetric are added by the comparisons path when present. severity falls
+    back to priority (the renamed field on the current Monitor/CustomRule schema).
+
+    where_condition is the Monitor row-filter WHERE clause (the renamed
+    whereCondition). It is carried as a native field so the UI can show the
+    filter, but it is NOT folded into CustomAssertionInfo.logic — logic is the
+    monitor's SQL body, and a row-filter predicate is not the query body."""
     params: Dict[str, Any] = {
         "severity": definition.severity or definition.priority,
         "data_quality_dimension": definition.data_quality_dimension,
         "resource_id": definition.resource_id,
+        "where_condition": definition.where_condition,
     }
     return _string_map(params)
 
