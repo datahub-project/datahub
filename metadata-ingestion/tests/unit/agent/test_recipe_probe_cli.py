@@ -1249,3 +1249,45 @@ def test_clearing_the_registry_keeps_installed_filters_working():
     # ...and the previous test's secret is genuinely gone, which is the
     # isolation the fixture is for.
     assert "earlier-secret-value" in installed.mask_text("saw earlier-secret-value")
+
+
+def test_an_unserializable_value_becomes_a_bounded_string_not_its_internals():
+    """_json_default used to return o.__dict__.
+
+    json.dumps then walked whatever the library hung on the object -- a
+    driver error carries connection state, and redaction afterwards only
+    knows the values it collected, so an unregistered credential nested a
+    few attributes deep went out in the clear. str(o) is bounded and is
+    what the caller can act on.
+    """
+    from pydantic import SecretStr
+
+    class _DriverError(Exception):
+        def __init__(self) -> None:
+            super().__init__("connection failed")
+            self.conn = "postgresql://u:" + "hunter2" + "@h/db"
+
+    rendered = json.dumps({"err": _DriverError()}, default=rc._json_default)
+    assert "hunter2" not in rendered, rendered
+    assert "connection failed" in rendered
+
+    # SecretStr is still handled first: its __dict__ holds _secret_value.
+    assert "s3kret" not in json.dumps(
+        {"pw": SecretStr("s3kret")}, default=rc._json_default
+    )
+
+
+def test_a_report_file_is_never_left_half_written(tmp_path):
+    """json.dump truncates on open, so a serialization failure partway
+    through leaves a file that reads as valid output. The default= makes
+    that unreachable."""
+
+    class _Odd:
+        def __str__(self) -> str:
+            return "odd-value"
+
+    target = tmp_path / "report.json"
+    rc._write_report(str(target), {"a": 1, "b": _Odd()})
+
+    written = json.loads(target.read_text())
+    assert written == {"a": 1, "b": "odd-value"}

@@ -62,13 +62,24 @@ def _emit(payload: object) -> None:
 
 
 def _json_default(o: object) -> object:
-    # Never let a SecretStr's raw value into serialized output: its __dict__
-    # exposes _secret_value, so mask before falling back to attribute dumping.
+    """What to emit for a value json cannot serialize.
+
+    SecretStr first and explicitly: its __dict__ exposes _secret_value, so
+    any attribute-based fallback would print the secret.
+
+    Everything else becomes str(o), NOT o.__dict__. Dumping __dict__ walked
+    arbitrary object graphs -- a driver error or an exception object carries
+    whatever its library put on it, including connection strings, and
+    json.dumps would recurse through the whole structure. Redaction runs
+    afterwards, but it only knows the values it collected, so an
+    unregistered credential nested three attributes deep went out in the
+    clear. str(o) is bounded and is what the caller can act on anyway.
+    """
     from pydantic import SecretBytes, SecretStr  # local: pydantic types only here
 
     if isinstance(o, (SecretStr, SecretBytes)):
         return "***"
-    return getattr(o, "__dict__", str(o))
+    return str(o)
 
 
 def _write_report(report_to: Optional[str], payload: object) -> None:
@@ -78,7 +89,13 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
     if report_to:
         try:
             with open(report_to, "w") as f:
-                json.dump(payload, f)
+                # default= for the same reason _emit has one: without it a
+                # value json cannot serialize raises partway through, after
+                # open() has already truncated the file, leaving a half
+                # written report that reads as valid output. Callers pass an
+                # already-redacted, already-JSON-normalized payload today --
+                # this is for the one that does not.
+                json.dump(payload, f, default=_json_default)
         except OSError as exc:
             # An unwritable path or missing parent directory is the caller's
             # argument being wrong, so it must read as EXIT_USER like any other

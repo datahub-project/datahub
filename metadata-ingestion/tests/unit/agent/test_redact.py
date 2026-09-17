@@ -375,3 +375,42 @@ def test_ordinary_type_metadata_is_not_mistaken_for_an_identity():
     (masked,) = mask_identity_columns(columns, rows)
 
     assert masked == rows[0], f"an ordinary catalog column was masked: {masked}"
+
+
+def test_a_credential_named_api_key_is_not_treated_as_disclosed():
+    """The disclosure exemption is what made the hint gap a leak.
+
+    A value under a key no hint matched counted as "stated in the clear",
+    and a disclosed value is SUBTRACTED from the redaction set so the probe
+    can print it. So `api_key: abc` inline in a recipe was not merely
+    unrecognised -- it was actively exempted from masking.
+
+    Five connectors carry such a field and none is SecretStr-typed, so the
+    typed registry does not cover them either: elasticsearch's api_key,
+    aws_access_key_id on dynamodb/glue/quicksight/sagemaker.
+    """
+    from datahub.masking.secret_registry import SENSITIVE_KEY_HINTS, plain_config_values
+
+    for key in ("api_key", "apikey", "passwd", "aws_access_key_id", "kafka_api_key"):
+        disclosed = plain_config_values({key: "the-value"}, SENSITIVE_KEY_HINTS)
+        assert disclosed == set(), f"{key} was exempted from masking"
+
+    # The converse, so this cannot become "exempt nothing": an ordinary
+    # identifier under an ordinary key is still disclosed.
+    assert plain_config_values({"database": "analytics"}, SENSITIVE_KEY_HINTS) == {
+        "analytics"
+    }
+
+
+def test_the_widened_hints_do_not_swallow_structural_fields():
+    """Bare "key" is absent from the hints on purpose.
+
+    partition_key, primary_key and key_path are structure, not credentials,
+    and masking them would corrupt ordinary output. Same reason "credential"
+    is absent: it names a mixed object whose secret child is already matched.
+    """
+    from datahub.masking.secret_registry import SENSITIVE_KEY_HINTS, plain_config_values
+
+    for key in ("partition_key", "primary_key", "key_path", "sort_key", "project_id"):
+        disclosed = plain_config_values({key: "structural"}, SENSITIVE_KEY_HINTS)
+        assert disclosed == {"structural"}, f"{key} is not a credential"
