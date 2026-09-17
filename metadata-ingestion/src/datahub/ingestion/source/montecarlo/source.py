@@ -28,6 +28,7 @@ from datahub.ingestion.source.montecarlo.client import (
 )
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
 from datahub.ingestion.source.montecarlo.mcon_resolver import MconResolver
+from datahub.ingestion.source.montecarlo.query_builder import DriftVerdict
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -135,6 +136,49 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        # Schema-drift gate: introspect the live Monitor/CustomRule/Alert types
+        # once (cached) and diff against the connector's desired fields. A
+        # missing *critical* field (uuid/entityMcons/monitorUuids) aborts the
+        # run cleanly so we emit no malformed/empty records; non-critical drift
+        # (e.g. a removed customSql/severity) degrades gracefully — the query
+        # builder already dropped the field and every consumer handles None —
+        # and is surfaced as a warning. strict_schema_drift aborts on any drift.
+        drift = self.client.check_schema_drift(self.config.strict_schema_drift)
+        for type_drift in drift.per_type.values():
+            if type_drift.verdict == DriftVerdict.ABORT:
+                self.report.failure(
+                    title="Monte Carlo schema drift: critical fields missing",
+                    message=(
+                        "The live Monte Carlo GraphQL schema no longer exposes fields "
+                        "the connector requires. Ingestion is aborted to avoid emitting "
+                        "malformed or empty records. Update the connector or contact "
+                        "Monte Carlo about the schema change."
+                    ),
+                    context=drift.summary(),
+                )
+                return
+            if type_drift.verdict == DriftVerdict.DEGRADED:
+                self.report.warning(
+                    title=f"Monte Carlo schema drift ({type_drift.type_name})",
+                    message=(
+                        f"Fields no longer exposed by the live schema: "
+                        f"{', '.join(type_drift.missing)}. Ingesting without them; the "
+                        "corresponding assertion slots will be empty. Set "
+                        "strict_schema_drift=true to abort on any drift."
+                    ),
+                    context=type_drift.summary(),
+                )
+            if type_drift.new_fields:
+                self.report.warning(
+                    title=f"Monte Carlo schema: new uningested fields ({type_drift.type_name})",
+                    message=(
+                        f"The live schema exposes fields the connector does not yet "
+                        f"request: {', '.join(type_drift.new_fields)}. Consider updating "
+                        "the connector to ingest them."
+                    ),
+                    context=f"new_fields={','.join(type_drift.new_fields)}",
+                )
+
         if self.config.include_assertions:
             monitor_wus = self._emit(
                 "monitor",

@@ -7,14 +7,17 @@ from pydantic import BaseModel, Field, field_validator
 
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
 from datahub.ingestion.source.montecarlo.queries import (
-    ALERTS_QUERY,
-    CUSTOM_RULES_QUERY,
     GET_JOB_EXECUTIONS_QUERY,
     GET_METRICS_V4_QUERY,
     GET_TABLE_BY_FULL_TABLE_ID_QUERY,
     GET_TABLE_QUERY,
-    MONITORS_QUERY,
     TABLE_MONITOR_QUERY,
+)
+from datahub.ingestion.source.montecarlo.query_builder import (
+    IntrospectingQueryBuilder,
+    QueryBuilder,
+    SchemaDrift,
+    StaticQueryBuilder,
 )
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
 from datahub.utilities.ratelimiter import (
@@ -298,6 +301,42 @@ class MonteCarloClient:
         self._daily_budget: Optional[DailyCallBudget] = None
         if config.rate_limit_daily:
             self._daily_budget = DailyCallBudget(config.rate_limit_daily)
+        # Builds the drift-prone queries (monitors/custom rules/alerts) dynamically
+        # from the live MCD schema so a removed field degrades gracefully instead
+        # of failing the whole fetch with a 400. Tests inject a StaticQueryBuilder
+        # (via set_query_builder) to bypass introspection; the default introspects
+        # once per type (cached). Stored on _query_builder_impl so the
+        # _query_builder property can fall back to a StaticQueryBuilder for tests
+        # that construct the client via __new__ (skipping __init__).
+        self._query_builder_impl: Optional[QueryBuilder] = IntrospectingQueryBuilder(
+            self._call, self._warn, fatal_error_types=_FATAL_RUN_ERRORS
+        )
+
+    @property
+    def _query_builder(self) -> QueryBuilder:
+        builder = getattr(self, "_query_builder_impl", None)
+        if builder is None:
+            return StaticQueryBuilder()
+        return builder
+
+    def set_query_builder(self, builder: QueryBuilder) -> None:
+        """Inject a query builder (used by tests to bypass introspection)."""
+        self._query_builder_impl = builder
+
+    def check_schema_drift(self, strict: bool = False) -> SchemaDrift:
+        """Introspect the live Monitor/CustomRule/Alert types and diff them
+        against the connector's desired field set. Returns a SchemaDrift whose
+        verdict is PROCEED/DEGRADED/ABORT. Introspection is cached for the run;
+        a transient introspection failure never fabricates an ABORT (it returns
+        PROCEED and a warning was already reported by the builder). Only the
+        types actually being ingested are checked (monitors/rules when
+        include_assertions, alerts when include_alerts)."""
+        types: list = []
+        if self.config.include_assertions:
+            types.extend(["Monitor", "CustomRule"])
+        if self.config.include_alerts:
+            types.append("Alert")
+        return self._query_builder.check_drift(strict, types=types)
 
     def _warn(
         self,
@@ -474,7 +513,9 @@ class MonteCarloClient:
         variables: Dict[str, Any] = {}
         if self.config.domain_ids:
             variables["domainIds"] = self.config.domain_ids
-        for raw in self._paginate_offset(MONITORS_QUERY, "get_monitors", variables):
+        for raw in self._paginate_offset(
+            self._query_builder.monitors_query(), "get_monitors", variables
+        ):
             uuid = raw.get("uuid")
             if not uuid:
                 self._report_missing_id("monitor", raw)
@@ -570,7 +611,9 @@ class MonteCarloClient:
         return mcons
 
     def get_custom_rules(self) -> Iterable[MonteCarloAssertionDef]:
-        for raw in self._paginate(CUSTOM_RULES_QUERY, "get_custom_rules", {}):
+        for raw in self._paginate(
+            self._query_builder.custom_rules_query(), "get_custom_rules", {}
+        ):
             uuid = raw.get("uuid")
             if not uuid:
                 self._report_missing_id("custom rule", raw)
@@ -605,7 +648,9 @@ class MonteCarloClient:
         variables = {
             "createdTime": {"after": start_time.isoformat(), "before": now.isoformat()}
         }
-        for raw in self._paginate(ALERTS_QUERY, "get_alerts", variables):
+        for raw in self._paginate(
+            self._query_builder.alerts_query(), "get_alerts", variables
+        ):
             alert_id = raw.get("id")
             if not alert_id:
                 self._report_missing_id("alert", raw)
