@@ -45,6 +45,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final SettingsService _settingsService;
   private final boolean _isS3Enabled;
   private final SemanticSearchConfiguration _semanticSearchConfiguration;
+  private final boolean _entityIndexV3Enabled;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -67,6 +68,52 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final SettingsService settingsService,
       final boolean isS3Enabled,
       final SemanticSearchConfiguration semanticSearchConfiguration) {
+    this(
+        gitVersion,
+        isAnalyticsEnabled,
+        ingestionConfiguration,
+        authenticationConfiguration,
+        authorizationConfiguration,
+        supportsImpactAnalysis,
+        visualConfiguration,
+        telemetryConfiguration,
+        testsConfiguration,
+        datahubConfiguration,
+        viewsConfiguration,
+        searchBarConfig,
+        searchCardConfig,
+        searchFlagsConfig,
+        homePageConfig,
+        featureFlags,
+        chromeExtensionConfiguration,
+        settingsService,
+        isS3Enabled,
+        semanticSearchConfiguration,
+        false);
+  }
+
+  public AppConfigResolver(
+      final GitVersion gitVersion,
+      final boolean isAnalyticsEnabled,
+      final IngestionConfiguration ingestionConfiguration,
+      final AuthenticationConfiguration authenticationConfiguration,
+      final AuthorizationConfiguration authorizationConfiguration,
+      final boolean supportsImpactAnalysis,
+      final VisualConfiguration visualConfiguration,
+      final TelemetryConfiguration telemetryConfiguration,
+      final TestsConfiguration testsConfiguration,
+      final DataHubConfiguration datahubConfiguration,
+      final ViewsConfiguration viewsConfiguration,
+      final SearchBarConfiguration searchBarConfig,
+      final SearchCardConfiguration searchCardConfig,
+      final SearchFlagsConfiguration searchFlagsConfig,
+      final HomePageConfiguration homePageConfig,
+      final FeatureFlags featureFlags,
+      final ChromeExtensionConfiguration chromeExtensionConfiguration,
+      final SettingsService settingsService,
+      final boolean isS3Enabled,
+      final SemanticSearchConfiguration semanticSearchConfiguration,
+      final boolean entityIndexV3Enabled) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -87,6 +134,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _settingsService = settingsService;
     _isS3Enabled = isS3Enabled;
     _semanticSearchConfiguration = semanticSearchConfiguration;
+    _entityIndexV3Enabled = entityIndexV3Enabled;
   }
 
   @Override
@@ -367,6 +415,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
       appConfig.setSemanticSearchConfig(semanticSearchConfig);
     }
+
+    final EntityIndexV3Config entityIndexV3Config = new EntityIndexV3Config();
+    entityIndexV3Config.setEnabled(_entityIndexV3Enabled);
+    appConfig.setEntityIndexV3(entityIndexV3Config);
 
     return CompletableFuture.completedFuture(appConfig);
   }

@@ -29,6 +29,8 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -51,6 +53,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -1042,5 +1045,177 @@ public class UpdateIndicesV3StrategyTest {
     // Verify that no upsert operation was performed due to the exception
     verify(elasticSearchService, never())
         .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testLiftsEmbeddingsToDocumentV3RootWhenSemanticEnabled() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn("document");
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+
+    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
+    semanticDoc.put("urn", documentUrn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    embeddings.put("model", "cohere_embed_v3");
+    semanticDoc.set("embeddings", embeddings);
+    semanticDoc.put("skipReason", "EMPTY_TEXT");
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(semanticDoc));
+
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(true);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    ModelEmbeddingConfig model = new ModelEmbeddingConfig();
+    model.setVectorDimension(1024);
+    semanticConfig.setModels(Map.of("cohere_embed_v3", model));
+
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(),
+            false,
+            semanticConfig);
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("document"), documentCaptor.capture(), anyString());
+    ObjectNode written =
+        (ObjectNode)
+            new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+    assertTrue(written.has("embeddings"));
+    assertEquals(written.get("skipReason").asText(), "EMPTY_TEXT");
+    assertTrue(written.has("resolvedTextSha256"));
+    assertFalse(written.get("_aspects").get("semanticContent").has("embeddings"));
+    assertFalse(written.get("_aspects").get("semanticContent").has("skipReason"));
+  }
+
+  @Test
+  public void testDoesNotLiftEmbeddingsWhenSemanticDisabled() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn("document");
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+
+    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
+    semanticDoc.put("urn", documentUrn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    embeddings.put("model", "cohere_embed_v3");
+    semanticDoc.set("embeddings", embeddings);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(semanticDoc));
+
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(false);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    semanticConfig.setModels(Map.of("cohere_embed_v3", new ModelEmbeddingConfig()));
+
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(),
+            false,
+            semanticConfig);
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("document"), documentCaptor.capture(), anyString());
+    ObjectNode written =
+        (ObjectNode)
+            new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+    assertFalse(written.has("embeddings"));
+    assertTrue(written.get("_aspects").get("semanticContent").has("embeddings"));
+  }
+
+  @Test
+  public void testDoesNotLiftEmbeddingsForDataset() throws Exception {
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+
+    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
+    semanticDoc.put("urn", testUrn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    embeddings.put("model", "cohere_embed_v3");
+    semanticDoc.set("embeddings", embeddings);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(semanticDoc));
+
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(true);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    semanticConfig.setModels(Map.of("cohere_embed_v3", new ModelEmbeddingConfig()));
+
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(),
+            false,
+            semanticConfig);
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("dataset"), documentCaptor.capture(), anyString());
+    ObjectNode written =
+        (ObjectNode)
+            new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+    assertFalse(written.has("embeddings"));
   }
 }

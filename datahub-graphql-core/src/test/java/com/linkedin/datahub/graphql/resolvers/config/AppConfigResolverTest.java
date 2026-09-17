@@ -1108,4 +1108,42 @@ public class AppConfigResolverTest {
           "Model embedding key derivation failed for model ID: " + modelId);
     }
   }
+
+  @Test
+  public void testEntityIndexV3EnabledExposedOnAppConfig() throws Exception {
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true,
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true,
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            false,
+            mockSemanticSearchConfiguration,
+            true);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+    assertNotNull(result.getEntityIndexV3());
+    assertTrue(Boolean.TRUE.equals(result.getEntityIndexV3().getEnabled()));
+  }
+
+  @Test
+  public void testEntityIndexV3DefaultsDisabled() throws Exception {
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+    assertNotNull(result.getEntityIndexV3());
+    assertFalse(Boolean.TRUE.equals(result.getEntityIndexV3().getEnabled()));
+  }
 }

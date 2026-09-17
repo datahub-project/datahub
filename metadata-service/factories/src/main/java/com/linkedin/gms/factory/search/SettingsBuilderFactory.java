@@ -64,12 +64,14 @@ public class SettingsBuilderFactory {
       SearchClusterRegistry searchClusterRegistry) {
     EntityIndexConfiguration entityIndexConfig =
         searchClusterRegistry.configFor(SearchComponent.SEARCH_V3).getEntityIndex();
+    SemanticSearchConfiguration semanticConfig = entityIndexConfig.getSemanticSearch();
     SearchClientShim<?> v3Client = searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3);
     log.info(
-        "Creating MultiEntitySettingsBuilder bean (engineType={} is diagnostic only; V3 settings are engine-agnostic)",
+        "Creating MultiEntitySettingsBuilder bean (engineType={}; knn on semantic-enabled V3 entity indices for OpenSearch)",
         v3Client.getEngineType());
     try {
-      return new MultiEntitySettingsBuilder(entityIndexConfig, indexConvention);
+      return new MultiEntitySettingsBuilder(
+          entityIndexConfig, indexConvention, v3Client, semanticConfig);
     } catch (IOException e) {
       log.error("Failed to initialize MultiEntitySettingsBuilder", e);
       throw new RuntimeException("Failed to initialize MultiEntitySettingsBuilder", e);

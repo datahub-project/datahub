@@ -28,6 +28,7 @@ class ServerSemanticSearchConfig(ConfigModel):
     enabled: bool
     enabled_entities: list[str]
     embedding_config: Optional[ServerEmbeddingConfig] = None
+    entity_index_v3_enabled: Optional[bool] = None
 
 
 class ChunkingConfig(ConfigModel):
@@ -629,6 +630,9 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
                 }
               }
             }
+            entityIndexV3 {
+              enabled
+            }
           }
         }
     """
@@ -646,6 +650,9 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
                   region
                 }
               }
+            }
+            entityIndexV3 {
+              enabled
             }
           }
         }
@@ -671,6 +678,8 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             raise
 
     semantic_search_config = response.get("appConfig", {}).get("semanticSearchConfig")
+    entity_index_v3 = response.get("appConfig", {}).get("entityIndexV3") or {}
+    entity_index_v3_enabled = entity_index_v3.get("enabled")
 
     if not semantic_search_config:
         raise GraphError(
@@ -687,6 +696,7 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             enabled=is_enabled,
             enabled_entities=semantic_search_config["enabledEntities"],
             embedding_config=None,
+            entity_index_v3_enabled=entity_index_v3_enabled,
         )
 
     # Extract AWS region from nested awsProviderConfig
@@ -729,4 +739,5 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
         enabled=is_enabled,
         enabled_entities=semantic_search_config["enabledEntities"],
         embedding_config=server_embedding_config,
+        entity_index_v3_enabled=entity_index_v3_enabled,
     )

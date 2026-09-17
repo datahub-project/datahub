@@ -1230,6 +1230,12 @@ class DocumentChunkingSource(Source):
                         f"\n  Model Embedding Key: {server_config.embedding_config.model_embedding_key}"
                         f"\n  AWS Region: {server_config.embedding_config.aws_region or 'N/A'}"
                     )
+                    if server_config.entity_index_v3_enabled:
+                        logger.info(
+                            "Search V3 is enabled on the server; GMS will also index "
+                            "document embeddings on documentindex_v3 (MCP only — this "
+                            "source does not write OpenSearch)."
+                        )
                     return resolved
                 elif server_config and not server_config.enabled:
                     # Server is reachable and has explicitly disabled semantic search.

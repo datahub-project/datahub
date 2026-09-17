@@ -11,10 +11,13 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
@@ -59,6 +62,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final EntityDocumentIdHasher entityDocumentIdHasher;
   private final List<V3SearchDocumentContributor> documentContributors;
   private final boolean v2Enabled;
+  @Nullable private final SemanticSearchConfiguration semanticSearchConfiguration;
 
   public UpdateIndicesV3Strategy(
       @Nonnull EntityIndexVersionConfiguration v3Config,
@@ -105,6 +109,28 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
       @Nonnull List<V3SearchDocumentContributor> documentContributors,
       boolean v2Enabled) {
+    this(
+        v3Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        timeseriesThrottleCache,
+        entityDocumentIdHasher,
+        documentContributors,
+        v2Enabled,
+        null);
+  }
+
+  public UpdateIndicesV3Strategy(
+      @Nonnull EntityIndexVersionConfiguration v3Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
+      @Nonnull List<V3SearchDocumentContributor> documentContributors,
+      boolean v2Enabled,
+      @Nullable SemanticSearchConfiguration semanticSearchConfiguration) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
@@ -114,6 +140,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     this.documentContributors =
         documentContributors == null ? List.of() : List.copyOf(documentContributors);
     this.v2Enabled = v2Enabled;
+    this.semanticSearchConfiguration = semanticSearchConfiguration;
     try {
       this.mappingsBuilder =
           new MultiEntityMappingsBuilder(
@@ -462,8 +489,49 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       return null;
     }
 
+    liftSemanticEmbeddingsToRoot(opContext, urn, entityType, events, combinedDocument);
+
     applyDocumentContributors(opContext, urn, combinedDocument);
     return combinedDocument;
+  }
+
+  private void liftSemanticEmbeddingsToRoot(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull String entityType,
+      @Nonnull List<MCLItem> events,
+      @Nonnull ObjectNode combinedDocument) {
+    if (!SemanticEmbeddingMappings.isEnabledForEntity(semanticSearchConfiguration, entityType)) {
+      return;
+    }
+    JsonNode aspects = combinedDocument.get(MappingConstants.ASPECTS_FIELD_NAME);
+    if (aspects != null && aspects.isObject() && aspects.has("semanticContent")) {
+      JsonNode semanticContentNode = aspects.get("semanticContent");
+      if (semanticContentNode instanceof ObjectNode semanticContent) {
+        for (String field :
+            List.of(
+                SemanticEmbeddingMappings.EMBEDDINGS_FIELD,
+                SemanticEmbeddingMappings.SKIP_REASON_FIELD,
+                SemanticEmbeddingMappings.SKIPPED_AT_FIELD)) {
+          if (semanticContent.has(field)) {
+            combinedDocument.set(field, semanticContent.get(field));
+            semanticContent.remove(field);
+          }
+        }
+      }
+    }
+    String stampAspectName =
+        events.stream()
+            .map(MCLItem::getAspectName)
+            .filter(
+                name ->
+                    SearchDocumentTransformer.SEMANTIC_DATA_ASPECTS.contains(name)
+                        || Constants.DOCUMENT_INFO_ASPECT_NAME.equals(name)
+                        || Constants.SEMANTIC_TEXT_ASPECT_NAME.equals(name))
+            .findFirst()
+            .orElse("semanticContent");
+    SemanticDocumentProvenance.stampResolvedTextSha256(
+        opContext, urn, entityType, stampAspectName, combinedDocument);
   }
 
   private void applyDocumentContributors(
