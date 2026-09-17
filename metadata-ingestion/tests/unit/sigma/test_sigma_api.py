@@ -3153,3 +3153,118 @@ class TestConnectionPathBodyShape:
             "unexpected body" in (w.title or "")
             for w in api.report.warnings  # type: ignore[attr-defined]
         )
+
+
+class TestNotFoundDecisionMatrix:
+    """Every path through the not-found decision, in one table.
+
+    This exists because the logic has two similarly-named questions about
+    different subjects — "is /sources failing for this dataset" versus "is the
+    dataset API path gone" — and conflating them inverted the branch more than
+    once during review. The table states the intended outcome for each
+    combination so a future change cannot quietly redefine one of them.
+    """
+
+    @staticmethod
+    def _run(
+        *,
+        target_src: int,
+        ref_src: int = 200,
+        ref_exists: int = 200,
+        target_ds: int = 200,
+        with_ref: bool = False,
+    ) -> Dict[str, bool]:
+        api = _create_sigma_api()
+        warm = {"on": with_ref}
+
+        def route(url: str) -> MagicMock:
+            if url.endswith("/sources"):
+                ds = url.rsplit("/", 2)[-2]
+                if ds == "ref":
+                    return _response(200, []) if warm["on"] else _response(ref_src)
+                return _response(target_src)
+            ds = url.rsplit("/", 1)[-1]
+            return _response(ref_exists if ds == "ref" else target_ds, {})
+
+        with patch.object(api, "_get_api_call", side_effect=route):
+            if with_ref:
+                api.get_dataset_sources("ref")  # establishes the reference
+                warm["on"] = False
+            api.get_dataset_sources("tgt")
+        return {
+            "latched": api.report.dataset_sources_endpoint_removed == 1,
+            "ref_kept": api._known_good_dataset_id == "ref",
+        }
+
+    @pytest.mark.parametrize(
+        ("desc", "kwargs", "latched", "ref_kept"),
+        [
+            # 410 is unambiguous, with or without a reference.
+            ("410, no reference", {"target_src": 410}, True, False),
+            (
+                "410 beats a live reference",
+                {"target_src": 410, "with_ref": True},
+                True,
+                True,
+            ),
+            # Nothing has succeeded: fall back to asking about the API path.
+            (
+                "404, API path alive",
+                {"target_src": 404, "target_ds": 200},
+                False,
+                False,
+            ),
+            (
+                "409, API path alive",
+                {"target_src": 409, "target_ds": 200},
+                False,
+                False,
+            ),
+            ("404, API path gone", {"target_src": 404, "target_ds": 404}, True, False),
+            # A reference exists: it decides.
+            (
+                "reference still resolves -> one dataset",
+                {"target_src": 404, "with_ref": True, "ref_src": 200},
+                False,
+                True,
+            ),
+            (
+                "reference dead but present -> endpoint gone",
+                {
+                    "target_src": 404,
+                    "with_ref": True,
+                    "ref_src": 404,
+                    "ref_exists": 200,
+                },
+                True,
+                True,
+            ),
+            (
+                "reference dead and archived -> drop it, keep going",
+                {
+                    "target_src": 409,
+                    "with_ref": True,
+                    "ref_src": 409,
+                    "ref_exists": 409,
+                },
+                False,
+                False,
+            ),
+            (
+                "410 on the reference re-probe -> endpoint gone",
+                {
+                    "target_src": 404,
+                    "with_ref": True,
+                    "ref_src": 410,
+                    "ref_exists": 200,
+                },
+                True,
+                True,
+            ),
+        ],
+    )
+    def test_matrix(
+        self, desc: str, kwargs: Dict[str, Any], latched: bool, ref_kept: bool
+    ) -> None:
+        got = self._run(**kwargs)
+        assert got == {"latched": latched, "ref_kept": ref_kept}, desc
