@@ -7,6 +7,7 @@ reimplementing the listener in the test. With one implementation on the config,
 the listener is reachable from a plain config object.
 """
 
+import logging
 from typing import Any, Dict, List, Tuple
 
 import pytest
@@ -211,6 +212,86 @@ def test_a_url_that_cannot_be_built_is_not_rewritten_into_a_host_fallback(
         config.rds_iam_endpoint()
     with pytest.raises(RuntimeError, match="cannot build its URL"):
         config.rds_iam_username()
+
+
+@pytest.mark.parametrize("factory", [_mysql, _postgres], ids=["mysql", "postgres"])
+def test_a_token_over_unverified_tls_is_called_out(factory, monkeypatch, caplog):
+    """SECURITY: encryption is not authentication, and the token is a bearer
+    credential.
+
+    Both drivers stop at encryption by default. psycopg2's `sslmode=require`
+    performs no CA or hostname check, and PyMySQL handed a bare truthy `ssl`
+    builds its context with check_hostname=False and verify_mode=CERT_NONE --
+    introspected from _create_ssl_ctx rather than assumed. So anything able
+    to answer for the endpoint presents its own certificate and the token is
+    handed to it.
+
+    This warns rather than refuses on purpose: failing closed would break
+    every working AWS_IAM recipe that has not configured a CA, and the
+    failed connection would be the operator's first notice. The warning
+    names the setting instead.
+    """
+    config = factory(**_IAM)
+    _stub_manager(monkeypatch)
+    listener, _ = _listener(config, monkeypatch)
+
+    cparams: dict = {}
+    with caplog.at_level(logging.WARNING):
+        listener(None, None, None, cparams)
+
+    assert cparams["password"], "the token was supplied"
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert any("bearer credential" in w for w in warnings), warnings
+    assert any("truststore.pki.rds.amazonaws.com" in w for w in warnings), warnings
+
+
+@pytest.mark.parametrize(
+    ("factory", "verified_params"),
+    [
+        (_mysql, {"ssl": {"ca": "/etc/ssl/rds-ca.pem"}}),
+        (_postgres, {"sslmode": "verify-full"}),
+    ],
+    ids=["mysql", "postgres"],
+)
+def test_verified_tls_is_not_warned_about(
+    factory, verified_params, monkeypatch, caplog
+):
+    """The converse, so the warning cannot become noise everyone filters out.
+
+    A recipe that already authenticates the server gets nothing: PyMySQL
+    flips to check_hostname=True / CERT_REQUIRED as soon as a CA is present,
+    and libpq's verify-full does both checks.
+    """
+    config = factory(**_IAM)
+    _stub_manager(monkeypatch)
+    listener, _ = _listener(config, monkeypatch)
+
+    cparams: dict = dict(verified_params)
+    with caplog.at_level(logging.WARNING):
+        listener(None, None, None, cparams)
+
+    warnings = [
+        r.getMessage() for r in caplog.records if "bearer credential" in r.getMessage()
+    ]
+    assert not warnings, warnings
+
+
+@pytest.mark.parametrize("factory", [_mysql, _postgres], ids=["mysql", "postgres"])
+def test_the_unverified_warning_is_not_repeated_per_connection(
+    factory, monkeypatch, caplog
+):
+    """The listener runs on every pool checkout; a warning per connection
+    would bury itself in its own repetitions."""
+    config = factory(**_IAM)
+    _stub_manager(monkeypatch)
+    listener, _ = _listener(config, monkeypatch)
+
+    with caplog.at_level(logging.WARNING):
+        for _ in range(5):
+            listener(None, None, None, {})
+
+    warned = [r for r in caplog.records if "bearer credential" in r.getMessage()]
+    assert len(warned) == 1, f"warned {len(warned)} times"
 
 
 # --- the gap this closes -----------------------------------------------------

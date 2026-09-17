@@ -314,3 +314,64 @@ def test_a_value_listed_in_a_plain_list_is_disclosed_too():
     assert (
         plain_config_values({"password": ["pw1value"]}, _SENSITIVE_KEY_HINTS) == set()
     )
+
+
+def test_a_grant_listing_does_not_return_account_names_in_the_clear():
+    """`SELECT * FROM information_schema.table_privileges` is permitted.
+
+    Not by an exception -- by the BASE catalog scope every SQL connector
+    gets, which allows the whole information_schema schema. So a default
+    recipe could read grantor/grantee, and those are account names. The
+    seven-name withheld list covered none of them, and `SELECT *` names no
+    column for the gate to refuse, so both layers passed it through.
+
+    The relation stays readable: what a probe wants from it is which
+    privilege exists on which table, and that is exactly what survives.
+    """
+    from datahub.ingestion.agent.redact import mask_identity_columns
+
+    columns = [
+        "grantor",
+        "grantee",
+        "table_catalog",
+        "table_schema",
+        "table_name",
+        "privilege_type",
+        "is_grantable",
+    ]
+    rows = [["alice_admin", "bob_analyst", "db", "public", "orders", "SELECT", "NO"]]
+
+    (masked,) = mask_identity_columns(columns, rows)
+
+    assert masked[0] == "***", "grantor is an account name"
+    assert masked[1] == "***", "grantee is an account name"
+    # And the answer the caller actually wanted is intact.
+    assert masked[2:] == ["db", "public", "orders", "SELECT", "NO"]
+
+
+def test_ordinary_type_metadata_is_not_mistaken_for_an_identity():
+    """Why the match is exact rather than a substring.
+
+    information_schema.tables and .columns carry user_defined_type_name,
+    user_defined_type_catalog and user_defined_type_schema. A substring rule
+    on "user" -- the obvious way to widen this list -- would mask three
+    ordinary type-metadata columns on every wildcard read of the two
+    relations the probe exists to read.
+    """
+    from datahub.ingestion.agent.redact import mask_identity_columns
+
+    columns = [
+        "table_name",
+        "column_name",
+        "data_type",
+        "user_defined_type_catalog",
+        "user_defined_type_schema",
+        "user_defined_type_name",
+        "domain_name",
+        "udt_name",
+    ]
+    rows = [["orders", "id", "integer", "db", "public", "my_type", "d", "int4"]]
+
+    (masked,) = mask_identity_columns(columns, rows)
+
+    assert masked == rows[0], f"an ordinary catalog column was masked: {masked}"

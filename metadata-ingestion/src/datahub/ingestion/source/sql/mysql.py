@@ -219,6 +219,22 @@ class MySQLConnectionConfig(RDSIAMConnectionMixin):
         # https://pymysql.readthedocs.io/en/latest/modules/connections.html#pymysql.connections.Connection
         cparams["ssl"] = cparams.get("ssl") or {"ssl": True}
 
+    def rds_iam_tls_is_verified(self, cparams: Dict[str, Any]) -> bool:
+        # PyMySQL decides verification from the presence of a CA: given one it
+        # builds the context with check_hostname=True and
+        # verify_mode=CERT_REQUIRED; given a bare truthy `ssl` it uses
+        # CERT_NONE. So "did the recipe supply a CA" is the whole question.
+        ssl_opts = cparams.get("ssl")
+        return isinstance(ssl_opts, dict) and bool(
+            ssl_opts.get("ca") or ssl_opts.get("ca_certs")
+        )
+
+    def rds_iam_tls_hint(self) -> str:
+        return (
+            "set options.connect_args.ssl.ca to the RDS CA bundle path "
+            "(https://truststore.pki.rds.amazonaws.com/)"
+        )
+
 
 class MySQLProfilingConfig(GEProfilingConfig):
     # Per-source override, following the Athena/Dremio precedent

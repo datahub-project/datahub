@@ -320,6 +320,18 @@ class BasePostgresConfig(RDSIAMConnectionMixin, BasicSQLAlchemyConfig):
         if cparams.get("sslmode") not in ("require", "verify-ca", "verify-full"):
             cparams["sslmode"] = "require"
 
+    def rds_iam_tls_is_verified(self, cparams: Dict[str, Any]) -> bool:
+        # libpq: `require` encrypts and checks nothing about who answered.
+        # Only verify-ca and verify-full authenticate the server.
+        return cparams.get("sslmode") in ("verify-ca", "verify-full")
+
+    def rds_iam_tls_hint(self) -> str:
+        return (
+            "set options.connect_args.sslmode to verify-full and "
+            "options.connect_args.sslrootcert to the RDS CA bundle path "
+            "(https://truststore.pki.rds.amazonaws.com/)"
+        )
+
     def probe_prepare_engine(self, engine: Any) -> None:
         # Without this, an AWS_IAM recipe cannot be probed at all: the password
         # is a token injected per connection, so a bare create_engine() has no

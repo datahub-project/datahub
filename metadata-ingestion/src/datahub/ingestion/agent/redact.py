@@ -41,6 +41,7 @@ _MIN_SUBSTRING_SECRET_LEN = 4
 #   refuse and whose output names ARE the real ones.
 WITHHELD_COLUMN_NAMES: FrozenSet[str] = frozenset(
     {
+        # Who the person is.
         "user_name",
         "username",
         "user_email",
@@ -48,8 +49,38 @@ WITHHELD_COLUMN_NAMES: FrozenSet[str] = frozenset(
         "email_address",
         "login_name",
         "display_name",
+        # Who was granted what, and by whom. These are reachable on a DEFAULT
+        # recipe and were coming back in the clear:
+        # `SELECT * FROM information_schema.table_privileges` is permitted by
+        # the base catalog scope on every SQL connector, and its `grantor` and
+        # `grantee` are account names. Same for role_table_grants,
+        # enabled_roles, applicable_roles and Snowflake's object_privileges.
+        #
+        # A principal here is a role name on most engines, which is not
+        # obviously a person -- until you look at what roles are called in
+        # practice. Treated as identity for the same reason `login_name` is.
+        "grantee",
+        "grantor",
+        "granted_by",
+        "grantee_name",
+        "grantor_name",
+        "granted_to",
+        "role_name",
+        "principal",
+        "principal_name",
+        "account_name",
     }
 )
+
+# Exact match, not substring, and that is load-bearing rather than lazy.
+# `information_schema.tables` and `.columns` carry
+# `user_defined_type_name`, `user_defined_type_catalog` and
+# `user_defined_type_schema`; a substring rule on "user" would mask three
+# ordinary type-metadata columns on every wildcard read of the two relations
+# the probe exists to read. The cost of exact match is that this list has to
+# be extended when a new identity-bearing catalog column is found -- which is
+# the trade this comment exists to record, not one to fix by widening the
+# match.
 
 
 def mask_identity_columns(

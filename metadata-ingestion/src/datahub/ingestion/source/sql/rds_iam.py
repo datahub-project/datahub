@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, Optional, Tuple
 
 from pydantic import Field, PrivateAttr
@@ -11,6 +12,8 @@ from datahub.ingestion.source.aws.aws_common import (
 )
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
+
+logger = logging.getLogger(__name__)
 
 
 class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
@@ -39,6 +42,9 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
     """
 
     _rds_iam_manager: Optional[RDSIAMTokenManager] = PrivateAttr(default=None)
+    # Warned once per config, not once per connection: the listener runs on
+    # every pool checkout and a per-connection warning would bury itself.
+    _rds_iam_tls_warned: bool = PrivateAttr(default=False)
 
     def rds_iam_enabled(self) -> bool:
         """Whether this recipe selected IAM auth."""
@@ -66,6 +72,22 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
         """Require TLS. IAM tokens are bearer credentials on the wire, so this
         is not optional -- but how a driver is asked differs (PyMySQL wants a
         truthy `ssl`, psycopg2 an `sslmode`), which is why it is abstract."""
+        raise NotImplementedError
+
+    def rds_iam_tls_is_verified(self, cparams: Dict[str, Any]) -> bool:
+        """Whether these settings authenticate the SERVER, not merely encrypt.
+
+        Encryption alone does not protect a bearer credential: an attacker who
+        can answer for the endpoint presents any certificate, the driver
+        accepts it, and the IAM token is handed over. Both defaults stop at
+        encryption -- psycopg2's `sslmode=require` performs no CA or hostname
+        check, and PyMySQL given a bare truthy `ssl` builds a context with
+        `check_hostname=False` and `verify_mode=CERT_NONE` (verified by
+        introspecting `_create_ssl_ctx`, not assumed).
+
+        Answered per driver because the parameter that turns verification on
+        differs, and getting it wrong in the safe direction is the point.
+        """
         raise NotImplementedError
 
     def rds_iam_endpoint(self) -> Tuple[str, Optional[int]]:
@@ -189,5 +211,30 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
             # without the caller doing anything.
             cparams["password"] = manager.get_token()
             self.apply_rds_iam_ssl(cparams)
+            self._warn_if_token_rides_unverified_tls(cparams)
 
         event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
+
+    def _warn_if_token_rides_unverified_tls(self, cparams: Dict[str, Any]) -> None:
+        """Say so when the token is about to cross an unauthenticated channel.
+
+        SECURITY: this warns rather than refuses, deliberately. Failing closed
+        here would break every working AWS_IAM recipe that has not configured
+        a CA, and the connection that then fails would be the operator's
+        first notice. The warning names the exact setting instead, so the gap
+        is visible and closable without a support ticket.
+        """
+        if self._rds_iam_tls_warned or self.rds_iam_tls_is_verified(cparams):
+            return
+        self._rds_iam_tls_warned = True
+        logger.warning(
+            "RDS IAM: the auth token is a bearer credential and this "
+            "connection encrypts without verifying the server's certificate, "
+            "so anything able to answer for the endpoint can present its own "
+            "certificate and capture the token. Configure verified TLS: %s",
+            self.rds_iam_tls_hint(),
+        )
+
+    def rds_iam_tls_hint(self) -> str:
+        """The setting that turns verification on for this driver."""
+        return "see your driver's TLS options"
