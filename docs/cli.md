@@ -1152,7 +1152,7 @@ When the target entity already exists, the command uses a strategy controlled by
 `--on-conflict` controls what happens when the target URN already exists. It is available on all
 `migrate` commands.
 
-- `patch`: Additively merge ownership, tags, terms, and lineage. Skip scalar fields (description, custom properties) that conflict.
+- `patch`: Additively merge ownership, tags, terms, and structured properties (on any entity type), plus lineage (dataset targets only — on other entity types lineage is copied conflict-aware). Skip scalar fields (description, custom properties) that conflict.
 - `overwrite`: Replace conflicting target aspects with source values.
 - `prompt`: Ask interactively for each conflict.
 - `preserve`: Leave the existing target **completely untouched** (no additive merge, no overwrite). Incoming references are still repointed to the existing target and the source is still deleted (unless `--keep`) — i.e. the existing target is _adopted_ in place of the source. Use this when the target is authoritative and you only want to redirect references and retire the source.

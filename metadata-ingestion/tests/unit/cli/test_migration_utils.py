@@ -760,6 +760,33 @@ class TestMergeGenericEntity:
         assert [name for name, _ in emitted] == ["structuredProperties"]
 
     @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_upstream_lineage_copied_not_dropped(
+        self,
+        mock_get_aspects: MagicMock,
+    ) -> None:
+        """upstreamLineage on a non-dataset entity is copied, not silently dropped."""
+        upstream = UpstreamClass(
+            dataset="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.up,PROD)",
+            type="TRANSFORMED",
+        )
+        mock_get_aspects.side_effect = [
+            {"upstreamLineage": UpstreamLineageClass(upstreams=[upstream])},  # src
+            {},  # dst has no upstreamLineage yet
+        ]
+        graph = MagicMock()
+
+        result = merge_entity(
+            "urn:li:mlModel:(urn:li:dataPlatform:science,old,PROD)",
+            "urn:li:mlModel:(urn:li:dataPlatform:science,new,PROD)",
+            ConflictStrategy.PATCH,
+            graph,
+            dry_run=False,
+        )
+
+        assert "upstreamLineage" in result.merged_aspects
+        assert graph.emit_mcp.called
+
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
     def test_container_patch_reseats_container_properties(
         self,
         mock_get_aspects: MagicMock,
