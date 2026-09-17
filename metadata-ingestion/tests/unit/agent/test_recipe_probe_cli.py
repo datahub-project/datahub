@@ -49,7 +49,7 @@ def _isolate_secret_registry(monkeypatch):
     # the ones calling rc._load_recipe("-") directly bypass the group, so the
     # fixture is what covers them.
     monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
-    monkeypatch.setattr(rc, "_disclosed_stdin_values", set(), raising=False)
+    monkeypatch.setattr(rc, "_disclosed_recipe_values", set())
 
     yield
     SecretRegistry.get_instance().clear()
@@ -718,13 +718,17 @@ def test_a_second_invocation_does_not_inherit_the_first_envelope(monkeypatch, tm
 
     # Second invocation, same interpreter: a recipe from a FILE, no envelope
     # and no environment variable to resolve from.
+    # Deliberately different plain values from _envelope()'s recipe, so the
+    # disclosure assertion below can tell "cleared, then repopulated by THIS
+    # recipe" from "still holding the previous one". _disclosed_recipe_values
+    # is populated on both input paths now, so an emptiness check could not.
     path = tmp_path / "second.yml"
     path.write_text(
         "source:\n"
         "  type: mysql\n"
         "  config:\n"
-        "    host_port: h:3306\n"
-        "    username: u\n"
+        "    host_port: second-host:3307\n"
+        "    username: second_user\n"
         "    password: ${PROBE_TEST_REF}\n"
     )
     runner.invoke(recipe, ["validate", str(path)])
@@ -733,7 +737,9 @@ def test_a_second_invocation_does_not_inherit_the_first_envelope(monkeypatch, tm
         "the second invocation can resolve ${PROBE_TEST_REF} from the first "
         "caller's envelope"
     )
-    assert rc._disclosed_stdin_values == set()
+    assert rc._disclosed_recipe_values == {"second-host:3307", "second_user"}, (
+        "the second invocation is still holding what the first recipe disclosed"
+    )
 
 
 def test_a_ref_resolves_from_the_stdin_envelope_not_the_environment(monkeypatch):
@@ -1149,7 +1155,7 @@ def test_the_error_path_honours_the_same_disclosure_exemption(monkeypatch):
     analytics` came back with the database name blanked after all.
     """
     monkeypatch.setattr(rc, "_stdin_secrets", {"PW": "analytics"}, raising=False)
-    monkeypatch.setattr(rc, "_disclosed_stdin_values", {"analytics"}, raising=False)
+    monkeypatch.setattr(rc, "_disclosed_recipe_values", {"analytics"})
 
     assert rc._with_stdin_secrets(set()) == set()
 

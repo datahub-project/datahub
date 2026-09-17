@@ -1,3 +1,4 @@
+import sys
 from typing import Dict
 
 import pytest
@@ -513,16 +514,14 @@ def test_an_inline_password_equal_to_the_database_name_is_still_masked():
     batch: getting this half backwards would be worse than the over-masking
     it was introduced to fix.
     """
-    import yaml
-
-    from datahub.cli.recipe_cli import _envelope_disclosed_values
+    from datahub.cli.recipe_cli import _declare_disclosed_values
     from datahub.masking.masking_filter import SecretMaskingFilter
 
     shared = "analytics_" + "warehouse"
 
     def masked_target(password_value: str) -> str:
         registry = _fresh_registry()
-        recipe_yaml = yaml.dump(
+        _declare_disclosed_values(
             {
                 "source": {
                     "type": "mysql",
@@ -530,9 +529,75 @@ def test_an_inline_password_equal_to_the_database_name_is_still_masked():
                 }
             }
         )
-        registry.declare_disclosed(_envelope_disclosed_values(recipe_yaml))
         registry.register_secrets_batch({"MY_PW": shared})
         return SecretMaskingFilter().mask_text(f"{shared}.orders")
 
     assert masked_target("${MY_PW}") == f"{shared}.orders"
     assert masked_target(shared) == "***REDACTED:MY_PW***.orders"
+
+
+def test_both_input_paths_agree_about_what_the_recipe_discloses(tmp_path):
+    """`--recipe -` and `--recipe file.yml` must not answer differently.
+
+    The declaration lived where the stdin ENVELOPE was parsed, so it never
+    ran for a recipe read from a file. Same recipe, same secret, two
+    answers: `hunter2.hunter2.orders` down one path and
+    `***REDACTED:password***.***REDACTED:password***.orders` down the other
+    -- the marker telling an agent that the database name is a password.
+
+    Over-masking rather than a leak, and the executor uses the stdin path,
+    which is why it survived a round of review.
+    """
+    import io
+    import json
+
+    import datahub.cli.recipe_cli as rc
+    from datahub.masking.masking_filter import SecretMaskingFilter
+
+    shared = "hunter2_" + "warehouse"
+    recipe_yaml = (
+        "source:\n"
+        "  type: mysql\n"
+        "  config:\n"
+        "    host_port: h:3306\n"
+        f"    database: {shared}\n"
+        "    password: ${PROBE_PW}\n"
+    )
+
+    def target_after_loading(path: str, stdin: object = None) -> str:
+        _fresh_registry()
+        rc._stdin_secrets.clear()
+        rc._disclosed_recipe_values.clear()
+        real_stdin = sys.stdin
+        if stdin is not None:
+            sys.stdin = stdin  # type: ignore[assignment]
+        try:
+            rc._load_recipe(path)
+        finally:
+            sys.stdin = real_stdin
+        # What a probe run does next: build the connector config, whose
+        # mode="after" validator registers every SecretStr it can reach.
+        _Probe.model_validate({"database": shared, "password": shared})
+        return SecretMaskingFilter().mask_text(f"{shared}.{shared}.orders")
+
+    from pydantic import SecretStr
+
+    from datahub.configuration.common import ConfigModel
+
+    class _Probe(ConfigModel):
+        database: str
+        password: SecretStr
+
+    envelope = io.StringIO(
+        json.dumps(
+            {"__recipe_yaml__": recipe_yaml, "__secrets__": {"PROBE_PW": shared}}
+        )
+    )
+    from_stdin = target_after_loading("-", envelope)
+
+    recipe_file = tmp_path / "recipe.yml"
+    recipe_file.write_text(recipe_yaml)
+    from_file = target_after_loading(str(recipe_file))
+
+    assert from_stdin == from_file, "the two input paths disclose different things"
+    assert from_stdin == f"{shared}.{shared}.orders"

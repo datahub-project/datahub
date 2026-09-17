@@ -35,6 +35,7 @@ from datahub.ingestion.agent.secrets import (
     default_resolvers,
     resolve_config_collecting,
 )
+from datahub.masking.secret_registry import SecretRegistry
 
 EXIT_OK = 0
 EXIT_INTERNAL = 1
@@ -198,11 +199,11 @@ def _with_stdin_secrets(secrets: Set[str]) -> Set[str]:
     database name is dropped from the redaction set so `probe filter` can print
     `target` -- and then `could not connect to analytics` came back with the
     database blanked anyway, which both corrupts the message and announces the
-    collision the exemption exists to hide. Empty until the envelope is parsed,
+    collision the exemption exists to hide. Empty until _load_recipe returns,
     so a failure before that still masks everything.
     """
     return (secrets | {v for v in _stdin_secrets.values() if v}) - (
-        _disclosed_stdin_values - secrets
+        _disclosed_recipe_values - secrets
     )
 
 
@@ -223,12 +224,16 @@ def _fail(message: str, code: int) -> NoReturn:
 # credential and register it for masking as though it had been handed it.
 _stdin_secrets: Dict[str, str] = {}
 
-# Envelope values the recipe also states in the clear under a non-sensitive
-# key. Kept beside _stdin_secrets and for the same reason: the exemption is
-# decided while loading, and every later redaction has to agree with it.
-# Without this the error path re-added them and the exemption only half
-# applied -- see _with_stdin_secrets.
-_disclosed_stdin_values: Set[str] = set()
+# Values the recipe states in the clear under a non-sensitive key, from
+# EITHER input path. Kept beside _stdin_secrets and for the same reason: the
+# exemption is decided while loading, and every later redaction has to agree
+# with it. Without this the error path re-added them and the exemption only
+# half applied -- see _with_stdin_secrets.
+#
+# Populated by _load_recipe, so it says the same thing as the registry's own
+# disclosure set. It was once populated only where the stdin envelope was
+# parsed, which is how the two input paths came to disagree.
+_disclosed_recipe_values: Set[str] = set()
 
 
 def _stdin_aware_resolvers() -> List[SecretResolver]:
@@ -247,30 +252,66 @@ def _stdin_aware_resolvers() -> List[SecretResolver]:
     return default_resolvers()
 
 
-def _envelope_disclosed_values(recipe_yaml: object) -> Set[str]:
-    """Values the envelope's recipe states in the clear, which cannot be masked.
+def _disclosed_config_values(
+    config: Dict[str, object], secret_fields: Set[str]
+) -> Set[str]:
+    """Values this config states in the clear, which masking cannot protect.
 
-    Best-effort and never raises: the envelope's secrets are registered BEFORE
-    the recipe is parsed, so a parse error quoting the offending line is
-    already covered, and that ordering must not change. An unparseable recipe
-    simply discloses nothing.
+    THE definition, so the registry and every local redaction set agree.
+    There were two: this one, and a hint-only version the envelope path used.
+    They differ -- this subtracts the source spec's typed SECRET fields as
+    well as the hint sweep, and a field can be one without being the other
+    (salesforce marks `consumer_key` SECRET and no hint matches it). Since a
+    declared disclosure is sticky, the broader definition would simply have
+    won wherever both ran, which is the narrower one being decorative.
 
-    Inline secret literals are excluded, as everywhere else -- a recipe with
-    `password: p` and `database: p` discloses the credential itself, and the
-    child's output travels further than the recipe does.
+    Exempt only what the raw config does NOT also carry as an inline secret
+    literal: a recipe with `password: p` and `database: p` discloses the
+    credential itself, and a report travels further than a recipe does.
+    Everything is read off the RAW config -- resolved values put the
+    ${ref}-sourced secret under `password` too, which would exempt every
+    colliding secret and defeat the distinction.
     """
-    if not isinstance(recipe_yaml, str):
-        return set()
+    inline_secrets = collect_secret_values(
+        config, secret_fields
+    ) | collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+    return collect_plain_config_values(config, _SENSITIVE_KEY_HINTS) - inline_secrets
+
+
+def _declare_disclosed_values(recipe: Dict[str, object]) -> None:
+    """Tell the registry what this recipe states in the clear.
+
+    Called from _load_recipe because that is the one funnel every command and
+    both input paths pass through. Declaring it where the ENVELOPE was parsed
+    instead covered `--recipe -` and not `--recipe file.yml`, so the same
+    recipe reported `target` as `hunter2.hunter2.orders` down one path and
+    `***REDACTED:password***.***REDACTED:password***.orders` down the other --
+    the marker telling an agent that the database name is a password.
+
+    Best-effort and never raises. Declaring NOTHING is the safe failure: it
+    masks a value it did not have to, where a wrong declaration would unmask
+    one it had to keep. So an unparseable recipe, an unknown source type, or
+    anything else that stops us knowing which fields are secret discloses
+    nothing at all.
+    """
+    raw_source = recipe.get("source")
+    source = raw_source if isinstance(raw_source, dict) else {}
+    raw_config = source.get("config")
+    if not isinstance(raw_config, dict):
+        return
     try:
-        loaded = yaml.safe_load(recipe_yaml)
-        config = loaded["source"]["config"]
+        spec = describe_source(str(source.get("type")))
     except Exception:
-        return set()
-    if not isinstance(config, dict):
-        return set()
-    return collect_plain_config_values(
-        config, _SENSITIVE_KEY_HINTS
-    ) - collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+        # Unknown or unloadable source type: we cannot tell which fields are
+        # secret, so we do not claim anything is disclosed.
+        return
+    disclosed = _disclosed_config_values(
+        raw_config, {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
+    )
+    if not disclosed:
+        return
+    _disclosed_recipe_values.update(disclosed)
+    SecretRegistry.get_instance().declare_disclosed(disclosed)
 
 
 def _recipe_from_stdin() -> Dict[str, object]:
@@ -291,8 +332,6 @@ def _recipe_from_stdin() -> Dict[str, object]:
         # yield its secrets, and an unmasked failure is the worst place to
         # lose them.
         if exc.secrets:
-            from datahub.masking.secret_registry import SecretRegistry
-
             _stdin_secrets.update(exc.secrets)
             SecretRegistry.get_instance().register_secrets_batch(exc.secrets)
         raise ValueError(str(exc)) from exc
@@ -320,30 +359,19 @@ def _recipe_from_stdin() -> Dict[str, object]:
             # here closes that window; it happens before the YAML is parsed
             # so a parse failure is already covered. Same thing
             # load_config_file does for `ingest -c -`.
-            from datahub.masking.secret_registry import SecretRegistry
-
-            # Minus what the recipe states in the clear, for the same reason
-            # _resolve_for_probe subtracts it from the redaction set --
-            # except the stakes here are the whole stdout stream, not one
-            # payload. A password equal to the database name otherwise masks
-            # it inside every unrelated word the child prints, turning
-            # `datahub.ingestion.source.sql` into
-            # `***REDACTED:PW***.ingestion.source.sql`, and those lines
-            # become the task's operator-visible logs.
-            disclosed = _envelope_disclosed_values(envelope.recipe_yaml)
-            # Recorded for the error path, which builds its own redaction set
-            # and would otherwise union these straight back in.
-            _disclosed_stdin_values.update(disclosed)
-            registry = SecretRegistry.get_instance()
-            # Declared rather than filtered out of this one batch. Filtering
-            # here exempted the value from THIS registration and nothing
-            # else, and ConfigModel._register_secret_fields registers every
-            # SecretStr on every config the probe builds -- so the password
-            # came straight back in a few frames later and the verdict's
-            # `target` was reported as
-            # `***REDACTED:password***.***REDACTED:password***.orders`.
-            registry.declare_disclosed(disclosed)
-            registry.register_secrets_batch(_stdin_secrets)
+            # Registered unfiltered. What the recipe states in the clear is
+            # settled by _load_recipe a moment later, once the source type is
+            # known and we can tell a disclosed identifier from an inline
+            # credential -- and declare_disclosed evicts retroactively, which
+            # is the reason it does. The window between the two is
+            # over-masking, never a leak.
+            #
+            # It matters that these are exempted at all: a password equal to
+            # the database name otherwise masks it inside every unrelated
+            # word the child prints, turning `datahub.ingestion.source.sql`
+            # into `***REDACTED:PW***.ingestion.source.sql`, and those lines
+            # are the task's operator-visible logs.
+            SecretRegistry.get_instance().register_secrets_batch(_stdin_secrets)
         raw = envelope.recipe_yaml
 
     try:
@@ -368,7 +396,9 @@ def _load_recipe(path: str) -> Dict[str, object]:
     sees the `${refs}` and can record what to mask.
     """
     if path == "-":
-        return _recipe_from_stdin()
+        recipe = _recipe_from_stdin()
+        _declare_disclosed_values(recipe)
+        return recipe
     try:
         with open(path) as f:
             loaded = yaml.safe_load(f) or {}
@@ -383,6 +413,7 @@ def _load_recipe(path: str) -> Dict[str, object]:
         raise ValueError(f"cannot parse recipe file '{path}': {exc}") from exc
     if not isinstance(loaded, dict):
         raise ValueError("recipe must be a YAML mapping")
+    _declare_disclosed_values(loaded)
     return loaded
 
 
@@ -416,19 +447,10 @@ def _resolve_for_probe(
     # `target` has to print it, and the mask itself is what reveals the
     # collision to a reader who can see the identifier but not the ${ref}.
     #
-    # Exempt only what the raw recipe does NOT also carry as an inline secret
-    # literal. A recipe with `password: p` and `database: p` discloses the
-    # credential itself, and the report travels further than the recipe does --
-    # to GMS, the logs and an LLM -- so that one keeps its mask. Everything is
-    # read off the RAW config: resolved values put the ${ref}-sourced secret
-    # under `password` too, which would exempt every colliding secret and
-    # defeat the distinction.
-    raw_inline_secrets = collect_secret_values(
-        config, secret_fields
-    ) | collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
-    secret_values -= (
-        collect_plain_config_values(config, _SENSITIVE_KEY_HINTS) - raw_inline_secrets
-    )
+    # The same set _load_recipe declared to the registry, by construction:
+    # this payload's redaction and the process-wide masking must exempt the
+    # same values or the report disagrees with the stream it is printed on.
+    secret_values -= _disclosed_config_values(config, secret_fields)
     return source_type, resolved.config, secret_values
 
 
@@ -491,7 +513,7 @@ def recipe() -> None:
     # dispatch in the same interpreter inherited the first caller's secrets
     # and could resolve its own ${REF}s from them.
     _stdin_secrets.clear()
-    _disclosed_stdin_values.clear()
+    _disclosed_recipe_values.clear()
 
 
 def _ping_probe(command: str, source_type: str, **dims: object) -> None:
