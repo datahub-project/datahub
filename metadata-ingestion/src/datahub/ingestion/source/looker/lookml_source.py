@@ -7,7 +7,7 @@ from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
 
 import lkml
 import lkml.simple
@@ -268,10 +268,17 @@ class LookerManifest:
 
 # git:// is omitted: it is unauthenticated and not a typical Looker remote_dependency URL.
 _ALLOWED_GIT_SCHEMES = frozenset({"https", "ssh"})
+# A parsed clone host is only ever ASCII letters, digits, and .:-_ (hostnames,
+# IPv4, bracket-stripped IPv6). Reject anything else -- percent-encoding, IPv6
+# zone ids, backslashes, non-ASCII/IDN, control bytes -- because git/libcurl may
+# decode or IDNA-normalize it into a different, possibly blocked host than the
+# validator sees. Reject-on-ambiguity beats trying to match every decode.
+_SAFE_HOST_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789.:-_")
 _BLOCKED_GIT_HOSTNAMES = frozenset(
     {
         "localhost",
         "localhost.localdomain",
+        "metadata",
         "metadata.google.internal",
         "metadata.goog",
     }
@@ -299,11 +306,6 @@ class RemoteDependencyUrlCheck:
 def _normalize_hostname(hostname: str) -> str:
     """Normalize a hostname for denylist/allowlist comparison."""
     h = hostname.strip().lower()
-    # git/libcurl percent-decode the host before connecting, so decode too:
-    # otherwise "%2e" hides the real target (169%2e254%2e169%2e254 ->
-    # 169.254.169.254) from the denylist, allowlist, and DNS checks. A real IPv6
-    # zone id (fe80::1%eth0) is left intact since "%et" is not a valid escape.
-    h = unquote(h)
     if h.endswith("."):
         h = h[:-1]  # trailing FQDN root dot
     return h
@@ -332,7 +334,9 @@ def _parse_ipv4_loose(s: str) -> Optional[ipaddress.IPv4Address]:
     forms (``127.1``, ``127.0.1``)."""
     try:
         return ipaddress.IPv4Address(socket.inet_aton(s))
-    except (OSError, ipaddress.AddressValueError):
+    except (OSError, ValueError):
+        # ValueError covers AddressValueError, an embedded null, and a lone
+        # surrogate (UnicodeError); a malformed host must not abort the run.
         return None
 
 
@@ -467,6 +471,12 @@ def check_remote_dependency_url(
             return RemoteDependencyUrlCheck(
                 allowed=False, reason=f"invalid Git URL: {exc}"
             )
+        if "\\" in parsed.netloc:
+            # A backslash in the authority is parsed differently by browsers,
+            # libcurl, and urlparse; reject rather than guess which host wins.
+            return RemoteDependencyUrlCheck(
+                allowed=False, reason="backslash in URL authority is not allowed"
+            )
         scheme = (parsed.scheme or "").lower()
         if scheme not in _ALLOWED_GIT_SCHEMES:
             return RemoteDependencyUrlCheck(
@@ -489,6 +499,16 @@ def check_remote_dependency_url(
     if not hostname:
         return RemoteDependencyUrlCheck(
             allowed=False, reason="could not parse a hostname from the Git URL"
+        )
+
+    if not all(c in _SAFE_HOST_CHARS for c in hostname):
+        return RemoteDependencyUrlCheck(
+            allowed=False,
+            reason=(
+                f"hostname '{hostname}' has characters not allowed in a Git host "
+                "(percent-encoding, IPv6 zone id, or non-ASCII)"
+            ),
+            hostname=hostname,
         )
 
     if _is_blocked_git_host(hostname):

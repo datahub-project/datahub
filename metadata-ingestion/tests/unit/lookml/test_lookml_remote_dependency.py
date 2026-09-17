@@ -305,8 +305,8 @@ def test_ipv4_mapped_aws_metadata_rejected() -> None:
 
 
 def test_ipv6_zone_id_link_local_rejected() -> None:
-    # A link-local IPv6 host given with a zone id in scp-bracket form
-    # (git@[fe80::1%eth0]:...) is recognized as link-local and rejected.
+    # A scoped IPv6 host (git@[fe80::1%eth0]:...) is rejected because "%" is not
+    # an allowed host character; a zone id is never a real clone target.
     result = check_remote_dependency_url("git@[fe80::1%eth0]:org/repo.git")
     assert not result.allowed
 
@@ -343,6 +343,44 @@ def test_percent_encoded_loopback_rejected() -> None:
 
 def test_percent_encoded_metadata_host_rejected() -> None:
     result = check_remote_dependency_url("https://metadata%2egoogle%2einternal/x.git")
+    assert not result.allowed
+
+
+def test_double_percent_encoded_ipv6_zone_rejected() -> None:
+    # %2565 decodes once (libcurl) to %65, an IPv6 zone on ::1, so git dials ::1.
+    # A twice-decoding validator would see ::1e and allow it; reject the "%".
+    result = check_remote_dependency_url("https://[::1%2565]/r.git")
+    assert not result.allowed
+
+
+def test_scp_ipv6_zone_percent_rejected() -> None:
+    # ssh gets the literal zone and resolves ::1; the validator must reject "%".
+    result = check_remote_dependency_url("git@[::1%2f]:x/repo.git")
+    assert not result.allowed
+
+
+def test_null_byte_in_host_rejected_without_crash() -> None:
+    # A percent-encoded null must be rejected, not decoded into a byte that
+    # aborts the run.
+    result = check_remote_dependency_url("https://127.0.0.1%00github.com/r.git")
+    assert not result.allowed
+
+
+def test_non_ascii_host_rejected() -> None:
+    # libcurl NFKC-normalizes non-ASCII hosts, so a homoglyph could map to a
+    # blocked host the validator never sees. Reject non-ASCII (use punycode).
+    result = check_remote_dependency_url("https://münchen.example.com/r.git")
+    assert not result.allowed
+
+
+def test_bare_metadata_hostname_rejected() -> None:
+    # On GCP the search domain resolves bare "metadata" to 169.254.169.254.
+    result = check_remote_dependency_url("https://metadata/repo.git")
+    assert not result.allowed
+
+
+def test_backslash_in_authority_rejected() -> None:
+    result = check_remote_dependency_url("https://127.0.0.1\\@github.com/r.git")
     assert not result.allowed
 
 
