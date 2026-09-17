@@ -192,6 +192,11 @@ Known limitations:
 | `datasets_listing_failed`                  | `/v2/datasets` could not be listed, so no dataset lineage resolves this run                |
 | `datasets_dropped_missing_file_metadata`   | Datasets in the listing dropped because their `/files` metadata was missing                |
 
+Each Sigma Dataset also carries its Sigma-reported `migrationStatus` as a `datasetProperties`
+custom property — `not-migrated`, `migrated`, or `not-required` (referenced by nothing, so
+migration is optional). Use it to find the datasets that still need moving to Data Models. The
+property is omitted on tenants that do not report it.
+
 #### Workbook chart inputFields warehouse column-level qualification
 
 When `extract_lineage: true` (default), the connector qualifies chart column `InputFields` to

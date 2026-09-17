@@ -661,6 +661,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         if dataset.path:
             dataset_properties.customProperties["path"] = dataset.path
+        # Omitted when absent, so the aspect is unchanged on tenants that do
+        # not report it.
+        if dataset.migrationStatus:
+            dataset_properties.customProperties["migrationStatus"] = (
+                dataset.migrationStatus
+            )
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=dataset_properties
         ).as_workunit()

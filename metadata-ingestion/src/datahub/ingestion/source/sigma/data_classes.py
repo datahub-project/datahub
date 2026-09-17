@@ -70,6 +70,11 @@ class SigmaDataset(BaseModel):
     workspaceId: Optional[str] = None
     path: Optional[str] = None
     badge: Optional[str] = None
+    # "not-migrated" (still to move to a Data Model), "migrated", or
+    # "not-required" (referenced by nothing, so migration is optional). Added by
+    # Sigma's 2026-09-15 dataset deprecation; absent on older tenants. Passed
+    # through as a string so a new status does not need a code change.
+    migrationStatus: Optional[str] = None
 
     def get_urn_part(self):
         # As element lineage api provide this id as source dataset id

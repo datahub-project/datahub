@@ -24,6 +24,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     ConnectionPath,
     DatasetUpstream,
     Element,
+    SigmaDataset,
     Workbook,
 )
 from datahub.ingestion.source.sigma.sigma import (
@@ -486,6 +487,41 @@ class TestFallbackGate:
             source, "_resolve_dataset_warehouse_upstreams", return_value=[]
         ):
             assert self._handle(source, sql_named_tables=False, in_tables=[]) == {}
+
+
+class TestMigrationStatusProperty:
+    """Sigma's per-dataset migration state, surfaced as a custom property."""
+
+    def _dataset(self, **extra: object) -> SigmaDataset:
+        return SigmaDataset.model_validate(
+            {
+                "datasetId": "ds-uuid-1",
+                "name": "PETS",
+                "description": "",
+                "createdBy": "u",
+                "createdAt": "2024-01-01T00:00:00Z",
+                "updatedAt": "2024-01-01T00:00:00Z",
+                "url": "https://app.sigmacomputing.com/org/b/urlid1",
+                **extra,
+            }
+        )
+
+    def _custom_properties(self, dataset: SigmaDataset) -> Dict[str, str]:
+        source = _make_source()
+        wu = source._gen_dataset_properties("urn:li:dataset:(x,y,PROD)", dataset)
+        return wu.metadata.aspect.customProperties  # type: ignore[union-attr]
+
+    @pytest.mark.parametrize("status", ["not-migrated", "not-required", "migrated"])
+    def test_status_is_passed_through_verbatim(self, status: str) -> None:
+        # Passed through as a string, so a status Sigma adds later needs no code
+        # change here.
+        props = self._custom_properties(self._dataset(migrationStatus=status))
+        assert props["migrationStatus"] == status
+
+    def test_absent_status_omits_the_property(self) -> None:
+        # Keeps datasetProperties byte-identical on tenants that predate the
+        # field, so no golden churn for them.
+        assert "migrationStatus" not in self._custom_properties(self._dataset())
 
 
 class TestNullUpstreamName:
