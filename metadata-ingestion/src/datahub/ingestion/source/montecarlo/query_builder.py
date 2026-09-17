@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Callable, Dict, Optional, Protocol
 
 from datahub.ingestion.source.montecarlo.queries import (
@@ -8,6 +7,7 @@ from datahub.ingestion.source.montecarlo.queries import (
     CUSTOM_RULES_QUERY,
     MONITORS_QUERY,
 )
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ _ALERT_FALLBACK_SELECTION = (
 )
 
 
-class DriftVerdict(str, Enum):
+class DriftVerdict(StrEnum):
     """Outcome of a schema-drift check for one type.
 
     PROCEED: no drift; the live schema exposes every desired field.
