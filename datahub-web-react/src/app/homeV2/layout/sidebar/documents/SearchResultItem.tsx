@@ -203,9 +203,8 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
     const { t } = useTranslation('home.v2');
     const [isHovered, setIsHovered] = useState(false);
 
-    // Determine document title and URN
     const isDocument = 'info' in doc;
-    const title = isDocument ? doc.info?.title || 'Untitled' : (doc as DocumentChild).title;
+    const title = isDocument ? doc.info?.title || t('untitled') : (doc as DocumentChild).title;
     const docUrn = isDocument ? doc.urn : (doc as DocumentChild).urn;
 
     // Match DocumentTreeItem behavior: show expand button on hover or when expanded
