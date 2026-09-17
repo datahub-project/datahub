@@ -184,13 +184,18 @@
               ],
               "isLineage": true
             }
-          },
+          }
+        ]
+      },
+      "upstreamMetrics": {
+        "aspect": "upstreamMetrics",
+        "fields": [
           {
-            "name": "metricUpstreams",
-            "path": "metricUpstreams",
+            "name": "metrics",
+            "path": "metrics",
             "isLineage": true,
             "relationship": {
-              "name": "DownstreamOf",
+              "name": "ConsumesMetric",
               "entityTypes": [
                 "metric"
               ],
@@ -215,18 +220,6 @@
               ],
               "isLineage": true
             }
-          },
-          {
-            "name": "metricUpstreams",
-            "path": "metricUpstreams",
-            "isLineage": true,
-            "relationship": {
-              "name": "DownstreamOf",
-              "entityTypes": [
-                "metric"
-              ],
-              "isLineage": true
-            }
           }
         ]
       }
@@ -243,18 +236,6 @@
               "name": "DownstreamOf",
               "entityTypes": [
                 "dataset"
-              ],
-              "isLineage": true
-            }
-          },
-          {
-            "name": "metricUpstreams",
-            "path": "metricUpstreams",
-            "isLineage": true,
-            "relationship": {
-              "name": "DownstreamOf",
-              "entityTypes": [
-                "metric"
               ],
               "isLineage": true
             }
@@ -303,7 +284,23 @@
               "name": "Consumes",
               "entityTypes": [
                 "dataset",
-                "chart",
+                "chart"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "upstreamMetrics": {
+        "aspect": "upstreamMetrics",
+        "fields": [
+          {
+            "name": "metrics",
+            "path": "metrics",
+            "isLineage": true,
+            "relationship": {
+              "name": "ConsumesMetric",
+              "entityTypes": [
                 "metric"
               ],
               "isLineage": true
@@ -365,18 +362,6 @@
             }
           },
           {
-            "name": "metricEdges",
-            "path": "metricEdges",
-            "isLineage": true,
-            "relationship": {
-              "name": "Consumes",
-              "entityTypes": [
-                "metric"
-              ],
-              "isLineage": true
-            }
-          },
-          {
             "name": "dashboards",
             "path": "dashboards",
             "isLineage": true,
@@ -384,6 +369,23 @@
               "name": "DashboardContainsDashboard",
               "entityTypes": [
                 "dashboard"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "upstreamMetrics": {
+        "aspect": "upstreamMetrics",
+        "fields": [
+          {
+            "name": "metrics",
+            "path": "metrics",
+            "isLineage": true,
+            "relationship": {
+              "name": "ConsumesMetric",
+              "entityTypes": [
+                "metric"
               ],
               "isLineage": true
             }
@@ -640,5 +642,5 @@
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2026-09-17T01:11:04.803294+00:00"
+  "generated_at": "2026-09-17T21:44:18.633475+00:00"
 }

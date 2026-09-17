@@ -1,7 +1,5 @@
 namespace com.linkedin.dataset
 
-import com.linkedin.common.Edge
-
 /**
  * Upstream lineage of a dataset
  */
@@ -15,24 +13,6 @@ record UpstreamLineage {
    * List of upstream dataset lineage information
    */
   upstreams: array[Upstream]
-
-  /**
-   * Metrics this dataset uses as upstream sources.
-   * Destination is a Metric URN — never put a Metric in `upstreams.dataset`
-   */
-  @Relationship = {
-    "/*/destinationUrn": {
-      "name": "DownstreamOf",
-      "entityTypes": [ "metric" ],
-      "isLineage": true,
-      "createdOn": "metricUpstreams/*/created/time"
-      "createdActor": "metricUpstreams/*/created/actor"
-      "updatedOn": "metricUpstreams/*/lastModified/time"
-      "updatedActor": "metricUpstreams/*/lastModified/actor"
-      "properties": "metricUpstreams/*/properties"
-    }
-  }
-  metricUpstreams: optional array[Edge]
 
   /**
   *  List of fine-grained lineage information, including field-level lineage

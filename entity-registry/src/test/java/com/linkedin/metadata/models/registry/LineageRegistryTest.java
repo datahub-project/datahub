@@ -47,7 +47,7 @@ public class LineageRegistryTest {
     assertTrue(
         upstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
-                "DownstreamOf", RelationshipDirection.OUTGOING, "metric")));
+                "ConsumesMetric", RelationshipDirection.OUTGOING, "metric")));
     assertTrue(
         upstreamEdges.contains(
             new LineageRegistry.EdgeInfo("Produces", RelationshipDirection.INCOMING, "dataJob")));
@@ -77,17 +77,19 @@ public class LineageRegistryTest {
 
     assertTrue(
         downstreamEdges.contains(
-            new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.INCOMING, "chart")),
-        "Chart Consumes metric should reverse to Metric downstream");
-    assertTrue(
-        downstreamEdges.contains(
-            new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.INCOMING, "dashboard")),
-        "Dashboard Consumes metric should reverse to Metric downstream");
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "chart")),
+        "Chart ConsumesMetric should reverse to Metric downstream");
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
-                "DownstreamOf", RelationshipDirection.INCOMING, "dataset")),
-        "Dataset DownstreamOf metric should reverse to Metric downstream");
+                "ConsumesMetric", RelationshipDirection.INCOMING, "dashboard")),
+        "Dashboard ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "dataset")),
+        "Dataset ConsumesMetric should reverse to Metric downstream");
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo("DerivedFrom", RelationshipDirection.INCOMING, "metric")),
@@ -106,17 +108,19 @@ public class LineageRegistryTest {
 
     assertTrue(
         downstreamEdges.contains(
-            new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.INCOMING, "chart")),
-        "Chart Consumes metric should reverse to Metric downstream");
-    assertTrue(
-        downstreamEdges.contains(
-            new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.INCOMING, "dashboard")),
-        "Dashboard Consumes metric should reverse to Metric downstream");
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "chart")),
+        "Chart ConsumesMetric should reverse to Metric downstream");
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
-                "DownstreamOf", RelationshipDirection.INCOMING, "dataset")),
-        "Dataset DownstreamOf metric should reverse to Metric downstream");
+                "ConsumesMetric", RelationshipDirection.INCOMING, "dashboard")),
+        "Dashboard ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "dataset")),
+        "Dataset ConsumesMetric should reverse to Metric downstream");
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo("DerivedFrom", RelationshipDirection.INCOMING, "metric")),
