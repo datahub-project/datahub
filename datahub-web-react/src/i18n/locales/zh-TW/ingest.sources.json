@@ -20,7 +20,7 @@
     "sources.clickhouse.description": "從 ClickHouse 匯入資料表、檢視表、具體化檢視表、字典、統計資料、查詢與資料血緣。",
     "sources.cockroachdb.description": "從 CockroachDB 匯入資料庫、結構描述、資料表、檢視表、統計資料與資料血緣。",
     "sources.confluence.description": "從 Confluence 匯入頁面與空間並轉為文件，支援語意搜尋。",
-    "sources.csvEnricher.description": "從格式化的 CSV 檔案匯入中繼資料。",
+    "sources.csvEnricher.description": "從格式化的 CSV 檔案匯入詮釋資料。",
     "sources.custom.description": "使用 YAML 設定自訂配方。",
     "sources.dagster.description": "從 Dagster 匯入資料管線、工作、資料資產與資料血緣。",
     "sources.databricks.description": "從 Databricks Unity Catalog 匯入 Metastore、結構描述、資料表、資料血緣、查詢與統計資料。",
