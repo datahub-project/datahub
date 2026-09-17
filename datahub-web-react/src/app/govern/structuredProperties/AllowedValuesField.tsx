@@ -19,6 +19,10 @@ import {
 import { PropValueField, isStringOrNumberTypeSelected } from '@app/govern/structuredProperties/utils';
 import { AllowedValue } from '@src/types.generated';
 
+// Allowed-value entries in this admin form are stored flat as { stringValue|numberValue, description }
+// rather than the canonical AllowedValue { value: PropertyValue, ... } shape. Sort by the flat field directly.
+const ALLOWED_VALUES_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+
 interface Props {
     selectedValueType: string;
     allowedValues: AllowedValue[] | undefined;
@@ -46,14 +50,21 @@ const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setS
                     {allowedValues && allowedValues.length > 0 ? (
                         <ItemsContainer>
                             <ValuesList>
-                                {allowedValues.map((val, index) => {
-                                    return (
-                                        <>
-                                            <Text>{val[valueField]}</Text>
-                                            {index < allowedValues.length - 1 && <VerticalDivider type="vertical" />}
-                                        </>
-                                    );
-                                })}
+                                {[...allowedValues]
+                                    .sort((a, b) =>
+                                        ALLOWED_VALUES_COLLATOR.compare(
+                                            String(a[valueField] ?? ''),
+                                            String(b[valueField] ?? ''),
+                                        ),
+                                    )
+                                    .map((val, index, arr) => {
+                                        return (
+                                            <>
+                                                <Text>{val[valueField]}</Text>
+                                                {index < arr.length - 1 && <VerticalDivider type="vertical" />}
+                                            </>
+                                        );
+                                    })}
                             </ValuesList>
                             <Tooltip title={t('allowedValues.updateTooltip')} showArrow={false}>
                                 <StyledIcon

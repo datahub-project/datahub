@@ -27,6 +27,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 import com.datahub.util.exception.ESQueryException;
@@ -45,6 +46,7 @@ import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
@@ -52,6 +54,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URL;
@@ -74,6 +77,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchHit;
@@ -2053,13 +2057,11 @@ public class GraphQueryPITDAOTest {
   }
 
   @Test(timeOut = 10000)
-  public void testGetImpactLineageTimeoutExceptionExactMessageFormat() throws Exception {
-    // Test the exact timeout exception message format from getImpactLineage
-    // Covers the else block (lines 1373-1386) that throws IllegalStateException with:
-    // "Timed out while fetching lineage... Operation exceeded the configured timeout."
-    // and "Lineage operation timed out after %d seconds. Entity: %s, Direction: %s, MaxHops: %d.
-    //      Consider increasing the timeout or set partialResults to true to return partial
-    // results."
+  public void testGetImpactLineageSliceTimeoutStrictThrowsLineageTimeout() throws Exception {
+    // Slice-level timeout: every search after the first sleeps past the 2s budget, so
+    // processSliceFutures' future.get() times out and strict mode must surface a
+    // LineageTimeoutException (cause: java.util.concurrent.TimeoutException). The BFS-level
+    // (between-hops) site is covered by GraphQueryBaseDAOImpactTimeoutTest.
     Urn sourceUrn =
         Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
 
@@ -2110,120 +2112,302 @@ public class GraphQueryPITDAOTest {
 
     mockSliceBasedSearch(mockClient, List.of(searchResponse), List.of(emptyResponse));
 
-    // Override to delay second hop to cause timeout in main loop
     when(mockClient.search(
             any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(searchResponse) // First hop returns quickly
+        .thenReturn(searchResponse) // slice 0, page 1
         .thenAnswer(
             invocation -> {
-              Thread.sleep(timeoutSeconds * 1000 + 500); // Exceeds timeout
+              Thread.sleep(
+                  timeoutSeconds * 1000
+                      + 500); // every later page (other slice, page 2) overruns the budget
               return searchResponse;
             });
 
-    // Should throw IllegalStateException with exact message format
+    LineageTimeoutException thrown =
+        expectThrows(
+            LineageTimeoutException.class,
+            () -> dao.getImpactLineage(operationContext, sourceUrn, filters, 2));
+
+    Assert.assertTrue(
+        thrown.getMessage().contains("timed out"),
+        "Message should indicate a timeout. Got: " + thrown.getMessage());
+    Assert.assertTrue(
+        thrown.getCause() instanceof java.util.concurrent.TimeoutException,
+        "Slice-level timeouts wrap the future.get() TimeoutException. Got: " + thrown.getCause());
+  }
+
+  @Test(timeOut = 10000)
+  public void testSliceSearchServerSideTimeoutSurfacesLineageTimeout() throws Exception {
+    // When ES aborts a shard search at our budget it returns a page with timedOut=true (and
+    // possibly fewer/zero hits). That must not be treated as a completed slice; in strict mode the
+    // distinct LineageTimeoutException must surface so the GraphQL layer maps it to
+    // DEADLINE_EXCEEDED instead of returning truncated lineage as complete.
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(),
+            DATASET_ENTITY_NAME,
+            LineageDirection.DOWNSTREAM);
+
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .timeoutSeconds(
+                                30) // ample budget; the timeout is server-side, not wall
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .maxRelations(1000)
+                                    .partialResults(false) // strict mode must throw
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, metricUtils);
+    createdDAOs.add(dao);
+
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+
+    SearchHit[] hits =
+        createFakeLineageHits(
+            5,
+            "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+            "dest",
+            "DownstreamOf");
+    SearchResponse timedOutResponse = createFakeSearchResponse(hits, 5);
+    when(timedOutResponse.isTimedOut()).thenReturn(true);
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(timedOutResponse);
+
     try {
-      dao.getImpactLineage(operationContext, sourceUrn, filters, 2);
-      fail("Should throw IllegalStateException when timeout occurs with partialResults=false");
-    } catch (IllegalStateException e) {
-      String message = e.getMessage();
-      Assert.assertNotNull(message, "Exception message should not be null");
-      // Verify exact message components from the code
-      Assert.assertTrue(
-          message.contains("Lineage operation timed out after"),
-          "Message should contain 'Lineage operation timed out after'. Got: " + message);
-      Assert.assertTrue(
-          message.contains(String.valueOf(timeoutSeconds)),
-          "Message should contain timeout seconds (" + timeoutSeconds + "). Got: " + message);
-      Assert.assertTrue(
-          message.contains("Consider increasing the timeout or set partialResults to true"),
-          "Message should suggest increasing timeout or setting partialResults. Got: " + message);
-      Assert.assertTrue(
-          message.contains("Entity: " + sourceUrn) || message.contains(sourceUrn.toString()),
-          "Message should contain entity URN. Got: " + message);
+      dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+      fail("Expected a timeout when a slice search reports timedOut=true");
     } catch (RuntimeException e) {
-      // Check if wrapped - unwrap to find IllegalStateException in the cause chain
-      // The IllegalStateException may be wrapped multiple times:
-      // - RuntimeException("Failed to execute slice-based search", RuntimeException("Slice X
-      // failed", ExecutionException(IllegalStateException)))
-      // - Or RuntimeException("Slice X timed out", TimeoutException)
-      Throwable cause = e;
-      IllegalStateException foundIllegalStateException = null;
-
-      // Traverse the entire cause chain to find IllegalStateException
-      while (cause != null && foundIllegalStateException == null) {
-        if (cause instanceof IllegalStateException) {
-          String message = cause.getMessage();
-          if (message != null && message.contains("Lineage operation timed out after")) {
-            foundIllegalStateException = (IllegalStateException) cause;
-            break;
-          }
+      LineageTimeoutException timeout = null;
+      for (Throwable c = e; c != null; c = c.getCause()) {
+        if (c instanceof LineageTimeoutException) {
+          timeout = (LineageTimeoutException) c;
+          break;
         }
-        // Also check if it's an ExecutionException (from CompletableFuture) and unwrap its cause
-        if (cause instanceof java.util.concurrent.ExecutionException && cause.getCause() != null) {
-          cause = cause.getCause();
-          continue;
-        }
-        cause = cause.getCause();
       }
+      Assert.assertNotNull(
+          timeout,
+          "A LineageTimeoutException should be present in the cause chain. Got: "
+              + e.getClass().getName()
+              + " - "
+              + e.getMessage());
+      Assert.assertTrue(
+          timeout.getMessage() != null && timeout.getMessage().contains("timed out"),
+          "Message should indicate a server-side timeout. Got: " + timeout.getMessage());
+    }
 
-      if (foundIllegalStateException != null) {
-        String message = foundIllegalStateException.getMessage();
-        Assert.assertNotNull(message, "Exception message should not be null");
-        Assert.assertTrue(
-            message.contains("Lineage operation timed out after"),
-            "Exception should contain 'Lineage operation timed out after'. Got: " + message);
-        Assert.assertTrue(
-            message.contains(String.valueOf(timeoutSeconds)),
-            "Exception should contain timeout seconds (" + timeoutSeconds + "). Got: " + message);
-        Assert.assertTrue(
-            message.contains("Consider increasing the timeout or set partialResults to true"),
-            "Exception should suggest increasing timeout or setting partialResults. Got: "
-                + message);
-      } else {
-        // If we didn't find IllegalStateException, check if any exception in the chain contains
-        // timeout info
-        // This handles cases where the timeout happens at a different level (e.g., slice processing
-        // timeout)
-        Throwable checkCause = e;
-        boolean foundTimeoutMessage = false;
-        while (checkCause != null && !foundTimeoutMessage) {
-          String msg = checkCause.getMessage();
-          if (msg != null
-              && (msg.contains("timed out")
-                  || msg.contains("timeout")
-                  || msg.contains("Lineage operation timed out"))) {
-            foundTimeoutMessage = true;
-            // Verify it has the expected timeout content
-            Assert.assertTrue(
-                msg.contains("timeout")
-                    || msg.contains("timed out")
-                    || msg.contains("Lineage operation timed out"),
-                "Exception should mention timeout. Got: " + msg);
-            break;
-          }
-          if (checkCause instanceof java.util.concurrent.ExecutionException
-              && checkCause.getCause() != null) {
-            checkCause = checkCause.getCause();
-          } else {
-            checkCause = checkCause.getCause();
-          }
-        }
-        if (!foundTimeoutMessage) {
-          throw new AssertionError(
-              "Expected IllegalStateException with timeout message in exception chain, got: "
-                  + e.getClass().getSimpleName()
-                  + " - "
-                  + e.getMessage()
-                  + (e.getCause() != null
-                      ? " (cause: "
-                          + e.getCause().getClass().getSimpleName()
-                          + " - "
-                          + e.getCause().getMessage()
-                          + ")"
-                      : ""));
-        }
+    // A slice-level timeout must reach the cascade error meter too (recorded at the BFS hop call).
+    ArgumentCaptor<String[]> tags = ArgumentCaptor.forClass(String[].class);
+    verify(metricUtils)
+        .incrementMicrometer(eq("datahub.lineage.graph_walk.errors"), eq(1.0), tags.capture());
+    Assert.assertTrue(
+        java.util.Arrays.asList(tags.getValue()).containsAll(List.of("error_type", "timeout")),
+        "tags: " + java.util.Arrays.toString(tags.getValue()));
+
+    // The server-side bound is the guardrail's one new ES-side behaviour: every PIT page request
+    // must carry a timeout no larger than the remaining budget (30s here) and at least 1 ms.
+    ArgumentCaptor<SearchRequest> requests = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockClient, atLeast(1))
+        .search(any(OperationContext.class), requests.capture(), eq(RequestOptions.DEFAULT));
+    for (SearchRequest request : requests.getAllValues()) {
+      TimeValue timeout = request.source().timeout();
+      Assert.assertNotNull(timeout, "PIT slice search must set a server-side timeout");
+      Assert.assertTrue(
+          timeout.millis() >= 1L && timeout.millis() <= 30_000L,
+          "server-side timeout must be within the remaining budget, got " + timeout);
+    }
+  }
+
+  @Test(timeOut = 10000)
+  public void testSliceSearchServerSideTimeoutWinsOverMaxRelationsInStrictMode() throws Exception {
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(),
+            DATASET_ENTITY_NAME,
+            LineageDirection.UPSTREAM); // the fake edges point this way, so 5 hits are retained
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    // maxRelations(2) with a timed-out page of 5 hits: the page both times out and exhausts the
+    // shared budget. The timeout must win (DEADLINE_EXCEEDED), not the max-relations
+    // IllegalStateException that the budget check would raise.
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .timeoutSeconds(30)
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .maxRelations(2)
+                                    .partialResults(false)
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+    SearchResponse timedOutPage =
+        createFakeSearchResponse(
+            createFakeLineageHits(
+                5,
+                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                "dest",
+                "DownstreamOf"),
+            5);
+    when(timedOutPage.isTimedOut()).thenReturn(true);
+    // Only slice 0 sees the timed-out page; the other slice gets a clean empty page. Otherwise the
+    // two slices race on visitedEntities and whichever extracts second adds nothing, which would
+    // reach the timeout path even without the ordering fix under test.
+    SearchResponse emptyResponse = createEmptySearchResponse(0);
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            invocation -> {
+              SearchRequest req = invocation.getArgument(1);
+              int sliceId =
+                  (req.source() != null && req.source().slice() != null)
+                      ? req.source().slice().getId()
+                      : -1;
+              return sliceId == 0 ? timedOutPage : emptyResponse;
+            });
+
+    RuntimeException thrown =
+        Assert.expectThrows(
+            RuntimeException.class,
+            () -> dao.getImpactLineage(operationContext, sourceUrn, filters, 1));
+
+    LineageTimeoutException timeout = null;
+    for (Throwable c = thrown; c != null; c = c.getCause()) {
+      if (c instanceof LineageTimeoutException) {
+        timeout = (LineageTimeoutException) c;
+        break;
       }
     }
+    Assert.assertNotNull(
+        timeout,
+        "timeout must take precedence over the max-relations error; got "
+            + thrown.getClass().getName()
+            + " - "
+            + thrown.getMessage());
+  }
+
+  @Test(timeOut = 10000)
+  public void testSliceSearchServerSideTimeoutPartialModeKeepsCollectedResults() throws Exception {
+    // Before the timedOut guard, the timed-out page was extracted as a normal page and the hop was
+    // reported complete (total=5, isPartial=false). The regression this pins is "truncated lineage
+    // reported as complete", not data loss.
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
+
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .timeoutSeconds(
+                                30) // ample budget; the timeout is server-side, not wall
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .maxRelations(-1)
+                                    .partialResults(true) // keep partial results on timeout
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+
+    SearchResponse page1 =
+        createFakeSearchResponse(
+            createFakeLineageHits(
+                3,
+                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                "dest",
+                "DownstreamOf"),
+            3);
+    SearchResponse timedOutPage =
+        createFakeSearchResponse(
+            createFakeLineageHits(
+                2,
+                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                "late",
+                "DownstreamOf"),
+            2);
+    when(timedOutPage.isTimedOut()).thenReturn(true);
+    SearchResponse emptyResponse = createEmptySearchResponse(0);
+
+    // Slice 0: first page returns 3 relationships, second page reports the server-side timeout.
+    // Every other slice returns empty immediately, so slice 0 is the sole contributor.
+    java.util.concurrent.atomic.AtomicInteger slice0Calls =
+        new java.util.concurrent.atomic.AtomicInteger(0);
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            invocation -> {
+              SearchRequest req = invocation.getArgument(1);
+              int sliceId =
+                  (req.source() != null && req.source().slice() != null)
+                      ? req.source().slice().getId()
+                      : -1;
+              if (sliceId == 0) {
+                return slice0Calls.getAndIncrement() == 0 ? page1 : timedOutPage;
+              }
+              return emptyResponse;
+            });
+
+    LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+    Assert.assertNotNull(response, "Response must not be null in partial mode");
+    Assert.assertEquals(
+        response.getTotal(),
+        5,
+        "Partial mode keeps the 3 relationships from the completed page AND the 2 valid hits on the"
+            + " timed-out page (they were collected before the shard budget ran out)");
+    Assert.assertTrue(
+        response.isPartial(),
+        "A server-side timeout must mark the hop partial so truncated lineage is not reported as"
+            + " complete");
   }
 
   @Test
