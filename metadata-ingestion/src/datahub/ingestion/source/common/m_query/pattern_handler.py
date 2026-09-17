@@ -2,7 +2,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Tuple, Type
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Type
 
 import sqlglot
 from sqlglot import ParseError, expressions as exp
@@ -11,28 +11,24 @@ from sqlparse.exceptions import SQLParseError
 from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.powerbi.config import (
-    Constant,
-    DataBricksPlatformDetail,
-    DataPlatformPair,
-    OraclePlatformDetail,
-    PowerBiDashboardSourceConfig,
-    PowerBiDashboardSourceReport,
-    PowerBIPlatformDetail,
-    SupportedDataPlatform,
-)
-from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
-    AbstractDataPlatformInstanceResolver,
-)
-from datahub.ingestion.source.powerbi.m_query import native_sql_parser
-from datahub.ingestion.source.powerbi.m_query.ast_utils import (
+from datahub.ingestion.source.common.m_query import native_sql_parser
+from datahub.ingestion.source.common.m_query.ast_utils import (
     find_nodes_by_kind,
     get_literal_value,
     get_record_field_values,
     resolve_identifier,
     resolve_parameter_value,
 )
-from datahub.ingestion.source.powerbi.m_query.data_classes import (
+from datahub.ingestion.source.common.m_query.config import (
+    M_QUERY_NULL,
+    SQL_PARSING_FAILURE,
+    DataBricksPlatformDetail,
+    DataPlatformPair,
+    OraclePlatformDetail,
+    PowerBIPlatformDetail,
+    SupportedDataPlatform,
+)
+from datahub.ingestion.source.common.m_query.data_classes import (
     DataAccessFunctionDetail,
     DataPlatformTable,
     FunctionName,
@@ -40,15 +36,20 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     Lineage,
     ReferencedTable,
 )
-from datahub.ingestion.source.powerbi.m_query.odbc import (
+from datahub.ingestion.source.common.m_query.instance_resolver import (
+    AbstractDataPlatformInstanceResolver,
+)
+from datahub.ingestion.source.common.m_query.interfaces import (
+    MQueryColumn,
+    MQueryLineageConfig,
+    MQueryReporter,
+    MQueryTable,
+)
+from datahub.ingestion.source.common.m_query.odbc import (
     extract_dsn,
     extract_platform,
     extract_server,
     normalize_platform_name,
-)
-from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
-    Column,
-    Table,
 )
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 from datahub.metadata.urns import DatasetUrn
@@ -232,7 +233,7 @@ def urn_to_lowercase(value: str, flag: bool) -> str:
 
 def _remap_column_lineage_to_pbi_fields(
     column_lineage: List[ColumnLineageInfo],
-    pbi_columns: Optional[List[Column]],
+    pbi_columns: Optional[Sequence[MQueryColumn]],
 ) -> List[ColumnLineageInfo]:
     """sqlglot returns downstream column names in the parsed SQL's casing (driven
     by the query's aliases and the source dialect's identifier folding), but
@@ -265,7 +266,7 @@ def _remap_column_lineage_to_pbi_fields(
 
 
 def make_urn(
-    config: PowerBiDashboardSourceConfig,
+    config: MQueryLineageConfig,
     platform_instance_resolver: AbstractDataPlatformInstanceResolver,
     data_platform_pair: DataPlatformPair,
     server: str,
@@ -324,17 +325,17 @@ class AbstractLineage(ABC):
     """
 
     ctx: PipelineContext
-    table: Table
-    config: PowerBiDashboardSourceConfig
-    reporter: PowerBiDashboardSourceReport
+    table: MQueryTable
+    config: MQueryLineageConfig
+    reporter: MQueryReporter
     platform_instance_resolver: AbstractDataPlatformInstanceResolver
 
     def __init__(
         self,
         ctx: PipelineContext,
-        table: Table,
-        config: PowerBiDashboardSourceConfig,
-        reporter: PowerBiDashboardSourceReport,
+        table: MQueryTable,
+        config: MQueryLineageConfig,
+        reporter: MQueryReporter,
         platform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ) -> None:
         super().__init__()
@@ -450,7 +451,7 @@ class AbstractLineage(ABC):
             return native_sql_parser.get_tables(query)
         except SQLParseError as e:
             self.reporter.warning(
-                title=Constant.SQL_PARSING_FAILURE,
+                title=SQL_PARSING_FAILURE,
                 message="Native SQL exceeded the SQL parser's size limits, so "
                 "lineage for this query is skipped. Enabling "
                 "enable_advance_lineage_sql_construct uses the sqlglot-based parser instead.",
@@ -499,7 +500,7 @@ class AbstractLineage(ABC):
 
         if parsed_result is None:
             self.reporter.info(
-                title=Constant.SQL_PARSING_FAILURE,
+                title=SQL_PARSING_FAILURE,
                 message="Fail to parse native sql present in PowerBI M-Query",
                 context=f"table-name={self.table.full_name}, sql={query}",
             )
@@ -507,7 +508,7 @@ class AbstractLineage(ABC):
 
         if parsed_result.debug_info and parsed_result.debug_info.table_error:
             self.reporter.warning(
-                title=Constant.SQL_PARSING_FAILURE,
+                title=SQL_PARSING_FAILURE,
                 message="Fail to parse native sql present in PowerBI M-Query",
                 context=f"table-name={self.table.full_name}, error={parsed_result.debug_info.table_error},sql={query}",
             )
@@ -1596,9 +1597,7 @@ class NativeQueryLineage(AbstractLineage):
         if data_access_tokens[0] in _DATABRICKS_NATIVE_QUERY_FUNCTIONS:
             database: Optional[str] = get_next_item(data_access_tokens, "Database")
 
-            if (
-                database and database != Constant.M_QUERY_NULL
-            ):  # database name is explicitly set
+            if database and database != M_QUERY_NULL:  # database name is explicitly set
                 return database
 
             return (
