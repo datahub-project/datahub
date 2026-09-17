@@ -251,6 +251,9 @@ _CONFIG_HOOKS = frozenset(
         "probe_prepare_engine",
         "probe_unfiltered_kinds",
         "probe_schema_needs_parent",
+        # Read by sqlalchemy_probe._with_aliases: the other spellings a
+        # connector answers to for a pinned container.
+        "probe_container_aliases",
     }
 )
 

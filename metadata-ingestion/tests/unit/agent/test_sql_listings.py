@@ -250,3 +250,83 @@ def test_the_pin_reads_both_the_singular_and_the_plural_field():
         _pinned_containers(SimpleNamespace(database="one", databases=None), "Schema")
         == frozenset()
     )
+
+
+def test_doris_probes_the_catalog_ingestion_reads():
+    """The probe dialled a different catalog than ingestion.
+
+    Ingestion passes the QUALIFIED `catalog.database` as current_db for an
+    external catalog (DorisSource._qualified_database), because that is what
+    Doris expects over the MySQL protocol. The probe builds its engine from
+    `config.get_sql_alchemy_url()` with no argument, which produced the bare
+    database -- so it landed in the session's default (internal) catalog and
+    read a different `sales` than ingestion reads. Every verdict from that
+    connection described the wrong catalog.
+
+    Asserted as agreement between the two URLs rather than against a
+    literal, so it stays true if the URL format changes.
+    """
+    from datahub.ingestion.source.sql.doris.doris_source import DorisConfig, DorisSource
+
+    config = DorisConfig.model_validate(
+        {
+            "host_port": "h:9030",
+            "username": "u",
+            "database": "iceberg_catalog.sales",
+        }
+    )
+    # The validator splits it; this is the shape the probe actually sees.
+    assert (config.catalog, config.database) == ("iceberg_catalog", "sales")
+
+    source = DorisSource.__new__(DorisSource)
+    source.config = config
+    source._session_catalog = config.catalog
+    source._catalog_detection_failed = False
+    assert config.database is not None
+    ingestion_url = config.get_sql_alchemy_url(
+        current_db=source._qualified_database(config.database)
+    )
+
+    assert config.get_sql_alchemy_url() == ingestion_url
+
+    # An internal-catalog recipe is untouched: no catalog to qualify with,
+    # so the common case keeps the bare name it always had.
+    plain = DorisConfig.model_validate(
+        {"host_port": "h:9030", "username": "u", "database": "sales"}
+    )
+    assert plain.get_sql_alchemy_url().endswith("/sales")
+
+
+def test_the_doris_pin_matches_either_spelling_of_a_database():
+    """Which spelling the Inspector returns on an external-catalog
+    connection is not settled -- ingestion enumerates with SHOW DATABASES
+    after SWITCH and never through the Inspector, so the connector does not
+    answer it. `containers` filters by exact match, so a wrong guess makes
+    it report none at all.
+
+    The pin therefore holds both, and the tolerance is scoped to the
+    connector that has the concept: loosening the match itself would widen
+    the pin on every other source.
+    """
+    from datahub.ingestion.source.sql.doris.doris_source import DorisConfig
+    from datahub.ingestion.source.sql.sqlalchemy_probe import _pinned_containers
+
+    config = DorisConfig.model_validate(
+        {"host_port": "h:9030", "username": "u", "database": "iceberg_catalog.sales"}
+    )
+    pinned = _pinned_containers(config, str(config.probe_container_kind()))
+    assert pinned == {"sales", "iceberg_catalog.sales"}
+
+    probe = _probe("mysql")
+    probe.pinned_containers = pinned
+    # Whichever spelling the server lists, the pin keeps it.
+    probe._insp.get_schema_names = lambda: ["sales", "other"]  # type: ignore[method-assign]
+    assert probe.containers() == ["sales"]
+    probe._insp.get_schema_names = lambda: ["iceberg_catalog.sales", "other"]  # type: ignore[method-assign]
+    assert probe.containers() == ["iceberg_catalog.sales"]
+
+    # And an internal-catalog recipe pins one spelling, as before.
+    plain = DorisConfig.model_validate(
+        {"host_port": "h:9030", "username": "u", "database": "sales"}
+    )
+    assert _pinned_containers(plain, str(plain.probe_container_kind())) == {"sales"}

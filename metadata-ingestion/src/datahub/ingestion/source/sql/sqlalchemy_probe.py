@@ -1,4 +1,4 @@
-from typing import Dict, FrozenSet, List, Optional
+from typing import Dict, FrozenSet, List, Optional, Set
 
 from sqlalchemy import inspect
 from sqlalchemy.engine import Engine
@@ -59,11 +59,32 @@ def _pinned_containers(config: object, container_kind: str) -> FrozenSet[str]:
         return frozenset()
     single = getattr(config, "database", None)
     if single:
-        return frozenset({str(single)})
+        return _with_aliases(config, [str(single)])
     several = getattr(config, "databases", None)
     if isinstance(several, (list, tuple, set, frozenset)):
-        return frozenset(str(one) for one in several if one)
+        return _with_aliases(config, [str(one) for one in several if one])
     return frozenset()
+
+
+def _with_aliases(config: object, names: List[str]) -> FrozenSet[str]:
+    """The pinned names, plus any other spelling the connector answers to.
+
+    `containers` filters the server's listing by exact match, so a connector
+    whose listing spells a database differently from its config would filter
+    everything out and report none. Doris is the case: an external-catalog
+    recipe configures `sales` and the connection speaks
+    `iceberg_catalog.sales`. Asking the connector beats guessing, and beats
+    loosening the match for everyone -- a prefix or suffix rule here would
+    quietly widen the pin on every other source.
+    """
+    aliases = getattr(config, "probe_container_aliases", None)
+    if not callable(aliases):
+        return frozenset(names)
+    out: Set[str] = set()
+    for name in names:
+        out.add(name)
+        out.update(str(alias) for alias in aliases(name))
+    return frozenset(out)
 
 
 class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
