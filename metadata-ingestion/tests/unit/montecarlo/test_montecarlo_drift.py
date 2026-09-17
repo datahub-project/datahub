@@ -50,10 +50,16 @@ def _introspect_response(fields_spec: Dict[str, str]) -> Dict[str, Any]:
 
 
 def _live_monitor_shape(
-    *, include_custom_sql: bool = True, include_severity: bool = True
+    *,
+    include_custom_sql: bool = True,
+    include_severity: bool = True,
+    include_priority: bool = True,
+    include_where_condition: bool = True,
 ) -> Dict[str, str]:
-    """The live Monitor type's field set. Dropping customSql/severity simulates
-    the drift that caused the original 400."""
+    """The live Monitor type's field set. customSql/severity were renamed to
+    whereCondition/priority on the current gateway; toggles simulate the drift
+    that caused the original 400 (customSql/severity dropped) while keeping the
+    replacement fields present by default."""
     shape: Dict[str, str] = {
         "uuid": "SCALAR:UUID",
         "name": "SCALAR:String",
@@ -66,8 +72,12 @@ def _live_monitor_shape(
     }
     if include_custom_sql:
         shape["customSql"] = "SCALAR:String"
+    if include_where_condition:
+        shape["whereCondition"] = "SCALAR:String"
     if include_severity:
         shape["severity"] = "SCALAR:String"
+    if include_priority:
+        shape["priority"] = "SCALAR:String"
     return shape
 
 
@@ -119,6 +129,10 @@ def test_builder_drops_removed_fields_from_query() -> None:
     assert "uuid" in query
     assert "entityMcons" in query
     assert "comparisons" in query
+    # The renamed replacement fields are present on the live schema and so are
+    # fetched even when customSql/severity were dropped.
+    assert "whereCondition" in query
+    assert "priority" in query
 
 
 def test_builder_keeps_all_fields_when_no_drift() -> None:
@@ -233,6 +247,9 @@ def test_builder_falls_back_when_introspection_fails() -> None:
     assert "entityMcons" in query
     assert "customSql" not in query
     assert "severity" not in query
+    # Fallback requests the renamed replacement fields, not the removed ones.
+    assert "whereCondition" in query
+    assert "priority" in query
     assert any("introspection failed" in w for w in warnings)
     drift = builder.check_drift(strict=False, types=["Monitor"])
     assert drift.verdict == DriftVerdict.PROCEED
@@ -284,6 +301,7 @@ def test_client_check_schema_drift_respects_config_flags() -> None:
                     "customSql": "SCALAR:String",
                     "entityMcons": "SCALAR:String",
                     "severity": "SCALAR:String",
+                    "priority": "SCALAR:String",
                     "comparisons": "OBJECT:Comparison",
                 }
             ),
@@ -380,3 +398,58 @@ def test_source_gate_proceeds_with_warning_on_degraded_drift() -> None:
     assert source.report.warnings_count >= 1
     joined = " ".join(w.message for w in source.report.warnings)
     assert "customSql" in joined and "severity" in joined
+
+
+# --- Renamed-field fallback mapping (customSql->whereCondition, severity->priority) ---
+
+
+def _definition(**kwargs: Any) -> "mc_assertion.MonteCarloAssertionDef":
+    from datahub.ingestion.source.montecarlo.client import MonteCarloAssertionDef
+
+    base: Dict[str, Any] = {
+        "uuid": "monitor-1",
+        "name": "my monitor",
+        "entity_mcons": ["mcon:abc"],
+    }
+    base.update(kwargs)
+    return MonteCarloAssertionDef(**base)
+
+
+def test_native_parameters_severity_falls_back_to_priority() -> None:
+    # severity removed from the live schema -> priority carries the value.
+    definition = _definition(severity=None, priority="HIGH")
+    params = mc_assertion._native_parameters(definition)
+    assert params["severity"] == "HIGH"
+
+
+def test_native_parameters_severity_preferred_over_priority() -> None:
+    # On a gateway that still exposes severity, it wins.
+    definition = _definition(severity="CRITICAL", priority="HIGH")
+    params = mc_assertion._native_parameters(definition)
+    assert params["severity"] == "CRITICAL"
+
+
+def test_custom_assertion_logic_falls_back_to_where_condition() -> None:
+    # customSql removed from Monitor -> whereCondition carries the SQL predicate.
+    definition = _definition(
+        custom_sql=None, where_condition="amount > 100", monitor_type="CUSTOM_SQL"
+    )
+    info = mc_assertion._make_custom_assertion_info(
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t,PROD)",
+        native_type="CUSTOM_SQL",
+        definition=definition,
+    )
+    assert info.logic == "amount > 100"
+
+
+def test_custom_assertion_logic_prefers_custom_sql_when_present() -> None:
+    # On CustomRule (which still exposes customSql), it is preferred.
+    definition = _definition(
+        custom_sql="SELECT 1", where_condition="x > 0", rule_type="CUSTOM_SQL"
+    )
+    info = mc_assertion._make_custom_assertion_info(
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t,PROD)",
+        native_type="CUSTOM_SQL",
+        definition=definition,
+    )
+    assert info.logic == "SELECT 1"

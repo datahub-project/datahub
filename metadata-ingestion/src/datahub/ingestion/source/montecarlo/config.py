@@ -233,9 +233,10 @@ class MonteCarloSourceConfig(
         "drifted in any way from what the connector expects (any requested field is "
         "missing), even non-critical ones. By default only the loss of a *critical* "
         "field (uuid/entityMcons on monitors/rules, id/monitorUuids on alerts) aborts; "
-        "non-critical drift (e.g. a removed customSql/severity) degrades gracefully and "
-        "is reported as a warning. Enable this in environments that want zero silent "
-        "degradation.",
+        "non-critical drift (e.g. a removed field the connector can substitute, "
+        "such as customSql/severity which fall back to whereCondition/priority) "
+        "degrades gracefully and is reported as a warning. Enable this in "
+        "environments that want zero silent degradation.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(

@@ -27,10 +27,17 @@ MONITOR_DESIRED_FIELDS: DesiredFields = {
     "name": None,
     "description": None,
     "monitorType": None,
+    # customSql/severity were removed from the Monitor type and renamed: the
+    # SQL predicate is now top-level `whereCondition`, and `severity` is now
+    # `priority`. Both old and new names are requested so the connector adapts
+    # to either gateway version; assertion.py maps priority->severity and
+    # whereCondition->custom_sql as fallbacks (see client.MonteCarloAssertionDef).
     "customSql": None,
+    "whereCondition": None,
     "entityMcons": None,
     "resourceId": None,
     "severity": None,
+    "priority": None,
     "dataQualityDimension": None,
     "comparisons": {
         "comparisonType": None,
@@ -52,7 +59,11 @@ CUSTOM_RULE_DESIRED_FIELDS: DesiredFields = {
     "description": None,
     "customSql": None,
     "entityMcons": None,
+    # severity was renamed to priority on CustomRule (customSql is still
+    # exposed). Request both so the connector adapts to either gateway version;
+    # assertion.py maps priority->severity as a fallback.
     "severity": None,
+    "priority": None,
     "comparisons": {
         "comparisonType": None,
         "operator": None,
@@ -87,16 +98,18 @@ CUSTOM_RULE_CRITICAL_FIELDS = frozenset({"uuid", "entityMcons"})
 ALERT_CRITICAL_FIELDS = frozenset({"id", "monitorUuids"})
 
 # Minimal known-good selections used when introspection itself fails (network
-# error / auth error on the __type call). These intentionally omit fields known
-# to have drifted from the Monitor type (customSql, severity) so the fallback
-# never re-triggers a 400; they are the stable subset pycarlo's own minimal
-# monitor query requests. The connector proceeds with degraded data rather than
-# zeroing out the whole phase.
+# error / auth error on the __type call). These request the renamed, currently
+# stable fields (whereCondition/priority on Monitor, customSql/priority on
+# CustomRule) rather than the removed customSql/severity, so the fallback
+# never re-triggers a 400. The connector proceeds with degraded data rather
+# than zeroing out the whole phase.
 _MONITOR_FALLBACK_SELECTION = (
-    "uuid\n    name\n    description\n    monitorType\n    entityMcons"
+    "uuid\n    name\n    description\n    monitorType\n    whereCondition\n    "
+    "priority\n    entityMcons"
 )
 _CUSTOM_RULE_FALLBACK_SELECTION = (
-    "uuid\n    ruleName\n    ruleType\n    description\n    entityMcons"
+    "uuid\n    ruleName\n    ruleType\n    description\n    customSql\n    "
+    "priority\n    entityMcons"
 )
 _ALERT_FALLBACK_SELECTION = (
     "id\n    type\n    severity\n    status\n    createdTime\n    monitorUuids\n"

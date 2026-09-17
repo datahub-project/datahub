@@ -170,9 +170,16 @@ class MonteCarloAssertionDef(BaseModel):
     monitor_type: Optional[str] = None
     rule_type: Optional[str] = None
     custom_sql: Optional[str] = None
+    # whereCondition is the renamed Monitor SQL predicate (customSql was
+    # removed from the Monitor type); assertion.py uses it as the custom_sql
+    # fallback so the assertion logic is still surfaced.
+    where_condition: Optional[str] = None
     entity_mcons: List[str] = Field(default_factory=list)
     resource_id: Optional[str] = None
     severity: Optional[str] = None
+    # priority is the renamed severity (removed from Monitor/CustomRule);
+    # assertion.py uses it as the severity fallback.
+    priority: Optional[str] = None
     data_quality_dimension: Optional[str] = None
     comparisons: List[MonteCarloComparison] = Field(default_factory=list)
 
@@ -536,9 +543,11 @@ class MonteCarloClient:
                     description=raw.get("description"),
                     monitor_type=monitor_type,
                     custom_sql=raw.get("custom_sql"),
+                    where_condition=raw.get("where_condition"),
                     entity_mcons=entity_mcons,
                     resource_id=resource_id,
                     severity=raw.get("severity"),
+                    priority=raw.get("priority"),
                     data_quality_dimension=raw.get("data_quality_dimension"),
                     comparisons=_parse_comparisons(raw.get("comparisons")),
                 )
@@ -627,6 +636,7 @@ class MonteCarloClient:
                     custom_sql=raw.get("custom_sql"),
                     entity_mcons=raw.get("entity_mcons") or [],
                     severity=raw.get("severity"),
+                    priority=raw.get("priority"),
                     comparisons=_parse_comparisons(raw.get("comparisons")),
                 )
             except _FATAL_RUN_ERRORS:

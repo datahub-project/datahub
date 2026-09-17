@@ -130,9 +130,10 @@ def _native_parameters(definition: MonteCarloAssertionDef) -> Dict[str, str]:
     """Native MC fields that don't map to the structured assertion slots, carried
     on nativeParameters so the UI can render them. severity / data_quality_dimension
     / resource_id are monitor-level; comparisonType / metric / customMetric are
-    added by the comparisons path when present."""
+    added by the comparisons path when present. severity falls back to priority
+    (the renamed field on the current Monitor/CustomRule schema)."""
     params: Dict[str, Any] = {
-        "severity": definition.severity,
+        "severity": definition.severity or definition.priority,
         "data_quality_dimension": definition.data_quality_dimension,
         "resource_id": definition.resource_id,
     }
@@ -197,7 +198,10 @@ def _make_custom_assertion_info(
     profile page.
     """
     native_parameters = _native_parameters(definition)
-    logic: Optional[str] = definition.custom_sql
+    # custom_sql was removed from the Monitor type; whereCondition is the
+    # renamed SQL predicate, used as the logic fallback so the assertion's
+    # SQL is still surfaced (CustomRule still exposes customSql directly).
+    logic: Optional[str] = definition.custom_sql or definition.where_condition
 
     comparisons = definition.comparisons
     if not comparisons:

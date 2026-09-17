@@ -140,9 +140,11 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
         # once (cached) and diff against the connector's desired fields. A
         # missing *critical* field (uuid/entityMcons/monitorUuids) aborts the
         # run cleanly so we emit no malformed/empty records; non-critical drift
-        # (e.g. a removed customSql/severity) degrades gracefully — the query
-        # builder already dropped the field and every consumer handles None —
-        # and is surfaced as a warning. strict_schema_drift aborts on any drift.
+        # (e.g. a removed field the connector can substitute, such as
+        # customSql/severity which are now fetched via whereCondition/priority)
+        # degrades gracefully — the query builder already dropped the field and
+        # every consumer handles None — and is surfaced as a warning.
+        # strict_schema_drift aborts on any drift.
         drift = self.client.check_schema_drift(self.config.strict_schema_drift)
         for type_drift in drift.per_type.values():
             if type_drift.verdict == DriftVerdict.ABORT:
