@@ -417,6 +417,33 @@ def get_disable_agent_probe_raw_access() -> bool:
     return os.getenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "").lower() in ("true", "1")
 
 
+def get_probe_disabled() -> bool:
+    """Whether the probe may open a connection to the source at all.
+
+    The wider switch. DATAHUB_PROBE_DISABLE_RAW_ACCESS withholds the
+    caller-supplied `sql` and `api` passthroughs and leaves every typed
+    listing live -- which is the right granularity for "no arbitrary
+    queries" and the wrong one for "this agent does not touch my source".
+    Those listings still authenticate and still return metadata.
+
+    This refuses everything that CONNECTS: `probe run <command>` for every
+    command, typed or not, and `recipe test-connection`.
+
+    Deliberately not everything. `recipe describe`, `recipe scaffold`,
+    `recipe validate`, `probe methods` and `probe filter` need no
+    connection -- they read the connector's own declarations and judge names
+    the caller already has. Disabling those too would stop an agent learning
+    what a recipe needs or checking one it has written, which is work that
+    never reaches the source. The line is the connection, not the feature.
+
+    An environment variable rather than a recipe field, for the same reason
+    as the switch above: the agent authors the recipe, so a field there
+    would let it grant itself the access. Set it where the probe runs (the
+    ingestion executor).
+    """
+    return os.getenv("DATAHUB_PROBE_DISABLED", "").lower() in ("true", "1")
+
+
 # ============================================================================
 # Data Processing Configuration
 # ============================================================================

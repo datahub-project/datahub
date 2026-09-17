@@ -17,7 +17,10 @@ from typing import (
     runtime_checkable,
 )
 
-from datahub.configuration.env_vars import get_disable_agent_probe_raw_access
+from datahub.configuration.env_vars import (
+    get_disable_agent_probe_raw_access,
+    get_probe_disabled,
+)
 
 _TYPE_NAMES: Dict[type, str] = {str: "str", int: "int", bool: "bool"}
 
@@ -717,6 +720,24 @@ def run_probe_method(
     command: str,
     kwargs: Dict[str, object],
 ) -> ProbeMethodResult:
+    # SECURITY: before anything else, including the command lookup. Every
+    # probe command that touches the source funnels through this function --
+    # typed listings as much as the `sql`/`api` passthroughs -- so this is
+    # the one place a whole-probe switch can be enforced without enumerating
+    # commands that do not exist yet.
+    #
+    # Checked ahead of the command lookup on purpose: when the probe is off,
+    # "unknown probe method 'x'" is a worse answer than "the probe is off",
+    # and resolving the command first would make the refusal depend on
+    # getting the name right.
+    if get_probe_disabled():
+        raise ValueError(
+            "the probe is switched off here (DATAHUB_PROBE_DISABLED), so no "
+            "command that connects to the source will run. The commands that "
+            "need no connection still work: `recipe describe`, "
+            "`recipe scaffold`, `recipe validate`, `probe methods` and "
+            "`probe filter`"
+        )
     provider_cls = _provider_class(source_type)
     if provider_cls is None:
         raise ValueError(f"source '{source_type}' has no probe methods")

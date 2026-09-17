@@ -398,3 +398,129 @@ def test_a_listing_command_declares_the_kind_it_returns():
 def test_sql_declares_no_kind_because_the_caller_chooses_what_to_select():
 
     assert _spec(SqlAlchemyMetadataProbe, "sql").kind is None
+
+
+# --- the wider switch: nothing that connects runs at all --------------------
+
+
+def _disabled_probe_env(monkeypatch):
+    """A provider that records whether it was ever built."""
+    import datahub.ingestion.agent.probe_methods as _pm
+
+    built: List[str] = []
+
+    class _Provider:
+        def __enter__(self) -> "_Provider":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        @probe_method(row_limit_param="limit")
+        def containers(self, limit: int = 50) -> List[str]:
+            """Every container."""
+            return ["c1"]
+
+        @probe_method(name="sql", scoped_sql_param="query")
+        def sql(self, query: str) -> Dict[str, object]:
+            """Run a catalog query."""
+            return {}
+
+        @classmethod
+        def for_config(cls, config: object) -> "_Provider":
+            built.append("yes")
+            return cls()
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls) -> type:
+            return _Provider
+
+        @classmethod
+        def model_validate(cls, d: object) -> "_Config":
+            built.append("config")
+            return cls()
+
+    monkeypatch.setattr(_pm, "_provider_class", lambda st: _Provider)
+    monkeypatch.setattr(_pm, "config_class_for", lambda st: _Config)
+    return _pm, built
+
+
+@pytest.mark.parametrize("command", ["containers", "sql"])
+def test_the_whole_probe_switch_refuses_every_command_that_connects(
+    command, monkeypatch
+):
+    """DATAHUB_PROBE_DISABLE_RAW_ACCESS withholds `sql` and `api` and leaves
+    every typed listing live, which is the right granularity for "no
+    arbitrary queries" and the wrong one for "this agent does not touch my
+    source" -- those listings still authenticate and still return metadata.
+
+    DATAHUB_PROBE_DISABLED is the wider one, and it is enforced in
+    run_probe_method because every probe command funnels through it. That
+    is what makes it cover commands that do not exist yet, rather than the
+    ones someone remembered to list.
+    """
+    pm_mod, built = _disabled_probe_env(monkeypatch)
+    monkeypatch.setenv("DATAHUB_PROBE_DISABLED", "true")
+
+    with pytest.raises(ValueError, match="DATAHUB_PROBE_DISABLED"):
+        pm_mod.run_probe_method("postgres", {}, command, {"query": "SELECT 1"})
+
+    # Nothing was built and nothing was dialled: the refusal is not a late
+    # failure dressed up, which matters on a source that is slow or down.
+    assert built == [], built
+
+
+def test_the_whole_probe_switch_is_off_by_default(monkeypatch):
+    """The control. A switch that is on by accident is an outage."""
+    pm_mod, _ = _disabled_probe_env(monkeypatch)
+    monkeypatch.delenv("DATAHUB_PROBE_DISABLED", raising=False)
+
+    result = pm_mod.run_probe_method("postgres", {}, "containers", {})
+    assert result.result == ["c1"]
+
+
+def test_the_whole_probe_switch_refuses_before_the_command_is_resolved(monkeypatch):
+    """An unknown command name must not change the answer.
+
+    Resolving the command first would make the refusal depend on the caller
+    getting the name right, and "unknown probe method 'x'" is a worse answer
+    than "the probe is off" -- it invites a retry with a different name.
+    """
+    pm_mod, built = _disabled_probe_env(monkeypatch)
+    monkeypatch.setenv("DATAHUB_PROBE_DISABLED", "true")
+
+    with pytest.raises(ValueError, match="DATAHUB_PROBE_DISABLED"):
+        pm_mod.run_probe_method("postgres", {}, "no_such_command", {})
+    assert built == []
+
+
+def test_the_connection_free_commands_still_answer_with_the_probe_off(monkeypatch):
+    """The line is the connection, not the feature.
+
+    describe, scaffold, validate, `probe methods` and `probe filter` read
+    the connector's own declarations and judge names the caller already
+    has. Disabling those too would stop an agent learning what a recipe
+    needs or checking one it wrote -- work that never reaches the source.
+    """
+    monkeypatch.setenv("DATAHUB_PROBE_DISABLED", "true")
+
+    from datahub.ingestion.agent.filter_check import check_filters
+    from datahub.ingestion.agent.introspect import describe_source
+    from datahub.ingestion.agent.probe_methods import list_probe_methods
+    from datahub.ingestion.agent.recipe import scaffold, validate_recipe
+    from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+
+    assert describe_source("postgres").to_dict()["source_type"] == "postgres"
+    assert scaffold("postgres")["source"]
+    assert list_probe_methods("postgres")
+    assert validate_recipe(scaffold("postgres")) is not None
+
+    verdicts = check_filters(
+        source_type="postgres",
+        config_dict={"host_port": "h:5432", "username": "u", "password": "p"},
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[],
+        names=["public"],
+    )
+    assert verdicts.results[0].target
