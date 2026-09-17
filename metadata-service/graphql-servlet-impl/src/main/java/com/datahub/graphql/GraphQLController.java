@@ -84,7 +84,6 @@ public class GraphQLController {
   private OperationContext systemOperationContext;
 
   private static final int MAX_LOG_WIDTH = 512;
-  private static final int MAX_VARIABLES_LOG_WIDTH = 2048;
 
   /** GraphQL response serializer for the buffered path; see GraphQLResponseObjectMapperFactory. */
   @Autowired
@@ -341,12 +340,13 @@ public class GraphQLController {
                   final long totalDuration = submitMetrics(executionResult);
                   // Remove tracing from response to reduce bulk, not used by the frontend
                   executionResult.getExtensions().remove("tracing");
-                  // Log here, not after the write — else a slow/abandoned read loses the slow-query
-                  // log.
-                  logQueryDuration(queryName, totalDuration, variables);
                   final Map<String, Object> responseSpec = executionResult.toSpecification();
 
                   if (configurationProvider.getGraphQL().getQuery().isStreamResponse()) {
+                    // Log duration here, not after the write — else a slow/abandoned read loses
+                    // the slow-query log. Size is unknown until the converter finishes; do not
+                    // log variables (same leak surface as dumping mutation inputs).
+                    logQueryDuration(queryName, totalDuration);
                     // Stream via the converter; the byte count is known only after the write, so
                     // the size metric is recorded from its callback then.
                     final Object body =
@@ -355,9 +355,29 @@ public class GraphQLController {
                     return new ResponseEntity<>(body, rateLimitHeaders, HttpStatus.OK);
                   }
 
-                  // Buffered fallback (default): byte-for-byte the legacy behavior.
+                  // Buffered fallback (default): byte-for-byte the legacy behavior, including
+                  // the original slow-query log shape (response size, no variables).
                   final String responseBodyStr =
                       graphQLResponseMapper.writeValueAsString(responseSpec);
+                  if (totalDuration
+                      >= configurationProvider.getGraphQL().getQuery().getSlowQueryThresholdMs()) {
+                    log.info(
+                        "Slow operation {} took {} ms (response size: {})",
+                        queryName,
+                        totalDuration,
+                        responseBodyStr.length());
+                  } else if (totalDuration > 0) {
+                    log.debug(
+                        "Executed operation {} in {} ms (response size: {})",
+                        queryName,
+                        totalDuration,
+                        responseBodyStr.length());
+                  } else {
+                    log.debug(
+                        "Executed operation {} (response size: {})",
+                        queryName,
+                        responseBodyStr.length());
+                  }
                   log.trace("Execution result: {}", responseBodyStr);
                   // length() counts UTF-16 chars, not UTF-8 bytes, so this undercounts non-ASCII
                   // responses. Kept to match legacy; unify with the streaming path's true byte
@@ -397,15 +417,13 @@ public class GraphQLController {
     throw new HttpRequestMethodNotSupportedException("GET");
   }
 
-  /** Slow-query/duration logging, at execution time — the streamed size isn't known until later. */
-  private void logQueryDuration(
-      String queryName, long totalDuration, Map<String, Object> variables) {
+  /**
+   * Streaming-path duration logging at execution time. Does not include variables or response size
+   * (size is only known after the converter write).
+   */
+  private void logQueryDuration(String queryName, long totalDuration) {
     if (totalDuration >= configurationProvider.getGraphQL().getQuery().getSlowQueryThresholdMs()) {
-      log.info(
-          "Slow operation {} took {} ms (variables: {})",
-          queryName,
-          totalDuration,
-          StringUtils.abbreviate(variables.toString(), MAX_VARIABLES_LOG_WIDTH));
+      log.info("Slow operation {} took {} ms", queryName, totalDuration);
     } else if (totalDuration > 0) {
       log.debug("Executed operation {} in {} ms", queryName, totalDuration);
     } else {
