@@ -668,9 +668,10 @@ class TestCasingIsScopedPerRoute:
     """Which routes honour an explicitly-set convert_urns_to_lowercase.
 
     The helper-level mirror test above passes regardless of scoping, which is
-    how a column-side leak on the Data Model route survived a review round. This
-    asserts at the route level instead: opting a route in must move both its
-    table and its column, and a route that has not opted in must move neither.
+    how a column-side leak on the Data Model route survived a review round.
+    These assert at the route level instead. The DM passthrough column route
+    is covered in test_dm_element_warehouse_fgl.TestExplicitCaseFlagScope,
+    which has the fixtures to drive it end to end.
     """
 
     PLATFORM = "redshift"  # not in _WAREHOUSE_LOWERCASE_PLATFORMS
@@ -717,15 +718,6 @@ class TestCasingIsScopedPerRoute:
         # move URNs those routes already emit.
         urn = self._source()._warehouse_ref_to_urn(self.REF)
         assert urn is not None and "Analytics.Public.Orders" in urn
-
-    def test_data_model_column_route_ignores_the_flag(self) -> None:
-        # The column side of the same route. Folding it while the table above
-        # keeps its case would pair a preserved table with a lower-cased column
-        # in one schemaField URN.
-        assert (
-            _normalize_warehouse_identifier("CustomerId", self.PLATFORM, True)
-            == "CustomerId"
-        )
 
     @pytest.mark.parametrize("platform", ["bigquery", "db2"])
     def test_case_sensitive_platforms_are_never_folded(self, platform: str) -> None:

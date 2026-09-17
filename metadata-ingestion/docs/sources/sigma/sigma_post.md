@@ -128,9 +128,10 @@ needed. If you previously set `env` or `platform_instance` there, copy them onto
 `convert_urns_to_lowercase` only changes the default on platforms DataHub lower-cases
 (Snowflake). Setting it explicitly forces lower-casing elsewhere, but only for **this route's
 table names**: BigQuery and DB2 are excluded (their identifiers are case-sensitive), column
-identifiers here are not folded, and Data Model and chart lineage are unaffected. The same
-physical table can therefore be spelled lower-cased via a Sigma Dataset and case-preserved via
-a Data Model in one run.
+identifiers here are not folded, and Data Model and workbook warehouse-table lineage are
+unaffected. A chart reading through a Sigma Dataset does pick up the flag on the table half of
+its `inputFields`, since that URN comes from this route. The same physical table can therefore
+be spelled lower-cased via a Sigma Dataset and case-preserved via a Data Model in one run.
 
 The trigger is "SQL named no warehouse table", which is wider than "the element has no SQL": the
 SQL parser only runs when a `chart_sources_platform_mapping` entry matches the element's path, so a
