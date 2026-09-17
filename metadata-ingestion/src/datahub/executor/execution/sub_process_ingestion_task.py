@@ -329,16 +329,36 @@ class SubProcessIngestionTask(Task):
         )
 
         logger.info(f"Starting ingestion subprocess for exec_id={exec_id} ({plugin})")
-        ingest_process = await self._create_subprocess(
-            validated_args,
-            plugin,
-            recipe,
-            report_out_file,
-            subprocess_env,
-            exec_out_dir,
-            shared_logs,
-            secret_values,
-        )
+        try:
+            ingest_process = await self._create_subprocess(
+                validated_args,
+                plugin,
+                recipe,
+                report_out_file,
+                subprocess_env,
+                exec_out_dir,
+                shared_logs,
+                secret_values,
+            )
+        except BaseException:
+            # SECURITY: venv setup runs inside _create_subprocess and is the
+            # most common failure on this path -- a bad token, an unreachable
+            # private index, an unresolvable pin. Nothing below has run yet, so
+            # the `finally` that normally removes exec_out_dir is never
+            # entered, and exec_out_dir holds extra-requirements.txt with every
+            # ${VAR} already expanded: a private index URL with its token in
+            # clear text, left on the executor's disk.
+            #
+            # BaseException so a cancellation during setup cleans up too, and
+            # both steps guarded so neither can replace the exception that got
+            # us here. _remove_directory swallows FileNotFoundError and OSError
+            # itself.
+            try:
+                full_log_file.close()
+            except OSError:
+                logger.exception("Cleanup: failed to close the executor log file")
+            SubProcessTaskUtil._remove_directory(exec_out_dir)
+            raise
 
         # Publish the artifact directory on the context so callers can locate this run's
         # logs and artifacts after execute() returns. Unlike exec_out_dir, this directory

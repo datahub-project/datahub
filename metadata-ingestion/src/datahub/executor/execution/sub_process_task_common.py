@@ -42,6 +42,7 @@ from datahub.executor.execution.runner import (
 )
 from datahub.executor.execution.task import TaskError
 from datahub.masking.bootstrap import initialize_secret_masking
+from datahub.masking.constants import SENTINEL_MESSAGES
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import (
     SENSITIVE_KEY_HINTS,
@@ -569,14 +570,37 @@ class SubProcessTaskUtil:
             filt = None
 
         def _masked(text: str) -> Optional[str]:
-            """`text` masked, or None when it could not be."""
+            """`text` masked, or None when it could not be.
+
+            The sentinel check is what makes the None branch reachable at all.
+            mask_text does not raise and does not return None: it has a blanket
+            `except` that reports failure by RETURNING one of
+            SENTINEL_MESSAGES -- `[REDACTED: Masking Circuit Open]`,
+            `[MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]`. Those were
+            non-None, so they passed straight through as the value, and the
+            structured report sent to GMS became that bare sentinel instead of
+            MASKING_FAILED_REPORT -- not even valid JSON, for a consumer that
+            parses it. The fail-closed substitution below was unreachable while
+            the thing it substitutes for was being shipped.
+
+            Matched on the whole string, not a substring: a sentinel is the
+            entire return value when masking fails, and a report that merely
+            quotes one is a real report.
+            """
             if filt is None:
                 return None
             try:
-                return filt.mask_text(text)
+                masked = filt.mask_text(text)
             except Exception:
                 logger.exception("Could not mask task output; withholding it")
                 return None
+            if masked in SENTINEL_MESSAGES:
+                logger.error(
+                    "Masking reported failure via %r; withholding this output",
+                    masked,
+                )
+                return None
+            return masked
 
         if os.path.exists(report_file):
             try:

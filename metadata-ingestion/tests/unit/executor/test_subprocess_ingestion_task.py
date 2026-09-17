@@ -27,7 +27,10 @@ from datahub.executor.execution.sub_process_ingestion_task import (
     SubProcessIngestionTaskArgs,
     SubProcessIngestionTaskConfig,
 )
-from datahub.executor.execution.sub_process_task_common import SubProcessTaskUtil
+from datahub.executor.execution.sub_process_task_common import (
+    MASKING_FAILED_REPORT,
+    SubProcessTaskUtil,
+)
 from datahub.executor.execution.task import TaskError
 from datahub.executor.report.execution_report import ExecutionReport
 from datahub.executor.request.execution_request import ExecutionRequest
@@ -1665,7 +1668,15 @@ class TestPublishChokePoints:
             self._run_completion(ingestion_task, mock_execution_context, LogHolder())
         report = mock_execution_context.get_report()
         published = report.set_structured_report.call_args.args[0]
-        assert published == MASKING_ERROR_MESSAGE
+        # What this test's NAME has always claimed, which its assertion did
+        # not: a withheld report is MASKING_FAILED_REPORT, not the bare
+        # sentinel. mask_text reports failure by RETURNING a sentinel rather
+        # than raising or returning None, so the sentinel passed the `is None`
+        # check and was published as the structured report -- which a consumer
+        # parses, and `[MASKING_ERROR - ...]` is not JSON.
+        assert published == MASKING_FAILED_REPORT
+        assert json.loads(published)["error"]
+        assert MASKING_ERROR_MESSAGE not in published
 
     def test_pip_referenced_env_secrets_are_masked_in_published_logs(
         self,
@@ -1694,3 +1705,49 @@ class TestPublishChokePoints:
         registry.register_secret("SIBLING_SECRET", "sibling-secret-value")
         self._run_completion(ingestion_task, mock_execution_context, LogHolder())
         assert registry.has_secret("SIBLING_SECRET")
+
+
+class TestVenvFailureLeavesNothingOnDisk:
+    """exec_out_dir must not survive a failure before the monitor loop.
+
+    setup_venv writes extra-requirements.txt into exec_out_dir with every
+    ${VAR} already EXPANDED -- a private index URL with its token in clear
+    text. Venv setup runs inside _create_subprocess, which is called before
+    the try whose finally removes that directory, so the common failures on
+    this path (bad token, unreachable index, unresolvable pin) used to leave
+    the token file behind on the executor's disk.
+    """
+
+    async def test_a_failure_in_create_subprocess_removes_exec_out_dir(
+        self,
+        tmp_path: Path,
+        mock_executor_context: Mock,
+        mock_execution_context: Mock,
+        sample_recipe: str,
+    ) -> None:
+        config = SubProcessIngestionTaskConfig(
+            tmp_dir=str(tmp_path / "ingest"), log_dir=str(tmp_path / "logs")
+        )
+        task = SubProcessIngestionTask(config, mock_executor_context)
+        exec_id = "venv-failure-exec-id"
+        recipe = json.loads(sample_recipe)
+
+        with (
+            patch.object(
+                SubProcessTaskUtil, "_resolve_recipe", return_value=(recipe, {})
+            ),
+            patch.object(task, "_prepare_subprocess_environment", return_value={}),
+            patch.object(
+                task,
+                "_create_subprocess",
+                side_effect=TaskError("uv pip install failed: 401 from index"),
+            ),
+        ):
+            with pytest.raises(TaskError):
+                await task._execute_with_debug(Mock(), mock_execution_context, exec_id)
+
+        exec_out_dir = Path(config.tmp_dir) / exec_id
+        assert not exec_out_dir.exists(), (
+            f"{exec_out_dir} survived a venv-setup failure; it holds "
+            "extra-requirements.txt with expanded ${VAR} credentials"
+        )
