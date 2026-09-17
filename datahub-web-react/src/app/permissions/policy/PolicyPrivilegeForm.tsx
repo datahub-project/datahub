@@ -10,7 +10,6 @@ import DomainsSelect from '@app/permissions/policy/PolicyPrivilegeForm/DomainsSe
 import PrivilegesSelect from '@app/permissions/policy/PolicyPrivilegeForm/PrivilegesSelect';
 import ResourceSelect from '@app/permissions/policy/PolicyPrivilegeForm/ResourceSelect';
 import ResourceTypeSelect from '@app/permissions/policy/PolicyPrivilegeForm/ResourceTypeSelect';
-import StructuredPropertyResourceSelect from '@app/permissions/policy/PolicyPrivilegeForm/StructuredPropertyResourceSelect';
 import TagsSelect from '@app/permissions/policy/PolicyPrivilegeForm/TagsSelect';
 import { FIELD_TYPES, RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
@@ -26,6 +25,7 @@ import {
     setFieldCondition,
     setFieldValues,
 } from '@app/permissions/policy/policyUtils';
+import StructuredPropertyResourceSelect from '@app/permissions/policy/structuredProperties/StructuredPropertyResourceSelect';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useIsStructuredPropertiesInPoliciesEnabled } from '@app/shared/hooks/useIsStructuredPropertiesInPoliciesEnabled';
 

@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
 import themeV2 from '@conf/theme/themeV2';
@@ -25,6 +26,10 @@ vi.mock('@app/useEntityRegistry', () => ({
         getGenericEntityProperties: vi.fn().mockReturnValue(null),
         getIcon: vi.fn().mockReturnValue(null),
     }),
+}));
+
+vi.mock('@app/shared/hooks/useIsStructuredPropertiesInPoliciesEnabled', () => ({
+    useIsStructuredPropertiesInPoliciesEnabled: () => true,
 }));
 
 // Mock AvatarsGroup component to avoid rendering issues
@@ -229,5 +234,135 @@ describe('PolicyDetailsModal', () => {
         // Check the ownership types section
         expect(screen.getByText('Applies to Owners')).toBeInTheDocument();
         expect(screen.getByText('Technical Owner')).toBeInTheDocument();
+    });
+
+    it('renders structured properties with match condition', () => {
+        const policyWithStructuredProps = {
+            ...mockPolicy,
+            resources: {
+                filter: {
+                    criteria: [
+                        {
+                            field: 'STRUCTURED_PROPERTY',
+                            values: [],
+                            condition: PolicyMatchCondition.NotEquals,
+                            structuredPropertyValues: [
+                                {
+                                    propertyUrn: 'urn:li:structuredPropertyDefinition:env',
+                                    values: ['prod'],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+        };
+
+        render(
+            <MockedProvider mocks={[]} addTypename={false}>
+                <ThemeProvider theme={themeV2}>
+                    <BrowserRouter>
+                        <PolicyDetailsModal
+                            policy={policyWithStructuredProps}
+                            open
+                            onClose={() => {}}
+                            privileges={[{ type: 'view', name: 'View' }]}
+                        />
+                    </BrowserRouter>
+                </ThemeProvider>
+            </MockedProvider>,
+        );
+
+        expect(screen.getByText('Structured Properties')).toBeInTheDocument();
+        expect(screen.getByText(/Not Equals|NotEquals|policyForm\.condition\.notEquals/i)).toBeInTheDocument();
+        expect(screen.getByText('prod')).toBeInTheDocument();
+    });
+
+    it('renders multiple structured property values', () => {
+        const policyWithMultipleValues = {
+            ...mockPolicy,
+            resources: {
+                filter: {
+                    criteria: [
+                        {
+                            field: 'STRUCTURED_PROPERTY',
+                            values: [],
+                            condition: PolicyMatchCondition.Equals,
+                            structuredPropertyValues: [
+                                {
+                                    propertyUrn: 'urn:li:structuredPropertyDefinition:env',
+                                    values: ['prod', 'staging'],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+        };
+
+        render(
+            <MockedProvider mocks={[]} addTypename={false}>
+                <ThemeProvider theme={themeV2}>
+                    <BrowserRouter>
+                        <PolicyDetailsModal
+                            policy={policyWithMultipleValues}
+                            open
+                            onClose={() => {}}
+                            privileges={[{ type: 'view', name: 'View' }]}
+                        />
+                    </BrowserRouter>
+                </ThemeProvider>
+            </MockedProvider>,
+        );
+
+        expect(screen.getByText('Structured Properties')).toBeInTheDocument();
+        expect(screen.getByText('prod')).toBeInTheDocument();
+        expect(screen.getByText('staging')).toBeInTheDocument();
+    });
+
+    it('renders multiple structured properties', () => {
+        const policyWithMultipleProps = {
+            ...mockPolicy,
+            resources: {
+                filter: {
+                    criteria: [
+                        {
+                            field: 'STRUCTURED_PROPERTY',
+                            values: [],
+                            condition: PolicyMatchCondition.Equals,
+                            structuredPropertyValues: [
+                                {
+                                    propertyUrn: 'urn:li:structuredPropertyDefinition:env',
+                                    values: ['prod'],
+                                },
+                                {
+                                    propertyUrn: 'urn:li:structuredPropertyDefinition:team',
+                                    values: ['engineering'],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+        };
+
+        render(
+            <MockedProvider mocks={[]} addTypename={false}>
+                <ThemeProvider theme={themeV2}>
+                    <BrowserRouter>
+                        <PolicyDetailsModal
+                            policy={policyWithMultipleProps}
+                            open
+                            onClose={() => {}}
+                            privileges={[{ type: 'view', name: 'View' }]}
+                        />
+                    </BrowserRouter>
+                </ThemeProvider>
+            </MockedProvider>,
+        );
+
+        expect(screen.getByText('Structured Properties')).toBeInTheDocument();
+        expect(screen.getByText('prod')).toBeInTheDocument();
+        expect(screen.getByText('engineering')).toBeInTheDocument();
     });
 });

@@ -1,4 +1,4 @@
-export interface MultiSelectInputProps {
+export interface MultiValueInputProps {
     values: string[];
     onUpdate: (newValues: string[]) => void;
     placeholder?: string;

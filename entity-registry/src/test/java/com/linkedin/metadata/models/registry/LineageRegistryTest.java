@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -120,14 +121,29 @@ public class LineageRegistryTest {
         "Expected upstream edge not found");
 
     // Verify downstream edges
-    assertEquals(downstreamEdges.size(), 1, "Schema field should have 1 downstream edge");
+    assertEquals(downstreamEdges.size(), 4, "Schema field should have 4 downstream edges");
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
                 "DownstreamOf",
                 RelationshipDirection.INCOMING,
                 Constants.SCHEMA_FIELD_ENTITY_NAME)),
-        "Expected downstream edge not found");
+        "Expected DownstreamOf schemaField edge not found");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "Consumes", RelationshipDirection.INCOMING, Constants.METRIC_ENTITY_NAME)),
+        "Expected Consumes metric edge not found");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "consumesField", RelationshipDirection.INCOMING, Constants.CHART_ENTITY_NAME)),
+        "Expected consumesField chart edge not found");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "consumesField", RelationshipDirection.INCOMING, Constants.DASHBOARD_ENTITY_NAME)),
+        "Expected consumesField dashboard edge not found");
   }
 
   @Test
@@ -210,6 +226,21 @@ public class LineageRegistryTest {
 
     // Count of entities might vary depending on registry content, so we don't assert exact counts
     // but ensure key expected entities are present
+  }
+
+  @Test
+  public void testGetEntitiesWithLineageToSchemaField() {
+    // schemaField's LineageSpec is empty; discovery must still include hardcoded consumers
+    // without BFS into those consumers' entity-level graphs (dataset/dataJob).
+    Set<String> entitiesWithLineage =
+        lineageRegistry.getEntitiesWithLineageToEntityType(Constants.SCHEMA_FIELD_ENTITY_NAME);
+
+    assertTrue(entitiesWithLineage.contains(Constants.SCHEMA_FIELD_ENTITY_NAME));
+    assertTrue(entitiesWithLineage.contains(Constants.METRIC_ENTITY_NAME));
+    assertTrue(entitiesWithLineage.contains(Constants.CHART_ENTITY_NAME));
+    assertTrue(entitiesWithLineage.contains(Constants.DASHBOARD_ENTITY_NAME));
+    assertFalse(entitiesWithLineage.contains(Constants.DATASET_ENTITY_NAME));
+    assertFalse(entitiesWithLineage.contains(Constants.DATA_JOB_ENTITY_NAME));
   }
 
   @Test
