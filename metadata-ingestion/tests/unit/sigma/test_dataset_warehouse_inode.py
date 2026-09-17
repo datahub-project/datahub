@@ -662,3 +662,85 @@ class TestIdentifierCasing:
             "Order_Id", platform, lowercase, explicit=explicit
         )
         assert table.islower() == column.islower()
+
+
+class TestCasingIsScopedPerRoute:
+    """Which routes honour an explicitly-set convert_urns_to_lowercase.
+
+    The helper-level mirror test above passes regardless of scoping, which is
+    how a column-side leak on the Data Model route survived a review round. This
+    asserts at the route level instead: opting a route in must move both its
+    table and its column, and a route that has not opted in must move neither.
+    """
+
+    PLATFORM = "redshift"  # not in _WAREHOUSE_LOWERCASE_PLATFORMS
+
+    def _source(self) -> SigmaSource:
+        config = SigmaSourceConfig.model_validate(
+            {
+                "client_id": "test",
+                "client_secret": "test",
+                # Explicitly set, which is what enables the behaviour at all.
+                "connection_to_platform_map": {
+                    _REDSHIFT_CONN_ID: {"convert_urns_to_lowercase": True}
+                },
+            }
+        )
+        ctx = PipelineContext(run_id="casing-scope-unit")
+        with patch.object(SigmaAPI, "_generate_token"):
+            with patch.object(SigmaAPI, "get_connections", return_value=[]):
+                source = SigmaSource(config=config, ctx=ctx)
+        source.connection_registry = SigmaConnectionRegistry(
+            by_id={
+                _REDSHIFT_CONN_ID: SigmaConnectionRecord(
+                    connection_id=_REDSHIFT_CONN_ID,
+                    name="Redshift",
+                    sigma_type="redshift",
+                    datahub_platform=self.PLATFORM,
+                    is_mappable=True,
+                )
+            }
+        )
+        return source
+
+    REF = _WarehouseTableRef(
+        connection_id=_REDSHIFT_CONN_ID, db="Analytics", schema="Public", table="Orders"
+    )
+
+    def test_sigma_dataset_route_honours_the_flag(self) -> None:
+        urn = self._source()._warehouse_ref_to_urn(self.REF, allow_explicit_case=True)
+        assert urn is not None and "analytics.public.orders" in urn
+
+    def test_other_routes_ignore_the_flag(self) -> None:
+        # Default call, i.e. the DM element and workbook warehouse routes. On
+        # base the flag was a no-op outside Snowflake; honouring it here would
+        # move URNs those routes already emit.
+        urn = self._source()._warehouse_ref_to_urn(self.REF)
+        assert urn is not None and "Analytics.Public.Orders" in urn
+
+    def test_data_model_column_route_ignores_the_flag(self) -> None:
+        # The column side of the same route. Folding it while the table above
+        # keeps its case would pair a preserved table with a lower-cased column
+        # in one schemaField URN.
+        assert (
+            _normalize_warehouse_identifier("CustomerId", self.PLATFORM, True)
+            == "CustomerId"
+        )
+
+    @pytest.mark.parametrize("platform", ["bigquery", "db2"])
+    def test_case_sensitive_platforms_are_never_folded(self, platform: str) -> None:
+        # Their identifiers are case-sensitive, so folding dangles the edge --
+        # and the SQL route this emulates excluded them for the same reason.
+        ref = _WarehouseTableRef(
+            connection_id=_REDSHIFT_CONN_ID,
+            db="My-Project",
+            schema="Sales",
+            table="Orders",
+        )
+        assert ref.fq_name(platform, lowercase=True, explicit=True) == (
+            "My-Project.Sales.Orders"
+        )
+        assert (
+            _normalize_warehouse_identifier("OrderId", platform, True, explicit=True)
+            == "OrderId"
+        )

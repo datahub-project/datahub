@@ -450,8 +450,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     dataset_sources_lookup_failed: int = 0
     # Sub-bucket of the above: 429 after retries.
     dataset_sources_lookup_rate_limited: int = 0
-    # Sub-bucket of dataset_sources_lookup_failed: /sources returned 404 for one
-    # dataset, i.e. it was deleted or re-permissioned after the listing.
+    # Sub-bucket of dataset_sources_lookup_failed: /sources could not resolve one
+    # dataset (404, or the 409 inode_archived Sigma actually returns), i.e. it was
+    # deleted, archived or re-permissioned after the listing.
     dataset_sources_not_found: int = 0
     # 1 once the endpoint is concluded to be removed: a 410, or a 404/409 that a
     # re-probe confirms (of a known-good dataset, or of the dataset API itself

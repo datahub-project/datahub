@@ -2440,11 +2440,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None
         conn_override = self.config.connection_to_platform_map.get(wh_ref.connection_id)
         lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
+        # No explicit= here: this is the Data Model column route, whose table
+        # side does not opt in either. Passing it would fold the column while
+        # the table kept its case, pairing a preserved table with a lower-cased
+        # column in one schemaField URN -- the exact mismatch the shared
+        # predicate exists to prevent. Opting a route in means opting in both
+        # sides; see _warehouse_ref_to_urn's allow_explicit_case.
         normalized_col = _normalize_warehouse_identifier(
-            warehouse_col,
-            record.datahub_platform,
-            lowercase,
-            explicit=_case_flag_is_explicit(conn_override),
+            warehouse_col, record.datahub_platform, lowercase
         )
         upstream_field = builder.make_schema_field_urn(parent_urn, normalized_col)
         return FineGrainedLineageClass(

@@ -125,8 +125,12 @@ per-connection `default_database`, `env`, `platform_instance` and `convert_urns_
 exactly as for Data Model and chart warehouse edges. No `chart_sources_platform_mapping` entry is
 needed. If you previously set `env` or `platform_instance` there, copy them onto the connection's
 `connection_to_platform_map` entry; see the upgrade note for #19815.
-`convert_urns_to_lowercase` only changes the default on platforms DataHub lower-cases (Snowflake) —
-set it explicitly to force lower-casing elsewhere.
+`convert_urns_to_lowercase` only changes the default on platforms DataHub lower-cases
+(Snowflake). Setting it explicitly forces lower-casing elsewhere, but only for **this route's
+table names**: BigQuery and DB2 are excluded (their identifiers are case-sensitive), column
+identifiers here are not folded, and Data Model and chart lineage are unaffected. The same
+physical table can therefore be spelled lower-cased via a Sigma Dataset and case-preserved via
+a Data Model in one run.
 
 The trigger is "SQL named no warehouse table", which is wider than "the element has no SQL": the
 SQL parser only runs when a `chart_sources_platform_mapping` entry matches the element's path, so a
@@ -134,11 +138,14 @@ recipe without one takes this route even on a tenant still serving SQL. Those ch
 no Sigma Dataset lineage at all.
 
 This route is a **stopgap** on the deprecated dataset API and stops working once Sigma removes
-those endpoints; migrate datasets to Data Models to keep lineage. A 410 latches the endpoint off at
-once. A 404 or 409 is ambiguous (Sigma answers `409 inode_archived` for a dataset it cannot
-resolve), so the connector re-asks for a dataset that already succeeded this run: if that fails too
-the endpoint is latched and warned about once, otherwise the dataset is reported as an info. With
-nothing having succeeded yet, repeated not-founds escalate to a warning.
+those endpoints; migrate datasets to Data Models to keep lineage. A 410 latches the endpoint
+off at once. A 404 or 409 is ambiguous (Sigma answers `409 inode_archived` for a dataset it
+cannot resolve), so the connector re-asks for a dataset that already succeeded this run. If
+that dataset is still there but its `/sources` is not — or the dataset API path has gone too —
+the endpoint is latched and warned about once. If the reference itself was archived mid-run it
+is dropped and the next success becomes the new reference, so one archived dataset cannot
+disable the route. Otherwise the dataset is reported as an info, and with nothing having
+succeeded yet repeated not-founds escalate to a warning.
 
 The credential needs permission to read `/v2/connections/paths/{inodeId}`; without it every table
 produces a `connection_path_lookup_failed` warning and no warehouse upstream.
@@ -155,28 +162,34 @@ Known limitations:
   nothing (`migrationStatus: not-required`) is skipped. The SQL route was also per element.
 - On a tenant still serving SQL, a dataset reachable both ways can get either URN spelling
   depending on element order. Set `connection_to_platform_map` to make them agree.
+- The fallback is decided per element, not per dataset: an element whose SQL names any warehouse
+  table blocks the fallback for every Sigma Dataset it also reads. Whether Sigma returns SQL for
+  such a mixed element is unverified — the test tenant serves no SQL at all post-deprecation, so
+  there is nothing to check against.
 - A 2-segment path is read as `[SCHEMA, TABLE]` with the database from the connection. Correct for
   Redshift, unverified elsewhere. **On a two-level platform such as MySQL the path is
   `[DB, TABLE]`, so leave `default_database` unset** — unset emits the correct `DB.TABLE`, while
   setting it produces `<default_database>.DB.TABLE`, which matches nothing. The
-  "default_database not configured" warning cannot yet tell the two apart.
+  "default_database not configured" warning cannot yet tell the two apart. Note the conflict if that
+  connection also has customSQL elements: `default_database` is the SQL parser's fallback there,
+  and there is no per-route override, so one of the two paths will get a wrong name.
 
-| Counter                                    | Meaning                                                                                |
-| ------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `dataset_warehouse_upstream_from_inode`    | Sigma Datasets whose warehouse table(s) were recovered via this route                  |
-| `dataset_warehouse_table_entry_incomplete` | A source entry named a table but was unusable (not an object, or no inodeId)           |
-| `dataset_warehouse_no_table_sources`       | Datasets whose sources held no `type: table` entry (CSV, dataset-on-dataset, SQL)      |
-| `dataset_warehouse_unknown_connection`     | Table's `connectionId` not in the registry, or platform unmappable                     |
-| `dataset_warehouse_unlisted_dataset`       | Dataset absent from `/v2/datasets` (usually `workspace_pattern`); no lookup made       |
-| `dataset_sources_lookup_failed`            | `/datasets/{id}/sources` returned non-200, raised, or was not a JSON list              |
-| `dataset_sources_lookup_rate_limited`      | Subset of the above: 429 after retries                                                 |
-| `dataset_sources_endpoint_removed`         | Endpoint concluded removed: a 410, or a 404/409 that a re-probe confirms; once per run |
-| `connection_path_lookup_failed`            | `/connections/paths/{inodeId}` failed or returned an unusable body                     |
-| `connection_path_lookup_rate_limited`      | Subset of the above: 429 after retries                                                 |
-| `dataset_sources_not_found`                | Subset of `lookup_failed`: 404 for one dataset (deleted after the listing)             |
-| `dataset_sources_skipped_endpoint_gone`    | Datasets skipped with no request once the endpoint was latched as removed              |
-| `datasets_listing_failed`                  | `/v2/datasets` could not be listed, so no dataset lineage resolves this run            |
-| `datasets_dropped_missing_file_metadata`   | Datasets in the listing dropped because their `/files` metadata was missing            |
+| Counter                                    | Meaning                                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `dataset_warehouse_upstream_from_inode`    | Sigma Datasets whose warehouse table(s) were recovered via this route                      |
+| `dataset_warehouse_table_entry_incomplete` | A source entry named a table but was unusable (not an object, or no inodeId)               |
+| `dataset_warehouse_no_table_sources`       | Datasets whose sources held no `type: table` entry (CSV, dataset-on-dataset, SQL)          |
+| `dataset_warehouse_unknown_connection`     | Table's `connectionId` not in the registry, or platform unmappable                         |
+| `dataset_warehouse_unlisted_dataset`       | Dataset absent from `/v2/datasets` (usually `workspace_pattern`); no lookup made           |
+| `dataset_sources_lookup_failed`            | `/datasets/{id}/sources` returned non-200, raised, or was not a JSON list                  |
+| `dataset_sources_lookup_rate_limited`      | Subset of the above: 429 after retries                                                     |
+| `dataset_sources_endpoint_removed`         | Endpoint concluded removed: a 410, or a 404/409 that a re-probe confirms; once per run     |
+| `connection_path_lookup_failed`            | `/connections/paths/{inodeId}` failed or returned an unusable body                         |
+| `connection_path_lookup_rate_limited`      | Subset of the above: 429 after retries                                                     |
+| `dataset_sources_not_found`                | Subset of `lookup_failed`: 404/409 for one dataset (deleted or archived after the listing) |
+| `dataset_sources_skipped_endpoint_gone`    | Datasets skipped with no request once the endpoint was latched as removed                  |
+| `datasets_listing_failed`                  | `/v2/datasets` could not be listed, so no dataset lineage resolves this run                |
+| `datasets_dropped_missing_file_metadata`   | Datasets in the listing dropped because their `/files` metadata was missing                |
 
 Each Sigma Dataset also carries its Sigma-reported `migrationStatus` as a `datasetProperties`
 custom property — `not-migrated`, `migrated`, or `not-required` (referenced by nothing, so

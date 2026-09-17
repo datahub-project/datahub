@@ -1299,19 +1299,30 @@ class SigmaAPI:
             )
             return False
 
-    def _dataset_still_exists(self, dataset_id: str) -> bool:
-        """Whether ``GET /v2/datasets/{id}`` still returns the dataset.
+    def _reference_says_endpoint_gone(self, dataset_id: str) -> bool:
+        """Whether a dead reference dataset points at endpoint removal.
 
-        Used to tell an archived reference dataset (409 inode_archived, or a
-        404) from a removed /sources endpoint. Only a 200 counts as existing:
-        anything else leaves the question open, and treating "unknown" as
-        "exists" would latch the route off on a transient error.
+        Asked when /sources has stopped answering for the dataset that worked
+        earlier. ``GET /v2/datasets/{id}`` then distinguishes three cases:
+
+        - **200** -- the dataset is there but its /sources is not: the endpoint
+          went away. Latch.
+        - **404/410** -- the dataset API path itself is gone, which is removal a
+          step further along. Latch, rather than rotating and reporting that the
+          API "still responds" when it plainly does not.
+        - **anything else**, notably 409 inode_archived -- the reference was
+          archived mid-run, so it says nothing about the endpoint. Rotate. A
+          transient 5xx lands here too, which is the safe side: rotating costs
+          one dataset, latching wrongly costs every dataset after it.
         """
         url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}"
         try:
-            return self._get_api_call(url).status_code == 200
+            return self._get_api_call(url).status_code in (200, 404, 410)
         except Exception:
-            logger.debug("Existence probe failed for %r; assuming gone.", dataset_id)
+            logger.debug(
+                "Reference probe failed for %r; rotating rather than latching.",
+                dataset_id,
+            )
             return False
 
     def _dataset_api_is_gone(self, dataset_id: str) -> bool:
@@ -1394,15 +1405,17 @@ class SigmaAPI:
                         # endpoint is gone, or that dataset was archived mid-run
                         # (operators do this while migrating). Ask the dataset
                         # API which.
-                        if self._dataset_still_exists(known_good):
-                            # The reference dataset is there but its /sources no
-                            # longer answers: the endpoint went away.
+                        if self._reference_says_endpoint_gone(known_good):
+                            # Either the reference is still there and its
+                            # /sources is not, or the dataset API path has gone
+                            # too. Both mean removal.
                             self._mark_dataset_sources_gone(dataset_id, status)
                             return None
-                        # The reference itself is archived, so it proves nothing
-                        # about the endpoint. Forget it and let the next success
-                        # pick a live one; latching here would disable the route
-                        # for every dataset processed afterwards.
+                        # The reference was archived (or the probe could not
+                        # answer), so it proves nothing about the endpoint.
+                        # Forget it and let the next success pick a live one;
+                        # latching here would disable the route for every
+                        # dataset processed afterwards.
                         logger.debug(
                             "Known-good dataset %r no longer exists; dropping it "
                             "as the re-probe reference.",
@@ -1410,8 +1423,9 @@ class SigmaAPI:
                         )
                         self._known_good_dataset_id = None
                 elif self._dataset_api_is_gone(dataset_id):
-                    # Nothing has succeeded yet, so fall back to asking whether
-                    # the dataset API as a whole still answers.
+                    # No reference to consult -- either nothing has succeeded
+                    # yet, or the previous reference was just rotated away. Fall
+                    # back to asking whether the dataset API path still answers.
                     self._mark_dataset_sources_gone(dataset_id, status)
                     return None
                 self.report.dataset_sources_lookup_failed += 1

@@ -3251,6 +3251,39 @@ class TestNotFoundDecisionMatrix:
                 False,
             ),
             (
+                "reference dead, dataset API path gone (404) -> latch now",
+                {
+                    "target_src": 404,
+                    "with_ref": True,
+                    "ref_src": 404,
+                    "ref_exists": 404,
+                },
+                True,
+                True,
+            ),
+            (
+                "reference dead, dataset API path gone (410) -> latch now",
+                {
+                    "target_src": 404,
+                    "with_ref": True,
+                    "ref_src": 404,
+                    "ref_exists": 410,
+                },
+                True,
+                True,
+            ),
+            (
+                "reference probe inconclusive (500) -> rotate, do not latch",
+                {
+                    "target_src": 409,
+                    "with_ref": True,
+                    "ref_src": 409,
+                    "ref_exists": 500,
+                },
+                False,
+                False,
+            ),
+            (
                 "410 on the reference re-probe -> endpoint gone",
                 {
                     "target_src": 404,
