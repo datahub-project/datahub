@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter, Route } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -59,19 +60,20 @@ const testProperty = {
 
 function renderTable() {
     render(
-        <ThemeProvider theme={themeV2}>
-            <StructuredPropsTable
-                searchQuery="deleteMe"
-                loading={false}
-                setIsDrawerOpen={vi.fn()}
-                setIsViewDrawerOpen={vi.fn()}
-                selectedProperty={testProperty}
-                setSelectedProperty={vi.fn()}
-                fetchData={vi.fn().mockResolvedValue([])}
-                pageSize={10}
-                searchResults={[testProperty]}
-            />
-        </ThemeProvider>,
+        <MemoryRouter>
+            <ThemeProvider theme={themeV2}>
+                <StructuredPropsTable
+                    searchQuery="deleteMe"
+                    loading={false}
+                    fetchData={vi.fn().mockResolvedValue([])}
+                    pageSize={10}
+                    searchResults={[testProperty]}
+                />
+                <Route path="/structured-properties/edit/:urn">
+                    <div data-testid="structured-property-page" />
+                </Route>
+            </ThemeProvider>
+        </MemoryRouter>,
     );
 }
 
@@ -112,5 +114,13 @@ describe('StructuredPropsTable delete flow', () => {
 
         await waitFor(() => expect(showToastMessage).toHaveBeenCalledWith('error', expect.anything(), 3));
         expect(hardDelete).not.toHaveBeenCalled();
+    });
+
+    it('opens the property page when the row is clicked', async () => {
+        renderTable();
+
+        fireEvent.click(screen.getByTestId(testProperty.urn));
+
+        expect(await screen.findByTestId('structured-property-page')).toBeInTheDocument();
     });
 });
