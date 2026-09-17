@@ -334,11 +334,10 @@ class _AdditivePatchBuilder(
     HasStructuredPropertiesPatch,
     MetadataPatchProposal,
 ):
-    # Only the aspect mixins whose patch templates GMS registers per-aspect
-    # regardless of entity type. Unlike DatasetPatchBuilder (which also carries
-    # dataset-only schema/lineage/customProperties surface) this is safe on any
-    # entity: schemaField, chart, dashboard, etc.
-    pass
+    """Only the aspect mixins whose patch templates GMS registers per-aspect
+    regardless of entity type, so — unlike DatasetPatchBuilder, which also carries
+    dataset-only schema/lineage/customProperties surface — this is safe on any
+    entity: schemaField, chart, dashboard, etc."""
 
 
 def _apply_union_patches(
