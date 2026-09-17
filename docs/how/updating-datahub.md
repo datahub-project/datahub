@@ -49,6 +49,8 @@ Requirements:
 
 ### Breaking Changes
 
+- #19831 **(SAP Datasphere ingestion)** Assets now browse under the folders that organize them in the Repository Explorer / Data Builder — `Space > Folder > Sub-folder > Asset` — instead of hanging directly off their Space. Folder containers are created automatically; there is no option to turn this off. An existing ingestion therefore moves already-ingested assets out of the Space container and into folder containers, which changes their browse paths and invalidates saved links or browse-path filters that assumed the flat layout. Asset URNs are unchanged, so lineage, ownership, documentation, and glossary terms are unaffected. Folder assignments are read from an SAP endpoint that not every tenant exposes; where it is unavailable, that space keeps the previous flat layout and the reason is reported under `folder_lookup_failed`. **Action:** none required. Update any saved browse-path filter or bookmarked browse URL that pointed at a Space to the asset's new folder path.
+
 - #19815 **(Sigma ingestion)** Sigma ended support for datasets as a data source on 2026-09-15, and a dataset-backed workbook element no longer returns SQL. The connector now recovers a Sigma Dataset's warehouse table from Sigma's connection metadata instead, so **Sigma Dataset** lineage URNs are built from `connection_to_platform_map` rather than `chart_sources_platform_mapping`. Three things to know:
 
   - **`env` and `platform_instance` move.** Without a `connection_to_platform_map` entry the URN uses the recipe's own `env` and no platform instance, where the SQL route used the mapping's.
