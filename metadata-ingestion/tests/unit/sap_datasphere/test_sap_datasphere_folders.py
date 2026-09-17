@@ -1,3 +1,4 @@
+import re
 import urllib.parse
 from typing import Dict, List
 
@@ -175,12 +176,27 @@ def test_client_degrades_when_the_repository_api_is_forbidden(requests_mock):
 
 
 def test_client_degrades_on_a_non_json_body(requests_mock):
+    """SAP's approuter answers UI routes with an HTTP 200 SSO login page."""
     requests_mock.get(SEARCH_URL, text="<html>login</html>")
     report = SapDatasphereReport()
     client = SapDatasphereClient(_make_config(), report=report)
 
     assert client.list_folder_assignments("DEMO_SPACE") is None
-    assert len(report.folder_lookup_failed) == 1
+    assert report.folder_api_unavailable is not None
+
+
+def test_client_stops_asking_every_space_once_the_api_answers_html(requests_mock):
+    """A login page is tenant-wide, so it must cost one warning and one call, not one per space."""
+    requests_mock.get(re.compile(r"/deepsea/repository/"), text="<html>login</html>")
+    report = SapDatasphereReport()
+    client = SapDatasphereClient(_make_config(), report=report)
+
+    for space in ("SPACE_A", "SPACE_B", "SPACE_C"):
+        assert client.list_folder_assignments(space) is None
+
+    assert requests_mock.call_count == 1
+    assert len(report.warnings) == 1
+    assert report.folder_lookup_failed == []
 
 
 def _folder_source(**config: object) -> SapDatasphereSource:

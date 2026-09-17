@@ -49,6 +49,11 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     # Repository search endpoint; its objects fall back to parenting directly to
     # the space container.
     folder_lookup_failed: LossyList[str] = field(default_factory=LossyList)
+    # Set when that endpoint answers with something other than JSON, which means
+    # the request never reached an API (SAP's approuter serves UI routes an
+    # HTTP 200 SSO login page). That is tenant-wide rather than per-space, so it
+    # is recorded once here and the remaining spaces skip the call entirely.
+    folder_api_unavailable: Optional[str] = None
     assets_schema_failed: LossyList[str] = field(default_factory=LossyList)
     assets_skipped_unknown_typeid: LossyList[str] = field(default_factory=LossyList)
     assets_skipped_unknown_connection: LossyList[str] = field(default_factory=LossyList)

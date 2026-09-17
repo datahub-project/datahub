@@ -109,6 +109,14 @@ that sits at the space root parents directly to its Space container.
 > and may change or withdraw without notice. Every failure degrades
 > gracefully — the space falls back to a 2-tier Space → object layout and the
 > reason is recorded under `folder_lookup_failed`.
+>
+> Some tenants do not route this path to an API at all: the SAP approuter
+> answers it with an HTTP 200 SSO login page, which a technical user cannot
+> follow. The connector detects that non-JSON response, reports it once under
+> `folder_api_unavailable`, and skips folder lookup for the rest of the run, so
+> such a tenant ingests exactly as it did before folders existed. Folders there
+> require an SAP-supported API that reports folder assignments to a
+> client-credentials principal.
 
 ### Prerequisites
 

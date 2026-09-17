@@ -78,6 +78,7 @@ class SapDatasphereClient:
         self.session = self._build_session()
         self._auth_initialized = False
         self._connections_cache: Dict[str, List[ConnectionRecord]] = {}
+        self._folder_api_unavailable = False
         if config.token:
             self.session.headers[HEADER_AUTHORIZATION] = (
                 f"{BEARER_PREFIX}{config.token.get_secret_value()}"
@@ -448,6 +449,8 @@ class SapDatasphereClient:
         SAP reserves this API for internal use, so every failure degrades to
         ``None`` (folders omitted, objects parent to the space) rather than
         failing the space."""
+        if self._folder_api_unavailable:
+            return None
         records: List[JsonDict] = []
         skip = 0
         while True:
@@ -456,12 +459,18 @@ class SapDatasphereClient:
                 with self._timed_api("folder_search", url):
                     resp = self._get_with_refresh(url)
                 resp.raise_for_status()
-                body = resp.json()
-            except (requests.RequestException, json.JSONDecodeError) as e:
+            except requests.RequestException as e:
                 # A token-refresh/auth ValueError deliberately propagates, as
-                # everywhere else in this client; only transport failures and a
-                # non-JSON body degrade to "no folders for this space".
+                # everywhere else in this client; only transport failures
+                # degrade to "no folders for this space".
                 self._warn_folder_search_failed(space, e)
+                return None
+            try:
+                body = resp.json()
+            except (json.JSONDecodeError, requests.RequestException) as e:
+                # Checked separately, and before RequestException: requests'
+                # JSONDecodeError subclasses both.
+                self._disable_folder_api(space, resp, e)
                 return None
             if not isinstance(body, dict):
                 self._warn_folder_search_failed(
@@ -487,6 +496,42 @@ class SapDatasphereClient:
             total = body.get(ODATA_COUNT_KEY)
             if isinstance(total, int) and skip >= total:
                 return records
+
+    def _disable_folder_api(
+        self, space: str, resp: requests.Response, e: Exception
+    ) -> None:
+        """Give up on folder lookup for the whole run, reporting it once.
+
+        A non-JSON body means the request was never routed to the Repository
+        API: SAP's approuter answers UI routes with an HTTP 200 SSO login page,
+        which a technical user cannot follow. That applies to every space, so
+        re-asking per space would only repeat the same warning and waste a
+        round trip each time.
+        """
+        self._folder_api_unavailable = True
+        detail = (
+            f"HTTP {resp.status_code}, "
+            f"Content-Type {resp.headers.get('Content-Type') or 'unknown'}"
+        )
+        msg = (
+            f"The SAP Repository search API returned a non-JSON response "
+            f"({detail}), so folder assignments cannot be read on this tenant "
+            f"and every object is parented directly to its space container. "
+            f"This endpoint is undocumented and SAP reserves it for internal "
+            f"use; a tenant that routes it to the SSO login page rather than to "
+            f"the API cannot expose folders to a technical user. Folder lookup "
+            f"is skipped for the rest of this run."
+        )
+        logger.warning(
+            "%s (first seen on space %s; %s: %s)", msg, space, type(e).__name__, e
+        )
+        if self._report is not None:
+            self._report.folder_api_unavailable = detail
+            self._report.warning(
+                title="Folder assignments unavailable on this tenant",
+                message=msg,
+                context=space,
+            )
 
     def _warn_folder_search_failed(self, space: str, e: Exception) -> None:
         msg = (
