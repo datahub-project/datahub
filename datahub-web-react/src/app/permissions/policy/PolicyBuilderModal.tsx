@@ -7,10 +7,10 @@ import { toast } from '@components/components/Toast/Toast';
 
 import PolicyActorForm from '@app/permissions/policy/PolicyActorForm';
 import PolicyPrivilegeForm from '@app/permissions/policy/PolicyPrivilegeForm';
-import { hasIncompleteStructuredProperties } from '@app/permissions/policy/PolicyPrivilegeForm/StructuredPropertyResourceSelect';
 import PolicyTypeForm from '@app/permissions/policy/PolicyTypeForm';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
 import { EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
+import { hasIncompleteStructuredProperties } from '@app/permissions/policy/structuredProperties/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';

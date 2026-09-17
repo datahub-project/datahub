@@ -2,6 +2,8 @@
 
 import logging
 import sqlite3
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
@@ -18,6 +20,7 @@ from datahub.ingestion.source.sql.postgres.source import BOX, CITEXT, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
+    format_profile_value,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
 from datahub.metadata.schema_classes import DatasetFieldProfileClass
@@ -520,7 +523,6 @@ class TestSQLAlchemyProfiler:
             cardinality=Cardinality.MANY,
             numeric_stats_futures=numeric_stats_futures,
             pretty_name="test.table",
-            platform="sqlite",
         )
 
         # Verify warning was logged
@@ -557,7 +559,6 @@ class TestSQLAlchemyProfiler:
                     "cardinality": Cardinality.MANY,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
-                    "platform": "sqlite",
                 },
                 "expected_title": "Profiling: Unable to Calculate Histogram",
                 "expected_context": "test.table.value_col",
@@ -573,7 +574,6 @@ class TestSQLAlchemyProfiler:
                     "cardinality": Cardinality.MANY,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
-                    "platform": "sqlite",
                 },
                 "expected_title": "Profiling: Unable to Calculate Quantiles",
                 "expected_context": "test.table.value_col",
@@ -1360,3 +1360,136 @@ class TestQueryCombinerWiring:
         )
 
         assert kwargs["flatten_enabled"] is False
+
+
+class TestFormatProfileValue:
+    """Tests for the unified format_profile_value function."""
+
+    # -- None handling --
+
+    @pytest.mark.parametrize(
+        "col_type",
+        [
+            ProfilerDataType.INT,
+            ProfilerDataType.FLOAT,
+            ProfilerDataType.NUMERIC,
+            ProfilerDataType.DATETIME,
+            ProfilerDataType.STRING,
+        ],
+    )
+    def test_none_returns_none(self, col_type: ProfilerDataType) -> None:
+        assert format_profile_value(None, col_type) is None
+        assert format_profile_value(None, col_type, as_stat=True) is None
+
+    # -- INT data values (min/max/histogram) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (100, "100"),
+            (0, "0"),
+            (float(100.0), "100"),
+            (Decimal("100"), "100"),
+        ],
+    )
+    def test_int_data_value(self, value: Any, expected: str) -> None:
+        assert format_profile_value(value, ProfilerDataType.INT) == expected
+
+    # -- INT stat values (mean/median/stdev/quantiles) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (100, "100.0"),
+            (0, "0.0"),
+            (float(100.0), "100.0"),
+            (Decimal("100"), "100.0"),
+            (3.14, "3.14"),
+            (Decimal("3.14"), "3.14"),
+        ],
+    )
+    def test_int_stat_value(self, value: Any, expected: str) -> None:
+        assert (
+            format_profile_value(value, ProfilerDataType.INT, as_stat=True) == expected
+        )
+
+    # -- FLOAT data values --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (1, "1.0"),
+            (1.0, "1.0"),
+            (3.14, "3.14"),
+            (Decimal("42"), "42.0"),
+            (Decimal("3.14"), "3.14"),
+        ],
+    )
+    def test_float_data_value(self, value: Any, expected: str) -> None:
+        assert format_profile_value(value, ProfilerDataType.FLOAT) == expected
+
+    # -- FLOAT stat values (same as data values for FLOAT) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (1, "1.0"),
+            (3.14, "3.14"),
+            (Decimal("42"), "42.0"),
+        ],
+    )
+    def test_float_stat_value(self, value: Any, expected: str) -> None:
+        assert (
+            format_profile_value(value, ProfilerDataType.FLOAT, as_stat=True)
+            == expected
+        )
+
+    # -- NUMERIC data values (same rules as FLOAT) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (100, "100.0"),
+            (Decimal("100"), "100.0"),
+            (Decimal("3.14"), "3.14"),
+        ],
+    )
+    def test_numeric_data_value(self, value: Any, expected: str) -> None:
+        assert format_profile_value(value, ProfilerDataType.NUMERIC) == expected
+
+    # -- DATETIME values --
+
+    def test_datetime_object(self) -> None:
+        dt = datetime(2024, 1, 1, 12, 0, 0)
+        assert (
+            format_profile_value(dt, ProfilerDataType.DATETIME) == "2024-01-01T12:00:00"
+        )
+
+    def test_date_object(self) -> None:
+        d = date(2024, 1, 1)
+        assert format_profile_value(d, ProfilerDataType.DATETIME) == "2024-01-01"
+
+    def test_datetime_string_with_space(self) -> None:
+        assert (
+            format_profile_value("2024-01-01 12:00:00", ProfilerDataType.DATETIME)
+            == "2024-01-01T12:00:00"
+        )
+
+    def test_date_string(self) -> None:
+        assert (
+            format_profile_value("2024-01-01", ProfilerDataType.DATETIME)
+            == "2024-01-01T00:00:00"
+        )
+
+    def test_datetime_unparseable_string_returned_as_is(self) -> None:
+        # Non-ISO strings that fromisoformat can't parse are returned unchanged
+        assert (
+            format_profile_value("2024/01/02 10:30", ProfilerDataType.DATETIME)
+            == "2024/01/02 10:30"
+        )
+
+    # -- STRING type --
+
+    def test_string_type(self) -> None:
+        assert format_profile_value("hello", ProfilerDataType.STRING) == "hello"
+        assert format_profile_value(42, ProfilerDataType.STRING) == "42"
