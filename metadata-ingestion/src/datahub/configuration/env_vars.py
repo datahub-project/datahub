@@ -426,8 +426,19 @@ def get_probe_disabled() -> bool:
     queries" and the wrong one for "this agent does not touch my source".
     Those listings still authenticate and still return metadata.
 
-    This refuses everything that CONNECTS: `probe run <command>` for every
-    command, typed or not, and `recipe test-connection`.
+    This refuses every `probe run <command>`, typed listing as much as
+    passthrough. Enforced in run_probe_method, the one function every probe
+    command funnels through, so it covers commands that do not exist yet.
+
+    SCOPE, stated precisely because a security control that promises more
+    than it delivers is worse than none: `recipe test-connection` is NOT
+    gated. It opens a connection and authenticates, but it is not a probe
+    command -- it predates the probe group and verifying that a recipe's
+    credentials work is a different act from reading the source's metadata.
+    An earlier version of this docstring listed it as covered, which was
+    left behind when the gate on it was removed. If the requirement is
+    "this process must not reach the source at all", this switch alone does
+    not give you that.
 
     Deliberately not everything. `recipe describe`, `recipe scaffold`,
     `recipe validate`, `probe methods` and `probe filter` need no

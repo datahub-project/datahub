@@ -185,10 +185,11 @@ because it varies: most have typed commands to fall back on, but Snowflake and B
 `sql` as their only command, so switching it off withholds their probe entirely. Read what the
 message names and do not look for another route to raw access.
 
-A deployment can also switch off everything that connects (`DATAHUB_PROBE_DISABLED`). Then every
+A deployment can also switch off `probe run` entirely (`DATAHUB_PROBE_DISABLED`). Then every
 `probe run` command is refused — typed listings as well as the passthroughs — and the commands
 that need no connection keep working: `recipe describe`, `recipe scaffold`, `recipe validate`,
-`probe methods` and `probe filter`. You can still read what a connector supports, write a recipe
+`probe methods` and `probe filter`. `recipe test-connection` is not covered by this switch: it
+still connects, because it checks the recipe rather than reading the source. You can still read what a connector supports, write a recipe
 and check its filters against names you already have; you cannot read anything from the source.
 Both refusals exit 2, which means the command was the wrong one to ask for: change what you are
 asking for rather than retrying it.

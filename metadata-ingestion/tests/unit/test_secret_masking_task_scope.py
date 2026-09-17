@@ -224,3 +224,57 @@ def test_an_explicitly_injected_registry_is_still_honoured():
 
     assert "pinned-to-this-registry" not in out, "the injected registry was ignored"
     assert "scoped-value" in out, "an injected registry must not follow the scope"
+
+
+def test_bootstrap_installed_handlers_follow_the_running_task():
+    """The real path, which the hand-built-filter test above did not reach.
+
+    initialize_secret_masking installs filters onto process-wide logging
+    handlers, stdout/stderr and the excepthook, and it runs at the start of
+    the FIRST task -- inside that task's scope. It used to pass
+    `secret_registry=SecretRegistry.get_instance()` explicitly, which pinned
+    task A's scoped registry into every installed filter. Making the filter
+    resolve per call did not fix that on its own, because an explicitly
+    injected registry is honoured by design: the caller has to stop naming
+    one.
+
+    Asserted on the handler's own stream rather than on captured stdout,
+    because bootstrap wraps stdout too -- a report printed through it gets
+    masked on the way out and will agree with itself whatever the code does.
+    """
+    import io
+    import logging
+
+    from datahub.masking.bootstrap import initialize_secret_masking
+
+    a_secret = "aaa" + "-bootstrap-scope-a"
+    b_secret = "bbb" + "-bootstrap-scope-b"
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    log = logging.getLogger("probe.scope.bootstrap.test")
+    log.addHandler(handler)
+    log.setLevel(logging.INFO)
+    log.propagate = False
+    try:
+        with task_secret_scope():
+            SecretRegistry.get_instance().register_secrets_batch({"A_PW": a_secret})
+            initialize_secret_masking()
+            log.info("A-LINE %s", a_secret)
+
+        with task_secret_scope():
+            SecretRegistry.get_instance().register_secrets_batch({"B_PW": b_secret})
+            log.info("B-OWN %s", b_secret)
+            log.info("B-MENTIONS-A %s", a_secret)
+    finally:
+        log.removeHandler(handler)
+
+    lines = {ln.split(" ")[0]: ln for ln in stream.getvalue().splitlines()}
+
+    assert a_secret not in lines["A-LINE"]
+    assert b_secret not in lines["B-OWN"], (
+        "a later task's own secret reached the installed handler unmasked"
+    )
+    assert a_secret in lines["B-MENTIONS-A"], (
+        "an earlier task's secret is still redacted out of this task's output"
+    )
