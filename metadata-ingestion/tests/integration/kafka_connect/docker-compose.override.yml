@@ -47,7 +47,15 @@ services:
         confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.5 || { echo "Failed to install JDBC connector"; exit 1; }
         confluent-hub install --no-prompt confluentinc/connect-transforms:1.4.1 || { echo "Failed to install transforms"; exit 1; }
         confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.6.0 || { echo "Failed to install datagen"; exit 1; }
-        confluent-hub install --no-prompt debezium/debezium-connector-mysql:2.4.2 || { echo "Failed to install Debezium MySQL"; exit 1; }
+        # Confluent Hub pruned the 2.x line of the Debezium MySQL connector, so
+        # `confluent-hub install debezium/debezium-connector-mysql:2.4.2` now
+        # fails with "Component not found" (only 3.x remains, which needs Java 17
+        # and won't load on this Java 11 image). Pull the same 2.4.2.Final plugin
+        # bundle straight from Maven Central instead; it unpacks to a
+        # debezium-connector-mysql/ dir under the plugin path, just as confluent-hub would.
+        curl -k -SL "https://repo1.maven.org/maven2/io/debezium/debezium-connector-mysql/2.4.2.Final/debezium-connector-mysql-2.4.2.Final-plugin.tar.gz" \
+             | tar -xzf - -C /usr/share/confluent-hub-components/ \
+             || { echo "Failed to install Debezium MySQL"; exit 1; }
         confluent-hub install --no-prompt debezium/debezium-connector-postgresql:2.5.4 || { echo "Failed to install Debezium PostgreSQL"; exit 1; }
         confluent-hub install --no-prompt debezium/debezium-connector-sqlserver:2.5.4 || { echo "Failed to install Debezium SQL Server"; exit 1; }
         confluent-hub install --no-prompt wepay/kafka-connect-bigquery:2.5.6 || { echo "Failed to install BigQuery"; exit 1; }
