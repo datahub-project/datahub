@@ -1,7 +1,9 @@
+import contextlib
+import contextvars
 import os
 import re
 import threading
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 
 from datahub.masking.constants import (
     CAPACITY_EXCEEDED_MESSAGE,
@@ -206,7 +208,10 @@ class SecretRegistry:
 
     MAX_SECRETS = 10000
 
-    def __init__(self) -> None:
+    def __init__(self, _mirror_to: Optional["SecretRegistry"] = None) -> None:
+        # Set only for a task-scoped registry (see task_secret_scope); the
+        # process-global one mirrors nowhere.
+        self._mirror_to = _mirror_to
         self._secrets: Dict[str, str] = {}
         self._name_history: Dict[str, List[str]] = {}
         self._version = 0
@@ -219,6 +224,23 @@ class SecretRegistry:
 
     @classmethod
     def get_instance(cls) -> "SecretRegistry":
+        """The registry this caller should read and write.
+
+        A task-scoped registry when one is active on this context, otherwise
+        the process-global one. See task_secret_scope for why both exist.
+        """
+        scoped = _active_registry.get()
+        if scoped is not None:
+            return scoped
+        return cls.global_instance()
+
+    @classmethod
+    def global_instance(cls) -> "SecretRegistry":
+        """The process-global registry, ignoring any active task scope.
+
+        The fail-safe floor: everything registered anywhere reaches this one,
+        so a caller that resolves to it can over-mask but never under-mask.
+        """
         with cls._lock:
             if cls._instance is None:
                 cls._instance = cls()
@@ -235,6 +257,16 @@ class SecretRegistry:
     def register_secrets_batch(self, secrets: Dict[str, str]) -> None:
         if not is_masking_enabled():
             return
+
+        # SECURITY: a task-scoped registry mirrors to the global one, and the
+        # direction matters. Reads inside the scope see only this task's
+        # secrets, which is the point -- but a thread spawned INSIDE a task
+        # does not inherit the ContextVar, so its masking resolves to the
+        # global registry. Registering only into the scope would leave that
+        # thread masking nothing, turning a contamination bug into a
+        # disclosure one. The global stays the floor.
+        if self._mirror_to is not None:
+            self._mirror_to.register_secrets_batch(secrets)
 
         accepted: Dict[str, str] = {}
         for name, value in secrets.items():
@@ -456,3 +488,38 @@ class SecretRegistry:
     def get_secret_value(self, variable_name: str) -> Optional[str]:
         history = self._name_history.get(variable_name)
         return history[-1] if history else None
+
+
+# The registry the current context should use. A ContextVar rather than a
+# thread-local because it is the same mechanism asyncio uses, and because a
+# new thread starting from the default is exactly the behaviour the floor
+# above is written for.
+_active_registry: contextvars.ContextVar[Optional["SecretRegistry"]] = (
+    contextvars.ContextVar("datahub_active_secret_registry", default=None)
+)
+
+
+@contextlib.contextmanager
+def task_secret_scope() -> Iterator["SecretRegistry"]:
+    """Give this task its own view of the registry.
+
+    The executor runs tasks in concurrent threads and registers every task's
+    secrets into one process-global registry that is never cleared, so each
+    task inherited every earlier task's secrets. The visible harm is a later
+    task's own output being redacted against an unrelated task's password --
+    and the marker names that other task's variable, which on a shared
+    executor is one tenant's recipe leaking into another's output.
+
+    Clearing between tasks is not the fix: tasks overlap, so a clear during
+    one disarms masking for another running beside it. Scoping is, because
+    it needs no coordination between tasks.
+
+    Registrations still reach the global registry (see
+    register_secrets_batch); only READS are narrowed.
+    """
+    scoped = SecretRegistry(_mirror_to=SecretRegistry.global_instance())
+    token = _active_registry.set(scoped)
+    try:
+        yield scoped
+    finally:
+        _active_registry.reset(token)

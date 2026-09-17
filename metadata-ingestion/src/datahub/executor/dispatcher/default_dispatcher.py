@@ -22,6 +22,7 @@ from datahub.executor.dispatcher.dispatcher import Dispatcher
 from datahub.executor.execution.executor import Executor
 from datahub.executor.request.execution_request import ExecutionRequest
 from datahub.executor.request.signal_request import SignalRequest
+from datahub.masking.secret_registry import task_secret_scope
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -31,8 +32,28 @@ def dispatch_async(
     executor: Executor, request: ExecutionRequest, close_callback: Callable[[], None]
 ) -> None:
     try:
-        res = executor.execute(request)
-        res.pretty_print_summary()
+        # SECURITY: one masking scope per task, opened here because this is
+        # the only place that is exactly one task on exactly one thread.
+        #
+        # Secrets were registered into a process-global registry that is
+        # never cleared, so every task inherited every earlier task's. The
+        # visible harm is a later task's own output being redacted against an
+        # unrelated task's password -- and the marker names that task's
+        # variable, so on a shared executor one tenant's recipe leaks into
+        # another's output.
+        #
+        # Clearing between tasks is not available as a fix: dispatch runs
+        # tasks concurrently, so a clear during one disarms masking for
+        # another running beside it. Scoping needs no coordination between
+        # tasks. Registration still reaches the global registry, which stays
+        # the fail-safe floor -- see task_secret_scope.
+        #
+        # The summary print and the traceback below are inside the scope on
+        # purpose: both render task output and both must be masked against
+        # this task's secrets.
+        with task_secret_scope():
+            res = executor.execute(request)
+            res.pretty_print_summary()
     except Exception:
         logger.error(
             f"Failed dispatch for {request.exec_id}: {traceback.format_exc(limit=3)}"
