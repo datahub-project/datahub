@@ -1,6 +1,6 @@
 import logging
 import sys
-from types import SimpleNamespace
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Protocol, Type, cast
 
 from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL, QueryBudget
@@ -448,9 +448,49 @@ def _matches_a_qualified_name(config: object) -> bool:
     return declares_qualifier(config)
 
 
+class _HasDatabase(Protocol):
+    """The one URL attribute get_db_name reads."""
+
+    @property
+    def database(self) -> Optional[str]: ...
+
+
+@dataclass(frozen=True)
+class _StandInUrl:
+    """A URL that only knows its database name, for the case where we
+    already have it and never needed to parse a connection string."""
+
+    database: Optional[str]
+
+
+@dataclass(frozen=True)
+class _StandInEngine:
+    url: _HasDatabase
+
+
+@dataclass(frozen=True)
+class _StandInInspector:
+    """What _shim_inspector hands to get_identifier.
+
+    Typed rather than a nest of SimpleNamespace. The surface is one
+    attribute path -- `inspector.engine.url.database` -- and writing it as
+    three anonymous namespaces made that contract invisible: nothing said
+    which attributes were load-bearing, and adding a fourth would have
+    type-checked. Declaring it means the stand-in fails at the point it
+    stops matching what get_db_name reads, rather than at the AttributeError
+    _identifier_target has to catch downstream.
+
+    Still cast to Inspector at the call site, because get_identifier's
+    signature requires one and this is deliberately not a real Inspector.
+    The cast is now over a declared shape instead of an anonymous one.
+    """
+
+    engine: _StandInEngine
+
+
 def _shim_inspector(
     config: _SqlAlchemyUrlConfig, database: Optional[str] = None
-) -> SimpleNamespace:
+) -> _StandInInspector:
     """A stand-in Inspector exposing only what get_db_name reads --
     inspector.engine.url.database (sql_common.py:422-430).
 
@@ -467,14 +507,13 @@ def _shim_inspector(
     builds to list tables/views/columns.
     """
     if database is not None:
-        return SimpleNamespace(
-            engine=SimpleNamespace(url=SimpleNamespace(database=database))
-        )
+        return _StandInInspector(engine=_StandInEngine(url=_StandInUrl(database)))
     # lazy: sqlalchemy is only needed once a probe actually runs
     from sqlalchemy.engine import make_url
 
+    # A real SQLAlchemy URL already satisfies _HasDatabase.
     url = make_url(config.get_sql_alchemy_url())
-    return SimpleNamespace(engine=SimpleNamespace(url=url))
+    return _StandInInspector(engine=_StandInEngine(url=url))
 
 
 def _identifier_target(ctx: ClassifyContext) -> str:
