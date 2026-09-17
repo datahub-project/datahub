@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 
@@ -89,16 +89,47 @@ def test_redshift_and_unity_catalog_probe_hooks_share_one_identifier_function():
     assert ingestion_saw[0] == result.results[0].target
 
     # Unity keeps its override, and it is still the shared builder.
-    from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+    #
+    # Driven through check_filters rather than by calling the override
+    # directly: the routing is half of what can break -- Redshift's override
+    # was removed in this PR and the framework took over, so "Unity still
+    # goes through its own" is a claim about the dispatch, not just about
+    # the method's return value.
     from datahub.ingestion.source.unity.proxy_types import qualified_table_name
 
-    unity = UnityCatalogSourceConfig.model_validate(
-        {
-            "token": "t",
-            "workspace_url": "https://example.cloud.databricks.com",
-            "catalogs": ["main"],
-        }
+    unity_base = {
+        "token": "t",
+        "workspace_url": "https://example.cloud.databricks.com",
+    }
+    pinned = check_filters(
+        source_type="unity-catalog",
+        config_dict={**unity_base, "catalogs": ["main"]},
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["s"],
+        names=["t"],
     )
-    assert unity.probe_filter_target(
-        schema="s", entity="t", warn=lambda _m: None
-    ) == qualified_table_name("main", "s", "t")
+    assert pinned.results[0].target == qualified_table_name("main", "s", "t")
+    assert not pinned.warnings, pinned.warnings
+
+    # And the branch the override exists for: `catalogs` is a list, so a
+    # recipe that does not pin exactly one has no single catalog to hand
+    # back. It must degrade to `schema.entity` AND say so -- silently
+    # returning the shorter name is the defect this stage removes.
+    for label, catalogs in (("several", ["main", "other"]), ("none", None)):
+        config: Dict[str, object] = dict(unity_base)
+        if catalogs is not None:
+            config["catalogs"] = catalogs
+        degraded = check_filters(
+            source_type="unity-catalog",
+            config_dict=config,
+            kind=str(DatasetSubTypes.TABLE),
+            parent_path=["s"],
+            names=["t"],
+        )
+        assert degraded.results[0].target == "s.t", label
+        assert any(
+            "does not pin exactly one catalog" in w for w in degraded.warnings
+        ), (
+            label,
+            degraded.warnings,
+        )

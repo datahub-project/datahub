@@ -14,7 +14,7 @@ Each rule below is proved to fire against a deliberately-bad provider, because a
 lint whose failure path is never exercised is a lint nobody can trust.
 """
 
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, Iterator, List, Optional, Set, Tuple
 
 import pytest
 
@@ -384,11 +384,19 @@ def test_overriding_an_inherited_command_is_still_allowed():
 # --- agree about it ------------------------------------------------------------
 
 
-def _probe_capable_configs():
-    """(source_type, config_cls) for every source that declares any probe kind."""
-    from datahub.ingestion.agent.introspect import declared_kinds_for_class
+def _loaded_source_configs() -> Iterator[Tuple[str, type]]:
+    """(source_type, config_cls) for every registered source whose config loads.
 
-    out = []
+    One skeleton. _probe_capable_configs and _sql_source_types each carried
+    their own copy of resolve-or-skip, differing only in the filter applied
+    afterwards -- and this file exists precisely because a scan that quietly
+    shrinks stays green, so two ways of deciding what "loadable" means is
+    the wrong number of ways.
+
+    An uninstalled extra is skipped and is not this helper's business; a
+    provider that is installed and BROKEN is caught by
+    test_the_scan_actually_reached_providers, which classifies the two apart.
+    """
     for source_type in sorted(source_registry.mapping):
         try:
             source_cls = source_registry.get(source_type)
@@ -397,8 +405,17 @@ def _probe_capable_configs():
                 continue
             config_cls = get_config_class()
         except Exception:
-            # An uninstalled extra is not this test's business.
             continue
+        if isinstance(config_cls, type):
+            yield source_type, config_cls
+
+
+def _probe_capable_configs():
+    """(source_type, config_cls) for every source that declares any probe kind."""
+    from datahub.ingestion.agent.introspect import declared_kinds_for_class
+
+    out = []
+    for source_type, config_cls in _loaded_source_configs():
         if not getattr(config_cls, "model_fields", None):
             continue
         try:
@@ -737,24 +754,13 @@ _QUALIFIES = {
 
 
 def _sql_source_types():
-    from datahub.ingestion.source.source_registry import source_registry
     from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
-    found = {}
-    for source_type in sorted(source_registry.mapping):
-        try:
-            source_cls = source_registry.get(source_type)
-            get_cc = getattr(source_cls, "get_config_class", None)
-            if get_cc is None:
-                continue
-            config_cls = get_cc()
-            if not (
-                isinstance(config_cls, type) and issubclass(config_cls, SQLCommonConfig)
-            ):
-                continue
-            found[source_type] = config_cls
-        except Exception:
-            continue
+    found = {
+        source_type: config_cls
+        for source_type, config_cls in _loaded_source_configs()
+        if issubclass(config_cls, SQLCommonConfig)
+    }
     return found
 
 
@@ -831,6 +837,7 @@ def test_no_sql_source_falls_back_to_the_bare_fqn():
     from datahub.ingestion.agent.verdicts import ClassifyContext
     from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
     from datahub.ingestion.source.sql.sql_probe import (
+        IDENTIFIER_DEGRADE_MARKER,
         _identifier_target,
         _source_class_for,
     )
@@ -869,7 +876,13 @@ def test_no_sql_source_falls_back_to_the_bare_fqn():
         except Exception as exc:
             degraded[source_type] = f"raised {type(exc).__name__}: {exc}"
             continue
-        reason = next((w for w in warnings if "source state the probe" in w), None)
+        # Imported rather than a copied substring: this is the ONLY thing
+        # separating a degrade from a connector that legitimately returns a
+        # bare name, since both return ctx.fqn. Matching the prose meant a
+        # reworded warning would leave `reason` None and skip a degraded
+        # source through the has_override branch below -- disarming the
+        # build-time floor this test is documented to provide.
+        reason = next((w for w in warnings if IDENTIFIER_DEGRADE_MARKER in w), None)
         if reason:
             degraded[source_type] = reason
         elif target == ctx.fqn and "." not in target:

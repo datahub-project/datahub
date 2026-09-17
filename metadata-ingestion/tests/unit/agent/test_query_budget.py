@@ -7,7 +7,7 @@ pin the second ceiling, per connector, because only the connector knows which ki
 its driver can ask for.
 """
 
-from typing import List
+from typing import Any, Dict, List, Tuple
 
 import pytest
 import sqlalchemy
@@ -43,25 +43,27 @@ def test_a_budget_describes_what_it_actually_enforces():
     assert "no server-side ceiling" in neither.describe()
 
 
-def test_bigquery_refuses_the_job_over_a_byte_ceiling():
-    """maximum_bytes_billed is the only ceiling here that bounds spend.
+def _bigquery_probe() -> Tuple[BigQueryMetadataProbe, Dict[str, Any]]:
+    """A probe over a fake BigQuery client, plus the dict it records into.
 
-    A timeout bounds how long we wait; BigQuery bills for bytes scanned whether or
-    not we are still waiting. maximum_bytes_billed makes BigQuery refuse the job
-    up front instead, which is the difference between a cap and a hope.
+    Three tests built this same scaffolding and differed only in which of
+    `max_results` and `timeout` they bothered to capture, so this records
+    both -- an extra recorded key is harmless to a test that does not read
+    it, and three copies of a fake client is not.
+
+    result()'s signature mirrors google.cloud.bigquery.QueryJob.result,
+    which takes timeout: a narrower fake would pass here while the real
+    client raised.
     """
-
-    captured = {}
+    captured: Dict[str, Any] = {}
 
     class _FakeIterator:
-        schema = []
+        schema: List[Any] = []
 
         def __iter__(self):
             return iter(())
 
     class _FakeJob:
-        # Signature mirrors google.cloud.bigquery.QueryJob.result, which takes
-        # timeout -- a narrower fake would pass while the real client raised.
         def result(self, max_results=None, timeout=None, **kwargs):
             captured["max_results"] = max_results
             captured["timeout"] = timeout
@@ -72,7 +74,18 @@ def test_bigquery_refuses_the_job_over_a_byte_ceiling():
             captured["job_config"] = job_config
             return _FakeJob()
 
-    probe = BigQueryMetadataProbe(_FakeClient())
+    return BigQueryMetadataProbe(_FakeClient()), captured
+
+
+def test_bigquery_refuses_the_job_over_a_byte_ceiling():
+    """maximum_bytes_billed is the only ceiling here that bounds spend.
+
+    A timeout bounds how long we wait; BigQuery bills for bytes scanned whether or
+    not we are still waiting. maximum_bytes_billed makes BigQuery refuse the job
+    up front instead, which is the difference between a cap and a hope.
+    """
+
+    probe, captured = _bigquery_probe()
     probe.execute_catalog_query("SELECT 1", 10)
 
     job_config = captured["job_config"]
@@ -96,25 +109,7 @@ def test_bigquerys_declared_timeout_bounds_the_job_not_just_our_wait():
     worth of review, so this asserts the job config.
     """
 
-    captured = {}
-
-    class _FakeIterator:
-        schema = []
-
-        def __iter__(self):
-            return iter(())
-
-    class _FakeJob:
-        def result(self, max_results=None, timeout=None, **kwargs):
-            captured["timeout"] = timeout
-            return _FakeIterator()
-
-    class _FakeClient:
-        def query(self, query, job_config=None):
-            captured["job_config"] = job_config
-            return _FakeJob()
-
-    probe = BigQueryMetadataProbe(_FakeClient())
+    probe, captured = _bigquery_probe()
     probe.execute_catalog_query("SELECT 1", 10)
 
     seconds = probe.query_budget.timeout_seconds
@@ -167,24 +162,7 @@ def test_a_ceiling_bigquery_does_not_have_is_omitted_not_passed_as_none():
     reaches this.
     """
 
-    captured = {}
-
-    class _FakeIterator:
-        schema = []
-
-        def __iter__(self):
-            return iter(())
-
-    class _FakeJob:
-        def result(self, max_results=None, timeout=None, **kwargs):
-            return _FakeIterator()
-
-    class _FakeClient:
-        def query(self, query, job_config=None):
-            captured["job_config"] = job_config
-            return _FakeJob()
-
-    probe = BigQueryMetadataProbe(_FakeClient())
+    probe, captured = _bigquery_probe()
     probe.query_budget = QueryBudget(timeout_seconds=None, max_bytes_billed=None)
     probe.execute_catalog_query("SELECT 1", 10)
 

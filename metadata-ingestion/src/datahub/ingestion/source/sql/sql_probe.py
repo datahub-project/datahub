@@ -14,6 +14,16 @@ logger = logging.getLogger(__name__)
 _CONFIG_CLASS_SUFFIX = "Config"
 _SOURCE_CLASS_SUFFIX = "Source"
 
+# The stable part of the get_identifier degrade warning.
+#
+# A build-time contract test tells this degrade apart from a connector that
+# legitimately returns a bare name, and the only thing separating the two is
+# this message -- both paths return ctx.fqn. That test matched a substring of
+# the prose, so rewording the warning would have left `reason` None and
+# silently skipped a genuinely degraded source. Named here and imported
+# there, so the coupling is explicit and moves with the text.
+IDENTIFIER_DEGRADE_MARKER = "needs source state the probe doesn't have"
+
 
 class _SqlAlchemyUrlConfig(Protocol):
     """The one method _shim_inspector needs -- every SQLCommonConfig subclass
@@ -594,9 +604,8 @@ def _identifier_target(ctx: ClassifyContext) -> str:
         # would defeat that dedupe and flood ProbeMethodResult.warnings with one
         # near-identical entry per table.
         ctx.warn(
-            f"{source_cls.__name__}.get_identifier needs source state the "
-            f"probe doesn't have ({exc}); using the plain fqn as the filter "
-            "target instead"
+            f"{source_cls.__name__}.get_identifier {IDENTIFIER_DEGRADE_MARKER} "
+            f"({exc}); using the plain fqn as the filter target instead"
         )
         return ctx.fqn
     assert isinstance(target, str)

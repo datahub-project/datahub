@@ -3,7 +3,7 @@ import re
 import types
 import typing
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 
 from pydantic import SecretStr
 from pydantic.fields import FieldInfo
@@ -309,6 +309,24 @@ def _is_hidden_field(config_cls: type, name: str) -> bool:
     return any(isinstance(m, SkipJsonSchema) for m in fields[name].metadata)
 
 
+def _qualifier_fields(config: Any) -> Iterator[Tuple[str, Qualifier]]:
+    """Every Qualifier-marked field on this config's class, with its marker.
+
+    One scan, because the two callers below ask different questions of the
+    same thing -- "does this connector qualify at all" and "which container
+    does this recipe name" -- and they had a copy each. A change to how the
+    marker is found must not be able to answer them differently.
+    """
+    fields = getattr(type(config), "model_fields", None) or {}
+    for name, info in fields.items():
+        marker = next(
+            (m for m in info.metadata if isinstance(m, Qualifier)),
+            None,
+        )
+        if marker is not None:
+            yield name, marker
+
+
 def declares_qualifier(config: Any) -> bool:
     """Whether any field carries Qualifier, whatever its current value.
 
@@ -318,12 +336,7 @@ def declares_qualifier(config: Any) -> bool:
     because the first is a statement about the CONNECTOR (it qualifies) and
     the second about this RECIPE (it did not say which).
     """
-    fields = getattr(type(config), "model_fields", None)
-    if not fields:
-        return False
-    return any(
-        any(isinstance(m, Qualifier) for m in info.metadata) for info in fields.values()
-    )
+    return any(True for _ in _qualifier_fields(config))
 
 
 def declared_qualifier(config: Any) -> Tuple[Optional[str], bool]:
@@ -335,17 +348,10 @@ def declared_qualifier(config: Any) -> Tuple[Optional[str], bool]:
     place. Returns (value, authoritative); a list field qualifies only when
     it pins exactly one value, since several have no single answer to give
     without guessing.
+
+    The FIRST marked field decides, which is what the shared scan preserves.
     """
-    fields = getattr(type(config), "model_fields", None)
-    if not fields:
-        return None, False
-    for name, info in fields.items():
-        marker = next(
-            (m for m in info.metadata if isinstance(m, Qualifier)),
-            None,
-        )
-        if marker is None:
-            continue
+    for name, marker in _qualifier_fields(config):
         value = getattr(config, name, None)
         if isinstance(value, str) and value:
             return value, marker.authoritative
