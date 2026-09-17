@@ -949,3 +949,48 @@ class TestDisclosedValues:
         # The converse: a plain identifier under a plain key is still
         # disclosed, which is the whole reason this function exists.
         assert "analytics" in disclosed, disclosed
+
+
+def test_the_two_layers_agree_about_strings_in_a_list() -> None:
+    """plain_config_values and the executor's split must see the same values.
+
+    A string directly inside a list is stated by the recipe exactly as one
+    under a key is. The executor's walk recursed past them, so canonical
+    returned {'public','analytics','staging'} for a recipe where this
+    returned nothing -- and a value one layer treats as disclosed and the
+    other does not is a value the two exempt differently.
+    """
+    from datahub.masking.secret_registry import (
+        SENSITIVE_KEY_HINTS,
+        plain_config_values,
+    )
+
+    recipe = {"source": {"config": {"schema_allow": ["public", "analytics"]}}}
+
+    canonical = plain_config_values(recipe, SENSITIVE_KEY_HINTS)
+    from datahub.executor.execution.sub_process_task_common import (
+        _plain_and_inline_secret_values,
+    )
+
+    plain, _inline = _plain_and_inline_secret_values(recipe)
+
+    assert canonical == {"public", "analytics"}
+    assert plain == canonical
+
+
+def test_extra_cannot_overwrite_the_envelopes_own_keys() -> None:
+    """`extra` merged last could replace __recipe_yaml__ or __secrets__ --
+    the recipe the child runs, or everything it masks against."""
+    args = SubProcessRecipeTaskArgs(recipe='{"source": {"type": "mysql"}}')
+    envelope = json.loads(
+        SubProcessTaskUtil.build_stdin_envelope(
+            args,
+            {"source": {"type": "mysql"}},
+            {"PW": "real-secret"},
+            extra={"__secrets__": {}, "__recipe_yaml__": "hijacked", "ok": 1},
+        )
+    )
+
+    assert envelope["__recipe_yaml__"] != "hijacked"
+    assert envelope["__secrets__"].get("PW") == "real-secret"
+    assert envelope["ok"] == 1, "an ordinary extra key is still passed through"

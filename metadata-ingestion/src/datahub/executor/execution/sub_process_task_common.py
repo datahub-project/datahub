@@ -125,6 +125,18 @@ def _plain_and_inline_secret_values(
                 inline |= sub_inline
     elif isinstance(obj, list):
         for item in obj:
+            # A string sitting directly in a list is a value the recipe
+            # states, the same as one under a key -- `schema_allow:
+            # [public, analytics]`. Recursing without handling it dropped
+            # them, so the executor's split disagreed with
+            # plain_config_values about the same recipe: canonical returned
+            # {'public','analytics','staging'} where this returned nothing,
+            # and a disclosed value that one layer does not see is a value
+            # the two layers exempt differently.
+            if isinstance(item, str):
+                if item and "${" not in item:
+                    (inline if under_sensitive else plain).add(item)
+                continue
             sub_plain, sub_inline = _plain_and_inline_secret_values(
                 item, under_sensitive
             )
@@ -500,14 +512,18 @@ class SubProcessTaskUtil:
         neither mechanism, and a private index URL with an embedded token
         streams out unmasked. Recipe-resolved values win on a name collision.
         """
+        # `extra` FIRST, so the two keys that define the envelope cannot be
+        # overridden by it. Merged last, an `extra` carrying
+        # __recipe_yaml__ or __secrets__ silently replaced the real ones --
+        # the recipe the child runs, or every secret it masks against.
         return json.dumps(
             {
+                **(extra or {}),
                 "__recipe_yaml__": yaml.dump(recipe),
                 "__secrets__": {
                     **SubProcessTaskUtil.subprocess_env_secrets(args),
                     **secret_values,
                 },
-                **(extra or {}),
             }
         )
 

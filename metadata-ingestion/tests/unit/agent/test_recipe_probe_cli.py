@@ -1291,3 +1291,52 @@ def test_a_report_file_is_never_left_half_written(tmp_path):
 
     written = json.loads(target.read_text())
     assert written == {"a": 1, "b": "odd-value"}
+
+
+def test_the_report_file_is_masked_like_stdout(tmp_path, monkeypatch):
+    """stdout and --report-to must not disagree about a secret.
+
+    `_emit` goes through the registry-backed stdout wrapper bootstrap
+    installs; a file write does not touch it. With a secret registered but
+    not collected into a command's `secret_values` -- an envelope secret the
+    command never referenced -- stdout masked it and the file carried it in
+    the clear.
+
+    Per-command redaction does not cover this: `probe methods` writes its
+    payload with no _redacted_payload at all.
+    """
+    from datahub.masking.secret_registry import SecretRegistry
+
+    secret = "envelope" + "-only-credential"
+    SecretRegistry.get_instance().register_secrets_batch({"ENV_PW": secret})
+
+    target = tmp_path / "report.json"
+    rc._write_report(str(target), {"note": f"value is {secret}"})
+
+    written = target.read_text()
+    assert secret not in written, "the report file carried an unmasked secret"
+    assert "REDACTED" in written
+
+
+def test_a_malformed_envelope_still_registers_its_secrets(monkeypatch):
+    """The failure path is where unmasked values do the most damage.
+
+    recipe_cli registers envelope secrets before parsing the YAML on
+    purpose. Extracting the parser reversed that -- it raised on a bad
+    `__recipe_yaml__` before reading `__secrets__`, so the caller never saw
+    the secrets it was about to need while reporting the failure.
+    """
+    from datahub.masking.masking_filter import SecretMaskingFilter
+
+    secret = "malformed" + "-envelope-secret"
+    envelope = json.dumps(
+        {"__recipe_yaml__": {"not": "a string"}, "__secrets__": {"PW": secret}}
+    )
+    monkeypatch.setattr("sys.stdin", io.StringIO(envelope))
+
+    with pytest.raises(ValueError, match="__recipe_yaml__"):
+        rc._recipe_from_stdin()
+
+    assert secret not in SecretMaskingFilter().mask_text(f"leaked {secret}"), (
+        "the envelope's secrets were not registered before it failed"
+    )

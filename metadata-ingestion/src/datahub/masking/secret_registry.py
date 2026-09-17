@@ -300,8 +300,15 @@ class SecretRegistry:
 
     @classmethod
     def reset_instance(cls) -> None:
+        """Drop the process-global registry, and any active task scope with it.
+
+        The scope has to go too: a scoped registry holds a reference to the
+        OLD global as its parent, so leaving it active after a reset means
+        masking against a registry nothing can reach any more.
+        """
         with cls._lock:
             cls._instance = None
+        _active_registry.set(None)
 
     def register_secret(self, variable_name: str, raw_value: str) -> None:
         self.register_secrets_batch({variable_name: raw_value})

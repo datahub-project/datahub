@@ -97,14 +97,20 @@ class SecretMaskingFilter(logging.Filter):
             if self._circuit_open:
                 return CIRCUIT_OPEN_MESSAGE
 
-            pattern, replacements = self._registry.get_pattern_and_replacements()
+            # Bound once per call. `_registry` resolves a ContextVar now, so
+            # reading it three times could observe three different
+            # registries if a scope opened or closed mid-call -- and the
+            # suppression message would then describe a different registry
+            # than the pattern came from.
+            registry = self._registry
+            pattern, replacements = registry.get_pattern_and_replacements()
 
-            suppression = self._registry.suppression_message()
+            suppression = registry.suppression_message()
             if suppression is not None:
                 return suppression
 
             if pattern is None:
-                if self._registry.get_count() == 0:
+                if registry.get_count() == 0:
                     return text
                 return self._masking_failed("no pattern despite registered secrets")
 

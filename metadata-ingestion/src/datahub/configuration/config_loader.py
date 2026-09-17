@@ -196,6 +196,19 @@ def _process_directives(config: dict) -> dict:
     return _process(config)
 
 
+class MalformedRecipeEnvelope(ConfigurationError):
+    """A well-formed JSON envelope whose `__recipe_yaml__` is not a string.
+
+    Carries the envelope's secrets so a caller can still register them for
+    masking before it reports the failure -- the error path is where
+    unmasked values do the most damage.
+    """
+
+    def __init__(self, message: str, secrets: Dict[str, str]) -> None:
+        super().__init__(message)
+        self.secrets = secrets
+
+
 @dataclass(frozen=True)
 class RecipeEnvelope:
     """The JSON envelope `--recipe -` and `ingest -c -` both accept.
@@ -240,23 +253,30 @@ def parse_recipe_envelope(raw: str) -> Optional[RecipeEnvelope]:
     if not isinstance(envelope, dict) or "__recipe_yaml__" not in envelope:
         return None
 
-    recipe_yaml = envelope["__recipe_yaml__"]
-    # Checked before anything reads it: handing a non-string to the YAML
-    # mechanism names nothing the caller can act on, and building the
-    # envelope with the recipe as a nested object rather than a YAML string
-    # is the obvious mistake when assembling one programmatically.
-    if not isinstance(recipe_yaml, str):
-        raise ConfigurationError(
-            "__recipe_yaml__ must be a string holding the recipe YAML; got "
-            f"{type(recipe_yaml).__name__}"
-        )
-
+    # Secrets FIRST, before anything can raise.
+    #
+    # recipe_cli registers envelope secrets before parsing the YAML on
+    # purpose: a failure during loading is exactly when the error text is
+    # least controlled, so the values have to be maskable by then. Raising
+    # on a bad __recipe_yaml__ before reading __secrets__ reopened that
+    # window -- the caller never saw the secrets it was about to need.
+    #
+    # They travel on the exception so the caller can register them and
+    # still fail.
     raw_secrets = envelope.get("__secrets__") or {}
     secrets = (
         {str(k): v for k, v in raw_secrets.items() if isinstance(v, str)}
         if isinstance(raw_secrets, dict)
         else {}
     )
+
+    recipe_yaml = envelope["__recipe_yaml__"]
+    if not isinstance(recipe_yaml, str):
+        raise MalformedRecipeEnvelope(
+            "__recipe_yaml__ must be a string holding the recipe YAML; got "
+            f"{type(recipe_yaml).__name__}",
+            secrets=secrets,
+        )
     return RecipeEnvelope(recipe_yaml=recipe_yaml, secrets=secrets)
 
 

@@ -19,7 +19,7 @@ import yaml
 
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.masking_filter import SecretMaskingFilter
-from datahub.masking.secret_registry import SecretRegistry
+from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 
 
 def parse_bool_env(env_var: str, default: bool = True) -> bool:
@@ -69,12 +69,37 @@ def activate_venv(venv_path: str) -> None:
 
 
 def register_secrets_for_masking(secrets: dict[str, str]) -> None:
-    """Register secrets with DataHub masking framework if enabled."""
-    masking_enabled = parse_bool_env("DATAHUB_ENABLE_SECRET_MASKING", default=True)
+    """Register secrets with DataHub masking framework if enabled.
 
-    if not masking_enabled:
+    Two switches govern masking, and they are not the same one:
+
+      DATAHUB_ENABLE_SECRET_MASKING   read only here, by the wrapper
+      DATAHUB_DISABLE_SECRET_MASKING  read by the library -- env_vars,
+                                      secret_registry, bootstrap
+
+    Opposite polarity, different scope, and each used to ignore the other.
+    An operator who set DATAHUB_DISABLE_SECRET_MASKING=true to debug turned
+    the library's masking off while the wrapper went on registering every
+    secret into a registry that no longer masked; one who set
+    DATAHUB_ENABLE_SECRET_MASKING=false silenced the wrapper while the
+    library kept masking whatever else reached it. Either way, what the
+    operator asked for and what they got were different things.
+
+    Both are honoured, so the wrapper never feeds a registry the library
+    has been told not to use. The library's switch still decides whether
+    masking APPLIES; this only decides whether the wrapper feeds it.
+    """
+    if not parse_bool_env("DATAHUB_ENABLE_SECRET_MASKING", default=True):
         print(
             "Secret masking is DISABLED via DATAHUB_ENABLE_SECRET_MASKING=false",
+            file=sys.stderr,
+        )
+        return
+
+    if not is_masking_enabled():
+        print(
+            "Secret masking is DISABLED via DATAHUB_DISABLE_SECRET_MASKING; "
+            "not registering secrets either",
             file=sys.stderr,
         )
         return

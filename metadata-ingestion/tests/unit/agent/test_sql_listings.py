@@ -257,14 +257,17 @@ def test_doris_probes_the_catalog_ingestion_reads():
 
     Ingestion passes the QUALIFIED `catalog.database` as current_db for an
     external catalog (DorisSource._qualified_database), because that is what
-    Doris expects over the MySQL protocol. The probe builds its engine from
+    Doris expects over the MySQL protocol. The probe built its engine from
     `config.get_sql_alchemy_url()` with no argument, which produced the bare
     database -- so it landed in the session's default (internal) catalog and
-    read a different `sales` than ingestion reads. Every verdict from that
-    connection described the wrong catalog.
+    read a different `sales` than ingestion reads.
 
-    Asserted as agreement between the two URLs rather than against a
-    literal, so it stays true if the URL format changes.
+    Fixed with a probe-scoped hook rather than by defaulting
+    get_sql_alchemy_url(), which is the second half of this test. Defaulting
+    reached MySQLSource._usage_connection -- inherited by DorisSource with no
+    override, and include_usage_statistics lives on MySQLConfig -- so a Doris
+    recipe with a catalog and usage enabled had its usage connection moved to
+    a different catalog by a change meant for the probe.
     """
     from datahub.ingestion.source.sql.doris.doris_source import DorisConfig, DorisSource
 
@@ -275,7 +278,6 @@ def test_doris_probes_the_catalog_ingestion_reads():
             "database": "iceberg_catalog.sales",
         }
     )
-    # The validator splits it; this is the shape the probe actually sees.
     assert (config.catalog, config.database) == ("iceberg_catalog", "sales")
 
     source = DorisSource.__new__(DorisSource)
@@ -287,14 +289,20 @@ def test_doris_probes_the_catalog_ingestion_reads():
         current_db=source._qualified_database(config.database)
     )
 
-    assert config.get_sql_alchemy_url() == ingestion_url
+    # The probe dials what ingestion dials.
+    assert config.probe_sql_alchemy_url() == ingestion_url
 
-    # An internal-catalog recipe is untouched: no catalog to qualify with,
-    # so the common case keeps the bare name it always had.
+    # And every other caller is untouched. _usage_connection calls this bare;
+    # it must still get the unqualified database it always got.
+    assert config.get_sql_alchemy_url().endswith("/sales")
+    assert config.get_sql_alchemy_url() != ingestion_url
+
+    # An internal-catalog recipe has no catalog to qualify with, so even the
+    # probe gets the bare name.
     plain = DorisConfig.model_validate(
         {"host_port": "h:9030", "username": "u", "database": "sales"}
     )
-    assert plain.get_sql_alchemy_url().endswith("/sales")
+    assert plain.probe_sql_alchemy_url() == plain.get_sql_alchemy_url()
 
 
 def test_doris_reports_the_database_spelling_ingestion_matches():

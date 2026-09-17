@@ -9,7 +9,10 @@ import click
 import yaml
 
 from datahub.configuration.common import ConfigurationError
-from datahub.configuration.config_loader import parse_recipe_envelope
+from datahub.configuration.config_loader import (
+    MalformedRecipeEnvelope,
+    parse_recipe_envelope,
+)
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
@@ -88,14 +91,32 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
     # than stdout does.
     if report_to:
         try:
+            # Serialized BEFORE the file is opened: json.dump truncates on
+            # open, so a value it cannot serialize used to raise partway
+            # through and leave a half-written report that reads as valid
+            # output.
+            text = json.dumps(payload, default=_json_default)
+
+            # SECURITY: masked against the registry, the same as stdout.
+            #
+            # `_emit` goes through the stdout wrapper bootstrap installs, so
+            # it masks every value the registry knows. A file write does not
+            # touch that wrapper, and the two then disagree: with an
+            # envelope secret registered but not collected into this
+            # command's `secret_values`, stdout masked it and the file
+            # carried it in the clear.
+            #
+            # Per-command redaction is not a substitute and does not cover
+            # this: `probe methods` passes its payload with no
+            # _redacted_payload at all, and the other two redact only what
+            # they collected. An earlier version of this comment claimed
+            # every caller pre-redacts. It does not.
+            from datahub.masking.masking_filter import SecretMaskingFilter
+
+            text = SecretMaskingFilter().mask_text(text)
+
             with open(report_to, "w") as f:
-                # default= for the same reason _emit has one: without it a
-                # value json cannot serialize raises partway through, after
-                # open() has already truncated the file, leaving a half
-                # written report that reads as valid output. Callers pass an
-                # already-redacted, already-JSON-normalized payload today --
-                # this is for the one that does not.
-                json.dump(payload, f, default=_json_default)
+                f.write(text)
         except OSError as exc:
             # An unwritable path or missing parent directory is the caller's
             # argument being wrong, so it must read as EXIT_USER like any other
@@ -265,6 +286,16 @@ def _recipe_from_stdin() -> Dict[str, object]:
     # too, beside the check.
     try:
         envelope = parse_recipe_envelope(raw)
+    except MalformedRecipeEnvelope as exc:
+        # Register before reporting: the envelope was readable enough to
+        # yield its secrets, and an unmasked failure is the worst place to
+        # lose them.
+        if exc.secrets:
+            from datahub.masking.secret_registry import SecretRegistry
+
+            _stdin_secrets.update(exc.secrets)
+            SecretRegistry.get_instance().register_secrets_batch(exc.secrets)
+        raise ValueError(str(exc)) from exc
     except ConfigurationError as exc:
         # A user error on this CLI's contract: ConfigurationError is in
         # _USER_ERRORS, but raising ValueError keeps the message shape the

@@ -131,12 +131,8 @@ class DorisConfig(MySQLConfig):
         description="Not applicable for Doris.",
     )
 
-    def get_sql_alchemy_url(
-        self,
-        uri_opts: Optional[Dict[str, Any]] = None,
-        current_db: Optional[str] = None,
-    ) -> str:
-        """The URL a caller that names no database should dial.
+    def probe_sql_alchemy_url(self) -> str:
+        """The URL the PROBE should dial, which is not the default one.
 
         Ingestion always passes `current_db` explicitly, and for an external
         catalog it passes the QUALIFIED `catalog.database` that Doris expects
@@ -151,12 +147,23 @@ class DorisConfig(MySQLConfig):
         the probe/ingestion divergence this stage exists to remove, arriving
         through the connection rather than through the identifier.
 
-        Defaulting rather than special-casing the probe: any caller that
-        names no database wants the catalog this recipe is about.
+        Scoped to the probe rather than defaulted on get_sql_alchemy_url().
+        The first version defaulted it, on the reasoning that any caller
+        naming no database wants this recipe's catalog. That over-reached:
+        MySQLSource._usage_connection calls get_sql_alchemy_url() bare, and
+        DorisSource inherits it with no override while include_usage_statistics
+        lives on MySQLConfig -- so a Doris recipe with a catalog and usage
+        enabled had its usage connection silently moved to a different
+        catalog by a change meant for the probe.
+
+        A hook the probe asks for keeps the blast radius at the probe. Every
+        other caller gets exactly what it got before.
         """
-        if current_db is None and self.database:
-            current_db = self._qualified_database_name(self.database)
-        return super().get_sql_alchemy_url(uri_opts=uri_opts, current_db=current_db)
+        if not self.database:
+            return self.get_sql_alchemy_url()
+        return self.get_sql_alchemy_url(
+            current_db=self._qualified_database_name(self.database)
+        )
 
     def _qualified_database_name(self, database: str) -> str:
         """`catalog.database` for an external catalog, the bare name otherwise.

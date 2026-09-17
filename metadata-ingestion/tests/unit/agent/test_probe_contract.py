@@ -254,6 +254,9 @@ _CONFIG_HOOKS = frozenset(
         # Read by sqlalchemy_probe._container_normalizer: how a listed
         # container is spelled for ingestion.
         "probe_normalize_container",
+        # Read by sqlalchemy_probe.for_config: the URL the probe dials when
+        # it differs from get_sql_alchemy_url().
+        "probe_sql_alchemy_url",
     }
 )
 

@@ -133,7 +133,14 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # wiring it per connector would be fifteen chances to forget. It also means
         # the Inspector below inherits it, so the typed listings are bounded too and
         # not just `sql`.
-        url = config.get_sql_alchemy_url()
+        # probe_sql_alchemy_url where a connector declares one, so a
+        # connector whose probe must dial somewhere other than the default
+        # says so without changing what every other caller gets. Doris is
+        # the case: an external-catalog recipe has to connect to
+        # `catalog.database`, which is what ingestion uses, while
+        # get_sql_alchemy_url() stays as it was for usage and profiling.
+        probe_url = getattr(config, "probe_sql_alchemy_url", None)
+        url = probe_url() if callable(probe_url) else config.get_sql_alchemy_url()
         engine = create_engine(url, **engine_options(config, budget=cls.query_budget))
         # Dialects whose ceiling cannot ride on connect_args get it here instead,
         # applied per connection where a wrong variable name is survivable.
