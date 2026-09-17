@@ -88,7 +88,9 @@ export const IncidentList = () => {
     };
 
     const refetch = () => {
-        refetchEntity();
+        setTimeout(() => {
+            refetchEntity();
+        }, 3000);
         refetchIncidents();
     };
 
@@ -112,7 +114,6 @@ export const IncidentList = () => {
         }
         return <Empty description={t('list.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
-
     return (
         <>
             <IncidentTitleContainer
