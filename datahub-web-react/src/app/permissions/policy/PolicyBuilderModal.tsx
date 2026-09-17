@@ -9,6 +9,7 @@ import PolicyActorForm from '@app/permissions/policy/PolicyActorForm';
 import PolicyPrivilegeForm from '@app/permissions/policy/PolicyPrivilegeForm';
 import PolicyTypeForm from '@app/permissions/policy/PolicyTypeForm';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
+import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import { EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
 import { hasIncompleteStructuredProperties } from '@app/permissions/policy/structuredProperties/utils';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -24,6 +25,7 @@ type Props = {
     focusPolicyUrn: string | undefined;
     onClose: () => void;
     onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
+    policyPrivileges?: PolicyPrivilegesConfig;
 };
 
 const StepsWrapper = styled.div`
@@ -64,7 +66,15 @@ const MODAL_BODY_STYLE = {
  * Component used for constructing new policies. The purpose of this flow is to populate or edit a Policy
  * object through a sequence of steps.
  */
-export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, onSave, focusPolicyUrn }: Props) {
+export default function PolicyBuilderModal({
+    policy,
+    setPolicy,
+    open,
+    onClose,
+    onSave,
+    focusPolicyUrn,
+    policyPrivileges,
+}: Props) {
     const { t } = useTranslation('settings.permissions');
     const { t: tc } = useTranslation('common.actions');
     // Step control-flow.
@@ -181,6 +191,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 isEditState={isEditState}
                 privileges={policy.privileges}
                 setPrivileges={(privileges: string[]) => setPolicy({ ...policy, privileges })}
+                policyPrivileges={policyPrivileges}
             />
         ),
         complete: policy.privileges && policy.privileges.length > 0, // Whether the "next" button should appear.
