@@ -4,7 +4,9 @@ import { SortOrder } from '@types';
 
 export const RELEVANCE = 'relevance';
 export const ENTITY_NAME_FIELD = '_entityName';
-const LAST_MODIFIED_TIME_FIELD = 'lastModifiedAt';
+export const LAST_MODIFIED_TIME_FIELD = 'lastModifiedAt';
+export const CREATED_TIME_FIELD = 'createdAt';
+export const CORP_USER_STATUS_FIELD = 'corpUserStatus';
 
 export const DEFAULT_SORT_OPTION = RELEVANCE;
 
