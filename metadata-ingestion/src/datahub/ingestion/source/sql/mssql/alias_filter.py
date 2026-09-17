@@ -362,8 +362,21 @@ class MSSQLAliasFilter:
                     filtered_downstream_aliases,
                 )
 
-                # Skip aspect only if BOTH inputs and outputs are empty
-                if not aspect.inputDatasets and not aspect.outputDatasets:
+                # `inputDatajobs` holds EXEC/CALL lineage, which this filter never
+                # touches. A body that is only `EXEC other_proc` has no datasets, so
+                # checking datasets alone would discard its lineage.
+                # Same set the source's patch conversion treats as empty, so an
+                # aspect kept here is never discarded there and vice versa.
+                if not any(
+                    (
+                        aspect.inputDatasets,
+                        aspect.outputDatasets,
+                        aspect.inputDatajobs,
+                        aspect.inputDatasetFields,
+                        aspect.outputDatasetFields,
+                        aspect.fineGrainedLineages,
+                    )
+                ):
                     logger.warning(
                         "Skipping lineage for %s: all tables were filtered",
                         procedure_name,

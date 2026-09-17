@@ -130,6 +130,69 @@ _CONTINUATION_TEXT: Final = {
     "VIEW",
 }
 
+# T-SQL statement keywords that terminate a preceding `EXEC <proc> @args` run. Only
+# consulted inside an EXEC statement, where no `;` marks the end of the argument list.
+# GRANT/REVOKE are absent by necessity, not oversight: they sit in _CONTINUATION_TEXT
+# so a privilege list doesn't split, which also stops them closing an EXEC. BACKUP,
+# BULK INSERT and UPDATE STATISTICS are simply not handled; all four were absorbed
+# before this rule existed too.
+_TSQL_STATEMENT_STARTERS: Final = {
+    "ELSE",
+    "SET",
+    "OPEN",
+    "FETCH",
+    "CLOSE",
+    "DEALLOCATE",
+    "USE",
+    "DBCC",
+    "DECLARE",
+    "RETURN",
+    "PRINT",
+    "RAISERROR",
+    "THROW",
+    "GOTO",
+    "BREAK",
+    "CONTINUE",
+    "WAITFOR",
+    "COMMIT",
+    "ROLLBACK",
+}
+
+# Token types a procedure name can take after `EXEC`. Deliberately narrow: anything
+# else (a clause keyword like FROM) means `exec` was used as an identifier.
+_EXEC_TARGET_TOKENS: Final = {
+    TokenType.VAR,
+    TokenType.IDENTIFIER,
+    TokenType.L_BRACKET,
+}
+
+# Continuation tokens that may still precede a real `EXEC <proc>` statement.
+_EXEC_BOUNDARY_AFTER: Final = {TokenType.ELSE, TokenType.ALIAS}
+
+# Positions where the next token names something rather than starting a statement:
+# a parameter after `@`, and a procedure name after `EXEC` or a qualifying `.`.
+_EXEC_NAME_POSITION: Final = {
+    TokenType.PARAMETER,
+    TokenType.DOT,
+    TokenType.EXECUTE,
+}
+
+# Token types a `_TSQL_STATEMENT_STARTERS` keyword can actually arrive as. An
+# allowlist, not a denylist of literals: sqlglot reports `'RETURN'`, `N'RETURN'` and
+# `[SET]` with their *content* as token text, so matching on text alone would split an
+# EXEC argument list, and each new literal kind would be another leak to patch.
+_KEYWORD_BEARING_TOKENS: Final = {
+    TokenType.VAR,
+    TokenType.COMMAND,
+    TokenType.COMMIT,
+    TokenType.DECLARE,
+    TokenType.ELSE,
+    TokenType.FETCH,
+    TokenType.ROLLBACK,
+    TokenType.SET,
+    TokenType.USE,
+}
+
 
 def _masked_spans(sql: str) -> List[Tuple[int, int]]:
     """Inclusive (start, end) offsets of single-quoted strings, -- line comments,
@@ -207,10 +270,13 @@ def _split_go_batches(sql: str) -> List[str]:
     return batches
 
 
-def _uses_go_batches(dialect: Optional[str]) -> bool:
-    """`GO` is a client batch separator (sqlcmd/SSMS/isql) only in T-SQL/Sybase, not a SQL
+def _is_tsql(dialect: Optional[str]) -> bool:
+    """Gates the two T-SQL-only behaviours: the `GO` batch pre-split and the `EXECUTE`
+    statement boundary.
+
+    `GO` is a client batch separator (sqlcmd/SSMS/isql) only in T-SQL/Sybase, not a SQL
     statement. Other dialects use `GO` as an ordinary identifier, so splitting on a bare `GO`
-    line there would be a T-SQL bias. Gate the pre-split to T-SQL dialects only.
+    line there would be a T-SQL bias.
 
     Detected via the resolved dialect class so every alias that maps to T-SQL is covered
     (DataHub's `mssql` and `fabric-onelake` both resolve to sqlglot ``tsql``). Sybase has no
@@ -231,9 +297,10 @@ class _TokenSplitter:
     """Finds top-level statement boundaries on a sqlglot token stream and yields
     statements as slices of the ORIGINAL source (verbatim text, comments preserved)."""
 
-    def __init__(self, sql: str, tokens: List[Token]):
+    def __init__(self, sql: str, tokens: List[Token], is_tsql: bool = False):
         self.sql = sql
         self.tokens = tokens
+        self.is_tsql = is_tsql  # gates the EXECUTE boundary
         self.depth = 0
         self.seg_start = 0  # start offset of the current (in-progress) statement
         self.last_end = -1  # .end offset of the last meaningful (depth-0) token seen
@@ -260,6 +327,16 @@ class _TokenSplitter:
         self.case_depth = (
             0  # depth of open CASE expressions (their END is not a boundary)
         )
+
+    def _exec_target_follows(self, i: int) -> bool:
+        """True if the token after `EXEC` could name a procedure.
+
+        Distinguishes the `EXEC proc` statement from `EXEC` used as an identifier, e.g.
+        a column named `exec` in `SELECT exec FROM t`.
+        """
+        if i + 1 >= len(self.tokens):
+            return False
+        return self.tokens[i + 1].token_type in _EXEC_TARGET_TOKENS
 
     def _prev_is_continuation(self) -> bool:
         return (
@@ -384,6 +461,41 @@ class _TokenSplitter:
         cte_main: bool,
     ) -> bool:
         """Return True if this token starts a new statement; update continuation flags."""
+        # T-SQL separates `EXEC <proc> @a, @b` calls by newline, not `;`. `ELSE EXEC p`
+        # and `CREATE PROCEDURE ... AS EXEC p` must split even though ELSE/AS are
+        # continuations; a privilege list (`DENY EXECUTE ON ...`) must not.
+        if (
+            tt == TokenType.EXECUTE
+            and self.is_tsql
+            and self._exec_target_follows(i)
+            and (
+                not self._prev_is_continuation()
+                or self.prev_type in _EXEC_BOUNDARY_AFTER
+            )
+        ):
+            return True
+        # An `EXEC` argument list ends at the next statement keyword or at another
+        # `EXEC`, since T-SQL writes no `;`. Scoped to EXEC statements so other
+        # statements keep their boundaries. The keyword test has to ignore tokens whose
+        # text isn't a keyword: a string or quoted identifier carries its content
+        # (`@mode = 'RETURN'`, `[SET]`), and a parameter name is tokenized as the `@`
+        # sigil followed by the bare word (`@set`, `@return`).
+        if (
+            self.is_tsql
+            and self.stmt_first == TokenType.EXECUTE
+            and (
+                tt == TokenType.EXECUTE
+                or (
+                    tt in _KEYWORD_BEARING_TOKENS
+                    # A keyword here is a procedure name, not a statement: `@set` is
+                    # the `@` sigil plus a bare word, `dbo.Throw` follows a DOT, and
+                    # `EXEC Throw` follows the EXEC itself.
+                    and self.prev_type not in _EXEC_NAME_POSITION
+                    and text_upper in _TSQL_STATEMENT_STARTERS
+                )
+            )
+        ):
+            return True
         # A keyword immediately after a continuation token is an identifier/operand, not a
         # new statement (e.g. a column named `end`, a table named `merge`, AS alias names,
         # GRANT/REVOKE privilege lists, FOR UPDATE locking clauses, etc.).
@@ -459,20 +571,22 @@ def split_statements(sql: str, dialect: Optional[str] = None) -> Iterator[str]:
     procedures (MSSQL/Oracle/Postgres/MySQL/DB2) and Tableau Initial SQL, including
     semicolon-less T-SQL/PL-SQL batches.
 
-    The `GO` batch-separator pre-split is applied only for T-SQL dialects (where `GO` is a
-    client batch separator); for every other dialect `GO` is treated as an ordinary token.
+    Two behaviours are gated to T-SQL dialects: the `GO` batch-separator pre-split (where
+    `GO` is a client batch separator rather than an identifier), and treating `EXECUTE` as a
+    statement boundary (T-SQL separates `EXEC` calls by newline, not `;`).
 
     On tokenizer failure, yields the whole input unchanged (never raises, never loses SQL).
     """
     if not sql or not sql.strip():
         return
-    batches = _split_go_batches(sql) if _uses_go_batches(dialect) else [sql]
+    is_tsql = _is_tsql(dialect)
+    batches = _split_go_batches(sql) if is_tsql else [sql]
     for batch in batches:
         if not batch or not batch.strip():
             continue
         try:
             tokens = _tokenize(batch, dialect)
-            statements = _TokenSplitter(batch, tokens).split()
+            statements = _TokenSplitter(batch, tokens, is_tsql).split()
         except Exception as e:
             # Warn (not debug): the whole batch is yielded as one blob, which
             # parse_statement() will likely fail to parse, silently losing the

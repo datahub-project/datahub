@@ -11,6 +11,7 @@ from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import (
     DatabaseError,
+    DBAPIError,
     OperationalError,
     ProgrammingError,
     ResourceClosedError,
@@ -34,7 +35,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import StructuredLogLevel
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_datajob_input_output_to_patch,
+)
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    StructuredLogLevel,
+)
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
@@ -45,6 +52,7 @@ from datahub.ingestion.source.sql.mssql.job_models import (
     MSSQLDataJob,
     MSSQLJob,
     MSSQLProceduresContainer,
+    ProcedureDependencies,
     ProcedureDependency,
     ProcedureLineageStream,
     ProcedureParameter,
@@ -67,6 +75,7 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
     ForeignKeyConstraintClass,
     SchemaFieldClass,
 )
@@ -1000,21 +1009,34 @@ class SQLServerSource(SQLAlchemySource):
             if procedures:
                 yield from self.construct_flow_workunits(data_flow=data_flow)
             for procedure in procedures:
-                yield from self._process_stored_procedure(conn, procedure)
+                # loop_stored_procedures is a generator with only a schema-level
+                # handler, so anything escaping here drops every procedure after
+                # this one. Queries besides the dependency pair can raise too.
+                with self.report.report_exc(
+                    message="Failed to process stored procedure",
+                    context=procedure.full_name,
+                    level=StructuredLogLevel.WARN,
+                ):
+                    yield from self._process_stored_procedure(conn, procedure)
 
     def _process_stored_procedure(
         self, conn: Connection, procedure: StoredProcedure
     ) -> Iterable[MetadataWorkUnit]:
-        upstream = self._get_procedure_upstream(conn, procedure)
-        downstream = self._get_procedure_downstream(conn, procedure)
         data_job = MSSQLDataJob(
             entity=procedure,
         )
         # TODO: because of this upstream and downstream are more dependencies,
         #  can't be used as DataJobInputOutput.
         #  Should be reorganized into lineage.
-        data_job.add_property("procedure_depends_on", str(upstream.as_property))
-        data_job.add_property("depending_on_procedure", str(downstream.as_property))
+        dependencies = self._get_procedure_dependencies(conn, procedure)
+        if dependencies.upstream is not None:
+            data_job.add_property(
+                "procedure_depends_on", str(dependencies.upstream.as_property)
+            )
+        if dependencies.downstream is not None:
+            data_job.add_property(
+                "depending_on_procedure", str(dependencies.downstream.as_property)
+            )
         procedure_definition, procedure_code = self._get_procedure_code(conn, procedure)
         procedure.code = procedure_code
         if procedure_definition:
@@ -1036,6 +1058,50 @@ class SQLServerSource(SQLAlchemySource):
             data_job,
             include_lineage=False,
         )
+
+    def _get_procedure_dependencies(
+        self, conn: Connection, procedure: StoredProcedure
+    ) -> ProcedureDependencies:
+        """Read the procedure's catalogue dependencies, per direction.
+
+        These queries need VIEW DEFINITION on sys.sql_expression_dependencies. Since
+        loop_stored_procedures is a generator handled only at the schema level, raising
+        here would drop every remaining procedure in the schema. Each direction is read
+        independently so one denied query neither discards the other's result nor gets
+        reported as an empty one.
+        """
+        return ProcedureDependencies(
+            upstream=self._read_dependency_stream(
+                lambda: self._get_procedure_upstream(conn, procedure), procedure
+            ),
+            downstream=self._read_dependency_stream(
+                lambda: self._get_procedure_downstream(conn, procedure), procedure
+            ),
+        )
+
+    def _read_dependency_stream(
+        self,
+        read: Callable[[], ProcedureLineageStream],
+        procedure: StoredProcedure,
+    ) -> Optional[ProcedureLineageStream]:
+        try:
+            return read()
+        # DBAPIError covers the driver/permission errors these two queries actually
+        # raise. Anything else (e.g. ResourceClosedError, an InvalidRequestError) is a
+        # broken connection rather than one unreadable procedure, so it falls through
+        # to the per-procedure guard in loop_stored_procedures.
+        except DBAPIError as e:
+            self.report.warning(
+                title="Unable to read stored procedure dependencies",
+                message=(
+                    "Could not query sys.sql_expression_dependencies for this procedure, "
+                    "so its dependency properties are omitted. Grant VIEW DEFINITION to "
+                    "the ingestion principal to resolve this."
+                ),
+                context=procedure.full_name,
+                exc=e,
+            )
+            return None
 
     @staticmethod
     def _get_procedure_downstream(
@@ -1448,7 +1514,7 @@ class SQLServerSource(SQLAlchemySource):
                     context=procedure.full_name,
                     level=StructuredLogLevel.WARN,
                 ):
-                    for workunit in auto_workunit(
+                    yield from auto_workunit(
                         self._filter_procedure_lineage(
                             generate_procedure_lineage(
                                 schema_resolver=self.get_schema_resolver(),
@@ -1465,8 +1531,86 @@ class SQLServerSource(SQLAlchemySource):
                             ),
                             procedure_name=procedure.name,
                         )
-                    ):
-                        yield workunit
+                    )
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # Appended after the default chain on purpose. AutoLowercaseUrnsProcessor and
+        # AutoResolveLineageUrnsProcessor both need the typed upsert aspect -- the
+        # latter skips lineage that already arrived as a PATCH -- so the conversion has
+        # to run after them, not in get_workunits_internal.
+        #
+        # Appending is the only insertion point available to a source, so the converted
+        # aspects also land after AutoWorkunitsReporterProcessor (the report counts the
+        # pre-patch upsert), EnsureAspectSizeProcessor (the patch skips that check) and
+        # AutoStaleEntityRemovalProcessor. AutoSystemMetadata.stamp is appended later
+        # still, so patches are stamped.
+        #
+        # The framework slot that avoids all of the above is
+        # AutoIncrementalLineageProcessor (index 7 in _ALL_PROCESSOR_CLASSES, already
+        # after AutoLowercaseUrns and AutoResolveLineageUrns and before the reporter):
+        # it is gated on this same `incremental_lineage` flag and does exactly this for
+        # UpstreamLineageClass, so a DataJobInputOutputClass branch there would be
+        # mechanical. It lives here instead purely to bound the blast radius -- moving
+        # it would change dataJob lineage for every source with the flag on (Airflow,
+        # Glue, Oracle, Snowflake), which is a separate change, not an ordering
+        # constraint.
+        return [
+            *super().get_workunit_processors(),
+            self._convert_procedure_lineage_to_patch,
+        ]
+
+    def _convert_procedure_lineage_to_patch(
+        self, stream: Iterable[MetadataWorkUnit]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Re-emit dataJobInputOutput as a patch when `incremental_lineage` is enabled.
+
+        A full upsert replaces the aspect, dropping the `*Edges` fields that hold
+        manually added lineage. Patching only adds the parsed edges. This sees every
+        dataJob the source emits, procedures and SQL Agent job steps alike.
+
+        Opt-in because patches never remove: lineage to a renamed or dropped table
+        persists instead of being re-stated away.
+        """
+        for workunit in stream:
+            aspect = workunit.get_aspect_of_type(DataJobInputOutputClass)
+            urn = workunit.get_urn()
+            if not (
+                self.config.incremental_lineage
+                and aspect
+                and urn
+                # An MCE can carry other aspects alongside lineage; converting would
+                # drop them. MSSQL emits MCPs today, so this is a guard, not a path.
+                and isinstance(workunit.metadata, MetadataChangeProposalWrapper)
+            ):
+                yield workunit
+                continue
+
+            if not any(
+                (
+                    aspect.inputDatasets,
+                    aspect.outputDatasets,
+                    aspect.inputDatajobs,
+                    aspect.inputDatasetFields,
+                    aspect.outputDatasetFields,
+                    aspect.fineGrainedLineages,
+                )
+            ):
+                # Job steps always emit an empty aspect. Dropping it is correct -- an
+                # empty upsert would wipe manual edges -- and unremarkable.
+                logger.debug("Skipping empty lineage aspect for %s", urn)
+                continue
+
+            patch_workunit = convert_datajob_input_output_to_patch(
+                urn, aspect, workunit.metadata.systemMetadata
+            )
+            if patch_workunit is not None:
+                yield patch_workunit
+            else:
+                self.report.warning(
+                    title="Dropped dataJob lineage",
+                    message="No part of the lineage aspect could be expressed as a patch.",
+                    context=urn,
+                )
 
     def _report_procedure_failure(self, procedure_name: str) -> None:
         """Report a stored procedure lineage extraction failure to the aggregator."""
