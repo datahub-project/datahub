@@ -121,7 +121,7 @@ public class DomainReferenceDetachSideEffect extends MCPSideEffect {
       }
       int pageSize = Math.min(maxFanoutPerCommit, maxFanoutPerCommit - patches.size());
       final String currentScrollId = scrollId;
-      ScrollResult scrollResult =
+      Optional<ScrollResult> scrollResultOpt =
           withBoundedRetry(
               "scroll for domain references to " + missingDomain,
               () ->
@@ -133,6 +133,16 @@ public class DomainReferenceDetachSideEffect extends MCPSideEffect {
                       List.of(),
                       SearchRetriever
                           .RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS_INCLUDE_SOFT_DELETED));
+      if (scrollResultOpt.isEmpty()) {
+        // Domain delete already committed; do not fail deleteDomain. Return patches so far.
+        log.error(
+            "Exhausted retries scrolling for domain references to {};"
+                + " returning {} patch(es) collected so far; more may remain",
+            missingDomain,
+            patches.size());
+        break;
+      }
+      ScrollResult scrollResult = scrollResultOpt.get();
 
       if (scrollResult.getEntities() == null || scrollResult.getEntities().isEmpty()) {
         break;
@@ -165,18 +175,24 @@ public class DomainReferenceDetachSideEffect extends MCPSideEffect {
     return patches.stream();
   }
 
+  /**
+   * Retries a transient failure a bounded number of times. Returns empty on exhaustion so callers
+   * can fail soft — this side effect runs after the Domain key delete is already committed.
+   */
   @Nonnull
-  private static <T> T withBoundedRetry(@Nonnull String what, @Nonnull Supplier<T> action) {
+  private static <T> Optional<T> withBoundedRetry(
+      @Nonnull String what, @Nonnull Supplier<T> action) {
     RuntimeException last = null;
     for (int attempt = 1; attempt <= MAX_PAGE_ATTEMPTS; attempt++) {
       try {
-        return action.get();
+        return Optional.ofNullable(action.get());
       } catch (RuntimeException e) {
         last = e;
         log.warn("{} failed (attempt {}/{})", what, attempt, MAX_PAGE_ATTEMPTS, e);
       }
     }
-    throw new RuntimeException("Exhausted retries: " + what, last);
+    log.error("Exhausted retries: {}", what, last);
+    return Optional.empty();
   }
 
   @Nonnull
@@ -203,16 +219,19 @@ public class DomainReferenceDetachSideEffect extends MCPSideEffect {
       return Map.of();
     }
     return withBoundedRetry(
-        "read persisted domains aspects for " + entities.size() + " entit(y/ies)",
-        () -> {
-          Map<Urn, Map<String, Aspect>> existing =
-              AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
-                  retrieverContext.getAspectRetriever(),
-                  operationContext,
-                  new HashSet<>(entities),
-                  Set.of(DOMAINS_ASPECT_NAME));
-          return existing != null ? existing : Map.of();
-        });
+            "read persisted domains aspects for " + entities.size() + " entit(y/ies)",
+            () -> {
+              Map<Urn, Map<String, Aspect>> existing =
+                  AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
+                      retrieverContext.getAspectRetriever(),
+                      operationContext,
+                      new HashSet<>(entities),
+                      Set.of(DOMAINS_ASPECT_NAME));
+              return existing != null ? existing : Map.<Urn, Map<String, Aspect>>of();
+            })
+        // Fail soft: Domain delete already committed; skip this page rather than abort
+        // deleteDomain.
+        .orElseGet(Map::of);
   }
 
   private static boolean stillReferences(

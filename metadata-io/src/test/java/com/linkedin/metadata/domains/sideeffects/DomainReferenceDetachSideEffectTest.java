@@ -11,7 +11,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
@@ -189,13 +188,53 @@ public class DomainReferenceDetachSideEffectTest {
   }
 
   @Test
-  public void testScrollExhaustionPropagates() {
+  public void testScrollExhaustionFailsSoft() {
     when(mockSearchRetriever.scroll(any(), any(), any(), any(), any(), any()))
         .thenThrow(new RuntimeException("timeout"));
 
-    assertThrows(RuntimeException.class, () -> run(domainKeyMcl(ChangeType.DELETE)));
+    List<MCPItem> output = run(domainKeyMcl(ChangeType.DELETE));
+
+    assertTrue(output.isEmpty());
     verify(mockSearchRetriever, times(DomainReferenceDetachSideEffect.MAX_PAGE_ATTEMPTS))
         .scroll(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testAspectReadRetriesThenSucceeds() {
+    ScrollResult scroll = new ScrollResult();
+    SearchEntity hit = new SearchEntity();
+    hit.setEntity(PRODUCT_URN);
+    scroll.setEntities(new SearchEntityArray(List.of(hit)));
+    when(mockSearchRetriever.scroll(any(), any(), any(), any(), any(), any())).thenReturn(scroll);
+    when(mockAspectRetriever.getLatestAspectObjects(any(), any(), any()))
+        .thenThrow(new RuntimeException("timeout"))
+        .thenReturn(
+            Map.of(
+                PRODUCT_URN,
+                Map.of(DOMAINS_ASPECT_NAME, new Aspect(domainsAspect(DOMAIN_URN).data()))));
+
+    List<MCPItem> output = run(domainKeyMcl(ChangeType.DELETE));
+
+    assertEquals(output.size(), 1);
+    assertRemoveDomainPatch(output.get(0), PRODUCT_URN);
+    verify(mockAspectRetriever, times(2)).getLatestAspectObjects(any(), any(), any());
+  }
+
+  @Test
+  public void testAspectReadExhaustionSkipsPage() {
+    ScrollResult scroll = new ScrollResult();
+    SearchEntity hit = new SearchEntity();
+    hit.setEntity(PRODUCT_URN);
+    scroll.setEntities(new SearchEntityArray(List.of(hit)));
+    when(mockSearchRetriever.scroll(any(), any(), any(), any(), any(), any())).thenReturn(scroll);
+    when(mockAspectRetriever.getLatestAspectObjects(any(), any(), any()))
+        .thenThrow(new RuntimeException("timeout"));
+
+    List<MCPItem> output = run(domainKeyMcl(ChangeType.DELETE));
+
+    assertTrue(output.isEmpty());
+    verify(mockAspectRetriever, times(DomainReferenceDetachSideEffect.MAX_PAGE_ATTEMPTS))
+        .getLatestAspectObjects(any(), any(), any());
   }
 
   @Test
