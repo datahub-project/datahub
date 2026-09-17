@@ -1,7 +1,7 @@
 import useRecentlyViewedEntities from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntities';
 import { ASSET_ENTITY_TYPES } from '@app/searchV2/utils/constants';
 
-import { Entity, EntityType } from '@types';
+import { EntityType } from '@types';
 
 const SUPPORTED_ENTITY_TYPES = [
     ...ASSET_ENTITY_TYPES,
@@ -15,5 +15,5 @@ export const useGetRecentActions = () => {
 
     const viewed = entities.filter((entity) => SUPPORTED_ENTITY_TYPES.includes(entity.type));
 
-    return { viewed: viewed as Entity[], edited: [] as Entity[], loading, refetch };
+    return { viewed, loading, refetch };
 };

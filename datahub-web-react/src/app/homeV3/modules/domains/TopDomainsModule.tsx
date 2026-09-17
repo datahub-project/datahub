@@ -1,5 +1,5 @@
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useGetDomains } from '@app/homeV2/content/tabs/discovery/sections/domains/useGetDomains';
@@ -19,12 +19,23 @@ const TopDomainsModule = (props: ModuleProps) => {
     const { isReloading, onReloadingFinished } = useModuleContext();
 
     const { domains, loading, refetch } = useGetDomains(MAX_DOMAINS);
+    const wasReloading = useRef(isReloading);
 
     useEffect(() => {
+        const reloadWasRequested = isReloading && !wasReloading.current;
+        wasReloading.current = isReloading;
+
         if (!isReloading) {
             return;
         }
-        refetch().finally(() => onReloadingFinished());
+
+        if (!reloadWasRequested) {
+            onReloadingFinished();
+            return;
+        }
+
+        // A failed best-effort refresh should not leave the module permanently unable to reload.
+        void refetch().then(onReloadingFinished, onReloadingFinished);
     }, [isReloading, refetch, onReloadingFinished]);
 
     const { renderDomainCounts, navigateToDomains } = useGetDomainUtils({ domains });

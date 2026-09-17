@@ -79,4 +79,10 @@ describe('useRecentlyViewedEntities', () => {
 
         expect(result.current.entities).toEqual([entity]);
     });
+
+    it('returns no entities when recommendation data is unavailable', () => {
+        const { result } = renderHook(() => useRecentlyViewedEntities());
+
+        expect(result.current.entities).toEqual([]);
+    });
 });
