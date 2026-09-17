@@ -536,6 +536,57 @@ def test_get_semantic_search_config_v3_missing_is_none():
     assert result.embedding_config is None
 
 
+_LEGACY_SEMANTIC_CONFIG = {
+    "enabled": True,
+    "enabledEntities": ["document"],
+    "embeddingConfig": {
+        "provider": "bedrock",
+        "modelId": "cohere.embed-english-v3",
+        "modelEmbeddingKey": "cohere_embed_v3",
+        "awsProviderConfig": {"region": "us-west-2"},
+    },
+}
+
+
+def test_get_semantic_search_config_retries_without_entity_index_v3():
+    from datahub.configuration.common import GraphError
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.side_effect = [
+        GraphError("FieldUndefined: Field 'entityIndexV3' is undefined"),
+        {"appConfig": {"semanticSearchConfig": _LEGACY_SEMANTIC_CONFIG}},
+    ]
+    result = get_semantic_search_config(fake_graph)
+    assert result.enabled is True
+    assert result.entity_index_v3_enabled is None
+    assert fake_graph.execute_graphql.call_count == 2
+    fallback_query = fake_graph.execute_graphql.call_args_list[1].kwargs["query"]
+    assert "entityIndexV3" not in fallback_query
+    assert "vertexProviderConfig" not in fallback_query
+
+
+def test_get_semantic_search_config_retries_without_vertex_provider():
+    from datahub.configuration.common import GraphError
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.side_effect = [
+        GraphError("FieldUndefined: Field 'vertexProviderConfig' is undefined"),
+        {"appConfig": {"semanticSearchConfig": _LEGACY_SEMANTIC_CONFIG}},
+    ]
+    result = get_semantic_search_config(fake_graph)
+    assert result.enabled is True
+    assert result.entity_index_v3_enabled is None
+    fallback_query = fake_graph.execute_graphql.call_args_list[1].kwargs["query"]
+    assert "entityIndexV3" not in fallback_query
+    assert "vertexProviderConfig" not in fallback_query
+
+
 def test_resolve_embedding_skips_when_v3_on_but_semantic_off():
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
     from datahub.ingestion.source.unstructured.chunking_source import (

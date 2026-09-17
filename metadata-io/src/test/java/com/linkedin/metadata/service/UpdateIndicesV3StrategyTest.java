@@ -2,6 +2,9 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SEMANTIC_TEXT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
@@ -10,6 +13,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -1217,5 +1221,169 @@ public class UpdateIndicesV3StrategyTest {
         (ObjectNode)
             new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
     assertFalse(written.has("embeddings"));
+  }
+
+  @Test
+  public void testStampsResolvedHashOnDocumentInfoOnlyMcl() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn(DOCUMENT_ENTITY_NAME);
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
+
+    ObjectNode infoDoc = JsonNodeFactory.instance.objectNode();
+    infoDoc.put("urn", documentUrn.toString());
+    infoDoc.put("text", "the body");
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(infoDoc));
+
+    enableDocumentSemanticStrategy();
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ObjectNode written = capturedDocument("document");
+    assertEquals(
+        written.get("resolvedTextSha256").asText(),
+        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
+            .sha256Hex("the body"));
+  }
+
+  @Test
+  public void testStampsResolvedHashOnSemanticTextOnlyMcl() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn(DOCUMENT_ENTITY_NAME);
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn(SEMANTIC_TEXT_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(SEMANTIC_TEXT_ASPECT_NAME);
+
+    ObjectNode textDoc = JsonNodeFactory.instance.objectNode();
+    textDoc.put("urn", documentUrn.toString());
+    textDoc.put("semanticText", "curated override");
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(textDoc));
+
+    enableDocumentSemanticStrategy();
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ObjectNode written = capturedDocument("document");
+    assertEquals(
+        written.get("resolvedTextSha256").asText(),
+        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
+            .sha256Hex("curated override"));
+  }
+
+  @Test
+  public void testStampsResolvedHashWhenDocumentInfoLeadsMixedBatch() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn(DOCUMENT_ENTITY_NAME);
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
+    when(mockEvent.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(mockEvent.getAspectSpec()).thenReturn(mockAspectSpec);
+
+    AspectSpec semanticAspectSpec = mock(AspectSpec.class);
+    when(semanticAspectSpec.getName()).thenReturn("semanticContent");
+    when(semanticAspectSpec.isTimeseries()).thenReturn(false);
+    MCLItem semanticEvent = mock(MCLItem.class);
+    when(semanticEvent.getUrn()).thenReturn(documentUrn);
+    when(semanticEvent.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(semanticEvent.getAspectSpec()).thenReturn(semanticAspectSpec);
+    when(semanticEvent.getAspectName()).thenReturn("semanticContent");
+    when(semanticEvent.getRecordTemplate()).thenReturn(mockAspect);
+    when(semanticEvent.getSystemMetadata()).thenReturn(mockSystemMetadata);
+    when(semanticEvent.getAuditStamp()).thenReturn(mockAuditStamp);
+    when(semanticEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+
+    ObjectNode infoDoc = JsonNodeFactory.instance.objectNode();
+    infoDoc.put("urn", documentUrn.toString());
+    infoDoc.put("text", "the body");
+    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
+    semanticDoc.put("urn", documentUrn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    embeddings.put("model", "cohere_embed_v3");
+    semanticDoc.set("embeddings", embeddings);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            eq(mockAspectSpec),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(infoDoc));
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            eq(semanticAspectSpec),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(semanticDoc));
+
+    enableDocumentSemanticStrategy();
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, List.of(mockEvent, semanticEvent)),
+        true);
+
+    ObjectNode written = capturedDocument("document");
+    assertTrue(written.has("embeddings"));
+    assertEquals(
+        written.get("resolvedTextSha256").asText(),
+        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
+            .sha256Hex("the body"));
+  }
+
+  private void enableDocumentSemanticStrategy() {
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(true);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    ModelEmbeddingConfig model = new ModelEmbeddingConfig();
+    model.setVectorDimension(1024);
+    semanticConfig.setModels(Map.of("cohere_embed_v3", model));
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(),
+            false,
+            semanticConfig);
+  }
+
+  private ObjectNode capturedDocument(String searchGroup) throws Exception {
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq(searchGroup), documentCaptor.capture(), anyString());
+    return (ObjectNode)
+        new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
   }
 }

@@ -608,9 +608,9 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     """
     from datahub.configuration.common import GraphError
 
-    # Full query includes vertexProviderConfig (added in DataHub v0.15+).
-    # Older servers reject it with FieldUndefined; we fall back to the base
-    # query in that case rather than propagating a confusing schema error.
+    # Full query includes vertexProviderConfig (v0.15+) and entityIndexV3. Older
+    # servers reject unknown fields with FieldUndefined; we fall back to the base
+    # query rather than propagating a confusing schema error.
     _QUERY_FULL = """
         query getSemanticSearchConfig {
           appConfig {
@@ -636,6 +636,7 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
           }
         }
     """
+    # Oldest GMS schemas: no vertexProviderConfig, no entityIndexV3.
     _QUERY_BASE = """
         query getSemanticSearchConfig {
           appConfig {
@@ -651,9 +652,6 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
                 }
               }
             }
-            entityIndexV3 {
-              enabled
-            }
           }
         }
     """
@@ -665,11 +663,12 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             strip_unsupported_fields=True,
         )
     except GraphError as e:
-        # Older servers don't have vertexProviderConfig in their schema. When the
-        # graphql-core library is absent, strip_unsupported_fields is a no-op and
-        # the full query reaches the server, which rejects it with FieldUndefined.
-        # Retry with the base query — vertex fields will simply be None.
-        if "vertexProviderConfig" in str(e) and "FieldUndefined" in str(e):
+        # When graphql-core is absent, strip_unsupported_fields is a no-op and the
+        # full query reaches the server. Retry without the newer fields.
+        error_text = str(e)
+        if "FieldUndefined" in error_text and (
+            "vertexProviderConfig" in error_text or "entityIndexV3" in error_text
+        ):
             response = graph.execute_graphql(
                 query=_QUERY_BASE,
                 operation_name="getSemanticSearchConfig",

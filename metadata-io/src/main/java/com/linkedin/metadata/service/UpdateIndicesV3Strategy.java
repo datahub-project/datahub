@@ -520,18 +520,17 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         }
       }
     }
-    String stampAspectName =
+    boolean shouldStamp =
         events.stream()
             .map(MCLItem::getAspectName)
-            .filter(
-                name ->
-                    SearchDocumentTransformer.SEMANTIC_DATA_ASPECTS.contains(name)
-                        || Constants.DOCUMENT_INFO_ASPECT_NAME.equals(name)
-                        || Constants.SEMANTIC_TEXT_ASPECT_NAME.equals(name))
-            .findFirst()
-            .orElse("semanticContent");
+            .anyMatch(SemanticDocumentProvenance::isStampEligibleAspect);
+    if (!shouldStamp) {
+      return;
+    }
+    // Combined V3 docs keep embed text under _aspects, so stamp as semanticContent (fetch both
+    // sides) regardless of which content aspect arrived first in the batch.
     SemanticDocumentProvenance.stampResolvedTextSha256(
-        opContext, urn, entityType, stampAspectName, combinedDocument);
+        opContext, urn, entityType, "semanticContent", combinedDocument);
   }
 
   private void applyDocumentContributors(

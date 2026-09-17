@@ -7,6 +7,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import io.datahubproject.metadata.context.OperationContext;
 import java.nio.charset.StandardCharsets;
@@ -32,6 +33,10 @@ public final class SemanticDocumentProvenance {
    * See {@code UpdateIndicesV2Strategy.withResolvedTextSha256} for the full contract: document
    * entities only; semanticText override wins over document body; semanticContent projections fetch
    * both sides; retrieval failure writes JSON null.
+   *
+   * <p>V3 document-entity search docs keep embed text under {@code _aspects} rather than at the
+   * root. {@code documentInfo} and {@code semanticText} are stamp-eligible (same as {@code
+   * semanticContent}) so those MCLs restamp coverage hashes after embed-text changes.
    */
   public static void stampResolvedTextSha256(
       @Nonnull OperationContext opContext,
@@ -42,23 +47,35 @@ public final class SemanticDocumentProvenance {
     if (!Constants.DOCUMENT_ENTITY_NAME.equals(entityName)) {
       return;
     }
-    boolean hasOverrideField = document.has(SEMANTIC_TEXT_FIELD);
-    boolean hasBodyField = document.has(BODY_TEXT_FIELD);
-    boolean isSemanticContentAspect =
-        SearchDocumentTransformer.SEMANTIC_DATA_ASPECTS.contains(aspectName);
-    if (!hasOverrideField && !hasBodyField && !isSemanticContentAspect) {
+    boolean hasRootOverride = document.has(SEMANTIC_TEXT_FIELD);
+    boolean hasNestedOverride = hasNestedSemanticTextField(document);
+    boolean hasRootBody = document.has(BODY_TEXT_FIELD);
+    boolean hasNestedBody = hasNestedDocumentBodyField(document);
+    boolean isStampEligibleAspect = isStampEligibleAspect(aspectName);
+    if (!hasRootOverride
+        && !hasNestedOverride
+        && !hasRootBody
+        && !hasNestedBody
+        && !isStampEligibleAspect) {
       return;
     }
     try {
-      String override =
-          hasOverrideField
-              ? textValue(document.get(SEMANTIC_TEXT_FIELD))
-              : fetchSemanticTextOverride(opContext, urn);
+      String override;
+      if (hasRootOverride) {
+        override = textValue(document.get(SEMANTIC_TEXT_FIELD));
+      } else if (hasNestedOverride) {
+        override = nestedSemanticTextValue(document);
+      } else {
+        override = fetchSemanticTextOverride(opContext, urn);
+      }
       final String resolved;
       if (override != null && !override.isEmpty()) {
         resolved = override;
-      } else if (hasBodyField) {
+      } else if (hasRootBody) {
         String body = textValue(document.get(BODY_TEXT_FIELD));
+        resolved = body != null ? body : "";
+      } else if (hasNestedBody) {
+        String body = nestedDocumentBodyValue(document);
         resolved = body != null ? body : "";
       } else {
         String body = fetchDocumentBodyText(opContext, urn);
@@ -107,6 +124,68 @@ public final class SemanticDocumentProvenance {
     }
     Object text = ((DataMap) contents).get("text");
     return text != null ? text.toString() : null;
+  }
+
+  public static boolean isStampEligibleAspect(@Nullable String aspectName) {
+    if (aspectName == null) {
+      return false;
+    }
+    return SearchDocumentTransformer.SEMANTIC_DATA_ASPECTS.contains(aspectName)
+        || Constants.DOCUMENT_INFO_ASPECT_NAME.equals(aspectName)
+        || Constants.SEMANTIC_TEXT_ASPECT_NAME.equals(aspectName);
+  }
+
+  private static boolean hasNestedSemanticTextField(@Nonnull ObjectNode document) {
+    JsonNode aspect = nestedAspect(document, Constants.SEMANTIC_TEXT_ASPECT_NAME);
+    return aspect != null && (aspect.has(SEMANTIC_TEXT_FIELD) || aspect.has(BODY_TEXT_FIELD));
+  }
+
+  private static boolean hasNestedDocumentBodyField(@Nonnull ObjectNode document) {
+    JsonNode aspect = nestedAspect(document, Constants.DOCUMENT_INFO_ASPECT_NAME);
+    if (aspect == null) {
+      return false;
+    }
+    if (aspect.has(BODY_TEXT_FIELD)) {
+      return true;
+    }
+    JsonNode contents = aspect.get("contents");
+    return contents != null && contents.isObject() && contents.has(BODY_TEXT_FIELD);
+  }
+
+  @Nullable
+  private static String nestedSemanticTextValue(@Nonnull ObjectNode document) {
+    JsonNode aspect = nestedAspect(document, Constants.SEMANTIC_TEXT_ASPECT_NAME);
+    if (aspect == null) {
+      return null;
+    }
+    String searchable = textValue(aspect.get(SEMANTIC_TEXT_FIELD));
+    return searchable != null ? searchable : textValue(aspect.get(BODY_TEXT_FIELD));
+  }
+
+  @Nullable
+  private static String nestedDocumentBodyValue(@Nonnull ObjectNode document) {
+    JsonNode aspect = nestedAspect(document, Constants.DOCUMENT_INFO_ASPECT_NAME);
+    if (aspect == null) {
+      return null;
+    }
+    String searchable = textValue(aspect.get(BODY_TEXT_FIELD));
+    if (searchable != null) {
+      return searchable;
+    }
+    JsonNode contents = aspect.get("contents");
+    return contents != null && contents.isObject()
+        ? textValue(contents.get(BODY_TEXT_FIELD))
+        : null;
+  }
+
+  @Nullable
+  private static JsonNode nestedAspect(@Nonnull ObjectNode document, @Nonnull String aspectName) {
+    JsonNode aspects = document.get(MappingConstants.ASPECTS_FIELD_NAME);
+    if (aspects == null || !aspects.isObject()) {
+      return null;
+    }
+    JsonNode aspect = aspects.get(aspectName);
+    return aspect != null && aspect.isObject() ? aspect : null;
   }
 
   @Nullable
