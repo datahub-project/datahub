@@ -1143,7 +1143,7 @@ Like `dataplatform2instance`, this command migrates datasets, charts, dashboards
 When the target entity already exists, the command uses a strategy controlled by `--on-conflict`
 (see [Conflict strategies](#conflict-strategies) below).
 
-**Merge limitation**: Full aspect-level merge (via the Patch API) is only supported for **dataset** entities. For charts, dashboards, dataflows, and datajobs, the merge path falls back to overwrite when the target entity already exists.
+**Merge behavior by entity type**: For **dataset** entities the full aspect-level merge runs (additive union of ownership/tags/terms/structured properties, plus scalar conflict resolution driven by `--on-conflict`). For other entity types (charts, dashboards, dataflows, datajobs) the union-able aspects (ownership, tags, terms, structured properties) are merged additively and every other aspect is handled conflict-aware — the target's value is kept on conflict unless you pass `--on-conflict overwrite` (or resolve interactively with `prompt`). An explicit `--on-conflict overwrite` still fully replaces the existing target for those types.
 
 **Container limitation**: Containers are migrated via a separate legacy code path that always overwrites the target. `--on-conflict`, `--skip-on-error`, and `--checkpoint-file` apply only to the entity migration (datasets, charts, dashboards, dataflows, datajobs) — not to containers. In practice this is rarely an issue: containers are a small bounded set per migration and are typically re-created by ingestion.
 
