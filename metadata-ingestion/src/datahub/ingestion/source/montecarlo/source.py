@@ -170,16 +170,11 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
                     ),
                     context=type_drift.summary(),
                 )
-            if type_drift.new_fields:
-                self.report.warning(
-                    title=f"Monte Carlo schema: new uningested fields ({type_drift.type_name})",
-                    message=(
-                        f"The live schema exposes fields the connector does not yet "
-                        f"request: {', '.join(type_drift.new_fields)}. Consider updating "
-                        "the connector to ingest them."
-                    ),
-                    context=f"new_fields={','.join(type_drift.new_fields)}",
-                )
+            # new_fields (live fields the connector does not request) are not
+            # warned: a GraphQL type normally exposes many fields the connector
+            # intentionally does not ingest, so warning on every healthy run
+            # would bury real drift in noise. The set is retained on TypeDrift
+            # for debug/diagnostic use only.
 
         if self.config.include_assertions:
             monitor_wus = self._emit(

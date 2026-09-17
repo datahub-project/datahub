@@ -170,9 +170,10 @@ class MonteCarloAssertionDef(BaseModel):
     monitor_type: Optional[str] = None
     rule_type: Optional[str] = None
     custom_sql: Optional[str] = None
-    # whereCondition is the renamed Monitor SQL predicate (customSql was
-    # removed from the Monitor type); assertion.py uses it as the custom_sql
-    # fallback so the assertion logic is still surfaced.
+    # whereCondition is a row-filter WHERE clause on metric/comparison
+    # monitors (customSql was removed from the Monitor type). It is NOT the
+    # monitor's SQL body, so assertion.py does not fold it into logic; it is
+    # retained on the def for completeness/future use only.
     where_condition: Optional[str] = None
     entity_mcons: List[str] = Field(default_factory=list)
     resource_id: Optional[str] = None

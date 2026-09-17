@@ -198,10 +198,14 @@ def _make_custom_assertion_info(
     profile page.
     """
     native_parameters = _native_parameters(definition)
-    # custom_sql was removed from the Monitor type; whereCondition is the
-    # renamed SQL predicate, used as the logic fallback so the assertion's
-    # SQL is still surfaced (CustomRule still exposes customSql directly).
-    logic: Optional[str] = definition.custom_sql or definition.where_condition
+    # logic carries the monitor's SQL body. Only custom_sql (exposed by
+    # CustomRule, and by the legacy Monitor type) is real SQL; whereCondition
+    # is a row-filter WHERE clause on metric/comparison monitors, not the
+    # query body, so it must NOT be folded into logic (it would render a
+    # filter predicate as if it were the monitor SQL). Monitor SQL that lived
+    # in the removed customSql field is no longer recoverable via the
+    # gateway; nativeParameters still carries severity/priority/etc.
+    logic: Optional[str] = definition.custom_sql
 
     comparisons = definition.comparisons
     if not comparisons:

@@ -250,9 +250,82 @@ def test_builder_falls_back_when_introspection_fails() -> None:
     # Fallback requests the renamed replacement fields, not the removed ones.
     assert "whereCondition" in query
     assert "priority" in query
+    # TABLE monitor fields not part of the known drift are kept in the fallback
+    # so those monitors still resolve warehouse assets and comparisons.
+    assert "resourceId" in query
+    assert "comparisons" in query
     assert any("introspection failed" in w for w in warnings)
     drift = builder.check_drift(strict=False, types=["Monitor"])
     assert drift.verdict == DriftVerdict.PROCEED
+
+
+def test_builder_fallback_does_not_poison_other_types() -> None:
+    # A failed __type call for one type must not force the others onto the
+    # fallback path or suppress their drift report.
+    calls: Dict[str, int] = {}
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        type_name = variables.get("name", "")
+        calls[type_name] = calls.get(type_name, 0) + 1
+        if type_name == "Monitor":
+            raise RuntimeError("transient blip on Monitor only")
+        if type_name == "Alert":
+            return _introspect_response(
+                {
+                    "id": "SCALAR:UUID",
+                    "type": "SCALAR:String",
+                    "subTypes": "SCALAR:String",
+                    "severity": "SCALAR:String",
+                    "priority": "SCALAR:String",
+                    "status": "SCALAR:String",
+                    "createdTime": "SCALAR:DateTime",
+                    "monitorUuids": "SCALAR:String",
+                    "assets": "OBJECT:AlertAsset",
+                }
+            )
+        if type_name == "AlertAsset":
+            return _introspect_response({"mcon": "SCALAR:String"})
+        return {"mc_type": {"fields": []}}
+
+    builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    monitor_q = builder.monitors_query()
+    # Monitor failed -> fallback (minimal selection, no customSql/severity).
+    assert "customSql" not in monitor_q
+    # Alert succeeds -> full dynamic selection, not the fallback.
+    alert_q = builder.alerts_query()
+    assert "id" in alert_q
+    assert "monitorUuids" in alert_q
+    drift = builder.check_drift(strict=False, types=["Monitor", "Alert"])
+    assert drift.per_type["Monitor"].verdict == DriftVerdict.PROCEED
+    assert drift.per_type["Alert"].verdict == DriftVerdict.PROCEED
+    # Monitor failed but Alert was still introspected.
+    assert "Alert" in calls
+
+
+def test_builder_only_introspects_desired_nested_types() -> None:
+    # The connector must not introspect object fields it does not request
+    # (avoids burning the daily budget on unused nested types).
+    introspected: List[str] = []
+    monitor_shape = _live_monitor_shape()
+    # Add an object field the connector does NOT request.
+    monitor_shape["unusedObject"] = "OBJECT:UnusedNestedType"
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        type_name = variables.get("name", "")
+        introspected.append(type_name)
+        if type_name == "Monitor":
+            return _introspect_response(monitor_shape)
+        if type_name == "Comparison":
+            return _introspect_response(
+                {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
+            )
+        return {"mc_type": {"fields": []}}
+
+    builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    builder.monitors_query()
+    assert "Monitor" in introspected
+    assert "Comparison" in introspected  # desired nested type
+    assert "UnusedNestedType" not in introspected  # not desired -> not introspected
 
 
 def test_builder_propagates_fatal_introspection_errors() -> None:
@@ -429,8 +502,12 @@ def test_native_parameters_severity_preferred_over_priority() -> None:
     assert params["severity"] == "CRITICAL"
 
 
-def test_custom_assertion_logic_falls_back_to_where_condition() -> None:
-    # customSql removed from Monitor -> whereCondition carries the SQL predicate.
+def test_custom_assertion_logic_omits_where_condition() -> None:
+    # whereCondition is a row-filter WHERE clause on metric/comparison
+    # monitors, NOT the monitor's SQL body. It must not be folded into logic
+    # (rendering a filter predicate as if it were the monitor SQL). With
+    # customSql removed from the Monitor type, the SQL is unrecoverable and
+    # logic stays None.
     definition = _definition(
         custom_sql=None, where_condition="amount > 100", monitor_type="CUSTOM_SQL"
     )
@@ -439,11 +516,12 @@ def test_custom_assertion_logic_falls_back_to_where_condition() -> None:
         native_type="CUSTOM_SQL",
         definition=definition,
     )
-    assert info.logic == "amount > 100"
+    assert info.logic is None
 
 
-def test_custom_assertion_logic_prefers_custom_sql_when_present() -> None:
-    # On CustomRule (which still exposes customSql), it is preferred.
+def test_custom_assertion_logic_uses_custom_sql_when_present() -> None:
+    # On CustomRule (which still exposes customSql), it is the real SQL body
+    # and populates logic; whereCondition is ignored for logic even if set.
     definition = _definition(
         custom_sql="SELECT 1", where_condition="x > 0", rule_type="CUSTOM_SQL"
     )
