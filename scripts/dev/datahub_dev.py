@@ -530,6 +530,20 @@ def _dev_env() -> Dict[str, str]:
     env["DATAHUB_LOCAL_COMMON_ENV"] = str(DEV_ENV_FILE)
     # Only inject if not already set (respects explicit user override)
     env.setdefault("COMPOSE_PROJECT_NAME", COMPOSE_PROJECT)
+    # Remote runners also use Compose; keep this default exclusive to local development.
+    if (
+        not RUNNER
+        and not REMOTE_EXEC
+        and "KUBERNETES_SERVICE_HOST" not in env
+        and not re.search(
+            r"^\s*(?:DATAHUB_LOCAL_GMS_ENV|KUBERNETES_SERVICE_HOST)\s*=",
+            DEV_ENV_FILE.read_text(),
+            re.MULTILINE,
+        )
+    ):
+        env.setdefault(
+            "DATAHUB_LOCAL_GMS_ENV", str(REPO_ROOT / "scripts/dev/gms-local.env")
+        )
     return env
 
 
