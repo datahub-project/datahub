@@ -1,13 +1,15 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Dict, List, Optional, Sequence, Set
 
 from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.ingestion.agent.introspect import (
     declared_qualifier,
     pattern_field_for_config,
 )
+from datahub.ingestion.agent.probe_methods import config_class_for, list_probe_methods
 from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
     ClassifyContext,
@@ -101,7 +103,7 @@ class FilterCheckResult:
         }
 
 
-def _match_target(config: Any, kind: str, ctx: ClassifyContext) -> str:
+def _match_target(config: object, kind: str, ctx: ClassifyContext) -> str:
     """The string this connector's ingestion would filter on for one node.
 
     Resolved by asking the config, never by re-deriving it here: the SQL family
@@ -169,7 +171,7 @@ def _match_target(config: Any, kind: str, ctx: ClassifyContext) -> str:
 
 
 def _needs_parent_for_qualified_match(
-    config: Any, kind: str, parent_path: Sequence[str]
+    config: object, kind: str, parent_path: Sequence[str]
 ) -> bool:
     """Whether this verdict was reached on a bare name that should be qualified.
 
@@ -202,7 +204,7 @@ def _needs_parent_for_qualified_match(
 
 
 def _structural_verdict(
-    config: Any,
+    config: object,
     kind: str,
     name: str,
     pattern_field: Optional[str],
@@ -276,7 +278,7 @@ def _structural_verdict(
     return None
 
 
-def _qualified_container(config: Any, parent_path: Sequence[str]) -> Optional[str]:
+def _qualified_container(config: object, parent_path: Sequence[str]) -> Optional[str]:
     """The container a qualified schema name is built from.
 
     The caller's wins: a recipe may span several databases or projects, and
@@ -297,7 +299,7 @@ def _qualified_container(config: Any, parent_path: Sequence[str]) -> Optional[st
 
 
 def _qualified_schema_match(
-    config: Any,
+    config: object,
     name: str,
     pattern_field: Optional[str],
     parent_path: Sequence[str],
@@ -329,16 +331,13 @@ def _qualified_schema_match(
     pattern = getattr(config, pattern_field, None)
     if not isinstance(pattern, AllowDenyPattern):
         return None
-    # lazy: pattern_utils is cheap, but this keeps the import next to its one use
-    from datahub.configuration.pattern_utils import is_schema_allowed
-
     return SchemaMatch(
         included=is_schema_allowed(pattern, name, container, True),
         target=f"{container}.{name}",
     )
 
 
-def _canonical_kind(source_type: str, config: Any, kind: str) -> str:
+def _canonical_kind(source_type: str, config: object, kind: str) -> str:
     """The declared spelling of a kind the caller may have cased differently.
 
     `--kind` was compared two ways at once. The `<kind>_pattern` name
@@ -366,7 +365,7 @@ def _canonical_kind(source_type: str, config: Any, kind: str) -> str:
     return kind
 
 
-def _declared_kinds(source_type: str, config: Any) -> Set[str]:
+def _declared_kinds(source_type: str, config: object) -> Set[str]:
     """The kinds this source's probe methods name, as far as is knowable without
     a connection.
 
@@ -375,8 +374,6 @@ def _declared_kinds(source_type: str, config: Any) -> Set[str]:
     one), which is why probe_container_kind is consulted here rather than read
     off a provider instance -- building one of those needs a connection.
     """
-    from datahub.ingestion.agent.probe_methods import list_probe_methods
-
     kinds = {spec.kind for spec in list_probe_methods(source_type) if spec.kind}
     container_kind = getattr(config, "probe_container_kind", None)
     if callable(container_kind):
@@ -403,8 +400,6 @@ def check_filters(
     (from `probe sql`, or from anywhere else). `try_allow`/`try_deny` answer
     the "what if I changed the pattern" question without editing the recipe.
     """
-    from datahub.ingestion.agent.probe_methods import config_class_for
-
     config_cls = config_class_for(source_type)
     if config_cls is None:
         raise ValueError(f"unknown source type '{source_type}'")
@@ -471,6 +466,11 @@ def check_filters(
             deny=list(try_deny) if try_deny else list(recipe_pattern.deny),
         )
         tried = {"allow": list(pattern.allow), "deny": list(pattern.deny)}
+        # Snapshotted before the connector's validators can touch `pattern`:
+        # they may rewrite it in place, and this is what "as the caller wrote
+        # it" has to mean when we compare afterwards.
+        requested_allow = list(pattern.allow)
+        requested_deny = list(pattern.deny)
         if pattern_field is not None:
             # The hypothetical has to reach the STRUCTURAL rules too, not just
             # the pattern comparison below. Redshift's and BigQuery's
@@ -526,6 +526,38 @@ def check_filters(
                     f"below judge it exactly as given; this is a defect in "
                     f"the connector, not in the pattern"
                 )
+            else:
+                # Re-read the pattern the config actually ended up with.
+                # Pydantic passes the same AllowDenyPattern instance through,
+                # so an after-validator that rewrites it IN PLACE is already
+                # visible on `pattern` -- but one that ASSIGNS a new pattern
+                # would leave `pattern` stale, and the verdicts below are
+                # computed from `pattern` rather than from the config.
+                effective = getattr(config, pattern_field)
+                if isinstance(effective, AllowDenyPattern):
+                    pattern = effective
+                    if (list(effective.allow), list(effective.deny)) != (
+                        requested_allow,
+                        requested_deny,
+                    ):
+                        # `tried` deliberately keeps echoing what the caller
+                        # asked for: that is the string to put in the recipe,
+                        # which would be normalized the same way. But without
+                        # saying so the result is unreadable -- BigQuery
+                        # reports target `proj.analytics`, allow
+                        # `['^analytics$']` and verdict INCLUDED, three facts
+                        # that cannot all be true of the pattern as printed.
+                        # Only the connector's log said a rewrite happened,
+                        # and an agent reads `warnings`, not the log.
+                        warn(
+                            f"this source normalized that pattern before "
+                            f"matching: allow "
+                            f"{list(effective.allow)}, deny "
+                            f"{list(effective.deny)}. The verdicts below use "
+                            f"the normalized form, and `tried` shows what to "
+                            f"write in the recipe -- which this source would "
+                            f"normalize the same way."
+                        )
     else:
         pattern = recipe_pattern
 

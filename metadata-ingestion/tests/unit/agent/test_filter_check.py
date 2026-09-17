@@ -66,16 +66,16 @@ def test_a_deny_in_the_recipe_is_reported_against_the_field_that_decided():
         names=TABLES,
     )
     by_name = {r.name: r for r in result.results}
-    assert by_name["audit_log_v2"].included is False
+    assert not by_name["audit_log_v2"].included
     assert by_name["audit_log_v2"].excluded_by == "table_pattern"
-    assert by_name["orders"].included is True
+    assert by_name["orders"].included
 
 
 def test_try_deny_overrides_the_recipes_own_pattern():
     result = _check(TABLES, try_deny=["^information_schema\\.orders$"])
     by_name = {r.name: r.included for r in result.results}
-    assert by_name["orders"] is False
-    assert by_name["users"] is True
+    assert not by_name["orders"]
+    assert by_name["users"]
 
 
 def test_an_anchored_bare_name_pattern_matches_nothing():
@@ -89,8 +89,8 @@ def test_an_anchored_bare_name_pattern_matches_nothing():
 def test_the_same_pattern_qualified_matches():
     result = _check(TABLES, try_allow=["^information_schema\\.orders$"])
     by_name = {r.name: r.included for r in result.results}
-    assert by_name["orders"] is True
-    assert by_name["users"] is False
+    assert by_name["orders"]
+    assert not by_name["users"]
 
 
 def test_a_kind_with_no_filter_reports_every_name_included():
@@ -199,7 +199,7 @@ def test_a_source_that_filters_on_a_qualified_identifier_still_asks():
         parent_path=[],
         names=["orders"],
     )
-    assert without.results[0].included is False
+    assert not without.results[0].included
     assert any("qualified identifier" in w for w in without.warnings)
 
     with_parent = check_filters(
@@ -210,7 +210,7 @@ def test_a_source_that_filters_on_a_qualified_identifier_still_asks():
         names=["orders"],
     )
     assert with_parent.results[0].target == "analytics.orders"
-    assert with_parent.results[0].included is True
+    assert with_parent.results[0].included
     assert with_parent.warnings == []
 
 
@@ -297,7 +297,7 @@ def test_the_unfiltered_sentinel_is_an_include_not_a_field_name():
     composable, so the guard belongs in both."""
 
     v = pattern_verdict(object(), UNFILTERED, "anything")
-    assert v.included is True
+    assert v.included
     assert v.excluded_by is None
 
 
@@ -425,7 +425,7 @@ def test_an_override_that_cannot_answer_says_so():
         names=["ds1"],
     )
     assert answered.results[0].target == "p1.ds1"
-    assert answered.results[0].included is True
+    assert answered.results[0].included
 
 
 def test_the_warning_is_absent_when_the_override_could_answer():
@@ -461,7 +461,7 @@ def test_redshift_ignores_the_parent_and_uses_its_own_database():
         names=["analytics"],
     )
     assert result.results[0].target == "prod.analytics"
-    assert result.results[0].included is True
+    assert result.results[0].included
 
 
 @pytest.mark.parametrize("source_type", ["postgres", "mssql"])
@@ -540,7 +540,7 @@ def test_a_two_tier_source_has_no_schema_level_and_says_so():
         names=["other_db"],
     )
     assert as_database.pattern_field == "database_pattern"
-    assert as_database.results[0].included is False
+    assert not as_database.results[0].included
 
 
 # --- a kind switched off wholesale is not a pattern question ----------------
@@ -561,7 +561,7 @@ def test_a_view_is_excluded_when_the_recipe_switched_views_off():
         names=["some_view"],
     )
     verdict = result.results[0]
-    assert verdict.included is False
+    assert not verdict.included
     # Named, so a caller editing the recipe changes the line that decided --
     # reporting view_pattern here would send them to edit a pattern that had
     # no say.
@@ -576,7 +576,7 @@ def test_a_table_is_excluded_when_the_recipe_switched_tables_off():
         parent_path=["information_schema"],
         names=["orders"],
     )
-    assert result.results[0].included is False
+    assert not result.results[0].included
     assert result.results[0].excluded_by == "include_tables"
 
 
@@ -590,7 +590,7 @@ def test_the_flag_for_one_kind_does_not_decide_the_other():
         parent_path=["information_schema"],
         names=["orders"],
     )
-    assert result.results[0].included is True
+    assert result.results[0].included
 
 
 def test_the_flag_defaults_to_on_so_ordinary_recipes_are_unaffected():
@@ -604,7 +604,7 @@ def test_the_flag_defaults_to_on_so_ordinary_recipes_are_unaffected():
         parent_path=["information_schema"],
         names=["some_view"],
     )
-    assert result.results[0].included is True
+    assert result.results[0].included
     assert result.results[0].excluded_by is None
 
 
@@ -633,7 +633,7 @@ def test_try_allow_reaches_a_source_that_decides_structurally():
         parent_path=[],
         names=["public"],
     )
-    assert unchanged.results[0].included is False
+    assert not unchanged.results[0].included
 
     hypothetical = check_filters(
         source_type="redshift",
@@ -643,7 +643,7 @@ def test_try_allow_reaches_a_source_that_decides_structurally():
         names=["public"],
         try_allow=[".*"],
     )
-    assert hypothetical.results[0].included is True, (
+    assert hypothetical.results[0].included, (
         "--try-allow was echoed in `tried` but not applied"
     )
 
@@ -705,7 +705,7 @@ def test_a_crashing_validator_is_not_reported_as_a_rejected_pattern(monkeypatch)
     assert blamed_the_connector, result.warnings
     assert "RuntimeError" in blamed_the_connector[0]
     # And it still answers, rather than failing the command outright.
-    assert result.results[0].included is True
+    assert result.results[0].included
 
 
 def test_try_deny_alone_keeps_the_recipes_allow_list():
@@ -722,7 +722,7 @@ def test_try_deny_alone_keeps_the_recipes_allow_list():
         try_deny=["^zzz"],
     )
     assert result.tried == {"allow": ["^analytics$"], "deny": ["^zzz"]}
-    assert result.results[0].included is False
+    assert not result.results[0].included
     assert result.results[0].excluded_by == "database_pattern"
 
 
@@ -738,8 +738,8 @@ def test_try_allow_alone_keeps_the_recipes_deny_list():
     )
     assert result.tried == {"allow": [".*"], "deny": ["^secret_db$"]}
     by_name = {v.name: v for v in result.results}
-    assert by_name["secret_db"].included is False
-    assert by_name["analytics"].included is True
+    assert not by_name["secret_db"].included
+    assert by_name["analytics"].included
 
 
 # --- one spelling of --kind ------------------------------------------------
@@ -765,7 +765,7 @@ def test_kind_casing_does_not_change_the_verdict(kind):
         parent_path=["public"],
         names=["orders"],
     )
-    assert result.results[0].included is False
+    assert not result.results[0].included
     assert result.results[0].excluded_by == "include_tables"
 
 
@@ -849,6 +849,37 @@ def test_a_hypothetical_pattern_is_normalized_the_way_the_recipe_would_be():
     ]
     # `tried` still echoes what the caller asked for, not the rewritten form.
     assert hypothetical.tried == {"allow": ["^analytics$"], "deny": []}
+    # ...and because it does, the normalization is SAID. Without it the three
+    # reported facts cannot all be true of the pattern as printed: target
+    # `proj1.analytics`, allow `['^analytics$']`, verdict INCLUDED. Only
+    # BigQuery's own logger mentioned the rewrite, and an agent reads
+    # `warnings`, not the executor log.
+    assert any("normalized that pattern" in w for w in hypothetical.warnings), (
+        hypothetical.warnings
+    )
+    # The rewritten form is shown, not just the fact of a rewrite: `.*` is
+    # in the normalized pattern and not in the one the caller wrote.
+    assert any(".*" in w for w in hypothetical.warnings)
+    assert not any(".*" in p for p in hypothetical.tried["allow"])
+
+
+def test_a_source_that_does_not_rewrite_the_pattern_says_nothing_about_it():
+    """The warning above must not fire for every --try-allow.
+
+    Postgres installs the hypothetical unchanged, so there is nothing to
+    explain and a warning would be noise the caller learns to ignore.
+    """
+    result = check_filters(
+        source_type="postgres",
+        config_dict={"host_port": "h:5432", "database": "d", "username": "u"},
+        kind="Schema",
+        parent_path=[],
+        names=["public"],
+        try_allow=["^public$"],
+    )
+
+    assert result.tried == {"allow": ["^public$"], "deny": ["information_schema"]}
+    assert not [w for w in result.warnings if "normalized" in w]
 
 
 def test_an_explicit_schema_override_beats_the_shared_convention():
