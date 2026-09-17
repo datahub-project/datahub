@@ -40,13 +40,52 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     unresolved_visualizations: int = 0
     visualizations_suppressed_ambiguous: int = 0
     visualizations_bound_by_derived_objects: int = 0
+    visualizations_bound_by_column_sets: int = 0
+    column_sets_unbound: int = 0
+    derived_metric_fields_scanned: int = 0
+    derived_metrics_unattached: int = 0
+    report_derived_metrics_extracted: int = 0
+    report_definition_failures: int = 0
+    # Modeling report definition failed but the v2 definition answered: the
+    # derived metrics keep their names but lose their formulas.
+    report_model_definition_failures: int = 0
+    report_model_definition_failure_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    # Modeling report definition answered with derived metrics, none of which
+    # carried an expression the connector could read.
+    report_definitions_without_expressions: int = 0
+    # Modeling report definition answered but the connector found no derived
+    # metric definition in it at all, so the v2 definition supplied the names.
+    report_model_definitions_empty: int = 0
+    # Report-level derived metrics whose formula the report definition did not
+    # carry but GET /api/model/metrics/{id} did.
+    report_derived_metric_models_resolved: int = 0
+    metric_formula_lineage_edges: int = 0
+    metric_formula_refs_unresolved: int = 0
+    metric_formula_unresolved_ref_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
     warehouse_upstreams_pruned_by_field_evidence: int = 0
+    predefined_folder_labels_resolved: int = 0
+    # Personal (per-user profile) folder handling: how many projects resolved
+    # the Profiles root by id (else name fallback), and the dashboards,
+    # documents and reports skipped because they live under it.
+    personal_folder_roots_resolved: int = 0
+    personal_folder_objects_skipped: int = 0
+    personal_folder_objects_skipped_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    dataset_object_lookups: int = 0
+    dataset_object_lookup_failures: int = 0
     api_errors: int = 0
     malformed_objects_skipped: LossyList[str] = field(default_factory=LossyList)
     filtered_projects: LossyList[str] = field(default_factory=LossyList)
     filtered_dashboards: LossyList[str] = field(default_factory=LossyList)
     filtered_reports: LossyList[str] = field(default_factory=LossyList)
     sql_parse_failures: LossyList[str] = field(default_factory=LossyList)
+    sql_parse_failure_count: int = 0
+    sql_views_parsed: int = 0
     sql_view_rows_unmatched: int = 0
     sql_view_rows_without_context: int = 0
     sql_views_without_statement: int = 0
@@ -137,6 +176,46 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_visualizations_bound_by_derived_objects(self, count: int) -> None:
         self.visualizations_bound_by_derived_objects += count
 
+    def report_visualization_bound_by_column_sets(self) -> None:
+        self.visualizations_bound_by_column_sets += 1
+
+    def report_column_sets_unbound(self, count: int) -> None:
+        self.column_sets_unbound += count
+
+    def report_derived_metric_field(self) -> None:
+        self.derived_metric_fields_scanned += 1
+
+    def report_derived_metric_unattached(self) -> None:
+        self.derived_metrics_unattached += 1
+
+    def report_report_derived_metrics_extracted(self, count: int) -> None:
+        self.report_derived_metrics_extracted += count
+
+    def report_report_definition_failure(self) -> None:
+        self.report_definition_failures += 1
+
+    def report_report_model_definition_failure(self, context: str) -> None:
+        self.report_model_definition_failures += 1
+        self.report_model_definition_failure_samples.append(context)
+
+    def report_report_definition_without_expressions(self) -> None:
+        self.report_definitions_without_expressions += 1
+
+    def report_report_model_definition_empty(self) -> None:
+        self.report_model_definitions_empty += 1
+
+    def report_report_derived_metric_model_resolved(self) -> None:
+        self.report_derived_metric_models_resolved += 1
+
+    def report_metric_formula_lineage_edges(self, count: int) -> None:
+        self.metric_formula_lineage_edges += count
+
+    def report_metric_formula_refs_unresolved(self, count: int) -> None:
+        self.metric_formula_refs_unresolved += count
+
+    def report_metric_formula_unresolved_ref(self, context: str) -> None:
+        self.metric_formula_unresolved_ref_samples.append(context)
+
     def report_visualization_suppressed_ambiguous(self) -> None:
         self.visualizations_suppressed_ambiguous += 1
 
@@ -158,6 +237,22 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_warehouse_upstreams_pruned(self, count: int) -> None:
         self.warehouse_upstreams_pruned_by_field_evidence += count
 
+    def report_predefined_folder_labels_resolved(self, count: int) -> None:
+        self.predefined_folder_labels_resolved += count
+
+    def report_personal_folder_root_resolved(self) -> None:
+        self.personal_folder_roots_resolved += 1
+
+    def report_personal_folder_object_skipped(self, context: str) -> None:
+        self.personal_folder_objects_skipped += 1
+        self.personal_folder_objects_skipped_samples.append(context)
+
+    def report_dataset_object_lookup(self) -> None:
+        self.dataset_object_lookups += 1
+
+    def report_dataset_object_lookup_failure(self) -> None:
+        self.dataset_object_lookup_failures += 1
+
     def report_api_error(self) -> None:
         self.api_errors += 1
 
@@ -166,6 +261,10 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_sql_parse_failure(self, context: str) -> None:
         self.sql_parse_failures.append(context)
+        self.sql_parse_failure_count += 1
+
+    def report_sql_view_parsed(self) -> None:
+        self.sql_views_parsed += 1
 
     def report_sql_view_row_unmatched(self) -> None:
         self.sql_view_rows_unmatched += 1

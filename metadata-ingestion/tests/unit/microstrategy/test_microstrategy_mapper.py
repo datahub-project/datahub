@@ -1,8 +1,10 @@
+import json
 from typing import Dict, Iterable, Optional, Type, TypeVar
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
+    DERIVED_TAG_URN,
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
     TEMPORAL_TAG_URN,
@@ -12,15 +14,19 @@ from datahub.ingestion.source.microstrategy.mapper import MicroStrategyMapper
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
+    FolderPart,
     MetricEnrichment,
     MicroStrategyObject,
+    PredefinedFolderResolution,
     ReportDefinition,
+    ReportDerivedMetric,
     extract_folder_parts,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ContainerClass,
+    ContainerPropertiesClass,
     DashboardInfoClass,
     DatasetPropertiesClass,
     InputFieldsClass,
@@ -49,6 +55,15 @@ def _maybe_aspect(
         if aspect:
             return aspect
     return None
+
+
+def _container_names(workunits: Iterable[MetadataWorkUnit]) -> Dict[str, str]:
+    names: Dict[str, str] = {}
+    for workunit in workunits:
+        properties = workunit.get_aspect_of_type(ContainerPropertiesClass)
+        if properties:
+            names[workunit.get_urn()] = properties.name
+    return names
 
 
 def _tag_urns(field: SchemaFieldClass) -> set[str]:
@@ -121,15 +136,21 @@ def _mapper(
     extract_warehouse_lineage: bool = False,
     extract_report_sql_lineage: bool = False,
     metric_glossary_term_mapping: Optional[Dict[str, str]] = None,
+    folder_pattern: Optional[Dict[str, object]] = None,
+    extract_metric_formula_lineage: bool = False,
+    dataset_field_order: str = "report",
 ) -> MicroStrategyMapper:
     config = MicroStrategyConfig.model_validate(
         {
             "base_url": "https://mstr.example.com/MicroStrategyLibrary",
             "platform_instance": "prod",
+            "dataset_field_order": dataset_field_order,
             "emit_dashboard_dataset_edges": emit_dashboard_dataset_edges,
             "extract_warehouse_lineage": extract_warehouse_lineage,
             "extract_report_sql_lineage": extract_report_sql_lineage,
             "metric_glossary_term_mapping": metric_glossary_term_mapping or {},
+            "extract_metric_formula_lineage": extract_metric_formula_lineage,
+            **({"folder_pattern": folder_pattern} if folder_pattern else {}),
         }
     )
     return MicroStrategyMapper(config, MicroStrategyReport())
@@ -994,9 +1015,8 @@ def test_metric_expression_is_preserved_in_field_json_props() -> None:
     # The formula also renders in the field description as a markdown code
     # block, after any human-authored description.
     assert revenue.description is not None
-    assert revenue.description.endswith(
-        "**MicroStrategy expression:**\n\n```\nSum(Revenue)\n```"
-    )
+    assert revenue.description.endswith("```\nSum(Revenue)\n```")
+    assert "MicroStrategy expression" not in revenue.description
 
 
 def test_metric_description_without_expression_is_unchanged() -> None:
@@ -1014,7 +1034,7 @@ def test_metric_description_without_expression_is_unchanged() -> None:
     )
     revenue = next(field for field in schema.fields if field.fieldPath == "Revenue")
 
-    assert "MicroStrategy expression" not in (revenue.description or "")
+    assert "```" not in (revenue.description or "")
 
 
 def test_extract_folder_parts_from_search_result_payloads() -> None:
@@ -1022,21 +1042,27 @@ def test_extract_folder_parts_from_search_result_payloads() -> None:
     assert extract_folder_parts(
         {
             "ancestors": [
-                {"id": "f-1", "name": "Shared Reports"},
-                {"id": "f-2", "name": "Finance"},
+                {"id": "f-1", "name": "Public Objects"},
+                {"id": "f-2", "name": "Reports"},
             ]
         }
-    ) == ["Shared Reports", "Finance"]
-    assert extract_folder_parts({"location": "/Shared Reports/Finance"}) == [
-        "Shared Reports",
-        "Finance",
+    ) == [
+        FolderPart(name="Public Objects", id="f-1"),
+        FolderPart(name="Reports", id="f-2"),
     ]
-    assert extract_folder_parts({"folder": {"path": "/A/B"}}) == ["A", "B"]
+    assert extract_folder_parts({"location": "/Shared Reports/Finance"}) == [
+        FolderPart(name="Shared Reports"),
+        FolderPart(name="Finance"),
+    ]
+    assert extract_folder_parts({"folder": {"path": "/A/B"}}) == [
+        FolderPart(name="A"),
+        FolderPart(name="B"),
+    ]
     assert extract_folder_parts({"name": "no folder info"}) == []
     # Malformed ancestors fall back to location.
     assert extract_folder_parts(
         {"ancestors": ["not-a-dict"], "location": "/Fallback"}
-    ) == ["Fallback"]
+    ) == [FolderPart(name="Fallback")]
 
 
 def test_gen_folder_containers_chain_and_deepest_folder_parent() -> None:
@@ -1063,6 +1089,70 @@ def test_gen_folder_containers_chain_and_deepest_folder_parent() -> None:
     )
 
 
+def test_gen_folder_containers_without_folder_labels_uses_raw_name() -> None:
+    # No folder_labels passed (the pre-feature/opt-out case): raw metadata names
+    # are used untouched, even though the ancestor id is present and would match.
+    mapper = _mapper()
+    dashboard_object = MicroStrategyObject.model_validate(
+        {
+            "id": "dash-1",
+            "name": "Sales Dashboard",
+            "ancestors": [{"id": "reports-folder-id", "name": "Reports"}],
+        }
+    )
+    raw_key = mapper.folder_key("project-1", "Reports")
+
+    workunits = list(mapper.gen_folder_containers("project-1", dashboard_object))
+    names = _container_names(workunits)
+
+    assert names[raw_key.as_urn()] == "Reports"
+    assert (
+        mapper.folder_container_for_dashboard("project-1", dashboard_object) == raw_key
+    )
+
+
+def test_gen_folder_containers_resolves_predefined_folder_label_everywhere() -> None:
+    # The resolved label must feed pattern matching, container identity, AND
+    # display name identically -- not just the display name.
+    mapper = _mapper(folder_pattern={"deny": ["^Reports$"]})
+    dashboard_object = MicroStrategyObject.model_validate(
+        {
+            "id": "dash-1",
+            "name": "Sales Dashboard",
+            "ancestors": [
+                {"id": "public-objects-id", "name": "Public Objects"},
+                {"id": "reports-folder-id", "name": "Reports"},
+            ],
+        }
+    )
+    # Keys are normalized ids; the ancestor payload's casing must not matter.
+    folder_labels = PredefinedFolderResolution(
+        labels={"REPORTS-FOLDER-ID": "Shared Reports"}, hidden_ids=set()
+    )
+    resolved_key = mapper.folder_key("project-1", "Public Objects/Shared Reports")
+    raw_key = mapper.folder_key("project-1", "Public Objects/Reports")
+
+    workunits = list(
+        mapper.gen_folder_containers(
+            "project-1", dashboard_object, predefined_folders=folder_labels
+        )
+    )
+    names = _container_names(workunits)
+
+    # Container identity uses the resolved name, not the raw one.
+    assert resolved_key.as_urn() in names
+    assert raw_key.as_urn() not in names
+    assert names[resolved_key.as_urn()] == "Shared Reports"
+    # folder_pattern matched against the resolved name ("Shared Reports"), so the
+    # deny rule targeting the raw name ("Reports") no longer applies.
+    assert (
+        mapper.folder_container_for_dashboard(
+            "project-1", dashboard_object, predefined_folders=folder_labels
+        )
+        == resolved_key
+    )
+
+
 def test_metric_glossary_term_mapping_attaches_term_to_schema_field() -> None:
     mapper = _mapper(
         metric_glossary_term_mapping={"Revenue": "urn:li:glossaryTerm:Revenue"}
@@ -1083,4 +1173,1404 @@ def test_metric_glossary_term_mapping_attaches_term_to_schema_field() -> None:
     assert revenue.glossaryTerms is not None
     assert [term.urn for term in revenue.glossaryTerms.terms] == [
         "urn:li:glossaryTerm:Revenue"
+    ]
+
+
+def _compound_grid_definition() -> DashboardDefinition:
+    """Single-page compound grid: two family datasets plus a combined one,
+    column groups named by family, one derived metric per group. The combined
+    group's name never matches its dataset, so it binds by elimination."""
+    return DashboardDefinition.from_api_response(
+        object_id="dash-grid",
+        object_name="Sales Overview",
+        response={
+            "definition": {
+                "datasets": [
+                    {
+                        "id": "ds-store",
+                        "name": "STORE SALES WTD",
+                        "availableObjects": {
+                            "metrics": [
+                                {"id": "M100", "name": "Net Amount"},
+                                {"id": "M200", "name": "Store Plan Amt"},
+                            ],
+                            "attributes": [
+                                {
+                                    "id": "A100",
+                                    "name": "Region Number",
+                                    "forms": [{"id": "F100", "name": "NUMBER"}],
+                                }
+                            ],
+                        },
+                    },
+                    {
+                        "id": "ds-web",
+                        "name": "WEB SALES WTD",
+                        "availableObjects": {
+                            "metrics": [
+                                {"id": "M100", "name": "Net Amount"},
+                                {"id": "M300", "name": "Web Plan Amt"},
+                            ],
+                            "attributes": [
+                                {
+                                    "id": "A100",
+                                    "name": "Region Number",
+                                    "forms": [{"id": "F100", "name": "NUMBER"}],
+                                }
+                            ],
+                        },
+                    },
+                    {
+                        "id": "ds-combined",
+                        "name": "COMBINED TOTALS WTD",
+                        "availableObjects": {
+                            "metrics": [
+                                {"id": "M100", "name": "Net Amount"},
+                                {"id": "M200", "name": "Store Plan Amt"},
+                                {"id": "M300", "name": "Web Plan Amt"},
+                            ],
+                            "attributes": [
+                                {
+                                    "id": "A100",
+                                    "name": "Region Number",
+                                    "forms": [{"id": "F100", "name": "NUMBER"}],
+                                }
+                            ],
+                        },
+                    },
+                ],
+                "chapters": [
+                    {
+                        "key": "ch-1",
+                        "name": "SALES",
+                        "pages": [
+                            {
+                                "key": "pg-wtd",
+                                "name": "WTD",
+                                "visualizations": [
+                                    {
+                                        "key": "viz-wtd",
+                                        "name": "Sales WTD",
+                                        "visualizationType": "compound_grid",
+                                        "runtimeDefinition": {
+                                            "definition": {
+                                                "grid": {
+                                                    "columnSets": [
+                                                        {
+                                                            "key": "cs-store",
+                                                            "name": "STORE",
+                                                            "columns": [
+                                                                {
+                                                                    "type": "templateMetrics",
+                                                                    "elements": [
+                                                                        {
+                                                                            "type": "metric",
+                                                                            "id": "M100",
+                                                                            "name": "Net Amount",
+                                                                        },
+                                                                        {
+                                                                            "type": "metric",
+                                                                            "id": "M200",
+                                                                            "name": "Store Plan Amt",
+                                                                        },
+                                                                        {
+                                                                            "type": "metric",
+                                                                            "id": "D100",
+                                                                            "name": "Pct To Plan",
+                                                                            "derived": True,
+                                                                            "dataType": "double",
+                                                                        },
+                                                                    ],
+                                                                }
+                                                            ],
+                                                        },
+                                                        {
+                                                            "key": "cs-web",
+                                                            "name": "WEB",
+                                                            "columns": [
+                                                                {
+                                                                    "type": "templateMetrics",
+                                                                    "elements": [
+                                                                        {
+                                                                            "type": "metric",
+                                                                            "id": "M100",
+                                                                            "name": "Net Amount",
+                                                                        },
+                                                                        {
+                                                                            "type": "metric",
+                                                                            "id": "M300",
+                                                                            "name": "Web Plan Amt",
+                                                                        },
+                                                                        {
+                                                                            "type": "metric",
+                                                                            "id": "D200",
+                                                                            "name": "Pct To Plan",
+                                                                            "derived": True,
+                                                                            "dataType": "double",
+                                                                        },
+                                                                    ],
+                                                                }
+                                                            ],
+                                                        },
+                                                        {
+                                                            "key": "cs-total",
+                                                            "name": "TOTAL SALES",
+                                                            "columns": [
+                                                                {
+                                                                    "type": "templateMetrics",
+                                                                    "elements": [
+                                                                        {
+                                                                            "type": "metric",
+                                                                            "id": "M100",
+                                                                            "name": "Net Amount",
+                                                                        },
+                                                                        {
+                                                                            "type": "metric",
+                                                                            "id": "D300",
+                                                                            "name": "Pct To Plan",
+                                                                            "derived": True,
+                                                                            "dataType": "double",
+                                                                        },
+                                                                    ],
+                                                                }
+                                                            ],
+                                                        },
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        },
+    )
+
+
+def test_derived_metrics_become_tagged_schema_fields() -> None:
+    mapper = _mapper()
+    dashboard = _compound_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    parent_key = mapper.project_key("project-1")
+
+    store = next(ds for ds in dashboard.datasets if ds.id == "ds-store")
+    combined = next(ds for ds in dashboard.datasets if ds.id == "ds-combined")
+    assert list(store.derived_metrics) == ["D100"]
+    assert list(combined.derived_metrics) == ["D300"]
+
+    workunits = list(
+        mapper.gen_dataset_workunits("project-1", dashboard, store, parent_key)
+    )
+    schema = _aspect(workunits, SchemaMetadataClass)
+    fields = {field.fieldPath: field for field in schema.fields}
+
+    derived_field = fields["Pct To Plan"]
+    assert _tag_urns(derived_field) == {MEASURE_TAG_URN, DERIVED_TAG_URN}
+    assert derived_field.description is not None
+    assert "'STORE' column group" in derived_field.description
+    assert "'Sales WTD'" in derived_field.description
+    derived_props = json.loads(derived_field.jsonProps or "{}")
+    assert derived_props["microstrategyObjectType"] == "derivedMetric"
+    assert derived_props["microstrategyColumnGroup"] == "STORE"
+    assert derived_props["microstrategyObjectId"] == "D100"
+    # Catalog members of a bound group carry the group name too.
+    catalog_props = json.loads(fields["Store Plan Amt"].jsonProps or "{}")
+    assert catalog_props["microstrategyColumnGroup"] == "STORE"
+    assert mapper.report.derived_metric_fields_scanned == 1
+
+
+def test_derived_metric_never_shadows_catalog_object() -> None:
+    mapper = _mapper()
+    dashboard = _compound_grid_definition()
+    # Mark a real catalog metric as derived in the grid payload: the catalog
+    # field must win and no derived spec may be attached for that id.
+    visualization = dashboard.visualizations[0]
+    for column_set in visualization.column_sets:
+        for metric in column_set.metrics:
+            if metric.id == "M200":
+                metric.derived = True
+    mapper.attach_derived_metrics(dashboard)
+
+    store = next(ds for ds in dashboard.datasets if ds.id == "ds-store")
+    assert "M200" not in store.derived_metrics
+
+
+def test_chart_input_fields_include_derived_metrics() -> None:
+    mapper = _mapper()
+    dashboard = _compound_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    parent_key = mapper.project_key("project-1")
+
+    workunits = list(
+        mapper.gen_chart_workunits(
+            "project-1", dashboard, dashboard.visualizations[0], parent_key
+        )
+    )
+    chart_info = _aspect(workunits, ChartInfoClass)
+    assert len(chart_info.inputs or []) == 3
+
+    input_fields = _aspect(workunits, InputFieldsClass)
+    field_paths = {
+        input_field.schemaField.fieldPath
+        for input_field in input_fields.fields
+        if input_field.schemaField
+    }
+    # Displayed names are qualified by column group so the UI never treats
+    # the per-group copies of one catalog object as the same column.
+    assert "STORE.Pct To Plan" in field_paths
+    assert {
+        "STORE.Net Amount",
+        "WEB.Net Amount",
+        "TOTAL SALES.Net Amount",
+    } <= field_paths
+
+    # The urn keeps the dataset's real (unqualified) field path so column
+    # lineage joins are unaffected by the display renaming.
+    store_entry = next(
+        input_field
+        for input_field in input_fields.fields
+        if input_field.schemaField
+        and input_field.schemaField.fieldPath == "STORE.Net Amount"
+    )
+    assert store_entry.schemaFieldUrn.endswith(",Net Amount)")
+    assert store_entry.schemaField is not None
+    assert store_entry.schemaField.description is not None
+    assert store_entry.schemaField.description.startswith("**STORE** - STORE SALES WTD")
+
+    column_groups = {
+        prop: value for prop, value in (chart_info.customProperties or {}).items()
+    }
+    groups = json.loads(column_groups["microstrategyColumnGroups"])
+    assert groups["STORE"]["dataset"] == "STORE SALES WTD"
+    assert groups["TOTAL SALES"]["dataset"] == "COMBINED TOTALS WTD"
+    assert "Pct To Plan" in groups["WEB"]["metrics"]
+
+
+def test_metric_formula_lineage_is_opt_in_and_emits_sibling_edges() -> None:
+    def build_dashboard() -> DashboardDefinition:
+        dashboard = DashboardDefinition.from_api_response(
+            object_id="dash-1",
+            object_name="Growth",
+            response={
+                "definition": {
+                    "datasets": [
+                        {
+                            "id": "ds-1",
+                            "name": "Growth Cube",
+                            "availableObjects": {
+                                "metrics": [
+                                    {"id": "M1", "name": "Net Amount"},
+                                    {"id": "M2", "name": "Net Amount LY"},
+                                    {"id": "M3", "name": "Growth Pct"},
+                                ],
+                                "attributes": [],
+                            },
+                        }
+                    ],
+                }
+            },
+        )
+        dashboard.datasets[0].metric_enrichments["M3"] = MetricEnrichment(
+            expression_text=(
+                "(({Net Amount} - {Net Amount LY}) / Abs({Net Amount LY})) "
+                "* 100 + {Net Amount PY}"
+            )
+        )
+        return dashboard
+
+    disabled_mapper = _mapper()
+    dashboard = build_dashboard()
+    workunits = list(
+        disabled_mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dashboard.datasets[0],
+            disabled_mapper.project_key("project-1"),
+        )
+    )
+    assert _maybe_aspect(workunits, UpstreamLineageClass) is None
+
+    enabled_mapper = _mapper(extract_metric_formula_lineage=True)
+    dashboard = build_dashboard()
+    workunits = list(
+        enabled_mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dashboard.datasets[0],
+            enabled_mapper.project_key("project-1"),
+        )
+    )
+    upstream_lineage = _aspect(workunits, UpstreamLineageClass)
+    assert upstream_lineage.upstreams == []
+    fine_grained = upstream_lineage.fineGrainedLineages or []
+    assert len(fine_grained) == 1
+    assert fine_grained[0].downstreams is not None
+    assert fine_grained[0].downstreams[0].endswith("Growth Pct)")
+    assert fine_grained[0].upstreams is not None
+    assert {urn.split(",")[-1] for urn in fine_grained[0].upstreams} == {
+        "Net Amount)",
+        "Net Amount LY)",
+    }
+    # {Net Amount PY} resolves to no sibling field and is counted, not guessed.
+    assert enabled_mapper.report.metric_formula_refs_unresolved == 1
+    assert enabled_mapper.report.metric_formula_lineage_edges == 1
+
+
+def _three_family_dashboard(
+    visualizations: "list[dict]",  # raw viz dicts placed on one page
+) -> DashboardDefinition:
+    def dataset(dataset_id: str, name: str, plan_metric_id: str) -> dict:
+        return {
+            "id": dataset_id,
+            "name": name,
+            "availableObjects": {
+                "metrics": [
+                    {"id": "M100", "name": "Net Amount"},
+                    {"id": plan_metric_id, "name": f"{name} Plan"},
+                ],
+                "attributes": [],
+            },
+        }
+
+    return DashboardDefinition.from_api_response(
+        object_id="dash-fam",
+        object_name="Families",
+        response={
+            "definition": {
+                "datasets": [
+                    dataset("ds-alpha", "ALPHA SALES", "M201"),
+                    dataset("ds-beta", "BETA SALES", "M202"),
+                    dataset("ds-gamma", "GAMMA SALES", "M203"),
+                ],
+                "chapters": [
+                    {
+                        "key": "ch-1",
+                        "name": "MAIN",
+                        "pages": [
+                            {
+                                "key": "pg-1",
+                                "name": "SUMMARY",
+                                "visualizations": visualizations,
+                            }
+                        ],
+                    }
+                ],
+            }
+        },
+    )
+
+
+def _grid_viz(key: str, name: str, column_sets: "list[dict]") -> dict:
+    return {
+        "key": key,
+        "name": name,
+        "visualizationType": "compound_grid",
+        "runtimeDefinition": {"definition": {"grid": {"columnSets": column_sets}}},
+    }
+
+
+def _metrics_column(elements: "list[dict]") -> "list[dict]":
+    return [{"type": "templateMetrics", "elements": elements}]
+
+
+def test_derived_metric_falls_back_to_the_visualizations_only_bound_dataset() -> None:
+    # "ALPHA" binds by name; "ZZZ" matches nothing and elimination cannot fire
+    # (3 page datasets vs 2 groups) — its derived metric attaches through the
+    # visualization's single bound dataset instead of being dropped.
+    mapper = _mapper()
+    dashboard = _three_family_dashboard(
+        [
+            _grid_viz(
+                "viz-1",
+                "Family Overview",
+                [
+                    {
+                        "key": "cs-alpha",
+                        "name": "ALPHA",
+                        "columns": _metrics_column(
+                            [
+                                {"type": "metric", "id": "M201", "name": "ALPHA Plan"},
+                            ]
+                        ),
+                    },
+                    {
+                        "key": "cs-zzz",
+                        "name": "ZZZ",
+                        "columns": _metrics_column(
+                            [
+                                {
+                                    "type": "metric",
+                                    "id": "D900",
+                                    "name": "Mystery Pct",
+                                    "derived": True,
+                                },
+                            ]
+                        ),
+                    },
+                ],
+            )
+        ]
+    )
+    mapper.attach_derived_metrics(dashboard)
+
+    alpha = next(ds for ds in dashboard.datasets if ds.id == "ds-alpha")
+    assert list(alpha.derived_metrics) == ["D900"]
+    assert mapper.report.derived_metrics_unattached == 0
+
+
+def test_derived_metric_without_any_binding_is_counted_not_dropped() -> None:
+    mapper = _mapper()
+    dashboard = _three_family_dashboard(
+        [
+            _grid_viz(
+                "viz-1",
+                "Family Overview",
+                [
+                    {
+                        "key": "cs-zzz",
+                        "name": "ZZZ",
+                        "columns": _metrics_column(
+                            [
+                                {
+                                    "type": "metric",
+                                    "id": "D900",
+                                    "name": "Mystery Pct",
+                                    "derived": True,
+                                },
+                            ]
+                        ),
+                    },
+                ],
+            )
+        ]
+    )
+    mapper.attach_derived_metrics(dashboard)
+
+    assert all(not ds.derived_metrics for ds in dashboard.datasets)
+    assert mapper.report.derived_metrics_unattached == 1
+
+
+def test_derived_metric_without_id_is_counted_not_dropped() -> None:
+    mapper = _mapper()
+    dashboard = _three_family_dashboard(
+        [
+            _grid_viz(
+                "viz-1",
+                "Family Overview",
+                [
+                    {
+                        "key": "cs-alpha",
+                        "name": "ALPHA",
+                        "columns": _metrics_column(
+                            [
+                                {
+                                    "type": "metric",
+                                    "name": "No Id Pct",
+                                    "derived": True,
+                                },
+                            ]
+                        ),
+                    },
+                ],
+            )
+        ]
+    )
+    mapper.attach_derived_metrics(dashboard)
+
+    assert all(not ds.derived_metrics for ds in dashboard.datasets)
+    assert mapper.report.derived_metrics_unattached == 1
+
+
+def test_duplicate_derived_id_across_visualizations_keeps_first_provenance() -> None:
+    column_sets = [
+        {
+            "key": "cs-alpha",
+            "name": "ALPHA",
+            "columns": _metrics_column(
+                [
+                    {"type": "metric", "id": "M201", "name": "ALPHA Plan"},
+                    {
+                        "type": "metric",
+                        "id": "D900",
+                        "name": "Alpha Pct",
+                        "derived": True,
+                    },
+                ]
+            ),
+        }
+    ]
+    mapper = _mapper()
+    dashboard = _three_family_dashboard(
+        [
+            _grid_viz("viz-1", "First Viz", column_sets),
+            _grid_viz("viz-2", "Second Viz", column_sets),
+        ]
+    )
+    mapper.attach_derived_metrics(dashboard)
+
+    alpha = next(ds for ds in dashboard.datasets if ds.id == "ds-alpha")
+    assert list(alpha.derived_metrics) == ["D900"]
+    assert alpha.derived_metrics["D900"].source_visualization_name == "First Viz"
+
+
+def test_static_only_column_sets_bind_by_name_without_derived_fields() -> None:
+    mapper = _mapper()
+    dashboard = _three_family_dashboard(
+        [
+            {
+                "key": "viz-1",
+                "name": "Family Overview",
+                "visualizationType": "compound_grid",
+                "columnSets": [{"key": "cs-alpha", "name": "ALPHA"}],
+            }
+        ]
+    )
+    mapper.attach_derived_metrics(dashboard)
+    assert all(not ds.derived_metrics for ds in dashboard.datasets)
+
+    inputs = mapper.lineage.visualization_inputs(
+        "project-1", dashboard, dashboard.visualizations[0]
+    )
+    assert len(inputs) == 1
+    assert "ds-alpha" in inputs[0]
+
+
+def test_gen_folder_containers_hides_system_folders() -> None:
+    # The project root folder and "Public Objects" never appear in Strategy
+    # Web; children re-parent to the nearest kept ancestor.
+    mapper = _mapper()
+    dashboard_object = MicroStrategyObject.model_validate(
+        {
+            "id": "dash-1",
+            "name": "Sales Dashboard",
+            "ancestors": [
+                {"id": "project-root-id", "name": "Analytics"},
+                {"id": "public-objects-id", "name": "Public Objects"},
+                {"id": "reports-folder-id", "name": "Reports"},
+                {"id": "finance-folder-id", "name": "Finance"},
+            ],
+        }
+    )
+    resolution = PredefinedFolderResolution(
+        labels={"REPORTS-FOLDER-ID": "Shared Reports"},
+        hidden_ids={"PROJECT-ROOT-ID", "PUBLIC-OBJECTS-ID"},
+    )
+
+    workunits = list(
+        mapper.gen_folder_containers(
+            "project-1", dashboard_object, predefined_folders=resolution
+        )
+    )
+    names = set(_container_names(workunits).values())
+    assert names == {"Shared Reports", "Finance"}
+
+    parent_key = mapper.folder_container_for_dashboard(
+        "project-1", dashboard_object, predefined_folders=resolution
+    )
+    assert parent_key == mapper.folder_key("project-1", "Shared Reports/Finance")
+
+
+def _dataset_object(subtype: str, ancestors: "list[dict]") -> MicroStrategyObject:
+    return MicroStrategyObject.model_validate(
+        {
+            "id": "ds-1",
+            "name": "Sales Cube",
+            "type": "3",
+            "subtype": subtype,
+            "owner": {"username": "cube_owner"},
+            "ancestors": ancestors,
+        }
+    )
+
+
+def test_dataset_external_url_opens_the_dataset_object_for_reports() -> None:
+    # A report used as a dossier dataset is its own Library-openable object;
+    # "View in MicroStrategy" must land on it, not on the dossier.
+    mapper = _mapper()
+    dashboard = _definition()
+    dataset = dashboard.datasets[0]
+    report_backed = _dataset_object("768", [{"id": "f-1", "name": "Shared Reports"}])
+
+    properties = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dataset,
+            mapper.project_key("project-1"),
+            dataset_object=report_backed,
+        ),
+        DatasetPropertiesClass,
+    )
+
+    assert properties.externalUrl == (
+        "https://mstr.example.com/MicroStrategyLibrary/app/project-1/ds-1"
+    )
+    assert properties.customProperties["microstrategyObjectSubtype"] == "768"
+    assert properties.customProperties["microstrategyOwner"] == "cube_owner"
+
+
+def test_dataset_external_url_falls_back_to_parent_for_cubes_and_unknowns() -> None:
+    # Library has no viewer for intelligent/super cubes, and a dataset whose
+    # object info could not be fetched keeps today's behaviour.
+    mapper = _mapper()
+    dashboard = _definition()
+    dataset = dashboard.datasets[0]
+    parent_url = "https://mstr.example.com/MicroStrategyLibrary/app/project-1/dash-1"
+
+    cube = _dataset_object("776", [{"id": "f-1", "name": "Shared Reports"}])
+    assert (
+        mapper.dataset_external_url("project-1", dashboard.id, dataset, cube)
+        == parent_url
+    )
+    assert (
+        mapper.dataset_external_url("project-1", dashboard.id, dataset, None)
+        == parent_url
+    )
+    properties = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, dataset, mapper.project_key("project-1")
+        ),
+        DatasetPropertiesClass,
+    )
+    assert properties.externalUrl == parent_url
+
+
+def test_dataset_folder_parent_key_uses_own_ancestors_with_folder_labels() -> None:
+    # The dataset's own ancestry (one folder deeper than the dossier) drives
+    # its browse path, with the same predefined-folder relabelling and
+    # system-folder hiding the dossier path gets.
+    mapper = _mapper()
+    dossier_key = mapper.folder_key("project-1", "Shared Reports/SALON SALES VAR PLAN")
+    dataset_object = _dataset_object(
+        "768",
+        [
+            {"id": "project-root-id", "name": "Adhoc_RMA"},
+            {"id": "public-objects-id", "name": "Public Objects"},
+            {"id": "reports-folder-id", "name": "Reports"},
+            {"id": "f-plan", "name": "SALON SALES VAR PLAN"},
+            {"id": "f-retail", "name": "SALON RETAIL SALES"},
+        ],
+    )
+    resolution = PredefinedFolderResolution(
+        labels={"REPORTS-FOLDER-ID": "Shared Reports"},
+        hidden_ids={"PROJECT-ROOT-ID", "PUBLIC-OBJECTS-ID"},
+    )
+
+    parent_key = mapper.dataset_folder_parent_key(
+        "project-1", dataset_object, dossier_key, resolution
+    )
+
+    assert parent_key == mapper.folder_key(
+        "project-1", "Shared Reports/SALON SALES VAR PLAN/SALON RETAIL SALES"
+    )
+    names = set(
+        _container_names(
+            mapper.gen_folder_containers(
+                "project-1", dataset_object, predefined_folders=resolution
+            )
+        ).values()
+    )
+    assert names == {"Shared Reports", "SALON SALES VAR PLAN", "SALON RETAIL SALES"}
+
+
+def test_dataset_folder_parent_key_falls_back_without_ancestors() -> None:
+    mapper = _mapper()
+    dossier_key = mapper.folder_key("project-1", "Shared Reports/Finance")
+
+    assert (
+        mapper.dataset_folder_parent_key("project-1", None, dossier_key) == dossier_key
+    )
+    assert (
+        mapper.dataset_folder_parent_key(
+            "project-1", _dataset_object("768", []), dossier_key
+        )
+        == dossier_key
+    )
+
+
+def _salon_grid_definition() -> DashboardDefinition:
+    """Mirror of a live compound grid: two ungrouped row attributes (one with
+    a second form the grid does not show), three column groups bound to three
+    per-family datasets, one metric renamed in the dossier, one derived."""
+
+    def dataset(dataset_id: str, name: str, plan_id: str, plan_name: str) -> dict:
+        return {
+            "id": dataset_id,
+            "name": name,
+            "availableObjects": {
+                "metrics": [
+                    {"id": "M-NET", "name": "Net Sales Retail Amt"},
+                    {"id": plan_id, "name": plan_name},
+                ],
+                "attributes": [
+                    {
+                        "id": "A-REGION",
+                        "name": "Region Number",
+                        "forms": [{"id": "F-REGION-NUM", "name": "NUMBER"}],
+                    },
+                    {
+                        "id": "A-DISTRICT",
+                        "name": "District Number",
+                        "forms": [
+                            {"id": "F-DISTRICT-NUM", "name": "NUMBER"},
+                            {"id": "F-DISTRICT-DESC", "name": "DESC"},
+                        ],
+                    },
+                ],
+            },
+        }
+
+    def attribute_unit(attribute_id: str, name: str, form_id: str) -> dict:
+        return {
+            "type": "attribute",
+            "id": attribute_id,
+            "name": name,
+            "forms": [{"id": form_id, "name": "NUMBER"}],
+        }
+
+    def group(
+        key: str, name: str, plan_id: str, plan_header: str, derived_id: str
+    ) -> dict:
+        return {
+            "key": key,
+            "name": name,
+            "columns": _metrics_column(
+                [
+                    {"type": "metric", "id": "M-NET", "name": "Net Sales Retail Amt"},
+                    {"type": "metric", "id": plan_id, "name": plan_header},
+                    {
+                        "type": "metric",
+                        "id": derived_id,
+                        "name": f"{name[:3]} % PLN",
+                        "derived": True,
+                    },
+                ]
+            ),
+        }
+
+    return DashboardDefinition.from_api_response(
+        object_id="dash-salon",
+        object_name="Salon Sales To Plan",
+        response={
+            "definition": {
+                "datasets": [
+                    dataset(
+                        "ds-retail",
+                        "RETAIL SALES YESTERDAY",
+                        "M-RTL-PLAN",
+                        "Salon RTL % Plan",
+                    ),
+                    dataset(
+                        "ds-service",
+                        "SERVICE SALES YESTERDAY",
+                        "M-SRVC-PLAN",
+                        "SRVC PLAN $",
+                    ),
+                    dataset(
+                        "ds-total",
+                        "TOTAL SALON SALES-YESTERDAY",
+                        "M-TOT-PLAN",
+                        "TOTAL PLAN",
+                    ),
+                ],
+                "chapters": [
+                    {
+                        "key": "ch-1",
+                        "pages": [
+                            {
+                                "key": "pg-yesterday",
+                                "name": "YESTERDAY",
+                                "visualizations": [
+                                    {
+                                        "key": "viz-yesterday",
+                                        "name": "Salon Sales Yesterday",
+                                        "visualizationType": "compound_grid",
+                                        "runtimeDefinition": {
+                                            "definition": {
+                                                "grid": {
+                                                    "rows": [
+                                                        attribute_unit(
+                                                            "A-REGION",
+                                                            "Region Number",
+                                                            "F-REGION-NUM",
+                                                        ),
+                                                        attribute_unit(
+                                                            "A-DISTRICT",
+                                                            "District Number",
+                                                            "F-DISTRICT-NUM",
+                                                        ),
+                                                    ],
+                                                    "columns": [],
+                                                    "columnSets": [
+                                                        # The dossier renamed this metric's header.
+                                                        group(
+                                                            "cs-retail",
+                                                            "RETAIL",
+                                                            "M-RTL-PLAN",
+                                                            "Salon RTL Plan $",
+                                                            "D-RTL",
+                                                        ),
+                                                        group(
+                                                            "cs-service",
+                                                            "SERVICE",
+                                                            "M-SRVC-PLAN",
+                                                            "SRVC PLAN $",
+                                                            "D-SRVC",
+                                                        ),
+                                                        group(
+                                                            "cs-total",
+                                                            "TOTAL SALES",
+                                                            "M-TOT-PLAN",
+                                                            "TOTAL PLAN",
+                                                            "D-TOT",
+                                                        ),
+                                                    ],
+                                                }
+                                            }
+                                        },
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        },
+    )
+
+
+def _salon_input_fields(mapper: MicroStrategyMapper) -> InputFieldsClass:
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    workunits = list(
+        mapper.gen_chart_workunits(
+            "project-1",
+            dashboard,
+            dashboard.visualizations[0],
+            mapper.project_key("project-1"),
+        )
+    )
+    chart_info = _aspect(workunits, ChartInfoClass)
+    assert len(chart_info.inputs or []) == 3
+    return _aspect(workunits, InputFieldsClass)
+
+
+def test_ungrouped_grid_attributes_carry_no_group_prefix_or_form_suffix() -> None:
+    # (a) row attributes sit outside every column group, so no "RETAIL."
+    # prefix; (b) the grid shows one form, so no ".NUMBER" suffix either.
+    input_fields = _salon_input_fields(_mapper())
+    by_display = {
+        field.schemaField.fieldPath: field
+        for field in input_fields.fields
+        if field.schemaField
+    }
+
+    assert "Region Number" in by_display
+    assert "District Number" in by_display
+    assert not any(name.endswith(".NUMBER") for name in by_display)
+    assert not any(
+        name.endswith("Region Number") and name != "Region Number"
+        for name in by_display
+    )
+    # Each ungrouped header is attributed to one dataset (the leftmost
+    # group's), and the urn keeps the dataset's real form field path.
+    assert by_display["Region Number"].schemaFieldUrn.endswith(
+        "dash-salon.ds-retail,PROD),Region Number.NUMBER)"
+    )
+    # Only the displayed form of the two-form attribute is a chart input.
+    district_urns = [
+        field.schemaFieldUrn
+        for field in input_fields.fields
+        if "District Number" in field.schemaFieldUrn
+    ]
+    assert district_urns == [
+        by_display["District Number"].schemaFieldUrn,
+    ]
+    assert district_urns[0].endswith(",District Number.NUMBER)")
+
+
+def test_grouped_metrics_keep_group_prefix_and_use_grid_header_alias() -> None:
+    # (c) the grid header wins over the catalog metric name, with the catalog
+    # name retained in the description and jsonProps; genuinely grouped
+    # metrics keep the "GROUP.name" style.
+    input_fields = _salon_input_fields(_mapper())
+    by_display = {
+        field.schemaField.fieldPath: field
+        for field in input_fields.fields
+        if field.schemaField
+    }
+
+    assert "RETAIL.Net Sales Retail Amt" in by_display
+    assert "SERVICE.Net Sales Retail Amt" in by_display
+    assert "TOTAL SALES.Net Sales Retail Amt" in by_display
+    aliased = by_display["RETAIL.Salon RTL Plan $"]
+    assert "RETAIL.Salon RTL % Plan" not in by_display
+    assert aliased.schemaFieldUrn.endswith(
+        "dash-salon.ds-retail,PROD),Salon RTL % Plan)"
+    )
+    assert aliased.schemaField is not None
+    assert aliased.schemaField.description is not None
+    assert aliased.schemaField.description.startswith(
+        "**RETAIL** - RETAIL SALES YESTERDAY\n\nMicroStrategy object: Salon RTL % Plan"
+    )
+    props = json.loads(aliased.schemaField.jsonProps or "{}")
+    assert props["microstrategyObjectName"] == "Salon RTL % Plan"
+    assert props["microstrategyColumnGroup"] == "RETAIL"
+    # A header that matches the catalog name carries no alias note.
+    net = by_display["RETAIL.Net Sales Retail Amt"]
+    assert net.schemaField is not None
+    assert "MicroStrategy object:" not in (net.schemaField.description or "")
+    assert "microstrategyObjectName" not in (net.schemaField.jsonProps or "")
+
+
+def test_chart_input_fields_follow_grid_order() -> None:
+    # Attributes first as laid out in the rows, then each column group in
+    # grid order with its metrics in element order -- not alphabetical.
+    input_fields = _salon_input_fields(_mapper())
+    display_names = [
+        field.schemaField.fieldPath
+        for field in input_fields.fields
+        if field.schemaField
+    ]
+
+    assert display_names == [
+        "Region Number",
+        "District Number",
+        "RETAIL.Net Sales Retail Amt",
+        "RETAIL.Salon RTL Plan $",
+        "RETAIL.RET % PLN",
+        "SERVICE.Net Sales Retail Amt",
+        "SERVICE.SRVC PLAN $",
+        "SERVICE.SER % PLN",
+        "TOTAL SALES.Net Sales Retail Amt",
+        "TOTAL SALES.TOTAL PLAN",
+        "TOTAL SALES.TOT % PLN",
+    ]
+
+
+def test_dataset_schema_field_paths_are_unchanged_by_grid_display_names() -> None:
+    # Only the chart's display copies are renamed; the dataset schema (and
+    # therefore every schemaField urn) keeps its form-qualified paths.
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+    schema = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, retail, mapper.project_key("project-1")
+        ),
+        SchemaMetadataClass,
+    )
+    paths = [field.fieldPath for field in schema.fields]
+    assert "Region Number.NUMBER" in paths
+    assert "District Number.NUMBER" in paths
+    assert "District Number.DESC" in paths
+    assert "Salon RTL % Plan" in paths
+    assert "Salon RTL Plan $" not in paths
+
+
+def _report_definitions() -> "list[ReportDerivedMetric]":
+    return [
+        ReportDerivedMetric(
+            id="D-RTL",
+            name="RTL PLN",
+            expression_text="([Net Sales Retail Amt]/[Salon RTL % Plan])-1",
+            source="report",
+        ),
+        ReportDerivedMetric(
+            id="D-QTY-VAR",
+            name="Qty Var LYS %",
+            expression_text="{Net Sales Qty} - 1",
+            source="report",
+        ),
+    ]
+
+
+def test_report_derived_metrics_upgrade_grid_specs_and_add_missing_ones() -> None:
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+    # The grid showed D-RTL under its dossier alias; nothing showed D-QTY-VAR.
+    assert retail.derived_metrics["D-RTL"].name == "RET % PLN"
+    assert "D-QTY-VAR" not in retail.derived_metrics
+
+    mapper.attach_report_derived_metrics(retail, _report_definitions())
+
+    # Same id: upgraded in place (report object name + formula), not duplicated.
+    assert sorted(retail.derived_metrics) == ["D-QTY-VAR", "D-RTL"]
+    upgraded = retail.derived_metrics["D-RTL"]
+    assert upgraded.name == "RTL PLN"
+    assert upgraded.definition_source == "report"
+    assert upgraded.expression_text == "([Net Sales Retail Amt]/[Salon RTL % Plan])-1"
+    # Grid provenance survives the upgrade.
+    assert upgraded.column_set_name == "RETAIL"
+    added = retail.derived_metrics["D-QTY-VAR"]
+    assert added.source_visualization_key is None
+    assert added.expression_text == "{Net Sales Qty} - 1"
+
+
+def test_report_derived_metrics_match_by_name_when_ids_differ() -> None:
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+
+    mapper.attach_report_derived_metrics(
+        retail,
+        [ReportDerivedMetric(id="OTHER-ID", name="ret % pln", expression_text="1")],
+    )
+
+    assert sorted(retail.derived_metrics) == ["D-RTL"]
+    assert retail.derived_metrics["D-RTL"].expression_text == "1"
+
+
+def test_report_derived_metrics_never_shadow_catalog_objects() -> None:
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    retail = dashboard.datasets[0]
+
+    mapper.attach_report_derived_metrics(
+        retail,
+        [
+            ReportDerivedMetric(
+                id="M-NET", name="Net Sales Retail Amt", expression_text="x"
+            )
+        ],
+    )
+
+    assert retail.derived_metrics == {}
+
+
+def test_report_derived_metric_fields_carry_formula_and_provenance() -> None:
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+    mapper.attach_report_derived_metrics(retail, _report_definitions())
+
+    schema = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, retail, mapper.project_key("project-1")
+        ),
+        SchemaMetadataClass,
+    )
+    fields = {field.fieldPath: field for field in schema.fields}
+
+    # Named as the report names it, not as the dossier grid aliases it.
+    assert "RTL PLN" in fields
+    assert "RET % PLN" not in fields
+    rtl = fields["RTL PLN"]
+    assert _tag_urns(rtl) == {MEASURE_TAG_URN, DERIVED_TAG_URN}
+    assert rtl.description is not None
+    assert rtl.description.startswith(
+        "Derived metric defined on report 'RETAIL SALES YESTERDAY'."
+    )
+    assert rtl.description.endswith(
+        "```\n([Net Sales Retail Amt]/[Salon RTL % Plan])-1\n```"
+    )
+    props = json.loads(rtl.jsonProps or "{}")
+    assert props["microstrategyObjectType"] == "derivedMetric"
+    assert props["microstrategyDerivedMetricSource"] == "report"
+    assert (
+        props["microstrategyMetricExpressionText"]
+        == "([Net Sales Retail Amt]/[Salon RTL % Plan])-1"
+    )
+    assert props["microstrategyColumnGroup"] == "RETAIL"
+    # A grid-only derived metric on another dataset keeps visualization provenance
+    # and says so, since no definition exposed a formula.
+    service = dashboard.datasets[1]
+    service_schema = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, service, mapper.project_key("project-1")
+        ),
+        SchemaMetadataClass,
+    )
+    ser = next(
+        field for field in service_schema.fields if field.fieldPath == "SER % PLN"
+    )
+    assert ser.description is not None
+    assert "No report or document definition exposes a formula" in ser.description
+    assert json.loads(ser.jsonProps or "{}")["microstrategyDerivedMetricSource"] == (
+        "visualization"
+    )
+
+
+def test_report_derived_metric_formulas_join_metric_formula_lineage() -> None:
+    mapper = _mapper(extract_metric_formula_lineage=True)
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+    mapper.attach_report_derived_metrics(retail, _report_definitions())
+
+    upstream_lineage = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, retail, mapper.project_key("project-1")
+        ),
+        UpstreamLineageClass,
+    )
+    edges = {
+        lineage.downstreams[0].rsplit(",", 1)[-1]: {
+            urn.rsplit(",", 1)[-1] for urn in (lineage.upstreams or [])
+        }
+        for lineage in upstream_lineage.fineGrainedLineages or []
+        if lineage.downstreams
+    }
+
+    # [Name] references resolve against the dataset's own fields.
+    assert edges["RTL PLN)"] == {"Net Sales Retail Amt)", "Salon RTL % Plan)"}
+    # {Net Sales Qty} is not a field of this dataset: counted, not guessed.
+    assert "Qty Var LYS %)" not in edges
+    assert mapper.report.metric_formula_refs_unresolved == 1
+
+
+def test_chart_input_fields_show_grid_alias_for_report_derived_metric() -> None:
+    # The dataset field is "RTL PLN" (report name); the grid header is the
+    # dossier alias, which is what the chart shows, with the object name kept.
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    mapper.attach_report_derived_metrics(dashboard.datasets[0], _report_definitions())
+
+    workunits = list(
+        mapper.gen_chart_workunits(
+            "project-1",
+            dashboard,
+            dashboard.visualizations[0],
+            mapper.project_key("project-1"),
+        )
+    )
+    input_fields = _aspect(workunits, InputFieldsClass)
+    entry = next(
+        f
+        for f in input_fields.fields
+        if f.schemaField and f.schemaField.fieldPath == "RETAIL.RET % PLN"
+    )
+    assert entry.schemaFieldUrn.endswith(",RTL PLN)")
+    assert entry.schemaField is not None
+    assert (
+        json.loads(entry.schemaField.jsonProps or "{}")["microstrategyObjectName"]
+        == "RTL PLN"
+    )
+
+
+def _paged_definition() -> DashboardDefinition:
+    def page(key: str, name: str, viz_key: str) -> dict:
+        return {
+            "key": key,
+            "name": name,
+            "visualizations": [
+                {"key": viz_key, "name": f"Viz {viz_key}", "datasets": ["ds-1"]}
+            ],
+        }
+
+    return DashboardDefinition.from_api_response(
+        object_id="dash-paged",
+        object_name="Paged Dossier",
+        response={
+            "definition": {
+                "datasets": [{"id": "ds-1", "name": "Sales Cube"}],
+                "chapters": [
+                    {
+                        "key": "ch-1",
+                        "name": "Overview",
+                        "pages": [
+                            page("pg-1", "Summary", "viz-a"),
+                            page("pg-2", "Trend", "viz-b"),
+                        ],
+                    },
+                    {
+                        "key": "ch-2",
+                        "name": "Detail",
+                        "pages": [
+                            page("pg-3", "By Region", "viz-c"),
+                            page("pg-4", "By Store", "viz-d"),
+                        ],
+                    },
+                ],
+            }
+        },
+    )
+
+
+_PLACEMENT_PROPERTY_KEYS = (
+    "microstrategyChapter",
+    "microstrategyChapterKey",
+    "microstrategyChapterIndex",
+    "microstrategyPage",
+    "microstrategyPageKey",
+    "microstrategyPageIndex",
+)
+
+
+def test_chart_properties_record_dossier_chapter_and_page() -> None:
+    mapper = _mapper()
+    dashboard = _paged_definition()
+
+    placements = {}
+    for visualization in dashboard.visualizations:
+        chart_info = _aspect(
+            mapper.gen_chart_workunits(
+                "project-1", dashboard, visualization, mapper.project_key("project-1")
+            ),
+            ChartInfoClass,
+        )
+        placements[visualization.key] = tuple(
+            chart_info.customProperties.get(key) for key in _PLACEMENT_PROPERTY_KEYS
+        )
+
+    assert placements == {
+        "viz-a": ("Overview", "ch-1", "1", "Summary", "pg-1", "1"),
+        "viz-b": ("Overview", "ch-1", "1", "Trend", "pg-2", "2"),
+        "viz-c": ("Detail", "ch-2", "2", "By Region", "pg-3", "1"),
+        "viz-d": ("Detail", "ch-2", "2", "By Store", "pg-4", "2"),
+    }
+
+
+def test_chart_properties_omit_placement_for_visualization_without_a_page() -> None:
+    dashboard = DashboardDefinition.from_api_response(
+        object_id="dash-loose",
+        object_name="Loose Dossier",
+        response={
+            "definition": {
+                "datasets": [{"id": "ds-1", "name": "Sales Cube"}],
+                "visualizations": [{"key": "viz-1", "name": "Loose"}],
+            }
+        },
+    )
+
+    properties = MicroStrategyMapper._visualization_properties(
+        dashboard.visualizations[0]
+    )
+
+    assert properties["microstrategyVisualizationKey"] == "viz-1"
+    assert not set(_PLACEMENT_PROPERTY_KEYS) & set(properties)
+
+
+def _unsorted_objects_definition() -> DashboardDefinition:
+    # availableObjects deliberately out of alphabetical order, the way a
+    # report definition lists its objects.
+    return DashboardDefinition.from_api_response(
+        object_id="dash-order",
+        object_name="Ordered Dossier",
+        response={
+            "result": {
+                "definition": {
+                    "datasets": [
+                        {
+                            "id": "ds-1",
+                            "name": "Sales Cube",
+                            "availableObjects": {
+                                "metrics": [
+                                    {"id": "m-z", "name": "Zeta Amt"},
+                                    {"id": "m-a", "name": "Alpha Amt"},
+                                ],
+                                "attributes": [
+                                    {
+                                        "id": "a-m",
+                                        "name": "Month",
+                                        "forms": [{"id": "f-m", "name": "ID"}],
+                                    },
+                                    {
+                                        "id": "a-b",
+                                        "name": "Brand",
+                                        "forms": [
+                                            {"id": "f-b-id", "name": "ID"},
+                                            {"id": "f-b-desc", "name": "DESC"},
+                                        ],
+                                    },
+                                ],
+                            },
+                        }
+                    ],
+                    "chapters": [],
+                }
+            }
+        },
+    )
+
+
+def _schema_field_paths(
+    mapper: MicroStrategyMapper, dashboard: DashboardDefinition, dataset: DatasetObject
+) -> "list[str]":
+    schema = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, dataset, mapper.project_key("project-1")
+        ),
+        SchemaMetadataClass,
+    )
+    return [field.fieldPath for field in schema.fields]
+
+
+def test_dataset_fields_follow_report_object_order_by_default() -> None:
+    dashboard = _unsorted_objects_definition()
+
+    paths = _schema_field_paths(_mapper(), dashboard, dashboard.datasets[0])
+
+    assert paths == ["Zeta Amt", "Alpha Amt", "Month", "Brand.ID", "Brand.DESC"]
+
+
+def test_dataset_field_order_alphabetical_restores_sorted_fields() -> None:
+    dashboard = _unsorted_objects_definition()
+    dataset = dashboard.datasets[0]
+
+    report_order = _schema_field_paths(_mapper(), dashboard, dataset)
+    alphabetical = _schema_field_paths(
+        _mapper(dataset_field_order="alphabetical"), dashboard, dataset
+    )
+
+    # Ordering only: the same field paths either way.
+    assert sorted(report_order) == sorted(alphabetical)
+    assert alphabetical == sorted(report_order)
+    assert alphabetical == ["Alpha Amt", "Brand.DESC", "Brand.ID", "Month", "Zeta Amt"]
+
+
+def _derived_field_paths(
+    mapper: MicroStrategyMapper, dashboard: DashboardDefinition, dataset: DatasetObject
+) -> "list[str]":
+    schema = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, dataset, mapper.project_key("project-1")
+        ),
+        SchemaMetadataClass,
+    )
+    return [
+        field.fieldPath
+        for field in schema.fields
+        if DERIVED_TAG_URN in _tag_urns(field)
+    ]
+
+
+def test_derived_metrics_follow_report_definition_order_after_catalog_objects() -> None:
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+    mapper.attach_report_derived_metrics(retail, _report_definitions())
+
+    paths = _schema_field_paths(mapper, dashboard, retail)
+
+    # The report lists RTL PLN before Qty Var LYS %; alphabetical order would
+    # reverse them. Derived metrics stay after the catalog objects.
+    assert paths[-2:] == ["RTL PLN", "Qty Var LYS %"]
+    assert paths[:2] == ["Net Sales Retail Amt", "Salon RTL % Plan"]
+
+
+def test_report_definition_order_outranks_grid_order_for_derived_metrics() -> None:
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+    # The grid saw D-RTL first; the report lists D-QTY-VAR first.
+    assert list(retail.derived_metrics) == ["D-RTL"]
+
+    mapper.attach_report_derived_metrics(retail, list(reversed(_report_definitions())))
+
+    assert list(retail.derived_metrics) == ["D-QTY-VAR", "D-RTL"]
+    assert _derived_field_paths(mapper, dashboard, retail) == [
+        "Qty Var LYS %",
+        "RTL PLN",
     ]

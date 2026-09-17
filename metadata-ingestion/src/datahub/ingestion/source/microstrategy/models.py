@@ -1,12 +1,16 @@
 import hashlib
 import json
 import re
+from dataclasses import dataclass, field
 from typing import (
     Any,
     Dict,
     Iterable,
     List,
+    Literal,
     Optional,
+    Set,
+    Tuple,
     Type,
     TypeVar,
 )
@@ -18,6 +22,11 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DATABASE_PARAM_RE,
     MSTR_DATASET_CONTAINER_KEYS,
     MSTR_DATASET_KEY_RE,
+    MSTR_GRID_ATTRIBUTE_TYPE,
+    MSTR_GRID_AXES,
+    MSTR_GRID_COLUMN_SETS_KEY,
+    MSTR_GRID_METRIC_ELEMENT_TYPE,
+    MSTR_GRID_TEMPLATE_METRICS_TYPE,
     MSTR_KEYS_DATABASE_NAME,
     MSTR_KEYS_DATABASE_NAME_NESTED,
     MSTR_KEYS_DATABASE_TYPE,
@@ -46,6 +55,8 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_KEYS_SOURCE_OBJECT_ID,
     MSTR_KEYS_VISUALIZATION_KEY,
     MSTR_KEYS_VISUALIZATION_TYPE,
+    MSTR_METRIC_DEFINITION_TYPE_WORDS,
+    MSTR_NON_METRIC_DEFINITION_TYPE_WORDS,
     MSTR_NULL_OBJECT_ID,
     MSTR_OBJECT_ID_PARENT_KEYS,
     MSTR_OBJECT_TYPES,
@@ -154,6 +165,179 @@ class MetricEnrichment(MicroStrategyBaseModel):
     fact_ids: List[str] = Field(default_factory=list)
 
 
+class GridMetricElement(MicroStrategyBaseModel):
+    """One metric element of a compound grid's templateMetrics column. All
+    fields optional so a malformed element can never fail the visualization's
+    validation; `extra="allow"` keeps unknown server-version fields."""
+
+    id: Optional[str] = None
+    name: Optional[str] = None
+    derived: bool = False
+    data_type: Optional[str] = Field(default=None, alias="dataType")
+
+    @property
+    def display_name(self) -> str:
+        return self.name or self.id or "unknown"
+
+
+class GridAttributeForm(MicroStrategyBaseModel):
+    id: Optional[str] = None
+    name: Optional[str] = None
+
+
+class GridUnit(MicroStrategyBaseModel):
+    """One header cell of a runtime grid, in the order Strategy renders them:
+    an attribute (with the forms the grid actually shows) or a metric element
+    (whose `name` is the header text -- a dossier-level alias when it differs
+    from the catalog object's name). Units inside a compound grid's column set
+    carry that group's key and name; row/column/page-by units carry none."""
+
+    kind: Literal["attribute", "metric"]
+    id: Optional[str] = None
+    name: Optional[str] = None
+    derived: bool = False
+    column_set_key: Optional[str] = None
+    column_set_name: Optional[str] = None
+    forms: List[GridAttributeForm] = Field(default_factory=list)
+
+    @property
+    def form_ids(self) -> List[str]:
+        return [form.id for form in self.forms if form.id]
+
+    @property
+    def form_names(self) -> List[str]:
+        return [form.name for form in self.forms if form.name]
+
+
+class ColumnSet(MicroStrategyBaseModel):
+    """One column group of a compound-grid visualization. `metrics` holds the
+    grid's metric elements (including their `derived` flags) when the runtime
+    grid payload is available; static dossier definitions carry only key and
+    name."""
+
+    key: Optional[str] = None
+    name: Optional[str] = None
+    metrics: List[GridMetricElement] = Field(default_factory=list)
+
+    @property
+    def identifier(self) -> str:
+        """The join key used everywhere a binding is stored or looked up."""
+        return self.key or self.name or ""
+
+
+class DerivedMetricSpec(MicroStrategyBaseModel):
+    """A derived metric attached to a dataset. Seen first as a grid element
+    flagged `derived: true`; when the dataset is a report whose definition
+    exposes the metric (report-level derived metrics are report objects with
+    a formula), the spec is upgraded with the report's object name and
+    expression and `definition_source` records where the formula came from.
+    A spec with no expression is visualization-local as far as the REST API
+    can tell: the catalog has no object for it."""
+
+    id: str
+    name: str
+    data_type: Optional[str] = None
+    column_set_name: Optional[str] = None
+    source_visualization_key: Optional[str] = None
+    source_visualization_name: Optional[str] = None
+    expression_text: Optional[str] = None
+    expression_tokens: Optional[str] = None
+    # "report" or "document" when a definition supplied the formula; None for
+    # a grid-only derived metric.
+    definition_source: Optional[str] = None
+    # Which endpoint the definition came from (MSTR_DEFINITION_ENDPOINT_*), so
+    # a formula-less field can say whether the Modeling API was unavailable or
+    # answered without an expression.
+    definition_endpoint: Optional[str] = None
+    # Metadata object name when `name` is the report's display alias.
+    object_name: Optional[str] = None
+
+
+class ReportDerivedMetric(MicroStrategyBaseModel):
+    """A derived metric found in a report (or document) definition payload:
+    the object name the report shows, plus its expression when the endpoint
+    exposed one. `endpoint` records which REST endpoint the payload came from
+    (MSTR_DEFINITION_ENDPOINT_*)."""
+
+    id: str
+    name: str
+    data_type: Optional[str] = None
+    expression_text: Optional[str] = None
+    expression_tokens: Optional[str] = None
+    source: str = "report"
+    endpoint: Optional[str] = None
+    # The metadata object name when `name` is the report's display alias
+    # (an embedded derived metric is often stored as "New Metric" and shown
+    # under the alias the Metric Editor calls its display name).
+    object_name: Optional[str] = None
+
+    @property
+    def has_expression(self) -> bool:
+        return bool(self.expression_text or self.expression_tokens)
+
+
+@dataclass(frozen=True)
+class PredefinedFolderResolution:
+    """Predefined-folder knowledge for one project: MicroStrategy-assigned
+    labels to substitute (keyed by normalized folder id) and system-container
+    ids to omit from the browse hierarchy entirely."""
+
+    labels: Dict[str, str]
+    hidden_ids: Set[str]
+
+    @staticmethod
+    def empty() -> "PredefinedFolderResolution":
+        return PredefinedFolderResolution(labels={}, hidden_ids=set())
+
+
+class PredefinedFolder(MicroStrategyBaseModel):
+    """A well-known MicroStrategy folder (EnumDSSXMLFolderNames), resolved via
+    /api/folders/preDefined so its MicroStrategy-assigned label can be matched
+    against the raw folder id seen while walking an object's ancestors."""
+
+    id: str
+    name: str
+    folder_type: Optional[int] = Field(default=None, alias="folderType")
+
+
+@dataclass(frozen=True)
+class PersonalFolderResolution:
+    """How personal (per-user profile) folders are recognised in one project.
+    `root_ids` holds normalized ids of folders whose descendants are all
+    personal -- the project's "Profiles" system folder when it could be
+    resolved, plus the logged-in principal's own profile folders. When it is
+    empty the connector falls back to `names`: an ancestor folder whose
+    lower-cased name is in the set marks the object as personal."""
+
+    root_ids: Set[str] = field(default_factory=set)
+    names: Set[str] = field(default_factory=set)
+
+    @property
+    def by_name(self) -> bool:
+        return not self.root_ids
+
+    @staticmethod
+    def empty() -> "PersonalFolderResolution":
+        return PersonalFolderResolution()
+
+
+def is_personal_folder_object(
+    raw_object: MicroStrategyDict, resolution: PersonalFolderResolution
+) -> bool:
+    """True when the object's folder ancestry passes through a personal folder:
+    by id when a Profiles root was resolved (robust to localized or renamed
+    folders), otherwise by ancestor name (case-insensitive)."""
+    parts = extract_folder_parts(raw_object)
+    if not parts:
+        return False
+    if not resolution.by_name:
+        return any(
+            part.id and normalize_object_id(part.id) in resolution.root_ids
+            for part in parts
+        )
+    return any(part.name.strip().lower() in resolution.names for part in parts)
+
+
 class ModelTablesResponse(MicroStrategyBaseModel):
     """Model-tables envelope; tables stay untyped as their shape varies by server version."""
 
@@ -195,6 +379,17 @@ class DatasetObject(MicroStrategyBaseModel):
     field_warehouse_upstreams: Dict[str, List[str]] = Field(default_factory=dict)
     # Keyed by normalized (upper-cased) metric object ID.
     metric_enrichments: Dict[str, MetricEnrichment] = Field(default_factory=dict)
+    # Visualization-local derived metrics attached to this dataset, keyed by
+    # normalized (upper-cased) object ID.
+    derived_metrics: Dict[str, DerivedMetricSpec] = Field(default_factory=dict)
+    # Column-group name per member object ID (normalized upper-cased), recorded
+    # from the first visualization that groups the object. Viz-scoped context
+    # attached best-effort to the dataset; first match wins.
+    column_groups_by_object_id: Dict[str, str] = Field(default_factory=dict)
+
+    def normalized_object_ids(self) -> Set[str]:
+        """Catalog object ids normalized for cross-API comparison."""
+        return {normalize_object_id(object_id) for object_id in self.object_ids}
 
     @model_validator(mode="before")
     @classmethod
@@ -291,9 +486,19 @@ class Visualization(MicroStrategyBaseModel):
     name: str
     type: Optional[str] = None
     chapter_key: Optional[str] = Field(default=None, alias="chapterKey")
+    chapter_name: Optional[str] = Field(default=None, alias="chapterName")
+    # 1-based position of the chapter in the dossier and of the page within
+    # its chapter, so charts can be ordered the way the dossier reads.
+    chapter_index: Optional[int] = Field(default=None, alias="chapterIndex")
     page_key: Optional[str] = Field(default=None, alias="pageKey")
+    page_name: Optional[str] = Field(default=None, alias="pageName")
+    page_index: Optional[int] = Field(default=None, alias="pageIndex")
     datasets: List[str] = Field(default_factory=list)
     object_ids: List[str] = Field(default_factory=list)
+    column_sets: List[ColumnSet] = Field(default_factory=list)
+    # Header cells in grid order (rows, columns, page-by, then each column
+    # set's units); empty when no runtime grid definition was fetched.
+    grid_units: List[GridUnit] = Field(default_factory=list)
     raw: MicroStrategyDict = Field(default_factory=dict)
 
     @model_validator(mode="before")
@@ -312,6 +517,8 @@ class Visualization(MicroStrategyBaseModel):
             result["type"] = _first_str(result, MSTR_KEYS_VISUALIZATION_TYPE)
             result["datasets"] = _extract_dataset_ids(result)
             result["object_ids"] = _extract_object_ids(result)
+            result["column_sets"] = _extract_column_sets(result)
+            result["grid_units"] = _extract_grid_units(result)
             result["raw"] = data
             return result
         return data
@@ -434,6 +641,21 @@ class ProjectKey(ContainerKey):
 
 class FolderKey(ProjectKey):
     folder_path: str
+
+
+@dataclass(frozen=True)
+class FolderPart:
+    """One level of a folder ancestor chain: the raw metadata name, plus its
+    object id when known (ids are absent for the string-path fallback, since
+    that path carries no per-level identifiers to resolve against)."""
+
+    name: str
+    id: Optional[str] = None
+
+
+def normalize_object_id(value: object) -> str:
+    """Canonical form for MicroStrategy object-id comparison across APIs."""
+    return str(value).strip().upper()
 
 
 def _unwrap_definition(response: MicroStrategyDict) -> MicroStrategyDict:
@@ -597,6 +819,44 @@ def _extract_datasource_reference(
     return None
 
 
+def _page_visualizations(chapters: List[object]) -> List[MicroStrategyDict]:
+    """Visualizations placed on dossier pages, each annotated with the chapter
+    and page it sits on: definition key, name and 1-based position."""
+    found: List[MicroStrategyDict] = []
+    for chapter_index, chapter in enumerate(chapters, start=1):
+        if not isinstance(chapter, dict):
+            continue
+        chapter_key = _first_str(chapter, MSTR_KEYS_KEY_ID)
+        chapter_name = _first_str(chapter, MSTR_KEYS_NAME)
+        pages = chapter.get("pages")
+        if not isinstance(pages, list):
+            continue
+        for page_index, page in enumerate(pages, start=1):
+            if not isinstance(page, dict):
+                continue
+            page_key = _first_str(page, MSTR_KEYS_KEY_ID)
+            page_name = _first_str(page, MSTR_KEYS_NAME)
+            visualizations = page.get("visualizations")
+            if not isinstance(visualizations, list):
+                continue
+            for visualization in visualizations:
+                if not isinstance(visualization, dict):
+                    continue
+                annotated = dict(visualization)
+                if chapter_key:
+                    annotated["chapterKey"] = chapter_key
+                if chapter_name:
+                    annotated["chapterName"] = chapter_name
+                annotated["chapterIndex"] = chapter_index
+                if page_key:
+                    annotated["pageKey"] = page_key
+                if page_name:
+                    annotated["pageName"] = page_name
+                annotated["pageIndex"] = page_index
+                found.append(annotated)
+    return found
+
+
 def _extract_visualizations(definition: MicroStrategyDict) -> List[MicroStrategyDict]:
     found: List[MicroStrategyDict] = []
 
@@ -615,29 +875,7 @@ def _extract_visualizations(definition: MicroStrategyDict) -> List[MicroStrategy
 
     chapters = definition.get("chapters")
     if isinstance(chapters, list):
-        for chapter in chapters:
-            if not isinstance(chapter, dict):
-                continue
-            chapter_key = _first_str(chapter, MSTR_KEYS_KEY_ID)
-            pages = chapter.get("pages")
-            if not isinstance(pages, list):
-                continue
-            for page in pages:
-                if not isinstance(page, dict):
-                    continue
-                page_key = _first_str(page, MSTR_KEYS_KEY_ID)
-                visualizations = page.get("visualizations")
-                if not isinstance(visualizations, list):
-                    continue
-                for visualization in visualizations:
-                    if not isinstance(visualization, dict):
-                        continue
-                    annotated = dict(visualization)
-                    if chapter_key:
-                        annotated["chapterKey"] = chapter_key
-                    if page_key:
-                        annotated["pageKey"] = page_key
-                    found.append(annotated)
+        found.extend(_page_visualizations(chapters))
 
     visit(definition.get("chapters", definition))
 
@@ -680,6 +918,145 @@ def _extract_dataset_ids(value: object) -> List[str]:
     return sorted(set(dataset_ids))
 
 
+def _extract_column_sets(data: MicroStrategyDict) -> List[MicroStrategyDict]:
+    """Column groups of a compound-grid visualization. The runtime grid payload
+    carries each group's member metric elements (including `derived` flags);
+    the static dossier definition carries only key and name. Prefer runtime."""
+    runtime = data.get("runtimeDefinition")
+    if isinstance(runtime, dict):
+        definition = runtime.get("definition")
+        grid = definition.get("grid") if isinstance(definition, dict) else None
+        column_sets = grid.get("columnSets") if isinstance(grid, dict) else None
+        if isinstance(column_sets, list):
+            extracted = [
+                _column_set_from_grid(column_set)
+                for column_set in column_sets
+                if isinstance(column_set, dict)
+            ]
+            if extracted:
+                return extracted
+    static_sets = data.get("columnSets")
+    if isinstance(static_sets, list):
+        return [
+            {"key": column_set.get("key"), "name": column_set.get("name")}
+            for column_set in static_sets
+            if isinstance(column_set, dict)
+        ]
+    return []
+
+
+def _runtime_grid_definition(data: MicroStrategyDict) -> Optional[MicroStrategyDict]:
+    """The runtime grid dict (rows/columns/pageBy/columnSets): nested under
+    `definition.grid` for dossier visualizations, or directly under
+    `definition` on servers that flatten it."""
+    runtime = data.get("runtimeDefinition")
+    if not isinstance(runtime, dict):
+        return None
+    definition = runtime.get("definition")
+    if not isinstance(definition, dict):
+        return None
+    grid = definition.get("grid")
+    if isinstance(grid, dict):
+        return grid
+    if any(key in definition for key in MSTR_GRID_AXES):
+        return definition
+    return None
+
+
+def _extract_grid_units(data: MicroStrategyDict) -> List[MicroStrategyDict]:
+    """Header cells of a runtime grid in render order. Row, column and page-by
+    units are ungrouped; a compound grid's column-set units carry their group."""
+    grid = _runtime_grid_definition(data)
+    if grid is None:
+        return []
+    units: List[MicroStrategyDict] = []
+    for axis in MSTR_GRID_AXES:
+        units.extend(_grid_units_from_columns(grid.get(axis), None))
+    column_sets = grid.get(MSTR_GRID_COLUMN_SETS_KEY)
+    for column_set in column_sets if isinstance(column_sets, list) else []:
+        if not isinstance(column_set, dict):
+            continue
+        units.extend(_grid_units_from_columns(column_set.get("columns"), column_set))
+    return units
+
+
+def _grid_units_from_columns(
+    columns: object, column_set: Optional[MicroStrategyDict]
+) -> List[MicroStrategyDict]:
+    group: MicroStrategyDict = {}
+    if column_set is not None:
+        group = {
+            "column_set_key": _first_str(column_set, ("key",))
+            or _first_str(column_set, ("name",)),
+            "column_set_name": _first_str(column_set, ("name",)),
+        }
+    units: List[MicroStrategyDict] = []
+    for column in columns if isinstance(columns, list) else []:
+        if not isinstance(column, dict):
+            continue
+        column_type = str(column.get("type") or "").lower()
+        if column_type == MSTR_GRID_ATTRIBUTE_TYPE:
+            forms = column.get("forms")
+            units.append(
+                {
+                    "kind": "attribute",
+                    "id": _first_str(column, MSTR_KEYS_ID),
+                    "name": _first_str(column, MSTR_KEYS_NAME),
+                    "forms": [
+                        {
+                            "id": _first_str(form, MSTR_KEYS_ID),
+                            "name": _first_str(form, MSTR_KEYS_NAME),
+                        }
+                        for form in (forms if isinstance(forms, list) else [])
+                        if isinstance(form, dict)
+                    ],
+                    **group,
+                }
+            )
+        elif column_type == MSTR_GRID_TEMPLATE_METRICS_TYPE:
+            elements = column.get("elements")
+            for element in elements if isinstance(elements, list) else []:
+                if (
+                    not isinstance(element, dict)
+                    or str(element.get("type") or "").lower()
+                    != MSTR_GRID_METRIC_ELEMENT_TYPE
+                ):
+                    continue
+                units.append(
+                    {
+                        "kind": "metric",
+                        "id": _first_str(element, MSTR_KEYS_ID),
+                        "name": _first_str(element, MSTR_KEYS_NAME),
+                        "derived": bool(element.get("derived")),
+                        **group,
+                    }
+                )
+    return units
+
+
+def _column_set_from_grid(column_set: MicroStrategyDict) -> MicroStrategyDict:
+    metrics: List[MicroStrategyDict] = []
+    columns = column_set.get("columns")
+    for column in columns if isinstance(columns, list) else []:
+        if not isinstance(column, dict):
+            continue
+        if str(column.get("type") or "").lower() != MSTR_GRID_TEMPLATE_METRICS_TYPE:
+            continue
+        elements = column.get("elements")
+        for element in elements if isinstance(elements, list) else []:
+            if (
+                isinstance(element, dict)
+                and str(element.get("type") or "").lower()
+                == MSTR_GRID_METRIC_ELEMENT_TYPE
+            ):
+                metrics.append(element)
+    return {
+        "key": column_set.get("key"),
+        "name": column_set.get("name"),
+        "metrics": metrics,
+    }
+
+
 def _extract_object_ids(value: object) -> List[str]:
     object_ids: List[str] = []
 
@@ -701,24 +1078,367 @@ def _extract_object_ids(value: object) -> List[str]:
     return sorted(set(object_ids))
 
 
-def extract_folder_parts(raw_object: MicroStrategyDict) -> List[str]:
+def metric_enrichment_from_expression(expression: object) -> Optional[MetricEnrichment]:
+    """Text and object-reference tokens of a Modeling API `expression` value.
+    Object references may nest under a token's target/value or sit directly on
+    the token, depending on the MicroStrategy version."""
+    if isinstance(expression, str):
+        return MetricEnrichment(expression_text=expression) if expression else None
+    if not isinstance(expression, dict):
+        return None
+    expression_text: Optional[str] = None
+    expression_tokens: Optional[str] = None
+    text = expression.get("text") or expression.get("tree")
+    if text:
+        expression_text = str(text)
+    tokens = expression.get("tokens")
+    if isinstance(tokens, list):
+        object_tokens = []
+        for token in tokens:
+            if not isinstance(token, dict):
+                continue
+            reference = token.get("target") or token.get("value")
+            if not isinstance(reference, dict):
+                reference = token
+            token_id = reference.get("objectId") or reference.get("id")
+            token_name = reference.get("name")
+            token_type = reference.get("type")
+            if token_id or token_name:
+                object_tokens.append(
+                    {
+                        key: str(value)
+                        for key, value in {
+                            "id": token_id,
+                            "name": token_name,
+                            "type": token_type,
+                        }.items()
+                        if value is not None
+                    }
+                )
+        if object_tokens:
+            expression_tokens = json.dumps(object_tokens, sort_keys=True)
+    if expression_text is None and expression_tokens is None:
+        return None
+    return MetricEnrichment(
+        expression_text=expression_text,
+        expression_tokens=expression_tokens,
+    )
+
+
+def _node_type_words(node: MicroStrategyDict) -> str:
+    return " ".join(
+        str(node.get(key) or "") for key in ("type", "subType", "subtype", "objectType")
+    ).lower()
+
+
+def _is_metric_definition_node(
+    node: MicroStrategyDict, identity: MicroStrategyDict, parent_key: str
+) -> bool:
+    words = f"{_node_type_words(node)} {_node_type_words(identity)}"
+    if any(word in words for word in MSTR_NON_METRIC_DEFINITION_TYPE_WORDS):
+        return False
+    if any(word in words for word in MSTR_METRIC_DEFINITION_TYPE_WORDS):
+        return True
+    if any(word in parent_key.lower() for word in MSTR_METRIC_DEFINITION_TYPE_WORDS):
+        return True
+    return bool(node.get("derived") or node.get("isDerived") or node.get("isEmbedded"))
+
+
+def _definition_identity(
+    node: MicroStrategyDict, parent: Optional[MicroStrategyDict]
+) -> Optional[MicroStrategyDict]:
+    """The dict carrying an expression-bearing node's id and name: the node
+    itself, its `information` block, or (for a `definition` sub-object) its
+    parent element."""
+    for candidate in (node, node.get("information"), parent):
+        if isinstance(candidate, dict) and _first_str(candidate, MSTR_KEYS_ID):
+            return candidate
+    return None
+
+
+def extract_embedded_metric_definitions(
+    payload: MicroStrategyDict,
+    endpoint: Optional[str] = None,
+) -> List[ReportDerivedMetric]:
+    """Metric definitions embedded in a report or document definition payload:
+    any metric-typed node carrying an `expression`, plus metric nodes flagged
+    `derived`/`isDerived` (which name a derived metric even when the endpoint
+    omits its formula). Walked generically because the Modeling API nests
+    report objects differently across versions; filters, thresholds and
+    attributes are excluded by type so their expression text is never
+    mistaken for a metric formula. Keyed by normalized id; the first
+    expression-bearing occurrence wins. `endpoint` is stamped on every
+    definition (see MSTR_DEFINITION_ENDPOINT_*)."""
+    found: Dict[str, ReportDerivedMetric] = {}
+
+    def record(
+        node: MicroStrategyDict, identity: MicroStrategyDict, source: str
+    ) -> None:
+        object_id = _first_str(identity, MSTR_KEYS_ID)
+        if not object_id or object_id == MSTR_NULL_OBJECT_ID:
+            return
+        object_name = _first_str(identity, MSTR_KEYS_NAME) or _first_str(
+            node, MSTR_KEYS_NAME
+        )
+        # A grid element's alias is what the report displays (the Metric
+        # Editor's "display name"); the object itself is often still called
+        # "New Metric". Prefer the alias and keep the object name alongside.
+        alias = node.get("alias")
+        name = alias if isinstance(alias, str) and alias.strip() else object_name
+        if not name:
+            return
+        enrichment = metric_enrichment_from_expression(
+            node.get("expression") or node.get("formula")
+        )
+        key = normalize_object_id(object_id)
+        existing = found.get(key)
+        if existing is not None:
+            # The same metric appears in the template units (object name only)
+            # and in the grid (alias): keep one entry, upgraded with whichever
+            # occurrence adds the alias or the expression.
+            if alias and existing.name == existing.object_name:
+                existing.name = name
+            if enrichment is not None and not existing.has_expression:
+                existing.expression_text = enrichment.expression_text
+                existing.expression_tokens = enrichment.expression_tokens
+            return
+        found[key] = ReportDerivedMetric(
+            id=object_id,
+            name=name,
+            object_name=object_name,
+            data_type=_first_str(identity, ("dataType",))
+            or _first_str(node, ("dataType",)),
+            expression_text=enrichment.expression_text if enrichment else None,
+            expression_tokens=enrichment.expression_tokens if enrichment else None,
+            source=source,
+            endpoint=endpoint,
+        )
+
+    def visit(
+        value: object, parent_key: str, parent: Optional[MicroStrategyDict]
+    ) -> None:
+        if isinstance(value, dict):
+            has_expression = isinstance(value.get("expression"), (dict, str)) or (
+                isinstance(value.get("formula"), str)
+            )
+            # The Modeling report definition marks report-level derived metrics
+            # with isEmbedded (their definition lives inside the report, not
+            # the metadata catalog) and gives them the plain "metric" subtype.
+            flagged_derived = bool(
+                value.get("derived")
+                or value.get("isDerived")
+                or value.get("isEmbedded")
+            )
+            if has_expression or flagged_derived:
+                identity = _definition_identity(value, parent)
+                if identity is not None and _is_metric_definition_node(
+                    value, identity, parent_key
+                ):
+                    record(value, identity, "report")
+            for child_key, child in value.items():
+                visit(child, str(child_key), value)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child, parent_key, parent)
+
+    # The Modeling definition's data template lists report objects in Report
+    # Objects order; walking it first fixes the definitions' order to that
+    # (dataset schema fields follow it) regardless of the payload's key
+    # order. The full walk then only adds grid aliases and anything the
+    # template does not carry.
+    template_parent = payload.get("dataSource")
+    if not isinstance(template_parent, dict):
+        template_parent = payload
+    template = template_parent.get("dataTemplate")
+    if isinstance(template, dict):
+        visit(template, "dataTemplate", template_parent)
+    visit(payload, "", None)
+    return list(found.values())
+
+
+PAYLOAD_SKELETON_MAX_DEPTH = 6
+PAYLOAD_SKELETON_MAX_CHARS = 4000
+PAYLOAD_SKELETON_MAX_TYPE_VALUES = 50
+_SKELETON_LIST_LENGTH_KEY = "$len"
+_SKELETON_LIST_ITEM_KEY = "$item"
+_SKELETON_TRUNCATED_SUFFIX = "..."
+
+
+def _payload_skeleton(value: object, depth: int) -> object:
+    if isinstance(value, dict):
+        if depth <= 0:
+            return f"dict[{len(value)}]"
+        return {
+            str(key): _payload_skeleton(child, depth - 1)
+            for key, child in value.items()
+        }
+    if isinstance(value, list):
+        if depth <= 0 or not value:
+            return f"list[{len(value)}]"
+        # The union of every item's shape, not just the first: API lists mix
+        # kinds (a template's units are attributes and one metrics unit; a
+        # grid's elements are catalog and derived metrics), and the keys
+        # that matter for diagnosis tend to sit on the minority item. Lists
+        # do not consume depth: the limit counts dict nesting only, so
+        # `units[].elements[].expression` costs the same as `a.b.c`.
+        merged: object = _payload_skeleton(value[0], depth)
+        for item in value[1:]:
+            merged = _merge_skeletons(merged, _payload_skeleton(item, depth))
+        return {
+            _SKELETON_LIST_LENGTH_KEY: len(value),
+            _SKELETON_LIST_ITEM_KEY: merged,
+        }
+    if value is None:
+        return "null"
+    return type(value).__name__
+
+
+def _merge_skeletons(left: object, right: object) -> object:
+    """Union of two skeletons: dict keys are merged recursively, differing
+    scalar descriptions are joined with `|` so a field that is a string on
+    one item and absent or a dict on another is visible as such."""
+    if isinstance(left, dict) and isinstance(right, dict):
+        out: Dict[str, object] = dict(left)
+        for key, child in right.items():
+            out[key] = _merge_skeletons(out[key], child) if key in out else child
+        return out
+    if left == right:
+        return left
+    parts: List[str] = []
+    for side in (left, right):
+        text = (
+            side
+            if isinstance(side, str)
+            else json.dumps(side, sort_keys=True, separators=(",", ":"))
+        )
+        for part in text.split("|"):
+            if part not in parts:
+                parts.append(part)
+    return "|".join(parts)
+
+
+def payload_type_vocabulary(
+    payload: object, max_values: int = PAYLOAD_SKELETON_MAX_TYPE_VALUES
+) -> List[str]:
+    """Sorted distinct string values of every `type` / `subType` / `subtype`
+    key in the payload. These are a small closed vocabulary of MicroStrategy
+    object kinds (`attribute`, `metric`, `derived_metric`...), never names or
+    ids, so they are safe to log and are what tells a derived metric element
+    apart when the payload carries no `derived` flag."""
+    found: Set[str] = set()
+
+    def visit(value: object) -> None:
+        if len(found) >= max_values:
+            return
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in ("type", "subType", "subtype") and isinstance(child, str):
+                    found.add(child)
+                else:
+                    visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(payload)
+    return sorted(found)[:max_values]
+
+
+def _capped_json(value: object, max_chars: int) -> str:
+    rendered = json.dumps(value, sort_keys=True, separators=(",", ":"))
+    if len(rendered) > max_chars:
+        cut = max(max_chars - len(_SKELETON_TRUNCATED_SUFFIX), 0)
+        return rendered[:cut] + _SKELETON_TRUNCATED_SUFFIX
+    return rendered
+
+
+def payload_key_skeleton(
+    value: object,
+    max_depth: int = PAYLOAD_SKELETON_MAX_DEPTH,
+    max_chars: int = PAYLOAD_SKELETON_MAX_CHARS,
+) -> str:
+    """Structure-only rendering of an API payload for debug logs: dict keys,
+    list lengths (plus the union of the items' shapes) and scalar type names;
+    no object names, ids or values, so it is safe to leave in an execution log.
+    Depth-limited (deeper containers collapse to `dict[n]`/`list[n]`) and
+    capped at `max_chars`."""
+    return _capped_json(_payload_skeleton(value, max_depth), max_chars)
+
+
+def first_derived_node_skeleton(
+    payload: MicroStrategyDict,
+    max_depth: int = PAYLOAD_SKELETON_MAX_DEPTH,
+    max_chars: int = PAYLOAD_SKELETON_MAX_CHARS,
+) -> Optional[str]:
+    """Key skeleton of the first node flagged `derived`/`isDerived` that
+    extract_embedded_metric_definitions would visit: the node itself, the
+    identity dict it resolved (node, `information` block or parent) and the
+    parent's keys. None when no node carries the flag."""
+
+    def find(
+        value: object, parent: Optional[MicroStrategyDict]
+    ) -> Optional[Tuple[MicroStrategyDict, Optional[MicroStrategyDict]]]:
+        if isinstance(value, dict):
+            if value.get("derived") or value.get("isDerived"):
+                return value, parent
+            for child in value.values():
+                match = find(child, value)
+                if match is not None:
+                    return match
+        elif isinstance(value, list):
+            for child in value:
+                match = find(child, parent)
+                if match is not None:
+                    return match
+        return None
+
+    match = find(payload, None)
+    if match is None:
+        return None
+    node, parent = match
+    identity = _definition_identity(node, parent)
+    return _capped_json(
+        {
+            "node": _payload_skeleton(node, max_depth),
+            "identity": (
+                _payload_skeleton(identity, max_depth)
+                if identity is not None
+                else "null"
+            ),
+            # Parent keys stay literal: they are field names, not values.
+            "parent_keys": sorted(str(key) for key in parent) if parent else [],
+        },
+        max_chars,
+    )
+
+
+def extract_folder_parts(raw_object: MicroStrategyDict) -> List[FolderPart]:
     # Quick-search results requested with getAncestors carry the folder path
     # as a top-down list of ancestor objects.
     ancestors = raw_object.get("ancestors")
     if isinstance(ancestors, list) and ancestors:
-        parts = [
-            _first_str(ancestor, MSTR_KEYS_NAME)
+        candidates = [
+            FolderPart(
+                name=_first_str(ancestor, MSTR_KEYS_NAME) or "",
+                id=_first_str(ancestor, MSTR_KEYS_ID),
+            )
             for ancestor in ancestors
             if isinstance(ancestor, dict)
         ]
         # Only trust the ancestor path when every entry resolved to a name;
         # a nameless entry mid-list would silently collapse the hierarchy
         # (A/B/C -> A/C), so fall back to folder/location instead.
-        if parts and len(parts) == len(ancestors) and all(parts):
-            return [part for part in parts if part]
+        if (
+            candidates
+            and len(candidates) == len(ancestors)
+            and all(part.name for part in candidates)
+        ):
+            return candidates
     folder = raw_object.get("folder") or raw_object.get("location")
     if isinstance(folder, dict):
         path = _first_str(folder, MSTR_KEYS_FOLDER_PATH)
     else:
         path = str(folder) if folder else None
-    return [part for part in (path or "").strip("/").split("/") if part]
+    return [
+        FolderPart(name=part) for part in (path or "").strip("/").split("/") if part
+    ]

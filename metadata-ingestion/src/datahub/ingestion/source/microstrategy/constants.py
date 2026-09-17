@@ -1,4 +1,5 @@
 import re
+from typing import Dict
 
 MICROSTRATEGY_PLATFORM = "microstrategy"
 
@@ -12,6 +13,47 @@ MSTR_API_PROJECTS = "/api/projects"
 MSTR_API_OBJECT = "/api/objects/{object_id}"
 MSTR_API_METADATA_SEARCHES = "/api/metadataSearches/results"
 MSTR_API_SEARCHES = "/api/searches/results"
+MSTR_API_FOLDERS_PREDEFINED = "/api/folders/preDefined"
+
+# EnumDSSXMLFolderNames predefined folder type whose MicroStrategy-assigned label
+# ("Shared Reports") differs from its raw metadata folder name ("Reports", nested
+# under the project's "Public Objects" system folder). Resolved via
+# MSTR_API_FOLDERS_PREDEFINED so the browse hierarchy matches what Strategy Web
+# shows instead of the internal metadata name.
+MSTR_FOLDER_TYPE_SHARED_REPORTS = 7
+MSTR_PREDEFINED_FOLDER_LABELS: Dict[int, str] = {
+    MSTR_FOLDER_TYPE_SHARED_REPORTS: "Shared Reports",
+}
+# System containers every object's ancestor chain passes through but Strategy
+# Web never displays: the project root folder (named after the project, so it
+# renders as a duplicate project level) and "Public Objects". Resolved by id
+# via the same predefined-folders call and omitted from the browse hierarchy;
+# children re-parent to the nearest kept ancestor.
+MSTR_FOLDER_TYPE_PUBLIC_OBJECTS = 1
+MSTR_FOLDER_TYPE_PROJECT_ROOT = 39
+MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES = frozenset(
+    {MSTR_FOLDER_TYPE_PUBLIC_OBJECTS, MSTR_FOLDER_TYPE_PROJECT_ROOT}
+)
+# EnumDSSXMLFolderNames profile folder types. Both resolve to the LOGGED-IN
+# principal's own folders: 19 is its profile folder (the per-user tree that
+# holds "My Reports", "My Objects", "My Answers", ...), 20 is its "My Reports".
+# The enum has no value for the "Profiles" system folder that holds every
+# user's profile folder, so that root is resolved as the type-19 folder's
+# parent (via GET /api/objects/{id}?type=8 ancestors); any object with that
+# ancestor is personal, whichever user owns it.
+MSTR_FOLDER_TYPE_PROFILE_OBJECTS = 19
+MSTR_FOLDER_TYPE_PROFILE_REPORTS = 20
+MSTR_PERSONAL_FOLDER_TYPES = (
+    MSTR_FOLDER_TYPE_PROFILE_OBJECTS,
+    MSTR_FOLDER_TYPE_PROFILE_REPORTS,
+)
+# EnumDSSXMLObjectTypes: Folder.
+MSTR_OBJECT_TYPE_FOLDER = 8
+# Fallback when the Profiles root id cannot be resolved (older server, no
+# privilege): an ancestor folder whose name equals one of these
+# (case-insensitive) marks an object as personal. The resolved label of the
+# type-20 folder is added when available.
+MSTR_PERSONAL_FOLDER_NAMES = frozenset({"profiles", "my reports"})
 
 MSTR_LOGIN_MODE_STANDARD = 1
 MSTR_LOGIN_MODE_GUEST = 8
@@ -25,9 +67,25 @@ MSTR_OBJECT_SUBTYPE_DOCUMENT = "14081"
 MSTR_OBJECT_TYPE_METRIC = 7
 MSTR_OBJECT_TYPE_CONSOLIDATION = 47
 
+# Which REST endpoint supplied a report's derived metric definitions: the
+# Modeling service (GET /api/model/reports/{id}, carries expressions) or the
+# v2 report definition (GET /api/v2/reports/{id}, names derived metrics but
+# omits their formulas). Recorded per field so a formula-less description can
+# say which endpoint answered.
+MSTR_DEFINITION_ENDPOINT_MODEL = "model"
+MSTR_DEFINITION_ENDPOINT_V2 = "v2"
+# The formula came from GET /api/model/metrics/{id} for a metric the report
+# definition only named (an embedded, report-level derived metric).
+MSTR_DEFINITION_ENDPOINT_METRIC_MODEL = "metric_model"
+# Fixed prefix on the DEBUG-level payload-shape lines emitted while resolving
+# report derived metric definitions, so they can be grepped out of an
+# executor debug log.
+MSTR_DERIVED_DEBUG_LOG_PREFIX = "[mstr-derived-debug]"
+
 MEASURE_TAG_URN = "urn:li:tag:Measure"
 DIMENSION_TAG_URN = "urn:li:tag:Dimension"
 TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
+DERIVED_TAG_URN = "urn:li:tag:Derived"
 
 # Entity kinds usage buckets can attach to (dashboards get
 # DashboardUsageStatistics, report charts get ChartUsageStatistics).
@@ -129,6 +187,15 @@ MSTR_OBJECT_ID_PARENT_KEYS = frozenset(
     {"metric", "metrics", "attribute", "attributes", "templatemetrics"}
 )
 MSTR_OBJECT_TYPES = frozenset({"metric", "attribute"})
+# Lowercased grid unit types used when walking a runtime grid definition: the
+# metrics container column, the metric elements inside it, and attribute units.
+MSTR_GRID_TEMPLATE_METRICS_TYPE = "templatemetrics"
+MSTR_GRID_METRIC_ELEMENT_TYPE = "metric"
+MSTR_GRID_ATTRIBUTE_TYPE = "attribute"
+# Grid axes in the order Strategy renders their headers (row attributes on the
+# left, then column units, then page-by); a compound grid's columnSets follow.
+MSTR_GRID_AXES = ("rows", "columns", "pageBy")
+MSTR_GRID_COLUMN_SETS_KEY = "columnSets"
 
 # Pre-compiled regexes. Matched case-insensitively; declared once so the
 # hot-path normalizers reuse a single compiled pattern.
@@ -202,6 +269,25 @@ MSTR_NAME_TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 MSTR_NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 # SQL identifier (column/table token) extractor for expression parsing.
 MSTR_SQL_IDENTIFIER_RE = re.compile(r"[A-Za-z_][\w$#]*")
+# Metric formulas reference sibling catalog objects as `{Object Name}` tokens
+# in the Modeling API's expression text, e.g. `({Net Amt} - {Net Amt LY}) /
+# Abs({Net Amt LY})`, and as `[Object Name]` in Strategy Web's editor syntax,
+# e.g. `([Net Amt] / [Plan Amt]) - 1`; report-level derived metric formulas
+# can surface in either form depending on the endpoint that returned them.
+MSTR_METRIC_REFERENCE_RE = re.compile(r"\{([^{}]+)\}|\[([^\[\]]+)\]")
+# Object type / subtype words that identify an embedded expression-bearing
+# node as a metric definition, and words that rule one out (filters and
+# thresholds also carry expression-like text in report definitions).
+MSTR_METRIC_DEFINITION_TYPE_WORDS = ("metric",)
+MSTR_NON_METRIC_DEFINITION_TYPE_WORDS = (
+    "attribute",
+    "consolidation",
+    "fact",
+    "filter",
+    "prompt",
+    "qualification",
+    "threshold",
+)
 # A 32-char hex string is MicroStrategy's canonical object-id form.
 MSTR_HEX_OBJECT_ID_RE = re.compile(r"[0-9A-Fa-f]{32}")
 # Collapses internal whitespace runs to a single space.
@@ -364,9 +450,12 @@ MSTR_USAGE_NAME_FORM_NAME = "Name"
 MSTR_USAGE_ID_FORM_NAME = "ID"
 MSTR_USAGE_USER_FORM_NAMES = ("Login", "Name")
 
-# Intelligent cube (776) and super cube (779) subtypes; the quick search for the
-# cube name can also match plain reports, which must be skipped.
-MSTR_USAGE_CUBE_SUBTYPES = frozenset({"776", "779"})
+# Intelligent cube (776) and super cube (779) subtypes. Cubes share object type
+# 3 with reports; only the subtype tells them apart. Used to skip plain reports
+# in the usage-cube quick search and to decide whether a dataset object can be
+# opened in Library (reports can, cubes cannot).
+MSTR_CUBE_SUBTYPES = frozenset({"776", "779"})
+MSTR_USAGE_CUBE_SUBTYPES = MSTR_CUBE_SUBTYPES
 
 # Date form values are rendered strings whose format follows the Intelligence
 # Server locale; month-first is the shipped default.

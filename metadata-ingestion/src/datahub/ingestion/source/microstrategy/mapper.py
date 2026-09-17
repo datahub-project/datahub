@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
@@ -10,6 +11,7 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Tuple,
     Union,
 )
 
@@ -24,8 +26,12 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
+    DERIVED_TAG_URN,
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
+    MSTR_CUBE_SUBTYPES,
+    MSTR_DEFINITION_ENDPOINT_MODEL,
+    MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_DOT_COLLAPSE_RE,
     MSTR_OBJECT_TIMESTAMP_FORMATS,
     MSTR_WHITESPACE_RE,
@@ -33,22 +39,31 @@ from datahub.ingestion.source.microstrategy.constants import (
     USAGE_TARGET_DASHBOARD,
 )
 from datahub.ingestion.source.microstrategy.lineage import (
+    ColumnSetBinding,
     MicroStrategyLineageExtractor,
     ModelLineageIndex,
+    bind_visualization_column_sets,
+    metric_formula_references,
 )
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
     Datasource,
     DatasourceReference,
+    DerivedMetricSpec,
     FolderKey,
+    FolderPart,
+    GridUnit,
     MetricEnrichment,
     MicroStrategyObject,
+    PredefinedFolderResolution,
     Project,
     ProjectKey,
     ReportDefinition,
+    ReportDerivedMetric,
     Visualization,
     extract_folder_parts,
+    normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.usage import UsageBucket
@@ -97,10 +112,12 @@ from datahub.utilities.urns.error import InvalidUrnError
 
 @dataclass
 class DatasetSchemaFields:
-    """A dataset's schema fields plus an index from source object id to fields."""
+    """A dataset's schema fields plus an index from source object id to fields
+    and the catalog name of each object (keyed by normalized object id)."""
 
     fields: List[SchemaFieldClass]
     by_object_id: Dict[str, List[SchemaFieldClass]]
+    object_names: Dict[str, str]
 
 
 class MicroStrategyMapper:
@@ -178,6 +195,132 @@ class MicroStrategyMapper:
             )
         dataset.field_warehouse_upstreams = merged
 
+    def attach_derived_metrics(self, dashboard: DashboardDefinition) -> None:
+        """Attach visualization-local derived metrics (grid `derived: true`) to
+        the dataset backing their column group, and record each member's
+        column-group name on that dataset. Derived metrics whose group cannot
+        be attributed to a dataset are counted, never silently dropped."""
+        dataset_by_id = {dataset.id: dataset for dataset in dashboard.datasets}
+        for visualization in dashboard.visualizations:
+            if not visualization.column_sets:
+                continue
+            self._attach_visualization_derived_metrics(
+                dashboard, visualization, dataset_by_id
+            )
+
+    def _attach_visualization_derived_metrics(
+        self,
+        dashboard: DashboardDefinition,
+        visualization: Visualization,
+        dataset_by_id: Dict[str, DatasetObject],
+    ) -> None:
+        binding = bind_visualization_column_sets(dashboard, visualization)
+        bound_ids = set(binding.dataset_id_by_column_set.values())
+        catalog_ids_by_dataset = {
+            dataset.id: dataset.normalized_object_ids()
+            for dataset in dashboard.datasets
+        }
+        # A group that failed to bind can still attach through the
+        # visualization's own unambiguous dataset.
+        fallback: Optional[DatasetObject] = None
+        if len(bound_ids) == 1:
+            fallback = dataset_by_id.get(next(iter(bound_ids)))
+        elif len(visualization.datasets) == 1:
+            fallback = dataset_by_id.get(visualization.datasets[0])
+        for column_set in visualization.column_sets:
+            dataset_id = binding.dataset_id_by_column_set.get(column_set.identifier)
+            target = dataset_by_id.get(dataset_id) if dataset_id else None
+            for metric in column_set.metrics:
+                if not metric.id:
+                    # An id-less derived element can never attach anywhere.
+                    if metric.derived:
+                        self.report.report_derived_metric_unattached()
+                    continue
+                normalized_id = normalize_object_id(metric.id)
+                if target is not None and column_set.name:
+                    target.column_groups_by_object_id.setdefault(
+                        normalized_id, column_set.name
+                    )
+                if not metric.derived:
+                    continue
+                attach_to = target if target is not None else fallback
+                if attach_to is None:
+                    self.report.report_derived_metric_unattached()
+                    continue
+                # Never shadow a real catalog object with a derived spec.
+                if normalized_id in catalog_ids_by_dataset.get(attach_to.id, set()):
+                    continue
+                attach_to.derived_metrics.setdefault(
+                    normalized_id,
+                    DerivedMetricSpec(
+                        id=metric.id,
+                        name=metric.display_name,
+                        data_type=metric.data_type,
+                        column_set_name=column_set.name,
+                        source_visualization_key=visualization.key,
+                        source_visualization_name=visualization.name,
+                    ),
+                )
+
+    def attach_report_derived_metrics(
+        self,
+        dataset: DatasetObject,
+        definitions: Sequence[ReportDerivedMetric],
+    ) -> None:
+        """Merge a report's derived metric definitions into the dataset's
+        derived specs: a grid-derived spec with the same object id (or, failing
+        that, the same normalized name) is upgraded in place with the report's
+        object name and formula rather than duplicated; definitions no grid
+        showed are added, so the dataset lists every derived metric the report
+        defines. Catalog objects are never shadowed."""
+        catalog_ids = dataset.normalized_object_ids()
+        key_by_name = {
+            _normalized_name(spec.name): key
+            for key, spec in dataset.derived_metrics.items()
+        }
+        # Dict keys in definition order, for the re-rank below.
+        report_keys: Dict[str, None] = {}
+        for definition in definitions:
+            object_id = normalize_object_id(definition.id)
+            if object_id in catalog_ids:
+                continue
+            key = object_id
+            if key not in dataset.derived_metrics:
+                key = key_by_name.get(_normalized_name(definition.name), object_id)
+            report_keys.setdefault(key, None)
+            spec = dataset.derived_metrics.get(key)
+            if spec is None:
+                dataset.derived_metrics[object_id] = DerivedMetricSpec(
+                    id=definition.id,
+                    name=definition.name,
+                    data_type=definition.data_type,
+                    expression_text=definition.expression_text,
+                    expression_tokens=definition.expression_tokens,
+                    definition_source=definition.source,
+                    definition_endpoint=definition.endpoint,
+                    object_name=definition.object_name,
+                )
+                continue
+            spec.name = definition.name
+            spec.object_name = definition.object_name
+            spec.data_type = spec.data_type or definition.data_type
+            if definition.has_expression:
+                spec.expression_text = definition.expression_text
+                spec.expression_tokens = definition.expression_tokens
+            spec.definition_source = definition.source
+            spec.definition_endpoint = definition.endpoint
+        # The report's definition order is the Report Objects order, so the
+        # derived metrics it defines are listed that way (schema fields follow
+        # dict order); grid-only specs keep their grid order after them.
+        if report_keys:
+            ranked = [key for key in report_keys if key in dataset.derived_metrics]
+            ranked.extend(
+                key for key in dataset.derived_metrics if key not in report_keys
+            )
+            dataset.derived_metrics = {
+                key: dataset.derived_metrics[key] for key in ranked
+            }
+
     def dataset_field_paths(self, dataset: DatasetObject) -> List[str]:
         return [spec.field_path for spec in _iter_dataset_fields(dataset)]
 
@@ -200,34 +343,87 @@ class MicroStrategyMapper:
         self,
         project_id: str,
         dashboard_object: MicroStrategyObject,
+        predefined_folders: Optional[PredefinedFolderResolution] = None,
     ) -> Iterable[MetadataWorkUnit]:
         parts = extract_folder_parts(dashboard_object.model_dump())
         parent_key: Optional[ProjectKey] = self.project_key(project_id)
         current_path = ""
         for part in parts:
-            if not self.config.folder_pattern.allowed(part):
+            if _is_hidden_folder(part, predefined_folders):
                 continue
-            current_path = f"{current_path}/{part}" if current_path else part
+            name = _resolve_folder_name(part, predefined_folders)
+            if not self.config.folder_pattern.allowed(name):
+                continue
+            current_path = f"{current_path}/{name}" if current_path else name
             folder_key = self.folder_key(project_id, current_path)
             self.report.report_folder_scanned()
             yield from gen_containers(
                 container_key=folder_key,
                 parent_container_key=parent_key,
-                name=part,
+                name=name,
                 sub_types=[BIContainerSubTypes.MICROSTRATEGY_FOLDER],
             )
             parent_key = folder_key
 
     def folder_container_for_dashboard(
-        self, project_id: str, dashboard_object: MicroStrategyObject
+        self,
+        project_id: str,
+        dashboard_object: MicroStrategyObject,
+        predefined_folders: Optional[PredefinedFolderResolution] = None,
     ) -> ProjectKey:
         parts = extract_folder_parts(dashboard_object.model_dump())
-        allowed_parts = [
-            part for part in parts if self.config.folder_pattern.allowed(part)
+        allowed_names = [
+            name
+            for name in (
+                _resolve_folder_name(part, predefined_folders)
+                for part in parts
+                if not _is_hidden_folder(part, predefined_folders)
+            )
+            if self.config.folder_pattern.allowed(name)
         ]
-        if not allowed_parts:
+        if not allowed_names:
             return self.project_key(project_id)
-        return self.folder_key(project_id, "/".join(allowed_parts))
+        return self.folder_key(project_id, "/".join(allowed_names))
+
+    def dataset_folder_parent_key(
+        self,
+        project_id: str,
+        dataset_object: Optional[MicroStrategyObject],
+        fallback_key: ProjectKey,
+        predefined_folders: Optional[PredefinedFolderResolution] = None,
+    ) -> ProjectKey:
+        """The folder container a dossier/report source dataset belongs in: the
+        dataset object's OWN folder ancestry (a report used as a dossier dataset
+        commonly lives in a different, often deeper, folder than the dossier).
+        Falls back to the parent dossier/report's folder when the dataset's
+        object info or ancestors could not be resolved, which is what the
+        connector emitted before it looked datasets up at all."""
+        if dataset_object is None:
+            return fallback_key
+        if not extract_folder_parts(dataset_object.model_dump()):
+            return fallback_key
+        return self.folder_container_for_dashboard(
+            project_id, dataset_object, predefined_folders
+        )
+
+    def dataset_external_url(
+        self,
+        project_id: str,
+        parent_id: str,
+        dataset: DatasetObject,
+        dataset_object: Optional[MicroStrategyObject],
+    ) -> str:
+        """Library URL for the dataset object itself when Library can open it.
+        Library renders dossiers, documents and reports by id, but has no viewer
+        for intelligent/super cubes: a cube URL would land on an error page, so
+        cubes (and datasets whose object info was unavailable) keep linking to
+        the parent dossier/report that embeds them."""
+        parent_url = f"{self.config.base_url}/app/{project_id}/{parent_id}"
+        if dataset_object is None:
+            return parent_url
+        if (dataset_object.subtype or "").strip() in MSTR_CUBE_SUBTYPES:
+            return parent_url
+        return f"{self.config.base_url}/app/{project_id}/{dataset.id}"
 
     def gen_dataset_workunits(
         self,
@@ -235,18 +431,25 @@ class MicroStrategyMapper:
         dashboard: DashboardDefinition,
         dataset: DatasetObject,
         parent_key: ProjectKey,
+        dataset_object: Optional[MicroStrategyObject] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        custom_properties = self._dataset_custom_properties(
+            project_id=project_id,
+            dashboard=dashboard,
+            dataset=dataset,
+        )
+        if dataset_object is not None:
+            custom_properties.update(self._dashboard_object_properties(dataset_object))
         yield from self._gen_dataset_entity_workunits(
             project_id=project_id,
             parent_id=dashboard.id,
             dataset=dataset,
             parent_key=parent_key,
-            custom_properties=self._dataset_custom_properties(
-                project_id=project_id,
-                dashboard=dashboard,
-                dataset=dataset,
-            ),
+            custom_properties=custom_properties,
             include_coarse_lineage=self.config.extract_warehouse_lineage,
+            external_url=self.dataset_external_url(
+                project_id, dashboard.id, dataset, dataset_object
+            ),
         )
 
     def gen_report_source_dataset_workunits(
@@ -255,18 +458,25 @@ class MicroStrategyMapper:
         report_object: MicroStrategyObject,
         dataset: DatasetObject,
         parent_key: ProjectKey,
+        dataset_object: Optional[MicroStrategyObject] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        custom_properties = self._report_source_dataset_custom_properties(
+            project_id=project_id,
+            report_object=report_object,
+            dataset=dataset,
+        )
+        if dataset_object is not None:
+            custom_properties.update(self._dashboard_object_properties(dataset_object))
         yield from self._gen_dataset_entity_workunits(
             project_id=project_id,
             parent_id=report_object.id,
             dataset=dataset,
             parent_key=parent_key,
-            custom_properties=self._report_source_dataset_custom_properties(
-                project_id=project_id,
-                report_object=report_object,
-                dataset=dataset,
-            ),
+            custom_properties=custom_properties,
             include_coarse_lineage=self.config.extract_report_sql_lineage,
+            external_url=self.dataset_external_url(
+                project_id, report_object.id, dataset, dataset_object
+            ),
         )
 
     def _gen_dataset_entity_workunits(
@@ -277,6 +487,7 @@ class MicroStrategyMapper:
         parent_key: ProjectKey,
         custom_properties: Dict[str, str],
         include_coarse_lineage: bool,
+        external_url: str,
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_dataset_scanned()
         dataset_urn = self.lineage.dataset_urn(project_id, parent_id, dataset)
@@ -288,7 +499,7 @@ class MicroStrategyMapper:
                 name=dataset.name,
                 description=dataset.description,
                 qualifiedName=f"{project_id}.{parent_id}.{dataset.id}".lower(),
-                externalUrl=f"{self.config.base_url}/app/{project_id}/{parent_id}",
+                externalUrl=external_url,
                 customProperties=custom_properties,
             ),
         ).as_workunit()
@@ -310,6 +521,8 @@ class MicroStrategyMapper:
         fine_grained_lineages = self._fine_grained_lineages(dataset_urn, dataset)
         if fine_grained_lineages:
             self.report.report_model_lineage_edges(len(fine_grained_lineages))
+        formula_lineages = self._metric_formula_lineages(dataset_urn, dataset)
+        all_fine_grained_lineages = fine_grained_lineages + formula_lineages
         fine_grained_table_urns = _upstream_dataset_urns(
             dataset.field_warehouse_upstreams
         )
@@ -332,7 +545,9 @@ class MicroStrategyMapper:
             upstream_urns = coarse_upstream_urns
         if upstream_urns:
             self.report.report_warehouse_lineage_edges(len(upstream_urns))
-        if upstream_urns:
+        # Metric-formula edges are same-dataset field-to-field lineage, so the
+        # aspect is emitted even when there are no table-level upstreams.
+        if upstream_urns or all_fine_grained_lineages:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=UpstreamLineageClass(
@@ -343,7 +558,7 @@ class MicroStrategyMapper:
                         )
                         for upstream_urn in upstream_urns
                     ],
-                    fineGrainedLineages=fine_grained_lineages or None,
+                    fineGrainedLineages=all_fine_grained_lineages or None,
                 ),
             ).as_workunit()
         yield from add_entity_to_container(
@@ -457,6 +672,15 @@ class MicroStrategyMapper:
             self.report.report_chart_lineage_edges(len(inputs))
         elif visualization.datasets:
             self.report.report_unresolved_visualization()
+        column_group_properties = (
+            self._column_groups_property(
+                dashboard,
+                visualization,
+                bind_visualization_column_sets(dashboard, visualization),
+            )
+            if visualization.column_sets
+            else {}
+        )
 
         yield self._platform_instance_workunit(chart_urn)
         yield MetadataChangeProposalWrapper(
@@ -466,7 +690,10 @@ class MicroStrategyMapper:
                 description=visualization.type or "",
                 lastModified=ChangeAuditStampsClass(),
                 chartUrl=f"{self.config.base_url}/app/{project_id}/{dashboard.id}",
-                customProperties=self._visualization_properties(visualization),
+                customProperties={
+                    **self._visualization_properties(visualization),
+                    **column_group_properties,
+                },
                 inputs=inputs,
                 inputEdges=[EdgeClass(destinationUrn=input_urn) for input_urn in inputs]
                 or None,
@@ -590,8 +817,10 @@ class MicroStrategyMapper:
     ) -> DatasetSchemaFields:
         fields: List[SchemaFieldClass] = []
         fields_by_object_id: Dict[str, List[SchemaFieldClass]] = {}
+        object_names: Dict[str, str] = {}
 
         for spec in _iter_dataset_fields(dataset):
+            _record_object_name(object_names, spec.item)
             if spec.kind == "metric":
                 metric = spec.item
                 enrichment = _metric_enrichment_for(dataset, metric)
@@ -609,6 +838,7 @@ class MicroStrategyMapper:
                         "microstrategyObjectId": str(metric.get("id", "")),
                         "microstrategyObjectType": "metric",
                         **_metric_expression_json_props(enrichment),
+                        **_column_group_json_props(dataset, metric),
                     },
                     glossary_term_urn=self._term_for(
                         metric, self.config.metric_glossary_term_mapping
@@ -621,6 +851,58 @@ class MicroStrategyMapper:
                 )
                 if report_fields:
                     self.report.report_metric_field()
+            elif spec.kind == "derived_metric":
+                derived = spec.derived
+                if derived is None:
+                    continue
+                derived_tag_urns: List[str] = []
+                if self.config.tag_measures_and_dimensions:
+                    derived_tag_urns.append(MEASURE_TAG_URN)
+                derived_tag_urns.append(DERIVED_TAG_URN)
+                schema_field = self._make_schema_field(
+                    field_path=spec.field_path,
+                    native_type=derived.data_type or "Derived Metric",
+                    description=_derived_metric_description(derived, dataset),
+                    tag_urns=derived_tag_urns,
+                    json_props={
+                        key: value
+                        for key, value in {
+                            "microstrategyObjectId": derived.id,
+                            "microstrategyObjectType": "derivedMetric",
+                            "microstrategyObjectName": (
+                                derived.object_name
+                                if derived.object_name
+                                and derived.object_name != derived.name
+                                else None
+                            ),
+                            "microstrategyDerivedMetricSource": (
+                                derived.definition_source or "visualization"
+                            ),
+                            "microstrategyMetricExpressionText": (
+                                derived.expression_text
+                            ),
+                            "microstrategyMetricExpressionTokens": (
+                                derived.expression_tokens
+                            ),
+                            "microstrategyColumnGroup": derived.column_set_name,
+                            "microstrategySourceVisualization": (
+                                derived.source_visualization_name
+                                or derived.source_visualization_key
+                            ),
+                        }.items()
+                        if value
+                    },
+                    glossary_term_urn=self._term_for(
+                        spec.item, self.config.metric_glossary_term_mapping
+                    ),
+                    numeric=True,
+                )
+                fields.append(schema_field)
+                _add_schema_field_object_mapping(
+                    fields_by_object_id, spec.item, schema_field
+                )
+                if report_fields:
+                    self.report.report_derived_metric_field()
             else:
                 attribute = spec.item
                 form = spec.form or attribute
@@ -660,9 +942,15 @@ class MicroStrategyMapper:
                 if report_fields:
                     self.report.report_attribute_field(temporal=spec.temporal)
 
+        # Report order (the definition's object order, as the Report Objects
+        # pane lists them) unless the operator asked for the old sorted view;
+        # the DataHub schema tab re-sorts by name on a header click anyway.
+        if self.config.dataset_field_order == "alphabetical":
+            fields.sort(key=lambda field: field.fieldPath)
         return DatasetSchemaFields(
-            fields=sorted(fields, key=lambda field: field.fieldPath),
+            fields=fields,
             by_object_id=fields_by_object_id,
+            object_names=object_names,
         )
 
     def _visualization_input_fields(
@@ -672,24 +960,101 @@ class MicroStrategyMapper:
         visualization: Visualization,
         input_urns: Sequence[str],
     ) -> Optional[InputFieldsClass]:
+        """Chart input fields named and ordered the way the grid shows them.
+
+        With a runtime grid definition, each header cell becomes one input
+        field in render order: row/column attributes first (unqualified, with
+        only the forms the grid displays, so a single displayed form is just
+        the attribute name), then each column group's metrics as
+        `GROUP.header` where the header is the grid's own text (a dossier
+        alias when it differs from the catalog metric name, which is kept in
+        the description and jsonProps). Each header cell is attributed to one
+        dataset: the group's bound dataset, or for ungrouped cells the first
+        input dataset (in group order) that carries the object.
+
+        Objects the visualization references outside any grid cell -- and
+        every object when no runtime grid was fetched -- keep the previous
+        treatment: emitted from every input dataset, prefixed with the group
+        (else dataset) name whenever more than one dataset feeds the chart.
+
+        Only the embedded display copy is renamed; the schemaField urn always
+        keeps the dataset's real field path so column lineage is unaffected."""
         if not visualization.object_ids or not input_urns:
             return None
 
         input_urn_set = set(input_urns)
-        visualization_object_ids = {
-            _normalize_object_id(object_id) for object_id in visualization.object_ids
-        }
-        input_fields_by_urn: Dict[str, InputFieldClass] = {}
-        for dataset in dashboard.datasets:
-            dataset_urn = self.lineage.dataset_urn(project_id, dashboard.id, dataset)
-            if dataset_urn not in input_urn_set:
-                continue
-            schema_fields = self._schema_fields_and_object_map(dataset)
-            for object_id in visualization_object_ids:
-                for schema_field in schema_fields.by_object_id.get(object_id, []):
-                    _add_input_field(input_fields_by_urn, dataset_urn, schema_field)
+        binding = (
+            bind_visualization_column_sets(dashboard, visualization)
+            if visualization.column_sets
+            else ColumnSetBinding({}, [])
+        )
+        input_datasets = [
+            dataset
+            for dataset in dashboard.datasets
+            if self.lineage.dataset_urn(project_id, dashboard.id, dataset)
+            in input_urn_set
+        ]
+        ordered_datasets = _datasets_in_grid_order(
+            input_datasets, visualization, binding
+        )
+        builder_state = _InputFieldBuilder(
+            annotate_source=len(input_urn_set) > 1,
+            urn_by_dataset_id={
+                dataset.id: self.lineage.dataset_urn(project_id, dashboard.id, dataset)
+                for dataset in ordered_datasets
+            },
+            schema_by_dataset_id={
+                dataset.id: self._schema_fields_and_object_map(dataset)
+                for dataset in ordered_datasets
+            },
+            group_by_dataset_id=self._column_group_by_dataset_id(
+                dashboard, visualization
+            ),
+        )
 
-        return _input_fields_aspect(input_fields_by_urn)
+        placed_cells: Set[Tuple[str, Optional[str]]] = set()
+        for unit in visualization.grid_units:
+            if not unit.id:
+                continue
+            cell = (normalize_object_id(unit.id), unit.column_set_key)
+            if cell in placed_cells:
+                continue
+            placed_cells.add(cell)
+            bound_id = (
+                binding.dataset_id_by_column_set.get(unit.column_set_key)
+                if unit.column_set_key
+                else None
+            )
+            candidates = [
+                dataset for dataset in ordered_datasets if dataset.id == bound_id
+            ] or ordered_datasets
+            builder_state.place_grid_cell(unit, candidates)
+
+        builder_state.place_leftovers(
+            ordered_datasets,
+            {normalize_object_id(object_id) for object_id in visualization.object_ids},
+        )
+        if not builder_state.entries:
+            return None
+        return InputFieldsClass(fields=builder_state.entries)
+
+    @staticmethod
+    def _column_group_by_dataset_id(
+        dashboard: DashboardDefinition,
+        visualization: Visualization,
+    ) -> Dict[str, str]:
+        """Bound dataset id -> column-group display name for this visualization."""
+        if not visualization.column_sets:
+            return {}
+        binding = bind_visualization_column_sets(dashboard, visualization)
+        name_by_identifier = {
+            column_set.identifier: column_set.name or column_set.identifier
+            for column_set in visualization.column_sets
+        }
+        return {
+            dataset_id: name_by_identifier.get(identifier, identifier)
+            for identifier, dataset_id in binding.dataset_id_by_column_set.items()
+        }
 
     def _dataset_input_fields(
         self,
@@ -701,7 +1066,7 @@ class MicroStrategyMapper:
         input_fields_by_urn: Dict[str, InputFieldClass] = {}
         if object_ids:
             normalized_object_ids = {
-                _normalize_object_id(object_id) for object_id in object_ids
+                normalize_object_id(object_id) for object_id in object_ids
             }
             for object_id in normalized_object_ids:
                 for schema_field in schema_fields.by_object_id.get(object_id, []):
@@ -723,6 +1088,9 @@ class MicroStrategyMapper:
 
         field_upstreams: Dict[str, List[str]] = {}
         for spec in _iter_dataset_fields(dataset):
+            if spec.kind == "derived_metric":
+                # Visualization-local: no catalog object, so no model lineage.
+                continue
             if spec.kind == "metric":
                 enrichment = _metric_enrichment_for(dataset, spec.item)
                 upstreams = _filter_schema_field_upstreams(
@@ -748,6 +1116,76 @@ class MicroStrategyMapper:
                 field_upstreams[spec.field_path] = upstreams
 
         return field_upstreams
+
+    def _metric_formula_lineages(
+        self,
+        dataset_urn: str,
+        dataset: DatasetObject,
+    ) -> List[FineGrainedLineageClass]:
+        """Field-to-field edges from a catalog metric (or a report-level
+        derived metric whose definition was fetched) to the sibling fields its
+        formula references as `{Name}` or `[Name]` tokens. Same-dataset edges
+        only; references that don't resolve to a field of this dataset are
+        counted and skipped rather than guessed."""
+        if not self.config.extract_metric_formula_lineage:
+            return []
+        has_derived_formula = any(
+            spec.expression_text for spec in dataset.derived_metrics.values()
+        )
+        if not dataset.metric_enrichments and not has_derived_formula:
+            return []
+
+        specs = list(_iter_dataset_fields(dataset))
+        # Case-insensitive name -> field path; first spec wins on collisions
+        # (same-named forms), which is fine: either path anchors the sibling.
+        path_by_name: Dict[str, str] = {}
+        for spec in specs:
+            path_by_name.setdefault(spec.field_path.lower(), spec.field_path)
+            name = _field_name(spec.item)
+            if name:
+                path_by_name.setdefault(name.lower(), spec.field_path)
+
+        lineages: List[FineGrainedLineageClass] = []
+        unresolved = 0
+        for spec in specs:
+            expression_text: Optional[str] = None
+            if spec.kind == "metric":
+                enrichment = _metric_enrichment_for(dataset, spec.item)
+                if enrichment is not None:
+                    expression_text = enrichment.expression_text
+            elif spec.kind == "derived_metric" and spec.derived is not None:
+                expression_text = spec.derived.expression_text
+            if not expression_text:
+                continue
+            upstream_paths: Set[str] = set()
+            for reference in metric_formula_references(expression_text):
+                resolved = path_by_name.get(reference.lower())
+                if resolved is None:
+                    unresolved += 1
+                    self.report.report_metric_formula_unresolved_ref(
+                        f"{dataset.name}.{spec.field_path} -> {{{reference}}}"
+                    )
+                elif resolved != spec.field_path:
+                    upstream_paths.add(resolved)
+            if upstream_paths:
+                lineages.append(
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            builder.make_schema_field_urn(dataset_urn, path)
+                            for path in sorted(upstream_paths)
+                        ],
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            builder.make_schema_field_urn(dataset_urn, spec.field_path)
+                        ],
+                    )
+                )
+        if unresolved:
+            self.report.report_metric_formula_refs_unresolved(unresolved)
+        if lineages:
+            self.report.report_metric_formula_lineage_edges(len(lineages))
+        return lineages
 
     def _fine_grained_lineages(
         self,
@@ -874,12 +1312,55 @@ class MicroStrategyMapper:
         return None
 
     @staticmethod
+    def _column_groups_property(
+        dashboard: DashboardDefinition,
+        visualization: Visualization,
+        binding: ColumnSetBinding,
+    ) -> Dict[str, str]:
+        """The visualization's column groups as a chart property: group name ->
+        member metric names plus the dossier dataset backing the group when
+        resolved. Compound grids repeat the same metric names per group with
+        different logic behind each, so the grouping is what tells a reader
+        what they are actually looking at."""
+        dataset_name_by_id = {
+            dataset.id: dataset.name for dataset in dashboard.datasets
+        }
+        groups: Dict[str, Dict[str, object]] = {}
+        for column_set in visualization.column_sets:
+            if not column_set.name:
+                continue
+            entry: Dict[str, object] = {}
+            dataset_id = binding.dataset_id_by_column_set.get(column_set.identifier)
+            if dataset_id:
+                entry["dataset"] = dataset_name_by_id.get(dataset_id, dataset_id)
+            metric_names = [metric.name for metric in column_set.metrics if metric.name]
+            if metric_names:
+                entry["metrics"] = metric_names
+            groups[column_set.name] = entry
+        if not groups:
+            return {}
+        return {"microstrategyColumnGroups": json.dumps(groups, sort_keys=True)}
+
+    @staticmethod
     def _visualization_properties(visualization: Visualization) -> Dict[str, str]:
+        """Chart custom properties. The dossier chapter and page are recorded
+        here (name, key and 1-based position) because customProperties are
+        searchable: a reader can find every visualization on a page by free
+        text or by the exact `microstrategyPage=<name>` term. Emitted only
+        when the definition placed the visualization on a page."""
         return {
             key: value
             for key, value in {
                 "microstrategyVisualizationKey": visualization.key,
                 "microstrategyVisualizationType": visualization.type,
+                "microstrategyChapter": visualization.chapter_name,
+                "microstrategyChapterKey": visualization.chapter_key,
+                "microstrategyChapterIndex": _optional_index_str(
+                    visualization.chapter_index
+                ),
+                "microstrategyPage": visualization.page_name,
+                "microstrategyPageKey": visualization.page_key,
+                "microstrategyPageIndex": _optional_index_str(visualization.page_index),
                 "microstrategyDatasetIds": ",".join(visualization.datasets),
                 "microstrategyInputDatasetCount": str(len(visualization.datasets)),
                 "microstrategyObjectIdCount": str(len(visualization.object_ids)),
@@ -1121,19 +1602,39 @@ def _add_schema_field_object_mapping(
     for key in ("id", "objectId"):
         value = item.get(key)
         if value:
-            fields_by_object_id.setdefault(_normalize_object_id(value), []).append(
-                field
-            )
+            fields_by_object_id.setdefault(normalize_object_id(value), []).append(field)
 
 
-def _normalize_object_id(value: object) -> str:
-    return str(value).strip().upper()
+def _resolve_folder_name(
+    part: FolderPart, predefined_folders: Optional[PredefinedFolderResolution]
+) -> str:
+    """A folder's raw metadata name, unless its id matches a resolved predefined
+    folder (see MSTR_PREDEFINED_FOLDER_LABELS) -- then its MicroStrategy-assigned
+    label is used everywhere: pattern matching, container identity, and display,
+    so all three never disagree about what a folder is called."""
+    if predefined_folders and part.id:
+        return predefined_folders.labels.get(normalize_object_id(part.id), part.name)
+    return part.name
+
+
+def _is_hidden_folder(
+    part: FolderPart, predefined_folders: Optional[PredefinedFolderResolution]
+) -> bool:
+    """System containers Strategy Web never shows (the project root folder and
+    'Public Objects'); their children re-parent to the nearest kept ancestor."""
+    if predefined_folders and part.id:
+        return normalize_object_id(part.id) in predefined_folders.hidden_ids
+    return False
 
 
 def _optional_str(value: object) -> Optional[str]:
     if isinstance(value, str) and value:
         return value
     return None
+
+
+def _optional_index_str(value: Optional[int]) -> Optional[str]:
+    return str(value) if value is not None else None
 
 
 def _field_name(item: Dict[str, object]) -> str:
@@ -1189,10 +1690,299 @@ def _metric_field_description(
     expression = enrichment.expression_text if enrichment else None
     if not expression:
         return description
-    block = f"**MicroStrategy expression:**\n\n```\n{expression}\n```"
+    block = f"```\n{expression}\n```"
     if description:
         return f"{description}\n\n{block}"
     return block
+
+
+def _input_field_source_context(group_name: Optional[str], dataset_name: str) -> str:
+    if group_name:
+        return f"**{group_name}** - {dataset_name}"
+    return f"**{dataset_name}**"
+
+
+def _clean_name(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    cleaned = MSTR_WHITESPACE_RE.sub(" ", value).strip()
+    return cleaned or None
+
+
+def _record_object_name(object_names: Dict[str, str], item: Dict[str, object]) -> None:
+    name = _clean_name(_optional_str(item.get("name")))
+    if not name:
+        return
+    for key in ("id", "objectId"):
+        value = item.get(key)
+        if value:
+            object_names.setdefault(normalize_object_id(value), name)
+
+
+def _datasets_in_grid_order(
+    input_datasets: List[DatasetObject],
+    visualization: Visualization,
+    binding: ColumnSetBinding,
+) -> List[DatasetObject]:
+    """Datasets bound to column groups first, in grid order, so an ungrouped
+    header (a row attribute) attributes to the leftmost group's dataset;
+    unbound input datasets follow in dossier order."""
+    ordered: List[DatasetObject] = []
+    for column_set in visualization.column_sets:
+        bound_id = binding.dataset_id_by_column_set.get(column_set.identifier)
+        for dataset in input_datasets:
+            if dataset.id == bound_id and dataset not in ordered:
+                ordered.append(dataset)
+    for dataset in input_datasets:
+        if dataset not in ordered:
+            ordered.append(dataset)
+    return ordered
+
+
+class _InputFieldBuilder:
+    """Accumulates a visualization's input fields in emission order. Display
+    copies are renamed to match the grid; schemaField urns keep the dataset's
+    real field paths."""
+
+    def __init__(
+        self,
+        annotate_source: bool,
+        urn_by_dataset_id: Dict[str, str],
+        schema_by_dataset_id: Dict[str, DatasetSchemaFields],
+        group_by_dataset_id: Dict[str, str],
+    ) -> None:
+        self.annotate_source = annotate_source
+        self.urn_by_dataset_id = urn_by_dataset_id
+        self.schema_by_dataset_id = schema_by_dataset_id
+        self.group_by_dataset_id = group_by_dataset_id
+        self.entries: List[InputFieldClass] = []
+        self.used_display_names: Set[str] = set()
+        self.placed_object_ids: Set[str] = set()
+
+    def emit(
+        self,
+        dataset: DatasetObject,
+        schema_field: SchemaFieldClass,
+        display_name: str,
+        group_name: Optional[str],
+        aliased_object_name: Optional[str],
+    ) -> None:
+        display_copy = deepcopy(schema_field)
+        if display_name in self.used_display_names:
+            # Two header cells with identical text from different datasets;
+            # keep both visible rather than let the UI merge them.
+            display_name = f"{display_name} ({dataset.name})"
+        self.used_display_names.add(display_name)
+        context_lines: List[str] = []
+        if self.annotate_source:
+            context_lines.append(_input_field_source_context(group_name, dataset.name))
+        json_props = json.loads(display_copy.jsonProps or "{}")
+        if group_name:
+            json_props["microstrategyColumnGroup"] = group_name
+        if aliased_object_name:
+            # The grid header is a dossier alias; keep the catalog name.
+            context_lines.append(f"MicroStrategy object: {aliased_object_name}")
+            json_props["microstrategyObjectName"] = aliased_object_name
+        if context_lines:
+            context = "\n\n".join(context_lines)
+            display_copy.description = (
+                f"{context}\n\n{display_copy.description}"
+                if display_copy.description
+                else context
+            )
+        display_copy.jsonProps = json.dumps(json_props, sort_keys=True)
+        display_copy.fieldPath = display_name
+        self.entries.append(
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(
+                    self.urn_by_dataset_id[dataset.id], schema_field.fieldPath
+                ),
+                schemaField=display_copy,
+            )
+        )
+
+    def place_grid_cell(self, unit: GridUnit, candidates: List[DatasetObject]) -> None:
+        """Emit one grid header cell from the first candidate dataset that
+        carries its object: the displayed forms of an attribute, or the
+        metric under the grid's own header text, prefixed with its group."""
+        if not unit.id:
+            return
+        object_id = normalize_object_id(unit.id)
+        for dataset in candidates:
+            schema = self.schema_by_dataset_id[dataset.id]
+            fields = schema.by_object_id.get(object_id, [])
+            if not fields:
+                continue
+            object_name = schema.object_names.get(object_id)
+            header = _clean_name(unit.name)
+            aliased_object_name = (
+                object_name
+                if header and object_name and header != object_name
+                else None
+            )
+            fields = _grid_unit_fields(unit, fields, schema)
+            for schema_field in fields:
+                display_name = _grid_unit_display_name(
+                    unit, schema_field, object_name, len(fields)
+                )
+                if unit.column_set_name:
+                    display_name = f"{unit.column_set_name}.{display_name}"
+                self.emit(
+                    dataset,
+                    schema_field,
+                    display_name,
+                    unit.column_set_name,
+                    aliased_object_name,
+                )
+            self.placed_object_ids.add(object_id)
+            return
+
+    def place_leftovers(
+        self,
+        ordered_datasets: List[DatasetObject],
+        visualization_object_ids: Set[str],
+    ) -> None:
+        """Objects referenced outside any grid header cell (and every object
+        when no runtime grid is available): emitted from every input dataset,
+        prefixed with the group (else dataset) name when several datasets feed
+        the chart, in urn order."""
+        leftover_ids = visualization_object_ids - self.placed_object_ids
+        leftover_by_urn: Dict[str, Tuple[DatasetObject, SchemaFieldClass, str]] = {}
+        for dataset in ordered_datasets:
+            schema = self.schema_by_dataset_id[dataset.id]
+            group_name = self.group_by_dataset_id.get(dataset.id)
+            prefix = (group_name or dataset.name) if self.annotate_source else None
+            for object_id in leftover_ids:
+                for schema_field in schema.by_object_id.get(object_id, []):
+                    schema_field_urn = builder.make_schema_field_urn(
+                        self.urn_by_dataset_id[dataset.id], schema_field.fieldPath
+                    )
+                    display_name = (
+                        f"{prefix}.{schema_field.fieldPath}"
+                        if prefix
+                        else schema_field.fieldPath
+                    )
+                    leftover_by_urn[schema_field_urn] = (
+                        dataset,
+                        schema_field,
+                        display_name,
+                    )
+        for schema_field_urn in sorted(leftover_by_urn):
+            dataset, schema_field, display_name = leftover_by_urn[schema_field_urn]
+            self.emit(
+                dataset,
+                schema_field,
+                display_name,
+                self.group_by_dataset_id.get(dataset.id)
+                if self.annotate_source
+                else None,
+                None,
+            )
+
+
+def _grid_unit_fields(
+    unit: GridUnit,
+    fields: List[SchemaFieldClass],
+    schema: DatasetSchemaFields,
+) -> List[SchemaFieldClass]:
+    """The dataset fields a grid header cell actually displays. A metric cell
+    is one field; an attribute cell shows only the forms the grid lists, so
+    the other forms of a multi-form attribute are not chart inputs."""
+    if unit.kind != "attribute" or len(fields) <= 1:
+        return fields
+    by_form_id: List[SchemaFieldClass] = []
+    for form_id in unit.form_ids:
+        for candidate in schema.by_object_id.get(normalize_object_id(form_id), []):
+            if any(candidate is field for field in fields) and not any(
+                candidate is chosen for chosen in by_form_id
+            ):
+                by_form_id.append(candidate)
+    if by_form_id:
+        return by_form_id
+    form_names = {name.lower() for name in unit.form_names}
+    by_form_name = [
+        field
+        for field in fields
+        if field.fieldPath.rsplit(".", 1)[-1].lower() in form_names
+    ]
+    return by_form_name or fields
+
+
+def _grid_unit_display_name(
+    unit: GridUnit,
+    schema_field: SchemaFieldClass,
+    object_name: Optional[str],
+    displayed_field_count: int,
+) -> str:
+    """Header text for one displayed field: the grid's own header for a metric
+    (its alias when renamed in the dossier); for an attribute the bare
+    attribute name when a single form is shown, else `Attribute.FORM`."""
+    header = _clean_name(unit.name) or object_name or schema_field.fieldPath
+    if unit.kind == "metric" or displayed_field_count == 1:
+        return header
+    attribute_name = object_name or header
+    if schema_field.fieldPath.startswith(f"{attribute_name}."):
+        form_name = schema_field.fieldPath[len(attribute_name) + 1 :]
+        return f"{header}.{form_name}"
+    return schema_field.fieldPath
+
+
+def _derived_metric_description(
+    derived: DerivedMetricSpec, dataset: DatasetObject
+) -> str:
+    """Where the derived metric is defined, then its formula as a fenced block
+    when a report/document definition exposed one. A formula-less definition
+    says which endpoint answered (v2 only, or Modeling without an expression)
+    so the gap can be diagnosed from the field itself. Only a metric no
+    definition exposed is described as visualization-local."""
+    if derived.definition_source:
+        where = (
+            f"report '{dataset.name}'"
+            if derived.definition_source == "report"
+            else f"the dossier that embeds '{dataset.name}'"
+        )
+        sentence = f"Derived metric defined on {where}."
+        if derived.expression_text:
+            return f"{sentence}\n\n```\n{derived.expression_text}\n```"
+        if derived.definition_endpoint == MSTR_DEFINITION_ENDPOINT_V2:
+            return (
+                f"{sentence} Formula not returned by the report definition "
+                "endpoints: the Modeling API was unavailable or listed no derived "
+                "metric definitions, and the v2 definition supplies names only."
+            )
+        if derived.definition_endpoint == MSTR_DEFINITION_ENDPOINT_MODEL:
+            return (
+                f"{sentence} Formula not present in the Modeling API report definition."
+            )
+        return f"{sentence} Its formula is not exposed by the MicroStrategy REST API."
+    location = (
+        f"the '{derived.column_set_name}' column group of "
+        if derived.column_set_name
+        else ""
+    )
+    visualization = (
+        derived.source_visualization_name or derived.source_visualization_key
+    )
+    return (
+        f"Derived metric defined in {location}visualization '{visualization}'. "
+        "No report or document definition exposes a formula for it."
+    )
+
+
+def _normalized_name(value: str) -> str:
+    return MSTR_WHITESPACE_RE.sub(" ", value).strip().lower()
+
+
+def _column_group_json_props(
+    dataset: DatasetObject, item: Dict[str, object]
+) -> Dict[str, str]:
+    for key in ("id", "objectId"):
+        value = item.get(key)
+        if value:
+            group = dataset.column_groups_by_object_id.get(normalize_object_id(value))
+            if group:
+                return {"microstrategyColumnGroup": group}
+    return {}
 
 
 def _metric_expression_json_props(
@@ -1214,16 +2004,17 @@ def _metric_enrichment_for(
     metric_id = metric.get("id") or metric.get("objectId")
     if not metric_id:
         return None
-    return dataset.metric_enrichments.get(_normalize_object_id(metric_id))
+    return dataset.metric_enrichments.get(normalize_object_id(metric_id))
 
 
 @dataclass
 class _FieldSpec:
     field_path: str
-    kind: Literal["metric", "attribute"]
+    kind: Literal["metric", "attribute", "derived_metric"]
     item: Dict[str, object]
     form: Optional[Dict[str, object]] = None
     temporal: bool = False
+    derived: Optional[DerivedMetricSpec] = None
 
 
 def _iter_dataset_fields(dataset: DatasetObject) -> Iterator[_FieldSpec]:
@@ -1258,6 +2049,17 @@ def _iter_dataset_fields(dataset: DatasetObject) -> Iterator[_FieldSpec]:
                 form=form,
                 temporal=_is_temporal(form) or _is_temporal(attribute),
             )
+
+    # Dict insertion order: the grid order in which each derived metric was
+    # first seen, re-ranked to the report definition's object order once a
+    # report's definitions are merged in (attach_report_derived_metrics).
+    for derived in dataset.derived_metrics.values():
+        yield _FieldSpec(
+            field_path=_dedupe_field_path(derived.name, seen),
+            kind="derived_metric",
+            item={"id": derived.id, "name": derived.name},
+            derived=derived,
+        )
 
 
 def _add_input_field(
