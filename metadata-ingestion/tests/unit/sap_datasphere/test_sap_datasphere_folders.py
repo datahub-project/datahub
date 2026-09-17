@@ -2,6 +2,9 @@ import re
 import urllib.parse
 from typing import Dict, List
 
+import pytest
+
+from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sap_datasphere.client import SapDatasphereClient
 from datahub.ingestion.source.sap_datasphere.config import (
@@ -278,6 +281,14 @@ def test_unfoldered_object_still_parents_to_the_space(requests_mock):
     assert source._parent_container("DEMO_SPACE", "ROOT_VIEW") == source._space_key(
         "DEMO_SPACE"
     )
+
+
+def test_recipe_that_still_sets_the_removed_include_folders_flag_loads():
+    """The model forbids extra keys, so a stale flag must be dropped, not rejected."""
+    with pytest.warns(ConfigurationWarning):
+        config = _make_config(include_folders=True)
+
+    assert not hasattr(config, "include_folders")
 
 
 def test_same_named_folders_under_different_parents_stay_distinct():

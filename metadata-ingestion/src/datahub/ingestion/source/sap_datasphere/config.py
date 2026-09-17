@@ -4,6 +4,7 @@ from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.emitter.mcp_builder import ContainerKey
@@ -407,6 +408,13 @@ class SapDatasphereConfig(
     # future release once recipes have migrated.
     _rename_include_table_lineage = pydantic_renamed_field(  # type: ignore[pydantic-field]
         "include_table_lineage", "include_lineage"
+    )
+
+    # Folders are always ingested now, so `include_folders` is dropped rather
+    # than renamed. This model forbids extra keys, so without this a recipe that
+    # set the flag would fail validation outright on upgrade.
+    _include_folders_removed = pydantic_removed_field(  # type: ignore[pydantic-field]
+        "include_folders", month="September", year=2026
     )
 
     connection_to_platform_map: Dict[str, ConnectionPlatformConfig] = Field(
