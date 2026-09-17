@@ -19,7 +19,7 @@ vi.mock('@app/homeV3/modules/domains/useDomainModuleUtils', () => ({
 }));
 
 vi.mock('@app/homeV3/module/components/LargeModule', () => ({
-    default: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    default: ({ children }: React.PropsWithChildren<object>) => <div>{children}</div>,
 }));
 
 vi.mock('@app/homeV3/module/components/EmptyContent', () => ({
@@ -67,9 +67,7 @@ describe('TopDomainsModule reload behavior', () => {
 
     it('refetches after an explicit reload transition', async () => {
         refetch.mockResolvedValue(undefined);
-        const { rerender } = render(
-            <TopDomainsModule {...({} as React.ComponentProps<typeof TopDomainsModule>)} />,
-        );
+        const { rerender } = render(<TopDomainsModule {...({} as React.ComponentProps<typeof TopDomainsModule>)} />);
 
         isReloading = false;
         rerender(<TopDomainsModule {...({} as React.ComponentProps<typeof TopDomainsModule>)} />);
@@ -82,9 +80,7 @@ describe('TopDomainsModule reload behavior', () => {
 
     it('finishes a failed reload so a later reload can be requested', async () => {
         refetch.mockRejectedValue(new Error('refresh failed'));
-        const { rerender } = render(
-            <TopDomainsModule {...({} as React.ComponentProps<typeof TopDomainsModule>)} />,
-        );
+        const { rerender } = render(<TopDomainsModule {...({} as React.ComponentProps<typeof TopDomainsModule>)} />);
 
         isReloading = false;
         rerender(<TopDomainsModule {...({} as React.ComponentProps<typeof TopDomainsModule>)} />);

@@ -35,7 +35,7 @@ const TopDomainsModule = (props: ModuleProps) => {
         }
 
         // A failed best-effort refresh should not leave the module permanently unable to reload.
-        void refetch().then(onReloadingFinished, onReloadingFinished);
+        refetch().then(onReloadingFinished, onReloadingFinished);
     }, [isReloading, refetch, onReloadingFinished]);
 
     const { renderDomainCounts, navigateToDomains } = useGetDomainUtils({ domains });
