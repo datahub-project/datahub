@@ -64,10 +64,8 @@ ALL_ENTITY_TYPES = ["dataset", "chart", "dashboard", "dataFlow", "dataJob"]
 ENV_ENTITY_TYPES = {"dataset"}
 
 
-# Aspects merged additively (union by a stable per-item key, never overwritten).
-# structuredProperties unions by (propertyUrn, attribution.source): a target's
-# existing assignments are preserved and the source's are added, matching how
-# ownership/tags/terms already behave.
+# structuredProperties unions by (propertyUrn, attribution.source) so a target's
+# existing assignments survive the merge, like ownership/tags/terms already do.
 ADDITIVE_ASPECTS = {
     "ownership",
     "globalTags",
@@ -336,26 +334,17 @@ class _AdditivePatchBuilder(
     HasStructuredPropertiesPatch,
     MetadataPatchProposal,
 ):
-    """Entity-agnostic builder for the union-able aspects.
-
-    Composes only the aspect-level patch mixins that key items by a stable
-    identity (ownership, globalTags, glossaryTerms, structuredProperties). Those
-    templates are registered per-aspect in GMS regardless of entity type, so —
-    unlike ``DatasetPatchBuilder``, which also carries dataset-only surface
-    (schema, lineage, custom properties) — this is safe to point at any entity,
-    e.g. a ``schemaField``, chart, or dashboard.
-    """
+    # Only the aspect mixins whose patch templates GMS registers per-aspect
+    # regardless of entity type. Unlike DatasetPatchBuilder (which also carries
+    # dataset-only schema/lineage/customProperties surface) this is safe on any
+    # entity: schemaField, chart, dashboard, etc.
+    pass
 
 
 def _apply_union_patches(
     patch_builder: Union[DatasetPatchBuilder, _AdditivePatchBuilder],
     src_aspects: Dict[str, DictWrapper],
 ) -> None:
-    """Queue additive (union) patches for aspects keyed by a stable identity.
-
-    Shared by the dataset and non-dataset merge paths. Each aspect unions into
-    whatever the target already has — nothing on the target is overwritten.
-    """
     if "ownership" in src_aspects:
         aspect = src_aspects["ownership"]
         assert isinstance(aspect, OwnershipClass)
@@ -662,12 +651,8 @@ def _merge_additive_aspects_generic(
     graph: DataHubGraph,
     dry_run: bool,
 ) -> int:
-    """Union the additive aspects onto any entity type via aspect-level patches.
-
-    The non-dataset counterpart to :func:`merge_additive_aspects`: same union
-    semantics, minus the dataset-only ``upstreamLineage`` handling (no
-    non-dataset entity carries that aspect). Returns the number of MCPs emitted.
-    """
+    # Non-dataset counterpart to merge_additive_aspects, minus upstreamLineage
+    # (no non-dataset entity carries it). Returns the number of MCPs emitted.
     patch_builder = _AdditivePatchBuilder(dst_urn)
     _apply_union_patches(patch_builder, src_aspects)
     mcps = patch_builder.build()
@@ -685,12 +670,8 @@ def _merge_generic_entity(
     dry_run: bool,
     rewrite_urn: Optional[Callable[[str], str]] = None,
 ) -> MergeResult:
-    """Additive + conflict-aware merge for a non-dataset target.
-
-    Unions the union-able aspects (ownership/tags/terms/structuredProperties) and
-    routes everything else through the conflict-aware default bucket, so an
-    existing target's curated metadata is preserved rather than overwritten.
-    """
+    # Additive union of the union-able aspects + conflict-aware handling of the
+    # rest, so an existing non-dataset target's curated metadata is never clobbered.
     entity_type = guess_entity_type(dst_urn)
     src_aspect_map = cli_utils.get_aspects_for_entity(
         graph._session,
@@ -700,8 +681,8 @@ def _merge_generic_entity(
         typed=True,
     )
 
-    # Rewrite the source's self-references to the target URN before merging, so
-    # merged aspects don't carry the old URN — mirroring the dataset path.
+    # Repoint the source's self-references at the target before merging so merged
+    # aspects don't carry the old URN (the dataset path does the same).
     if rewrite_urn is None:
         rewrite_urn = make_self_urn_rewriter(src_urn, dst_urn)
     for aspect in src_aspect_map.values():
@@ -722,9 +703,9 @@ def _merge_generic_entity(
         )
         all_merged_aspects.extend(additive.keys())
 
-    # Always-overwrite aspects (e.g. containerProperties, whose customProperties
-    # carry the migration-time platform/instance) — mirror the dataset path so a
-    # container reached via urns-mapping doesn't silently drop them.
+    # _merge_default_aspects skips ALWAYS_OVERWRITE_ASPECTS, so a container reached
+    # via urns-mapping would otherwise silently drop containerProperties (whose
+    # customProperties moved with the GUID). Reseat them here, like the dataset path.
     for aspect_name in ALWAYS_OVERWRITE_ASPECTS:
         src_val = src_aspect_map.get(aspect_name)
         if isinstance(src_val, DictWrapper):
@@ -800,12 +781,9 @@ def merge_entity(
 ) -> MergeResult:
     """Merge all aspects from source entity into existing target.
 
-    Datasets get the full Patch pipeline (additive union + mixed + scalar
-    conflict resolution). Other entity types (schemaField, chart, dashboard,
-    dataFlow, dataJob) get an additive union of the union-able aspects plus
-    conflict-aware handling of the rest via :func:`_merge_generic_entity` — the
-    exception is an explicit ``OVERWRITE``, which still fully replaces the
-    target.
+    Datasets run the full Patch pipeline; other entity types get an additive union
+    of the union-able aspects plus conflict-aware handling of the rest. An explicit
+    OVERWRITE still fully replaces the target.
 
     When ``rewrite_urn`` is provided (batch migration), it is used instead of a
     single-pair rewriter so that cross-pair references are rewritten correctly.
@@ -816,10 +794,9 @@ def merge_entity(
     if on_conflict == ConflictStrategy.PRESERVE:
         return MergeResult(merged=0, skipped=1, skipped_aspects=["*"])
 
-    # Non-dataset entities have no per-entity Patch builder, but the union-able
-    # aspects patch through entity-agnostic aspect templates. Merge those
-    # additively and treat the rest conflict-aware, so a merge never clobbers
-    # curated target metadata. An explicit OVERWRITE keeps its literal meaning.
+    # No per-entity Patch builder for non-datasets, but the union-able aspects patch
+    # through entity-agnostic templates — merge those additively and keep the rest
+    # conflict-aware so we never clobber curated target metadata. OVERWRITE is literal.
     entity_type = guess_entity_type(dst_urn)
     if entity_type != "dataset":
         if on_conflict == ConflictStrategy.OVERWRITE:

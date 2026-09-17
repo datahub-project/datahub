@@ -560,8 +560,7 @@ class TestMigrationReportErrorTracking:
 
 
 class TestMergeEntityNonDataset:
-    """merge_entity for non-dataset entities: additive union under PATCH/PROMPT,
-    literal overwrite only under OVERWRITE."""
+    """merge_entity for non-datasets: additive union under PATCH/PROMPT, literal overwrite under OVERWRITE."""
 
     CHART_SRC = "urn:li:chart:(powerbi,old_inst.my_chart)"
     CHART_DST = "urn:li:chart:(powerbi,new_inst.my_chart)"
@@ -574,7 +573,6 @@ class TestMergeEntityNonDataset:
         mock_clone: MagicMock,
     ) -> None:
         """PATCH unions additive aspects via the Patch API — no clone/overwrite."""
-
         mock_get_aspects.return_value = {
             "globalTags": GlobalTagsClass(
                 tags=[TagAssociationClass(tag="urn:li:tag:pii")]
@@ -600,11 +598,8 @@ class TestMergeEntityNonDataset:
         self,
         mock_clone: MagicMock,
     ) -> None:
-        """The overwrite fallback applies transform_urns so self-references
-        (and batch cross-references) in cloned aspects are rewritten."""
-
-        # Simulate a cloned aspect whose owner URN embeds the old chart URN.
-        # transform_urns walks @Relationship/Urn fields and should rewrite it.
+        """The overwrite fallback applies transform_urns so cloned self-references are rewritten."""
+        # transform_urns walks @Relationship/Urn fields; the owner URN embeds the old chart URN.
         aspect = OwnershipClass(
             owners=[
                 OwnerClass(
@@ -638,8 +633,6 @@ class TestMergeEntityNonDataset:
         mock_clone: MagicMock,
     ) -> None:
         """PATCH keeps the target's value for a conflicting non-additive aspect."""
-
-        # src carries a deprecation aspect; target has a different one.
         actor = "urn:li:corpuser:datahub"
         mock_get_aspects.side_effect = [
             {"deprecation": DeprecationClass(deprecated=True, note="src", actor=actor)},
@@ -665,9 +658,7 @@ class TestMergeEntityNonDataset:
         self,
         mock_clone: MagicMock,
     ) -> None:
-        """The overwrite fallback (non-dataset merge) does not clone the status
-        aspect — the target's own soft-delete state is authoritative."""
-
+        """The non-dataset overwrite fallback does not clone status (target's soft-delete state wins)."""
         mock_clone.return_value = iter([])
         graph = MagicMock()
 
@@ -703,7 +694,6 @@ class TestMergeGenericEntity:
         mock_clone: MagicMock,
     ) -> None:
         """A schemaField merge unions tags, terms and structured properties."""
-
         mock_get_aspects.return_value = {
             "globalTags": GlobalTagsClass(
                 tags=[TagAssociationClass(tag="urn:li:tag:pii")]
@@ -774,8 +764,7 @@ class TestMergeGenericEntity:
         self,
         mock_get_aspects: MagicMock,
     ) -> None:
-        """A container merged via urns-mapping (PATCH) still reseats
-        containerProperties (whose GUID changes when the key changes)."""
+        """A container merged via urns-mapping (PATCH) still reseats containerProperties."""
         mock_get_aspects.return_value = {
             "containerProperties": ContainerPropertiesClass(name="db.sch"),
             "globalTags": GlobalTagsClass(
