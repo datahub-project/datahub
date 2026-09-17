@@ -1,19 +1,15 @@
 package com.datahub.graphql;
 
-import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.ACTOR_URN_ATTR;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.inject.name.Named;
 import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.GraphQLEngine;
@@ -49,6 +45,7 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -87,33 +84,12 @@ public class GraphQLController {
   private OperationContext systemOperationContext;
 
   private static final int MAX_LOG_WIDTH = 512;
+  private static final int MAX_VARIABLES_LOG_WIDTH = 2048;
 
-  /**
-   * Serializes GraphQL execution results. Must not use {@link JsonInclude.Include#NON_NULL} —
-   * nullable fields are returned as explicit JSON nulls, and clients rely on that shape.
-   */
-  private static final ObjectMapper GRAPHQL_RESPONSE_MAPPER = createGraphQLResponseMapper();
-
-  private static ObjectMapper createGraphQLResponseMapper() {
-    ObjectMapper mapper = new ObjectMapper();
-    int maxSize =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    int maxNameLength =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
-    mapper
-        .getFactory()
-        .setStreamReadConstraints(
-            StreamReadConstraints.builder()
-                .maxStringLength(maxSize)
-                .maxNameLength(maxNameLength)
-                .build());
-    mapper.registerModule(new Jdk8Module());
-    return mapper;
-  }
+  /** GraphQL response serializer for the buffered path; see GraphQLResponseObjectMapperFactory. */
+  @Autowired
+  @Qualifier("graphQLResponseObjectMapper")
+  ObjectMapper graphQLResponseMapper;
 
   /**
    * Part B heavy-resolver gate. When the front gate admitted the request, consumes each configured
@@ -187,7 +163,7 @@ public class GraphQLController {
   }
 
   /** 429 response for a rate-limit denial, carrying the decision's throttle headers. */
-  private static CompletableFuture<ResponseEntity<String>> tooManyRequests(
+  private static CompletableFuture<ResponseEntity<Object>> tooManyRequests(
       @Nonnull RateLimitDecision decision, @Nonnull ObjectMapper mapper) {
     HttpHeaders headers = new HttpHeaders();
     RateLimitHeaderWriter.createHeaders(decision).forEach(headers::add);
@@ -203,7 +179,7 @@ public class GraphQLController {
   }
 
   @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
-  CompletableFuture<ResponseEntity<String>> postGraphQL(
+  CompletableFuture<ResponseEntity<Object>> postGraphQL(
       HttpServletRequest request, HttpEntity<String> httpEntity) {
 
     String jsonStr = httpEntity.getBody();
@@ -336,7 +312,7 @@ public class GraphQLController {
     final OperationContext usageSessionContext = context.getOperationContext();
     boolean asyncStarted = false;
     try {
-      CompletableFuture<ResponseEntity<String>> executionFuture =
+      CompletableFuture<ResponseEntity<Object>> executionFuture =
           GraphQLConcurrencyUtils.supplyAsync(
               () -> {
                 log.debug("Executing operation {} for {}", queryName, threadName);
@@ -362,35 +338,31 @@ public class GraphQLController {
                  * Format & Return Response
                  */
                 try {
-                  long totalDuration = submitMetrics(executionResult);
+                  final long totalDuration = submitMetrics(executionResult);
                   // Remove tracing from response to reduce bulk, not used by the frontend
                   executionResult.getExtensions().remove("tracing");
-                  String responseBodyStr =
-                      GRAPHQL_RESPONSE_MAPPER.writeValueAsString(executionResult.toSpecification());
-                  if (totalDuration
-                      >= configurationProvider.getGraphQL().getQuery().getSlowQueryThresholdMs()) {
-                    log.info(
-                        "Slow operation {} took {} ms (response size: {})",
-                        queryName,
-                        totalDuration,
-                        responseBodyStr.length());
-                  } else if (totalDuration > 0) {
-                    log.debug(
-                        "Executed operation {} in {} ms (response size: {})",
-                        queryName,
-                        totalDuration,
-                        responseBodyStr.length());
-                  } else {
-                    log.debug(
-                        "Executed operation {} (response size: {})",
-                        queryName,
-                        responseBodyStr.length());
+                  // Log here, not after the write — else a slow/abandoned read loses the slow-query
+                  // log.
+                  logQueryDuration(queryName, totalDuration, variables);
+                  final Map<String, Object> responseSpec = executionResult.toSpecification();
+
+                  if (configurationProvider.getGraphQL().getQuery().isStreamResponse()) {
+                    // Stream via the converter; the byte count is known only after the write, so
+                    // the size metric is recorded from its callback then.
+                    final Object body =
+                        new GraphQLResponseBody(
+                            responseSpec, bytes -> recordResponseBytes(usageSessionContext, bytes));
+                    return new ResponseEntity<>(body, rateLimitHeaders, HttpStatus.OK);
                   }
+
+                  // Buffered fallback (default): byte-for-byte the legacy behavior.
+                  final String responseBodyStr =
+                      graphQLResponseMapper.writeValueAsString(responseSpec);
                   log.trace("Execution result: {}", responseBodyStr);
-                  if (usageMetricsSessionEnricher != null) {
-                    usageMetricsSessionEnricher.recordResponseWithBytes(
-                        usageSessionContext, (long) responseBodyStr.length());
-                  }
+                  // length() counts UTF-16 chars, not UTF-8 bytes, so this undercounts non-ASCII
+                  // responses. Kept to match legacy; unify with the streaming path's true byte
+                  // count when this buffered branch is removed (follow-up).
+                  recordResponseBytes(usageSessionContext, responseBodyStr.length());
                   return new ResponseEntity<>(responseBodyStr, rateLimitHeaders, HttpStatus.OK);
                 } catch (IllegalArgumentException | JsonProcessingException e) {
                   log.error(
@@ -423,6 +395,29 @@ public class GraphQLController {
       throws HttpRequestMethodNotSupportedException {
     log.info("GET on GraphQL API is not supported");
     throw new HttpRequestMethodNotSupportedException("GET");
+  }
+
+  /** Slow-query/duration logging, at execution time — the streamed size isn't known until later. */
+  private void logQueryDuration(
+      String queryName, long totalDuration, Map<String, Object> variables) {
+    if (totalDuration >= configurationProvider.getGraphQL().getQuery().getSlowQueryThresholdMs()) {
+      log.info(
+          "Slow operation {} took {} ms (variables: {})",
+          queryName,
+          totalDuration,
+          StringUtils.abbreviate(variables.toString(), MAX_VARIABLES_LOG_WIDTH));
+    } else if (totalDuration > 0) {
+      log.debug("Executed operation {} in {} ms", queryName, totalDuration);
+    } else {
+      log.debug("Executed operation {}", queryName);
+    }
+  }
+
+  /** Records response size for usage metrics (from the converter callback when streaming). */
+  private void recordResponseBytes(OperationContext usageSessionContext, long bytes) {
+    if (usageMetricsSessionEnricher != null) {
+      usageMetricsSessionEnricher.recordResponseWithBytes(usageSessionContext, bytes);
+    }
   }
 
   private void observeErrors(ExecutionResult executionResult) {

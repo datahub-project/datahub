@@ -1,9 +1,11 @@
 package com.datahub.graphql;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,6 +17,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.datahub.graphql.GraphQLEngine;
@@ -41,7 +44,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -101,6 +103,7 @@ public class GraphQLControllerUsageRecordingTest {
     controller.usageMetricsSessionEnricher = enricher;
     controller.aspectMappingRegistry =
         mock(com.linkedin.datahub.graphql.AspectMappingRegistry.class);
+    controller.graphQLResponseMapper = new ObjectMapper();
     setSystemOperationContext(controller, systemContext);
 
     authenticationContextMock = Mockito.mockStatic(AuthenticationContext.class);
@@ -127,7 +130,62 @@ public class GraphQLControllerUsageRecordingTest {
   }
 
   @Test
-  public void testSuccessfulGraphqlRequestRecordsRequestOnceAndOutputBytesOnce() {
+  public void testBufferedResponseRecordsRequestOnceAndOutputBytesOnce() {
+    // gate defaults off → buffered String path.
+    ResponseEntity<Object> response = executeMeQuery();
+
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    Object body = response.getBody();
+    assertTrue(body instanceof String && !((String) body).isEmpty());
+
+    verify(usageRollupStore, times(1)).recordRequest(any());
+
+    ArgumentCaptor<Long> outputBytesCaptor = ArgumentCaptor.forClass(Long.class);
+    verify(usageRollupStore, times(1)).recordResponse(any(), outputBytesCaptor.capture());
+    assertEquals(outputBytesCaptor.getValue().longValue(), ((String) body).length());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testStreamingResponseReturnsMarkerAndDefersByteRecordingToConverter() {
+    controller.configurationProvider.getGraphQL().getQuery().setStreamResponse(true);
+
+    ResponseEntity<Object> response = executeMeQuery();
+
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    Object body = response.getBody();
+    assertTrue(body instanceof GraphQLResponseBody);
+    GraphQLResponseBody streamed = (GraphQLResponseBody) body;
+
+    // Marker carries the full response tree; the converter serializes it later.
+    Map<String, Object> data = (Map<String, Object>) streamed.spec().get("data");
+    Map<String, Object> corpUser =
+        (Map<String, Object>) ((Map<String, Object>) data.get("me")).get("corpUser");
+    assertEquals(corpUser.get("urn"), "urn:li:corpuser:datahub");
+
+    // Bytes aren't known until the converter writes, so the byte metric hasn't fired yet.
+    verify(usageRollupStore, times(1)).recordRequest(any());
+    verify(usageRollupStore, never()).recordResponse(any(), anyLong());
+
+    streamed.onBytesWritten().accept(4242L);
+    ArgumentCaptor<Long> outputBytesCaptor = ArgumentCaptor.forClass(Long.class);
+    verify(usageRollupStore, times(1)).recordResponse(any(), outputBytesCaptor.capture());
+    assertEquals(outputBytesCaptor.getValue().longValue(), 4242L);
+  }
+
+  @Test
+  public void testBufferedSerializationFailureReturnsServiceUnavailable() throws Exception {
+    // Buffered path (gate off): if serialization throws, the response is 503, not a broken body.
+    ObjectMapper failing = mock(ObjectMapper.class);
+    when(failing.writeValueAsString(any())).thenThrow(new IllegalArgumentException("boom"));
+    controller.graphQLResponseMapper = failing;
+
+    ResponseEntity<Object> response = executeMeQuery();
+
+    assertEquals(response.getStatusCode(), HttpStatus.SERVICE_UNAVAILABLE);
+  }
+
+  private ResponseEntity<Object> executeMeQuery() {
     HttpServletRequest request = mock(HttpServletRequest.class);
     when(request.getRequestURI()).thenReturn("/api/graphql");
     when(request.getMethod()).thenReturn("POST");
@@ -141,19 +199,7 @@ public class GraphQLControllerUsageRecordingTest {
             + "\",\"operationName\":\"smokeUsageAggregationMe\"}";
     HttpEntity<String> entity = new HttpEntity<>(body);
 
-    CompletableFuture<ResponseEntity<String>> future = controller.postGraphQL(request, entity);
-    ResponseEntity<String> response = future.join();
-
-    assertEquals(response.getStatusCode(), HttpStatus.OK);
-    assertTrue(response.getBody() != null && !response.getBody().isEmpty());
-
-    verify(usageRollupStore, times(1)).recordRequest(any());
-
-    ArgumentCaptor<Long> outputBytesCaptor = ArgumentCaptor.forClass(Long.class);
-    verify(usageRollupStore, times(1)).recordResponse(any(), outputBytesCaptor.capture());
-    Long recordedBytes = outputBytesCaptor.getValue();
-    assertTrue(recordedBytes != null && recordedBytes > 0);
-    assertEquals(recordedBytes.longValue(), response.getBody().length());
+    return controller.postGraphQL(request, entity).join();
   }
 
   private static void setSystemOperationContext(

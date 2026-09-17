@@ -852,6 +852,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.query.maxParentDepth",
           "graphQL.query.maxVisitedUrns",
           "graphQL.query.slowQueryThresholdMs",
+          "graphQL.query.streamResponse",
           "graphQL.shapeLogging.enabled",
           "graphQL.shapeLogging.fieldCountThreshold",
           "graphQL.shapeLogging.durationThresholdMs",
