@@ -22,6 +22,7 @@ from tests.utilities.domains import (
     ALL_DOMAINS,
     domains_of,
     is_selected,
+    junit_user_properties,
     parse_requested_domains,
 )
 from tests.utils import (
@@ -231,6 +232,13 @@ def pytest_configure(config: pytest.Config) -> None:
         parse_requested_domains(config.getoption("--domain"))
     except ValueError as exc:
         raise pytest.UsageError(str(exc)) from exc
+
+
+def pytest_runtest_setup(item: Item) -> None:
+    """Copy domain markers into JUnit user_properties for CI / PostHog."""
+    item.user_properties.extend(
+        junit_user_properties(item.get_closest_marker("domain"))
+    )
 
 
 # Test modules this PR touches, from CI. Read once: the environment is fixed for
