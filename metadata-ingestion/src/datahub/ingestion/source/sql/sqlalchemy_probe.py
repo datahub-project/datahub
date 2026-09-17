@@ -1,4 +1,4 @@
-from typing import Dict, FrozenSet, List, Optional, Set
+from typing import Callable, Dict, FrozenSet, List, Optional, Set
 
 from sqlalchemy import inspect
 from sqlalchemy.engine import Engine
@@ -59,32 +59,25 @@ def _pinned_containers(config: object, container_kind: str) -> FrozenSet[str]:
         return frozenset()
     single = getattr(config, "database", None)
     if single:
-        return _with_aliases(config, [str(single)])
+        return frozenset({str(single)})
     several = getattr(config, "databases", None)
     if isinstance(several, (list, tuple, set, frozenset)):
-        return _with_aliases(config, [str(one) for one in several if one])
+        return frozenset(str(one) for one in several if one)
     return frozenset()
 
 
-def _with_aliases(config: object, names: List[str]) -> FrozenSet[str]:
-    """The pinned names, plus any other spelling the connector answers to.
+def _container_normalizer(config: object) -> Callable[[str], str]:
+    """How this connector spells a listed container for ingestion.
 
-    `containers` filters the server's listing by exact match, so a connector
-    whose listing spells a database differently from its config would filter
-    everything out and report none. Doris is the case: an external-catalog
-    recipe configures `sales` and the connection speaks
-    `iceberg_catalog.sales`. Asking the connector beats guessing, and beats
-    loosening the match for everyone -- a prefix or suffix rule here would
-    quietly widen the pin on every other source.
+    Identity for almost everyone. Doris needs it: on an external-catalog
+    connection the server may list `iceberg_catalog.sales` where ingestion
+    matches `sales`, and the probe has to report what ingestion matches --
+    a caller passes `containers` output straight back as --parent.
     """
-    aliases = getattr(config, "probe_container_aliases", None)
-    if not callable(aliases):
-        return frozenset(names)
-    out: Set[str] = set()
-    for name in names:
-        out.add(name)
-        out.update(str(alias) for alias in aliases(name))
-    return frozenset(out)
+    hook = getattr(config, "probe_normalize_container", None)
+    if callable(hook):
+        return lambda name: str(hook(name))
+    return lambda name: name
 
 
 class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
@@ -113,6 +106,10 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     # so `containers` reported every database on the server while ingestion
     # enumerated the configured two.
     pinned_containers: FrozenSet[str] = frozenset()
+
+    # How a listed container is spelled for ingestion; see
+    # _container_normalizer. Identity unless the connector says otherwise.
+    container_normalizer: Callable[[str], str] = staticmethod(lambda name: name)
 
     @classmethod
     def for_config(cls, config: SQLCommonConfig) -> "SqlAlchemyMetadataProbe":
@@ -157,6 +154,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         probe.pinned_containers = _pinned_containers(
             config, str(config.probe_container_kind())
         )
+        probe.container_normalizer = staticmethod(_container_normalizer(config))  # type: ignore[assignment]
         return probe
 
     def __exit__(self, *exc: object) -> None:
@@ -211,7 +209,18 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         Singular `database` and plural `databases` both count. The name is checked against the server's own listing rather than
         echoed back, so a typo still shows as absent instead of being
         confirmed."""
-        names = self._insp.get_schema_names()
+        # Normalized before anything else looks at them: the caller passes
+        # these straight back as --parent, so they have to be the spelling
+        # ingestion matches on. Deduplicated because two server spellings
+        # can normalize to one database, and reporting it twice would read
+        # as two.
+        seen: Set[str] = set()
+        names = []
+        for raw in self._insp.get_schema_names():
+            name = self.container_normalizer(raw)
+            if name not in seen:
+                seen.add(name)
+                names.append(name)
         pinned = self.pinned_containers
         if pinned:
             names = [n for n in names if n in pinned]

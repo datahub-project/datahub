@@ -49,12 +49,34 @@ class SecretMaskingFilter(logging.Filter):
         """
         super().__init__()
 
-        self._registry = secret_registry or SecretRegistry.get_instance()
+        # SECURITY: resolved per call, not captured here, unless a caller
+        # injected a specific registry (tests do).
+        #
+        # These filters are installed once onto process-wide logging
+        # handlers, stdout/stderr and the excepthook, and they outlive the
+        # call that built them. Capturing SecretRegistry.get_instance() at
+        # construction pinned whichever registry was active at that moment
+        # -- and since bootstrap runs at the start of the FIRST task, that
+        # was the first task's scoped registry. Every later task's secrets
+        # then never reached the installed filter, so its own output went
+        # out unmasked while the first task's values went on being redacted
+        # out of it. Under-masking, which is the direction that leaks.
+        self._explicit_registry = secret_registry
         self._max_message_size = max_message_size
 
         self._failure_count = 0
         self._max_failures = 10
         self._circuit_open = False
+
+    @property
+    def _registry(self) -> SecretRegistry:
+        """The registry to mask against right now.
+
+        An injected one when the caller named it; otherwise whatever
+        get_instance() resolves on THIS context -- the active task's scope,
+        or the global registry when there is none.
+        """
+        return self._explicit_registry or SecretRegistry.get_instance()
 
     def mask_text(self, text: str) -> str:
         """Mask secrets in text string.

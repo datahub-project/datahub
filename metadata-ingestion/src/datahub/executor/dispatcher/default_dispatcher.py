@@ -48,16 +48,22 @@ def dispatch_async(
         # tasks. Registration still reaches the global registry, which stays
         # the fail-safe floor -- see task_secret_scope.
         #
-        # The summary print and the traceback below are inside the scope on
-        # purpose: both render task output and both must be masked against
-        # this task's secrets.
+        # The summary print AND the failure traceback are inside the scope.
+        # An earlier version of this said so while leaving the `except`
+        # outside the `with`, which is worse than not scoping at all: the
+        # scope's finally resets the ContextVar before the log line runs, so
+        # the failure path -- the one that renders a traceback, the leakiest
+        # channel here -- was masked against the global registry while the
+        # comment claimed it was masked against this task's.
         with task_secret_scope():
-            res = executor.execute(request)
-            res.pretty_print_summary()
-    except Exception:
-        logger.error(
-            f"Failed dispatch for {request.exec_id}: {traceback.format_exc(limit=3)}"
-        )
+            try:
+                res = executor.execute(request)
+                res.pretty_print_summary()
+            except Exception:
+                logger.error(
+                    f"Failed dispatch for {request.exec_id}: "
+                    f"{traceback.format_exc(limit=3)}"
+                )
     finally:
         close_callback()
 

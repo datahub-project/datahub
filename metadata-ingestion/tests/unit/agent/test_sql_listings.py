@@ -297,36 +297,53 @@ def test_doris_probes_the_catalog_ingestion_reads():
     assert plain.get_sql_alchemy_url().endswith("/sales")
 
 
-def test_the_doris_pin_matches_either_spelling_of_a_database():
+def test_doris_reports_the_database_spelling_ingestion_matches():
     """Which spelling the Inspector returns on an external-catalog
     connection is not settled -- ingestion enumerates with SHOW DATABASES
     after SWITCH and never through the Inspector, so the connector does not
-    answer it. `containers` filters by exact match, so a wrong guess makes
-    it report none at all.
+    answer it.
 
-    The pin therefore holds both, and the tolerance is scoped to the
-    connector that has the concept: loosening the match itself would widen
-    the pin on every other source.
+    The first attempt at this accepted BOTH spellings in the pin. That
+    fixed the filtering and broke what came after: `containers` output is
+    passed straight back as --parent, so a qualified name would have
+    get_identifier build `catalog.database.table` while ingestion matches
+    `database.table` -- and a listing carrying both spellings would report
+    one database twice.
+
+    Normalizing instead. Ingestion strips the prefix
+    (_short_database_name), so the probe reports the stripped form and the
+    pin needs only one spelling.
     """
     from datahub.ingestion.source.sql.doris.doris_source import DorisConfig
-    from datahub.ingestion.source.sql.sqlalchemy_probe import _pinned_containers
+    from datahub.ingestion.source.sql.sqlalchemy_probe import (
+        _container_normalizer,
+        _pinned_containers,
+    )
 
     config = DorisConfig.model_validate(
         {"host_port": "h:9030", "username": "u", "database": "iceberg_catalog.sales"}
     )
-    pinned = _pinned_containers(config, str(config.probe_container_kind()))
-    assert pinned == {"sales", "iceberg_catalog.sales"}
+    # One spelling, the one ingestion matches on.
+    assert _pinned_containers(config, str(config.probe_container_kind())) == {"sales"}
 
     probe = _probe("mysql")
-    probe.pinned_containers = pinned
-    # Whichever spelling the server lists, the pin keeps it.
+    probe.pinned_containers = frozenset({"sales"})
+    probe.container_normalizer = _container_normalizer(config)  # type: ignore[assignment]
+
+    # Whichever spelling the server lists, the probe reports the short one.
+    probe._insp.get_schema_names = lambda: ["iceberg_catalog.sales", "other"]  # type: ignore[method-assign]
+    assert probe.containers() == ["sales"]
     probe._insp.get_schema_names = lambda: ["sales", "other"]  # type: ignore[method-assign]
     assert probe.containers() == ["sales"]
-    probe._insp.get_schema_names = lambda: ["iceberg_catalog.sales", "other"]  # type: ignore[method-assign]
-    assert probe.containers() == ["iceberg_catalog.sales"]
 
-    # And an internal-catalog recipe pins one spelling, as before.
+    # And both spellings in one listing are one database, not two.
+    probe._insp.get_schema_names = lambda: ["sales", "iceberg_catalog.sales"]  # type: ignore[method-assign]
+    assert probe.containers() == ["sales"]
+
+    # An internal-catalog recipe normalizes to identity.
     plain = DorisConfig.model_validate(
         {"host_port": "h:9030", "username": "u", "database": "sales"}
     )
-    assert _pinned_containers(plain, str(plain.probe_container_kind())) == {"sales"}
+    assert _container_normalizer(plain)("sales") == "sales"
+    # A name that merely starts with something dotted is left alone.
+    assert _container_normalizer(config)("other_catalog.sales") == "other_catalog.sales"

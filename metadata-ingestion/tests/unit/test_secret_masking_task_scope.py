@@ -168,3 +168,59 @@ def test_dispatch_async_scopes_each_task():
     # password -- which is the contamination this closes.
     assert "first-task-secret" in seen["SECOND_PW"], seen["SECOND_PW"]
     assert "FIRST_PW" not in seen["SECOND_PW"], "the first task's variable name leaked"
+
+
+def test_a_filter_installed_during_one_task_masks_the_next_task():
+    """The case the other tests here missed, and the one that matters.
+
+    Every test above builds a fresh SecretMaskingFilter inside the scope it
+    is checking. The real system does the opposite: initialize_secret_masking
+    installs filters ONCE onto process-wide logging handlers, stdout/stderr
+    and the excepthook, at the start of the FIRST task -- inside that task's
+    scope.
+
+    With the registry captured at construction, those installed filters went
+    on masking against the first task's scope forever: a later task's own
+    secrets never reached them, so its output went out UNMASKED while the
+    first task's values were still redacted out of it. That is
+    under-masking, the direction that leaks, and scoping introduced it.
+
+    The filter now resolves the registry per call, so an installed filter
+    follows whichever task is running.
+    """
+    a_secret = "aaa" + "-installed-filter-a"
+    b_secret = "bbb" + "-installed-filter-b"
+
+    with task_secret_scope():
+        SecretRegistry.get_instance().register_secrets_batch({"A_PW": a_secret})
+        # Built inside task A, as bootstrap does, and kept.
+        installed = SecretMaskingFilter()
+        assert a_secret not in installed.mask_text(f"task A: {a_secret}")
+
+    with task_secret_scope():
+        SecretRegistry.get_instance().register_secrets_batch({"B_PW": b_secret})
+        own = installed.mask_text(f"task B: {b_secret}")
+        other = installed.mask_text(f"task B mentions {a_secret}")
+
+    assert b_secret not in own, "the installed filter did not mask task B's own secret"
+    assert a_secret in other, "task A still contaminates task B"
+
+
+def test_an_explicitly_injected_registry_is_still_honoured():
+    """The escape hatch the resolution must not break.
+
+    Passing a registry means "mask against this one", and tests rely on it.
+    Only the default -- no registry given -- resolves per call.
+    """
+    own = SecretRegistry()
+    own.register_secrets_batch({"PINNED": "pinned" + "-to-this-registry"})
+    filt = SecretMaskingFilter(secret_registry=own)
+
+    with task_secret_scope():
+        SecretRegistry.get_instance().register_secrets_batch(
+            {"SCOPED": "scoped" + "-value"}
+        )
+        out = filt.mask_text("pinned-to-this-registry and scoped-value")
+
+    assert "pinned-to-this-registry" not in out, "the injected registry was ignored"
+    assert "scoped-value" in out, "an injected registry must not follow the scope"

@@ -169,24 +169,31 @@ class DorisConfig(MySQLConfig):
             return f"{self.catalog}.{database}"
         return database
 
-    def probe_container_aliases(self, name: str) -> Set[str]:
-        """Both spellings of a pinned database.
+    def probe_normalize_container(self, name: str) -> str:
+        """A listed database in the spelling ingestion matches on.
 
-        `containers` filters the server's own listing by the pin, and which
-        spelling that listing uses on an external-catalog connection is not
-        settled: ingestion enumerates databases with SHOW DATABASES after
-        SWITCH, never through the SQLAlchemy Inspector the probe uses, so
-        the connector does not answer it either -- though
-        _short_database_name exists to strip a `catalog.` prefix, so some
-        Doris path does return qualified names.
+        Which spelling the SQLAlchemy Inspector returns on an
+        external-catalog connection is not settled: ingestion enumerates
+        with SHOW DATABASES after SWITCH, never through the Inspector, so
+        the connector does not answer it -- though _short_database_name
+        exists to strip a `catalog.` prefix, so some Doris path does return
+        qualified names.
 
-        Rather than guess and have `containers` come back empty when the
-        guess is wrong, the pin holds both. Exact-match filtering then works
-        whichever the Inspector returns. Drop the alias once a live external
-        catalog settles it.
+        Normalizing rather than accepting both spellings, which is what this
+        did first. Accepting both fixed the filtering and broke what came
+        after it: `containers` would emit whichever spelling the server
+        used, a caller passes that back as --parent, and get_identifier
+        builds `catalog.database.table` while ingestion matches
+        `database.table`. A listing carrying both spellings would also
+        report one database twice.
+
+        Ingestion strips the prefix (_short_database_name, get_db_name), so
+        the probe reports the stripped form too and the pin needs only one
+        spelling.
         """
-        qualified = self._qualified_database_name(name)
-        return {name, qualified}
+        if self.catalog and name.startswith(f"{self.catalog}."):
+            return name[len(self.catalog) + 1 :]
+        return name
 
     @model_validator(mode="after")
     def _split_catalog_from_database(self) -> "DorisConfig":

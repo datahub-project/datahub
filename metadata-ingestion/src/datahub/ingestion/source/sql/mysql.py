@@ -1,6 +1,7 @@
 # This import verifies that the dependencies are available.
 import logging
 import re
+import ssl
 from collections import OrderedDict
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -220,19 +221,42 @@ class MySQLConnectionConfig(RDSIAMConnectionMixin):
         cparams["ssl"] = cparams.get("ssl") or {"ssl": True}
 
     def rds_iam_tls_is_verified(self, cparams: Dict[str, Any]) -> bool:
-        # PyMySQL decides verification from the presence of a CA: given one it
-        # builds the context with check_hostname=True and
-        # verify_mode=CERT_REQUIRED; given a bare truthy `ssl` it uses
-        # CERT_NONE. So "did the recipe supply a CA" is the whole question.
+        """Mirrors PyMySQL's own _create_ssl_ctx, which is the only thing
+        that decides this.
+
+        An earlier version asked whether `ca` OR `ca_certs` was set. PyMySQL
+        reads `ca` and `capath` and has never read `ca_certs`, so that
+        accepted a key the driver ignores: a recipe using it got no warning
+        AND no verification, which is worse than no warning at all. It also
+        missed `capath`, which does enable verification.
+
+        Reimplemented rather than inferred, because the rules are not
+        obvious: a CA turns on CERT_REQUIRED and check_hostname, but either
+        can be explicitly turned back off in the same dict.
+        """
         ssl_opts = cparams.get("ssl")
-        return isinstance(ssl_opts, dict) and bool(
-            ssl_opts.get("ca") or ssl_opts.get("ca_certs")
-        )
+        if isinstance(ssl_opts, ssl.SSLContext):
+            # A caller can hand PyMySQL a ready context; ask it directly.
+            return ssl_opts.check_hostname and ssl_opts.verify_mode == ssl.CERT_REQUIRED
+        if not isinstance(ssl_opts, dict):
+            return False
+        # hasnoca: no trust anchor, so CERT_NONE and no hostname check.
+        if ssl_opts.get("ca") is None and ssl_opts.get("capath") is None:
+            return False
+        if not ssl_opts.get("check_hostname", True):
+            return False
+        verify_mode = ssl_opts.get("verify_mode")
+        if verify_mode is None:
+            return True  # CERT_REQUIRED, because a CA is present
+        if isinstance(verify_mode, bool):
+            return verify_mode
+        return str(verify_mode).lower() in ("required", "1", "true", "yes")
 
     def rds_iam_tls_hint(self) -> str:
         return (
-            "set options.connect_args.ssl.ca to the RDS CA bundle path "
-            "(https://truststore.pki.rds.amazonaws.com/)"
+            "set options.connect_args.ssl.ca (or ssl.capath) to the RDS CA "
+            "bundle path (https://truststore.pki.rds.amazonaws.com/); note "
+            "PyMySQL ignores ssl.ca_certs"
         )
 
 
