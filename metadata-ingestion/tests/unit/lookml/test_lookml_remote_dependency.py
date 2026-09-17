@@ -329,6 +329,23 @@ def test_hex_dotted_ip_rejected() -> None:
     assert not result.allowed
 
 
+def test_percent_encoded_metadata_ip_rejected() -> None:
+    # git/libcurl percent-decode the host before connecting, so %2e must not
+    # hide the target: 169%2e254%2e169%2e254 decodes to the metadata IP.
+    result = check_remote_dependency_url("https://169%2e254%2e169%2e254/repo.git")
+    assert not result.allowed
+
+
+def test_percent_encoded_loopback_rejected() -> None:
+    result = check_remote_dependency_url("https://127%2e0%2e0%2e1/repo.git")
+    assert not result.allowed
+
+
+def test_percent_encoded_metadata_host_rejected() -> None:
+    result = check_remote_dependency_url("https://metadata%2egoogle%2einternal/x.git")
+    assert not result.allowed
+
+
 def test_dns_rebinding_to_loopback_rejected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

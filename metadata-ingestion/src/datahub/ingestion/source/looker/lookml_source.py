@@ -7,7 +7,7 @@ from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 import lkml
 import lkml.simple
@@ -299,10 +299,13 @@ class RemoteDependencyUrlCheck:
 def _normalize_hostname(hostname: str) -> str:
     """Normalize a hostname for denylist/allowlist comparison."""
     h = hostname.strip().lower()
+    # git/libcurl percent-decode the host before connecting, so decode too:
+    # otherwise "%2e" hides the real target (169%2e254%2e169%2e254 ->
+    # 169.254.169.254) from the denylist, allowlist, and DNS checks. A real IPv6
+    # zone id (fe80::1%eth0) is left intact since "%et" is not a valid escape.
+    h = unquote(h)
     if h.endswith("."):
         h = h[:-1]  # trailing FQDN root dot
-    if "%" in h:
-        h = h.split("%", 1)[0]  # IPv6 zone ID, e.g. fe80::1%eth0
     return h
 
 
