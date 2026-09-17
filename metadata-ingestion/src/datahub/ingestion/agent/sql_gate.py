@@ -269,6 +269,22 @@ def check_query_scope(
     # variables are sensitive.
     _check_server_state(statement)
 
+    # Reads the redaction module's column policy, and that coupling is
+    # deliberate rather than a layering slip -- a reviewer read it as one, so
+    # it is stated here rather than left to be rediscovered.
+    #
+    # This is the first of two layers over the same constant. Here the gate
+    # refuses a query that NAMES a withheld column, because the caller picks
+    # the output name and could otherwise rename it out of the masker's
+    # sight; redact.mask_identity_columns covers `SELECT *`, which names no
+    # column for this check to see. Both read redact.WITHHELD_COLUMN_NAMES.
+    #
+    # Reading it from CatalogScope instead -- so a connector could carry its
+    # own -- would let the two layers disagree about the same column: the
+    # gate permitting a name the masker still redacts, or worse the reverse.
+    # One constant read twice cannot do that. It also means every connector
+    # gets the refusal without opting in, and the one that forgets to opt in
+    # is exactly the one that needed it.
     _check_withheld_columns(statement)
 
     saw_relation = False

@@ -568,6 +568,75 @@ def test_a_keyed_listing_is_capped_the_same_way(monkeypatch):
     assert "k0" in result.result and f"k{pm.MAX_PROBE_ITEMS + 24}" not in result.result
 
 
+def test_a_self_shaped_result_survives_every_framework_bound(monkeypatch):
+    """`shapes_own_result` is one flag read at four decision points.
+
+    A reviewer called that out: it is checked in _bounded_kwargs and in
+    three branches of run_probe_method, so a second self-shaping command has
+    to satisfy all four and getting one wrong is silent. `sql` is the only
+    such command today, so that coordination currently rests on one caller.
+
+    Rather than infer a result-policy abstraction from a single case, this
+    pins the contract the second such command will need.
+
+    What it actually covers, checked by mutating each branch rather than
+    assumed: mirroring `truncated` up from the envelope IS load-bearing --
+    disabling that branch fails this test, and without it a `sql` result cut
+    short reads as complete at the one field a caller looks at. The
+    MAX_PROBE_ITEMS fallback's flag check is NOT load-bearing here and the
+    first version of this docstring wrongly claimed it was: that branch
+    treats a bare dict as a keyed listing and clips it to N keys, but an
+    envelope has a handful of keys and never approaches the cap. It is
+    defensive, and worth keeping as such -- a future envelope built as a
+    mapping of many entries would need it.
+    """
+
+    class _Provider:
+        def __enter__(self) -> "_Provider":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        @pm.probe_method(name="enveloped", shapes_own_result=True)
+        def enveloped(self, limit: int = 50) -> Dict[str, object]:
+            """A command that builds its own envelope."""
+            # Deliberately more rows than the framework cap: bounding is the
+            # command's job when it shapes its own result.
+            return {
+                "columns": ["c"],
+                "rows": [[i] for i in range(pm.MAX_PROBE_ITEMS + 50)],
+                "truncated": True,
+            }
+
+        @classmethod
+        def for_config(cls, config: object) -> "_Provider":
+            return cls()
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls) -> type:
+            return _Provider
+
+        @classmethod
+        def model_validate(cls, d: object) -> "_Config":
+            return cls()
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Provider)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+
+    result = pm.run_probe_method("x", {}, "enveloped", {"limit": "10"})
+
+    assert isinstance(result.result, dict)
+    # The envelope is intact -- not clipped to MAX_PROBE_ITEMS keys.
+    assert sorted(result.result) == ["columns", "rows", "truncated"]
+    # And its contents are the command's, not the framework's.
+    assert len(result.result["rows"]) == pm.MAX_PROBE_ITEMS + 50
+    # Truncation is mirrored up from the envelope rather than recomputed, so
+    # a caller reads one field whichever kind of command answered.
+    assert result.truncated is True
+
+
 def test_a_limit_the_cli_passes_as_a_string_still_truncates(monkeypatch):
     """The CLI hands every param over as a string, and truncation read the
     RAW kwargs.

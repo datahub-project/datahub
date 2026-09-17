@@ -9,6 +9,7 @@ import click
 import yaml
 
 from datahub.configuration.common import ConfigurationError
+from datahub.configuration.config_loader import parse_recipe_envelope
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
@@ -238,73 +239,58 @@ def _recipe_from_stdin() -> Dict[str, object]:
     raw = sys.stdin.read()
     if not raw.strip():
         raise ValueError("no recipe received on stdin")
+
+    # One parser for this format, shared with load_config_file. There were
+    # two and they had drifted: only one validated `__recipe_yaml__`, so the
+    # same malformed envelope produced a named error here and a TypeError
+    # from StringIO on the `ingest -c -` path. The strings-only secret
+    # filter and the reasoning for keeping an empty string now live there
+    # too, beside the check.
     try:
-        envelope = json.loads(raw)
-    except ValueError:
-        envelope = None
-    if isinstance(envelope, dict) and "__recipe_yaml__" in envelope:
-        # Checked before anything reads it. A non-string reached yaml.safe_load
-        # and came back as `'dict' object has no attribute 'read'` at exit 1 --
-        # an internal-error code for a malformed input, which tells an agent to
-        # retry when it should be rebuilding the envelope. Exit codes are the
-        # agent's control flow, so the wrong one misroutes it.
-        if not isinstance(envelope["__recipe_yaml__"], str):
-            raise ValueError(
-                "__recipe_yaml__ must be a string holding the recipe YAML; got "
-                f"{type(envelope['__recipe_yaml__']).__name__}"
-            )
-        secrets = envelope.get("__secrets__") or {}
-        if isinstance(secrets, dict):
-            # Strings only, deliberately. str(v) would turn a JSON null into
-            # the literal "None" -- so a secret the caller failed to resolve
-            # became a password of "None" and the probe reported whatever the
-            # server said about it, instead of "${REF} could not be resolved".
-            # The registry will not even mask that value ("none" is on its
-            # unmaskable-literals list). Dropping the entry lets resolution
-            # fail by name, which is the honest answer. load_config_file does
-            # not coerce either.
-            #
-            # An empty string is kept, though: it is a value the caller chose,
-            # and dropping it left nothing for MappingResolver, so EnvVarResolver
-            # went on to read the ambient variable of the same name -- the
-            # fall-through the envelope exists to prevent. The registry drops it
-            # on its own (it is below MIN_SECRET_LENGTH), and _with_stdin_secrets
-            # keeps it out of the redaction set, where "" would match everything.
-            _stdin_secrets.update(
-                {str(k): v for k, v in secrets.items() if isinstance(v, str)}
-            )
+        envelope = parse_recipe_envelope(raw)
+    except ConfigurationError as exc:
+        # A user error on this CLI's contract: ConfigurationError is in
+        # _USER_ERRORS, but raising ValueError keeps the message shape the
+        # probe commands already produce.
+        raise ValueError(str(exc)) from exc
+
+    if envelope is not None:
+        if envelope.secrets:
+            _stdin_secrets.update(envelope.secrets)
+
             # Feed the masking backstop the `recipe` group installs: its
             # excepthook, logging handlers and stdout wrapper all read the
             # registry, and per-command redact() does not populate it.
             #
             # ConfigModel registers its own SecretStr fields (common.py), so
-            # the registry is not empty once a connector config is built -- but
-            # that is late and partial. It covers nothing before validation
-            # succeeds (a YAML parse error, an unresolvable ref, an unknown
-            # source type), nothing for a command that never builds a config
-            # (describe, validate), and no envelope value that is not a typed
-            # SecretStr on that connector. Registering here closes that window;
-            # it happens before the YAML is parsed so a parse failure is
-            # already covered. Same thing load_config_file does for
-            # `ingest -c -`.
+            # the registry is not empty once a connector config is built --
+            # but that is late and partial. It covers nothing before
+            # validation succeeds (a YAML parse error, an unresolvable ref,
+            # an unknown source type), nothing for a command that never
+            # builds a config (describe, validate), and no envelope value
+            # that is not a typed SecretStr on that connector. Registering
+            # here closes that window; it happens before the YAML is parsed
+            # so a parse failure is already covered. Same thing
+            # load_config_file does for `ingest -c -`.
             from datahub.masking.secret_registry import SecretRegistry
 
             # Minus what the recipe states in the clear, for the same reason
-            # _resolve_for_probe subtracts it from the redaction set -- except
-            # the stakes here are the whole stdout stream, not one payload. A
-            # password equal to the database name otherwise masks it inside
-            # every unrelated word the child prints, turning
+            # _resolve_for_probe subtracts it from the redaction set --
+            # except the stakes here are the whole stdout stream, not one
+            # payload. A password equal to the database name otherwise masks
+            # it inside every unrelated word the child prints, turning
             # `datahub.ingestion.source.sql` into
-            # `***REDACTED:PW***.ingestion.source.sql`, and those lines become
-            # the task's operator-visible logs.
-            disclosed = _envelope_disclosed_values(envelope["__recipe_yaml__"])
+            # `***REDACTED:PW***.ingestion.source.sql`, and those lines
+            # become the task's operator-visible logs.
+            disclosed = _envelope_disclosed_values(envelope.recipe_yaml)
             # Recorded for the error path, which builds its own redaction set
             # and would otherwise union these straight back in.
             _disclosed_stdin_values.update(disclosed)
             SecretRegistry.get_instance().register_secrets_batch(
                 {k: v for k, v in _stdin_secrets.items() if v not in disclosed}
             )
-        raw = envelope["__recipe_yaml__"]
+        raw = envelope.recipe_yaml
+
     try:
         loaded = yaml.safe_load(raw) or {}
     except yaml.YAMLError as exc:
