@@ -722,6 +722,18 @@ def _merge_generic_entity(
         )
         all_merged_aspects.extend(additive.keys())
 
+    # Always-overwrite aspects (e.g. containerProperties, whose customProperties
+    # carry the migration-time platform/instance) — mirror the dataset path so a
+    # container reached via urns-mapping doesn't silently drop them.
+    for aspect_name in ALWAYS_OVERWRITE_ASPECTS:
+        src_val = src_aspect_map.get(aspect_name)
+        if isinstance(src_val, DictWrapper):
+            mcp = MetadataChangeProposalWrapper(entityUrn=dst_urn, aspect=src_val)
+            if not dry_run:
+                graph.emit_mcp(mcp)
+            total_merged += 1
+            all_merged_aspects.append(aspect_name)
+
     merged, skipped, def_merged_names, def_skipped_names = _merge_default_aspects(
         src_aspect_map, dst_urn, src_urn, graph, on_conflict, dry_run
     )

@@ -17,6 +17,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
+    ContainerPropertiesClass,
     DatasetPropertiesClass,
     DeprecationClass,
     GlobalTagsClass,
@@ -767,6 +768,35 @@ class TestMergeGenericEntity:
         assert n == 1
         emitted = _emitted_patch_values(graph)
         assert [name for name, _ in emitted] == ["structuredProperties"]
+
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_container_patch_reseats_container_properties(
+        self,
+        mock_get_aspects: MagicMock,
+    ) -> None:
+        """A container merged via urns-mapping (PATCH) still reseats
+        containerProperties (whose GUID changes when the key changes)."""
+        mock_get_aspects.return_value = {
+            "containerProperties": ContainerPropertiesClass(name="db.sch"),
+            "globalTags": GlobalTagsClass(
+                tags=[TagAssociationClass(tag="urn:li:tag:pii")]
+            ),
+        }
+        graph = MagicMock()
+
+        result = merge_entity(
+            "urn:li:container:oldguid",
+            "urn:li:container:newguid",
+            ConflictStrategy.PATCH,
+            graph,
+            dry_run=False,
+        )
+
+        # containerProperties is always reseated; globalTags unions.
+        assert "containerProperties" in result.merged_aspects
+        assert "globalTags" in result.merged_aspects
+        assert graph.emit_mcp.called  # full-aspect emit for containerProperties
+        assert graph.emit.called  # patch emit for the tag union
 
 
 class TestMergeExcludesStatus:
