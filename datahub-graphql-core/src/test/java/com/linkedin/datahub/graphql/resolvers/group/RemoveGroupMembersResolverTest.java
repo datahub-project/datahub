@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
+import com.google.common.base.Throwables;
 import com.linkedin.common.Origin;
 import com.linkedin.common.OriginType;
 import com.linkedin.common.urn.Urn;
@@ -14,6 +15,8 @@ import com.linkedin.datahub.graphql.generated.RemoveGroupMembersInput;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import org.mockito.InOrder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -79,6 +82,53 @@ public class RemoveGroupMembersResolverTest {
     when(_groupService.groupExists(any(), any())).thenReturn(true);
     when(_groupService.getGroupOrigin(any(), eq(_groupUrn))).thenReturn(groupOrigin);
 
-    _resolver.get(_dataFetchingEnvironment).join();
+    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+
+    // A native group skips the migration and goes straight to removeGroupMembers, which revokes
+    // either membership aspect. Reverting to the native-only path would otherwise pass here.
+    verify(_groupService)
+        .removeGroupMembers(
+            any(), eq(_groupUrn), eq(List.of(Urn.createFromString(USER_URN_STRING))));
+    verify(_groupService, never())
+        .migrateGroupMembershipToNativeGroupMembership(any(), any(), any());
+  }
+
+  @Test
+  public void testMigratesOriginLessGroupBeforeRemoving() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(mockContext.getActorUrn()).thenReturn(USER_URN_STRING);
+    when(_groupService.groupExists(any(), any())).thenReturn(true);
+    // No origin aspect - the inline migration must run before members are removed.
+    when(_groupService.getGroupOrigin(any(), eq(_groupUrn))).thenReturn(null);
+
+    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+
+    InOrder inOrder = inOrder(_groupService);
+    inOrder
+        .verify(_groupService)
+        .migrateGroupMembershipToNativeGroupMembership(any(), eq(_groupUrn), eq(USER_URN_STRING));
+    inOrder.verify(_groupService).removeGroupMembers(any(), eq(_groupUrn), any());
+  }
+
+  @Test
+  public void testMigrationFailurePreservesCause() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(mockContext.getActorUrn()).thenReturn(USER_URN_STRING);
+    when(_groupService.groupExists(any(), any())).thenReturn(true);
+    when(_groupService.getGroupOrigin(any(), eq(_groupUrn))).thenReturn(null);
+    RuntimeException cause = new RuntimeException("ingest rejected the proposal");
+    doThrow(cause)
+        .when(_groupService)
+        .migrateGroupMembershipToNativeGroupMembership(any(), any(), any());
+
+    // Without the cause attached, GMS logs show only the wrapper and not the real failure.
+    Exception thrown =
+        expectThrows(Exception.class, () -> _resolver.get(_dataFetchingEnvironment).join());
+    assertTrue(Throwables.getCausalChain(thrown).contains(cause));
+    verify(_groupService, never()).removeGroupMembers(any(), any(), any());
   }
 }
