@@ -272,22 +272,19 @@ _BLOCKED_GIT_HOSTNAMES = frozenset(
     {
         "localhost",
         "localhost.localdomain",
-        "127.0.0.1",
-        "0.0.0.0",
-        "::1",
         "metadata.google.internal",
         "metadata.goog",
     }
 )
+# Only metadata IPs the generic _is_blocked_ip checks miss. Loopback, unspecified,
+# and link-local (incl. 169.254.169.254 / 169.254.170.2) are already covered there.
 _BLOCKED_GIT_IPS = frozenset(
     {
-        ipaddress.ip_address("127.0.0.1"),
-        ipaddress.ip_address("0.0.0.0"),
-        ipaddress.ip_address("::1"),
-        ipaddress.ip_address("169.254.169.254"),  # GCP / AWS
-        ipaddress.ip_address("fd00:ec2::254"),  # AWS IPv6
-        ipaddress.ip_address("100.100.100.200"),  # AliCloud
-        ipaddress.ip_address("169.254.170.2"),  # AWS ECS task metadata
+        ipaddress.ip_address("fd00:ec2::254"),  # AWS IMDS over IPv6 (unique-local)
+        ipaddress.ip_address(
+            "100.100.100.200"
+        ),  # AliCloud metadata (globally routable)
+        ipaddress.ip_address("192.0.0.192"),  # Oracle Cloud IMDS
     }
 )
 
@@ -325,45 +322,65 @@ def _parse_ip(
     return _parse_ipv4_loose(normalized)
 
 
-def _parse_int_with_prefix(s: str) -> Optional[int]:
-    """Parse an integer as decimal, octal (leading 0), or hex (leading 0x),
-    matching inet_aton/libcurl per-octet semantics."""
-    if not s:
-        return None
-    try:
-        if s.lower().startswith("0x"):
-            return int(s, 16)
-        if len(s) > 1 and s.startswith("0") and s.isdigit():
-            return int(s, 8)
-        if s.isdigit():
-            return int(s)
-    except ValueError:
-        return None
-    return None
-
-
 def _parse_ipv4_loose(s: str) -> Optional[ipaddress.IPv4Address]:
     """Parse inet_aton-style IPv4 forms libcurl/git accept but
-    ``ipaddress.ip_address`` rejects: per-octet octal/hex (``0177.0.0.1``)
-    and single-integer decimal/octal/hex (``2130706433``)."""
+    ``ipaddress.ip_address`` rejects: per-octet octal/hex (``0177.0.0.1``),
+    single-integer decimal/octal/hex (``2130706433``), and 2-/3-part short
+    forms (``127.1``, ``127.0.1``)."""
     try:
-        if "." in s:
-            parts = s.split(".")
-            if len(parts) != 4:
+        return ipaddress.IPv4Address(socket.inet_aton(s))
+    except (OSError, ipaddress.AddressValueError):
+        return None
+
+
+def _scp_userhost(url: str) -> Optional[str]:
+    """The ``[user@]host`` part of an scp URL: the text before the first colon
+    outside an IPv6 ``[ ]`` group. None if the brackets are unbalanced or there
+    is no such colon."""
+    depth = 0
+    for i, ch in enumerate(url):
+        if ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth < 0:
                 return None
-            octets = []
-            for part in parts:
-                n = _parse_int_with_prefix(part)
-                if n is None or n > 0xFF:
-                    return None
-                octets.append(n)
-            return ipaddress.IPv4Address(bytes(octets))
-        n = _parse_int_with_prefix(s)
-        if n is not None and 0 <= n < 2**32:
-            return ipaddress.IPv4Address(n)
-    except (ValueError, ipaddress.AddressValueError):
-        pass
+        elif ch == ":" and depth == 0:
+            return url[:i]
     return None
+
+
+def _scp_host(url: str) -> Optional[str]:
+    """Host of an scp-style ``[user@]host:path`` Git URL. The host is the text
+    after the last ``@``, or a single bracketed ``[ipv6]`` group that is the
+    whole host token (``git@[::1]:p`` -> ``::1``). git and ssh resolve
+    multi-bracket authorities such as ``[a]@[b]`` inconsistently, so anything
+    that is not one of those two clean shapes is rejected rather than guessed
+    at, since a real remote_dependency URL is never that shape."""
+    if "@" not in url or ":" not in url:
+        return None
+    userhost = _scp_userhost(url)
+    if userhost is None:
+        return None
+    if "[" in userhost or "]" in userhost:
+        # A legitimate bracketed host is a single [ ] pair that IS the whole
+        # host token, optionally preceded by 'user@'. Reject every other bracket
+        # shape instead of guessing which of several hosts git/ssh will use.
+        if (
+            userhost.count("[") != 1
+            or userhost.count("]") != 1
+            or not userhost.endswith("]")
+        ):
+            return None
+        open_i = userhost.index("[")
+        if userhost[:open_i] and not userhost[:open_i].endswith("@"):
+            return None
+        host = userhost[open_i + 1 : -1]
+    else:
+        host = userhost.rsplit("@", 1)[-1]
+    if not host or any(c in host for c in "[]@/"):
+        return None
+    return host
 
 
 def _hostname_from_git_url(url: str) -> Optional[str]:
@@ -373,14 +390,8 @@ def _hostname_from_git_url(url: str) -> Optional[str]:
         return None
 
     if "://" not in stripped:
-        # scp-style: git@github.com:org/repo.git
-        if stripped.startswith("git@") and ":" in stripped:
-            return _normalize_hostname(stripped[len("git@") :].split(":", 1)[0]) or None
-        at_index = stripped.find("@")
-        colon_index = stripped.find(":")
-        if at_index != -1 and colon_index > at_index:
-            return _normalize_hostname(stripped[at_index + 1 : colon_index]) or None
-        return None
+        host = _scp_host(stripped)
+        return _normalize_hostname(host) if host else None
 
     try:
         parsed = urlparse(stripped)
@@ -416,10 +427,13 @@ def _is_blocked_git_host(hostname: str) -> bool:
 def _resolves_to_blocked_ip(hostname: str) -> bool:
     """Reject DNS names that resolve to a blocked IP (DNS-rebinding SSRF)."""
     if _parse_ip(hostname) is not None:
-        return False  # IP literal — handled by _is_blocked_git_host
+        return False  # IP literal, handled by _is_blocked_git_host
     try:
         infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
-    except (socket.gaierror, socket.herror, OSError):
+    except OSError as e:
+        # Fail open: an unresolvable host cannot be cloned anyway, and split-horizon
+        # DNS on the executor is legitimate. Log so a skipped check stays visible.
+        logger.debug(f"DNS check skipped for {hostname}: {e}")
         return False
     for info in infos:
         try:

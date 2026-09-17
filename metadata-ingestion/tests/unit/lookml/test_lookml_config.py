@@ -296,6 +296,27 @@ def test_remote_dependency_domain_pattern_defaults_to_allow_all(
     assert not config.remote_dependency_domain_pattern.allowed("gitlab.com")
 
 
+def test_unanchored_allow_pattern_rejected(minimal_lookml_config: dict) -> None:
+    # An unanchored allow entry (no trailing "$") prefix-matches sub-hosts like
+    # github.com.evil.example, defeating the allowlist, so it is rejected.
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["github.com"]
+    }
+    with pytest.raises(ValidationError):
+        LookMLSourceConfig.model_validate(minimal_lookml_config)
+
+
+def test_alternation_allow_pattern_rejected(minimal_lookml_config: dict) -> None:
+    # "|" hides an unanchored branch behind a trailing "$": the entry below ends
+    # in "$" (passing the anchor check) but its first branch matches
+    # github.com.evil.example. Alternation is rejected outright.
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["^github\\.com\\.evil|^github\\.com$"]
+    }
+    with pytest.raises(ValidationError):
+        LookMLSourceConfig.model_validate(minimal_lookml_config)
+
+
 # ---- LookMLSource.get_workunits_internal: git clone failure ----
 
 

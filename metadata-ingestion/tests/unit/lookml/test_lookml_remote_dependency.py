@@ -304,6 +304,13 @@ def test_ipv4_mapped_aws_metadata_rejected() -> None:
     assert not result.allowed
 
 
+def test_ipv6_zone_id_link_local_rejected() -> None:
+    # A link-local IPv6 host given with a zone id in scp-bracket form
+    # (git@[fe80::1%eth0]:...) is recognized as link-local and rejected.
+    result = check_remote_dependency_url("git@[fe80::1%eth0]:org/repo.git")
+    assert not result.allowed
+
+
 def test_octal_ip_rejected() -> None:
     # 017700000001 (octal) == 2130706433 == 127.0.0.1.
     result = check_remote_dependency_url("https://017700000001/repo.git")
@@ -383,3 +390,180 @@ remote_dependency: leak {
     joined = " ".join(contexts)
     assert "supersecret" not in joined
     assert "*****" in joined  # sanitized userinfo marker
+
+
+# ---- Bypasses reproduced during the ING-2573 takeover (red before the fix) ----
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "git@github.com@127.0.0.1:org/repo.git",
+        "git@github.com@169.254.169.254:org/repo.git",
+    ],
+    ids=["scp_double_at_loopback", "scp_double_at_metadata"],
+)
+def test_scp_double_at_host_is_blocked(url: str) -> None:
+    # ssh connects to the host after the LAST '@', so a leading "github.com" does
+    # not make these safe -- they reach 127.0.0.1 / the metadata IP.
+    result = check_remote_dependency_url(url)
+    assert not result.allowed
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["https://127.1/repo.git", "https://127.0.1/repo.git"],
+    ids=["short_2part", "short_3part"],
+)
+def test_short_form_ipv4_blocked_without_dns(
+    url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 127.1 / 127.0.1 decode to loopback; they must be caught as IP literals,
+    # not left to a DNS lookup that fails open.
+    import socket as _socket
+
+    def _no_dns(*args: object, **kwargs: object) -> None:
+        raise _socket.gaierror("dns disabled")
+
+    monkeypatch.setattr(_socket, "getaddrinfo", _no_dns)
+    result = check_remote_dependency_url(url)
+    assert not result.allowed
+
+
+def test_oracle_cloud_metadata_ip_rejected() -> None:
+    # 192.0.0.0/24 is IETF Protocol Assignments, not covered by the generic
+    # loopback / link-local / unspecified checks.
+    result = check_remote_dependency_url("https://192.0.0.192/repo.git")
+    assert not result.allowed
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["https://[fd00:ec2::254]/repo.git", "https://100.100.100.200/repo.git"],
+    ids=["aws_ipv6_imds", "alicloud_metadata"],
+)
+def test_load_bearing_metadata_ips_stay_blocked(url: str) -> None:
+    # Not caught by the generic checks; must remain in the explicit blocklist
+    # after it is trimmed.
+    result = check_remote_dependency_url(url)
+    assert not result.allowed
+
+
+def test_get_manifest_drops_blocks_missing_required_keys(
+    tmp_path: pathlib.Path,
+) -> None:
+    # A url-less remote_dependency and a project-less local_dependency are valid
+    # (project_dependencies supplies the repo); they must be dropped, not crash
+    # get_manifest_if_present with a KeyError once the plural keys are read.
+    (tmp_path / "manifest.lkml").write_text(
+        """
+project_name: "p"
+
+remote_dependency: no_url {
+  ref: "main"
+}
+
+local_dependency: {
+  ref: "x"
+}
+"""
+    )
+    source = _lookml_source_for_folder(tmp_path)
+    manifest = source.get_manifest_if_present(tmp_path)
+    assert manifest is not None
+    assert manifest.remote_dependencies == []
+    assert manifest.local_dependencies == []
+
+
+def test_unanchored_pattern_matches_prefix_only() -> None:
+    # AllowDenyPattern matches from the START of the string, so an unanchored
+    # "github\\.com" also matches "github.com.evil.example". Config validation
+    # rejects such patterns; this pins the underlying function behavior so it
+    # cannot change silently.
+    result = check_remote_dependency_url(
+        "https://github.com.evil.example/repo.git",
+        allowed_pattern=AllowDenyPattern(allow=["github\\.com"]),
+    )
+    assert result.allowed
+    assert result.hostname == "github.com.evil.example"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "git@[::1]:org/repo.git",
+        "git@[fd00:ec2::254]:org/repo.git",
+        "git@[::1]:evil@path",
+    ],
+    ids=["ipv6_loopback", "ipv6_aws_imds", "ipv6_loopback_path_at"],
+)
+def test_scp_bracketed_ipv6_host_is_blocked(url: str) -> None:
+    # ssh strips the brackets and connects to the IPv6 host (git@[::1]:x -> ::1),
+    # so the validator must unwrap [ ] instead of reading '[' and allowing it.
+    result = check_remote_dependency_url(url)
+    assert not result.allowed
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "[127.0.0.1]@github.com:x/repo.git",
+        "[::1]@github.com:x/repo.git",
+        "[169.254.169.254]@github.com:x/repo.git",
+        "git@[x@127.0.0.1:repo.git",
+        "git@[@127.0.0.1:repo.git",
+    ],
+    ids=[
+        "leading_bracket_loopback",
+        "leading_bracket_ipv6",
+        "leading_bracket_metadata",
+        "unmatched_bracket_user",
+        "unmatched_bracket_empty",
+    ],
+)
+def test_scp_bracket_host_confusion_is_blocked(url: str) -> None:
+    # git unwraps a bracket group at the start (or right after '@') as the host
+    # and discards a trailing @benign-host, and an unmatched '[' desyncs a naive
+    # parser, so ssh clones from the bracketed IP while a benign host is read.
+    result = check_remote_dependency_url(url)
+    assert not result.allowed
+
+
+def test_leading_bracket_defeats_allowlist() -> None:
+    # The operator allowlisted github.com, but git clones from 127.0.0.1 (the
+    # leading bracket group), so this must be blocked, not read as github.com.
+    result = check_remote_dependency_url(
+        "[127.0.0.1]@github.com:x/repo.git",
+        allowed_pattern=AllowDenyPattern(allow=["^github\\.com$"]),
+    )
+    assert not result.allowed
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "[github.com]@[169.254.169.254]:x/repo.git",
+        "[github.com]@[::1]:x/repo.git",
+        "[github.com]@[fd00:ec2::254]:x/repo.git",
+        "[foo]@[127.0.0.1]:x/repo.git",
+    ],
+    ids=["dual_metadata", "dual_loopback", "dual_ipv6_imds", "dual_loopback2"],
+)
+def test_scp_dual_bracket_host_confusion_is_blocked(url: str) -> None:
+    # git treats a leading [benign] as the user and connects to the SECOND
+    # bracket, so [github.com]@[169.254.169.254]:x clones from the metadata IP
+    # while a naive parser reads github.com. A multi-bracket authority is
+    # ambiguous and must be rejected.
+    result = check_remote_dependency_url(url)
+    assert not result.allowed
+
+
+def test_dual_bracket_defeats_anchored_allowlist() -> None:
+    # The validator would read the host as github.com and pass an anchored
+    # ^github\.com$ allowlist, but git clones from 169.254.169.254, so it must
+    # be blocked regardless of the allowlist.
+    result = check_remote_dependency_url(
+        "[github.com]@[169.254.169.254]:x/repo.git",
+        allowed_pattern=AllowDenyPattern(allow=["^github\\.com$"]),
+    )
+    assert not result.allowed
