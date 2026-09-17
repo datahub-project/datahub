@@ -44,6 +44,7 @@ from datahub.executor.execution.task import TaskError
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import (
+    SENSITIVE_KEY_HINTS,
     SecretRegistry,
 )
 
@@ -81,20 +82,6 @@ class PreparedRun:
     stdin_envelope: str
 
 
-# Key fragments that mark a config value as a credential. Kept here rather than
-# imported so the executor's masking policy does not depend on the ingestion
-# agent package, which is not present in every distribution this ships in.
-_SENSITIVE_KEY_HINTS: tuple[str, ...] = (
-    "password",
-    "sasl",
-    "secret",
-    "token",
-    "basic.auth.user.info",
-    "ssl.key",
-    "private_key",
-)
-
-
 def _plain_and_inline_secret_values(
     obj: object, under_sensitive: bool = False
 ) -> tuple[set[str], set[str]]:
@@ -102,6 +89,15 @@ def _plain_and_inline_secret_values(
 
     "Plain" means stated under a key no sensitivity hint matches, with no
     ``${`` left in it. Those are the values the recipe discloses in the clear.
+
+    The hints come from datahub.masking.secret_registry rather than a copy
+    here. The copy carried a comment justifying itself as avoiding a
+    dependency on the ingestion AGENT package -- but the canonical list is in
+    the masking package, which this module already imports three lines up, so
+    the dependency being avoided was one that already existed. The two lists
+    were identical, and the cost of keeping them apart was not theoretical:
+    the recursion bug described below was written into both independently and
+    fixed twice.
 
     ``under_sensitive`` carries the parent's verdict down, and it has to:
     sensitivity was decided per key and then dropped at the recursion, so a
@@ -117,7 +113,7 @@ def _plain_and_inline_secret_values(
     if isinstance(obj, dict):
         for k, v in obj.items():
             sensitive = under_sensitive or any(
-                h in str(k).lower() for h in _SENSITIVE_KEY_HINTS
+                h in str(k).lower() for h in SENSITIVE_KEY_HINTS
             )
             if isinstance(v, str):
                 if not v or "${" in v:
