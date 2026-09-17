@@ -78,7 +78,7 @@ export default function StructuredPropertyRow({ property, onPropertyChange, onVa
             <PropertySelectContainer>
                 <PropertySelectField selectedPropertyUrn={property.propertyUrn} onPropertyChange={onPropertyChange} />
             </PropertySelectContainer>
-            {property.propertyUrn && getPropertyDefinition && (
+            {property.propertyUrn && (
                 <ValueInputContainer>
                     <ValueInput
                         values={property.values}

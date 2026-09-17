@@ -21,6 +21,7 @@ export function useInfiniteScrollStructuredProperties(searchQuery: string) {
     const [scrollId, setScrollId] = useState<string | null>(null);
     const [hasMoreProperties, setHasMoreProperties] = useState(true);
     const [hasInitialized, setHasInitialized] = useState(false);
+    const [lastQueryProcessed, setLastQueryProcessed] = useState<string | null>(searchQuery || '*');
 
     const {
         data: scrollData,
@@ -41,7 +42,13 @@ export function useInfiniteScrollStructuredProperties(searchQuery: string) {
 
     // Handle initial data and updates from scroll
     useEffect(() => {
-        if (scrollData?.scrollAcrossEntities?.searchResults) {
+        const currentQuery = searchQuery || '*';
+        // Only merge results if they belong to the current query and lastQueryProcessed is set
+        if (
+            scrollData?.scrollAcrossEntities?.searchResults &&
+            lastQueryProcessed !== null &&
+            lastQueryProcessed === currentQuery
+        ) {
             const newResults = scrollData.scrollAcrossEntities.searchResults
                 .filter((r) => !propertyUrnsSet.has(r.entity.urn))
                 .map((r) => ({
@@ -62,7 +69,7 @@ export function useInfiniteScrollStructuredProperties(searchQuery: string) {
             setHasMoreProperties(!!nextScrollId);
             setHasInitialized(true);
         }
-    }, [scrollData, propertyUrnsSet]);
+    }, [scrollData, propertyUrnsSet, lastQueryProcessed, searchQuery]);
 
     const nextScrollId = scrollData?.scrollAcrossEntities?.nextScrollId;
 
@@ -83,6 +90,7 @@ export function useInfiniteScrollStructuredProperties(searchQuery: string) {
         setScrollId(null);
         setHasMoreProperties(true);
         setHasInitialized(false);
+        setLastQueryProcessed(searchQuery || '*');
     }, [searchQuery]);
 
     const reset = useCallback(() => {
@@ -91,6 +99,7 @@ export function useInfiniteScrollStructuredProperties(searchQuery: string) {
         setScrollId(null);
         setHasInitialized(false);
         setHasMoreProperties(true);
+        setLastQueryProcessed(null);
     }, []);
 
     return {

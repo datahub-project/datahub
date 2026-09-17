@@ -23,6 +23,8 @@ type Props = {
     resourceTypeCondition: PolicyMatchCondition;
 };
 
+const EMPTY_ENTITY_TYPES: EntityType[] = [];
+
 const FieldWithConditionWrapper = styled.div`
     display: flex;
     gap: 8px;
@@ -57,7 +59,7 @@ export default function ResourceSelect({
         // Equals condition: search only selected resource types' entity types
         if (resourceTypeCondition === PolicyMatchCondition.Equals) {
             if (!resourceTypeSelectValue?.length) {
-                return [];
+                return EMPTY_ENTITY_TYPES;
             }
             return resourceTypeSelectValue
                 .map((resourceType) => mapResourceTypeToEntityType(resourceType, resourcePrivileges))
@@ -65,7 +67,7 @@ export default function ResourceSelect({
         }
 
         // For NotEquals and StartsWith, search all types
-        return [];
+        return EMPTY_ENTITY_TYPES;
     }, [resourceTypeCondition, resourceTypeSelectValue, resourcePrivileges]);
 
     return (

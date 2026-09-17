@@ -118,7 +118,7 @@ describe('StructuredProperties Utils', () => {
             const def: StructuredPropertyDefinition = {
                 urn: 'urn:prop1',
                 definition: {
-                    valueType: { urn: 'urn:li:type:urn' },
+                    valueType: { urn: 'urn:li:dataType:datahub.urn' },
                     typeQualifier: {
                         allowedTypes: [
                             { type: 'DATASET', info: { type: 'DATASET' } },
@@ -134,7 +134,7 @@ describe('StructuredProperties Utils', () => {
             const def: StructuredPropertyDefinition = {
                 urn: 'urn:prop1',
                 definition: {
-                    valueType: { urn: 'urn:li:type:urn' },
+                    valueType: { urn: 'urn:li:dataType:datahub.urn' },
                     typeQualifier: {
                         allowedTypes: [
                             { type: 'DATASET', info: { type: 'DATASET' } },

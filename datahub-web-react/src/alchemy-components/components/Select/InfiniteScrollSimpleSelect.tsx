@@ -17,7 +17,6 @@ const LoadingContainer = styled.div`
     justify-content: center;
     align-items: center;
     padding: 12px;
-    border-top: 1px solid ${(props) => props.theme.colors.border};
     background: ${(props) => props.theme.colors.bg};
 `;
 
@@ -33,22 +32,6 @@ interface InfiniteScrollSimpleSelectProps<OptionType extends SelectOption = Sele
  * Enhanced SimpleSelect with infinite scroll capability
  * Adds a scroll trigger element and loading indicator for infinite scroll functionality
  *
- * Usage with react-intersection-observer:
- * ```
- * const [scrollRef, inView] = useInView({ threshold: 0.1 });
- * useEffect(() => {
- *   if (inView && hasMore && !loading && scrollId !== nextScrollId) {
- *     setScrollId(nextScrollId);
- *   }
- * }, [inView, nextScrollId, scrollId, loading]);
- *
- * <InfiniteScrollSimpleSelect
- *   options={options}
- *   loading={loading}
- *   hasMore={hasMore}
- *   scrollRef={scrollRef}
- * />
- * ```
  */
 export function InfiniteScrollSimpleSelect<OptionType extends SelectOption = SelectOption>({
     options,
@@ -64,16 +47,18 @@ export function InfiniteScrollSimpleSelect<OptionType extends SelectOption = Sel
         if (hasMore && !loading) {
             baseOptions.push({
                 value: '__scroll_trigger__',
-                label: '',
+                label: '__scroll_trigger__',
                 isScrollTrigger: true,
+                isDisabled: true,
             } as unknown as OptionType);
         }
 
         if (loading && options.length > 0) {
             baseOptions.push({
                 value: '__loading__',
-                label: '',
+                label: '__loading__',
                 isLoadingIndicator: true,
+                isDisabled: true,
             } as unknown as OptionType);
         }
 
@@ -99,7 +84,7 @@ export function InfiniteScrollSimpleSelect<OptionType extends SelectOption = Sel
                 return renderCustomOptionText(option);
             }
 
-            return (option as any).label || '';
+            return option.label || '';
         },
         [scrollRef, renderCustomOptionText],
     );

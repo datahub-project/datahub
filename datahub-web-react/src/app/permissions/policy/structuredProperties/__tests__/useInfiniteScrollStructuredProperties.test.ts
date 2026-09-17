@@ -1,5 +1,5 @@
 import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
+import { act, renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useInfiniteScrollStructuredProperties } from '@app/permissions/policy/structuredProperties/useInfiniteScrollStructuredProperties';
@@ -131,13 +131,33 @@ describe('useInfiniteScrollStructuredProperties', () => {
     });
 
     it('should reset properties when search query changes', async () => {
-        mockScrollQuery({
-            scrollAcrossEntities: {
-                searchResults: [mockProperty('urn:li:structuredProperty:env', 'Environment')],
-                count: 1,
-                total: 1,
-                nextScrollId: null,
-            },
+        // Mock with query-dependent responses
+        let lastQuery = '';
+        (useScrollAcrossEntitiesQuery as any).mockImplementation(({ variables }: any) => {
+            lastQuery = variables?.input?.query || '*';
+            const data = {
+                env: {
+                    scrollAcrossEntities: {
+                        searchResults: [mockProperty('urn:li:structuredProperty:env', 'Environment')],
+                        count: 1,
+                        total: 1,
+                        nextScrollId: null,
+                    },
+                },
+                team: {
+                    scrollAcrossEntities: {
+                        searchResults: [mockProperty('urn:li:structuredProperty:team', 'Team')],
+                        count: 1,
+                        total: 1,
+                        nextScrollId: null,
+                    },
+                },
+            };
+            return {
+                data: (data as any)[lastQuery],
+                loading: false,
+                error: null,
+            };
         });
 
         const { result, rerender } = renderHook(({ query }) => useInfiniteScrollStructuredProperties(query), {
@@ -146,14 +166,15 @@ describe('useInfiniteScrollStructuredProperties', () => {
 
         await waitFor(() => {
             expect(result.current.properties.length).toBe(1);
+            expect(result.current.properties[0].label).toBe('Environment');
         });
 
-        // Change search query
+        // Change search query - should reset and load new data
         rerender({ query: 'team' });
 
         await waitFor(() => {
-            // Properties should reset when query changes
-            expect(result.current.properties.length).toBe(0);
+            expect(result.current.properties.length).toBe(1);
+            expect(result.current.properties[0].label).toBe('Team');
         });
     });
 
@@ -212,16 +233,20 @@ describe('useInfiniteScrollStructuredProperties', () => {
 
         const { result } = renderHook(() => useInfiniteScrollStructuredProperties(''));
 
+        // Wait for data to load first
         await waitFor(() => {
             expect(result.current.properties.length).toBeGreaterThan(0);
         });
 
-        expect(result.current.properties.length).toBe(1);
+        expect(result.current.properties).toHaveLength(1);
 
-        // Call reset
-        result.current.reset();
+        // Call reset and wait for all effects to complete
+        await act(async () => {
+            result.current.reset();
+        });
 
-        expect(result.current.properties.length).toBe(0);
+        // After reset, the state should be cleared
+        expect(result.current.properties).toEqual([]);
         expect(result.current.hasInitialized).toBe(false);
         expect(result.current.hasMore).toBe(true);
     });
@@ -254,11 +279,12 @@ describe('useInfiniteScrollStructuredProperties', () => {
 
         const { result } = renderHook(() => useInfiniteScrollStructuredProperties(''));
 
-        expect(result.current.hasInitialized).toBe(false);
-
+        // After hook initializes, it will have data returned and hasInitialized set to true
         await waitFor(() => {
             expect(result.current.hasInitialized).toBe(true);
         });
+
+        expect(result.current.properties.length).toBe(1);
     });
 
     it('should handle empty search results gracefully', async () => {
@@ -279,5 +305,52 @@ describe('useInfiniteScrollStructuredProperties', () => {
 
         expect(result.current.properties).toEqual([]);
         expect(result.current.hasMore).toBe(false);
+    });
+
+    it('should prevent stale search results from previous query being merged', async () => {
+        // Mock with query-dependent responses
+        (useScrollAcrossEntitiesQuery as any).mockImplementation(({ variables }: any) => {
+            const query = variables?.input?.query || '*';
+            const data: any = {
+                env: {
+                    scrollAcrossEntities: {
+                        searchResults: [mockProperty('urn:li:structuredProperty:env', 'Environment')],
+                        count: 1,
+                        total: 1,
+                        nextScrollId: null,
+                    },
+                },
+                team: {
+                    scrollAcrossEntities: {
+                        searchResults: [mockProperty('urn:li:structuredProperty:team', 'Team')],
+                        count: 1,
+                        total: 1,
+                        nextScrollId: null,
+                    },
+                },
+            };
+            return {
+                data: data[query],
+                loading: false,
+                error: null,
+            };
+        });
+
+        const { result, rerender } = renderHook(({ query }) => useInfiniteScrollStructuredProperties(query), {
+            initialProps: { query: 'env' },
+        });
+
+        await waitFor(() => {
+            expect(result.current.properties.length).toBe(1);
+            expect(result.current.properties[0].label).toBe('Environment');
+        });
+
+        // Change query - properties should reset and load new data
+        rerender({ query: 'team' });
+
+        await waitFor(() => {
+            expect(result.current.properties.length).toBe(1);
+            expect(result.current.properties[0].label).toBe('Team');
+        });
     });
 });
