@@ -109,10 +109,7 @@ public class StructuredPropertyFieldResolverProvider implements EntityFieldResol
                         .collect(Collectors.toSet());
                 propertyMap.put(property.getPropertyUrn().toString(), values);
               } catch (Exception e) {
-                log.warn(
-                    "Failed to process structured property: {}",
-                    property.getPropertyUrn(),
-                    e);
+                log.warn("Failed to process structured property: {}", property.getPropertyUrn(), e);
               }
             });
 

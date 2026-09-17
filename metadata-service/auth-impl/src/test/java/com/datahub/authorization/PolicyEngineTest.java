@@ -3338,7 +3338,8 @@ public class PolicyEngineTest {
             Collections.emptySet(),
             Collections.emptySet(),
             Collections.emptySet(),
-            ImmutableMap.of("urn:li:structuredProperty:priority_score", ImmutableSet.of("DOUBLE:42.0")));
+            ImmutableMap.of(
+                "urn:li:structuredProperty:priority_score", ImmutableSet.of("DOUBLE:42.0")));
 
     PolicyEngine.PolicyEvaluationResult result =
         _policyEngine.evaluatePolicy(
@@ -3400,7 +3401,8 @@ public class PolicyEngineTest {
             Collections.emptySet(),
             Collections.emptySet(),
             Collections.emptySet(),
-            ImmutableMap.of("urn:li:structuredProperty:priority_score", ImmutableSet.of("DOUBLE:42.0")));
+            ImmutableMap.of(
+                "urn:li:structuredProperty:priority_score", ImmutableSet.of("DOUBLE:42.0")));
 
     PolicyEngine.PolicyEvaluationResult result =
         _policyEngine.evaluatePolicy(

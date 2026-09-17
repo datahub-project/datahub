@@ -2,8 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.policy.mappers;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.graphql.generated.ActorFilterInput;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
