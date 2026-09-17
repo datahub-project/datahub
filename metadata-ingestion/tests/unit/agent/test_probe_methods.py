@@ -568,6 +568,56 @@ def test_a_keyed_listing_is_capped_the_same_way(monkeypatch):
     assert "k0" in result.result and f"k{pm.MAX_PROBE_ITEMS + 24}" not in result.result
 
 
+def test_a_limit_the_cli_passes_as_a_string_still_truncates(monkeypatch):
+    """The CLI hands every param over as a string, and truncation read the
+    RAW kwargs.
+
+    `--limit 2` arrives as "2", which failed the int check, so the whole
+    truncation path went dormant: run_probe_method's own comment records the
+    live result -- limit reported as 3 and truncated false, for a listing
+    that had been cut off at 2. The fix reads the limit back from the
+    COERCED dict, and nothing pinned it.
+    """
+
+    class _Provider:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return None
+
+        @pm.probe_method(row_limit_param="limit")
+        def things(self, limit: int = 50) -> List[str]:
+            """Every thing."""
+            return [f"t{i}" for i in range(limit)]
+
+        @classmethod
+        def for_config(cls, config):
+            return cls()
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Provider)
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls):
+            return _Provider
+
+        @classmethod
+        def model_validate(cls, d):
+            return cls()
+
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+
+    # Exactly what the CLI passes: a string, not an int.
+    result = pm.run_probe_method("x", {}, "things", {"limit": "2"})
+
+    assert result.result == ["t0", "t1"], result.result
+    assert result.truncated is True, (
+        "a string limit left truncation dormant, so a cut-short listing "
+        "reported itself complete"
+    )
+
+
 def test_a_short_listing_with_no_row_limit_is_not_marked_truncated(monkeypatch):
     """The control -- a cap that always reports truncated is no better than
     one that never does."""

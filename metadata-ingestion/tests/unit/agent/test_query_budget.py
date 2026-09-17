@@ -321,6 +321,59 @@ def test_redshift_sets_its_ceiling_outside_a_transaction(monkeypatch):
     assert connection.autocommit is False, "autocommit must be handed back"
 
 
+def test_redshift_fails_closed_when_the_server_refuses_the_ceiling(monkeypatch):
+    """The other half of the listener, and the half that is load-bearing.
+
+    The MySQL family tries two spellings and shrugs, because MySQL and
+    MariaDB genuinely disagree about the name. Redshift has one documented
+    spelling, so a server that refuses it is an anomaly rather than a
+    dialect difference -- and a ceiling that quietly does not apply is what
+    QueryBudget's docstring warns against. So this one is deliberately left
+    to raise.
+
+    The sibling test above covers the success path: autocommit is on during
+    the SET and handed back afterwards. It cannot see the `finally`, because
+    nothing raises in it -- so a version that restored autocommit only on
+    success would pass it while leaving a pooled connection in autocommit
+    for every later caller.
+    """
+    refused = RuntimeError('syntax error at or near "statement_timeout"')
+
+    class _Cursor:
+        def __init__(self, conn):
+            self._conn = conn
+
+        def execute(self, sql):
+            raise refused
+
+        def close(self):
+            pass
+
+    class _Conn:
+        autocommit = False
+
+        def cursor(self):
+            return _Cursor(self)
+
+    listeners: List = []
+    monkeypatch.setattr(
+        sqlalchemy.event,
+        "listen",
+        lambda target, name, fn: listeners.append(fn),
+    )
+    install_statement_timeout(object(), "redshift+redshift_connector://u:p@h/db", 30)
+    connection = _Conn()
+
+    # Fails closed: the connection is not handed back as if it were bounded.
+    with pytest.raises(RuntimeError, match="statement_timeout"):
+        listeners[0](connection, None)
+
+    # And the connection is not left in autocommit on the way out.
+    assert connection.autocommit is False, (
+        "autocommit leaked to every later user of this pooled connection"
+    )
+
+
 def test_a_dialect_with_no_known_timeout_knob_is_left_alone():
     """Better to declare no ceiling than to pass a connect arg that breaks connecting.
 

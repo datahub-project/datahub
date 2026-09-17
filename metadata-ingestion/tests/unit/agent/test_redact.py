@@ -201,6 +201,16 @@ def test_a_secret_under_a_sensitive_parent_is_not_treated_as_disclosed():
         {"connection": {"database": "analytics"}}, _SENSITIVE_KEY_HINTS
     ) == {"analytics"}
 
+    # An unresolved reference is not a disclosed value. It is a name for one,
+    # and the thing it names is registered separately -- treating `${PW}` as
+    # something the recipe states in the clear would exempt whatever the
+    # envelope resolved it to, on a string match against the literal.
+    assert plain_config_values({"host": "${DB_HOST}"}, _SENSITIVE_KEY_HINTS) == set()
+    assert (
+        plain_config_values({"host": "prefix-${DB_HOST}-suffix"}, _SENSITIVE_KEY_HINTS)
+        == set()
+    )
+
 
 def test_an_identifier_or_a_path_is_not_a_credential():
     """`private_key_id` and `private_key_path` are real GCP fields.
