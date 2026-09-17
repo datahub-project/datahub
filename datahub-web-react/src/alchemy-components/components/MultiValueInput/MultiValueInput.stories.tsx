@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import React, { useState } from 'react';
 
-import { MultiSelectInput } from '@components/components/MultiSelectInput/MultiSelectInput';
+import { MultiValueInput } from '@components/components/MultiValueInput/MultiValueInput';
 
 const meta = {
-    title: 'Forms / MultiSelectInput',
-    component: MultiSelectInput,
+    title: 'Forms / MultiValueInput',
+    component: MultiValueInput,
     parameters: {
         layout: 'centered',
     },
@@ -58,41 +58,41 @@ const meta = {
         disabled: false,
     },
     tags: ['autodocs'],
-} satisfies Meta<typeof MultiSelectInput>;
+} satisfies Meta<typeof MultiValueInput>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Wrapper component for managing state in stories
-const MultiSelectInputWithState = (args: any) => {
+const MultiValueInputWithState = (args: any) => {
     const [values, setValues] = useState(args.values || []);
-    return <MultiSelectInput {...args} values={values} onUpdate={setValues} />;
+    return <MultiValueInput {...args} values={values} onUpdate={setValues} />;
 };
 
 export const Default: Story = {
     args: {} as any,
-    render: (args: any) => <MultiSelectInputWithState {...args} />,
+    render: (args: any) => <MultiValueInputWithState {...args} />,
 };
 
 export const WithValues: Story = {
     args: {
         values: ['React', 'TypeScript', 'Storybook'],
     } as any,
-    render: (args: any) => <MultiSelectInputWithState {...args} />,
+    render: (args: any) => <MultiValueInputWithState {...args} />,
 };
 
 export const WithHelperText: Story = {
     args: {
         helperText: 'Press Enter or comma to add a tag',
     } as any,
-    render: (args: any) => <MultiSelectInputWithState {...args} />,
+    render: (args: any) => <MultiValueInputWithState {...args} />,
 };
 
 export const WithError: Story = {
     args: {
         error: 'Please enter at least one tag',
     } as any,
-    render: (args: any) => <MultiSelectInputWithState {...args} />,
+    render: (args: any) => <MultiValueInputWithState {...args} />,
 };
 
 export const Disabled: Story = {
@@ -100,21 +100,21 @@ export const Disabled: Story = {
         disabled: true,
         values: ['React', 'TypeScript'],
     } as any,
-    render: (args: any) => <MultiSelectInputWithState {...args} />,
+    render: (args: any) => <MultiValueInputWithState {...args} />,
 };
 
 export const CustomWidth: Story = {
     args: {
         width: 500,
     } as any,
-    render: (args: any) => <MultiSelectInputWithState {...args} />,
+    render: (args: any) => <MultiValueInputWithState {...args} />,
 };
 
 export const NoLabel: Story = {
     args: {
         label: undefined,
     } as any,
-    render: (args: any) => <MultiSelectInputWithState {...args} />,
+    render: (args: any) => <MultiValueInputWithState {...args} />,
 };
 
 export const MultipleTags: Story = {
@@ -122,5 +122,5 @@ export const MultipleTags: Story = {
         label: 'Multiple Tags',
         values: ['Component', 'Input', 'Selection', 'Tags', 'UI', 'React'],
     } as any,
-    render: (args: any) => <MultiSelectInputWithState {...args} />,
+    render: (args: any) => <MultiValueInputWithState {...args} />,
 };
