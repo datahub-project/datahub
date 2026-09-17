@@ -761,13 +761,7 @@ class BigQueryV2Config(
                 "`include_linked_dataset_lineage` is set but `include_table_lineage` "
                 "is False - the linked-dataset COPY lineage is the feature's main "
                 "output and will not be emitted. Subtype and source properties are "
-                "still emitted."
-            )
-        if self.include_linked_dataset_lineage and not self.include_schema_metadata:
-            logger.warning(
-                "`include_linked_dataset_lineage` is set but `include_schema_metadata` "
-                "is False - linked datasets are detected during the schema pass, so "
-                "with it disabled nothing is detected and the feature is inert."
+                "still emitted when `include_schema_metadata` is enabled."
             )
         return self
 

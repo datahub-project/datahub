@@ -1715,13 +1715,12 @@ def test_bigquery_source_reports_subscriptions_without_linked_dataset_lineage():
     )
 
 
-def test_bigquery_source_reports_linked_dataset_lineage_missing_dependencies():
+def test_bigquery_source_reports_linked_dataset_lineage_missing_table_lineage():
     config = BigQueryV2Config.model_validate(
         {
             "project_id": "p",
             "include_linked_dataset_lineage": True,
             "include_table_lineage": False,
-            "include_schema_metadata": False,
         }
     )
     fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
@@ -1731,7 +1730,6 @@ def test_bigquery_source_reports_linked_dataset_lineage_missing_dependencies():
 
     messages = [w.message for w in fake_source.report.warnings]
     assert any("`include_table_lineage` is False" in m for m in messages)
-    assert any("`include_schema_metadata` is False" in m for m in messages)
 
 
 def test_bigquery_source_no_linked_dataset_warnings_when_configured():
@@ -2326,6 +2324,191 @@ def test_linked_entities_recorded_only_past_the_pattern_gates(
     assert _urn("allowed_table") in with_lineage
 
 
+@patch.object(BigQuerySchemaGenerator, "gen_view_dataset_workunits", lambda *a, **k: [])
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_linked_entities_get_no_copy_edge_when_denied_by_type_pattern_schema_off(
+    get_projects_client_mock, get_bq_client_mock
+):
+    # register_known_lineage emits a COPY over each ref in table_refs, so a view or snapshot denied
+    # by its own pattern gets none.
+    from google.cloud.bigquery.table import TableListItem
+
+    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+        BigQuerySharingHandler,
+    )
+
+    project_id = "consumer-project"
+    linked_dataset = "linked_ds"
+
+    bq_client = MagicMock()
+    bq_client.get_dataset.return_value = MagicMock(
+        _properties={
+            "type": "LINKED",
+            "linkedDatasetSource": {
+                "sourceDataset": {
+                    "projectId": "123456789012",
+                    "datasetId": "source_ds",
+                }
+            },
+            "linkedDatasetMetadata": {"linkState": "LINKED"},
+        }
+    )
+    bq_client.list_projects.return_value = [
+        SimpleNamespace(
+            project_id="publisher-project",
+            numeric_id="123456789012",
+            friendly_name="",
+        )
+    ]
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": project_id,
+            "include_schema_metadata": False,
+            "view_pattern": {"deny": [".*denied_view.*"]},
+            "table_snapshot_pattern": {"deny": [".*denied_snapshot.*"]},
+        }
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    handler = BigQuerySharingHandler(
+        config,
+        source.report,
+        identifiers=source.identifiers,
+        client=bq_client,
+        projects_client=MagicMock(),
+    )
+    handler.populate_for_project(
+        project_id, [BigqueryDataset(name=linked_dataset, type="LINKED")]
+    )
+    schema_gen.sharing_handler = handler
+
+    def _item(table_id: str, table_type: str) -> "TableListItem":
+        return TableListItem(
+            {
+                "tableReference": {
+                    "projectId": project_id,
+                    "datasetId": linked_dataset,
+                    "tableId": table_id,
+                },
+                "type": table_type,
+            }
+        )
+
+    for item in (
+        _item("allowed_table", "TABLE"),
+        _item("denied_view", "VIEW"),
+        _item("denied_snapshot", "SNAPSHOT"),
+    ):
+        schema_gen._add_table_to_refs(item, project_id, linked_dataset)
+
+    from datahub.ingestion.api.source_helpers import auto_workunit
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
+    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        platform_instance=None,
+        env="PROD",
+        schema_resolver=SchemaResolver(platform="bigquery", env="PROD"),
+        eager_graph_load=False,
+        generate_lineage=True,
+        generate_queries=True,
+        generate_usage_statistics=False,
+        generate_query_usage_statistics=False,
+        generate_operations=False,
+    )
+    handler.register_known_lineage(aggregator, schema_gen.table_refs)
+    with_lineage = {
+        wu.metadata.entityUrn  # type: ignore[union-attr]
+        for wu in auto_workunit(aggregator.gen_metadata())
+        if isinstance(wu.metadata.aspect, UpstreamLineageClass)  # type: ignore[union-attr]
+    }
+
+    def _urn(name: str) -> str:
+        return source.identifiers.gen_dataset_urn(project_id, linked_dataset, name)
+
+    assert _urn("allowed_table") in with_lineage
+    assert _urn("denied_view") not in with_lineage
+    assert _urn("denied_snapshot") not in with_lineage
+
+
+@patch.object(BigQuerySchemaGenerator, "gen_view_dataset_workunits", lambda *a, **k: [])
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_non_linked_dataset_keeps_table_pattern_only_schema_off(
+    get_projects_client_mock, get_bq_client_mock
+):
+    # A non-linked dataset filters every object type through table_pattern, so table_snapshot_pattern
+    # does not apply even while the feature is on.
+    from google.cloud.bigquery.table import TableListItem
+
+    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+        BigQuerySharingHandler,
+    )
+
+    project_id = "consumer-project"
+
+    bq_client = MagicMock()
+    bq_client.get_dataset.return_value = MagicMock(
+        _properties={
+            "type": "LINKED",
+            "linkedDatasetSource": {
+                "sourceDataset": {
+                    "projectId": "123456789012",
+                    "datasetId": "source_ds",
+                }
+            },
+            "linkedDatasetMetadata": {"linkState": "LINKED"},
+        }
+    )
+    bq_client.list_projects.return_value = [
+        SimpleNamespace(
+            project_id="publisher-project",
+            numeric_id="123456789012",
+            friendly_name="",
+        )
+    ]
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": project_id,
+            "include_schema_metadata": False,
+            "table_snapshot_pattern": {"deny": [".*a_snapshot.*"]},
+        }
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    handler = BigQuerySharingHandler(
+        config,
+        source.report,
+        identifiers=source.identifiers,
+        client=bq_client,
+        projects_client=MagicMock(),
+    )
+    handler.populate_for_project(
+        project_id, [BigqueryDataset(name="linked_ds", type="LINKED")]
+    )
+    schema_gen.sharing_handler = handler
+
+    snapshot = TableListItem(
+        {
+            "tableReference": {
+                "projectId": project_id,
+                "datasetId": "plain_ds",
+                "tableId": "a_snapshot",
+            },
+            "type": "SNAPSHOT",
+        }
+    )
+    schema_gen._add_table_to_refs(snapshot, project_id, "plain_ds")
+
+    assert any("a_snapshot" in ref for ref in schema_gen.table_refs)
+
+
 def test_sharing_properties_without_linked_datasets_warns(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -2410,12 +2593,10 @@ def test_linked_dataset_lineage_without_table_lineage_warns(
     assert not any("include_table_lineage" in r.msg for r in caplog.records)
 
 
-def test_linked_dataset_lineage_without_schema_metadata_warns(
+def test_linked_dataset_lineage_without_schema_metadata_does_not_warn(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # I14: detection runs during the schema pass, so with include_schema_metadata off
-    # nothing is detected and the feature is inert -- warn rather than silently do
-    # nothing.
+    # include_schema_metadata off does not make the feature inert, so no warning fires.
     caplog.clear()
     with caplog.at_level(logging.WARNING):
         BigQueryV2Config.model_validate(
@@ -2423,17 +2604,7 @@ def test_linked_dataset_lineage_without_schema_metadata_warns(
                 "project_ids": ["p"],
                 "include_linked_dataset_lineage": True,
                 "include_schema_metadata": False,
-            }
-        )
-    assert any("include_schema_metadata" in r.msg for r in caplog.records)
-
-    caplog.clear()
-    with caplog.at_level(logging.WARNING):
-        BigQueryV2Config.model_validate(
-            {
-                "project_ids": ["p"],
-                "include_linked_dataset_lineage": True,
-                "include_schema_metadata": True,
+                "include_table_lineage": True,
             }
         )
     assert not any("include_schema_metadata" in r.msg for r in caplog.records)

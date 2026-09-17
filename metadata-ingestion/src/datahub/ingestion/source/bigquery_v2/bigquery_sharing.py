@@ -548,7 +548,8 @@ class BigQuerySharingHandler:
         aggregator's add_known_lineage_mapping, which handles emission and builds the
         identity column lineage from the resolved consumer schema.
 
-        `table_refs` is already filtered by each object's *_pattern, so it is used as-is.
+        `table_refs` is filtered per object type by `_add_table_to_refs` (schema off) and the
+        `_process_*` gates (schema on), so it is used as-is.
         """
         for ref in table_refs:
             entity = BigQueryTableRef.from_string_name(ref).table_identifier

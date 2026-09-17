@@ -1174,6 +1174,95 @@ def test_bigquery_linked_dataset_no_copy_edge_without_table_lineage(
 @patch("google.cloud.bigquery.Client")
 @patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
 @patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_bigquery_linked_dataset_copy_edge_without_schema_metadata(
+    projects_client,
+    policy_tag_manager_client,
+    client,
+    get_sample_data_for_table,
+    get_columns_for_dataset,
+    get_datasets_for_project_id,
+    get_core_table_details,
+    get_tables_for_dataset,
+    get_views_for_dataset,
+    get_snapshots_for_dataset,
+    pytestconfig,
+    tmp_path,
+):
+    # With schema off the COPY edge emits; the Linked Dataset subtype and source properties (schema
+    # pass) and identity CLL (needs a graph, absent in this mock harness) do not.
+    mcp_output_path = f"{tmp_path}/linked_schema_off_output.json"
+
+    columns = [
+        BigqueryColumn(
+            name="age",
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="age",
+            data_type="INT",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=[],
+        ),
+    ]
+    _configure_linked_dataset_mocks(
+        client,
+        get_datasets_for_project_id,
+        get_core_table_details,
+        get_columns_for_dataset,
+        get_sample_data_for_table,
+        get_tables_for_dataset,
+        get_views_for_dataset,
+        get_snapshots_for_dataset,
+        columns=columns,
+    )
+    # Schema-off fills table_refs via the lightweight list_tables path, not get_tables_for_dataset.
+    client.return_value.list_tables.return_value = [
+        TableListItem(
+            {"tableReference": {"projectId": "", "datasetId": "", "tableId": "table-1"}}
+        )
+    ]
+
+    pipeline_config_dict: Dict[str, Any] = recipe(
+        mcp_output_path=mcp_output_path,
+        source_config_override={
+            "include_linked_dataset_lineage": True,
+            "include_schema_metadata": False,
+            "include_table_lineage": True,
+            "lineage_use_sql_parser": False,
+        },
+    )
+    run_and_get_pipeline(pipeline_config_dict)
+
+    with open(mcp_output_path) as f:
+        mcps = json.load(f)
+
+    upstreams = [m for m in mcps if m.get("aspectName") == "upstreamLineage"]
+    assert len(upstreams) == 1
+    assert upstreams[0]["aspect"]["json"]["upstreams"][0]["type"] == "COPY"
+
+    assert not any(
+        m.get("aspectName") == "subTypes"
+        and "Linked Dataset" in m["aspect"]["json"].get("typeNames", [])
+        for m in mcps
+    )
+    assert not any("source_project_id" in json.dumps(m["aspect"]["json"]) for m in mcps)
+
+    # Schema off: no BigQuery column read; the schema comes from the graph.
+    get_columns_for_dataset.assert_not_called()
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_views_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQuerySchemaGenerator, "get_core_table_details")
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+@patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
+@patch.object(BigQueryDataReader, "get_sample_data_for_table")
+@patch("google.cloud.bigquery.Client")
+@patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
 def test_bigquery_linked_dataset_not_reclassified_when_flag_off(
     projects_client,
     policy_tag_manager_client,

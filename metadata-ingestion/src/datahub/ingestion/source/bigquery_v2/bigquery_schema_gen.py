@@ -60,6 +60,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.queries import BigqueryTableType
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -479,10 +480,8 @@ class BigQuerySchemaGenerator:
         self.report.num_project_datasets_to_scan[project_id] = len(
             bigquery_project.datasets
         )
-        if self.sharing_handler is not None and self.config.include_schema_metadata:
-            # Must precede the fan-out: it writes the shared lookup the per-dataset workers
-            # read. Gated on include_schema_metadata, without which its get_dataset calls
-            # would buy nothing.
+        if self.sharing_handler is not None:
+            # Must precede the fan-out: it writes the shared lookup the per-dataset workers read.
             self.sharing_handler.populate_for_project(
                 project_id, bigquery_project.datasets
             )
@@ -558,8 +557,27 @@ class BigQuerySchemaGenerator:
 
         logger.debug(f"Processing {table_type}: {identifier.raw_table_name()}")
 
-        if not self.config.table_pattern.allowed(identifier.raw_table_name()):
-            logger.debug(f"Dropped by table_pattern: {identifier.raw_table_name()}")
+        # These refs drive register_known_lineage's COPY emission, so a linked dataset's views and
+        # snapshots are filtered by their own pattern. list_tables spells materialized views with "_".
+        pattern = self.config.table_pattern
+        pattern_name = "table_pattern"
+        if (
+            self.sharing_handler is not None
+            and self.sharing_handler.get_info(project_id, dataset_name) is not None
+        ):
+            normalized_type = (table_type or "").replace("_", " ")
+            if normalized_type in (
+                BigqueryTableType.VIEW,
+                BigqueryTableType.MATERIALIZED_VIEW,
+            ):
+                pattern, pattern_name = self.config.view_pattern, "view_pattern"
+            elif normalized_type == BigqueryTableType.SNAPSHOT:
+                pattern, pattern_name = (
+                    self.config.table_snapshot_pattern,
+                    "table_snapshot_pattern",
+                )
+        if not pattern.allowed(identifier.raw_table_name()):
+            logger.debug(f"Dropped by {pattern_name}: {identifier.raw_table_name()}")
             self.report.report_dropped(identifier.raw_table_name())
             return
 
