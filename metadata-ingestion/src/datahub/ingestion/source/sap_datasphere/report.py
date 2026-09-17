@@ -41,6 +41,14 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     assets_schema_from_csn: int = 0
     local_tables_emitted: int = 0
     columns_filtered: int = 0
+    # Folder containers emitted, and objects parented to one rather than to the
+    # space root (both zero unless `include_folders` is on).
+    folders_emitted: int = 0
+    objects_assigned_to_folder: int = 0
+    # A space whose folder assignments could not be read from the undocumented
+    # Repository search endpoint; its objects fall back to parenting directly to
+    # the space container.
+    folder_lookup_failed: LossyList[str] = field(default_factory=LossyList)
     assets_schema_failed: LossyList[str] = field(default_factory=LossyList)
     assets_skipped_unknown_typeid: LossyList[str] = field(default_factory=LossyList)
     assets_skipped_unknown_connection: LossyList[str] = field(default_factory=LossyList)

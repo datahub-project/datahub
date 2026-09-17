@@ -34,7 +34,10 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     HEADER_CONTENT_TYPE,
     OAUTH_TOKEN_PATH,
     OBJECT_TYPE_LOCAL_TABLES,
+    ODATA_COUNT_KEY,
     ODATA_NEXT_LINK_KEY,
+    ODATA_PARAM_APPLY,
+    ODATA_PARAM_COUNT,
     ODATA_PARAM_SKIP,
     ODATA_PARAM_TOP,
     ODATA_VALUE_KEY,
@@ -42,6 +45,12 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     PARAM_CLIENT_SECRET,
     PARAM_GRANT_TYPE,
     PARAM_REFRESH_TOKEN,
+    REPOSITORY_SEARCH_BASE,
+    REPOSITORY_SEARCH_PAGE_SIZE,
+    REPOSITORY_SEARCH_PARAM_HIERARCHY,
+    REPOSITORY_SEARCH_QUERY,
+    REPOSITORY_SEARCH_RESOURCE,
+    SEARCH_FIELD_FOLDER_ID,
     TOKEN_RESP_ACCESS_TOKEN,
     TOKEN_RESP_ERROR,
     TOKEN_RESP_ERROR_DESCRIPTION,
@@ -414,6 +423,88 @@ class SapDatasphereClient:
                 )
                 self._connections_cache[space] = []
         return self._connections_cache[space]
+
+    def _repository_search_url(self, space: str, skip: int) -> str:
+        # Built by hand rather than via `params=`: requests form-encodes spaces as
+        # "+", which this endpoint rejects, so the $apply expression needs %20.
+        apply = quote(
+            f"filter(Search.search(query='{REPOSITORY_SEARCH_QUERY}'))", safe=""
+        )
+        return (
+            f"{self.config.base_url}{REPOSITORY_SEARCH_BASE}/"
+            f"{quote(space, safe='')}/{REPOSITORY_SEARCH_RESOURCE}"
+            f"?{ODATA_PARAM_TOP}={REPOSITORY_SEARCH_PAGE_SIZE}"
+            f"&{ODATA_PARAM_SKIP}={skip}"
+            f"&{ODATA_PARAM_COUNT}=true"
+            f"&{REPOSITORY_SEARCH_PARAM_HIERARCHY}={SEARCH_FIELD_FOLDER_ID}"
+            f"&{ODATA_PARAM_APPLY}={apply}"
+        )
+
+    def list_folder_assignments(self, space: str) -> Optional[List[JsonDict]]:
+        """List the space's design-time objects with their folder assignments.
+
+        Uses the Repository search endpoint — the only surface that reports which
+        folder an object lives in (the CSN's ``folderAssignment`` is write-only).
+        SAP reserves this API for internal use, so every failure degrades to
+        ``None`` (folders omitted, objects parent to the space) rather than
+        failing the space."""
+        records: List[JsonDict] = []
+        skip = 0
+        while True:
+            url = self._repository_search_url(space, skip)
+            try:
+                with self._timed_api("folder_search", url):
+                    resp = self._get_with_refresh(url)
+                resp.raise_for_status()
+                body = resp.json()
+            except (requests.RequestException, json.JSONDecodeError) as e:
+                # A token-refresh/auth ValueError deliberately propagates, as
+                # everywhere else in this client; only transport failures and a
+                # non-JSON body degrade to "no folders for this space".
+                self._warn_folder_search_failed(space, e)
+                return None
+            if not isinstance(body, dict):
+                self._warn_folder_search_failed(
+                    space,
+                    ValueError(f"expected a JSON object, got {type(body).__name__}"),
+                )
+                return None
+            page = body.get(ODATA_VALUE_KEY) or []
+            if not isinstance(page, list):
+                self._warn_folder_search_failed(
+                    space,
+                    ValueError(
+                        f"'{ODATA_VALUE_KEY}' was {type(page).__name__}, not a list"
+                    ),
+                )
+                return None
+            records.extend(item for item in page if isinstance(item, dict))
+            if len(page) < REPOSITORY_SEARCH_PAGE_SIZE:
+                return records
+            skip += len(page)
+            # $count=true is requested, so honour it as the stop condition — a
+            # server that ignored $skip would otherwise page forever.
+            total = body.get(ODATA_COUNT_KEY)
+            if isinstance(total, int) and skip >= total:
+                return records
+
+    def _warn_folder_search_failed(self, space: str, e: Exception) -> None:
+        msg = (
+            f"Could not read folder assignments for space {space} from the "
+            f"Repository search API. This endpoint is undocumented and may be "
+            f"unavailable or restricted on your tenant; objects in this space "
+            f"will be parented directly to the space container."
+        )
+        logger.warning("%s (%s: %s)", msg, type(e).__name__, e)
+        if self._report is not None:
+            self._report.folder_lookup_failed.append(
+                f"{space}: {type(e).__name__}: {e}"
+            )
+            self._report.warning(
+                title="Folder assignments unavailable",
+                message=msg,
+                context=space,
+            )
 
     def _dwaas_object_url(
         self, space: str, object_type: str, technical_name: Optional[str] = None

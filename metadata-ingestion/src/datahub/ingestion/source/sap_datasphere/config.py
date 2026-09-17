@@ -143,6 +143,14 @@ class SpaceContainerKey(ContainerKey):
     space: str
 
 
+class FolderContainerKey(ContainerKey):
+    # folder_path is the "/"-joined folder chain from the space root, so a nested
+    # folder gets its own guid and two same-named folders under different parents
+    # stay distinct.
+    space: str
+    folder_path: str
+
+
 class SapDatasphereConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
@@ -330,6 +338,24 @@ class SapDatasphereConfig(
             "platforms via `connection_to_platform_map` / `platform_type_defaults` "
             "(objects on unmapped connections are skipped and reported under "
             "`flow_endpoints_unresolved`)."
+        ),
+    )
+    include_folders: bool = Field(
+        default=False,
+        description=(
+            "If True, reproduce the folders that organize objects in a space "
+            "(Repository Explorer / Data Builder) as nested DataHub containers, "
+            "so an asset appears under `Space > Folder > Sub-folder` instead of "
+            "directly under its Space. "
+            "**This uses an undocumented endpoint** (`/deepsea/repository/X/"
+            "search/$all`): SAP reserves the Repository API for internal use "
+            "(KBA 3517441) and may change or withdraw it without notice. No "
+            "supported API reports an object's folder — the design-time CSN's "
+            "`_meta.dependencies.folderAssignment` is write-only and reads back "
+            "as null. If the endpoint is unavailable the run degrades to the "
+            "default 2-tier Space -> object layout and records the failure under "
+            "`folder_lookup_failed`. Enabling this later moves existing assets "
+            "into folder containers, which changes their browse paths."
         ),
     )
     include_remote_tables: bool = Field(

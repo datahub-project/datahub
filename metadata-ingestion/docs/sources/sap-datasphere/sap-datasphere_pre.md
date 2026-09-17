@@ -88,8 +88,33 @@ real entities. Their column schema is read from the per-table CSN
 (`/dwaas-core/api/v1/spaces/X/localtables/Y`) when available, enabling
 column-level lineage edges between a View and its base table; if the CSN is
 unavailable the table is still emitted as a schema-less stub. Each Local Table
-has subtype `Local Table` and parents directly to its Space container — the
-connector uses a 2-tier Space → object model, with no separate folder layer.
+has subtype `Local Table` and, like every other object, parents to its Space
+container (or to its folder — see below).
+
+#### Folders
+
+By default the connector uses a 2-tier Space → object model: every object
+parents directly to its Space container, and the object's kind survives as the
+dataset subtype. Set `include_folders: true` to instead reproduce the folders
+that organize a space in the _Repository Explorer_ / _Data Builder_ as nested
+DataHub containers, so an asset browses as
+`Space → Folder → Sub-folder → Asset`. Folders nest to any depth, and two
+folders with the same name under different parents stay distinct.
+
+> **This option calls an undocumented endpoint.** No supported SAP API reports
+> which folder an object lives in: the catalog API omits it entirely, and the
+> design-time CSN's `_meta.dependencies.folderAssignment` is write-only (it
+> reads back as `null`). The only surface that exposes folder assignments is
+> the Repository search endpoint
+> (`/deepsea/repository/X/search/$all`), which SAP
+> [reserves for internal use](https://userapps.support.sap.com/sap/support/knowledge/en/3517441)
+> and may change or withdraw without notice. Every failure degrades
+> gracefully — the space falls back to the 2-tier layout and the reason is
+> recorded under `folder_lookup_failed` — but the option stays off by default
+> so no run depends on an unsupported API unless you opt in.
+
+Turning this on for an existing ingestion moves already-ingested assets from
+the Space container into folder containers, which changes their browse paths.
 
 ### Prerequisites
 
