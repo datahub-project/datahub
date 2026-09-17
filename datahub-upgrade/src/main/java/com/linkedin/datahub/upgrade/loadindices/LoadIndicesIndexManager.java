@@ -75,9 +75,9 @@ public class LoadIndicesIndexManager {
 
   /**
    * Discovers all DataHub indices that should have settings managed during bulk operations. This
-   * includes entity indices, graph service indices, and system metadata indices since these are all
-   * stored in SQL and will be modified by load indices operations. Timeseries indices are excluded
-   * since they are not stored in SQL.
+   * includes entity indices (V2/V3 and semantic), graph service indices, and system metadata
+   * indices since these are all stored in SQL and will be modified by load indices operations.
+   * Timeseries indices are excluded since they are not stored in SQL.
    *
    * @param opContext the operation context
    * @return List of ReindexConfig objects for managed indices
@@ -176,6 +176,38 @@ public class LoadIndicesIndexManager {
       log.debug(
           "System metadata index {} does not exist or is not accessible: {}",
           systemMetadataIndexName,
+          e.getMessage());
+    }
+
+    // Semantic entity indices use *index_v2_semantic and live on the SEMANTIC client. They are
+    // not covered by getAllEntityIndicesPatterns (*index_v2 / *index_v3).
+    String semanticPattern = indexConvention.getAllSemanticEntityIndicesPattern(opContext);
+    log.debug("Querying semantic entity indices: {}", semanticPattern);
+    GetIndexRequest semanticRequest = new GetIndexRequest(semanticPattern);
+    try {
+      GetIndexResponse semanticResponse =
+          clientFor(opContext, semanticPattern)
+              .getIndex(opContext, semanticRequest, RequestOptions.DEFAULT);
+      String[] semanticIndices = semanticResponse.getIndices();
+      for (String indexName : semanticIndices) {
+        try {
+          ReindexConfig config =
+              builderFor(opContext, indexName)
+                  .buildReindexState(
+                      opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
+          configs.add(config);
+          log.debug("Added semantic entity index config: {}", indexName);
+        } catch (IOException e) {
+          log.warn(
+              "Failed to build reindex config for semantic index {}: {}",
+              indexName,
+              e.getMessage());
+        }
+      }
+    } catch (Exception e) {
+      log.debug(
+          "Semantic entity indices {} do not exist or are not accessible: {}",
+          semanticPattern,
           e.getMessage());
     }
 
