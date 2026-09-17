@@ -228,7 +228,7 @@ def test_sql_result_will_not_emit_more_than_the_maximum():
     # provider that builds its own rows can hand back.
     out = sql_result(["c"], [[i] for i in range(MAX_PROBE_ITEMS + 10)], 10_000_000)
     assert out["row_count"] == MAX_PROBE_ITEMS
-    assert out["truncated"] is True
+    assert out["truncated"]
 
 
 def test_declaring_a_parameter_that_does_not_exist_is_rejected_at_import():
@@ -371,7 +371,7 @@ def test_the_switch_leaves_typed_getters_working(monkeypatch):
 def test_sql_result_trims_to_the_limit_and_flags_truncation():
     out = sql_result(["c"], [[i] for i in range(5)], 3)
     assert out["rows"] == [[0], [1], [2]]
-    assert out["truncated"] is True
+    assert out["truncated"]
     assert out["row_count"] == 3
 
 
@@ -383,7 +383,7 @@ def test_sql_result_coerces_values_the_json_encoder_cannot_handle():
         10,
     )
     assert out["rows"] == [["2020-01-02", "1.5", "raw"]]
-    assert out["truncated"] is False
+    assert not out["truncated"]
 
 
 def test_a_listing_command_declares_the_kind_it_returns():

@@ -33,7 +33,7 @@ def test_recipe_validate_reports_json(tmp_path):
     recipe_file.write_text("source:\n  type: snowflake\n  config: {}\n")
     result = CliRunner().invoke(recipe, ["validate", str(recipe_file)])
     payload = json.loads(result.output)
-    assert payload["valid"] is False
+    assert not payload["valid"]
 
 
 def test_probe_error_output_redacts_secret(tmp_path, monkeypatch):

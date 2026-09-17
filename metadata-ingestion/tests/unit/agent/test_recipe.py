@@ -67,7 +67,7 @@ def test_validate_bad_config_reports_errors():
     # A recipe missing required fields must be reported invalid, not crash.
     pytest.importorskip("snowflake.connector")
     result = validate_recipe({"source": {"type": "snowflake", "config": {}}})
-    assert result["valid"] is False
+    assert not result["valid"]
     assert result["errors"]
 
 
@@ -76,7 +76,7 @@ def test_validate_unknown_source_type_no_crash():
     result = validate_recipe(
         {"source": {"type": "this-source-does-not-exist", "config": {}}}
     )
-    assert result["valid"] is False
+    assert not result["valid"]
     assert result["errors"]
 
 
@@ -87,7 +87,7 @@ def test_a_non_mapping_config_is_named_as_such(bad):
     to add host_port to a config that is a list."""
     _require_connector("postgres")
     result = validate_recipe({"source": {"type": "postgres", "config": bad}})
-    assert result["valid"] is False
+    assert not result["valid"]
     assert result["errors"] == ["recipe.source.config must be a mapping"]
 
 
@@ -186,7 +186,7 @@ def test_validate_accepts_an_env_ref_in_a_non_string_field(monkeypatch):
             }
         }
     )
-    assert result["valid"] is True, result["errors"]
+    assert result["valid"], result["errors"]
 
 
 def test_validate_names_a_reference_it_cannot_resolve(monkeypatch):
@@ -209,7 +209,7 @@ def test_validate_names_a_reference_it_cannot_resolve(monkeypatch):
             }
         }
     )
-    assert result["valid"] is False
+    assert not result["valid"]
     errors = result["errors"]
     assert isinstance(errors, list)
     assert any("NOPE_UNSET_VAR" in e for e in errors), errors
@@ -386,7 +386,7 @@ def test_an_unreadable_datahubenv_does_not_crash_validate(tmp_path, monkeypatch)
         }
     )
 
-    assert result["valid"] is False
+    assert not result["valid"]
     errors = result["errors"]
     assert isinstance(errors, list)
     assert any("NO_SUCH_REF" in str(e) for e in errors), errors

@@ -99,7 +99,7 @@ def test_suppressing_the_auto_wrapper_keeps_the_explicit_one_and_its_dimensions(
     res = CliRunner().invoke(root, ["explicit", "--flag"])
     assert res.exit_code == 0, res.output
     (start,) = _starts(pings)
-    assert start["arg_flag"] is True
+    assert start["arg_flag"]
 
 
 def test_an_undecorated_command_still_gets_telemetry(pings):
@@ -252,4 +252,4 @@ def test_a_self_referential_wrapper_chain_terminates():
     cyclic: Any = lonely
     assert cyclic.__wrapped__ is lonely
 
-    assert telemetry.is_telemetry_wrapped(lonely) is False
+    assert not telemetry.is_telemetry_wrapped(lonely)

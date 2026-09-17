@@ -381,7 +381,7 @@ def test_the_provider_closes_its_session():
     cfg = _cfg()
     with _probe(cfg):
         pass
-    assert cfg._session.closed is True
+    assert cfg._session.closed
 
 
 def test_exclude_restricted_hides_restricted_spaces():
@@ -522,7 +522,7 @@ def test_probe_source_context_manager_closes_session():
     probe = _method_probe(session=session)
     with probe:
         pass
-    assert session.closed is True
+    assert session.closed
 
 
 @pytest.mark.parametrize("status_code", [404, 403, 401, 500])

@@ -3,7 +3,7 @@ import re
 import types
 import typing
 from functools import lru_cache
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Dict, Iterator, List, Optional, Set, Tuple
 
 from pydantic import SecretStr
 from pydantic.fields import FieldInfo
@@ -21,6 +21,7 @@ from datahub.ingestion.agent.models import (
     ProbeNodeKind,
     SourceSpec,
 )
+from datahub.ingestion.agent.probe_methods import list_probe_methods
 from datahub.ingestion.agent.verdicts import UNFILTERED
 from datahub.ingestion.source.source_registry import source_registry
 
@@ -211,7 +212,7 @@ def _pattern_field_for_config_class(
     return None
 
 
-def declared_unfiltered_kinds(config: Any) -> Set[str]:
+def declared_unfiltered_kinds(config: object) -> Set[str]:
     """Levels this source says it deliberately does not filter.
 
     Read duck-typed rather than off SQLCommonConfig, because the sources that
@@ -238,7 +239,7 @@ def declared_unfiltered_kinds(config: Any) -> Set[str]:
     return {str(kind) for kind in declared()}
 
 
-def pattern_field_for_config(config: Any, kind: ProbeNodeKind) -> Optional[str]:
+def pattern_field_for_config(config: object, kind: ProbeNodeKind) -> Optional[str]:
     """Find the *live config object's* AllowDenyPattern field that filters `kind`.
 
     Precedence, highest first: a kind the source declares unfiltered resolves
@@ -301,6 +302,12 @@ def _is_hidden_field(config_cls: type, name: str) -> bool:
     HiddenFromDocs is Annotated[..., SkipJsonSchema()], so the marker is in
     the field's metadata rather than on FieldInfo itself.
     """
+    # Deliberately local, and this one has a technical reason rather than a
+    # stylistic one: SkipJsonSchema is a parameterized generic alias, and
+    # imported at module scope mypy resolves it as such and rejects the
+    # isinstance below outright ('Parameterized generics cannot be used with
+    # class or instance checks'). The runtime check is the correct one --
+    # HiddenFromDocs puts a SkipJsonSchema() INSTANCE in the metadata.
     from pydantic.json_schema import SkipJsonSchema
 
     fields = getattr(config_cls, "model_fields", None)
@@ -309,7 +316,7 @@ def _is_hidden_field(config_cls: type, name: str) -> bool:
     return any(isinstance(m, SkipJsonSchema) for m in fields[name].metadata)
 
 
-def _qualifier_fields(config: Any) -> Iterator[Tuple[str, Qualifier]]:
+def _qualifier_fields(config: object) -> Iterator[Tuple[str, Qualifier]]:
     """Every Qualifier-marked field on this config's class, with its marker.
 
     One scan, because the two callers below ask different questions of the
@@ -327,7 +334,7 @@ def _qualifier_fields(config: Any) -> Iterator[Tuple[str, Qualifier]]:
             yield name, marker
 
 
-def declares_qualifier(config: Any) -> bool:
+def declares_qualifier(config: object) -> bool:
     """Whether any field carries Qualifier, whatever its current value.
 
     Distinct from declared_qualifier(), which answers "what is the container"
@@ -339,7 +346,7 @@ def declares_qualifier(config: Any) -> bool:
     return any(True for _ in _qualifier_fields(config))
 
 
-def declared_qualifier(config: Any) -> Tuple[Optional[str], bool]:
+def declared_qualifier(config: object) -> Tuple[Optional[str], bool]:
     """The container a Qualifier-marked field names, and whether it wins.
 
     Read off the field rather than from a method the connector declares:
@@ -386,8 +393,6 @@ def declared_kinds_for_class(source_type: str, config_cls: type) -> Set[str]:
     the class -- which is what lets `describe` answer the same question
     `probe filter` answers against a live config.
     """
-    from datahub.ingestion.agent.probe_methods import list_probe_methods
-
     try:
         kinds = {spec.kind for spec in list_probe_methods(source_type) if spec.kind}
     except Exception:

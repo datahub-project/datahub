@@ -592,7 +592,7 @@ def test_a_redshift_schema_verdict_reports_the_string_that_decided_it():
         names=["analytics"],
     ).results[0]
     assert matched.target == "dev.analytics"
-    assert matched.included is True
+    assert matched.included
 
     # The bare name does not match, and the report says so against the same target.
     missed = check_filters(
@@ -603,7 +603,7 @@ def test_a_redshift_schema_verdict_reports_the_string_that_decided_it():
         names=["analytics"],
     ).results[0]
     assert missed.target == "dev.analytics"
-    assert missed.included is False
+    assert not missed.included
     assert missed.excluded_by == "schema_pattern"
 
 
@@ -623,4 +623,4 @@ def test_without_the_flag_redshift_matches_the_bare_schema_name():
         names=["analytics"],
     ).results[0]
     assert result.target == "analytics"
-    assert result.included is True
+    assert result.included

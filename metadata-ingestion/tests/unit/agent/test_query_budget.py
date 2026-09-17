@@ -318,7 +318,7 @@ def test_redshift_sets_its_ceiling_outside_a_transaction(monkeypatch):
 
     assert executed == ["SET statement_timeout = 30000"]
     assert autocommit_during == [True], "the SET would be rolled back"
-    assert connection.autocommit is False, "autocommit must be handed back"
+    assert not connection.autocommit, "autocommit must be handed back"
 
 
 def test_redshift_fails_closed_when_the_server_refuses_the_ceiling(monkeypatch):
@@ -369,7 +369,7 @@ def test_redshift_fails_closed_when_the_server_refuses_the_ceiling(monkeypatch):
         listeners[0](connection, None)
 
     # And the connection is not left in autocommit on the way out.
-    assert connection.autocommit is False, (
+    assert not connection.autocommit, (
         "autocommit leaked to every later user of this pooled connection"
     )
 

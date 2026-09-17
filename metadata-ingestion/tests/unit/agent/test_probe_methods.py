@@ -49,7 +49,7 @@ def test_name_override_and_optional_param():
     assert spec.command == "topics"
     assert spec.params[0].name == "limit"
     assert spec.params[0].type == "int"
-    assert spec.params[0].required is False
+    assert not spec.params[0].required
     assert spec.params[0].default == 500
 
 
@@ -61,7 +61,7 @@ def test_optional_annotation_is_not_required():
             "m"
             return []
 
-    assert _spec(P.m).params[0].required is False
+    assert not _spec(P.m).params[0].required
 
 
 def test_missing_docstring_rejected():
@@ -237,8 +237,8 @@ def test_coerce_int_accepts_native_int_float_and_numeric_string():
 
 def test_coerce_bool_from_string():
     param = ProbeParam(name="flag", type="bool", required=True)
-    assert _coerce(param, "true") is True
-    assert _coerce(param, "no") is False
+    assert _coerce(param, "true")
+    assert not _coerce(param, "no")
 
 
 # --- the gate is wired into the execution path, not just importable ----------
@@ -536,7 +536,7 @@ def test_a_listing_with_no_declared_row_limit_is_still_capped(monkeypatch):
     result = pm.run_probe_method("x", {}, "everything", {})
     assert isinstance(result.result, list)
     assert len(result.result) == pm.MAX_PROBE_ITEMS
-    assert result.truncated is True, "a cut-short listing must say so"
+    assert result.truncated, "a cut-short listing must say so"
 
 
 def test_a_keyed_listing_is_capped_the_same_way(monkeypatch):
@@ -562,7 +562,7 @@ def test_a_keyed_listing_is_capped_the_same_way(monkeypatch):
     result = pm.run_probe_method("x", {}, "everything_keyed", {})
     assert isinstance(result.result, dict)
     assert len(result.result) == pm.MAX_PROBE_ITEMS
-    assert result.truncated is True, "a cut-short mapping must say so"
+    assert result.truncated, "a cut-short mapping must say so"
     # Insertion order is the fetch order, so the kept half is the first half
     # rather than an arbitrary sample.
     assert "k0" in result.result and f"k{pm.MAX_PROBE_ITEMS + 24}" not in result.result
@@ -634,7 +634,7 @@ def test_a_self_shaped_result_survives_every_framework_bound(monkeypatch):
     assert len(result.result["rows"]) == pm.MAX_PROBE_ITEMS + 50
     # Truncation is mirrored up from the envelope rather than recomputed, so
     # a caller reads one field whichever kind of command answered.
-    assert result.truncated is True
+    assert result.truncated
 
 
 def test_a_limit_the_cli_passes_as_a_string_still_truncates(monkeypatch):
@@ -681,7 +681,7 @@ def test_a_limit_the_cli_passes_as_a_string_still_truncates(monkeypatch):
     result = pm.run_probe_method("x", {}, "things", {"limit": "2"})
 
     assert result.result == ["t0", "t1"], result.result
-    assert result.truncated is True, (
+    assert result.truncated, (
         "a string limit left truncation dormant, so a cut-short listing "
         "reported itself complete"
     )
@@ -712,7 +712,7 @@ def test_a_short_listing_with_no_row_limit_is_not_marked_truncated(monkeypatch):
 
     result = pm.run_probe_method("x", {}, "everything", {})
     assert result.result == ["a", "b"]
-    assert result.truncated is False
+    assert not result.truncated
 
 
 def test_discovery_survives_a_recipe_that_does_not_validate_yet():

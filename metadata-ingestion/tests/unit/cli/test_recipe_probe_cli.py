@@ -84,15 +84,15 @@ def test_a_bare_flag_is_refused_for_a_non_boolean_parameter():
 
 def test_a_bare_flag_is_still_true_for_a_boolean_parameter():
     param = ProbeParam(name="verbose", type="bool", required=False)
-    assert _coerce(param, BARE_FLAG) is True
+    assert _coerce(param, BARE_FLAG)
 
 
 def test_an_unrecognised_boolean_value_is_refused_rather_than_read_as_false():
     """`--flag ture` returned a narrower listing and called it the answer,
     while the int branch beside it surfaced bad input as exit 2."""
     param = ProbeParam(name="include_system", type="bool", required=False)
-    assert _coerce(param, "no") is False
-    assert _coerce(param, "on") is True
+    assert not _coerce(param, "no")
+    assert _coerce(param, "on")
     with pytest.raises(ValueError, match="expects a boolean"):
         _coerce(param, "ture")
 

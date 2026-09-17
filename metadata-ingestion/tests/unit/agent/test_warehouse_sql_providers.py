@@ -79,7 +79,7 @@ def test_snowflake_maps_dict_rows_to_columns_and_values() -> None:
         rows = probe.sql("SELECT 1", 10)
     assert rows["columns"] == ["TABLE_NAME", "ROW_COUNT"]
     assert rows["rows"] == [["ORDERS", 3], ["USERS", 1]]
-    assert conn.closed is True
+    assert conn.closed
 
 
 def test_snowflake_stops_at_the_limit() -> None:
@@ -100,7 +100,7 @@ def test_bigquery_caps_the_page_it_asks_the_server_for() -> None:
     assert client.max_results_seen == 5
     assert rows["columns"] == ["table_name"]
     assert len(rows["rows"]) == 4
-    assert client.closed is True
+    assert client.closed
 
 
 def test_both_declare_query_as_the_scope_checked_parameter() -> None:

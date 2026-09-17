@@ -104,7 +104,7 @@ def test_an_error_body_raises_instead_of_being_returned_as_metadata():
     provider = _Provider(status=403)
     with pytest.raises(RuntimeError, match="HTTP 403"):
         provider.api("/projects")
-    assert provider.fake.last.parsed is False
+    assert not provider.fake.last.parsed
 
 
 def test_a_connector_can_route_through_its_own_fetcher():

@@ -61,20 +61,20 @@ def test_the_adapter_is_asked_for_one_more_row_than_the_caller_wanted():
 def test_more_rows_than_the_limit_is_reported_as_truncated():
     out = _Provider(available=100).sql(CATALOG_QUERY, limit=10)
     assert out["row_count"] == 10
-    assert out["truncated"] is True
+    assert out["truncated"]
 
 
 def test_exactly_the_limit_is_not_truncated():
     # The boundary the +1 exists to resolve: 10 available, 10 asked for.
     out = _Provider(available=10).sql(CATALOG_QUERY, limit=10)
     assert out["row_count"] == 10
-    assert out["truncated"] is False
+    assert not out["truncated"]
 
 
 def test_fewer_rows_than_the_limit_is_not_truncated():
     out = _Provider(available=3).sql(CATALOG_QUERY, limit=10)
     assert out["rows"] == [["t0"], ["t1"], ["t2"]]
-    assert out["truncated"] is False
+    assert not out["truncated"]
 
 
 def test_the_inherited_command_is_discovered_and_gated():

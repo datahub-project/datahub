@@ -67,7 +67,7 @@ def test_an_uninstalled_provider_extra_falls_back_to_the_marker():
 
     # No Qualifier marker either, so the fallback's answer is False rather
     # than an accident of the provider check.
-    assert _matches_a_qualified_name(_Config()) is False
+    assert not _matches_a_qualified_name(_Config())
 
 
 def test_a_broken_provider_is_not_quietly_downgraded_to_the_marker():
@@ -457,7 +457,7 @@ def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():
     )
     # A deny anchored to the bare schema name no longer excludes once
     # match_fully_qualified_names is on: ingestion checks "analytics.public".
-    assert bare_name_deny.included is True
+    assert bare_name_deny.included
     assert bare_name_deny.excluded_by is None
 
     qualified_deny = _schema_verdict(
@@ -467,7 +467,7 @@ def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():
             "schema_pattern": {"deny": [r"^analytics\.public$"]},
         }
     )
-    assert qualified_deny.included is False
+    assert not qualified_deny.included
     assert qualified_deny.excluded_by == "schema_pattern"
 
 
@@ -476,7 +476,7 @@ def test_redshift_schema_verdict_unchanged_when_flag_is_off():
     no-op and the bare-name check stays exactly as every other SQL connector's
     does -- matching Redshift's own behaviour when the flag is unset."""
     verdict = _schema_verdict({**_REDSHIFT, "schema_pattern": {"deny": [r"^public$"]}})
-    assert verdict.included is False
+    assert not verdict.included
     assert verdict.excluded_by == "schema_pattern"
 
 
@@ -506,7 +506,7 @@ def test_snowflake_tables_are_judged_on_the_qualified_name_ingestion_uses():
         names=["ORDERS"],
     )
     assert result.results[0].target == "DB.PUBLIC.ORDERS"
-    assert result.results[0].included is True
+    assert result.results[0].included
 
 
 def test_bigquery_tables_are_judged_on_the_qualified_name_ingestion_uses():
@@ -521,7 +521,7 @@ def test_bigquery_tables_are_judged_on_the_qualified_name_ingestion_uses():
         names=["t1"],
     )
     assert result.results[0].target == "p1.ds1.t1"
-    assert result.results[0].included is True
+    assert result.results[0].included
 
 
 @pytest.mark.parametrize(
@@ -566,7 +566,7 @@ def test_a_missing_parent_degrades_loudly_rather_than_inventing_one(
         f"a container was invented: {verdict.target!r}"
     )
     # And the partial answer is still an answer, not a silent exclusion.
-    assert verdict.included is True
+    assert verdict.included
 
 
 def test_a_single_pinned_container_needs_no_parent():
@@ -584,7 +584,7 @@ def test_a_single_pinned_container_needs_no_parent():
         names=["t1"],
     )
     assert result.results[0].target == "p1.ds1.t1"
-    assert result.results[0].included is True
+    assert result.results[0].included
     assert not result.warnings, result.warnings
 
 
@@ -646,7 +646,7 @@ def test_a_schema_judged_without_its_container_warns(
     # That is the whole reason this warns.
     bare = result.results[0]
     assert bare.target == name
-    assert bare.included is False
+    assert not bare.included
 
     # And it really is an inversion rather than a name that is excluded
     # either way -- given the container, the same name is included and
@@ -658,7 +658,7 @@ def test_a_schema_judged_without_its_container_warns(
         parent_path=[container],
         names=[name],
     )
-    assert with_parent.results[0].included is True
+    assert with_parent.results[0].included
     assert not with_parent.warnings, with_parent.warnings
 
 
@@ -678,7 +678,7 @@ def test_a_schema_with_its_container_does_not_warn():
         parent_path=["MYDB"],
         names=["PUBLIC"],
     )
-    assert result.results[0].included is True, result.results
+    assert result.results[0].included, result.results
     assert not [w for w in result.warnings if "qualified" in w], result.warnings
 
 

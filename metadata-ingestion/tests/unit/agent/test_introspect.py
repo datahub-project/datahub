@@ -42,7 +42,7 @@ def test_classify_nested():
 def test_classify_plain_and_required():
     spec = _spec_for("host_port")
     assert spec.kind == FieldKind.PLAIN
-    assert spec.required is True
+    assert spec.required
 
 
 def test_secret_default_is_not_leaked():

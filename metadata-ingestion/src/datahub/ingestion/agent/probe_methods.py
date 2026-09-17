@@ -21,6 +21,8 @@ from datahub.configuration.env_vars import (
     get_disable_agent_probe_raw_access,
     get_probe_disabled,
 )
+from datahub.ingestion.agent.api_gate import READ_METHOD, check_api_request
+from datahub.ingestion.agent.verdicts import ProbeReadFailed
 
 _TYPE_NAMES: Dict[type, str] = {str: "str", int: "int", bool: "bool"}
 
@@ -656,11 +658,6 @@ def _enforce_gates(
         )
 
     if spec.scoped_path_param is not None:
-        from datahub.ingestion.agent.api_gate import (
-            READ_METHOD,
-            check_api_request,
-        )
-
         allowlist = getattr(provider, "api_allowlist", None)
         if allowlist is None:
             # Distinct from an unlisted path, which is the caller's to fix. An
@@ -806,8 +803,6 @@ def run_probe_method(
                 getattr(provider, "probe_report", None), "failures"
             )
             if recorded:
-                from datahub.ingestion.agent.verdicts import ProbeReadFailed
-
                 raise ProbeReadFailed(
                     f"{exc}; the connector recorded: " + "; ".join(sorted(recorded))
                 ) from exc

@@ -17,7 +17,7 @@ def test_field_spec_to_dict_serializes_kind_as_string():
     d = spec.to_dict()
     assert d["kind"] == "secret"
     assert d["name"] == "password"
-    assert d["required"] is True
+    assert d["required"]
 
 
 def test_source_spec_to_dict():
@@ -39,4 +39,4 @@ def test_source_spec_to_dict():
     assert isinstance(capabilities, list)
     first_capability = capabilities[0]
     assert isinstance(first_capability, dict)
-    assert first_capability["supported"] is True
+    assert first_capability["supported"]

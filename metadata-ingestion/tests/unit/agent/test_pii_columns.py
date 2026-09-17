@@ -63,4 +63,4 @@ def test_masking_survives_truncation_shaping():
     rows = [["alice", i] for i in range(5)]
     shaped = sql_result(["USER_NAME", "N"], rows, limit=2)
     assert shaped["rows"] == [["***", 0], ["***", 1]]
-    assert shaped["truncated"] is True
+    assert shaped["truncated"]
