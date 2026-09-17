@@ -170,11 +170,9 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
                     ),
                     context=type_drift.summary(),
                 )
-            # new_fields (live fields the connector does not request) are not
-            # warned: a GraphQL type normally exposes many fields the connector
-            # intentionally does not ingest, so warning on every healthy run
-            # would bury real drift in noise. The set is retained on TypeDrift
-            # for debug/diagnostic use only.
+            # new_fields (live fields not requested by the connector) are not
+            # warned — GraphQL types expose many intentionally-unrequested
+            # fields; warning on every healthy run would bury real drift.
 
         if self.config.include_assertions:
             monitor_wus = self._emit(

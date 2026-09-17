@@ -97,22 +97,11 @@ MONITOR_CRITICAL_FIELDS = frozenset({"uuid", "entityMcons"})
 CUSTOM_RULE_CRITICAL_FIELDS = frozenset({"uuid", "entityMcons"})
 ALERT_CRITICAL_FIELDS = frozenset({"id", "monitorUuids"})
 
-# Minimal known-good selections used when introspection itself fails (network
-# error / auth error on the __type call). These request the renamed, currently
-# stable fields (whereCondition/priority on Monitor, customSql/priority on
-# CustomRule) rather than the removed customSql/severity, so the fallback
-# never re-triggers a 400. The connector proceeds with degraded data rather
-# than zeroing out the whole phase.
-# Minimal known-good selections used when introspection itself fails (network
-# error / auth error on the __type call). These request the renamed, currently
-# stable fields (whereCondition/priority on Monitor, customSql/priority on
-# CustomRule) rather than the removed customSql/severity, so the fallback
-# never re-triggers a 400. The connector proceeds with degraded data rather
-# than zeroing out the whole phase. TABLE monitors need resourceId (warehouse
-# asset resolution when entityMcons is empty) and comparisons (structured
-# comparison data), so they are included even in the fallback — they are
-# stable fields not part of the known drift. Alert keeps severity on the
-# current gateway and also requests priority for forward compatibility.
+# Minimal known-good selections used when introspection itself fails. These
+# request the renamed, stable fields (whereCondition/priority on Monitor,
+# customSql/priority on CustomRule) rather than the removed customSql/severity,
+# so the fallback never re-triggers a 400. TABLE monitor fields (resourceId,
+# comparisons) are stable and included so those monitors still resolve.
 _MONITOR_FALLBACK_SELECTION = (
     "uuid\n    name\n    description\n    monitorType\n    whereCondition\n    "
     "priority\n    entityMcons\n    resourceId\n"
@@ -434,8 +423,7 @@ class IntrospectingQueryBuilder:
         self._fatal_error_types = fatal_error_types
         self._shapes: Dict[str, _TypeShape] = {}
         # Per-type failure tracking: a failed __type call for one type must
-        # not poison the others (a transient blip on Monitor must not force
-        # Alert onto the fallback path or suppress its drift report).
+        # not poison the others.
         self._failed_types: set = set()
 
     def _introspect(self, type_name: str) -> _TypeShape:
@@ -464,22 +452,15 @@ class IntrospectingQueryBuilder:
             return self._shapes[type_name]
         shape = _parse_type_shape(response)
         self._shapes[type_name] = shape
-        # NOTE: nested element types are NOT introspected here. A live GraphQL
-        # type exposes many object fields the connector does not request;
-        # introspecting each one would burn the daily budget on unused types
-        # and could exhaust rate_limit_daily before any monitors are fetched.
-        # Only the desired sub-types are introspected, on demand, by
-        # _introspect_desired_subtypes (called from _build).
+        # Nested element types are introspected on demand by
+        # _introspect_desired_subtypes (called from _build), not here —
+        # walking every object field would burn the daily budget on unused types.
         return shape
 
     def _introspect_desired_subtypes(
         self, desired: DesiredFields, shape: _TypeShape
     ) -> None:
-        """Introspect only the object element types the connector actually
-        requests, so a large live schema does not exhaust the daily budget on
-        unused nested types. Walks the desired-field tree and introspects the
-        element type of each desired object field that is present on the live
-        shape, recursing into the sub-tree's own object fields."""
+        """Introspect only the object element types the connector requests."""
         for fname, sub in desired.items():
             if not isinstance(sub, dict):
                 continue
@@ -502,8 +483,6 @@ class IntrospectingQueryBuilder:
         shape = self._introspect(type_name)
         if type_name in self._failed_types or not shape.fields:
             return _wrap(envelope, fallback_selection)
-        # Introspect only the object element types the connector requests, so
-        # unused nested types on the live schema do not burn the daily budget.
         self._introspect_desired_subtypes(desired, shape)
         selection = _build_selection_with_subshapes(
             desired, shape, self._object_shapes(), "        "
@@ -565,8 +544,7 @@ class IntrospectingQueryBuilder:
             shape = self._introspect(type_name)
             if type_name in self._failed_types or not shape.fields:
                 # Introspection failed for this type: cannot assess its drift;
-                # do not fabricate an ABORT (a transient introspection blip
-                # on one type must not stop the run, nor poison the others).
+                # do not fabricate an ABORT.
                 drift.per_type[type_name] = TypeDrift(
                     type_name=type_name, verdict=DriftVerdict.PROCEED
                 )

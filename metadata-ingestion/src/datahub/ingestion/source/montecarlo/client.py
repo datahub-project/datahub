@@ -171,9 +171,7 @@ class MonteCarloAssertionDef(BaseModel):
     rule_type: Optional[str] = None
     custom_sql: Optional[str] = None
     # whereCondition is a row-filter WHERE clause on metric/comparison
-    # monitors (customSql was removed from the Monitor type). It is NOT the
-    # monitor's SQL body, so assertion.py does not fold it into logic; it is
-    # retained on the def for completeness/future use only.
+    # monitors, NOT the monitor's SQL body (customSql was removed from Monitor).
     where_condition: Optional[str] = None
     entity_mcons: List[str] = Field(default_factory=list)
     resource_id: Optional[str] = None

@@ -127,16 +127,10 @@ def _effective_description(definition: MonteCarloAssertionDef) -> Optional[str]:
 
 
 def _native_parameters(definition: MonteCarloAssertionDef) -> Dict[str, str]:
-    """Native MC fields that don't map to the structured assertion slots, carried
-    on nativeParameters so the UI can render them. severity / data_quality_dimension
-    / resource_id / where_condition are monitor-level; comparisonType / metric /
-    customMetric are added by the comparisons path when present. severity falls
-    back to priority (the renamed field on the current Monitor/CustomRule schema).
-
-    where_condition is the Monitor row-filter WHERE clause (the renamed
-    whereCondition). It is carried as a native field so the UI can show the
-    filter, but it is NOT folded into CustomAssertionInfo.logic — logic is the
-    monitor's SQL body, and a row-filter predicate is not the query body."""
+    """Native MC fields carried on nativeParameters for the UI to render.
+    severity falls back to priority (the renamed field on the current
+    Monitor/CustomRule schema). where_condition is the Monitor row-filter
+    WHERE clause — NOT the SQL body, so it lives here rather than in logic."""
     params: Dict[str, Any] = {
         "severity": definition.severity or definition.priority,
         "data_quality_dimension": definition.data_quality_dimension,
@@ -204,13 +198,9 @@ def _make_custom_assertion_info(
     profile page.
     """
     native_parameters = _native_parameters(definition)
-    # logic carries the monitor's SQL body. Only custom_sql (exposed by
-    # CustomRule, and by the legacy Monitor type) is real SQL; whereCondition
-    # is a row-filter WHERE clause on metric/comparison monitors, not the
-    # query body, so it must NOT be folded into logic (it would render a
-    # filter predicate as if it were the monitor SQL). Monitor SQL that lived
-    # in the removed customSql field is no longer recoverable via the
-    # gateway; nativeParameters still carries severity/priority/etc.
+    # logic is the monitor's SQL body (customSql). whereCondition is a row
+    # filter, not the SQL body, so it is NOT folded into logic — see
+    # _native_parameters.
     logic: Optional[str] = definition.custom_sql
 
     comparisons = definition.comparisons
