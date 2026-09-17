@@ -231,20 +231,22 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
           numHops,
           remainingHops,
           existingPaths);
-      // Bound retained relationships to this slice's atomic share of the hop's shared budget.
-      if (reserveOrTruncateToSharedBudget(
-          sliceRelationships,
-          beforeInitial,
-          sharedRemaining,
-          maxRelations,
-          sliceId,
-          allowPartialResults)) {
-        return sliceRelationships; // shared budget exhausted; partial results
-      }
-
+      // Decide the timeout before the budget check so a timed-out page that also exhausts the
+      // shared budget is classified as a timeout (see GraphQueryPITDAO for the reasoning).
       if (initialPageTimedOut) {
         stopSliceOnTimeout(sliceId, "server-side timed_out", allowPartialResults, sliceTimedOut);
-        return sliceRelationships;
+      }
+      // Bound retained relationships to this slice's atomic share of the hop's shared budget.
+      boolean initialBudgetExhausted =
+          reserveOrTruncateToSharedBudget(
+              sliceRelationships,
+              beforeInitial,
+              sharedRemaining,
+              maxRelations,
+              sliceId,
+              allowPartialResults);
+      if (initialBudgetExhausted || initialPageTimedOut) {
+        return sliceRelationships; // shared budget exhausted or page timed out; partial results
       }
 
       // Continue scrolling until the shared budget is exhausted (checked per batch below) or no
@@ -311,20 +313,22 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
             remainingHops,
             existingPaths);
 
-        // Bound retained relationships to this slice's atomic share of the hop's shared budget.
-        if (reserveOrTruncateToSharedBudget(
-            sliceRelationships,
-            beforeScroll,
-            sharedRemaining,
-            maxRelations,
-            sliceId,
-            allowPartialResults)) {
-          break; // shared budget exhausted; partial results
-        }
-
+        // Decide the timeout before the budget check (same reasoning as the initial page).
         if (pageTimedOut) {
           stopSliceOnTimeout(sliceId, "server-side timed_out", allowPartialResults, sliceTimedOut);
-          break;
+        }
+
+        // Bound retained relationships to this slice's atomic share of the hop's shared budget.
+        boolean budgetExhausted =
+            reserveOrTruncateToSharedBudget(
+                sliceRelationships,
+                beforeScroll,
+                sharedRemaining,
+                maxRelations,
+                sliceId,
+                allowPartialResults);
+        if (budgetExhausted || pageTimedOut) {
+          break; // shared budget exhausted or page timed out; partial results
         }
       }
 

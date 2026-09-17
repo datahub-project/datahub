@@ -331,20 +331,24 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         int before = sliceRelationships.size();
         sliceRelationships.addAll(pageRelationships);
 
-        // Bound retained relationships to this slice's atomic share of the hop's shared budget.
-        if (reserveOrTruncateToSharedBudget(
-            sliceRelationships,
-            before,
-            sharedRemaining,
-            maxRelations,
-            sliceId,
-            allowPartialResults)) {
-          break; // shared budget exhausted; partial results
-        }
-
+        // Decide the timeout before the budget check so a timed-out page that also exhausts the
+        // shared budget is classified as a timeout: strict mode throws here, partial mode flags the
+        // hop and still truncates the retained hits below.
         if (pageTimedOut) {
           stopSliceOnTimeout(sliceId, "server-side timed_out", allowPartialResults, sliceTimedOut);
-          break;
+        }
+
+        // Bound retained relationships to this slice's atomic share of the hop's shared budget.
+        boolean budgetExhausted =
+            reserveOrTruncateToSharedBudget(
+                sliceRelationships,
+                before,
+                sharedRemaining,
+                maxRelations,
+                sliceId,
+                allowPartialResults);
+        if (budgetExhausted || pageTimedOut) {
+          break; // shared budget exhausted or page timed out; partial results
         }
 
         // Get search_after for next page

@@ -77,6 +77,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchHit;
@@ -2222,6 +2223,99 @@ public class GraphQueryPITDAOTest {
     Assert.assertTrue(
         java.util.Arrays.asList(tags.getValue()).containsAll(List.of("error_type", "timeout")),
         "tags: " + java.util.Arrays.toString(tags.getValue()));
+
+    // The server-side bound is the guardrail's one new ES-side behaviour: every PIT page request
+    // must carry a timeout no larger than the remaining budget (30s here) and at least 1 ms.
+    ArgumentCaptor<SearchRequest> requests = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockClient, atLeast(1))
+        .search(any(OperationContext.class), requests.capture(), eq(RequestOptions.DEFAULT));
+    for (SearchRequest request : requests.getAllValues()) {
+      TimeValue timeout = request.source().timeout();
+      Assert.assertNotNull(timeout, "PIT slice search must set a server-side timeout");
+      Assert.assertTrue(
+          timeout.millis() >= 1L && timeout.millis() <= 30_000L,
+          "server-side timeout must be within the remaining budget, got " + timeout);
+    }
+  }
+
+  @Test(timeOut = 10000)
+  public void testSliceSearchServerSideTimeoutWinsOverMaxRelationsInStrictMode() throws Exception {
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(),
+            DATASET_ENTITY_NAME,
+            LineageDirection.UPSTREAM); // the fake edges point this way, so 5 hits are retained
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    // maxRelations(2) with a timed-out page of 5 hits: the page both times out and exhausts the
+    // shared budget. The timeout must win (DEADLINE_EXCEEDED), not the max-relations
+    // IllegalStateException that the budget check would raise.
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .timeoutSeconds(30)
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .maxRelations(2)
+                                    .partialResults(false)
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+    SearchResponse timedOutPage =
+        createFakeSearchResponse(
+            createFakeLineageHits(
+                5,
+                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                "dest",
+                "DownstreamOf"),
+            5);
+    when(timedOutPage.isTimedOut()).thenReturn(true);
+    // Only slice 0 sees the timed-out page; the other slice gets a clean empty page. Otherwise the
+    // two slices race on visitedEntities and whichever extracts second adds nothing, which would
+    // reach the timeout path even without the ordering fix under test.
+    SearchResponse emptyResponse = createEmptySearchResponse(0);
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            invocation -> {
+              SearchRequest req = invocation.getArgument(1);
+              int sliceId =
+                  (req.source() != null && req.source().slice() != null)
+                      ? req.source().slice().getId()
+                      : -1;
+              return sliceId == 0 ? timedOutPage : emptyResponse;
+            });
+
+    RuntimeException thrown =
+        Assert.expectThrows(
+            RuntimeException.class,
+            () -> dao.getImpactLineage(operationContext, sourceUrn, filters, 1));
+
+    LineageTimeoutException timeout = null;
+    for (Throwable c = thrown; c != null; c = c.getCause()) {
+      if (c instanceof LineageTimeoutException) {
+        timeout = (LineageTimeoutException) c;
+        break;
+      }
+    }
+    Assert.assertNotNull(
+        timeout,
+        "timeout must take precedence over the max-relations error; got "
+            + thrown.getClass().getName()
+            + " - "
+            + thrown.getMessage());
   }
 
   @Test(timeOut = 10000)
