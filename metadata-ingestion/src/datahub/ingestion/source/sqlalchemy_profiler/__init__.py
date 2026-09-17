@@ -1,1 +1,1 @@
-"""Custom SQLAlchemy-based profiler to replace Great Expectations dependency."""
+"""Custom SQLAlchemy-based profiler for DataHub metadata ingestion."""
