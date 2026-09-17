@@ -9,6 +9,7 @@ import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -29,6 +31,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.slice.SliceBuilder;
@@ -77,6 +80,9 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
     List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
     // One budget shared across all slices of this hop (see GraphQueryBaseDAO); null == unlimited.
     final AtomicInteger sharedRemaining = newSharedRelationshipBudget(maxRelations);
+    // Set by any slice that stops on a timeout in partial mode so the hop is marked partial
+    // (see stopSliceOnTimeout / markPartialIfSliceTimedOut).
+    final AtomicBoolean sliceTimedOut = new AtomicBoolean(false);
     try {
       for (int sliceId = 0; sliceId < slices; sliceId++) {
         final int currentSliceId = sliceId;
@@ -99,20 +105,25 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
                       slices,
                       remainingTime,
                       entityUrns,
-                      allowPartialResults);
+                      allowPartialResults,
+                      sliceTimedOut);
                 });
         sliceFutures.add(sliceFuture);
       }
 
       // Reuse the existing slice coordination logic. If the shared budget ended exhausted, the hop
       // was truncated at maxRelations — report partial explicitly, since the outer unique-entity
-      // limit check can miss it when cross-slice duplicates merge away.
-      return markPartialIfSharedBudgetExhausted(
-          processSliceFutures(sliceFutures, remainingTime, allowPartialResults),
-          sharedRemaining,
+      // limit check can miss it when cross-slice duplicates merge away. Likewise mark partial when
+      // a slice stopped on a server-side timeout (its collected results are incomplete).
+      return markPartialIfSliceTimedOut(
+          markPartialIfSharedBudgetExhausted(
+              processSliceFutures(sliceFutures, remainingTime, allowPartialResults),
+              sharedRemaining,
+              allowPartialResults),
+          sliceTimedOut,
           allowPartialResults);
     } finally {
-      // Match PIT DAO: cancel(true) only interrupts; bounded wait so slices can clear scroll.
+      // Match the PIT DAO: this wait returns as soon as the futures are cancelled (see there).
       cancelAndDrainSliceFutures(sliceFutures);
     }
   }
@@ -141,7 +152,8 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       int totalSlices,
       long remainingTime,
       Set<Urn> entityUrns,
-      boolean allowPartialResults) {
+      boolean allowPartialResults,
+      AtomicBoolean sliceTimedOut) {
 
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
     String scrollId = null;
@@ -150,7 +162,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
 
     try {
       if (System.currentTimeMillis() >= deadline) {
-        log.warn("Slice {} timed out before initial scroll search", sliceId);
+        stopSliceOnTimeout(sliceId, "hop deadline passed", allowPartialResults, sliceTimedOut);
         return sliceRelationships;
       }
 
@@ -176,6 +188,13 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       // Add slice configuration for parallel processing
       searchSourceBuilder.slice(new SliceBuilder(sliceId, totalSlices));
 
+      // Ask each shard to stop collecting once the remaining hop budget elapses and return what it
+      // has with timedOut=true. Best-effort: bounds the query phase only; it does not cancel the
+      // task, count queue time, or affect scroll-context lifetime (that is keepAlive). Scroll
+      // continuations have no timeout setter and inherit this initial request's timeout.
+      searchSourceBuilder.timeout(
+          TimeValue.timeValueMillis(Math.max(1L, deadline - System.currentTimeMillis())));
+
       // Set scroll keepAlive using configured value
       searchRequest.scroll(keepAlive);
 
@@ -187,10 +206,16 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       SearchResponse response = executeSearch(opContext, searchRequest);
       scrollId = response.getScrollId();
 
+      boolean initialPageTimedOut = response != null && response.isTimedOut();
+
       if (response == null
           || response.getHits() == null
           || response.getHits().getHits().length == 0) {
-        log.debug("Slice {} completed, no initial results", sliceId);
+        if (initialPageTimedOut) {
+          stopSliceOnTimeout(sliceId, "server-side timed_out", allowPartialResults, sliceTimedOut);
+        } else {
+          log.debug("Slice {} completed, no initial results", sliceId);
+        }
         return sliceRelationships;
       }
 
@@ -206,22 +231,29 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
           numHops,
           remainingHops,
           existingPaths);
+      // Decide the timeout before the budget check so a timed-out page that also exhausts the
+      // shared budget is classified as a timeout (see GraphQueryPITDAO for the reasoning).
+      if (initialPageTimedOut) {
+        stopSliceOnTimeout(sliceId, "server-side timed_out", allowPartialResults, sliceTimedOut);
+      }
       // Bound retained relationships to this slice's atomic share of the hop's shared budget.
-      if (reserveOrTruncateToSharedBudget(
-          sliceRelationships,
-          beforeInitial,
-          sharedRemaining,
-          maxRelations,
-          sliceId,
-          allowPartialResults)) {
-        return sliceRelationships; // shared budget exhausted; partial results
+      boolean initialBudgetExhausted =
+          reserveOrTruncateToSharedBudget(
+              sliceRelationships,
+              beforeInitial,
+              sharedRemaining,
+              maxRelations,
+              sliceId,
+              allowPartialResults);
+      if (initialBudgetExhausted || initialPageTimedOut) {
+        return sliceRelationships; // shared budget exhausted or page timed out; partial results
       }
 
       // Continue scrolling until the shared budget is exhausted (checked per batch below) or no
       // more results. If maxRelations is -1 or 0 the budget is unlimited (only bound by time).
       while (true) {
         if (System.currentTimeMillis() >= deadline) {
-          log.warn("Slice {} timed out, stopping scroll search", sliceId);
+          stopSliceOnTimeout(sliceId, "hop deadline passed", allowPartialResults, sliceTimedOut);
           break;
         }
 
@@ -254,10 +286,17 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
                 MetricUtils.DROPWIZARD_NAME,
                 MetricUtils.name(this.getClass(), "esScrollQuery"));
 
+        boolean pageTimedOut = response != null && response.isTimedOut();
+
         if (response == null
             || response.getHits() == null
             || response.getHits().getHits().length == 0) {
-          log.debug("Slice {} completed, no more results", sliceId);
+          if (pageTimedOut) {
+            stopSliceOnTimeout(
+                sliceId, "server-side timed_out", allowPartialResults, sliceTimedOut);
+          } else {
+            log.debug("Slice {} completed, no more results", sliceId);
+          }
           break;
         }
 
@@ -274,18 +313,31 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
             remainingHops,
             existingPaths);
 
+        // Decide the timeout before the budget check (same reasoning as the initial page).
+        if (pageTimedOut) {
+          stopSliceOnTimeout(sliceId, "server-side timed_out", allowPartialResults, sliceTimedOut);
+        }
+
         // Bound retained relationships to this slice's atomic share of the hop's shared budget.
-        if (reserveOrTruncateToSharedBudget(
-            sliceRelationships,
-            beforeScroll,
-            sharedRemaining,
-            maxRelations,
-            sliceId,
-            allowPartialResults)) {
-          break; // shared budget exhausted; partial results
+        boolean budgetExhausted =
+            reserveOrTruncateToSharedBudget(
+                sliceRelationships,
+                beforeScroll,
+                sharedRemaining,
+                maxRelations,
+                sliceId,
+                allowPartialResults);
+        if (budgetExhausted || pageTimedOut) {
+          break; // shared budget exhausted or page timed out; partial results
         }
       }
 
+    } catch (LineageTimeoutException e) {
+      // Rethrow untouched: processSliceFutures rethrows a bare RuntimeException cause as-is, so the
+      // distinct type reaches getImpactLineage's catch (which records the timeout on the cascade)
+      // and the GraphQL/Rest.li mappers without a wrapper. The generic catch below would also log
+      // an error-level stack trace for an expected outcome.
+      throw e;
     } catch (Exception e) {
       log.error("Failed to execute scroll search for slice {}", sliceId, e);
       throw new RuntimeException("Failed to execute scroll search for slice " + sliceId, e);

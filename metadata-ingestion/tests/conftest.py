@@ -35,6 +35,11 @@ os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 # budget makes that vanishingly unlikely while still bounding a pathological parse.
 os.environ["SQL_LINEAGE_TIMEOUT_SECONDS"] = "300"
 
+# Installs the sys.meta_path finder that provides a pkg_resources shim when
+# setuptools>=82 has removed it, before any test imports the redshift/cockroachdb
+# dialects (which import pkg_resources at load).
+import datahub._pkg_resources_finder  # noqa: E402,F401
+
 
 @atexit.register
 def _report_threads_alive_at_exit() -> None:

@@ -10,6 +10,8 @@ import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/Entity
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
+import { EntityType } from '@types';
+
 const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
     position: absolute;
     right: 0;
@@ -51,6 +53,11 @@ export default function LineageSidebar() {
 
     // This manages closing, rather than isClosed
     if (!selectedEntity) {
+        return null;
+    }
+
+    // Don't show sidebar for restricted entities
+    if (selectedEntity.type === EntityType.Restricted) {
         return null;
     }
 

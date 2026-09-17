@@ -13,12 +13,14 @@ import useGetDomainUtils from '@app/homeV3/modules/domains/useDomainModuleUtils'
 
 import { DataHubPageModuleType } from '@types';
 
+const MAX_DOMAINS = 25;
+
 const TopDomainsModule = (props: ModuleProps) => {
     const { t } = useTranslation('modules');
     const { user } = useUserContext();
     const { isReloading } = useModuleContext();
 
-    const { domains, loading } = useGetDomains(user, isReloading ? 'cache-and-network' : 'cache-first');
+    const { domains, loading } = useGetDomains(user, isReloading ? 'cache-and-network' : 'cache-first', MAX_DOMAINS);
 
     const { renderDomainCounts, navigateToDomains } = useGetDomainUtils({ domains });
 
