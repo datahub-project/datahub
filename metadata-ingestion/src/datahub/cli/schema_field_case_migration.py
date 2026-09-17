@@ -512,7 +512,10 @@ def _reconcile_schema_field_entities(
                 carried
             )
         # Keep the source field if anything could not be carried over, so the
-        # un-migrated aspect is not lost behind a soft delete.
+        # un-migrated aspect is not lost behind a soft delete. Note: this only
+        # tombstones the schemaField's own aspects — entities that reference the old
+        # field (native assertions, incidents) are not repointed and will dangle;
+        # use --keep-source-fields if that matters for the dataset.
         if delete_source and not left_behind:
             if not dry_run:
                 try:

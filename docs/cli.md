@@ -1359,6 +1359,12 @@ truth for the new casing):
   copied onto the correctly-cased `schemaField` URN. The old entity is soft-deleted by default (use
   `--keep-source-fields` to keep it).
 
+> **Not re-anchored:** entities that _reference_ a column rather than living on it — native column
+> assertions and incidents — are not repointed and will dangle on the soft-deleted source. Use
+> `--keep-source-fields` if a dataset has those. Connector-emitted references (lineage,
+> `fineGrainedLineage`, foreign keys) don't need repointing: the prerequisite re-ingestion re-emits
+> them onto the new field path.
+
 **Run order:** re-ingest the source with the new casing **first**, then run this command.
 
 Matching is case-insensitive and handles both v1 and v2 field paths. It is conservative by default:

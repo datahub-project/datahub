@@ -1243,6 +1243,24 @@ def snowflake_semantic_views(
     click.echo(f"{report}")
 
 
+# NOTE: this command deliberately does NOT use the shared migration engine
+# (fetch → transform → migrate) that backs dataplatform2instance / instance2instance /
+# urns-mapping. The dataset URN is unchanged — only field paths move — so there is no
+# dataset pair to feed the engine, and the correctly-cased schemaField usually already
+# exists after re-ingestion. It reconciles against the freshly re-ingested
+# schemaMetadata and copies only the curated, user/API-authored aspects in
+# MIGRATED_SCHEMA_FIELD_ASPECTS, unioning with whatever is already on the destination.
+# Structural / connector-emitted aspects (schemaFieldInfo, lineage, ...) are omitted on
+# purpose because ingestion re-emits them onto the new field path. The generic engine
+# cannot serve this safely today: merge_entity gates additive/Patch merge to
+# entity_type == "dataset" and would _overwrite_entity the already-re-ingested
+# schemaField, clobbering exactly what the union logic protects.
+#
+# Known limitation: entities that *reference* the old schemaField rather than living on
+# it — native column assertions and incidents — are not repointed here, so they dangle
+# on the soft-deleted source. Connector-emitted references (fineGrainedLineage,
+# InputField, foreign keys, ...) are re-emitted onto the new field path by the
+# prerequisite re-ingestion, so they do not need repointing.
 @migrate.command(name="schema-field-case")
 @click.option(
     "--platform",
