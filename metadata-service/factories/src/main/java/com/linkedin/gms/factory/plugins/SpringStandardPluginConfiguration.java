@@ -21,6 +21,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
+import com.linkedin.metadata.aspect.validation.AssetSettingsAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
@@ -28,10 +29,12 @@ import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizatio
 import com.linkedin.metadata.aspect.validation.DomainWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
+import com.linkedin.metadata.aspect.validation.FormAssignmentAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentFieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentPlatformValidator;
+import com.linkedin.metadata.aspect.validation.MetricUpstreamsValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
@@ -55,6 +58,7 @@ import com.linkedin.metadata.ingestion.IngestionMetricsEmitter;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
 import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
@@ -68,6 +72,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -700,6 +705,54 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.assetSettings.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator assetSettingsAuthorizationValidator() {
+    return new AssetSettingsAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(AssetSettingsAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(ASSET_SETTINGS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.formAssignment.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator formAssignmentAuthorizationValidator() {
+    return new FormAssignmentAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(FormAssignmentAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(FORMS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(FORM_ENTITY_NAME)
+                            .aspectName(DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
       name = "metadataChangeProposal.validation.logicalParent.platformValidation.enabled",
       havingValue = "true",
       matchIfMissing = false)
@@ -907,15 +960,19 @@ public class SpringStandardPluginConfiguration {
   public AspectPayloadValidator structuredPropertiesValidator(
       @Nonnull ConfigurationProvider configurationProvider) {
     StructuredPropertiesConfiguration structuredPropertiesConfiguration =
-        configurationProvider.getStructuredProperties();
+        Objects.requireNonNull(
+            configurationProvider.getStructuredProperties(),
+            "structuredProperties configuration is required");
+    int keywordMaxLength = structuredPropertiesConfiguration.getKeywordMaxLength();
+    if (keywordMaxLength <= 0) {
+      keywordMaxLength = ESUtils.KEYWORD_MAXLENGTH;
+    }
     return new StructuredPropertiesValidator()
         .setDropMissingPropertyValuesWithWarning(
-            structuredPropertiesConfiguration != null
-                && structuredPropertiesConfiguration.isDropMissingPropertyValuesWithWarning())
-        .setKeywordMaxLength(
-            structuredPropertiesConfiguration != null
-                ? structuredPropertiesConfiguration.getKeywordMaxLength()
-                : 0)
+            structuredPropertiesConfiguration.isDropMissingPropertyValuesWithWarning())
+        .setKeywordMaxLength(keywordMaxLength)
+        .setDropOversizedKeywordValuesFromIndex(
+            structuredPropertiesConfiguration.isDropOversizedKeywordValuesFromIndex())
         .setConfig(
             AspectPluginConfig.builder()
                 .className(StructuredPropertiesValidator.class.getName())
@@ -1057,6 +1114,23 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(SCHEMA_FIELD_ENTITY_NAME)
                             .aspectName(LOGICAL_PARENT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator metricUpstreamsValidator() {
+    return new MetricUpstreamsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(MetricUpstreamsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(METRIC_ENTITY_NAME)
+                            .aspectName(METRIC_UPSTREAMS_ASPECT_NAME)
                             .build()))
                 .build());
   }

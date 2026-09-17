@@ -58,6 +58,11 @@
       "description": "A Context Platform agora está em beta pública + agentes personalizados",
       "ctaText": "Conheça o DataHub Cloud 2.2"
     },
+    "ru": {
+      "title": "Обновления DataHub: сентябрь",
+      "description": "Context Platform теперь в публичной бета-версии + пользовательские агенты",
+      "ctaText": "Изучите DataHub Cloud 2.2"
+    },
     "sv": {
       "title": "DataHub-uppdateringar: september",
       "description": "Context Platform är nu i offentlig betaversion + anpassade agenter",

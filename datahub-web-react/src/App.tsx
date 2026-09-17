@@ -116,7 +116,11 @@ export const InnerApp: React.VFC = () => {
         <HelmetProvider>
             <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
                 <GlobalStyles />
-                <ToastRenderer />
+                {/* ToastRenderer translates its own labels and sits above the router's boundary,
+                    so it needs one of its own while the locale bundle loads. */}
+                <Suspense fallback={null}>
+                    <ToastRenderer />
+                </Suspense>
                 <FilesUploadingDownloadingLatencyTracker />
 
                 <Helmet>

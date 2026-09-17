@@ -1,8 +1,8 @@
 import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
+import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 
@@ -69,7 +69,7 @@ const TextColumn = styled.td`
     font-family: 'Roboto Mono', monospace;
 `;
 
-const PreviewSyntax = styled(SyntaxHighlighter)`
+const PreviewSyntax = styled(StyledSyntaxHighlighter)`
     max-width: 100%;
     max-height: 150px;
     overflow: hidden;

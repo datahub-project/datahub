@@ -45,6 +45,7 @@ export interface RecipeField {
     getValueFromRecipeOverride?: (recipe: any) => any;
     setValueOnRecipeOverride?: (recipe: any, value: any) => any;
     placeholder?: string;
+    defaultValue?: string; // Default value to pre-populate the field (distinct from placeholder hint text)
 }
 
 export enum FilterRule {
