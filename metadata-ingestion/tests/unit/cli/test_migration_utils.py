@@ -9,18 +9,23 @@ from avrogen.dict_wrapper import DictWrapper
 from datahub.cli.migration_utils import (
     get_migratable_aspect_names,
     merge_additive_aspects,
+    merge_entity,
     merge_mixed_aspects,
     should_overwrite_non_additive,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ContainerClass,
     DatasetPropertiesClass,
+    DeprecationClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    StatusClass,
     StructuredPropertiesClass,
     StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
@@ -568,7 +573,6 @@ class TestMergeEntityNonDataset:
         mock_clone: MagicMock,
     ) -> None:
         """PATCH unions additive aspects via the Patch API — no clone/overwrite."""
-        from datahub.cli.migration_utils import merge_entity
 
         mock_get_aspects.return_value = {
             "globalTags": GlobalTagsClass(
@@ -597,8 +601,6 @@ class TestMergeEntityNonDataset:
     ) -> None:
         """The overwrite fallback applies transform_urns so self-references
         (and batch cross-references) in cloned aspects are rewritten."""
-        from datahub.cli.migration_utils import merge_entity
-        from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
         # Simulate a cloned aspect whose owner URN embeds the old chart URN.
         # transform_urns walks @Relationship/Urn fields and should rewrite it.
@@ -635,8 +637,6 @@ class TestMergeEntityNonDataset:
         mock_clone: MagicMock,
     ) -> None:
         """PATCH keeps the target's value for a conflicting non-additive aspect."""
-        from datahub.cli.migration_utils import merge_entity
-        from datahub.metadata.schema_classes import DeprecationClass
 
         # src carries a deprecation aspect; target has a different one.
         actor = "urn:li:corpuser:datahub"
@@ -666,7 +666,6 @@ class TestMergeEntityNonDataset:
     ) -> None:
         """The overwrite fallback (non-dataset merge) does not clone the status
         aspect — the target's own soft-delete state is authoritative."""
-        from datahub.cli.migration_utils import merge_entity
 
         mock_clone.return_value = iter([])
         graph = MagicMock()
@@ -703,7 +702,6 @@ class TestMergeGenericEntity:
         mock_clone: MagicMock,
     ) -> None:
         """A schemaField merge unions tags, terms and structured properties."""
-        from datahub.cli.migration_utils import merge_entity
 
         mock_get_aspects.return_value = {
             "globalTags": GlobalTagsClass(
@@ -784,8 +782,6 @@ class TestMergeExcludesStatus:
     ) -> None:
         """merge_entity for a dataset never writes the source's status aspect to
         the target — a soft-deleted source must not soft-delete a live target."""
-        from datahub.cli.migration_utils import merge_entity
-        from datahub.metadata.schema_classes import StatusClass
 
         mock_get_aspects.return_value = {
             "status": StatusClass(removed=True),
@@ -812,8 +808,6 @@ class TestMergeExcludesStatus:
     ) -> None:
         """merge_entity for a dataset never writes the source's container aspect
         to the target — the target's parent container is authoritative."""
-        from datahub.cli.migration_utils import merge_entity
-        from datahub.metadata.schema_classes import ContainerClass
 
         mock_get_aspects.return_value = {
             "container": ContainerClass(container="urn:li:container:old"),
