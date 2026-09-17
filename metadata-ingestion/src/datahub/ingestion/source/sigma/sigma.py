@@ -110,6 +110,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.sql_parsing.sql_parsing_common import (
+    PLATFORMS_WITH_CASE_SENSITIVE_TABLES,
+)
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
@@ -215,11 +218,6 @@ _WAREHOUSE_LOWERCASE_PLATFORMS: frozenset[str] = frozenset({"snowflake"})
 # Expected root segment of the /files path for warehouse tables.
 _FILES_PATH_ROOT = "Connection Root"
 
-# PlatformDetail.env's own default, read rather than copied so the two
-# cannot drift. Used to explain a URN that diverges because the mapping
-# never set env, rather than because it set it.
-_DEFAULT_PLATFORM_DETAIL_ENV = PlatformDetail.model_fields["env"].default
-
 
 def _case_flag_is_explicit(conn_override: Optional[WarehouseConnectionConfig]) -> bool:
     """Whether this connection's recipe entry set convert_urns_to_lowercase itself.
@@ -241,13 +239,21 @@ def _should_lowercase_identifiers(
     ``lowercase`` is the per-connection ``convert_urns_to_lowercase`` value and
     ``explicit`` says whether the operator actually set it.
 
-    ``lowercase`` is a veto: False always preserves case. ``explicit`` only
-    *enables* lower-casing on a platform the default would skip -- the flag is
-    otherwise a no-op outside ``_WAREHOUSE_LOWERCASE_PLATFORMS``, leaving no way
-    back to the spelling the pre-deprecation SQL route produced (it lower-cased
-    every platform except bigquery/db2). Keeping the veto separate matters:
-    `lowercase=False` must hold even when nothing was set explicitly.
+    ``lowercase`` is a veto: False always preserves case.
+
+    ``explicit`` only *enables* lower-casing on a platform the default would
+    skip, and only callers that opt in pass it -- the flag is otherwise a no-op
+    outside ``_WAREHOUSE_LOWERCASE_PLATFORMS``, leaving no way back to the
+    spelling the pre-deprecation SQL route produced. It never applies to
+    ``PLATFORMS_WITH_CASE_SENSITIVE_TABLES``: BigQuery and DB2 identifiers are
+    case-sensitive, so folding them would dangle the edge, and the SQL route
+    excluded them for the same reason.
+
+    Keeping the veto separate matters: ``lowercase=False`` must hold even when
+    nothing was set explicitly.
     """
+    if explicit and platform.lower() in PLATFORMS_WITH_CASE_SENSITIVE_TABLES:
+        explicit = False
     return lowercase and (
         explicit or platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS
     )
@@ -1103,7 +1109,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         upstream_urns: List[str] = []
         unresolved_connection = False
         for ref in self._get_dataset_warehouse_refs(dataset_url_id):
-            urn = self._warehouse_ref_to_urn(ref)
+            urn = self._warehouse_ref_to_urn(ref, allow_explicit_case=True)
             if urn is None:
                 unresolved_connection = True
                 logger.debug(
@@ -1267,13 +1273,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None
         return self._warehouse_ref_to_urn(ref)
 
-    def _warehouse_ref_to_urn(self, ref: _WarehouseTableRef) -> Optional[str]:
+    def _warehouse_ref_to_urn(
+        self, ref: _WarehouseTableRef, *, allow_explicit_case: bool = False
+    ) -> Optional[str]:
         """Build a warehouse Dataset URN from resolved table coordinates.
 
         Shared by the DM/workbook routes (which look the ref up by inode urlId)
         and the Sigma Dataset route (which already holds the ref). See
         _resolve_dm_element_warehouse_upstream for the env / platform_instance /
         casing contract.
+
+        ``allow_explicit_case`` is opt-in per route. On the other routes an
+        explicitly-set convert_urns_to_lowercase was a no-op outside Snowflake
+        before this change, and honouring it there would move URNs those routes
+        already emit -- including for connections whose recipe copied the
+        documented example that sets the flag.
         """
         record = self.connection_registry.get(ref.connection_id)
         if record is None or not record.is_mappable:
@@ -1292,7 +1306,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # where the connector was run with that flag set to False.  Default=True
         # matches both the Snowflake connector default and most other platforms.
         lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
-        explicit_case = _case_flag_is_explicit(conn_override)
+        explicit_case = allow_explicit_case and _case_flag_is_explicit(conn_override)
         fq = ref.fq_name(
             record.datahub_platform, lowercase=lowercase, explicit=explicit_case
         )

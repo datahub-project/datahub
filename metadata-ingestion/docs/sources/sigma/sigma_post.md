@@ -114,71 +114,52 @@ Sigma connection record omits `database`/`schema`, set `default_database` in
 
 #### Sigma Dataset -> warehouse table lineage
 
-Sigma ended support for datasets as a data source on 2026-09-15. A workbook element reading through
-a Sigma Dataset still answers `/v2/workbooks/{id}/elements/{id}/query` with HTTP 200, but the body
-no longer carries SQL — and that SQL was the only place the dataset's warehouse table was named.
+Sigma ended support for datasets as a data source on 2026-09-15: a dataset-backed element's
+`/v2/workbooks/{id}/elements/{id}/query` still returns 200 but no longer carries SQL, and that SQL
+was the only place the dataset's warehouse table was named.
 
-When an element's SQL names no warehouse table, the connector resolves the dataset's warehouse table structurally
-instead: `/v2/datasets/{id}/sources` names the table by inode, and `/v2/connections/paths/{inodeId}`
-resolves that inode to a `connectionId` plus a path. The URN is then built through the connection
-registry, so per-connection `default_database`, `env`, `platform_instance` and
-`convert_urns_to_lowercase` all apply, exactly as for Data Model element and chart warehouse edges.
-Note `convert_urns_to_lowercase` only changes the default for platforms DataHub lower-cases
-(Snowflake); set it explicitly to force lower-casing on any other platform.
-No `chart_sources_platform_mapping` entry is needed.
+When an element's SQL names no warehouse table, the connector resolves the table structurally
+instead — `/v2/datasets/{id}/sources` gives the inode, `/v2/connections/paths/{inodeId}` gives a
+`connectionId` plus the path — and builds the URN through the connection registry, so
+per-connection `default_database`, `env`, `platform_instance` and `convert_urns_to_lowercase` apply
+exactly as for Data Model and chart warehouse edges. No `chart_sources_platform_mapping` entry is
+needed. If you previously set `env` or `platform_instance` there, copy them onto the connection's
+`connection_to_platform_map` entry; see the upgrade note for #19815.
+`convert_urns_to_lowercase` only changes the default on platforms DataHub lower-cases (Snowflake) —
+set it explicitly to force lower-casing elsewhere.
 
-Note the trigger is "the element's SQL named no warehouse table", which is wider than
-"the element has no SQL": the SQL parser only runs when a `chart_sources_platform_mapping`
-entry matches the element's path, so a recipe without one takes this route even against a
-tenant still serving SQL. Those charts previously got no Sigma Dataset lineage at all.
+The trigger is "SQL named no warehouse table", which is wider than "the element has no SQL": the
+SQL parser only runs when a `chart_sources_platform_mapping` entry matches the element's path, so a
+recipe without one takes this route even on a tenant still serving SQL. Those charts previously got
+no Sigma Dataset lineage at all.
 
-This route is a **stopgap**. It depends on the deprecated dataset API, so it will stop returning
-anything once Sigma removes those endpoints; migrate datasets to Data Models to keep lineage.
-A 410 from `/sources` latches the endpoint as removed at once. A 404 or 409 is ambiguous —
-Sigma answers `409 inode_archived`, not 404, for a dataset it cannot resolve — so the connector
-re-asks for a dataset whose `/sources` already succeeded this run. If that now fails too the
-endpoint is latched and warned about once; otherwise it is reported as an info for that one
-dataset (most likely deleted or re-permissioned after the listing). With nothing having
-succeeded yet, repeated not-founds escalate to a warning.
+This route is a **stopgap** on the deprecated dataset API and stops working once Sigma removes
+those endpoints; migrate datasets to Data Models to keep lineage. A 410 latches the endpoint off at
+once. A 404 or 409 is ambiguous (Sigma answers `409 inode_archived` for a dataset it cannot
+resolve), so the connector re-asks for a dataset that already succeeded this run: if that fails too
+the endpoint is latched and warned about once, otherwise the dataset is reported as an info. With
+nothing having succeeded yet, repeated not-founds escalate to a warning.
 
-**If you set `env` or `platform_instance` in `chart_sources_platform_mapping`, copy them into
-`connection_to_platform_map`.** Before the deprecation these edges came from the SQL parser, which
-read that mapping. This route resolves through the connection registry and does not, so without a
-`connection_to_platform_map` entry for the connection the URN uses this recipe's `env` and no
-platform instance — pointing at a URN your warehouse connector may never have produced. The
-connector warns when it detects this.
-
-The credential needs permission to read `/v2/connections/paths/{inodeId}`; without it each table
+The credential needs permission to read `/v2/connections/paths/{inodeId}`; without it every table
 produces a `connection_path_lookup_failed` warning and no warehouse upstream.
 
 Known limitations:
 
-- Only `type: table` sources resolve. Datasets backed by a CSV upload, by another dataset, or by
-  custom SQL have no warehouse table to point at and are counted under
-  `dataset_warehouse_no_table_sources`.
-- A dataset excluded by `workspace_pattern` is absent from the dataset listing, so its
-  `datasetId` is unknown and no lookup can be made. Widen the pattern to recover that lineage.
-  This is reported as an info, not a warning, since excluding a workspace is usually deliberate.
-- A Sigma Dataset whose warehouse table cannot be resolved gets no warehouse
-  `upstreamLineage`, and the chart does not list it under `chartInfo.inputs` — matching the
-  pre-deprecation behaviour, where the dataset appeared as a chart input only when its
-  warehouse table was identified.
-- Only datasets referenced by an ingested workbook chart get warehouse lineage. The route itself
-  does not need an element, but it is driven from chart resolution, so a dataset read only by a
-  Data Model, or by nothing at all (`migrationStatus: not-required`), is not resolved. This matches
-  the pre-deprecation SQL route, which was also per element.
-- On a tenant still serving SQL, a dataset reachable both through a matching
-  `chart_sources_platform_mapping` (SQL) and through this route can get either spelling of the URN
-  depending on which element is processed first. Set `connection_to_platform_map` to make the two
-  agree.
-- A 2-segment path is read as `[SCHEMA, TABLE]` with the database taken from the connection.
-  That is correct for Redshift-style connections and mirrors the existing `/files` path
-  handling, but it is unverified elsewhere. **On a genuinely two-level platform such as
-  MySQL the path is `[DB, TABLE]`, so do not set `default_database` for that connection**:
-  leaving it unset emits `DB.TABLE`, which is the correct MySQL URN, whereas setting it
-  produces `<default_database>.DB.TABLE`, which matches nothing. The
-  "default_database not configured" warning does not know the difference yet, so ignore it
-  for two-level connections and check a few edges if your warehouse reports two-part paths.
+- Only `type: table` sources resolve. CSV-upload, dataset-on-dataset and custom-SQL datasets have
+  no warehouse table (`dataset_warehouse_no_table_sources`).
+- A dataset excluded by `workspace_pattern` is absent from the listing, so its `datasetId` is
+  unknown and no lookup is possible. Reported as an info, since that exclusion is usually deliberate.
+- A dataset whose table cannot be resolved gets no warehouse `upstreamLineage` and is not listed
+  under `chartInfo.inputs` — matching the pre-deprecation behaviour.
+- Only datasets referenced by an ingested chart resolve, so one read only by a Data Model or by
+  nothing (`migrationStatus: not-required`) is skipped. The SQL route was also per element.
+- On a tenant still serving SQL, a dataset reachable both ways can get either URN spelling
+  depending on element order. Set `connection_to_platform_map` to make them agree.
+- A 2-segment path is read as `[SCHEMA, TABLE]` with the database from the connection. Correct for
+  Redshift, unverified elsewhere. **On a two-level platform such as MySQL the path is
+  `[DB, TABLE]`, so leave `default_database` unset** — unset emits the correct `DB.TABLE`, while
+  setting it produces `<default_database>.DB.TABLE`, which matches nothing. The
+  "default_database not configured" warning cannot yet tell the two apart.
 
 | Counter                                    | Meaning                                                                                |
 | ------------------------------------------ | -------------------------------------------------------------------------------------- |

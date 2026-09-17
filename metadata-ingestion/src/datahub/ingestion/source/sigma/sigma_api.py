@@ -78,10 +78,14 @@ class SigmaAPI:
         self._dataset_sources_endpoint_gone = False
         # Set once any /sources call returns 200, which proves the endpoint
         # exists and downgrades a later not-found to a per-dataset miss.
-        self._dataset_sources_succeeded = False
         # A dataset whose /sources answered 200 this run, re-queried to tell
-        # "endpoint removed" from "this dataset is gone".
+        # "endpoint removed" from "this dataset is gone". Also stands in for
+        # "anything has succeeded", so the two cannot drift apart. It is cleared
+        # if that dataset later turns out to be archived.
         self._known_good_dataset_id: Optional[str] = None
+        # Sticky: unlike _known_good_dataset_id this is never cleared, since a
+        # later 404 should not be read as "nothing ever worked".
+        self._dataset_sources_succeeded = False
         self._dataset_sources_not_found_warned = False
         self.session = requests.Session()
 
@@ -1295,14 +1299,28 @@ class SigmaAPI:
             )
             return False
 
+    def _dataset_still_exists(self, dataset_id: str) -> bool:
+        """Whether ``GET /v2/datasets/{id}`` still returns the dataset.
+
+        Used to tell an archived reference dataset (409 inode_archived, or a
+        404) from a removed /sources endpoint. Only a 200 counts as existing:
+        anything else leaves the question open, and treating "unknown" as
+        "exists" would latch the route off on a transient error.
+        """
+        url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}"
+        try:
+            return self._get_api_call(url).status_code == 200
+        except Exception:
+            logger.debug("Existence probe failed for %r; assuming gone.", dataset_id)
+            return False
+
     def _dataset_api_is_gone(self, dataset_id: str) -> bool:
         """Whether the deprecated dataset API itself has been removed.
 
         Called only to disambiguate a 404 from /sources. ``GET /v2/datasets/{id}``
-        answering anything other than 404/410 proves the API is still there, so
-        that 404 concerned one dataset. Note a dataset that does not exist
-        answers 409 on this endpoint rather than 404, which is why anything
-        outside {404, 410} counts as alive.
+        Only 404/410 count: those are path-level. A dataset Sigma cannot resolve
+        answers 409 inode_archived (verified live), which proves the API is
+        answering and the problem is that one dataset.
         """
         url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}"
         try:
@@ -1367,13 +1385,30 @@ class SigmaAPI:
                 # resolve -- verified against a live tenant -- so both statuses
                 # land here.
                 status = response.status_code
-                if self._known_good_dataset_id is not None:
+                known_good = self._known_good_dataset_id
+                if known_good is not None:
                     # Cheapest decisive check: re-ask for a dataset whose
-                    # /sources answered 200 earlier this run. If that now fails
-                    # too, the endpoint went away rather than this dataset.
-                    if self._dataset_sources_gone_for(self._known_good_dataset_id):
-                        self._mark_dataset_sources_gone(dataset_id, status)
-                        return None
+                    # /sources answered 200 earlier this run.
+                    if self._dataset_sources_gone_for(known_good):
+                        # /sources failed for the reference too. Two causes: the
+                        # endpoint is gone, or that dataset was archived mid-run
+                        # (operators do this while migrating). Ask the dataset
+                        # API which.
+                        if self._dataset_still_exists(known_good):
+                            # The reference dataset is there but its /sources no
+                            # longer answers: the endpoint went away.
+                            self._mark_dataset_sources_gone(dataset_id, status)
+                            return None
+                        # The reference itself is archived, so it proves nothing
+                        # about the endpoint. Forget it and let the next success
+                        # pick a live one; latching here would disable the route
+                        # for every dataset processed afterwards.
+                        logger.debug(
+                            "Known-good dataset %r no longer exists; dropping it "
+                            "as the re-probe reference.",
+                            known_good,
+                        )
+                        self._known_good_dataset_id = None
                 elif self._dataset_api_is_gone(dataset_id):
                     # Nothing has succeeded yet, so fall back to asking whether
                     # the dataset API as a whole still answers.
