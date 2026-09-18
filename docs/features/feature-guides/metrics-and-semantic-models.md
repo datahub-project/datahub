@@ -268,6 +268,8 @@ Two entity kinds are deliberately **not** governance destinations, because there
 
 Unlike Snowflake, both dbt sides are datasets carrying env, so PROD and DEV stay distinct — and a source in a different env than `--env` is refused unless you pass `--allow-cross-env`. That is deliberately a separate flag from `--force`, so an unattended run passing `-F` keeps the guard.
 
+**Scoping to one project.** Discovery finds every `Semantic Model` dataset for the given platform instance and env; neither the URN nor its metadata records which dbt project a semantic model came from, so discovery cannot narrow by project. `--project-name` synthesizes destinations under the project you name, so using it with discovery requires `--platform-instance` — otherwise another project's semantic models would be migrated onto this project's URNs, and since destinations are not required to exist yet (so that governance can be migrated before the new-side ingest runs), that would create datasets no ingestion will ever fill. If your projects do not use platform instances, name the sources yourself with `--urn`, `--urn-file` or `--mapping-file`.
+
 ### What neither command migrates
 
 Lineage, policies, data products, and soft- or hard-delete. Run ingestion with the flag on afterwards to fill the structural aspects. Column descriptions are carried only where a human authored them: an ingestion-authored description is not copied into the destination's editable layer, where it would override whatever that destination's own ingestion produces.

@@ -1353,7 +1353,10 @@ def _read_urn_pairs_from_file(path: str) -> Dict[str, str]:
     default=None,
     help="dbt project name, as it appears in the new dataset urns. The only "
     "option that works before the new-side ingest has run, since it synthesizes "
-    "the destination urns. Forward direction only.",
+    "the destination urns. Forward direction only. With discovery it requires "
+    "--platform-instance, since discovery cannot tell which project a legacy "
+    "semantic model belongs to; pass --urn / --urn-file / --mapping-file "
+    "instead to name the sources yourself.",
 )
 @click.option(
     "--mapping-file",
@@ -1483,6 +1486,16 @@ def dbt_semantic_models(
     database.schema prefix is not in the new one, so the two sides cannot be
     paired from a single urn. Supply --mapping-file, --project-name (forward,
     pre-ingest), or rely on --pair-by-name (both sides must exist).
+
+    \b
+    SCOPING
+    Discovery finds every "Semantic Model" dataset for the platform instance
+    and env -- it cannot tell which dbt project one belongs to, since neither
+    the urn nor the metadata records that. So --project-name, which synthesizes
+    destinations under the project it is given, requires --platform-instance
+    when it is used with discovery; otherwise another project's semantic models
+    would be migrated onto this project's urns. Naming the sources with --urn,
+    --urn-file or --mapping-file scopes them yourself and needs no instance.
     """
     migration_direction = MigrationDirection(direction)
     if project_name and migration_direction == MigrationDirection.SM_TO_DATASET:
@@ -1517,8 +1530,31 @@ def dbt_semantic_models(
             only_soft_deleted=only_soft_deleted,
         )
 
+    explicit_source_urns = _collect_source_urns(urns, urn_file)
+
+    # Discovery is scoped by platform instance and env, never by project:
+    # nothing in a legacy urn or its metadata says which dbt project a semantic
+    # model belongs to. So with --project-name, every project's legacy semantic
+    # models in this env would be mapped under the one named project, and since
+    # destinations are deliberately not existence-checked (migrate-first is
+    # supported), that writes governance onto urns no ingest will ever emit --
+    # creating phantom datasets, reported as migrated.
+    #
+    # Required rather than inferred: dbt_package_name is the package a model
+    # came from, not the project, so filtering on it would silently skip models
+    # shipped inside an installed package.
+    if forward and project_name and not explicit_source_urns and not platform_instance:
+        raise click.ClickException(
+            "--project-name with discovery needs --platform-instance, so that "
+            "only this project's semantic models are found. Discovery is scoped "
+            "by platform instance and env; without one, another project's "
+            "semantic models would be migrated onto this project's urns. Pass "
+            "--platform-instance, or name the sources explicitly with --urn / "
+            "--urn-file / --mapping-file."
+        )
+
     sources = semantic_migration_common.resolve_migration_sources(
-        explicit_urns=_collect_source_urns(urns, urn_file),
+        explicit_urns=explicit_source_urns,
         discover=discover,
         expected_subtype=expected_subtype,
         filter_subtype=lambda candidates: dbt_migration.filter_by_expected_subtype(

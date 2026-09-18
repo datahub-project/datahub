@@ -1186,6 +1186,90 @@ class TestDbtSemanticModelsCli:
     @patch("datahub.cli.migrate.dbt_migration.run_migration")
     @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
     @patch("datahub.cli.migrate.get_default_graph")
+    def test_project_name_with_discovery_requires_a_platform_instance(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        """Discovery cannot tell which dbt project a legacy model belongs to.
+
+        So synthesizing destinations under one project, over everything
+        discovered, would migrate other projects' models onto this project's
+        urns -- and destinations are not existence-checked, so those become
+        phantom datasets reported as migrated.
+        """
+        result = self._invoke(
+            "--direction", "dataset-to-sm", "--project-name", "jaffle_shop"
+        )
+
+        assert result.exit_code != 0
+        assert (
+            "--project-name with discovery needs --platform-instance" in result.output
+        )
+        mock_run_migration.assert_not_called()
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_project_name_with_a_platform_instance_is_allowed(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        """--platform-instance scopes discovery, which is what the guard wants."""
+        # Carries the instance prefix, as a legacy urn ingested with one does.
+        instanced = (
+            "urn:li:dataset:"
+            "(urn:li:dataPlatform:dbt,jaffle_shop.pagila.public.orders,PROD)"
+        )
+        mock_filter.return_value = ([instanced], [])
+        mock_run_migration.return_value = MagicMock(results=[])
+        mock_get_graph.return_value.get_urns_by_filter.return_value = [instanced]
+
+        result = self._invoke(
+            "--direction",
+            "dataset-to-sm",
+            "--project-name",
+            "jaffle_shop",
+            "--platform-instance",
+            "jaffle_shop",
+            "--force",
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_run_migration.assert_called_once()
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_project_name_with_explicit_urns_needs_no_platform_instance(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        """Naming the sources scopes them, so the guard must not fire."""
+        mock_filter.return_value = ([self.LEGACY_URN], [])
+        mock_run_migration.return_value = MagicMock(results=[])
+
+        result = self._invoke(
+            "--direction",
+            "dataset-to-sm",
+            "--urn",
+            self.LEGACY_URN,
+            "--project-name",
+            "jaffle_shop",
+            "--force",
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_run_migration.assert_called_once()
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
     def test_force_skips_confirmation_prompt(
         self,
         mock_get_graph: MagicMock,
