@@ -37,6 +37,7 @@ import { DEFAULT_PAGE_SIZE, EMPTY_POLICY } from '@app/permissions/policy/policyU
 import { usePolicy } from '@app/permissions/policy/usePolicy';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetPolicyPrivilegesQuery } from '@graphql/app.generated';
@@ -231,6 +232,9 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
         onToggleActiveDuplicate,
         onRemovePolicy,
         getPrivilegeNames,
+        policyToDelete,
+        handleDeleteConfirm,
+        handleDeleteCancel,
     } = usePolicy(
         policyPrivileges,
         focusPolicyUrn,
@@ -549,6 +553,13 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                     resourcePrivileges={policyPrivileges?.resourcePrivileges}
                 />
             )}
+            <ConfirmationModal
+                isOpen={!!policyToDelete}
+                modalTitle={t('deletePolicyTitle', { name: policyToDelete?.name })}
+                modalText={t('deletePolicyText')}
+                handleConfirm={handleDeleteConfirm}
+                handleClose={handleDeleteCancel}
+            />
         </>
     );
 };

@@ -465,14 +465,14 @@ export class StructuredPropertiesPage extends BasePage {
     await actionItem.click();
   }
 
-  async expectDrawerContains(text: string): Promise<void> {
+  async expectDrawerContains(text: string, timeout?: number): Promise<void> {
     this.logger?.step('expectDrawerContains', { text });
-    await expect(this.fieldDrawer).toContainText(text);
+    await expect(this.fieldDrawer).toContainText(text, timeout ? { timeout } : undefined);
   }
 
-  async expectDrawerNotContains(text: string): Promise<void> {
+  async expectDrawerNotContains(text: string, timeout?: number): Promise<void> {
     this.logger?.step('expectDrawerNotContains', { text });
-    await expect(this.fieldDrawer).not.toContainText(text);
+    await expect(this.fieldDrawer).not.toContainText(text, timeout ? { timeout } : undefined);
   }
 
   async confirmModalAction(): Promise<void> {
