@@ -40,7 +40,6 @@ export const Preview = ({
             entityType={EntityType.MlmodelGroup}
             logoUrl={group?.platform?.properties?.logoUrl || ''}
             platform={group?.platform?.properties?.displayName || capitalizeFirstLetterOnly(group?.platform?.name)}
-            qualifier={group?.origin}
             owners={group?.ownership?.owners}
             dataProduct={getDataProduct(genericProperties?.dataProduct)}
             degree={degree}

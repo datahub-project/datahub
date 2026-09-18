@@ -402,7 +402,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 urn={data.urn}
                 data={genericProperties}
                 name={data.properties?.name || data.name}
-                origin={data.origin}
                 subtype={getFirstSubType(data)}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
@@ -437,7 +436,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 urn={data.urn}
                 data={genericProperties}
                 name={data.properties?.name || data.name}
-                origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
                     platformNames?.[0] ||

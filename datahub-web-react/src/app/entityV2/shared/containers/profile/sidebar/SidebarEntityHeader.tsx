@@ -5,8 +5,10 @@ import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/header/EntityHeaderLoadingSection';
 import EntityName from '@app/entityV2/shared/containers/profile/header/EntityName';
+import EnvPill from '@app/entityV2/shared/containers/profile/header/EnvPill';
 import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { getEntityEnvironment } from '@app/entityV2/shared/containers/profile/header/getEntityEnvironment';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
@@ -14,9 +16,10 @@ import ContextPath from '@app/previewV2/ContextPath';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import NotesIcon from '@app/previewV2/NotesIcon';
 import HorizontalScroller from '@app/sharedV2/carousel/HorizontalScroller';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { DataPlatform, EntityType, Post } from '@types';
+import { DataPlatform, Entity, EntityType, Post } from '@types';
 
 const Wrapper = styled.div<{ $hasPlatformIcon?: boolean }>`
     padding: 0 ${(props) => (props.$hasPlatformIcon ? '16px' : '20px')};
@@ -45,9 +48,11 @@ const SidebarEntityHeader = () => {
     const { urn, entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
+    const appConfig = useAppConfig();
     const entityUrl = entityRegistry.getEntityUrl(entityType, entityData?.urn as string);
 
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
+    const environment = getEntityEnvironment(entityData as unknown as Entity);
 
     const platform = entityType === EntityType.SchemaField ? entityData?.parent?.platform : entityData?.platform;
     const platforms =
@@ -88,6 +93,9 @@ const SidebarEntityHeader = () => {
                             />
                         )}
                         {entityData?.health && <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />}
+                        {appConfig.config?.visualConfig?.showEnvironmentBadge && environment && (
+                            <EnvPill environment={environment} />
+                        )}
                         <StructuredPropertyBadge
                             structuredProperties={entityData?.structuredProperties}
                             platformUrn={(platform as DataPlatform | undefined)?.urn}

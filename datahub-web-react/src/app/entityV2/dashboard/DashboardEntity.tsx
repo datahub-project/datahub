@@ -293,7 +293,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}
@@ -325,7 +324,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 name={data.properties?.name}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}

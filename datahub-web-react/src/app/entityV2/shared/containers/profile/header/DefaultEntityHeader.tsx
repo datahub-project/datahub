@@ -8,9 +8,11 @@ import EntityMenuActions, { EntityMenuItems } from '@app/entityV2/shared/EntityD
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/header/EntityHeaderLoadingSection';
 import EntityName from '@app/entityV2/shared/containers/profile/header/EntityName';
+import EnvPill from '@app/entityV2/shared/containers/profile/header/EnvPill';
 import IconColorPicker from '@app/entityV2/shared/containers/profile/header/IconPicker/IconColorPicker';
 import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { getEntityEnvironment } from '@app/entityV2/shared/containers/profile/header/getEntityEnvironment';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { getDisplayedEntityType, getEntityPlatforms } from '@app/entityV2/shared/containers/profile/header/utils';
 import { EntityBackButton } from '@app/entityV2/shared/containers/profile/sidebar/EntityBackButton';
@@ -23,9 +25,10 @@ import ContextPath from '@app/previewV2/ContextPath';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import NotesIcon from '@app/previewV2/NotesIcon';
 import { useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { DataPlatform, DisplayProperties, Domain, EntityType, Post } from '@types';
+import { DataPlatform, DisplayProperties, Domain, Entity, EntityType, Post } from '@types';
 
 const TitleWrapper = styled.div`
     min-width: 0;
@@ -147,11 +150,13 @@ export const DefaultEntityHeader = ({
 }: Props) => {
     const [showIconPicker, setShowIconPicker] = useState(false);
     const entityRegistry = useEntityRegistry();
+    const appConfig = useAppConfig();
     const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
     const generateDomainColor = useGenerateDomainColorFromPalette();
 
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const { platform, platforms } = getEntityPlatforms(entityType, entityData);
+    const environment = getEntityEnvironment(entityData as unknown as Entity);
 
     const isGlossaryNode = entityType === EntityType.GlossaryNode;
     const isGlossaryTerm = entityType === EntityType.GlossaryTerm;
@@ -243,6 +248,9 @@ export const DefaultEntityHeader = ({
                                         )}
                                         {entityData?.health && (
                                             <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />
+                                        )}
+                                        {appConfig.config?.visualConfig?.showEnvironmentBadge && environment && (
+                                            <EnvPill environment={environment} />
                                         )}
                                         <StructuredPropertyBadge
                                             structuredProperties={entityData?.structuredProperties}

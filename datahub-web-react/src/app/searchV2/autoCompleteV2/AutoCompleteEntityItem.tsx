@@ -2,6 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import EnvPill from '@app/entityV2/shared/containers/profile/header/EnvPill';
+import { getEntityEnvironment } from '@app/entityV2/shared/containers/profile/header/getEntityEnvironment';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import DisplayName from '@app/searchV2/autoCompleteV2/components/DisplayName';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
@@ -11,6 +13,7 @@ import { VARIANT_STYLES } from '@app/searchV2/autoCompleteV2/constants';
 import { EntityItemVariant } from '@app/searchV2/autoCompleteV2/types';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
 import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
+import { useAppConfig } from '@app/useAppConfig';
 import { Text } from '@src/alchemy-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity, MatchedField } from '@src/types.generated';
@@ -66,6 +69,12 @@ const DisplayNameWrapper = styled.div`
     & div {
         line-height: inherit;
     }
+`;
+
+const NameRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
 `;
 
 const SubtitleAndMatchesWrapper = styled.div`
@@ -165,6 +174,8 @@ export default function AutoCompleteEntityItem({
 }: EntityAutocompleteItemProps) {
     const entityRegistry = useEntityRegistryV2();
     const linkProps = useGetModalLinkProps();
+    const appConfig = useAppConfig();
+    const environment = getEntityEnvironment(entity);
 
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const displayType = getEntityDisplayType(entity, entityRegistry);
@@ -245,18 +256,23 @@ export default function AutoCompleteEntityItem({
                 )}
 
                 <DescriptionContainer>
-                    {customHoverEntityName ? (
-                        customHoverEntityName(entity, <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>)
-                    ) : (
-                        <HoverEntityTooltip
-                            placement="bottom"
-                            entity={entity}
-                            showArrow={false}
-                            canOpen={variantProps?.showEntityPopover}
-                        >
-                            <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
-                        </HoverEntityTooltip>
-                    )}
+                    <NameRow>
+                        {customHoverEntityName ? (
+                            customHoverEntityName(entity, <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>)
+                        ) : (
+                            <HoverEntityTooltip
+                                placement="bottom"
+                                entity={entity}
+                                showArrow={false}
+                                canOpen={variantProps?.showEntityPopover}
+                            >
+                                <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
+                            </HoverEntityTooltip>
+                        )}
+                        {appConfig.config?.visualConfig?.showEnvironmentBadge && environment && (
+                            <EnvPill environment={environment} />
+                        )}
+                    </NameRow>
 
                     {(!hideSubtitle || !hideMatches) && (
                         <SubtitleAndMatchesWrapper>

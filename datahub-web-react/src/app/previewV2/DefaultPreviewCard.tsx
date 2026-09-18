@@ -12,6 +12,7 @@ import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptio
 import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
+import { getEntityEnvironment } from '@app/entityV2/shared/containers/profile/header/getEntityEnvironment';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
@@ -163,8 +164,6 @@ interface Props {
     lastUpdatedMs?: DatasetLastUpdatedMs | DashboardLastUpdatedMs;
     description?: string;
     // eslint-disable-next-line react/no-unused-prop-types
-    qualifier?: string | null;
-    // eslint-disable-next-line react/no-unused-prop-types
     externalUrl?: string | null;
     tier?: PopularityTier;
     isOutputPort?: boolean;
@@ -271,6 +270,10 @@ export default function DefaultPreviewCard({
     const lastRunEvent = data?.lastRunEvent;
     const shouldShowDPIinfo =
         lastRunEvent?.timestampMillis || lastRunEvent?.durationMillis || lastRunEvent?.result?.resultType;
+    // `data` is a GenericEntityProperties projection of the raw search-result entity, but it's
+    // built by spreading that entity (see getDataForEntityType), so the fields getEntityEnvironment
+    // needs (type, origin, properties.env) are present on it at runtime.
+    const environment = getEntityEnvironment(data as unknown as Entity);
     const entityHeader = (
         <EntityHeader
             name={name}
@@ -285,6 +288,7 @@ export default function DefaultPreviewCard({
             refetchDeprecation={refetchDeprecation}
             connectionName={previewData?.name}
             previewData={previewData}
+            environment={environment}
         />
     );
 
