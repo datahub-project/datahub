@@ -97,8 +97,10 @@ public class GraphQLResponseBodyConverter
               "GraphQL response streaming aborted by client after {} bytes: {}",
               counting.getCount(),
               e.toString());
-          primaryFailure = e;
-          throw e;
+          GraphQLResponseStreamAbortedException aborted =
+              new GraphQLResponseStreamAbortedException(e);
+          primaryFailure = aborted;
+          throw aborted;
         }
 
         if (servletResponse != null && !servletResponse.isCommitted()) {
@@ -122,8 +124,10 @@ public class GraphQLResponseBodyConverter
         incrementMetric(STREAM_ERROR_METRIC);
         // Once committed, HTTP 200 and any bytes already sent cannot be replaced.
         log.error("Failed to stream GraphQL response after {} bytes", counting.getCount(), e);
-        primaryFailure = e;
-        throw e;
+        GraphQLResponseStreamAbortedException aborted =
+            new GraphQLResponseStreamAbortedException(e);
+        primaryFailure = aborted;
+        throw aborted;
       }
       body.onBytesWritten().accept(counting.getCount());
     } finally {

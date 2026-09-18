@@ -145,7 +145,7 @@ public class GraphQLResponseBodyConverterTest {
     assertEquals(recorded[0], streamed.length, "recorded size must be the true UTF-8 byte count");
   }
 
-  @Test(expectedExceptions = IOException.class)
+  @Test
   public void testWritePropagatesMidStreamIoErrorCountsItAndSkipsCallback() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
     MetricUtils metricUtils = mock(MetricUtils.class);
@@ -166,32 +166,35 @@ public class GraphQLResponseBodyConverterTest {
           }
         };
 
-    try {
-      converter.write(
-          new GraphQLResponseBody(
-              Map.of("data", Map.of("k", "v")),
-              b -> callbackInvoked[0] = true,
-              success -> finished[0] = success),
-          MediaType.APPLICATION_JSON,
-          outputMessage(failing, new HttpHeaders()));
-    } finally {
-      // Genuine failure: no byte callback, counted as streamError (not clientAbort).
-      assertFalse(callbackInvoked[0]);
-      assertFalse(finished[0], "failed write must report unsuccessful completion");
-      verify(metricUtils, times(1))
-          .increment(
-              GraphQLResponseBodyConverter.class,
-              GraphQLResponseBodyConverter.STREAM_ERROR_METRIC,
-              1);
-      verify(metricUtils, never())
-          .increment(
-              eq(GraphQLResponseBodyConverter.class),
-              eq(GraphQLResponseBodyConverter.CLIENT_ABORT_METRIC),
-              anyDouble());
-    }
+    GraphQLResponseStreamAbortedException thrown =
+        expectThrows(
+            GraphQLResponseStreamAbortedException.class,
+            () ->
+                converter.write(
+                    new GraphQLResponseBody(
+                        Map.of("data", Map.of("k", "v")),
+                        b -> callbackInvoked[0] = true,
+                        success -> finished[0] = success),
+                    MediaType.APPLICATION_JSON,
+                    outputMessage(failing, new HttpHeaders())));
+    assertTrue(thrown.getCause() instanceof IOException);
+
+    // Genuine failure: no byte callback, counted as streamError (not clientAbort).
+    assertFalse(callbackInvoked[0]);
+    assertFalse(finished[0], "failed write must report unsuccessful completion");
+    verify(metricUtils, times(1))
+        .increment(
+            GraphQLResponseBodyConverter.class,
+            GraphQLResponseBodyConverter.STREAM_ERROR_METRIC,
+            1);
+    verify(metricUtils, never())
+        .increment(
+            eq(GraphQLResponseBodyConverter.class),
+            eq(GraphQLResponseBodyConverter.CLIENT_ABORT_METRIC),
+            anyDouble());
   }
 
-  @Test(expectedExceptions = EOFException.class)
+  @Test
   public void testWriteClientAbortCountsClientAbortNotStreamError() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
     MetricUtils metricUtils = mock(MetricUtils.class);
@@ -213,29 +216,32 @@ public class GraphQLResponseBodyConverterTest {
           }
         };
 
-    try {
-      converter.write(
-          new GraphQLResponseBody(
-              Map.of("data", Map.of("k", "v")),
-              b -> callbackInvoked[0] = true,
-              success -> finished[0] = success),
-          MediaType.APPLICATION_JSON,
-          outputMessage(aborting, new HttpHeaders()));
-    } finally {
-      // Client disconnect: counted as clientAbort, never streamError, no byte callback.
-      assertFalse(callbackInvoked[0]);
-      assertFalse(finished[0], "client abort must report unsuccessful completion");
-      verify(metricUtils, times(1))
-          .increment(
-              GraphQLResponseBodyConverter.class,
-              GraphQLResponseBodyConverter.CLIENT_ABORT_METRIC,
-              1);
-      verify(metricUtils, never())
-          .increment(
-              eq(GraphQLResponseBodyConverter.class),
-              eq(GraphQLResponseBodyConverter.STREAM_ERROR_METRIC),
-              anyDouble());
-    }
+    GraphQLResponseStreamAbortedException thrown =
+        expectThrows(
+            GraphQLResponseStreamAbortedException.class,
+            () ->
+                converter.write(
+                    new GraphQLResponseBody(
+                        Map.of("data", Map.of("k", "v")),
+                        b -> callbackInvoked[0] = true,
+                        success -> finished[0] = success),
+                    MediaType.APPLICATION_JSON,
+                    outputMessage(aborting, new HttpHeaders())));
+    assertTrue(thrown.getCause() instanceof EOFException);
+
+    // Client disconnect: counted as clientAbort, never streamError, no byte callback.
+    assertFalse(callbackInvoked[0]);
+    assertFalse(finished[0], "client abort must report unsuccessful completion");
+    verify(metricUtils, times(1))
+        .increment(
+            GraphQLResponseBodyConverter.class,
+            GraphQLResponseBodyConverter.CLIENT_ABORT_METRIC,
+            1);
+    verify(metricUtils, never())
+        .increment(
+            eq(GraphQLResponseBodyConverter.class),
+            eq(GraphQLResponseBodyConverter.STREAM_ERROR_METRIC),
+            anyDouble());
   }
 
   @Test
@@ -246,7 +252,7 @@ public class GraphQLResponseBodyConverterTest {
     assertFalse(converter.canRead(GraphQLResponseBody.class, MediaType.APPLICATION_JSON));
   }
 
-  @Test(expectedExceptions = IOException.class)
+  @Test
   public void testWriteClientAbortDetectedViaCauseChain() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
     MetricUtils metricUtils = mock(MetricUtils.class);
@@ -269,28 +275,32 @@ public class GraphQLResponseBodyConverterTest {
           }
         };
 
-    try {
-      converter.write(
-          new GraphQLResponseBody(
-              Map.of("data", Map.of("k", "v")),
-              b -> callbackInvoked[0] = true,
-              success -> finished[0] = success),
-          MediaType.APPLICATION_JSON,
-          outputMessage(aborting, new HttpHeaders()));
-    } finally {
-      assertFalse(callbackInvoked[0]);
-      assertFalse(finished[0], "wrapped client abort must report unsuccessful completion");
-      verify(metricUtils, times(1))
-          .increment(
-              GraphQLResponseBodyConverter.class,
-              GraphQLResponseBodyConverter.CLIENT_ABORT_METRIC,
-              1);
-      verify(metricUtils, never())
-          .increment(
-              eq(GraphQLResponseBodyConverter.class),
-              eq(GraphQLResponseBodyConverter.STREAM_ERROR_METRIC),
-              anyDouble());
-    }
+    GraphQLResponseStreamAbortedException thrown =
+        expectThrows(
+            GraphQLResponseStreamAbortedException.class,
+            () ->
+                converter.write(
+                    new GraphQLResponseBody(
+                        Map.of("data", Map.of("k", "v")),
+                        b -> callbackInvoked[0] = true,
+                        success -> finished[0] = success),
+                    MediaType.APPLICATION_JSON,
+                    outputMessage(aborting, new HttpHeaders())));
+    assertTrue(thrown.getCause() instanceof IOException);
+    assertTrue(thrown.getCause().getCause() instanceof EOFException);
+
+    assertFalse(callbackInvoked[0]);
+    assertFalse(finished[0], "wrapped client abort must report unsuccessful completion");
+    verify(metricUtils, times(1))
+        .increment(
+            GraphQLResponseBodyConverter.class,
+            GraphQLResponseBodyConverter.CLIENT_ABORT_METRIC,
+            1);
+    verify(metricUtils, never())
+        .increment(
+            eq(GraphQLResponseBodyConverter.class),
+            eq(GraphQLResponseBodyConverter.STREAM_ERROR_METRIC),
+            anyDouble());
   }
 
   @Test(expectedExceptions = GraphQLResponseSerializationException.class)
@@ -336,7 +346,7 @@ public class GraphQLResponseBodyConverterTest {
     }
   }
 
-  @Test(expectedExceptions = EOFException.class)
+  @Test
   public void testUncommittedClientAbortStaysClientAbortNotSerializeError() throws Exception {
     ObjectMapper mapper = mock(ObjectMapper.class);
     MetricUtils metricUtils = mock(MetricUtils.class);
@@ -348,25 +358,28 @@ public class GraphQLResponseBodyConverterTest {
         .writeValue(
             org.mockito.ArgumentMatchers.any(Writer.class), org.mockito.ArgumentMatchers.any());
 
-    try {
-      converter.writeInternal(
-          new GraphQLResponseBody(Map.of("data", "v"), bytes -> {}, success -> {}),
-          new ServletServerHttpResponse(fixture.response()));
-    } finally {
-      verify(metricUtils, times(1))
-          .increment(
-              GraphQLResponseBodyConverter.class,
-              GraphQLResponseBodyConverter.CLIENT_ABORT_METRIC,
-              1);
-      verify(metricUtils, never())
-          .increment(
-              eq(GraphQLResponseBodyConverter.class),
-              eq(GraphQLResponseBodyConverter.SERIALIZE_ERROR_METRIC),
-              anyDouble());
-    }
+    GraphQLResponseStreamAbortedException thrown =
+        expectThrows(
+            GraphQLResponseStreamAbortedException.class,
+            () ->
+                converter.writeInternal(
+                    new GraphQLResponseBody(Map.of("data", "v"), bytes -> {}, success -> {}),
+                    new ServletServerHttpResponse(fixture.response())));
+    assertTrue(thrown.getCause() instanceof EOFException);
+
+    verify(metricUtils, times(1))
+        .increment(
+            GraphQLResponseBodyConverter.class,
+            GraphQLResponseBodyConverter.CLIENT_ABORT_METRIC,
+            1);
+    verify(metricUtils, never())
+        .increment(
+            eq(GraphQLResponseBodyConverter.class),
+            eq(GraphQLResponseBodyConverter.SERIALIZE_ERROR_METRIC),
+            anyDouble());
   }
 
-  @Test(expectedExceptions = JsonProcessingException.class)
+  @Test
   public void testCommittedSerializationFailureStaysStreamErrorAndDoesNotResetBuffer()
       throws Exception {
     ObjectMapper mapper = mock(ObjectMapper.class);
@@ -374,28 +387,32 @@ public class GraphQLResponseBodyConverterTest {
     GraphQLResponseBodyConverter converter = new GraphQLResponseBodyConverter(mapper, metricUtils);
     ServletResponseFixture fixture = servletResponse(true);
 
-    org.mockito.Mockito.doThrow(new JsonProcessingException("cannot serialize") {})
+    JsonProcessingException failure = new JsonProcessingException("cannot serialize") {};
+    org.mockito.Mockito.doThrow(failure)
         .when(mapper)
         .writeValue(
             org.mockito.ArgumentMatchers.any(Writer.class), org.mockito.ArgumentMatchers.any());
 
-    try {
-      converter.writeInternal(
-          new GraphQLResponseBody(Map.of("data", "bad"), bytes -> {}, success -> {}),
-          new ServletServerHttpResponse(fixture.response()));
-    } finally {
-      verify(fixture.response(), never()).resetBuffer();
-      verify(metricUtils, times(1))
-          .increment(
-              GraphQLResponseBodyConverter.class,
-              GraphQLResponseBodyConverter.STREAM_ERROR_METRIC,
-              1);
-      verify(metricUtils, never())
-          .increment(
-              eq(GraphQLResponseBodyConverter.class),
-              eq(GraphQLResponseBodyConverter.SERIALIZE_ERROR_METRIC),
-              anyDouble());
-    }
+    GraphQLResponseStreamAbortedException thrown =
+        expectThrows(
+            GraphQLResponseStreamAbortedException.class,
+            () ->
+                converter.writeInternal(
+                    new GraphQLResponseBody(Map.of("data", "bad"), bytes -> {}, success -> {}),
+                    new ServletServerHttpResponse(fixture.response())));
+    assertEquals(thrown.getCause(), failure);
+
+    verify(fixture.response(), never()).resetBuffer();
+    verify(metricUtils, times(1))
+        .increment(
+            GraphQLResponseBodyConverter.class,
+            GraphQLResponseBodyConverter.STREAM_ERROR_METRIC,
+            1);
+    verify(metricUtils, never())
+        .increment(
+            eq(GraphQLResponseBodyConverter.class),
+            eq(GraphQLResponseBodyConverter.SERIALIZE_ERROR_METRIC),
+            anyDouble());
   }
 
   @Test
@@ -436,15 +453,15 @@ public class GraphQLResponseBodyConverterTest {
         .writeValue(
             org.mockito.ArgumentMatchers.any(Writer.class), org.mockito.ArgumentMatchers.any());
 
-    JsonProcessingException actual =
+    GraphQLResponseStreamAbortedException actual =
         expectThrows(
-            JsonProcessingException.class,
+            GraphQLResponseStreamAbortedException.class,
             () ->
                 converter.writeInternal(
                     new GraphQLResponseBody(Map.of("data", "bad"), bytes -> {}, success -> {}),
                     new ServletServerHttpResponse(fixture.response())));
 
-    assertEquals(actual, failure);
+    assertEquals(actual.getCause(), failure);
     verify(metricUtils, times(1))
         .increment(
             GraphQLResponseBodyConverter.class,

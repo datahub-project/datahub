@@ -90,6 +90,11 @@ public class GraphQLResponseHttpIntegrationTest {
         .build();
   }
 
+  /**
+   * Subclasses {@link GraphQLController} so standalone MockMvc inherits the controller-local
+   * {@code @ExceptionHandler}s. Standalone setup has no advice chain, and a test-only advice would
+   * not reproduce production precedence over GlobalControllerExceptionHandler.
+   */
   @RestController
   @RequestMapping("/response")
   private static class ResponseController extends GraphQLController {

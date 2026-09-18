@@ -460,6 +460,12 @@ public class GraphQLController {
         Map.of("error", "Failed to serialize GraphQL response"), HttpStatus.SERVICE_UNAVAILABLE);
   }
 
+  @ExceptionHandler(GraphQLResponseStreamAbortedException.class)
+  void handleStreamAborted() {
+    // Committed (or dead) socket: converter already logged and counted. Do not let
+    // GlobalControllerExceptionHandler log ERROR and attempt a 500/400 body.
+  }
+
   /**
    * Streaming-path duration logging at execution time. Does not include variables or response size
    * (size is only known after the converter write).

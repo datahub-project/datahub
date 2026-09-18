@@ -44,6 +44,16 @@ public class GraphQLControllerTest {
   }
 
   @Test
+  public void testResponseStreamAbortedExceptionMapsToHandleStreamAborted() {
+    GraphQLResponseStreamAbortedException exception =
+        new GraphQLResponseStreamAbortedException(new IOException("broken pipe"));
+    ExceptionHandlerMethodResolver resolver =
+        new ExceptionHandlerMethodResolver(GraphQLController.class);
+
+    assertEquals(resolver.resolveMethod(exception).getName(), "handleStreamAborted");
+  }
+
+  @Test
   public void testFrontGateDenialShortCircuitsHeavyGate() {
     RateLimitEngine engine = mock(RateLimitEngine.class);
     RateLimitDecision frontGate = denied("scoped:actor");
