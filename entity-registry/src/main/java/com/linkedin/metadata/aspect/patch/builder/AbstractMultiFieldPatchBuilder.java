@@ -105,7 +105,8 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
   }
 
   protected static String encodeValue(@Nonnull String value) {
-    return value.replace("~ ", "~0").replace("/", "~1");
+    // RFC 6901 JSON Pointer escaping: '~' -> '~0' first, then '/' -> '~1'.
+    return value.replace("~", "~0").replace("/", "~1");
   }
 
   protected static String encodeValueUrn(@Nonnull Urn urn) {
