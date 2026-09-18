@@ -80,7 +80,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   protected static final String TEST_INDEX_NAME =
       "estest_datasetindex_v2"; // Use v2 as default for backward compatibility
   protected static final String TEST_V2_INDEX_NAME = TEST_INDEX_NAME;
-  protected static final String TEST_V3_INDEX_NAME = "estest_primaryindex_v3";
+  protected static final String TEST_V3_INDEX_NAME = "estest_datasetindex_v3";
   private ElasticSearchConfiguration testDefaultConfig;
   private ESIndexBuilder testDefaultBuilder;
   private ESIndexBuilder testReplicasBuilder;
@@ -847,8 +847,11 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                       "myStringProp",
                       Map.of(ESUtils.TYPE, V2LegacySettingsBuilder.KEYWORD))));
     }
+    // With structured-property system-update disabled, existing SP mappings are preserved on
+    // the target even when copyStructuredPropertyMappings is false — otherwise a reindex would
+    // drop them (container is dynamic:false).
     assertEquals(reindexConfigNoCopy.currentMappings(), expectedMappingsStructPropsNested);
-    assertEquals(reindexConfigNoCopy.targetMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertEquals(reindexConfigNoCopy.targetMappings(), expectedMappingsStructPropsNested);
     assertFalse(reindexConfigNoCopy.isPureMappingsAddition());
 
     // Test build reindex config with structured properties copied

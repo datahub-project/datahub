@@ -19,7 +19,7 @@ import lombok.Getter;
 
 @Builder
 @Getter
-@EqualsAndHashCode
+@EqualsAndHashCode(cacheStrategy = EqualsAndHashCode.CacheStrategy.LAZY)
 public class EntityRegistryContext implements ContextInterface {
   public static final EntityRegistryContext EMPTY =
       EntityRegistryContext.builder().build(EmptyEntityRegistry.EMPTY);

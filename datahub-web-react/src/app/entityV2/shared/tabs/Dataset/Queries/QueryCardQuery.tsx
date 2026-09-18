@@ -58,7 +58,6 @@ export default function QueryCardQuery({ query, showDetails, onClickExpand, inde
         >
             <NestedSyntax showLineNumbers language={SQL_LANGUAGE} isCompact={isCompact}>
                 {query}
-                {query}
             </NestedSyntax>
         </Statement>
     );

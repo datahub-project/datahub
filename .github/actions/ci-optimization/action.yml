@@ -64,10 +64,13 @@ runs:
         else
           echo "trigger=pr" >> $GITHUB_OUTPUT
         fi
-    - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4
+    - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
       id: filter
       with:
         list-files: json
+        # some-with-excludes: a file matches if it hits a positive glob and no ! glob.
+        # Filters without ! keep the old `some` behavior.
+        predicate-quantifier: some-with-excludes
         filters: |
           frontend:
             - "datahub-frontend/**"
@@ -115,6 +118,10 @@ runs:
             - "metadata-io/**"
             - "metadata-jobs/**"
             - "metadata-service/**"
+            # Toast JSON and productUpdateCiGate are lint-only (product_update_release_sync).
+            - "!metadata-service/configuration/src/main/resources/product-update.json"
+            - "!metadata-service/configuration/src/main/resources/product-update-saas.json"
+            - "!metadata-service/configuration/src/productUpdateCiGate/**"
             - "metadata-utils/**"
             - "metadata-operation-context/**"
             - "metadata-integration/**"
@@ -132,10 +139,5 @@ runs:
             - "metadata-models/**"
           playwright-test:
             - "e2e-test/ui/playwright/**"
-          # Backs the changed-files output. Exclusion patterns would express the
-          # "unclassified path" question directly, but they need
-          # predicate-quantifier: some-with-excludes, which the pinned version
-          # of this action does not have -- it validates the value and only
-          # accepts 'some' or 'every'. So callers get the raw list instead.
           all:
             - "**"

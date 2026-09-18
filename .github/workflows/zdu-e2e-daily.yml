@@ -25,6 +25,20 @@ jobs:
     # available.
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 90
+    strategy:
+      # A break that reproduces on only one topology is the signal this matrix
+      # exists for, so don't let fail-fast cancel the other leg before it reports.
+      fail-fast: false
+      matrix:
+        include:
+          # Consumers inside GMS — what quickstartDebug gives a developer.
+          - topology: debug
+          # Consumers split out: the production shape. Rollback dual-write runs
+          # wherever the MCL write path runs, so here it executes in the MAE
+          # container, in a Spring context with a different set of beans —
+          # untested by `debug`, which is how a wiring defect reached main.
+          - topology: debug-consumers
+    name: zdu-e2e (${{ matrix.topology }})
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -94,6 +108,9 @@ jobs:
           # by the locally-built zdu-{old,new}-* tags via the per-service
           # DATAHUB_*_VERSION env vars the framework sets explicitly.
           DATAHUB_VERSION: head
+          # Also derives all four Compose service names — every service key in
+          # docker/profiles/ is profile-suffixed. See constants.PROFILE_SERVICES.
+          ZDU_COMPOSE_PROFILES: ${{ matrix.topology }}
         run: |
           cd smoke-test
           AGENT_MODE=1 venv/bin/python -m tests.zdu
@@ -102,7 +119,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: zdu-failure-bundle-${{ github.run_id }}
+          name: zdu-failure-bundle-${{ matrix.topology }}-${{ github.run_id }}
           path: smoke-test/build/zdu-failure-*/
           if-no-files-found: ignore
 
@@ -110,6 +127,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: zdu-test-report-${{ github.run_id }}
+          name: zdu-test-report-${{ matrix.topology }}-${{ github.run_id }}
           path: smoke-test/build/zdu-test-report.json
           if-no-files-found: ignore

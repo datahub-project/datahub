@@ -213,7 +213,7 @@ export default function UpstreamHealth() {
         <Container>
             <CTAWrapper
                 backgroundColor={themeConfig.colors.bgSurfaceError}
-                borderColor={themeConfig.colors.bgSurfaceError}
+                borderColor={themeConfig.colors.borderError}
                 padding="10px 0 0 0"
             >
                 <TitleWrapper isOpen={isOpen} onClick={() => setIsOpen(!isOpen)}>

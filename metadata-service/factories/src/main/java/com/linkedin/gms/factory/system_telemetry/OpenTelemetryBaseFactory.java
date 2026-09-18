@@ -124,6 +124,15 @@ public abstract class OpenTelemetryBaseFactory {
 
                   return props;
                 })
+            .addResourceCustomizer(
+                (resource, configProperties) ->
+                    resource.merge(
+                        Resource.create(
+                            Attributes.of(
+                                SERVICE_NAME,
+                                getApplicationComponent() != null
+                                    ? getApplicationComponent()
+                                    : "default-service"))))
             .addTracerProviderCustomizer(
                 (sdkTracerProviderBuilder, configProperties) -> {
                   // Network/heavy exporters use async BatchSpanProcessor so span-end never blocks
@@ -153,17 +162,7 @@ public abstract class OpenTelemetryBaseFactory {
                       .setIdGenerator(
                           SystemTelemetryContext.TRACE_ID_GENERATOR != null
                               ? SystemTelemetryContext.TRACE_ID_GENERATOR
-                              : io.opentelemetry.sdk.trace.IdGenerator
-                                  .random()) // Fallback for ID generator
-                      .setResource(
-                          Resource.getDefault()
-                              .merge(
-                                  Resource.create(
-                                      Attributes.of(
-                                          SERVICE_NAME,
-                                          getApplicationComponent() != null
-                                              ? getApplicationComponent()
-                                              : "default-service"))));
+                              : io.opentelemetry.sdk.trace.IdGenerator.random());
                   if (usageSpanExporter != null) {
                     sdkTracerProviderBuilder.addSpanProcessor(usageSpanExporter);
                   }

@@ -1,163 +1,293 @@
 import { describe, expect, it } from 'vitest';
 
-import { LineageEntity } from '@app/lineageV3/common';
+import { FetchStatus, LineageEntity } from '@app/lineageV3/common';
+import { FetchedEntityV2, LineageAsset, LineageAssetType } from '@app/lineageV3/types';
 import getFineGrainedLineage, { schemaFieldExists } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
 
-import { EntityType } from '@types';
+import { EntityType, LineageDirection } from '@types';
 
 describe('schemaFieldExists', () => {
-    const createMockNode = (urn: string, schemaFields?: { fieldPath: string }[]): LineageEntity => ({
-        id: urn,
-        urn,
-        type: EntityType.Dataset,
-        entity: schemaFields
-            ? ({
-                  urn,
-                  type: EntityType.Dataset,
-                  name: 'test',
-                  schemaMetadata: {
-                      fields: schemaFields,
-                  },
-              } as any)
-            : undefined,
-        isExpanded: {} as any,
-        fetchStatus: {} as any,
-        filters: {} as any,
+    it('should return false when node does not exist in nodes map', () => {
+        const nodes = new Map<string, LineageEntity>();
+        const datasetUrn = 'urn:li:dataset:(test,table1,PROD)';
+        const fieldPath = 'field1';
+
+        const result = schemaFieldExists(datasetUrn, fieldPath, nodes);
+
+        expect(result).toBe(false);
     });
 
-    it('returns true when field exists with exact match', () => {
-        const nodes = new Map([
-            [
-                'urn:li:dataset:1',
-                createMockNode('urn:li:dataset:1', [
-                    { fieldPath: 'field1' },
-                    { fieldPath: 'field2' },
-                    { fieldPath: 'field3' },
-                ]),
-            ],
-        ]);
+    it('should return false when node exists but entity is undefined', () => {
+        const nodes = new Map<string, LineageEntity>();
+        const datasetUrn = 'urn:li:dataset:(test,table1,PROD)';
+        const fieldPath = 'field1';
 
-        expect(schemaFieldExists('urn:li:dataset:1', 'field1', nodes)).toBe(true);
-        expect(schemaFieldExists('urn:li:dataset:1', 'field2', nodes)).toBe(true);
-        expect(schemaFieldExists('urn:li:dataset:1', 'field3', nodes)).toBe(true);
-    });
-
-    it('returns false when field does not exist', () => {
-        const nodes = new Map([
-            [
-                'urn:li:dataset:1',
-                createMockNode('urn:li:dataset:1', [{ fieldPath: 'field1' }, { fieldPath: 'field2' }]),
-            ],
-        ]);
-
-        expect(schemaFieldExists('urn:li:dataset:1', 'nonexistent', nodes)).toBe(false);
-        expect(schemaFieldExists('urn:li:dataset:1', 'field3', nodes)).toBe(false);
-    });
-
-    it('returns false when dataset does not exist in nodes', () => {
-        const nodes = new Map([['urn:li:dataset:1', createMockNode('urn:li:dataset:1', [{ fieldPath: 'field1' }])]]);
-
-        expect(schemaFieldExists('urn:li:dataset:999', 'field1', nodes)).toBe(false);
-    });
-
-    it('returns false when node has no entity', () => {
-        const nodes = new Map([['urn:li:dataset:1', createMockNode('urn:li:dataset:1')]]);
-
-        expect(schemaFieldExists('urn:li:dataset:1', 'field1', nodes)).toBe(false);
-    });
-
-    it('returns false when entity has no schemaMetadata', () => {
-        const node: LineageEntity = {
-            id: 'urn:li:dataset:1',
-            urn: 'urn:li:dataset:1',
+        const mockNode: LineageEntity = {
+            id: 'node1',
+            urn: datasetUrn,
             type: EntityType.Dataset,
-            entity: {
-                urn: 'urn:li:dataset:1',
-                type: EntityType.Dataset,
-                name: 'test',
-            } as any,
-            isExpanded: {} as any,
-            fetchStatus: {} as any,
-            filters: {} as any,
+            isExpanded: { [LineageDirection.Upstream]: false, [LineageDirection.Downstream]: false },
+            fetchStatus: {
+                [LineageDirection.Upstream]: FetchStatus.LOADING,
+                [LineageDirection.Downstream]: FetchStatus.LOADING,
+            },
+            filters: {
+                [LineageDirection.Upstream]: { facetFilters: new Map() },
+                [LineageDirection.Downstream]: { facetFilters: new Map() },
+            },
+            entity: undefined,
         };
-        const nodes = new Map([['urn:li:dataset:1', node]]);
 
-        expect(schemaFieldExists('urn:li:dataset:1', 'field1', nodes)).toBe(false);
+        nodes.set(datasetUrn, mockNode);
+
+        const result = schemaFieldExists(datasetUrn, fieldPath, nodes);
+
+        expect(result).toBe(false);
     });
 
-    it('returns false when schemaMetadata has no fields', () => {
-        const node: LineageEntity = {
-            id: 'urn:li:dataset:1',
-            urn: 'urn:li:dataset:1',
+    it('should return false when entity exists but lineageAssets is undefined', () => {
+        const nodes = new Map<string, LineageEntity>();
+        const datasetUrn = 'urn:li:dataset:(test,table1,PROD)';
+        const fieldPath = 'field1';
+
+        const mockEntity: FetchedEntityV2 = {
+            urn: datasetUrn,
             type: EntityType.Dataset,
-            entity: {
-                urn: 'urn:li:dataset:1',
-                type: EntityType.Dataset,
-                name: 'test',
-                schemaMetadata: {} as any,
-            } as any,
-            isExpanded: {} as any,
-            fetchStatus: {} as any,
-            filters: {} as any,
+            name: 'Test Dataset',
+            lineageAssets: undefined,
         };
-        const nodes = new Map([['urn:li:dataset:1', node]]);
 
-        expect(schemaFieldExists('urn:li:dataset:1', 'field1', nodes)).toBe(false);
+        const mockNode: LineageEntity = {
+            id: 'node1',
+            urn: datasetUrn,
+            type: EntityType.Dataset,
+            isExpanded: { [LineageDirection.Upstream]: false, [LineageDirection.Downstream]: false },
+            fetchStatus: {
+                [LineageDirection.Upstream]: FetchStatus.LOADING,
+                [LineageDirection.Downstream]: FetchStatus.LOADING,
+            },
+            filters: {
+                [LineageDirection.Upstream]: { facetFilters: new Map() },
+                [LineageDirection.Downstream]: { facetFilters: new Map() },
+            },
+            entity: mockEntity,
+        };
+
+        nodes.set(datasetUrn, mockNode);
+
+        const result = schemaFieldExists(datasetUrn, fieldPath, nodes);
+
+        expect(result).toBe(false);
     });
 
-    it('normalizes V2 field paths for comparison', () => {
-        const nodes = new Map([
-            [
-                'urn:li:dataset:1',
-                createMockNode('urn:li:dataset:1', [
-                    { fieldPath: '[version=2.0].[type=string].user.id' },
-                    { fieldPath: '[version=2.0].[key=True].[type=string].product.name' },
-                ]),
-            ],
-        ]);
+    it('should return true when field exists in lineageAssets', () => {
+        const nodes = new Map<string, LineageEntity>();
+        const datasetUrn = 'urn:li:dataset:(test,table1,PROD)';
+        const fieldPath = 'field1';
 
-        // V1 paths should match V2 paths after normalization
-        expect(schemaFieldExists('urn:li:dataset:1', 'user.id', nodes)).toBe(true);
-        expect(schemaFieldExists('urn:li:dataset:1', 'product.name', nodes)).toBe(true);
+        const mockLineageAsset: LineageAsset = {
+            type: LineageAssetType.Column,
+            name: 'field1',
+        };
+
+        const lineageAssets = new Map<string, LineageAsset>();
+        lineageAssets.set('field1', mockLineageAsset); // downgradeV2FieldPath('field1') = 'field1'
+
+        const mockEntity: FetchedEntityV2 = {
+            urn: datasetUrn,
+            type: EntityType.Dataset,
+            name: 'Test Dataset',
+            lineageAssets,
+        };
+
+        const mockNode: LineageEntity = {
+            id: 'node1',
+            urn: datasetUrn,
+            type: EntityType.Dataset,
+            isExpanded: { [LineageDirection.Upstream]: false, [LineageDirection.Downstream]: false },
+            fetchStatus: {
+                [LineageDirection.Upstream]: FetchStatus.LOADING,
+                [LineageDirection.Downstream]: FetchStatus.LOADING,
+            },
+            filters: {
+                [LineageDirection.Upstream]: { facetFilters: new Map() },
+                [LineageDirection.Downstream]: { facetFilters: new Map() },
+            },
+            entity: mockEntity,
+        };
+
+        nodes.set(datasetUrn, mockNode);
+
+        const result = schemaFieldExists(datasetUrn, fieldPath, nodes);
+
+        expect(result).toBe(true);
     });
 
-    it('normalizes query field paths with V2 annotations', () => {
-        const nodes = new Map([
-            ['urn:li:dataset:1', createMockNode('urn:li:dataset:1', [{ fieldPath: 'user.email' }])],
-        ]);
+    it('should return false when field does not exist in lineageAssets', () => {
+        const nodes = new Map<string, LineageEntity>();
+        const datasetUrn = 'urn:li:dataset:(test,table1,PROD)';
+        const fieldPath = 'field1';
 
-        // Query with V2 path should match V1 schema field
-        expect(schemaFieldExists('urn:li:dataset:1', '[version=2.0].[type=string].user.email', nodes)).toBe(true);
+        const mockLineageAsset: LineageAsset = {
+            type: LineageAssetType.Column,
+            name: 'field2',
+        };
+
+        const lineageAssets = new Map<string, LineageAsset>();
+        lineageAssets.set('field2', mockLineageAsset); // Different field
+
+        const mockEntity: FetchedEntityV2 = {
+            urn: datasetUrn,
+            type: EntityType.Dataset,
+            name: 'Test Dataset',
+            lineageAssets,
+        };
+
+        const mockNode: LineageEntity = {
+            id: 'node1',
+            urn: datasetUrn,
+            type: EntityType.Dataset,
+            isExpanded: { [LineageDirection.Upstream]: false, [LineageDirection.Downstream]: false },
+            fetchStatus: {
+                [LineageDirection.Upstream]: FetchStatus.LOADING,
+                [LineageDirection.Downstream]: FetchStatus.LOADING,
+            },
+            filters: {
+                [LineageDirection.Upstream]: { facetFilters: new Map() },
+                [LineageDirection.Downstream]: { facetFilters: new Map() },
+            },
+            entity: mockEntity,
+        };
+
+        nodes.set(datasetUrn, mockNode);
+
+        const result = schemaFieldExists(datasetUrn, fieldPath, nodes);
+
+        expect(result).toBe(false);
     });
 
-    it('handles nested field paths', () => {
-        const nodes = new Map([
-            [
-                'urn:li:dataset:1',
-                createMockNode('urn:li:dataset:1', [
-                    { fieldPath: 'user.profile.name' },
-                    { fieldPath: 'order.items.quantity' },
-                ]),
-            ],
-        ]);
+    it('should handle field path with array annotations and find the downgraded field', () => {
+        const nodes = new Map<string, LineageEntity>();
+        const datasetUrn = 'urn:li:dataset:(test,table1,PROD)';
+        const fieldPath = '[version=2.0].[type=properties].map.[type=text].uiState';
 
-        expect(schemaFieldExists('urn:li:dataset:1', 'user.profile.name', nodes)).toBe(true);
-        expect(schemaFieldExists('urn:li:dataset:1', 'order.items.quantity', nodes)).toBe(true);
-        expect(schemaFieldExists('urn:li:dataset:1', 'user.profile.age', nodes)).toBe(false);
+        const mockLineageAsset: LineageAsset = {
+            type: LineageAssetType.Column,
+            name: 'map.uiState',
+        };
+
+        const lineageAssets = new Map<string, LineageAsset>();
+        // Store the asset with the downgraded field path (array annotations removed)
+        lineageAssets.set('map.uiState', mockLineageAsset);
+
+        const mockEntity: FetchedEntityV2 = {
+            urn: datasetUrn,
+            type: EntityType.Dataset,
+            name: 'Test Dataset',
+            lineageAssets,
+        };
+
+        const mockNode: LineageEntity = {
+            id: 'node1',
+            urn: datasetUrn,
+            type: EntityType.Dataset,
+            isExpanded: { [LineageDirection.Upstream]: false, [LineageDirection.Downstream]: false },
+            fetchStatus: {
+                [LineageDirection.Upstream]: FetchStatus.LOADING,
+                [LineageDirection.Downstream]: FetchStatus.LOADING,
+            },
+            filters: {
+                [LineageDirection.Upstream]: { facetFilters: new Map() },
+                [LineageDirection.Downstream]: { facetFilters: new Map() },
+            },
+            entity: mockEntity,
+        };
+
+        nodes.set(datasetUrn, mockNode);
+
+        const result = schemaFieldExists(datasetUrn, fieldPath, nodes);
+
+        expect(result).toBe(true);
     });
 
-    it('handles empty field list', () => {
-        const nodes = new Map([['urn:li:dataset:1', createMockNode('urn:li:dataset:1', [])]]);
+    it('should handle empty lineageAssets map', () => {
+        const nodes = new Map<string, LineageEntity>();
+        const datasetUrn = 'urn:li:dataset:(test,table1,PROD)';
+        const fieldPath = 'field1';
 
-        expect(schemaFieldExists('urn:li:dataset:1', 'field1', nodes)).toBe(false);
+        const lineageAssets = new Map<string, LineageAsset>(); // Empty map
+
+        const mockEntity: FetchedEntityV2 = {
+            urn: datasetUrn,
+            type: EntityType.Dataset,
+            name: 'Test Dataset',
+            lineageAssets,
+        };
+
+        const mockNode: LineageEntity = {
+            id: 'node1',
+            urn: datasetUrn,
+            type: EntityType.Dataset,
+            isExpanded: { [LineageDirection.Upstream]: false, [LineageDirection.Downstream]: false },
+            fetchStatus: {
+                [LineageDirection.Upstream]: FetchStatus.LOADING,
+                [LineageDirection.Downstream]: FetchStatus.LOADING,
+            },
+            filters: {
+                [LineageDirection.Upstream]: { facetFilters: new Map() },
+                [LineageDirection.Downstream]: { facetFilters: new Map() },
+            },
+            entity: mockEntity,
+        };
+
+        nodes.set(datasetUrn, mockNode);
+
+        const result = schemaFieldExists(datasetUrn, fieldPath, nodes);
+
+        expect(result).toBe(false);
     });
 
-    it('handles case-sensitive field names', () => {
-        const nodes = new Map([['urn:li:dataset:1', createMockNode('urn:li:dataset:1', [{ fieldPath: 'UserId' }])]]);
+    it('should return false when field path downgrades but still does not exist', () => {
+        const nodes = new Map<string, LineageEntity>();
+        const datasetUrn = 'urn:li:dataset:(test,table1,PROD)';
+        const fieldPath = 'missing[0].field'; // Downgrades to 'missing.field' but doesn't exist
 
-        expect(schemaFieldExists('urn:li:dataset:1', 'UserId', nodes)).toBe(true);
-        expect(schemaFieldExists('urn:li:dataset:1', 'userid', nodes)).toBe(false);
-        expect(schemaFieldExists('urn:li:dataset:1', 'USERID', nodes)).toBe(false);
+        const mockLineageAsset: LineageAsset = {
+            type: LineageAssetType.Column,
+            name: 'existing.field',
+        };
+
+        const lineageAssets = new Map<string, LineageAsset>();
+        lineageAssets.set('existing.field', mockLineageAsset); // Different field
+
+        const mockEntity: FetchedEntityV2 = {
+            urn: datasetUrn,
+            type: EntityType.Dataset,
+            name: 'Test Dataset',
+            lineageAssets,
+        };
+
+        const mockNode: LineageEntity = {
+            id: 'node1',
+            urn: datasetUrn,
+            type: EntityType.Dataset,
+            isExpanded: { [LineageDirection.Upstream]: false, [LineageDirection.Downstream]: false },
+            fetchStatus: {
+                [LineageDirection.Upstream]: FetchStatus.LOADING,
+                [LineageDirection.Downstream]: FetchStatus.LOADING,
+            },
+            filters: {
+                [LineageDirection.Upstream]: { facetFilters: new Map() },
+                [LineageDirection.Downstream]: { facetFilters: new Map() },
+            },
+            entity: mockEntity,
+        };
+
+        nodes.set(datasetUrn, mockNode);
+
+        const result = schemaFieldExists(datasetUrn, fieldPath, nodes);
+
+        expect(result).toBe(false);
     });
 });
 
@@ -185,6 +315,9 @@ describe('getFineGrainedLineage', () => {
         { siblings, siblingShape = 'search', fields = [FIELD], fineGrainedLineages }: Overrides = {},
     ): LineageEntity {
         const siblingEntities = siblings?.map((sibling) => ({ urn: sibling }));
+        const lineageAssets = new Map<string, LineageAsset>(
+            fields.map((fieldPath) => [fieldPath, { type: LineageAssetType.Column, name: fieldPath }]),
+        );
         return {
             id: urn,
             urn,
@@ -194,6 +327,7 @@ describe('getFineGrainedLineage', () => {
                 type: EntityType.Dataset,
                 name: urn,
                 schemaMetadata: { fields: fields.map((fieldPath) => ({ fieldPath })) },
+                lineageAssets,
                 fineGrainedLineages,
                 genericEntityProperties:
                     siblingEntities &&

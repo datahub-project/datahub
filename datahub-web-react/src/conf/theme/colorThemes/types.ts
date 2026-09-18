@@ -55,6 +55,7 @@ export default interface ColorTheme {
     avatarBorderBrand: string;
     avatarBorderInformation: string;
     border: string;
+    lineageBackgroundDot: string;
     borderBrand: string;
     borderBrandFocused: string;
     borderBrandInverse: string;
