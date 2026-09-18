@@ -13,7 +13,7 @@ The DataHub Airflow plugin supports:
 - Task run information, including task successes and failures.
 - Manual lineage annotations using `inlets` and `outlets` on Airflow operators.
 
-The plugin requires Airflow 3.0+ and Python 3.11+. If you're on an older Airflow release, pin an older version of `acryl-datahub-airflow-plugin` — see the [compatibility section](#compatibility) for details.
+The plugin requires Airflow 3.0+ and Python 3.10+. If you're on an older Airflow release, pin an older version of `acryl-datahub-airflow-plugin` — see the [compatibility section](#compatibility) for details.
 
 <!-- TODO: Update the local Airflow guide and link to it here. -->
 <!-- If you are looking to run Airflow and DataHub using docker locally, follow the guide [here](../../docker/airflow/local_airflow.md). -->
@@ -22,7 +22,7 @@ The plugin requires Airflow 3.0+ and Python 3.11+. If you're on an older Airflow
 
 ### Installation
 
-The plugin requires Airflow 3.0+ and Python 3.11+. If you don't meet these requirements, see the [compatibility section](#compatibility) for other options.
+The plugin requires Airflow 3.0+ and Python 3.10+. If you don't meet these requirements, see the [compatibility section](#compatibility) for other options.
 
 ```shell
 pip install 'acryl-datahub-airflow-plugin'
@@ -589,7 +589,7 @@ We no longer officially support Airflow 2.x — Apache has EOLed the 2.x line. T
 
 We previously had two implementations of the plugin - v1 and v2. The v2 plugin is now the default, and the v1 plugin has since been removed. The v1 plugin had many limitations, chiefly that it does not support automatic lineage extraction. Docs for the v1 plugin can be accessed in our [docs archive](https://archive.docs.datahub.com/docs/0.15.0/lineage/airflow#datahub-plugin-v1).
 
-All recent versions require Python 3.11+.
+All recent versions require Python 3.10+.
 
 - Airflow 1.10.x, use acryl-datahub-airflow-plugin <= 0.9.1.0 (v1 plugin).
 - Airflow 2.0.x, use acryl-datahub-airflow-plugin <= 0.11.0.1 (v1 plugin).

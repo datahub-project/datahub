@@ -9,7 +9,7 @@ description = ""
 authors = [
 	{ name="Acryl Data", email="eng@acryl.io" },
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 
 
 [tool.black]
@@ -20,7 +20,7 @@ tmp
 venv
 '''
 include = '\.pyi?$'
-target-version = ['py311']
+target-version = ['py310']
 
 [tool.isort]
 profile = 'black'

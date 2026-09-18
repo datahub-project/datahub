@@ -49,7 +49,7 @@ Requirements:
 
 ### Breaking Changes
 
-- **(CLI / Python)** Python 3.10 support is dropped. `acryl-datahub`, plugin packages, `acryl-datahub-actions`, and `datahub-agent-context` now require **Python 3.11+**. This unblocks upgrading `unstructured` / `unstructured-ingest` to patched releases that fix CVE-2026-71428. **Action:** Upgrade to Python 3.11 or later before installing or upgrading these packages.
+- **(CLI / Python)** Optional extras that pull `unstructured` / `unstructured-ingest` (`notion`, `confluence`, `unstructured`, `datahub-documents`, and `[all]`) now pin patched releases that fix CVE-2026-71428. Those libraries require **Python 3.11+**, so installing those extras on Python 3.10 will fail at `pip install`. Core `acryl-datahub` and other extras remain **Python 3.10+**. **Action:** If you use Notion, Confluence, unstructured, or documents ingestion, upgrade that environment to Python 3.11 or later.
 
 - #19815 **(Sigma ingestion)** Sigma ended support for datasets as a data source on 2026-09-15, and a dataset-backed workbook element no longer returns SQL. The connector now recovers a Sigma Dataset's warehouse table from Sigma's connection metadata instead, so **Sigma Dataset** lineage URNs are built from `connection_to_platform_map` rather than `chart_sources_platform_mapping`. Three things to know:
 
