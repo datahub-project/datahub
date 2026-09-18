@@ -4,9 +4,15 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from click.testing import CliRunner
+from click import ClickException
+from click.testing import CliRunner, Result
 
-from datahub.cli.migrate import _read_urns_from_file, snowflake_semantic_views
+from datahub.cli.migrate import (
+    _read_urn_pairs_from_file,
+    _read_urns_from_file,
+    dbt_semantic_models,
+    snowflake_semantic_views,
+)
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -1157,3 +1163,376 @@ class TestMigrationReportFile:
         assert report._report_fh is None
         # The file exists (even if empty — migrate_pair is mocked)
         assert report_path.exists()
+
+
+# --- dbt_semantic_models CLI command ---
+
+
+class TestDbtSemanticModelsCli:
+    LEGACY_URN = "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.orders,PROD)"
+    NEW_URN = "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.semantic_layer.orders,PROD)"
+
+    def _invoke(self, *args: str) -> Result:
+        return CliRunner().invoke(dbt_semantic_models, list(args))
+
+    @pytest.mark.parametrize("option", ["--mapping-file", "--urn-file"])
+    def test_a_missing_file_is_a_usage_error_not_a_traceback(self, option: str) -> None:
+        """click.Path(exists=True) as the sibling snowflake command uses."""
+        result = self._invoke(option, "/nope/x.tsv")
+
+        assert result.exit_code == 2
+        assert "does not exist" in result.output
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_project_name_with_discovery_requires_a_platform_instance(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        """Discovery cannot tell which dbt project a legacy model belongs to.
+
+        So synthesizing destinations under one project, over everything
+        discovered, would migrate other projects' models onto this project's
+        urns -- and destinations are not existence-checked, so those become
+        phantom datasets reported as migrated.
+        """
+        result = self._invoke(
+            "--direction", "dataset-to-sm", "--project-name", "jaffle_shop"
+        )
+
+        assert result.exit_code != 0
+        assert (
+            "--project-name with discovery needs --platform-instance" in result.output
+        )
+        mock_run_migration.assert_not_called()
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_project_name_with_a_platform_instance_is_allowed(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        """--platform-instance scopes discovery, which is what the guard wants."""
+        # Carries the instance prefix, as a legacy urn ingested with one does.
+        instanced = (
+            "urn:li:dataset:"
+            "(urn:li:dataPlatform:dbt,jaffle_shop.pagila.public.orders,PROD)"
+        )
+        mock_filter.return_value = ([instanced], [])
+        mock_run_migration.return_value = MagicMock(results=[])
+        mock_get_graph.return_value.get_urns_by_filter.return_value = [instanced]
+
+        result = self._invoke(
+            "--direction",
+            "dataset-to-sm",
+            "--project-name",
+            "jaffle_shop",
+            "--platform-instance",
+            "jaffle_shop",
+            "--force",
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_run_migration.assert_called_once()
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_project_name_with_explicit_urns_needs_no_platform_instance(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        """Naming the sources scopes them, so the guard must not fire."""
+        mock_filter.return_value = ([self.LEGACY_URN], [])
+        mock_run_migration.return_value = MagicMock(results=[])
+
+        result = self._invoke(
+            "--direction",
+            "dataset-to-sm",
+            "--urn",
+            self.LEGACY_URN,
+            "--project-name",
+            "jaffle_shop",
+            "--force",
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_run_migration.assert_called_once()
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_force_skips_confirmation_prompt(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        mock_filter.return_value = ([self.LEGACY_URN], [])
+        mock_run_migration.return_value = MagicMock(results=[])
+
+        result = self._invoke(
+            "--direction",
+            "dataset-to-sm",
+            "--urn",
+            self.LEGACY_URN,
+            "--project-name",
+            "jaffle_shop",
+            "--force",
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_run_migration.assert_called_once()
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_confirmation_prompt_aborts_on_no(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        mock_filter.return_value = ([self.LEGACY_URN], [])
+
+        result = CliRunner().invoke(
+            dbt_semantic_models,
+            [
+                "--direction",
+                "dataset-to-sm",
+                "--urn",
+                self.LEGACY_URN,
+                "--project-name",
+                "jaffle_shop",
+            ],
+            input="n\n",
+        )
+
+        assert result.exit_code != 0
+        mock_run_migration.assert_not_called()
+
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_project_name_is_rejected_for_rollback(
+        self, mock_get_graph: MagicMock
+    ) -> None:
+        """The legacy database.schema prefix cannot be synthesized."""
+        result = self._invoke(
+            "--direction",
+            "sm-to-dataset",
+            "--urn",
+            self.NEW_URN,
+            "--project-name",
+            "jaffle_shop",
+        )
+
+        assert result.exit_code != 0
+        assert "only applies to --direction dataset-to-sm" in result.output
+
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_unresolvable_mapping_exits_nonzero_and_explains(
+        self, mock_get_graph: MagicMock, mock_filter: MagicMock
+    ) -> None:
+        """Silently inferring nothing would look like a successful no-op."""
+        mock_filter.return_value = ([self.LEGACY_URN], [])
+        mock_get_graph.return_value.get_urns_by_filter.return_value = []
+
+        result = self._invoke(
+            "--direction", "dataset-to-sm", "--urn", self.LEGACY_URN, "--force"
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "no destination urn could be resolved" in result.output or (
+            "no counterpart" in result.output
+        )
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_errored_entities_exit_nonzero(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        """A run where everything failed must not look like a clean run."""
+        mock_filter.return_value = ([self.LEGACY_URN], [])
+        mock_run_migration.return_value = MagicMock(
+            results=[MagicMock(error="boom", field_errors=[])]
+        )
+
+        result = self._invoke(
+            "--direction",
+            "dataset-to-sm",
+            "--urn",
+            self.LEGACY_URN,
+            "--project-name",
+            "jaffle_shop",
+            "--force",
+        )
+
+        assert result.exit_code == 1, result.output
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_urn_file_and_urn_options_combine(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        other = "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customers,PROD)"
+        mock_filter.return_value = ([self.LEGACY_URN, other], [])
+        mock_run_migration.return_value = MagicMock(results=[])
+
+        with CliRunner().isolated_filesystem():
+            with open("urns.txt", "w") as f:
+                f.write(f"# a comment\n{other}\n")
+            result = CliRunner().invoke(
+                dbt_semantic_models,
+                [
+                    "--direction",
+                    "dataset-to-sm",
+                    "--urn",
+                    self.LEGACY_URN,
+                    "--urn-file",
+                    "urns.txt",
+                    "--project-name",
+                    "jaffle_shop",
+                    "--force",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert mock_filter.call_args[0][1] == [self.LEGACY_URN, other]
+
+    @patch("datahub.cli.migrate.dbt_migration.discover_legacy_dataset_urns")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_no_entities_found_message(
+        self, mock_get_graph: MagicMock, mock_discover: MagicMock
+    ) -> None:
+        mock_discover.return_value = []
+
+        result = self._invoke("--direction", "dataset-to-sm")
+
+        assert result.exit_code == 0, result.output
+        assert "No entities found to migrate." in result.output
+
+    @patch("datahub.cli.migrate.dbt_migration.discover_legacy_dataset_urns")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_no_live_entities_hints_at_soft_deleted(
+        self, mock_get_graph: MagicMock, mock_discover: MagicMock
+    ) -> None:
+        """After a flag flip the previous side is soft-deleted, not absent."""
+        mock_discover.side_effect = [[], [self.LEGACY_URN]]
+
+        result = self._invoke("--direction", "dataset-to-sm")
+
+        assert result.exit_code == 0, result.output
+        assert "soft-deleted" in result.output
+        assert "--include-soft-deleted" in result.output
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_force_does_not_permit_a_cross_env_migration(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        """-F is for skipping the prompt, not for disarming a safety guard.
+
+        Automation commonly passes -F, so folding the env check into it would
+        silently remove the protection from exactly the unattended runs that
+        most need it.
+        """
+        mock_filter.return_value = ([self.LEGACY_URN], [])
+
+        result = self._invoke(
+            "--direction",
+            "dataset-to-sm",
+            "--urn",
+            self.LEGACY_URN,  # a PROD urn
+            "--env",
+            "DEV",
+            "--project-name",
+            "jaffle_shop",
+            "--force",
+        )
+
+        assert result.exit_code != 0
+        assert "Refusing to migrate across envs" in result.output
+        mock_run_migration.assert_not_called()
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_allow_cross_env_permits_it_deliberately(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        mock_filter.return_value = ([self.LEGACY_URN], [])
+        mock_run_migration.return_value = MagicMock(results=[])
+
+        result = self._invoke(
+            "--direction",
+            "dataset-to-sm",
+            "--urn",
+            self.LEGACY_URN,
+            "--env",
+            "DEV",
+            "--project-name",
+            "jaffle_shop",
+            "--force",
+            "--allow-cross-env",
+        )
+
+        assert result.exit_code == 0, result.output
+        # Still warned, just not refused.
+        assert "different env" in result.output
+        mock_run_migration.assert_called_once()
+
+
+class TestReadUrnPairsFromFile:
+    def test_reads_tab_and_whitespace_separated_pairs(self) -> None:
+        with CliRunner().isolated_filesystem():
+            with open("pairs.txt", "w") as f:
+                f.write("# comment\n\nsrc1\tdst1\nsrc2 dst2\n")
+            assert _read_urn_pairs_from_file("pairs.txt") == {
+                "src1": "dst1",
+                "src2": "dst2",
+            }
+
+    def test_rejects_a_file_with_no_pairs(self) -> None:
+        """Returning {} would fall through to inference, ignoring the file."""
+        with CliRunner().isolated_filesystem():
+            with open("pairs.txt", "w") as f:
+                f.write("# only a comment\n\n")
+            with pytest.raises(ClickException, match="no urn pairs found"):
+                _read_urn_pairs_from_file("pairs.txt")
+
+    def test_rejects_a_duplicate_source_urn(self) -> None:
+        with CliRunner().isolated_filesystem():
+            with open("pairs.txt", "w") as f:
+                f.write("src1\tdst1\nsrc1\tdst2\n")
+            with pytest.raises(ClickException, match="duplicate source urn"):
+                _read_urn_pairs_from_file("pairs.txt")
+
+    def test_rejects_a_malformed_line(self) -> None:
+        with CliRunner().isolated_filesystem():
+            with open("pairs.txt", "w") as f:
+                f.write("only_one_urn\n")
+            with pytest.raises(ClickException, match="expected two"):
+                _read_urn_pairs_from_file("pairs.txt")

@@ -15,13 +15,16 @@ The DataHub integration for dbt covers core metadata entities such as datasets/t
 
 ## Concept Mapping
 
-| Source Concept | DataHub Concept                                                        | Notes                   |
-| -------------- | ---------------------------------------------------------------------- | ----------------------- |
-| Source         | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Source`        |
-| Seed           | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Seed`          |
-| Model          | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Model`         |
-| Snapshot       | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Snapshot`      |
-| Semantic View  | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Semantic View` |
-| Test           | [Assertion](../../metamodel/entities/assertion.md)                     |                         |
-| Test Result    | [Assertion Run Result](../../metamodel/entities/assertion.md)          |                         |
-| Model Runs     | [DataProcessInstance](../../metamodel/entities/dataProcessInstance.md) |                         |
+| Source Concept | DataHub Concept                                                        | Notes                                                                                                                                                                                                           |
+| -------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source         | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Source`                                                                                                                                                                                                |
+| Seed           | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Seed`                                                                                                                                                                                                  |
+| Model          | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Model`                                                                                                                                                                                                 |
+| Snapshot       | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Snapshot`                                                                                                                                                                                              |
+| Semantic View  | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Semantic View`                                                                                                                                                                                         |
+| Semantic Model | [Dataset](../../metamodel/entities/dataset.md)                         | Subtype `Semantic Model`; with `emit_semantic_model_entities` it becomes a [SemanticModel](../../metamodel/entities/semanticModel.md) plus one Dataset with subtype `Semantic Model Dataset` per semantic model |
+| Measure        | [Metric](../../metamodel/entities/metric.md)                           | Only measures with `create_metric: true`; requires `emit_semantic_model_entities`                                                                                                                               |
+| Metric         | [Metric](../../metamodel/entities/metric.md)                           | From the `metrics:` block, with the dbt metric `type` as its subtype; dbt Core only, and requires `emit_semantic_model_entities`                                                                                |
+| Test           | [Assertion](../../metamodel/entities/assertion.md)                     |                                                                                                                                                                                                                 |
+| Test Result    | [Assertion Run Result](../../metamodel/entities/assertion.md)          |                                                                                                                                                                                                                 |
+| Model Runs     | [DataProcessInstance](../../metamodel/entities/dataProcessInstance.md) |                                                                                                                                                                                                                 |

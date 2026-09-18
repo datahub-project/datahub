@@ -1,7 +1,7 @@
 import dataclasses
 import json
 import logging
-from typing import Any, Dict, List, Literal, Optional, Tuple, cast
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple, cast
 
 from packaging import version
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -35,15 +35,19 @@ from datahub.ingestion.source.common.object_store_files import (
 from datahub.ingestion.source.dbt.dbt_common import (
     DBT_EXPOSURE_MATURITY,
     DBT_EXPOSURE_TYPES,
+    METRIC_TYPE_SIMPLE,
     DBTColumn,
     DBTCommonConfig,
     DBTExposure,
+    DBTMetric,
+    DBTMetricInput,
     DBTModelPerformance,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
+    parse_semantic_model,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
@@ -492,6 +496,196 @@ def extract_dbt_exposures(
     return exposures
 
 
+def _metric_input(value: Any) -> Optional[DBTMetricInput]:
+    """Coerce a dbt measure/metric reference into a DBTMetricInput.
+
+    dbt >= 1.7 emits ``{"name": ..., "alias": ...}``; dbt 1.6 sometimes emits a
+    bare string. Anything else (including a null) yields None.
+    """
+    if isinstance(value, str):
+        return DBTMetricInput(name=value) if value else None
+    if isinstance(value, dict):
+        name = value.get("name")
+        if isinstance(name, str) and name:
+            return DBTMetricInput(name=name, filter=_metric_filter(value.get("filter")))
+    return None
+
+
+def _metric_inputs(values: Any) -> List[DBTMetricInput]:
+    if not isinstance(values, list):
+        return []
+    return [parsed for parsed in (_metric_input(value) for value in values) if parsed]
+
+
+def _dedupe_metric_inputs(inputs: List[DBTMetricInput]) -> List[DBTMetricInput]:
+    seen: Set[str] = set()
+    deduped: List[DBTMetricInput] = []
+    for item in inputs:
+        if item.name in seen:
+            continue
+        seen.add(item.name)
+        deduped.append(item)
+    return deduped
+
+
+def _metric_window(value: Any) -> Optional[str]:
+    """Flatten a cumulative metric's window into `"<count> <granularity>"`.
+
+    dbt >= 1.7 emits ``{"count": 7, "granularity": "day"}``; earlier versions
+    emitted a bare string.
+    """
+    if isinstance(value, str):
+        return value or None
+    if isinstance(value, dict):
+        count = value.get("count")
+        granularity = value.get("granularity")
+        if isinstance(count, int) and isinstance(granularity, str):
+            return f"{count} {granularity}"
+    return None
+
+
+def _optional_str_value(value: Any) -> Optional[str]:
+    """Keep a non-string manifest value out of the typed model."""
+    return value if isinstance(value, str) else None
+
+
+def _metric_filter(value: Any) -> Optional[str]:
+    """Flatten a dbt metric filter into a single SQL predicate.
+
+    dbt >= 1.7 emits ``{"where_filters": [{"where_sql_template": "..."}]}``;
+    dbt 1.6 emitted a bare string.
+    """
+    if isinstance(value, str):
+        return value or None
+    if isinstance(value, dict):
+        where_filters = value.get("where_filters")
+        if isinstance(where_filters, list):
+            templates = [
+                where_filter["where_sql_template"]
+                for where_filter in where_filters
+                if isinstance(where_filter, dict)
+                and isinstance(where_filter.get("where_sql_template"), str)
+            ]
+            if len(templates) > 1:
+                # AND binds tighter than OR, so joining `a OR b` to `c OR d`
+                # bare gives `a OR (b AND c) OR d` -- a different predicate
+                # than dbt's, which applies each where_filter in turn. A lone
+                # template needs no grouping, since nothing is joined to it.
+                return " AND ".join(f"({template})" for template in templates)
+            if templates:
+                return templates[0]
+    return None
+
+
+def extract_dbt_metrics(
+    manifest_metrics: Dict[str, Dict[str, Any]],
+    tag_prefix: str,
+    report: Optional[DBTSourceReport] = None,
+) -> List[DBTMetric]:
+    """Extract dbt metrics from the manifest.json metrics section (dbt 1.6+)."""
+    metrics: List[DBTMetric] = []
+    for key, metric_node in manifest_metrics.items():
+        # Per entry: one unreadable metric must not cost the project every
+        # other one, which is how the semantic-model sections already behave.
+        try:
+            parsed = _parse_metric(key, metric_node, tag_prefix)
+        except Exception as e:
+            # Logged unconditionally, reported when there is a report: `report`
+            # is optional for callers outside a source, and a dropped metric
+            # must never be invisible.
+            logger.warning(f"Could not read dbt metric {key}: {e}", exc_info=True)
+            if report is not None:
+                report.warning(
+                    title="Could not read a dbt metric",
+                    message="Skipping this metric; the manifest entry did not "
+                    "have the expected shape. Every other metric is still "
+                    "ingested.",
+                    context=key,
+                    exc=e,
+                )
+            continue
+        metrics.append(parsed)
+    return metrics
+
+
+def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBTMetric:
+    type_params = metric_node.get("type_params")
+    if type_params is None:
+        type_params = {}
+    elif not isinstance(type_params, dict):
+        # Not a parse crash, so the per-entry guard would never engage -- and
+        # everything a metric is computed from lives in here, so the metric
+        # would be published with neither an expression nor an upstream. Raised
+        # so it is dropped and reported like any other unreadable entry.
+        raise ValueError(
+            f"type_params is {type(type_params).__name__}, expected an object"
+        )
+
+    metric_type = metric_node.get("type") or METRIC_TYPE_SIMPLE
+
+    measures = _metric_inputs(type_params.get("input_measures"))
+    single_measure = _metric_input(type_params.get("measure"))
+    if single_measure:
+        measures.append(single_measure)
+
+    input_metrics = _metric_inputs(type_params.get("metrics"))
+    # A ratio's numerator/denominator name metrics in modern dbt but named
+    # measures in early 1.6. Collect both; the emitter resolves against the
+    # known metric names first and falls back to measures.
+    numerator = _metric_input(type_params.get("numerator"))
+    denominator = _metric_input(type_params.get("denominator"))
+    for ratio_input in (numerator, denominator):
+        if ratio_input:
+            input_metrics.append(ratio_input)
+
+    # dbt 1.9 moved conversion/cumulative inputs into their own blocks.
+    for nested_key, measure_keys in (
+        ("conversion_type_params", ("base_measure", "conversion_measure")),
+        ("cumulative_type_params", ("measure",)),
+    ):
+        nested = type_params.get(nested_key)
+        if not isinstance(nested, dict):
+            continue
+        for measure_key in measure_keys:
+            nested_measure = _metric_input(nested.get(measure_key))
+            if nested_measure:
+                measures.append(nested_measure)
+
+    depends_on = metric_node.get("depends_on")
+    depends_on_nodes = (
+        depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+    )
+
+    tags = [tag_prefix + tag for tag in metric_node.get("tags") or []]
+
+    # dbt 1.9 moved these into their own block; earlier versions put them
+    # directly on type_params.
+    cumulative = type_params.get("cumulative_type_params")
+    cumulative = cumulative if isinstance(cumulative, dict) else {}
+
+    return DBTMetric(
+        name=metric_node.get("name", ""),
+        unique_id=key,
+        label=metric_node.get("label"),
+        description=metric_node.get("description"),
+        type=metric_type,
+        measures=_dedupe_metric_inputs(measures),
+        input_metrics=_dedupe_metric_inputs(input_metrics),
+        numerator=numerator,
+        denominator=denominator,
+        # Coerced: `_metric_computation` calls .strip() on it, and a manifest
+        # can hold anything. Same guard as measure `agg`.
+        expr=_optional_str_value(type_params.get("expr")),
+        filter=_metric_filter(metric_node.get("filter")),
+        window=_metric_window(type_params.get("window") or cumulative.get("window")),
+        grain_to_date=_optional_str_value(
+            type_params.get("grain_to_date") or cumulative.get("grain_to_date")
+        ),
+        tags=tags,
+        depends_on=depends_on_nodes,
+    )
+
+
 def _resolve_database_schema(
     node_relation: Dict[str, Any],
     depends_on: Dict[str, Any],
@@ -499,7 +693,12 @@ def _resolve_database_schema(
 ) -> Tuple[Optional[str], Optional[str]]:
     """Resolve database/schema from node_relation or upstream dependencies."""
     database = node_relation.get("database")
-    schema = node_relation.get("schema")
+    # dbt writes `schema_name` here, not `schema` -- NodeRelation in the
+    # manifest schema sets additionalProperties: false, so `schema` never
+    # appears in a real manifest and reading only it left this branch dead,
+    # silently deferring every semantic model to the depends_on fallback.
+    # `schema` is kept as a fallback for hand-written fixtures.
+    schema = node_relation.get("schema_name") or node_relation.get("schema")
 
     if database and schema:
         return database, schema
@@ -523,6 +722,7 @@ def extract_semantic_models(
     manifest_nodes: Dict[str, Dict[str, Any]],
     manifest_adapter: Optional[str],
     tag_prefix: str,
+    report: Optional[DBTSourceReport] = None,
 ) -> List[DBTNode]:
     """Extract dbt semantic models (dbt 1.6+) from manifest.json."""
     semantic_model_nodes: List[DBTNode] = []
@@ -538,15 +738,24 @@ def extract_semantic_models(
         )
         alias = node_relation.get("alias")
 
-        entities = sm_node.get("entities", [])
-        dimensions = sm_node.get("dimensions", [])
-        measures = sm_node.get("measures", [])
-
-        columns = convert_semantic_model_fields_to_columns(
-            entities=entities,
-            dimensions=dimensions,
-            measures=measures,
-        )
+        parsed = parse_semantic_model(sm_node)
+        definition = parsed.definition
+        if parsed.discarded:
+            logger.warning(
+                f"Could not read part of dbt semantic model {key}: "
+                f"{'; '.join(parsed.discarded)}"
+            )
+        if parsed.discarded and report is not None:
+            # Reported on the legacy path too: the dataset would otherwise be
+            # emitted with a partial or empty schema and nothing saying why.
+            report.warning(
+                title="Could not read part of a dbt semantic model",
+                message="Some entities, dimensions or measures were skipped "
+                "because the manifest did not have the expected shape. The "
+                "emitted schema is incomplete.",
+                context=f"{key}: {'; '.join(parsed.discarded)}",
+            )
+        columns = convert_semantic_model_fields_to_columns(definition)
 
         tags = sm_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
@@ -586,6 +795,7 @@ def extract_semantic_models(
                 columns=columns,
                 compiled_code=None,
                 raw_code=None,
+                semantic_model_def=definition,
             )
         )
 
@@ -887,6 +1097,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             dbt_version=dbt_manifest_metadata.get("dbt_version", "unknown"),
             project_name=dbt_manifest_metadata.get("project_name", "unknown"),
         )
+        # Read separately from report.manifest_info, whose "unknown" default
+        # must never reach a semanticModel URN.
+        self._project_name = dbt_manifest_metadata.get("project_name")
 
         dbt_catalog_json = None
         dbt_catalog_metadata = None
@@ -945,6 +1158,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         manifest_nodes = dbt_manifest_json["nodes"]
         manifest_sources = dbt_manifest_json["sources"]
         manifest_exposures = dbt_manifest_json.get("exposures", {})
+        manifest_metrics = dbt_manifest_json.get("metrics", {})
         manifest_semantic_models = dbt_manifest_json.get("semantic_models", {})
 
         all_manifest_entities = {**manifest_nodes, **manifest_sources}
@@ -975,6 +1189,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             tag_prefix=self.config.tag_prefix,
         )
 
+        self._metrics = extract_dbt_metrics(
+            manifest_metrics=manifest_metrics,
+            tag_prefix=self.config.tag_prefix,
+            report=self.report,
+        )
+
         # Extract semantic models from manifest (dbt 1.6+)
         if (
             self.config.entities_enabled.can_emit_semantic_models
@@ -985,6 +1205,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 manifest_nodes=manifest_nodes,
                 manifest_adapter=manifest_adapter,
                 tag_prefix=self.config.tag_prefix,
+                report=self.report,
             )
             nodes.extend(semantic_model_nodes)
             self.report.num_semantic_models_emitted = len(semantic_model_nodes)

@@ -541,6 +541,242 @@ If these conditions are not met, warnings will appear in the ingestion report:
 >
 > Column-level lineage is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.
 
+#### Semantic Models and Metrics
+
+> Not to be confused with **Semantic Views** (above), which are dbt _models_ materialized as
+> Snowflake `SEMANTIC VIEW` objects. This section is about dbt's own
+> [MetricFlow semantic layer](https://docs.getdbt.com/docs/build/semantic-models) — the
+> `semantic_models:` and `metrics:` blocks in your YAML (dbt 1.6+).
+
+##### Two modes
+
+`emit_semantic_model_entities` selects between them, and it is **tri-state**:
+
+| Value           | Behavior                                                         |
+| --------------- | ---------------------------------------------------------------- |
+| unset (default) | Follow the server: first-class entities where it can accept them |
+| `true`          | Request first-class entities                                     |
+| `false`         | Force the legacy datasets                                        |
+
+In the **legacy** mode each dbt semantic model is a **Dataset with subtype `Semantic Model`**, whose
+columns are its entities, dimensions, and measures flattened into one list, and metrics are not
+ingested at all. In the **first-class** mode they map like this:
+
+| dbt concept                             | DataHub entity                                    |
+| --------------------------------------- | ------------------------------------------------- |
+| The project's semantic layer            | One `SemanticModel`                               |
+| Each `semantic_models:` entry           | One Dataset with subtype `Semantic Model Dataset` |
+| Each entity, dimension, and measure     | A schema field with a `SemanticFieldAnnotation`   |
+| Each measure with `create_metric: true` | One `Metric`                                      |
+| Each `metrics:` entry                   | One `Metric` (dbt Core only — see below)          |
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: target/manifest.json
+    catalog_path: target/catalog.json
+    target_platform: snowflake
+    # Unset is the default and needs no entry; set it only to pin a mode.
+    # emit_semantic_model_entities: false
+    # Optional: pin the project name used in the URNs (see "URN stability").
+    # semantic_model_project_name: jaffle_shop
+```
+
+The legacy mode emits ordinary datasets and needs nothing in particular from the server. The
+first-class mode needs one new enough to have `semanticModel` and `metric` in its entity registry:
+DataHub Cloud 2.1.0 or later, or DataHub Core v1.7.0 or later.
+
+- **On DataHub Cloud**, the server is interrogated before emitting: both the version and the
+  Metrics feature flag. Left unset, first-class entities are emitted when the server can accept
+  them; if the version is too old, the flag is off, or the probe cannot be read, ingestion uses the
+  legacy datasets and says so in the report rather than failing. Set to `true` explicitly and the
+  same checks apply, with a warning when they refuse. So on Cloud this gates emission, not just
+  visibility.
+- **On OSS**, there is no managed server to interrogate, so an unset flag stays on the legacy
+  datasets and `true` is taken at face value with no fallback — confirm you are running a
+  compatible server before setting it. Here `METRICS_ENABLED` is purely a **visibility** concern:
+  it enables the Metrics page, the `/metrics` route, and search. Ingestion succeeds without it and
+  the entities are stored; they are simply not discoverable in the UI.
+
+A run with no graph client at all — a file sink, for instance — has no server to follow, so an unset
+flag stays on the legacy datasets there too.
+
+:::note
+Because the default follows the server, a DataHub Cloud deployment that has been ingesting dbt
+semantic models as datasets will **switch to the new URNs** on its next run after upgrading, unless
+you pin `emit_semantic_model_entities: false`. Read
+[Migrating between the modes](#migrating-between-the-modes) before that run: re-ingest with stateful
+ingestion enabled so the old datasets are soft-deleted, and use
+`datahub migrate dbt-semantic-models` to carry owners, tags, terms and documentation across.
+:::
+
+##### Why one Semantic Model per project
+
+A MetricFlow entity is project-scoped: semantic models are joined to each other by matching entity
+_names_, and a metric is queried by its bare name with no per-model qualifier. So the project — not
+the individual semantic model — is the unit that corresponds to a DataHub `SemanticModel`, and each
+dbt semantic model becomes a logical dataset within it.
+
+The metadata model makes this the only workable mapping. `SemanticModelInfo.relationships` lives on
+the `SemanticModel`, and each relationship's `from`/`to` are **alias strings** naming datasets that
+belong to that same model, while a dataset's `semanticModelProperties.semanticModel` is a **single**
+URN. One `SemanticModel` per `semantic_models:` entry would therefore give every model exactly one
+dataset, leave `relationships` permanently empty, and make MetricFlow's cross-model joins
+unrepresentable. In other words a `SemanticModel` is the join container, and in MetricFlow that
+container is the project.
+
+DataHub's [multiple dbt projects](#multiple-dbt-projects) setup already expects one ingestion recipe
+per dbt project, so one recipe produces one `SemanticModel`.
+
+##### Lineage
+
+Lineage runs `Metric → Semantic Model Dataset → warehouse table`:
+
+- A metric points at the logical dataset of the semantic model that owns its measure.
+- Each logical dataset points at the dbt node its semantic model is built on (`model: ref('...')`),
+  which in turn is a sibling of the physical warehouse table.
+
+In the default mode, a semantic model is also emitted as a dataset on the warehouse platform, even
+though a semantic model is a YAML definition with no table behind it. `emit_semantic_model_entities`
+does not do this.
+
+##### Metric expressions
+
+A metric's expression is whatever dbt gives us, in this order: an explicit `expr`, then
+`numerator / denominator` for a ratio, then the aggregation of its single measure
+(`sum(payments.payment_amount)`). A metric dbt gives no computable form is emitted without an
+expression rather than with a fabricated one.
+
+Each side of a ratio renders as its aggregation where it names a measure, and as a bare metric name
+where it references another metric — so `sum(payments.payment_amount) / count(payments.payment_count)`
+rather than `payment_amount / payment_count`. That matters for a rate, whose two sides often name the
+**same** measure and differ only by a filter; names alone would render as `x / x`, and each side's own
+filter would have nowhere to go:
+
+```
+count(orders.order_count) FILTER (WHERE status = 'cancelled') / count(orders.order_count)
+```
+
+Both kinds of dbt filter are folded into that expression, ANDed into one `FILTER (WHERE ...)` clause
+when a metric has both:
+
+- the metric's own `filter`
+- a filter on the measure it reads (`type_params.measure.filter`)
+
+`MetricInfo` has no filter field, and a metric whose filter was dropped would publish a broader
+number than the dbt definition. dbt stores these predicates as Jinja templates, so they are carried
+through as authored:
+
+```
+sum(payments.payment_amount) FILTER (WHERE {{ Dimension('payment__payment_amount') }} > 100)
+```
+
+Two predicates are parenthesized before being joined, so a disjunction in either keeps its scope.
+
+A filter only becomes a `FILTER (WHERE ...)` clause when the computation is an aggregation, which is
+the only thing SQL lets that clause attach to. On a ratio or an author-written `expr` it is stated
+as a comment instead, since `revenue / order_count FILTER (WHERE ...)` would read as constraining
+the denominator alone:
+
+```
+revenue / order_count /* filtered: country = 'US' */
+```
+
+A cumulative metric ends with a comment saying how it accumulates, because its computation is
+otherwise the plain aggregation it is built on — a 7-day running total and a plain total would read
+identically:
+
+```
+count(orders.order_count) /* cumulative over 7 day */
+count(orders.order_count) FILTER (WHERE country = 'US') /* cumulative over 7 day */
+```
+
+Treat the expression as documentation rather than runnable SQL. The leading aggregation is a real
+column reference, so it stays useful for tracing what a metric reads.
+
+A filter on an input of a **ratio or derived** metric is the one filter not carried. Those inputs are
+metric names rather than aggregations (`revenue / order_count`), and a SQL `FILTER` clause attaches
+only to an aggregate call, so there is nowhere in the expression to put a predicate that constrains
+one side. Folding it at the top level would misdescribe the metric by constraining both, so it is
+omitted — the expression still names both inputs.
+
+##### Relationships
+
+Relationships between logical datasets are derived exactly the way MetricFlow joins: an entity
+declared `foreign`, `unique`, or `natural` in one semantic model is matched by name to an entity
+declared `primary`, `unique`, or `natural` (or named by `primary_entity`) in another. The referencing
+side is the many side, so the cardinality is `N_ONE`.
+
+A key declared in more than one semantic model produces **one relationship per owner**, because
+MetricFlow will join the referencing model to each of them — two models sharing a key is valid dbt,
+not an ambiguity.
+
+An entity with no matching key in any ingested semantic model is recorded in
+`semantic_model_relationships_unresolved`. That is not a warning, since the target may legitimately
+be outside the ingested project.
+
+##### URN stability
+
+The `SemanticModel` and `Metric` URNs contain the dbt project name, read from
+`manifest.metadata.project_name` (dbt Core) or from the semantic models' package name (dbt Cloud).
+**Renaming the dbt project therefore changes those URNs** and orphans the originals. Set
+`semantic_model_project_name` to pin it if that is a risk.
+
+##### Migrating between the modes
+
+The two modes use different URNs (`<database>.<schema>.<name>` versus
+`<project>.semantic_layer.<name>`), so changing mode is a replacement, not an in-place upgrade. That
+applies whether you set the flag yourself or the default switches you over on a capable server.
+
+Governance authored on the old datasets — owners, tags, terms, documentation — is not carried
+across automatically. Migrate it **before** the re-ingest, with
+[`datahub migrate dbt-semantic-models`](../../../../docs/features/feature-guides/metrics-and-semantic-models.md),
+which works in both directions so the change stays reversible. Then re-ingest with
+`stateful_ingestion.enabled: true`, so the datasets from the previous mode are soft-deleted; without
+it they are left behind with no owner.
+
+That order matters: migration discovery skips soft-deleted entities by default, so running it after
+the re-ingest finds nothing. If you have already re-ingested, pass `--include-soft-deleted` to reach
+the old datasets.
+
+If you are not ready, pin `emit_semantic_model_entities: false` and nothing changes.
+
+##### Not currently mapped
+
+- **Metric `window` and `grain_to_date` as structured data.** `MetricInfo` has no field for either,
+  so they are carried only as a trailing comment on the expression — readable, but not queryable or
+  filterable. The metric's `type` _is_ structured, as a subtype (`Simple`, `Ratio`, `Cumulative`,
+  `Derived`, `Conversion`). Metric filters are carried in the expression too — see
+  [Metric expressions](#metric-expressions).
+- **Tags on a dbt Core semantic model.** Manifest schema v11 gives a semantic model no `tags`
+  field, so there are none to read from a manifest. On dbt Cloud the Discovery API does return
+  `tags`, and those are emitted on the Semantic Model Dataset. The semantic model's owner is read
+  from its `meta.owner` — nested under `config` in a dbt Core manifest, returned flat by the dbt
+  Cloud Discovery API — and emitted as ownership on the Semantic Model Dataset,
+  honouring `owner_extraction_pattern` and `strip_user_ids_from_email` like every other dbt asset.
+  Owners are not put on the project-level Semantic Model, which every semantic model shares.
+- **`saved_queries` and `groups`.** Neither is ingested. A dbt saved query is a named
+  metric-plus-group-by export definition and a dbt group is an ownership grouping; neither is a
+  semantic model or a metric, so both are out of scope for this feature rather than missing from it.
+- **Browse paths** are emitted flat under the project (`<platform_instance>` / `<project>`) for the
+  Semantic Model, its datasets and its metrics. `semanticModel` and `metric` have no `container`
+  aspect — containers model the physical organization of an asset, and these are logical — so the
+  usual container-derived path is unavailable and the connector supplies one directly. dbt emits no
+  containers for any entity, so a full container hierarchy for the dbt source is a separate change.
+- **Column descriptions on the migration path** are carried only where a human authored them
+  (`editableSchemaMetadata`). An ingestion-authored column description is deliberately not copied
+  into the destination's editable layer, where it would override whatever the destination's own
+  ingestion produces.
+- **Top-level `metrics:` on dbt Cloud.** The Discovery API does not expose the semantic graph, so
+  only metrics from `create_metric: true` measures are ingested there. Use the dbt Core source if you
+  need the `metrics:` block.
+- **`meta_mapping` and `column_meta_mapping`**, column-level lineage, and siblings are not applied to
+  semantic-model entities. The ingestion report lists this when the flag is on.
+- The default mode's synthesized field descriptions (`Entity (primary)`, `Measure (sum)`, and so on)
+  are not reproduced, because that information is carried structurally instead — by the field's
+  semantic type, its `isTime` flag, and its aggregation function.
+
 #### Exposures
 
 DataHub supports ingesting [dbt exposures](https://docs.getdbt.com/docs/build/exposures) - downstream consumers of your dbt models such as dashboards, notebooks, ML models, and applications.

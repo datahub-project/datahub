@@ -9643,7 +9643,237 @@
     "send_anonymous_usage_stats": true,
     "user_id": "e2ada6ad-3b40-4a61-8f16-dc722bad324d"
   },
-  "metrics": {},
+  "metrics": {
+    "metric.sample_dbt.payment_amount": {
+      "name": "payment_amount",
+      "resource_type": "metric",
+      "package_name": "sample_dbt",
+      "path": "semantic_models/metrics.yml",
+      "original_file_path": "models/semantic_models/metrics.yml",
+      "unique_id": "metric.sample_dbt.payment_amount",
+      "fqn": [
+        "sample_dbt",
+        "semantic_models",
+        "payment_amount"
+      ],
+      "description": "Total amount paid",
+      "label": "Payment Amount",
+      "type": "simple",
+      "type_params": {
+        "measure": {
+          "name": "payment_amount",
+          "filter": null,
+          "alias": null
+        },
+        "input_measures": [
+          {
+            "name": "payment_amount",
+            "filter": null,
+            "alias": null
+          }
+        ]
+      },
+      "filter": null,
+      "metadata": null,
+      "meta": {},
+      "tags": [],
+      "config": {
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "semantic_model.sample_dbt.payments"
+        ]
+      },
+      "refs": [],
+      "sources": [],
+      "created_at": 1700000000.0
+    },
+    "metric.sample_dbt.payment_count": {
+      "name": "payment_count",
+      "resource_type": "metric",
+      "package_name": "sample_dbt",
+      "path": "semantic_models/metrics.yml",
+      "original_file_path": "models/semantic_models/metrics.yml",
+      "unique_id": "metric.sample_dbt.payment_count",
+      "fqn": [
+        "sample_dbt",
+        "semantic_models",
+        "payment_count"
+      ],
+      "description": "Number of payments",
+      "label": "Payment Count",
+      "type": "simple",
+      "type_params": {
+        "measure": {
+          "name": "payment_count",
+          "filter": null,
+          "alias": null
+        }
+      },
+      "filter": null,
+      "metadata": null,
+      "meta": {},
+      "tags": [],
+      "config": {
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "semantic_model.sample_dbt.payments"
+        ]
+      },
+      "refs": [],
+      "sources": [],
+      "created_at": 1700000000.0
+    },
+    "metric.sample_dbt.average_payment": {
+      "name": "average_payment",
+      "resource_type": "metric",
+      "package_name": "sample_dbt",
+      "path": "semantic_models/metrics.yml",
+      "original_file_path": "models/semantic_models/metrics.yml",
+      "unique_id": "metric.sample_dbt.average_payment",
+      "fqn": [
+        "sample_dbt",
+        "semantic_models",
+        "average_payment"
+      ],
+      "description": "Mean payment size",
+      "label": "Average Payment",
+      "type": "ratio",
+      "type_params": {
+        "numerator": {
+          "name": "payment_amount",
+          "filter": null,
+          "alias": null
+        },
+        "denominator": {
+          "name": "payment_count",
+          "filter": null,
+          "alias": null
+        }
+      },
+      "filter": null,
+      "metadata": null,
+      "meta": {},
+      "tags": [],
+      "config": {
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": []
+      },
+      "refs": [],
+      "sources": [],
+      "created_at": 1700000000.0
+    },
+    "metric.sample_dbt.discounted_payments": {
+      "name": "discounted_payments",
+      "resource_type": "metric",
+      "package_name": "sample_dbt",
+      "path": "semantic_models/metrics.yml",
+      "original_file_path": "models/semantic_models/metrics.yml",
+      "unique_id": "metric.sample_dbt.discounted_payments",
+      "fqn": [
+        "sample_dbt",
+        "semantic_models",
+        "discounted_payments"
+      ],
+      "description": "Payments net of discount",
+      "label": "Discounted Payments",
+      "type": "derived",
+      "type_params": {
+        "expr": "payment_amount * 0.9",
+        "metrics": [
+          {
+            "name": "payment_amount",
+            "offset_window": null,
+            "offset_to_grain": null,
+            "alias": null,
+            "filter": null
+          }
+        ]
+      },
+      "filter": null,
+      "metadata": null,
+      "meta": {},
+      "tags": [],
+      "config": {
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "metric.sample_dbt.payment_amount"
+        ]
+      },
+      "refs": [],
+      "sources": [],
+      "created_at": 1700000000.0
+    },
+    "metric.sample_dbt.large_payment_amount": {
+      "name": "large_payment_amount",
+      "resource_type": "metric",
+      "package_name": "sample_dbt",
+      "path": "semantic_models/metrics.yml",
+      "original_file_path": "models/semantic_models/metrics.yml",
+      "unique_id": "metric.sample_dbt.large_payment_amount",
+      "fqn": [
+        "sample_dbt",
+        "semantic_models",
+        "large_payment_amount"
+      ],
+      "description": "Amount paid on large payments only",
+      "label": "Large Payment Amount",
+      "type": "simple",
+      "type_params": {
+        "measure": {
+          "name": "payment_amount",
+          "filter": {
+            "where_filters": [
+              {
+                "where_sql_template": "{{ Dimension('payment__payment_amount') }} > 100"
+              }
+            ]
+          },
+          "alias": null
+        },
+        "input_measures": [
+          {
+            "name": "payment_amount",
+            "filter": {
+              "where_filters": [
+                {
+                  "where_sql_template": "{{ Dimension('payment__payment_amount') }} > 100"
+                }
+              ]
+            },
+            "alias": null
+          }
+        ]
+      },
+      "filter": null,
+      "metadata": null,
+      "meta": {},
+      "tags": [],
+      "config": {
+        "enabled": true
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "semantic_model.sample_dbt.payments"
+        ]
+      },
+      "refs": [],
+      "sources": [],
+      "created_at": 1700000000.0
+    }
+  },
   "nodes": {
     "model.sample_dbt.customer_details": {
       "access": "protected",
@@ -10975,72 +11205,247 @@
   "saved_queries": {},
   "selectors": {},
   "semantic_models": {
-    "semantic_model.sample_dbt.billing_metrics": {
-      "name": "billing_metrics",
+    "semantic_model.sample_dbt.customers": {
+      "name": "customers",
       "resource_type": "semantic_model",
       "package_name": "sample_dbt",
-      "description": "Billing metrics for monthly customer payments",
+      "path": "semantic_models/customers.yml",
+      "original_file_path": "models/semantic_models/customers.yml",
+      "unique_id": "semantic_model.sample_dbt.customers",
+      "fqn": [
+        "sample_dbt",
+        "semantic_models",
+        "customers"
+      ],
+      "model": "ref('customer_details')",
       "node_relation": {
-        "database": "pagila",
-        "alias": "monthly_billing_with_cust",
+        "alias": "customer_details",
         "schema_name": "public",
-        "relation_name": "\"pagila\".\"public\".\"monthly_billing_with_cust\""
+        "database": "pagila",
+        "relation_name": null
       },
-      "depends_on": {
-        "macros": [],
-        "nodes": [
-          "model.sample_dbt.monthly_billing_with_cust"
-        ]
-      },
+      "description": "Semantic model for customers",
       "entities": [
         {
           "name": "customer_id",
           "type": "primary",
-          "description": "The unique customer identifier",
-          "expr": "customer_id"
+          "description": "Customer key",
+          "expr": "customer_id",
+          "role": null
+        }
+      ],
+      "measures": [
+        {
+          "name": "customer_lifetime_value",
+          "agg": "sum",
+          "description": "LTV",
+          "expr": "amount * 0.95",
+          "create_metric": false,
+          "agg_time_dimension": null,
+          "non_additive_dimension": null,
+          "agg_params": null,
+          "label": null
+        }
+      ],
+      "dimensions": [
+        {
+          "name": "customer_email",
+          "type": "categorical",
+          "description": "Email",
+          "expr": null,
+          "type_params": null,
+          "is_partition": false,
+          "metadata": null
+        }
+      ],
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.sample_dbt.customer_details"
+        ]
+      },
+      "refs": [
+        {
+          "name": "customer_details",
+          "package": null,
+          "version": null
+        }
+      ],
+      "created_at": 1700000000.0,
+      "config": {
+        "enabled": true,
+        "meta": {}
+      }
+    },
+    "semantic_model.sample_dbt.payments": {
+      "name": "payments",
+      "resource_type": "semantic_model",
+      "package_name": "sample_dbt",
+      "path": "semantic_models/payments.yml",
+      "original_file_path": "models/semantic_models/payments.yml",
+      "unique_id": "semantic_model.sample_dbt.payments",
+      "fqn": [
+        "sample_dbt",
+        "semantic_models",
+        "payments"
+      ],
+      "model": "ref('payments_by_customer_by_month')",
+      "node_relation": {
+        "alias": "payments_by_customer_by_month",
+        "schema_name": "public",
+        "database": "pagila",
+        "relation_name": "\"pagila\".\"public\".\"payments_by_customer_by_month\""
+      },
+      "description": "Semantic model for payments",
+      "entities": [
+        {
+          "name": "payment_id",
+          "type": "primary",
+          "description": "Payment key",
+          "expr": null,
+          "role": null
+        },
+        {
+          "name": "customer_id",
+          "type": "foreign",
+          "description": "Paying customer",
+          "expr": null,
+          "role": null
+        }
+      ],
+      "measures": [
+        {
+          "name": "payment_amount",
+          "agg": "sum",
+          "description": "Amount paid",
+          "expr": null,
+          "create_metric": true,
+          "agg_time_dimension": "billing_month",
+          "non_additive_dimension": null,
+          "agg_params": null,
+          "label": null
+        },
+        {
+          "name": "payment_count",
+          "agg": "count",
+          "description": "",
+          "expr": null,
+          "create_metric": false,
+          "agg_time_dimension": null,
+          "non_additive_dimension": null,
+          "agg_params": null,
+          "label": null
         }
       ],
       "dimensions": [
         {
           "name": "billing_month",
           "type": "time",
-          "description": "The month of billing",
-          "expr": "billing_month",
+          "description": "Billing month",
+          "expr": null,
+          "is_partition": false,
+          "metadata": null,
           "type_params": {
-            "time_granularity": "month"
+            "time_granularity": "month",
+            "validity_params": null
           }
-        }
-      ],
-      "measures": [
-        {
-          "name": "total_amount",
-          "agg": "sum",
-          "description": "Total billed amount",
-          "expr": "amount"
         },
         {
-          "name": "payment_count",
-          "agg": "count",
-          "description": "Number of payments",
-          "expr": "payment_id"
+          "name": "payment_status",
+          "type": "categorical",
+          "description": "",
+          "expr": null,
+          "type_params": null,
+          "is_partition": false,
+          "metadata": null
         }
       ],
-      "unique_id": "semantic_model.sample_dbt.billing_metrics",
-      "original_file_path": "models/semantic_models/billing_metrics.yml",
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.sample_dbt.payments_by_customer_by_month"
+        ]
+      },
+      "refs": [
+        {
+          "name": "payments_by_customer_by_month",
+          "package": null,
+          "version": null
+        }
+      ],
+      "created_at": 1700000000.0,
       "config": {
         "enabled": true,
-        "group": null,
-        "meta": {
-          "team": "analytics"
-        }
-      },
-      "path": "semantic_models/billing_metrics.yml",
+        "meta": {}
+      }
+    },
+    "semantic_model.sample_dbt.regions": {
+      "name": "regions",
+      "resource_type": "semantic_model",
+      "package_name": "sample_dbt",
+      "path": "semantic_models/regions.yml",
+      "original_file_path": "models/semantic_models/regions.yml",
+      "unique_id": "semantic_model.sample_dbt.regions",
       "fqn": [
         "sample_dbt",
         "semantic_models",
-        "billing_metrics"
+        "regions"
       ],
-      "model": "ref('monthly_billing_with_cust')"
+      "model": "ref('customer_details')",
+      "node_relation": {
+        "alias": "customer_details",
+        "schema_name": "public",
+        "database": "pagila",
+        "relation_name": null
+      },
+      "description": "Semantic model for regions",
+      "entities": [
+        {
+          "name": "region_id",
+          "type": "primary",
+          "description": "Region key",
+          "expr": null,
+          "role": null
+        },
+        {
+          "name": "territory_id",
+          "type": "unique",
+          "description": "",
+          "expr": null,
+          "role": null
+        }
+      ],
+      "measures": [],
+      "dimensions": [
+        {
+          "name": "region_name",
+          "type": "categorical",
+          "description": "",
+          "expr": null,
+          "type_params": null,
+          "is_partition": false,
+          "metadata": null
+        }
+      ],
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.sample_dbt.customer_details"
+        ]
+      },
+      "refs": [
+        {
+          "name": "customer_details",
+          "package": null,
+          "version": null
+        }
+      ],
+      "created_at": 1700000000.0,
+      "config": {
+        "enabled": true,
+        "meta": {}
+      },
+      "primary_entity": "region_id"
     }
   },
   "sources": {
