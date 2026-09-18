@@ -246,7 +246,7 @@ colorama==0.4.6
     #   uvicorn
 coloredlogs==15.0.1
     # via onnxruntime
-confluent-kafka==2.12.2
+confluent-kafka==2.15.1
     # via acryl-datahub
 coverage==7.13.4
     # via
@@ -1546,6 +1546,7 @@ typing-extensions==4.15.0
     #   beautifulsoup4
     #   boto3-stubs
     #   cattrs
+    #   confluent-kafka
     #   cryptography
     #   dlt
     #   exceptiongroup

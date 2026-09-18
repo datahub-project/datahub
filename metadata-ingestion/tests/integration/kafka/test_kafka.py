@@ -463,8 +463,16 @@ def test_kafka_infrastructure_debug(mock_kafka_service, test_resources_dir):
                 continue
 
             messages_found += 1
+            key = msg.key()
+            key_repr = (
+                key.decode("utf-8", errors="replace")
+                if isinstance(key, (bytes, bytearray))
+                else key
+            )
+            value = msg.value()
+            value_size = len(value) if value is not None else 0
             print(
-                f"   Message {messages_found}: offset={msg.offset()}, key={msg.key()}, value_size={len(msg.value()) if msg.value() else 0}"
+                f"   Message {messages_found}: offset={msg.offset()}, key={key_repr}, value_size={value_size}"
             )
 
         consumer.close()
