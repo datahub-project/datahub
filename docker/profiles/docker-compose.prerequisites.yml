@@ -12,6 +12,8 @@ x-mysql-profiles-quickstart: &mysql-profiles-quickstart
   - quickstart-frontend
   - quickstart-storage
   - quickstart-consumers
+  - quickstart-opensearch2
+  - quickstart-opensearch3
 
 x-mysql-profiles: &mysql-profiles
   - quickstart
@@ -29,8 +31,12 @@ x-mysql-profiles: &mysql-profiles
   - debug-consumers-cdc
   - debug-neo4j
   - debug-elasticsearch
+  - debug-opensearch2
+  - debug-opensearch3
   - debug-backend-aws
   - debug-aws
+  - quickstart-opensearch2
+  - quickstart-opensearch3
 x-mysql-profiles-cdc: &mysql-profiles-cdc
   - quickstart-consumers-cdc
   - debug-consumers-cdc
@@ -59,6 +65,9 @@ x-neo4j-profiles: &neo4j-profiles
 # Search Storage Profiles
 x-elasticsearch-profiles: &elasticsearch-profiles
   - debug-elasticsearch
+x-opensearch3-profiles: &opensearch3-profiles
+  - debug-opensearch3
+  - quickstart-opensearch3
 
 x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart
@@ -72,6 +81,7 @@ x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart-postgres-cdc
   - quickstart-consumers
   - quickstart-consumers-cdc
+  - quickstart-opensearch2
 x-opensearch-profiles: &opensearch-profiles
   - quickstart
   - quickstart-backend
@@ -98,6 +108,8 @@ x-opensearch-profiles: &opensearch-profiles
   - debug-neo4j
   - debug-backend-aws
   - debug-aws
+  - debug-opensearch2
+  - quickstart-opensearch2
 
 # Kafka: same as OpenSearch except pgQueue-only Postgres stacks (no broker for non-CDC Postgres).
 x-kafka-broker-profiles: &kafka-broker-profiles
@@ -121,8 +133,12 @@ x-kafka-broker-profiles: &kafka-broker-profiles
   - debug-consumers-cdc
   - debug-neo4j
   - debug-elasticsearch
+  - debug-opensearch2
+  - debug-opensearch3
   - debug-backend-aws
   - debug-aws
+  - quickstart-opensearch2
+  - quickstart-opensearch3
 
 # AWS Infra profiles
 x-profiles-aws: &aws-profiles
@@ -142,6 +158,8 @@ x-profiles-quickstart: &profiles-quickstart
   - quickstart-postgres-cdc
   - quickstart-consumers
   - quickstart-consumers-cdc
+  - quickstart-opensearch2
+  - quickstart-opensearch3
 x-profiles-dev: &profiles-dev
   - debug
   - debug-min
@@ -156,6 +174,8 @@ x-profiles-dev: &profiles-dev
   - debug-consumers-cdc
   - debug-neo4j
   - debug-elasticsearch
+  - debug-opensearch2
+  - debug-opensearch3
   - debug-backend-aws
   - debug-aws
 services:
@@ -357,6 +377,25 @@ services:
       timeout: 15s
     volumes:
       - osdata:/usr/share/opensearch/data
+  # OpenSearch 3.x uses a separate volume: 2.x Lucene indices are not readable on 3.x.
+  opensearch3:
+    profiles: *opensearch3-profiles
+    hostname: search
+    image: ${DATAHUB_OS3_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_OS3_SEARCH_TAG:-3.7.0}
+    ports:
+      - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
+    env_file: elasticsearch/env/docker.env
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+    healthcheck:
+      test: curl -sS --fail "http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s"
+      start_period: 60s
+      interval: 5s
+      retries: 10
+      timeout: 15s
+    volumes:
+      - os3data:/usr/share/opensearch/data
   aws-localstack:
     profiles: *aws-profiles
     hostname: localstack
@@ -383,6 +422,7 @@ volumes:
   neo4jdata:
   esdata:
   osdata:
+  os3data:
   broker:
   mysqldata:
   cassandradata:

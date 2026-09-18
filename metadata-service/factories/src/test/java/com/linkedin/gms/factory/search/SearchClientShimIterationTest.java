@@ -43,9 +43,12 @@ import org.testng.annotations.Test;
 @EnableConfigurationProperties(ConfigurationProvider.class)
 public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTests {
 
-  // We mock this bean because this test is testing the util, not a live env. This avoids
+  // We mock these beans because this test is testing the util, not a live env. This avoids
   // IOException due to missing env
   // with auto-detection
+  @MockitoBean(name = "searchClientShims", answers = Answers.RETURNS_MOCKS)
+  SearchClientShims searchClientShims;
+
   @MockitoBean(name = "searchClientShim", answers = Answers.RETURNS_MOCKS)
   SearchClientShim<?> searchClientShim;
 
