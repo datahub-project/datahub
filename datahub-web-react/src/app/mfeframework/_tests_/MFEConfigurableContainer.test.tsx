@@ -122,7 +122,10 @@ describe('MFEBaseConfigurablePage', () => {
 
         const container = screen.getByTestId('mfe-configurable-container');
         const mountTarget = container.querySelector('div');
-        expect(mountFn).toHaveBeenCalledWith(mountTarget, {});
+        expect(mountFn).toHaveBeenCalledWith(
+            mountTarget,
+            expect.objectContaining({ slot: 'nav.page', version: expect.any(String) }),
+        );
     });
 
     it('shows error UI when remote module times out', async () => {
