@@ -298,15 +298,6 @@ tasks.withType(Test).configureEach {
     // NO-SOURCE and skips before discovery), which is what the task-graph check below is for.
     failOnNoDiscoveredTests = true
     filter {
-      // Pre-existing failures that accumulated while the suites were dead, scoped out per test
-      // rather than per suite: the testScrollAcrossLineage* pair leak a sibling test's async
-      // cache-refill call into the class-level graphService mock, and
-      // testCopyStructuredPropertyMappings broke with a later mapping-builder change. They fail
-      // the same way on OpenSearch 2.x and 3.x and are unrelated to the engine; re-enable in the
-      // follow-up that fixes them.
-      excludeTestsMatching '*.testScrollAcrossLineageClampsExcessiveMaxHops'
-      excludeTestsMatching '*.testScrollAcrossLineageDefaultsNullMaxHopsToConfiguredLimit'
-      excludeTestsMatching '*.testCopyStructuredPropertyMappings'
       // Boots its own ES 8 container; the rest of its packages are container-free unit tests
       // that now run in the OpenSearch suites (see testng-opensearch.xml).
       excludeTestsMatching 'Es8SemanticSearchIT'

@@ -2021,6 +2021,9 @@ graphQL:
     # Relationship resolution cap per request (cycle/unbounded protection)
     maxVisitedUrns: ${GRAPHQL_QUERY_MAX_VISITED_URNS:20000}
     slowQueryThresholdMs: ${GRAPHQL_QUERY_SLOW_QUERY_THRESHOLD_MS:1000}
+    # Stream the JSON response to the socket instead of buffering it as one String (bounds GMS heap
+    # on large fan-out responses). Opt-in kill switch; default off preserves the buffered behavior.
+    streamResponse: ${GRAPHQL_QUERY_STREAM_RESPONSE:false}
   metrics:
     # Master switch for all GraphQL metrics collection via Micrometer
     # When false, no GraphQL metrics are collected (request-level or field-level)
@@ -2160,6 +2163,9 @@ metadataChangeProposal:
     dataProductAssets:
       enabled: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_ENABLED:true} # Mirrors Data Product membership onto member assets' dataProducts aspect for search filtering/faceting
       maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_MAX_FANOUT:500} # Batch size for reading existing asset-side dataProducts; ADD patches are not capped per commit
+    domainReferenceDetach:
+      enabled: ${MCP_SIDE_EFFECTS_DOMAIN_REFERENCE_DETACH_ENABLED:true}
+      maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_DOMAIN_REFERENCE_DETACH_MAX_FANOUT:500}
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 

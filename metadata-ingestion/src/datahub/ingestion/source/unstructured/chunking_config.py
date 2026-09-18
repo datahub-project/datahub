@@ -10,6 +10,10 @@ from datahub.configuration.common import ConfigModel, TransparentSecretStr
 
 _LOCAL_EMBEDDING_DEFAULT_ENDPOINT = "http://localhost:11434/v1/embeddings"
 
+# Default per-document chunk cap. Shared with the staleness fingerprint so the cap is
+# only fingerprinted when it deviates from this value (see get_processing_config_fingerprint).
+DEFAULT_MAX_CHUNKS_PER_DOCUMENT = 100
+
 
 class ServerEmbeddingConfig(ConfigModel):
     """Embedding configuration fetched from DataHub server via AppConfig API."""
@@ -41,6 +45,14 @@ class ChunkingConfig(ConfigModel):
     overlap: int = Field(default=0, description="Character overlap between chunks")
     combine_text_under_n_chars: int = Field(
         default=100, description="Combine chunks smaller than this size"
+    )
+    max_chunks_per_document: int = Field(
+        default=DEFAULT_MAX_CHUNKS_PER_DOCUMENT,
+        ge=1,
+        description="Maximum number of chunks embedded per document. A document that "
+        "produces more chunks is truncated to the first N so its semanticContent aspect "
+        "stays under the Kafka producer size limit; the dropped chunks are reported as a "
+        "warning, not a failure.",
     )
 
 
@@ -575,7 +587,7 @@ def get_processing_config_fingerprint(
     # Embedding is enabled when provider is configured
     embedding_enabled = embedding.provider is not None
 
-    return {
+    fingerprint: dict[str, Any] = {
         # Chunking affects chunk boundaries and structure
         "chunking_strategy": chunking.strategy if embedding_enabled else None,
         "chunking_max_characters": chunking.max_characters
@@ -592,6 +604,18 @@ def get_processing_config_fingerprint(
             embedding.model_embedding_key if embedding_enabled else None
         ),
     }
+    # The chunk cap changes emitted output (fewer chunks), so a change must re-hash
+    # affected documents. Only add the key when the cap is non-default, so merely
+    # upgrading to a build that introduces the knob does not re-fingerprint (and
+    # re-embed) every already-processed document.
+    if (
+        embedding_enabled
+        and chunking.max_chunks_per_document != DEFAULT_MAX_CHUNKS_PER_DOCUMENT
+    ):
+        fingerprint["chunking_max_chunks_per_document"] = (
+            chunking.max_chunks_per_document
+        )
+    return fingerprint
 
 
 def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:

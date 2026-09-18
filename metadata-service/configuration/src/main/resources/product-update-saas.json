@@ -72,6 +72,11 @@
       "title": "DataHub 更新：九月",
       "description": "Context Platform 现已推出公开测试版 + 自定义智能体",
       "ctaText": "探索 DataHub Cloud 2.2"
+    },
+    "zh-TW": {
+      "title": "DataHub 更新：九月",
+      "description": "Context Platform 現已推出公開測試版 + 自訂智慧代理",
+      "ctaText": "探索 DataHub Cloud 2.2"
     }
   }
 }
