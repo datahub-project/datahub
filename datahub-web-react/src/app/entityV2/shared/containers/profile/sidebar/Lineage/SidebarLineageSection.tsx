@@ -4,7 +4,7 @@ import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React, { useContext } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useHistory } from 'react-router-dom';
+import { matchPath, useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -19,6 +19,7 @@ import { TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
 import CompactContext from '@src/app/shared/CompactContext';
 
@@ -87,12 +88,15 @@ const SidebarLineageSection = ({ contexType }: Props) => {
     const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
+    const location = useLocation();
     const isCompact = useContext(CompactContext);
     const startTimeMillis = useGetDefaultLineageStartTimeMillis();
 
     const separateSiblings = useIsSeparateSiblingsMode();
     const onCombinedSiblingPage = !separateSiblings && (entityData?.siblingsSearch?.total || 0) > 0;
-    const isSearchSummary = contexType === TabContextType.SEARCH_SIDEBAR;
+    const isSearchSummary =
+        contexType === TabContextType.SEARCH_SIDEBAR ||
+        matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
     const { data: searchData, loading: searchLoading } = useGetLineageCountsQuery({
         variables: { urn, separateSiblings, startTimeMillis },
         fetchPolicy: 'cache-first',
