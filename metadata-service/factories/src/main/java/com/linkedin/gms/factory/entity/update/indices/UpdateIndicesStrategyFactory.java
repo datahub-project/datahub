@@ -61,7 +61,7 @@ public class UpdateIndicesStrategyFactory {
       @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       @Qualifier("legacyMappingsBuilder") V2MappingsBuilder mappingsBuilder,
       TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
-      @Value("${elasticsearch.idHashAlgo}") String idHashAlgo,
+      @Value("${elasticsearch.entityIndex.v2.idHashAlgo}") String idHashAlgo,
       @Value("${elasticsearch.entityIndex.v2.cleanup:false}") boolean v2Cleanup,
       @Value("${elasticsearch.entityIndex.v2.coalesceBatchUpdates:false}")
           boolean coalesceBatchUpdates) {

@@ -18,12 +18,14 @@ import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -72,11 +74,13 @@ public class AnalyticsServiceTest {
         .thenReturn(USAGE_INDEX);
 
     SearchContext searchContext =
-        SearchContext.EMPTY.toBuilder().indexConvention(mockIndexConvention).build();
+        SearchContext.EMPTY.toBuilder()
+            .indexConvention(mockIndexConvention)
+            .searchClusterAccess(SearchClusterAccess.fixed(mockClient))
+            .build();
     opContext = TestOperationContexts.systemContextNoSearchAuthorization(searchContext);
 
-    service =
-        new AnalyticsService(mockClient, mockIndexConvention, opContext.getEntityRegistry(), null);
+    service = new AnalyticsService(mockIndexConvention, opContext.getEntityRegistry(), null);
   }
 
   private Map<String, DateRange> twoRanges() {
@@ -221,8 +225,7 @@ public class AnalyticsServiceTest {
     EntityRegistry registry = mock(EntityRegistry.class);
     when(registry.getEntitySpecs()).thenReturn(specs);
 
-    AnalyticsService patchedService =
-        new AnalyticsService(mockClient, mockIndexConvention, registry, null);
+    AnalyticsService patchedService = new AnalyticsService(mockIndexConvention, registry, null);
 
     assertEquals(patchedService.coerceTermValues("hasCustomFlag", List.of("true"))[0], "true");
 
@@ -286,8 +289,7 @@ public class AnalyticsServiceTest {
   @Test
   public void testEntityStatsRequestOnV3FiltersByEntityTypeNotIndex() {
     AnalyticsService v3Service =
-        new AnalyticsService(
-            mockClient, mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
+        new AnalyticsService(mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
     SearchRequest request =
         v3Service.buildEntityStatsRequest(
             opContext, List.of(EntityType.DATASET, EntityType.CHART), FACETS);
@@ -307,8 +309,7 @@ public class AnalyticsServiceTest {
     assertEquals(service.queryEntityMustNotFilters(), Map.of("_index", List.of("*queryindex_v2*")));
 
     AnalyticsService v3Service =
-        new AnalyticsService(
-            mockClient, mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
+        new AnalyticsService(mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
     assertEquals(v3Service.getAllEntityIndexName(opContext), "*index_v3");
     assertEquals(v3Service.queryEntityMustNotFilters(), Map.of("_entityType", List.of("query")));
   }
@@ -316,8 +317,7 @@ public class AnalyticsServiceTest {
   @Test
   public void testBarChartSkipsV3EntityKeywordSubfields() throws Exception {
     AnalyticsService v3Service =
-        new AnalyticsService(
-            mockClient, mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
+        new AnalyticsService(mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
 
     assertEquals(
         v3Service.getBarChart(
@@ -336,23 +336,111 @@ public class AnalyticsServiceTest {
   @Test
   public void testBarChartStillQueriesUsageIndexOnV3() throws Exception {
     AnalyticsService v3Service =
-        new AnalyticsService(
-            mockClient, mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
+        new AnalyticsService(mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
 
-    try {
-      v3Service.getBarChart(
-          opContext,
-          USAGE_INDEX,
-          Optional.empty(),
-          List.of("actorUrn.keyword"),
-          Map.of(),
-          Map.of(),
-          Optional.empty(),
-          false);
-    } catch (RuntimeException ignored) {
-      // usage-index queries still hit ES; this test only asserts we did not skip them
-    }
+    SearchResponse empty = emptyFilteredResponse();
+    when(mockClient.search(any(), any(SearchRequest.class), any())).thenReturn(empty);
+    assertEquals(
+        v3Service.getBarChart(
+            opContext,
+            USAGE_INDEX,
+            Optional.empty(),
+            List.of("actorUrn.keyword"),
+            Map.of(),
+            Map.of(),
+            Optional.empty(),
+            false),
+        List.of());
     verify(mockClient, times(1)).search(any(), any(SearchRequest.class), any());
+  }
+
+  @Test
+  public void testUsageChartUsesUsageClientWhenAccessIsSet() throws Exception {
+    SearchClientShim<?> usageClient = mock(SearchClientShim.class);
+    SearchClientShim<?> entityClient = mock(SearchClientShim.class);
+    SearchClusterAccess access =
+        component -> component == SearchComponent.USAGE ? usageClient : entityClient;
+    OperationContext splitContext =
+        TestOperationContexts.withSearchClusterAccess(opContext, access);
+    AnalyticsService v3Service =
+        new AnalyticsService(
+            mockIndexConvention, splitContext.getEntityRegistry(), keywordReadV3());
+
+    SearchResponse empty = emptyFilteredResponse();
+    when(usageClient.search(any(), any(SearchRequest.class), any())).thenReturn(empty);
+    assertEquals(
+        v3Service.getBarChart(
+            splitContext,
+            USAGE_INDEX,
+            Optional.empty(),
+            List.of("actorUrn.keyword"),
+            Map.of(),
+            Map.of(),
+            Optional.empty(),
+            false),
+        List.of());
+    verify(usageClient, times(1)).search(any(), any(SearchRequest.class), any());
+    verify(entityClient, times(0)).search(any(), any(SearchRequest.class), any());
+    verify(mockClient, times(0)).search(any(), any(SearchRequest.class), any());
+  }
+
+  @Test
+  public void testEntityChartUsesV3ClientWhenKeywordReadEnabled() throws Exception {
+    SearchClientShim<?> v3Client = mock(SearchClientShim.class);
+    SearchClientShim<?> otherClient = mock(SearchClientShim.class);
+    SearchClusterAccess access =
+        component -> component == SearchComponent.SEARCH_V3 ? v3Client : otherClient;
+    OperationContext splitContext =
+        TestOperationContexts.withSearchClusterAccess(opContext, access);
+    AnalyticsService v3Service =
+        new AnalyticsService(
+            mockIndexConvention, splitContext.getEntityRegistry(), keywordReadV3());
+
+    SearchResponse empty = emptyFilteredResponse();
+    when(v3Client.search(any(), any(SearchRequest.class), any())).thenReturn(empty);
+    assertEquals(
+        v3Service.getBarChart(
+            splitContext,
+            "*index_v3",
+            Optional.empty(),
+            List.of("platform"),
+            Map.of(),
+            Map.of(),
+            Optional.empty(),
+            false),
+        List.of());
+    verify(v3Client, times(1)).search(any(), any(SearchRequest.class), any());
+    verify(otherClient, times(0)).search(any(), any(SearchRequest.class), any());
+    verify(mockClient, times(0)).search(any(), any(SearchRequest.class), any());
+  }
+
+  @Test
+  public void testEntityIndexWhoseNameContainsUsageDoesNotUseUsageClient() throws Exception {
+    SearchClientShim<?> usageClient = mock(SearchClientShim.class);
+    SearchClientShim<?> v3Client = mock(SearchClientShim.class);
+    SearchClusterAccess access =
+        component -> component == SearchComponent.USAGE ? usageClient : v3Client;
+    OperationContext splitContext =
+        TestOperationContexts.withSearchClusterAccess(opContext, access);
+    AnalyticsService v3Service =
+        new AnalyticsService(
+            mockIndexConvention, splitContext.getEntityRegistry(), keywordReadV3());
+
+    SearchResponse empty = emptyFilteredResponse();
+    when(v3Client.search(any(), any(SearchRequest.class), any())).thenReturn(empty);
+    assertEquals(
+        v3Service.getBarChart(
+            splitContext,
+            "usageindex_v3",
+            Optional.empty(),
+            List.of("platform"),
+            Map.of(),
+            Map.of(),
+            Optional.empty(),
+            false),
+        List.of());
+    verify(v3Client, times(1)).search(any(), any(SearchRequest.class), any());
+    verify(usageClient, times(0)).search(any(), any(SearchRequest.class), any());
   }
 
   private static EntityIndexConfiguration keywordReadV3() {
@@ -540,6 +628,17 @@ public class AnalyticsServiceTest {
     SearchResponse response = mock(SearchResponse.class);
     when(response.getAggregations()).thenReturn(topLevel);
     when(mockClient.search(any(), any(SearchRequest.class), any())).thenReturn(response);
+  }
+
+  private SearchResponse emptyFilteredResponse() {
+    Filter filtered = mock(Filter.class);
+    Aggregations inner = mock(Aggregations.class);
+    when(filtered.getAggregations()).thenReturn(inner);
+    Aggregations topLevel = mock(Aggregations.class);
+    when(topLevel.get("filtered")).thenReturn(filtered);
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getAggregations()).thenReturn(topLevel);
+    return response;
   }
 
   private Filter filterWith(String subAggName, Filters subAgg) {

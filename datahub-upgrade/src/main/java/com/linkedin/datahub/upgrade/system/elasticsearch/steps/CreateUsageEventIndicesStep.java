@@ -7,18 +7,36 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.UsageEventIndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.utils.EnvironmentUtils;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.function.Function;
-import lombok.RequiredArgsConstructor;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-@RequiredArgsConstructor
 @Slf4j
 public class CreateUsageEventIndicesStep implements UpgradeStep {
   private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents;
   private final ConfigurationProvider configurationProvider;
+  @Nullable private final SearchClusterRegistry searchClusterRegistry;
+
+  public CreateUsageEventIndicesStep(
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      ConfigurationProvider configurationProvider) {
+    this(esComponents, configurationProvider, null);
+  }
+
+  public CreateUsageEventIndicesStep(
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      ConfigurationProvider configurationProvider,
+      @Nullable SearchClusterRegistry searchClusterRegistry) {
+    this.esComponents = esComponents;
+    this.configurationProvider = configurationProvider;
+    this.searchClusterRegistry = searchClusterRegistry;
+  }
 
   @Override
   public String id() {
@@ -32,8 +50,6 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
 
   @Override
   public boolean skip(UpgradeContext context) {
-    // Check environment variable to skip independently of analytics flag
-    // Default is false (enabled) - step runs unless explicitly skipped
     boolean skipViaEnvVar =
         EnvironmentUtils.getBoolean("SKIP_CREATE_USAGE_EVENT_INDICES_STEP", false);
     if (skipViaEnvVar) {
@@ -42,7 +58,6 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
       return true;
     }
 
-    // Check analytics enabled flag
     boolean analyticsEnabled = configurationProvider.getPlatformAnalytics().isEnabled();
     if (!analyticsEnabled) {
       log.info("DataHub analytics is disabled, skipping usage event index setup");
@@ -54,18 +69,26 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
+        BaseElasticSearchComponentsFactory.BaseElasticSearchComponents usageComponents =
+            usageClusterComponents();
 
-        final String indexPrefix =
-            configurationProvider.getElasticSearch().getIndex().getFinalPrefix();
+        final String indexPrefix = usageComponents.getConfig().getIndex().getFinalPrefix();
+        boolean useOpenSearch = usageComponents.getSearchClient().getEngineType().isOpenSearch();
+        int numShards = usageComponents.getConfig().getIndex().getNumShards();
+        int numReplicas = usageComponents.getConfig().getIndex().getNumReplicas();
 
-        boolean useOpenSearch = esComponents.getSearchClient().getEngineType().isOpenSearch();
-        int numShards = configurationProvider.getElasticSearch().getIndex().getNumShards();
-        int numReplicas = configurationProvider.getElasticSearch().getIndex().getNumReplicas();
+        log.info(
+            "Creating usage event indices on engine {} shards={} replicas={}",
+            usageComponents.getSearchClient().getEngineType(),
+            numShards,
+            numReplicas);
 
         if (useOpenSearch) {
-          setupOpenSearchUsageEvents(indexPrefix, numShards, numReplicas, context.opContext());
+          setupOpenSearchUsageEvents(
+              usageComponents, indexPrefix, numShards, numReplicas, context.opContext());
         } else {
-          setupElasticsearchUsageEvents(context.opContext(), indexPrefix, numShards, numReplicas);
+          setupElasticsearchUsageEvents(
+              usageComponents, context.opContext(), indexPrefix, numShards, numReplicas);
         }
 
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
@@ -76,57 +99,63 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
     };
   }
 
+  @Nonnull
+  private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents usageClusterComponents() {
+    if (searchClusterRegistry == null) {
+      return esComponents;
+    }
+    return searchClusterRegistry
+        .connectionFor(SearchComponent.USAGE)
+        .asComponents(esComponents.getIndexConvention());
+  }
+
   private void setupElasticsearchUsageEvents(
-      OperationContext operationContext, String prefix, int numShards, int numReplicas)
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents cluster,
+      OperationContext operationContext,
+      String prefix,
+      int numShards,
+      int numReplicas)
       throws Exception {
     String prefixedPolicy = prefix + "datahub_usage_event_policy";
     String prefixedTemplate = prefix + "datahub_usage_event_index_template";
     String prefixedDataStream = prefix + "datahub_usage_event";
 
-    // Create ILM policy
-    UsageEventIndexUtils.createIlmPolicy(operationContext, esComponents, prefixedPolicy);
-
-    // Create index template
+    UsageEventIndexUtils.createIlmPolicy(operationContext, cluster, prefixedPolicy);
     UsageEventIndexUtils.createIndexTemplate(
         operationContext,
-        esComponents,
+        cluster,
         prefixedTemplate,
         prefixedPolicy,
         numShards,
         numReplicas,
         prefix);
-
-    // Create data stream
-    UsageEventIndexUtils.createDataStream(operationContext, esComponents, prefixedDataStream);
+    UsageEventIndexUtils.createDataStream(operationContext, cluster, prefixedDataStream);
   }
 
   private void setupOpenSearchUsageEvents(
-      String prefix, int numShards, int numReplicas, OperationContext operationContext)
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents cluster,
+      String prefix,
+      int numShards,
+      int numReplicas,
+      OperationContext operationContext)
       throws Exception {
     String prefixedPolicy = prefix + "datahub_usage_event_policy";
     String prefixedTemplate = prefix + "datahub_usage_event_index_template";
     String prefixedAlias = prefix + "datahub_usage_event";
     String prefixedIndex = prefix + "datahub_usage_event-000001";
 
-    // Create ISM policy (both AWS and self-hosted OpenSearch use the same format)
     boolean policyCreated =
-        UsageEventIndexUtils.createIsmPolicy(
-            esComponents, prefixedPolicy, prefix, operationContext);
+        UsageEventIndexUtils.createIsmPolicy(cluster, prefixedPolicy, prefix, operationContext);
     log.info("ISM policy creation result: {}", policyCreated);
 
     if (policyCreated) {
       log.info("ISM policy created successfully, proceeding with template and index creation");
-
-      // Create index template (both AWS and self-hosted OpenSearch use the same format and
-      // endpoint)
       log.info("Creating index template: {}", prefixedTemplate);
       UsageEventIndexUtils.createOpenSearchIndexTemplate(
-          operationContext, esComponents, prefixedTemplate, numShards, numReplicas, prefix);
-
-      // Create initial numbered index (both AWS and self-hosted OpenSearch use the same approach)
+          operationContext, cluster, prefixedTemplate, numShards, numReplicas, prefix);
       log.info("Creating initial index: {} with alias: {}", prefixedIndex, prefixedAlias);
       UsageEventIndexUtils.createOpenSearchUsageEventIndex(
-          operationContext, esComponents, prefixedIndex, prefixedAlias);
+          operationContext, cluster, prefixedIndex, prefixedAlias);
     } else {
       log.warn(
           "ISM policy creation failed or is not supported. Skipping template and index creation to avoid configuration issues.");
