@@ -249,6 +249,9 @@ fragment recommendationEntityPreview on Entity {
     }
     ... on Container {
         ...entityContainer
+        properties {
+            env
+        }
     }
     ... on DataProduct {
         ...dataProductFields
