@@ -994,3 +994,46 @@ def test_extra_cannot_overwrite_the_envelopes_own_keys() -> None:
     assert envelope["__recipe_yaml__"] != "hijacked"
     assert envelope["__secrets__"].get("PW") == "real-secret"
     assert envelope["ok"] == 1, "an ordinary extra key is still passed through"
+
+
+def test_finalize_releases_the_venv_cache_lock(tmp_path: Path) -> None:
+    """Held for the task's life so eviction cannot delete a venv mid-run --
+    which means something has to let go of it, or the entry becomes immortal
+    and the cache can never be trimmed.
+    """
+    from datahub.executor.execution.runner import VenvConfig, VenvReference
+    from datahub.executor.execution.venv_cache import EntryLock
+
+    lock = EntryLock(tmp_path / "entry.lock")
+    assert lock.acquire(exclusive=False)
+    venv_ref = VenvReference(
+        venv_loc=tmp_path / "venv-x",
+        venv_config=VenvConfig(version="0.15.0.1", main_plugin="snowflake"),
+        lock=lock,
+    )
+
+    SubProcessTaskUtil.finalize_task_output(
+        str(tmp_path / "absent-report.json"),
+        str(tmp_path / "exec-dir"),
+        [],
+        Mock(),
+        venv_ref=venv_ref,
+    )
+
+    assert not lock.held
+    assert EntryLock(tmp_path / "entry.lock").acquire(exclusive=True, blocking=False), (
+        "the entry is still locked, so eviction can never reclaim it"
+    )
+
+
+def test_finalize_without_a_venv_ref_is_unchanged(tmp_path: Path) -> None:
+    """Every existing caller passes nothing, and the ephemeral path has no
+    lock to release."""
+    exec_dir = tmp_path / "exec-dir"
+    exec_dir.mkdir()
+
+    SubProcessTaskUtil.finalize_task_output(
+        str(tmp_path / "absent-report.json"), str(exec_dir), [], Mock()
+    )
+
+    assert not exec_dir.exists()

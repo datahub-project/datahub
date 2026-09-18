@@ -536,6 +536,7 @@ class SubProcessTaskUtil:
         ctx: ExecutionContext,
         *,
         masking_filter: Optional[SecretMaskingFilter] = None,
+        venv_ref: Optional[VenvReference] = None,
     ) -> None:
         """Attach the structured report and logs, then clean up.
 
@@ -631,6 +632,17 @@ class SubProcessTaskUtil:
             )
         except Exception:
             logger.exception("Failed to set logs on execution report")
+
+        # Before the directory removal and guarded like it: the shared lock on
+        # a cached venv is what keeps eviction from deleting it mid-run, so it
+        # has to be let go of here or the entry becomes immortal and the cache
+        # can never be trimmed. An ephemeral venv carries no lock, so this is a
+        # no-op for every path where the cache is off or unusable.
+        try:
+            if venv_ref is not None and venv_ref.lock is not None:
+                venv_ref.lock.release()
+        except Exception:
+            logger.exception("Failed to release the venv cache lock")
 
         # Last, and guarded separately: this directory holds the run's reports,
         # with real object names in them, so leaving it behind on a failure

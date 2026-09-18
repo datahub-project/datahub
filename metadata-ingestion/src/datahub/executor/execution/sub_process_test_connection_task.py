@@ -126,6 +126,7 @@ class SubProcessTestConnectionTask(Task):
                 stdout_lines,
                 ctx,
                 masking_filter=masking_filter,
+                venv_ref=prepared.venv_ref,
             )
 
         if return_code != 0:

@@ -333,7 +333,7 @@ class TestSubProcessIngestionTaskSubprocessCreation:
                 secret_values,
             )
 
-            assert result == mock_process
+            assert result == (mock_process, mock_venv_ref)
 
             mock_setup_venv.assert_called_once_with(
                 validated_args, plugin, exec_out_dir, shared_logs
@@ -468,7 +468,7 @@ class TestSubProcessIngestionTaskExecution:
                     return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=mock_process),
+                _create_subprocess=AsyncMock(return_value=(mock_process, Mock())),
                 _monitor_subprocess=AsyncMock(),
                 _handle_subprocess_completion=Mock(),
             ),
@@ -510,7 +510,7 @@ class TestSubProcessIngestionTaskExecution:
                     )
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=mock_process),
+                _create_subprocess=AsyncMock(return_value=(mock_process, Mock())),
                 _monitor_subprocess=AsyncMock(),
                 _handle_subprocess_completion=Mock(),
             ),
@@ -618,7 +618,7 @@ class TestSubProcessIngestionTaskExecution:
                     return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=mock_process),
+                _create_subprocess=AsyncMock(return_value=(mock_process, Mock())),
                 _monitor_subprocess=AsyncMock(side_effect=asyncio.CancelledError()),
                 _handle_subprocess_completion=mock_completion,
             ),
@@ -655,7 +655,7 @@ class TestSubProcessIngestionTaskExecution:
                     return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=mock_process),
+                _create_subprocess=AsyncMock(return_value=(mock_process, Mock())),
                 _monitor_subprocess=AsyncMock(),  # completes normally
                 _handle_subprocess_completion=mock_completion,
             ),
@@ -1293,7 +1293,7 @@ class TestSubProcessIngestionTaskHybridArchitecture:
         env = call_args[1]["env"]
         assert env["VENV_PATH"] == str(mock_venv_ref.venv_loc)
 
-        assert result == mock_process
+        assert result == (mock_process, mock_venv_ref)
 
     async def test_log_holder_integration_in_task_context(
         self,
@@ -1309,7 +1309,7 @@ class TestSubProcessIngestionTaskHybridArchitecture:
                     return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=AsyncMock()),
+                _create_subprocess=AsyncMock(return_value=(AsyncMock(), Mock())),
                 _monitor_subprocess=AsyncMock(),
                 _handle_subprocess_completion=Mock(),
             ),

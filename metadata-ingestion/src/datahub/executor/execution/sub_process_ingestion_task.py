@@ -213,7 +213,7 @@ class SubProcessIngestionTask(Task):
         exec_out_dir: str,
         shared_logs: LogHolder,
         secret_values: dict[str, str],
-    ) -> asyncio.subprocess.Process:
+    ) -> tuple[asyncio.subprocess.Process, VenvReference]:
         """Create and return the ingestion subprocess.
 
         Secrets and recipe are passed via stdin as a JSON envelope to avoid
@@ -276,7 +276,7 @@ class SubProcessIngestionTask(Task):
         process.stdin.write(stdin_envelope.encode("utf-8"))
         process.stdin.close()
 
-        return process
+        return process, venv_ref
 
     async def execute(self, args: dict, ctx: ExecutionContext) -> None:
         exec_id = ctx.exec_id  # The unique execution id.
@@ -330,7 +330,7 @@ class SubProcessIngestionTask(Task):
 
         logger.info(f"Starting ingestion subprocess for exec_id={exec_id} ({plugin})")
         try:
-            ingest_process = await self._create_subprocess(
+            ingest_process, venv_ref = await self._create_subprocess(
                 validated_args,
                 plugin,
                 recipe,
@@ -397,6 +397,7 @@ class SubProcessIngestionTask(Task):
                 recipe,
                 exec_out_dir,
                 shared_logs,
+                venv_ref=venv_ref,
                 cancelled=cancelled,
             )
 
@@ -557,6 +558,7 @@ class SubProcessIngestionTask(Task):
         recipe: dict,
         exec_out_dir: str,
         shared_logs: LogHolder,
+        venv_ref: Optional[VenvReference] = None,
         cancelled: bool = False,
     ) -> None:
         """Handle subprocess completion: report processing, cleanup, and status.
@@ -567,7 +569,11 @@ class SubProcessIngestionTask(Task):
         `finally` block without fear of masking an in-flight exception.
         """
         SubProcessTaskUtil.finalize_task_output(
-            report_out_file, exec_out_dir, shared_logs.get_lines(), ctx
+            report_out_file,
+            exec_out_dir,
+            shared_logs.get_lines(),
+            ctx,
+            venv_ref=venv_ref,
         )
 
         if cancelled:
