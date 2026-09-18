@@ -14,8 +14,11 @@ import toml
 
 METADATA_INGESTION_DIR = Path(__file__).resolve().parent.parent
 
-# Update when requires-python or Docker base image changes.
-REQUIRED_PYTHON_MINORS = {10, 11, 12}
+# Lockfile and Docker images are produced on 3.11, so uv.lock only records
+# cp311+ wheels. Published python_requires stays >=3.10; extras that pull
+# unstructured (numba/llvmlite/blis/spacy, ...) fail closed via that stack's
+# own requires-python rather than this lock check.
+REQUIRED_PYTHON_MINORS = {11, 12}
 
 KNOWN_EXCEPTIONS = {
     "kerberos",  # Unmaintained, source-only. Needs replacement with krb5/gssapi.
