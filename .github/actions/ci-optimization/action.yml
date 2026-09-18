@@ -118,7 +118,6 @@ runs:
             - "metadata-io/**"
             - "metadata-jobs/**"
             - "metadata-service/**"
-            # Toast JSON and productUpdateCiGate skip backend CI (lint + CTA probe).
             - "!metadata-service/configuration/src/main/resources/product-update.json"
             - "!metadata-service/configuration/src/main/resources/product-update-saas.json"
             - "!metadata-service/configuration/src/productUpdateCiGate/**"
