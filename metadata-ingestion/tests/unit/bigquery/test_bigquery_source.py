@@ -1715,7 +1715,7 @@ def test_bigquery_source_reports_subscriptions_without_linked_dataset_lineage():
     )
 
 
-def test_bigquery_source_reports_linked_dataset_lineage_missing_table_lineage():
+def test_bigquery_source_reports_linked_dataset_lineage_needs_table_lineage():
     config = BigQueryV2Config.model_validate(
         {
             "project_id": "p",
@@ -2366,6 +2366,8 @@ def test_linked_entities_get_no_copy_edge_when_denied_by_type_pattern_schema_off
         {
             "project_id": project_id,
             "include_schema_metadata": False,
+            "include_views": True,
+            "include_table_snapshots": True,
             "view_pattern": {"deny": [".*denied_view.*"]},
             "table_snapshot_pattern": {"deny": [".*denied_snapshot.*"]},
         }
@@ -2400,6 +2402,7 @@ def test_linked_entities_get_no_copy_edge_when_denied_by_type_pattern_schema_off
     for item in (
         _item("allowed_table", "TABLE"),
         _item("denied_view", "VIEW"),
+        _item("denied_view_mv", "MATERIALIZED_VIEW"),
         _item("denied_snapshot", "SNAPSHOT"),
     ):
         schema_gen._add_table_to_refs(item, project_id, linked_dataset)
@@ -2432,7 +2435,272 @@ def test_linked_entities_get_no_copy_edge_when_denied_by_type_pattern_schema_off
 
     assert _urn("allowed_table") in with_lineage
     assert _urn("denied_view") not in with_lineage
+    assert _urn("denied_view_mv") not in with_lineage
     assert _urn("denied_snapshot") not in with_lineage
+
+
+@patch.object(BigQuerySchemaGenerator, "gen_view_dataset_workunits", lambda *a, **k: [])
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_linked_dataset_view_allowed_by_view_pattern_despite_table_pattern_schema_off(
+    get_projects_client_mock, get_bq_client_mock
+):
+    # A linked view that is denied by table_pattern but allowed by view_pattern still gets a
+    # COPY edge because the schema-off path picks the type's own pattern.
+    from google.cloud.bigquery.table import TableListItem
+
+    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+        BigQuerySharingHandler,
+    )
+
+    project_id = "consumer-project"
+    linked_dataset = "linked_ds"
+
+    bq_client = MagicMock()
+    bq_client.get_dataset.return_value = MagicMock(
+        _properties={
+            "type": "LINKED",
+            "linkedDatasetSource": {
+                "sourceDataset": {
+                    "projectId": "123456789012",
+                    "datasetId": "source_ds",
+                }
+            },
+            "linkedDatasetMetadata": {"linkState": "LINKED"},
+        }
+    )
+    bq_client.list_projects.return_value = [
+        SimpleNamespace(
+            project_id="publisher-project",
+            numeric_id="123456789012",
+            friendly_name="",
+        )
+    ]
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": project_id,
+            "include_schema_metadata": False,
+            "table_pattern": {"deny": [".*allowed_view.*"]},
+            # Must be explicit: if left unset the SQL config copies table_pattern into view_pattern.
+            "view_pattern": {"allow": [".*"]},
+        }
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    handler = BigQuerySharingHandler(
+        config,
+        source.report,
+        identifiers=source.identifiers,
+        client=bq_client,
+        projects_client=MagicMock(),
+    )
+    handler.populate_for_project(
+        project_id, [BigqueryDataset(name=linked_dataset, type="LINKED")]
+    )
+    schema_gen.sharing_handler = handler
+
+    view = TableListItem(
+        {
+            "tableReference": {
+                "projectId": project_id,
+                "datasetId": linked_dataset,
+                "tableId": "allowed_view",
+            },
+            "type": "VIEW",
+        }
+    )
+    schema_gen._add_table_to_refs(view, project_id, linked_dataset)
+
+    from datahub.ingestion.api.source_helpers import auto_workunit
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
+    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        platform_instance=None,
+        env="PROD",
+        schema_resolver=SchemaResolver(platform="bigquery", env="PROD"),
+        eager_graph_load=False,
+        generate_lineage=True,
+        generate_queries=True,
+        generate_usage_statistics=False,
+        generate_query_usage_statistics=False,
+        generate_operations=False,
+    )
+    handler.register_known_lineage(aggregator, schema_gen.table_refs)
+    with_lineage = {
+        wu.metadata.entityUrn  # type: ignore[union-attr]
+        for wu in auto_workunit(aggregator.gen_metadata())
+        if isinstance(wu.metadata.aspect, UpstreamLineageClass)  # type: ignore[union-attr]
+    }
+
+    assert (
+        source.identifiers.gen_dataset_urn(project_id, linked_dataset, "allowed_view")
+        in with_lineage
+    )
+
+
+@patch.object(BigQuerySchemaGenerator, "gen_view_dataset_workunits", lambda *a, **k: [])
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_linked_dataset_view_and_snapshot_kept_regardless_of_include_flags_schema_off(
+    get_projects_client_mock, get_bq_client_mock
+):
+    # include_views / include_table_snapshots mean "ingest this object's schema", not
+    # "include it in lineage" (sql_config.py:87-89), so a linked dataset's view and snapshot
+    # stay in table_refs even with both off; only their own pattern can exclude them.
+    from google.cloud.bigquery.table import TableListItem
+
+    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+        BigQuerySharingHandler,
+    )
+
+    project_id = "consumer-project"
+    linked_dataset = "linked_ds"
+
+    bq_client = MagicMock()
+    bq_client.get_dataset.return_value = MagicMock(
+        _properties={
+            "type": "LINKED",
+            "linkedDatasetSource": {
+                "sourceDataset": {
+                    "projectId": "123456789012",
+                    "datasetId": "source_ds",
+                }
+            },
+            "linkedDatasetMetadata": {"linkState": "LINKED"},
+        }
+    )
+    bq_client.list_projects.return_value = [
+        SimpleNamespace(
+            project_id="publisher-project",
+            numeric_id="123456789012",
+            friendly_name="",
+        )
+    ]
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": project_id,
+            "include_schema_metadata": False,
+            "include_views": False,
+            "include_table_snapshots": False,
+        }
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+    handler = BigQuerySharingHandler(
+        config,
+        source.report,
+        identifiers=source.identifiers,
+        client=bq_client,
+        projects_client=MagicMock(),
+    )
+    handler.populate_for_project(
+        project_id, [BigqueryDataset(name=linked_dataset, type="LINKED")]
+    )
+    schema_gen.sharing_handler = handler
+
+    view = TableListItem(
+        {
+            "tableReference": {
+                "projectId": project_id,
+                "datasetId": linked_dataset,
+                "tableId": "a_view",
+            },
+            "type": "VIEW",
+        }
+    )
+    snapshot = TableListItem(
+        {
+            "tableReference": {
+                "projectId": project_id,
+                "datasetId": linked_dataset,
+                "tableId": "a_snapshot",
+            },
+            "type": "SNAPSHOT",
+        }
+    )
+    schema_gen._add_table_to_refs(view, project_id, linked_dataset)
+    schema_gen._add_table_to_refs(snapshot, project_id, linked_dataset)
+
+    assert any("a_view" in ref for ref in schema_gen.table_refs)
+    assert any("a_snapshot" in ref for ref in schema_gen.table_refs)
+
+
+@patch.object(BigQuerySchemaGenerator, "gen_view_dataset_workunits", lambda *a, **k: [])
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_non_linked_dataset_view_kept_when_include_views_false_schema_off(
+    get_projects_client_mock, get_bq_client_mock
+):
+    # Opt-in invariant: include_views must not gate a dataset that was never registered as
+    # linked (get_info returns None here since populate_for_project is not called).
+    from google.cloud.bigquery.table import TableListItem
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "consumer-project",
+            "include_linked_dataset_lineage": True,
+            "include_schema_metadata": False,
+            "include_views": False,
+            "view_pattern": {"deny": [".*"]},  # would deny a linked view
+        }
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+    assert schema_gen.sharing_handler is not None
+
+    view = TableListItem(
+        {
+            "tableReference": {
+                "projectId": "consumer-project",
+                "datasetId": "plain_ds",
+                "tableId": "a_view",
+            },
+            "type": "VIEW",
+        }
+    )
+    schema_gen._add_table_to_refs(view, "consumer-project", "plain_ds")
+
+    assert any("a_view" in ref for ref in schema_gen.table_refs)
+
+
+@patch.object(BigQuerySchemaGenerator, "gen_view_dataset_workunits", lambda *a, **k: [])
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_flag_off_view_kept_when_include_views_false_schema_off(
+    get_projects_client_mock, get_bq_client_mock
+):
+    # Opt-in invariant: with the feature flag off, include_views=False must still not drop views.
+    from google.cloud.bigquery.table import TableListItem
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "consumer-project",
+            "include_linked_dataset_lineage": False,
+            "include_schema_metadata": False,
+            "include_views": False,
+        }
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    view = TableListItem(
+        {
+            "tableReference": {
+                "projectId": "consumer-project",
+                "datasetId": "plain_ds",
+                "tableId": "a_view",
+            },
+            "type": "VIEW",
+        }
+    )
+    schema_gen._add_table_to_refs(view, "consumer-project", "plain_ds")
+
+    assert any("a_view" in ref for ref in schema_gen.table_refs)
 
 
 @patch.object(BigQuerySchemaGenerator, "gen_view_dataset_workunits", lambda *a, **k: [])

@@ -70,6 +70,14 @@ EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE: str = (
     "`include_column_lineage_with_gcs`."
 )
 
+# Emitted both at config-validation time and into the ingestion report, so it lives here
+# rather than being duplicated at the two call sites.
+LINKED_DATASET_LINEAGE_NEEDS_TABLE_LINEAGE_MESSAGE = (
+    "`include_linked_dataset_lineage` is set but `include_table_lineage` is False; "
+    "the linked-dataset COPY lineage (the feature's main output) will not be emitted. "
+    "Subtype and source properties are still emitted when `include_schema_metadata` is enabled."
+)
+
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
 # The regexp checks for valid dates in the suffix (e.g. 20200101, 20200229, 20201231) and if the date is not valid
@@ -766,16 +774,11 @@ class BigQueryV2Config(
         return self
 
     @model_validator(mode="after")
-    def warn_linked_dataset_lineage_missing_dependencies(self) -> "BigQueryV2Config":
+    def warn_linked_dataset_lineage_needs_table_lineage(self) -> "BigQueryV2Config":
         # The COPY edge, this feature's main output, is gated on table lineage; with it
         # off the flag produces nothing, so warn rather than silently no-op.
         if self.include_linked_dataset_lineage and not self.include_table_lineage:
-            logger.warning(
-                "`include_linked_dataset_lineage` is set but `include_table_lineage` "
-                "is False - the linked-dataset COPY lineage is the feature's main "
-                "output and will not be emitted. Subtype and source properties are "
-                "still emitted when `include_schema_metadata` is enabled."
-            )
+            logger.warning(LINKED_DATASET_LINEAGE_NEEDS_TABLE_LINEAGE_MESSAGE)
         return self
 
     @model_validator(mode="after")

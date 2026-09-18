@@ -576,7 +576,7 @@ class BigQuerySchemaGenerator:
     ) -> None:
         """Add a table to table_refs if it passes pattern filtering."""
         table_id = table_item.table_id
-        table_type = getattr(table_item, "table_type", "UNKNOWN")
+        table_type = getattr(table_item, "table_type", None)
 
         identifier = BigqueryTableIdentifier(
             project_id=project_id,
@@ -586,8 +586,8 @@ class BigQuerySchemaGenerator:
 
         logger.debug(f"Processing {table_type}: {identifier.raw_table_name()}")
 
-        # These refs drive register_known_lineage's COPY emission, so a linked dataset's views and
-        # snapshots are filtered by their own pattern. list_tables spells materialized views with "_".
+        # table_refs feeds the COPY edge, queries-v2, audit-log lineage, and usage, so gating a
+        # linked dataset's views/snapshots here affects all four. list_tables spells MVs with "_".
         pattern = self.config.table_pattern
         pattern_name = "table_pattern"
         if (
@@ -595,6 +595,8 @@ class BigQuerySchemaGenerator:
             and self.sharing_handler.get_info(project_id, dataset_name) is not None
         ):
             normalized_type = (table_type or "").replace("_", " ")
+            # include_views / include_table_snapshots mean "ingest this object's schema"
+            # (sql_config.py:87-89), not "include it in lineage", so they don't gate this path.
             if normalized_type in (
                 BigqueryTableType.VIEW,
                 BigqueryTableType.MATERIALIZED_VIEW,

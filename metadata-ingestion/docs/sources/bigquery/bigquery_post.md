@@ -161,7 +161,7 @@ If `link_state` is present and reads anything other than `LINKED`, BigQuery is r
 
 Lineage requires `include_table_lineage`, which is on by default. With it off, no `COPY` edge is emitted; the subtype and source properties are still emitted when `include_schema_metadata` is on.
 
-`include_schema_metadata` is not required for the `COPY` edge. When schema and lineage run in separate recipes, set `include_linked_dataset_lineage: true` in both: the lineage recipe (with `include_schema_metadata: false`) emits the `COPY` edge, while the `Linked Dataset` subtype and the source properties come from the schema recipe. The 1:1 column mapping needs the consumer's schema resident in DataHub, which the schema recipe supplies and the lineage run reads back through the graph.
+`include_schema_metadata` is not required for the `COPY` edge. When schema and lineage run in separate recipes, set `include_linked_dataset_lineage: true` in both: the lineage recipe (with `include_schema_metadata: false`) emits the `COPY` edge, while the `Linked Dataset` subtype and the source properties come from the schema recipe. The lineage recipe must have a graph configured and use the same `platform_instance` and `env` as the schema recipe; otherwise the consumer schema cannot be resolved and the `COPY` edge is table-level only. The 1:1 column mapping is read back through the graph from the schema recipe's output.
 
 Set `extract_subscriptions_from_analytics_hub: true` to additionally record the listing and subscription state. That reads the BigQuery Sharing API and needs `analyticshub.subscriptions.list`; see Prerequisites.
 

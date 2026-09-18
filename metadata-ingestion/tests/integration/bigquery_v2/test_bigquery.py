@@ -1241,6 +1241,11 @@ def test_bigquery_linked_dataset_copy_edge_without_schema_metadata(
     assert len(upstreams) == 1
     assert upstreams[0]["aspect"]["json"]["upstreams"][0]["type"] == "COPY"
 
+    consumer_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)"
+    publisher_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,publisher-project-1.source-dataset-1.table-1,PROD)"
+    assert upstreams[0]["entityUrn"] == consumer_urn
+    assert upstreams[0]["aspect"]["json"]["upstreams"][0]["dataset"] == publisher_urn
+
     assert not any(
         m.get("aspectName") == "subTypes"
         and "Linked Dataset" in m["aspect"]["json"].get("typeNames", [])
@@ -1250,6 +1255,8 @@ def test_bigquery_linked_dataset_copy_edge_without_schema_metadata(
 
     # Schema off: no BigQuery column read; the schema comes from the graph.
     get_columns_for_dataset.assert_not_called()
+    # Detection costs exactly one datasets.get per linked dataset.
+    assert client.return_value.get_dataset.call_count == 1
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

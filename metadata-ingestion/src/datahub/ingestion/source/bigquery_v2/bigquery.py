@@ -21,6 +21,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE,
+    LINKED_DATASET_LINEAGE_NEEDS_TABLE_LINEAGE_MESSAGE,
     BigQueryV2Config,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
@@ -334,9 +335,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             and not self.config.include_table_lineage
         ):
             self.report.warning(
-                message="`include_linked_dataset_lineage` is set but "
-                "`include_table_lineage` is False; the linked-dataset COPY lineage "
-                "(the feature's main output) will not be emitted.",
+                message=LINKED_DATASET_LINEAGE_NEEDS_TABLE_LINEAGE_MESSAGE,
                 title="Linked-dataset COPY lineage will not be emitted",
                 log=False,
             )
