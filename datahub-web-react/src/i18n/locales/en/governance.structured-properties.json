@@ -29,6 +29,7 @@
     "appliesTo.placeholder": "Select Entity Types",
     "appliesTo.title": "Applies to",
     "appliesTo.tooltip": "Select the types of entities that this property can be added to",
+    "badgeReplaceError": "Structured property saved, but the asset badge could not be updated.",
     "create.nameError": "Please enter the name",
     "create.namePlaceholder": "Provide a name",
     "create.propertyType": "Property Type",

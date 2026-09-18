@@ -243,10 +243,14 @@ export default function StructuredPropertyFormPage() {
         });
     };
 
-    const finishSave = () => {
+    const finishSave = (badgeReplaceFailed = false) => {
         setIsDirty(false);
         setIsSaveComplete(true);
-        showSuccessMessage();
+        if (badgeReplaceFailed) {
+            toast.warning(t('badgeReplaceError'), { duration: 4 });
+        } else {
+            showSuccessMessage();
+        }
         reloadByKeyType([
             getReloadableKeyType(ReloadableKeyTypeNamespace.STRUCTURED_PROPERTY, 'EntitySummaryTabSidebar'),
         ]);
@@ -339,17 +343,24 @@ export default function StructuredPropertyFormPage() {
                 trackSavedProperty({ type: EventType.CreateStructuredPropertyEvent }, allowedValues);
             }
 
-            await replaceAssetBadge({
-                existingBadgeUrn: badgeProperty?.urn,
-                savedPropertyUrn,
-                enableBadge: formValues?.settings?.showAsAssetBadge ?? false,
-                updateBadge: (propertyUrn, enabled) =>
-                    updateStructuredProperty({
-                        variables: { input: { urn: propertyUrn, settings: { showAsAssetBadge: enabled } } },
-                    }),
-            });
+            // The property itself is already saved here, so a badge failure must not be reported as
+            // a failed save — the user would retry a create that already succeeded.
+            let badgeReplaceFailed = false;
+            try {
+                await replaceAssetBadge({
+                    existingBadgeUrn: badgeProperty?.urn,
+                    savedPropertyUrn,
+                    enableBadge: formValues?.settings?.showAsAssetBadge ?? false,
+                    updateBadge: (propertyUrn, enabled) =>
+                        updateStructuredProperty({
+                            variables: { input: { urn: propertyUrn, settings: { showAsAssetBadge: enabled } } },
+                        }),
+                });
+            } catch {
+                badgeReplaceFailed = true;
+            }
 
-            finishSave();
+            finishSave(badgeReplaceFailed);
         } catch {
             showErrorMessage();
         } finally {
