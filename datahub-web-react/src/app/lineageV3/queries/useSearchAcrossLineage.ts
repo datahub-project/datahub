@@ -102,11 +102,13 @@ export default function useSearchAcrossLineage(
     const handleFetchFailure = () => {
         if (settledRef.current) return;
         settledRef.current = true;
-        // Reuse existing states: mark the fetch terminal so the node stops showing a spinner, and bump
-        // the versions to release the loading gate (useResetLineageGraph zeroed nodeVersion).
+        // Stop the spinner and release the loading gate WITHOUT marking the fetch COMPLETE: a failed
+        // node must stay retryable. COMPLETE + isExpanded hides the expand control and makes
+        // useOnClickExpandLineage skip the refetch, so a failed expand would look finished. UNFETCHED
+        // clears LOADING; the gate is released by the nodeVersion bump below, not by the status.
         const node = nodes.get(urn);
         if (node) {
-            node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
+            node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.UNFETCHED };
         }
         processed.add(urn);
         setNodeVersion((version) => version + 1);
@@ -175,13 +177,16 @@ export default function useSearchAcrossLineage(
     }, [fetchLineage, lazy]);
 
     // Guard against a stalled fetch hanging the graph indefinitely: if the request is still in flight
-    // after the timeout, fail it visibly instead of spinning forever.
+    // after the timeout, fail it visibly instead of spinning forever. Re-arm on a time-range change
+    // too, not just on the loading edge: a stalled request keeps `loading` true, and the retry (Apollo
+    // auto-refetches when the time params change) would otherwise leave `settledRef` latched from the
+    // first timeout, so a second stall could never be caught and the graph would hang again.
     useEffect(() => {
         if (!loading) return undefined;
         settledRef.current = false;
         const timer = setTimeout(() => handleFetchFailureRef.current(), LINEAGE_FETCH_TIMEOUT_MS);
         return () => clearTimeout(timer);
-    }, [loading]);
+    }, [loading, startTimeMillis, endTimeMillis]);
 
     return { fetchLineage, processed: processed.has(urn) };
 }

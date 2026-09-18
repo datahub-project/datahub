@@ -168,7 +168,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                 hideTransformations
             ) {
                 newUrnsToFetch = Array.from(nodes.values())
-                    .filter((node) => isTransformational(node, rootType) && !node.entity)
+                    .filter((node) => isTransformational(node, rootType) && !node.entity && !failedUrns.has(node.urn))
                     .map((node) => node.urn);
             }
             if (JSON.stringify(oldUrnsToFetch) !== JSON.stringify(newUrnsToFetch)) {
