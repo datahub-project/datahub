@@ -83,7 +83,7 @@ def register_secrets_for_masking(secrets: dict[str, str]) -> None:
         return
 
     try:
-        initialize_secret_masking(force=True)
+        initialize_secret_masking()
         registry = SecretRegistry.get_instance()
         for name, value in secrets.items():
             if value:
@@ -98,6 +98,42 @@ def register_secrets_for_masking(secrets: dict[str, str]) -> None:
             f"Warning: Failed to initialize secret masking: {e}. Continuing without masking.",
             file=sys.stderr,
         )
+
+
+ENVELOPE_MIN_CLI_VERSION = (1, 5, 0, 15)
+
+
+def get_venv_datahub_version(venv_python: Path) -> Optional[tuple[int, ...]]:
+    """Installed acryl-datahub version in the venv, None if undeterminable.
+
+    Asks the venv's package metadata rather than the CLI's self-reported
+    version string, which is unreliable (dev installs report "unavailable")."""
+    try:
+        result = subprocess.run(
+            [
+                str(venv_python),
+                "-c",
+                "from importlib.metadata import version; print(version('acryl-datahub'))",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        match = re.match(r"(?:\d+!)?(\d+(?:\.\d+)+)", result.stdout.strip())
+        if match is None:
+            return None
+        return tuple(int(part) for part in match.group(1).split("."))
+    except Exception as e:
+        print(
+            f"Warning: Failed to determine venv datahub version: {e}", file=sys.stderr
+        )
+        return None
+
+
+def supports_stdin_envelope(venv_python: Path) -> bool:
+    """Whether the venv's `datahub ingest -c -` understands the JSON secrets
+    envelope (acryl-datahub >= 1.5.0.15); older CLIs parse it as a recipe."""
+    version = get_venv_datahub_version(venv_python)
+    return version is not None and version >= ENVELOPE_MIN_CLI_VERSION
 
 
 def check_cli_flag_support(datahub_binary: Path, flag: str) -> bool:

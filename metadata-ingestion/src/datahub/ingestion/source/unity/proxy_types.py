@@ -302,6 +302,21 @@ class Table(CommonProperty):
         )
 
 
+# Databricks masks statement_text / query_text as this placeholder for principals
+# that are not account admins and not in databricks_pii_access. The casing is
+# not contractually guaranteed (public docs show "<Redacted>", live workspaces
+# return "<REDACTED>"), so compare case-insensitively. Detection assumes the
+# whole field is the placeholder; inline redaction or a trailing separator would
+# not be caught and would fall back to junk SQL parsing.
+DATABRICKS_REDACTED_QUERY_TEXT = "<REDACTED>"
+
+
+def is_databricks_query_text_redacted(query_text: Optional[str]) -> bool:
+    if not query_text:
+        return False
+    return query_text.strip().upper() == DATABRICKS_REDACTED_QUERY_TEXT
+
+
 @dataclass
 class Query:
     query_id: Optional[str]
@@ -322,6 +337,10 @@ class Query:
     @property
     def has_system_table_lineage(self) -> bool:
         return bool(self.source_table_full_names or self.target_table_full_names)
+
+    @property
+    def is_query_text_redacted(self) -> bool:
+        return is_databricks_query_text_redacted(self.query_text)
 
 
 @dataclass

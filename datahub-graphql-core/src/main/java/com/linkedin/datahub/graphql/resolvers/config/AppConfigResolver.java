@@ -263,6 +263,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
             .setThemeV2Default(_featureFlags.isThemeV2Default())
             .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
+            .setThemeDarkModeEnabled(_featureFlags.isThemeDarkModeEnabled())
             .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
             .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
             .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
@@ -295,6 +296,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setDataProductLineageEnabled(_featureFlags.isDataProductLineageEnabled())
             .setMultipleDataProductsPerAsset(_featureFlags.isMultipleDataProductsPerAsset())
             .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
+            .setStructuredPropertiesInPoliciesEnabled(
+                _featureFlags.isStructuredPropertiesInPoliciesEnabled())
             .setShowTestsInHealthIcon(_featureFlags.isShowTestsInHealthIcon())
             .setI18nEnabled(_featureFlags.isI18nEnabled())
             .setBrowserTracingEnabled(_featureFlags.isBrowserTracingEnabled())

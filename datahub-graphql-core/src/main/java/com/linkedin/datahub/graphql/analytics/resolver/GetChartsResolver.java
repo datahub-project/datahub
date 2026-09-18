@@ -42,7 +42,9 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -426,8 +428,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             Optional.empty(),
             ImmutableList.of("platform.keyword"),
             Collections.emptyMap(),
-            ImmutableMap.of(
-                "removed", ImmutableList.of("true"), "_index", ImmutableList.of("*queryindex_v2*")),
+            mustNotRemovedAndQueryEntities(),
             Optional.empty(),
             false);
     AnalyticsUtil.hydrateDisplayNameForBars(
@@ -483,5 +484,12 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     }
 
     return charts;
+  }
+
+  private Map<String, List<String>> mustNotRemovedAndQueryEntities() {
+    Map<String, List<String>> mustNot = new HashMap<>();
+    mustNot.put("removed", ImmutableList.of("true"));
+    mustNot.putAll(_analyticsService.queryEntityMustNotFilters());
+    return mustNot;
   }
 }

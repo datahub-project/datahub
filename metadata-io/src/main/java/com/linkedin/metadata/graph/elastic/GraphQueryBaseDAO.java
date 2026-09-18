@@ -23,6 +23,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
@@ -53,6 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -67,6 +69,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
@@ -510,6 +513,17 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           buildLineageGraphFiltersQuery(opContext, entityType, urns, lineageGraphFilters)
               .ifPresent(entityTypeQueries::should);
         });
+
+    // No should clauses means no entity type in this hop has registered lineage edges.
+    // minimumShouldMatch does not apply to a bool query without should clauses, so the
+    // clause-less bool would degrade to match_all -- dropping the source-urn filter and
+    // scanning the whole graph index. Such an entity genuinely has no lineage: match none.
+    if (entityTypeQueries.should().isEmpty()) {
+      log.debug(
+          "No registered lineage edges for entity types {}; matching none",
+          urnsPerEntityType.keySet());
+      return new MatchNoneQueryBuilder();
+    }
     entityTypeQueries.minimumShouldMatch(1);
 
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
@@ -1380,6 +1394,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         }
 
         if (remainingTime < 0) {
+          cascade.recordError("timeout"); // datahub.lineage.graph_walk.errors{error_type=timeout}
           if (allowPartialResults) {
             log.warn(
                 "Timed out while fetching lineage for {} with direction {}, maxHops {}. Returning partial results. {} ms reserved for second query phase.",
@@ -1395,7 +1410,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                 entityUrn,
                 lineageGraphFilters.getLineageDirection(),
                 maxHops);
-            throw new IllegalStateException(
+            throw new LineageTimeoutException(
                 String.format(
                     "Lineage operation timed out after %d seconds. Entity: %s, Direction: %s, MaxHops: %d. Consider increasing the timeout or set partialResults to true to return partial results.",
                     config.getSearch().getGraph().getTimeoutSeconds(),
@@ -1414,20 +1429,30 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         // Do one hop on the lineage graph
         // Note: maxRelations is the original total limit, but we pass the remaining capacity
         // to the scroll methods to ensure accurate limit checking at each level
-        ImpactHopResult hopResult =
-            processOneHopLineageWithMaxRelations(
-                opContext,
-                currentLevel,
-                remainingTime,
-                maxHops,
-                lineageGraphFilters,
-                visitedEntities,
-                viaEntities,
-                existingPaths,
-                result,
-                i,
-                maxRelations,
-                allowPartialResults);
+        ImpactHopResult hopResult;
+        try {
+          hopResult =
+              processOneHopLineageWithMaxRelations(
+                  opContext,
+                  currentLevel,
+                  remainingTime,
+                  maxHops,
+                  lineageGraphFilters,
+                  visitedEntities,
+                  viaEntities,
+                  existingPaths,
+                  result,
+                  i,
+                  maxRelations,
+                  allowPartialResults);
+        } catch (LineageTimeoutException e) {
+          // Strict-mode slice timeouts surface here; record them on the same cascade so every
+          // timeout, whichever site detected it, lands on graph_walk.errors{error_type=timeout}.
+          // Partial-mode slice timeouts on the final hop are only visible via isPartial;
+          // add a reason to LineageSliceFetchResult if that rate ever needs its own series.
+          cascade.recordError("timeout");
+          throw e;
+        }
         currentLevel = hopResult.getNextLevelUrns();
         isPartial |= hopResult.isSlicePartial();
         cascade.recordEntitiesProcessed(result.size() - sizeBefore);
@@ -1738,6 +1763,21 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     return new LineageSliceFetchResult(fetch.getLineageRelationships(), true);
   }
 
+  /**
+   * Mark a hop partial when any slice stopped on a timeout in partial mode (see {@link
+   * #stopSliceOnTimeout}). The slice keeps and returns what it collected but cannot flag itself
+   * partial through {@link #processSliceFutures}, which infers partial only from an exception or an
+   * exhausted wait budget; the shared flag closes that gap so truncated lineage is never reported
+   * with {@code isPartial=false}.
+   */
+  static LineageSliceFetchResult markPartialIfSliceTimedOut(
+      LineageSliceFetchResult fetch, AtomicBoolean sliceTimedOut, boolean allowPartialResults) {
+    if (!allowPartialResults || fetch.isPartial() || !sliceTimedOut.get()) {
+      return fetch;
+    }
+    return new LineageSliceFetchResult(fetch.getLineageRelationships(), true);
+  }
+
   private static IllegalStateException rejectMaxRelationsExceeded(int sliceId, int maxRelations) {
     log.error(
         "Slice {} exceeded maxRelations limit of {}. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
@@ -1808,17 +1848,31 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                 i + 1,
                 allRelationships.size());
             slicePartial = true;
-          } else {
-            log.warn("Out of time, stopping slice processing after {} slices", i + 1);
+            break;
           }
-          break;
+          if (sliceFutures.stream().skip(i + 1).allMatch(CompletableFuture::isDone)) {
+            // Every remaining slice has already finished (or none remain): a slice that returned
+            // normally in strict mode completed all its pages, so the hop is complete even though
+            // the budget is spent. Keep reading (get() returns immediately) instead of failing;
+            // the BFS-level deadline check decides whether another hop may start.
+            continue;
+          }
+          // Strict mode: the hop budget is gone with later slices unread. Returning what we have
+          // would report truncated lineage as complete; fail exactly like a timed-out slice.
+          log.error(
+              "Out of time after {} of {} slices; failing strict lineage query",
+              i + 1,
+              sliceFutures.size());
+          sliceFutures.forEach(f -> f.cancel(true));
+          throw new LineageTimeoutException(
+              "Lineage hop timed out after " + (i + 1) + " of " + sliceFutures.size() + " slices");
         }
 
       } catch (TimeoutException e) {
         if (!allowPartialResults) {
           log.error("Slice {} timed out after {} seconds", i, futureTimeout);
           sliceFutures.forEach(f -> f.cancel(true));
-          throw new RuntimeException(
+          throw new LineageTimeoutException(
               "Slice " + i + " timed out after " + futureTimeout + " seconds", e);
         }
         future.cancel(true);
@@ -1874,6 +1928,26 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     }
 
     return new LineageSliceFetchResult(allRelationships, slicePartial);
+  }
+
+  /**
+   * A slice ran out of time: either the shared hop deadline passed between pages, or a page came
+   * back with {@code timedOut=true} because the shard stopped collecting at the per-request
+   * timeout. One policy for both, so strict mode can never report a truncated slice as complete and
+   * partial mode never throws away what the slice already collected: strict mode throws the
+   * distinct {@link LineageTimeoutException}; partial mode flags the hop partial and logs. Callers
+   * stop paginating immediately after this returns.
+   */
+  protected void stopSliceOnTimeout(
+      int sliceId, String reason, boolean allowPartialResults, AtomicBoolean sliceTimedOut) {
+    if (!allowPartialResults) {
+      throw new LineageTimeoutException("Slice " + sliceId + " timed out (" + reason + ")");
+    }
+    sliceTimedOut.set(true);
+    log.warn(
+        "Slice {} timed out ({}); keeping collected relationships and stopping pagination",
+        sliceId,
+        reason);
   }
 
   @Override

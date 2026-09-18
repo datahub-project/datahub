@@ -1048,10 +1048,14 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             Dictionary of config values that affect processing output.
         """
+        from datahub.ingestion.source.unstructured.chunking_config import (
+            DEFAULT_MAX_CHUNKS_PER_DOCUMENT,
+        )
+
         # Chunking/embedding is enabled when embedding provider is configured
         embedding_enabled = self.config.embedding.provider is not None
 
-        return {
+        fingerprint: Dict[str, Any] = {
             # Chunking affects chunk boundaries and structure
             "chunking_enabled": embedding_enabled,
             "chunking_strategy": self.config.chunking.strategy
@@ -1076,6 +1080,18 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             # Hierarchy affects parent relationships
             "hierarchy_enabled": self.config.hierarchy.enabled,
         }
+        # Only fingerprint the chunk cap when non-default, so upgrading to a build that
+        # adds the knob does not re-hash (and re-embed) every already-processed document;
+        # a tuned cap changes emitted output and must re-hash.
+        if (
+            embedding_enabled
+            and self.config.chunking.max_chunks_per_document
+            != DEFAULT_MAX_CHUNKS_PER_DOCUMENT
+        ):
+            fingerprint["chunking_max_chunks_per_document"] = (
+                self.config.chunking.max_chunks_per_document
+            )
+        return fingerprint
 
     def _calculate_document_hash(self, text: str, page_id: str) -> str:
         """Calculate hash of document content AND processing configuration.
@@ -2168,18 +2184,41 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
         # Generate embeddings inline using ChunkingSource.
         # DocumentChunkingSource enforces max_documents and raises RuntimeError when exceeded.
+        from datahub.ingestion.source.unstructured.chunking_source import (
+            SkipMarkerReadError,
+            compute_source_text_sha256,
+        )
+
+        # Hash the exact text build_document_entity put on DocumentInfo (the same
+        # extraction over the same elements), so the embeddings' sourceTextSha256
+        # byte-matches the server-stamped resolvedTextSha256 of the indexed body.
+        source_text = self.document_builder.content_mapper.extract_text_content(
+            elements
+        )
         try:
             yield from self.chunking_source.process_elements_inline(
-                document_urn=document_urn, elements=elements
+                document_urn=document_urn,
+                elements=elements,
+                source_text_sha256=compute_source_text_sha256(source_text),
             )
+        except SkipMarkerReadError as e:
+            # Do not fall through to _update_document_state: recording state here would
+            # permanently drop the skip marker. Leaving the document unrecorded retries
+            # it next run.
+            logger.warning(f"Skip marker deferred for {page_id}: {e}")
+            return
         except RuntimeError as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
                 raise
+            # No semanticContent was written: return before the report accounting and the
+            # (stateful) _update_document_state below. Recording state would checkpoint the
+            # page as done and permanently skip it next run; leaving it unrecorded retries it.
             short_error = str(e).split("\n")[0][:150]
             logger.warning(
-                f"Failed to generate embeddings for {page_id}: {short_error}"
+                f"Embeddings deferred for {page_id}, will retry next run: {short_error}"
             )
+            return
         except Exception as e:
             short_error = str(e).split("\n")[0][:150]
             is_credential_error = any(
@@ -2196,12 +2235,16 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             if is_credential_error:
                 logger.error(
                     f"EMBEDDING CREDENTIAL ERROR for {page_id}: {short_error}\n"
-                    f"Document ingested without embeddings. Fix AWS/Cohere credentials."
+                    f"Document left without embeddings; will retry next run after "
+                    f"credentials are fixed."
                 )
             else:
                 logger.warning(
-                    f"Failed to generate embeddings for {page_id}: {short_error}"
+                    f"Embeddings deferred for {page_id}, will retry next run: {short_error}"
                 )
+            # Same rationale as the RuntimeError branch: return before state is recorded so
+            # the page is retried next run instead of being checkpointed as done.
+            return
 
         # Update report
         file_type = metadata.get("filetype", "unknown")
@@ -2229,6 +2272,12 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.embedding_failures.append(failure)
             self.report.num_documents_limit_reached = (
                 chunking_report.num_documents_limit_reached
+            )
+            self.report.num_documents_truncated_oversized = (
+                chunking_report.num_documents_truncated_oversized
+            )
+            self.report.num_documents_dropped_oversized = (
+                chunking_report.num_documents_dropped_oversized
             )
 
         # Log prominent warning if all embeddings failed

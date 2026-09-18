@@ -106,13 +106,17 @@ authorization:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
     # Entity types that bypass view authorization when enabled. All other types are restricted by
-    # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`). Empty `value`
-    # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
-    # Default `add` is the previous unrestricted CSV minus (1) types already flagged in the
-    # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Document,
-    # schemaField, and container are intentionally absent from stock unrestricted overlays when
-    # view authorization is on (container is no longer viewUnrestricted in the registry). Re-add
-    # via VIEW_UNRESTRICTED_ENTITY_TYPES_ADD if needed (not recommended).
+    # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`) plus `value`.
+    # Operator `add` / `remove` always mutate that list.
+    # Stock `value` is the previous unrestricted CSV minus types already flagged in the registry
+    # (OSS entity names only; Cloud-only types are omitted and would be soft-dropped here anyway).
+    # Override with VIEW_UNRESTRICTED_ENTITY_TYPES (replaces this CSV, not the registry baseline).
+    # An explicitly empty VIEW_UNRESTRICTED_ENTITY_TYPES keeps only the registry baseline.
+    # Document, schemaField, and container are intentionally absent from the effective defaults:
+    # they are view-restricted when view authorization is on (container is no longer
+    # viewUnrestricted in the registry). Unrestricted overlays only bypass view gates and do not
+    # disable DocumentService or REST API authorization.
+    # Re-add via VIEW_UNRESTRICTED_ENTITY_TYPES_ADD if needed (not recommended).
     #
     # Registry baseline (entity-registry.yml viewUnrestricted: true):
     #   identity: corpuser, corpGroup
@@ -121,8 +125,8 @@ authorization:
     #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post
     #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
     unrestrictedEntityTypes:
-      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:}
-      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:}
       remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 
 ingestion:
@@ -705,8 +709,7 @@ postgres:
       leakTimeMinutes: ${DATAHUB_PGQUEUE_LEAK_TIME_MINUTES:15}
       waitTimeoutMillis: ${DATAHUB_PGQUEUE_WAIT_TIMEOUT_MILLIS:1000}
     consumerPoll:
-      emptyPollSleepMillis: ${DATAHUB_PGQUEUE_EMPTY_POLL_SLEEP_MS:100}
-      mclEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MCL_EMPTY_POLL_SLEEP_MS:25}
+      emptyPollSleepMinMillis: ${DATAHUB_PGQUEUE_EMPTY_POLL_SLEEP_MIN_MS:1000}
       missingTopicSleepMillis: ${DATAHUB_PGQUEUE_MISSING_TOPIC_SLEEP_MS:500}
       errorRecoverySleepMillis: ${DATAHUB_PGQUEUE_ERROR_RECOVERY_SLEEP_MS:1000}
 
@@ -718,18 +721,22 @@ maeConsumer:
     connectionRequestTimeoutMs: ${MAE_ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:10000}
   pgQueue:
     usageEventsMaxBatch: ${DATAHUB_PGQUEUE_MAE_USAGE_POLL_MAX_BATCH:200}
+    usageEventsEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MAE_USAGE_EMPTY_POLL_SLEEP_MS:5000}
     metadataChangeLogMaxBatch: ${DATAHUB_PGQUEUE_MAE_MCL_POLL_MAX_BATCH:50}
+    metadataChangeLogEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MAE_MCL_EMPTY_POLL_SLEEP_MS:5000}
 
 # MCE consumer (standalone or embedded in GMS): pgQueue poll tuning when transport=pgqueue.
 mceConsumer:
   pgQueue:
     metadataChangeProposalMaxBatch: ${DATAHUB_PGQUEUE_MCE_MCP_POLL_MAX_BATCH:50}
+    metadataChangeProposalEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MCE_MCP_EMPTY_POLL_SLEEP_MS:5000}
     batchMetadataChangeProposalMaxBatch: ${DATAHUB_PGQUEUE_MCE_BATCH_MCP_POLL_MAX_BATCH:100}
 
 # PE consumer (standalone or embedded in GMS): pgQueue poll tuning when transport=pgqueue.
 peConsumer:
   pgQueue:
     platformEventMaxBatch: ${DATAHUB_PGQUEUE_PE_POLL_MAX_BATCH:50}
+    platformEventEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_PE_EMPTY_POLL_SLEEP_MS:5000}
 
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
@@ -753,6 +760,7 @@ elasticsearch:
     v3:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
+      keywordReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED:false}
       analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
       mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
       maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}
@@ -795,10 +803,39 @@ elasticsearch:
           spaceType: cosinesimil
           efConstruction: 128
           m: 16
+        # Snowflake Arctic-embed-s (ONNX in-process default, 384 dimensions)
+        snowflake_arctic_embed_s:
+          vectorDimension: ${ELASTICSEARCH_ENTITY_INDEX_SEMANTIC_SEARCH_MODELS_SNOWFLAKE_ARCTIC_EMBED_S_VECTORDIMENSION:384}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
+        # Snowflake Arctic-embed-l (ONNX in-process, 1024 dimensions)
+        snowflake_arctic_embed_l:
+          vectorDimension: ${ELASTICSEARCH_ENTITY_INDEX_SEMANTIC_SEARCH_MODELS_SNOWFLAKE_ARCTIC_EMBED_L_VECTORDIMENSION:1024}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
+        # BGE-base-en-v1.5 (ONNX in-process, 768 dimensions)
+        bge_base_en_v1_5:
+          vectorDimension: ${ELASTICSEARCH_ENTITY_INDEX_SEMANTIC_SEARCH_MODELS_BGE_BASE_EN_V1_5_VECTORDIMENSION:768}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
+        # Classical deterministic hashing (model hash-v1-2048). The width is fixed by the model
+        # name and the vectors are unnormalized counts, so keep vectorDimension and a cosine space type.
+        hash_v1_2048:
+          vectorDimension: 2048
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
       # Embedding provider configuration for generating query embeddings
-      # Supports: "aws-bedrock", "openai", "cohere", "local", or "vertex_ai"
+      # Supports: "aws-bedrock", "openai", "cohere", "local", "vertex_ai", "onnx", or "classical"
       embeddingProvider:
-        # Provider type: "aws-bedrock", "openai", "cohere", "local", or "vertex_ai"
+        # Provider type: "aws-bedrock", "openai", "cohere", "local", "vertex_ai", "onnx", or "classical"
         type: ${EMBEDDING_PROVIDER_TYPE:openai}
 
         # Maximum text length before truncation (Cohere enforces 2048 character limit)
@@ -831,6 +868,33 @@ elasticsearch:
           endpoint: ${LOCAL_EMBEDDING_ENDPOINT:http://localhost:11434/v1/embeddings}
           model: ${LOCAL_EMBEDDING_MODEL:nomic-embed-text}
 
+        # In-process ONNX Runtime configuration (used when type is "onnx")
+        # No external server needed — runs inference in the GMS JVM.
+        # Mount a model directory into the container and set env vars to enable.
+        # WARNING: Switching models requires recreating semantic indices and re-embedding all documents.
+        onnx:
+          modelName: ${ONNX_EMBEDDING_MODEL_NAME:}
+          modelDir: ${ONNX_EMBEDDING_MODEL_DIR:}
+          intraOpThreads: ${ONNX_EMBEDDING_INTRA_OP_THREADS:4}
+          # Pooling for token-level output: "cls" (Arctic-embed, BGE) or "mean". Must match the
+          # model's training and the document-side pooling, or kNN recall collapses.
+          pooling: ${ONNX_EMBEDDING_POOLING:cls}
+          # Query-only instruction prefix for asymmetric models (documents are not prefixed).
+          # Arctic-embed/BGE expect "Represent this sentence for searching relevant passages: ".
+          queryInstruction: ${ONNX_EMBEDDING_QUERY_INSTRUCTION:}
+
+        # Classical deterministic hashing (used when type is "classical")
+        # In-process SHA-256 feature hashing of words and character n-grams: no API key, endpoint,
+        # or model download, and identical vectors from the Python ingestion provider. Matching is
+        # lexical, not semantic. The model name (hash-v1-<dims>) fixes the algorithm version and
+        # vector width; it must match the ingestion recipe and have a semanticSearch.models entry
+        # (hash_v1_2048 above). Switching models requires recreating the semantic index.
+        classical:
+          model: ${CLASSICAL_EMBEDDING_MODEL:hash-v1-2048}
+          # Lexical hashing, not semantic search: meant for CI, smoke tests and quickstarts. GMS
+          # refuses type=classical until this is true, and logs a warning while it is active.
+          acknowledgeLexicalOnly: ${CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY:false}
+
         # Google Vertex AI configuration (used when type is "vertex_ai")
         vertexai:
           projectId: ${VERTEX_AI_PROJECT_ID:}
@@ -841,7 +905,7 @@ elasticsearch:
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
     enabled: ${ELASTICSEARCH_SHIM_ENABLED:false}
-    # Engine type: AUTO_DETECT, ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2
+    # Engine type: AUTO_DETECT, ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2, OPENSEARCH_3
     engineType: ${ELASTICSEARCH_SHIM_ENGINE_TYPE:AUTO_DETECT}
     # Whether to auto-detect the engine type by connecting to the cluster
     autoDetectEngine: ${ELASTICSEARCH_SHIM_AUTO_DETECT:true}
@@ -908,6 +972,7 @@ elasticsearch:
     reindexBatchSize: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE:5000} # documents per scroll batch during reindex
     reindexMaxSlices: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES:256} # max parallel slices (capped from target shard count)
     reindexNoProgressRetryMinutes: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES:5} # minutes without doc-count progress before re-triggering reindex
+    waitForUnresolvedReindexTask: ${ELASTICSEARCH_BUILD_INDICES_WAIT_FOR_UNRESOLVED_REINDEX_TASK:true} # skip stall resubmit while the ES reindex task is still running or status lookup failed
     # Parallel reindexing configuration
     enableParallelReindex: ${ELASTICSEARCH_BUILD_INDICES_ENABLE_PARALLEL_REINDEX:false}
     taskCheckIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_CHECK_INTERVAL_SECONDS:60}
@@ -1185,7 +1250,6 @@ kafka:
     pe:
       autoOffsetReset: ${KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET:latest}
     metrics:
-      percentiles: ${KAFKA_CONSUMER_PERCENTILES:0.5,0.95,0.99,0.999}
       slo: ${KAFKA_CONSUMER_SERVICE_LEVEL_OBJECTIVES:300,1800,3000,10800,21600,43200} # 5min, 30min, 1hr, 3hr, 6hr, 12h (seconds)
       maxExpectedValue: ${KAFKA_CONSUMER_MAX_EXPECTED_VALUE:86000} # 24h (seconds)
 
@@ -1418,6 +1482,13 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false}
+  dataProductAssets:
+    # First-time population of asset-side dataProducts is driven by dataProductProperties
+    # schemaVersion + MigrateAspects / ZDU (see DataProductPropertiesMigrationMutator).
+    # Set reprocess.enabled to force a re-upsert sweep that re-runs DataProductAssetsSideEffect.
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE:1000}
+    reprocess:
+      enabled: ${REPROCESS_DATA_PRODUCT_ASSETS:false}
   browsePathsV2Iceberg:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ICEBERG_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ICEBERG_BATCH_SIZE:5000}
@@ -1622,8 +1693,13 @@ structuredProperties:
   # Requires systemUpdateEnabled as well; both must be true for type-mismatch reindex.
   typeMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX:true}
   dropMissingPropertyValuesWithWarning: ${STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING:true} # drop assignments for hard-deleted/missing definitions with WARN; fail if none remain
-  # Lucene keyword term limit (Elasticsearch/OpenSearch default). Used for ignore_above on structured
-  # property keyword mappings and for rejecting oversized string-backed structured property values.
+  # When true, persist oversized string-backed SP values in SQL but omit them from search documents.
+  # Default false: StructuredPropertiesValidator rejects those writes (HTTP 422).
+  dropOversizedKeywordValuesFromIndex: ${STRUCTURED_PROPERTIES_DROP_OVERSIZED_KEYWORD_VALUES_FROM_INDEX:false}
+  # Lucene keyword term limit (Elasticsearch/OpenSearch default, ESUtils.KEYWORD_MAXLENGTH). Used
+  # for ignore_above on structured property keyword mappings and as the write-validation / search-
+  # document threshold. Not a hard cap on primary-store size when dropOversizedKeywordValuesFromIndex
+  # is true.
   keywordMaxLength: ${STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH:32766}
 
 # Consistency check configuration (shared by upgrade job and API endpoints)
@@ -1669,6 +1745,7 @@ featureFlags:
   themeV2Enabled: ${THEME_V2_ENABLED:true} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
   themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
   themeV2Toggleable: ${THEME_V2_TOGGLEABLE:false} # Acryl only! Allows theme v2 to be toggled on / off by users.
+  themeDarkModeEnabled: ${THEME_DARK_MODE_ENABLED:false} # If turned on, show the light/dark mode toggle in Appearance settings and apply the dark color theme.
   schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
   schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
@@ -1708,6 +1785,7 @@ featureFlags:
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
+  structuredPropertiesInPoliciesEnabled: ${STRUCTURED_PROPERTIES_IN_POLICIES_ENABLED:true} # Enables structured properties as criteria in policies
   showTestsInHealthIcon: ${SHOW_TESTS_IN_HEALTH_ICON:false} # If enabled, shows tests status in the health icon on entity pages
   i18nEnabled: ${I18N_ENABLED:true} # If enabled, internationalization (i18n) features are active
   timeseriesAspectBatchLoadEnabled: ${TIMESERIES_ASPECT_BATCH_LOAD_ENABLED:true} # If enabled, TimeSeriesAspectResolver uses the DataLoader batch path; disable to revert to single-URN queries
@@ -1844,9 +1922,15 @@ graphQL:
     enabled: ${GRAPHQL_GRAPHIQL_ENABLED:true}
   concurrency:
     separateThreadPool: ${GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL:false} # Enable the separate thread pool, the following configurations only apply if enabled
+    # true restores availableProcessors()*5 / *100 and a SynchronousQueue (pre-8-core-default behavior)
+    scaleWithProcessors: ${GRAPHQL_CONCURRENCY_SCALE_WITH_PROCESSORS:false}
     stackSize: ${GRAPHQL_CONCURRENCY_STACK_SIZE:256000} # Default to JVM default of 256 KB
-    corePoolSize: ${GRAPHQL_CONCURRENCY_CORE_POOL_SIZE:-1} # Base thread pool size for GraphQL executor service, default 5 * # of cores
-    maxPoolSize: ${GRAPHQL_CONCURRENCY_MAX_POOL_SIZE:-1} # Maximum thread pool size for GraphQL executor service, default 100 * # of cores
+    corePoolSize: ${GRAPHQL_CONCURRENCY_CORE_POOL_SIZE:40} # 8-core default (5 * 8); < 0 uses 5 * availableProcessors()
+    maxPoolSize: ${GRAPHQL_CONCURRENCY_MAX_POOL_SIZE:800} # 8-core cap (100 * 8); <= 0 uses 100 * availableProcessors()
+    # 0 = SynchronousQueue (create a worker per task up to max). GraphQL fan-out is blocking I/O, not
+    # CPU-linear; a small bounded queue plus CallerRunsPolicy on Jetty has starved nested resolvers.
+    # Set > 0 only if you want an ArrayBlockingQueue of that capacity.
+    queueSize: ${GRAPHQL_CONCURRENCY_QUEUE_SIZE:0}
     keepAlive: ${GRAPHQL_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
   query:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
@@ -1993,6 +2077,12 @@ metadataChangeProposal:
       enabled: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_UNSET_ENABLED:true}
     aliases:
       enabled: ${MCP_SIDE_EFFECTS_ALIASES_ENABLED:true}
+    dataProductAssets:
+      enabled: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_ENABLED:true} # Mirrors Data Product membership onto member assets' dataProducts aspect for search filtering/faceting
+      maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_MAX_FANOUT:500} # Batch size for reading existing asset-side dataProducts; ADD patches are not capped per commit
+    domainReferenceDetach:
+      enabled: ${MCP_SIDE_EFFECTS_DOMAIN_REFERENCE_DETACH_ENABLED:true}
+      maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_DOMAIN_REFERENCE_DETACH_MAX_FANOUT:500}
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 

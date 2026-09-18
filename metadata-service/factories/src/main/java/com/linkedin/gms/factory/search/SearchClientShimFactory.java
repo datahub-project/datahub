@@ -13,6 +13,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClie
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -119,6 +120,8 @@ public class SearchClientShimFactory {
       int connectionRequestTimeoutMs)
       throws IOException {
 
+    assertIamAuthHasSharedCredentials(esConfig, defaultAwsCredentialsProvider);
+
     // Build the shim configuration from DataHub configuration
     ShimConfigurationBuilder configBuilder =
         new ShimConfigurationBuilder()
@@ -162,8 +165,24 @@ public class SearchClientShimFactory {
     }
 
     assertCompatModeNotSemanticEnabled(shim, semanticEnabled);
+    assertNoNmslibOnOpenSearch3(shim, esConfig, semanticEnabled);
 
     return shim;
+  }
+
+  /**
+   * OpenSearch IAM signing must use the process-wide {@code defaultAwsCredentialsProvider}. A null
+   * provider would either fail later in the shim or (worse) let a client fall through to a new IRSA
+   * default chain.
+   */
+  static void assertIamAuthHasSharedCredentials(
+      @Nonnull ElasticSearchConfiguration esConfig,
+      @Nullable AwsCredentialsProvider defaultAwsCredentialsProvider) {
+    if (esConfig.isOpensearchUseAwsIamAuth() && defaultAwsCredentialsProvider == null) {
+      throw new IllegalStateException(
+          "Shared DefaultCredentialsProvider is required when elasticsearch.iam /"
+              + " opensearchUseAwsIamAuth is enabled");
+    }
   }
 
   /**
@@ -179,6 +198,42 @@ public class SearchClientShimFactory {
           "Elasticsearch 8.18+ required for semantic search; cluster is in ES 7 compatibility mode. "
               + "Upgrade the cluster or set semanticSearch.enabled=false.");
     }
+  }
+
+  /**
+   * OpenSearch 3.x refuses to create new indexes with the {@code nmslib} kNN engine, so a semantic
+   * index configured for it would only fail later, at index-build time, with an engine error. Fail
+   * at startup with an actionable message instead. Every configured model is checked, not only the
+   * active one, because mappings are created for all of them.
+   *
+   * <p>Package-private for direct invocation by unit tests.
+   */
+  static void assertNoNmslibOnOpenSearch3(
+      @Nonnull SearchClientShim<?> shim,
+      @Nonnull ElasticSearchConfiguration esConfig,
+      boolean semanticEnabled) {
+    if (!semanticEnabled
+        || shim.getEngineType() != SearchClientShim.SearchEngineType.OPENSEARCH_3
+        || esConfig.getEntityIndex().getSemanticSearch().getModels() == null) {
+      return;
+    }
+    esConfig
+        .getEntityIndex()
+        .getSemanticSearch()
+        .getModels()
+        .forEach(
+            (modelKey, model) -> {
+              if (model != null
+                  && model.getKnnEngine() != null
+                  && "nmslib".equalsIgnoreCase(model.getKnnEngine().trim())) {
+                throw new IllegalStateException(
+                    "semanticSearch.models."
+                        + modelKey
+                        + ".knnEngine nmslib is not supported on OpenSearch 3.x (new nmslib"
+                        + " indexes are rejected); use faiss or lucene, or set"
+                        + " semanticSearch.enabled=false.");
+              }
+            });
   }
 
   /** Parse the engine type from string configuration */
@@ -204,11 +259,15 @@ public class SearchClientShimFactory {
       case "OPENSEARCH_2":
       case "OS2":
         return SearchClientShim.SearchEngineType.OPENSEARCH_2;
+      case "OPENSEARCH_3":
+      case "OS3":
+        return SearchClientShim.SearchEngineType.OPENSEARCH_3;
       default:
         throw new IllegalArgumentException(
             "Unsupported engine type: "
                 + engineTypeStr
-                + ". Supported types: ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2");
+                + ". Supported types: ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9,"
+                + " OPENSEARCH_2, OPENSEARCH_3");
     }
   }
 }

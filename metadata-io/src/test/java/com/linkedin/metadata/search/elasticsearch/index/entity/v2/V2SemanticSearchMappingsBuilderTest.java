@@ -188,10 +188,16 @@ public class V2SemanticSearchMappingsBuilderTest {
       assertEquals(method.get("engine"), "faiss", "Should use FAISS engine");
       assertEquals(method.get("space_type"), "cosinesimil", "Should use cosine similarity");
 
-      // Verify model entry only has chunks (metadata fields like totalChunks removed — not
-      // populated)
-      assertEquals(cohereModelProperties.keySet().size(), 1, "Model should only contain chunks");
-      assertTrue(cohereModelProperties.containsKey("chunks"), "Should have chunks field");
+      // chunks plus sourceTextSha256 (staleness digest); totalChunks/modelVersion/generatedAt are
+      // not mapped because they are not populated at index time.
+      assertEquals(
+          cohereModelProperties.keySet(),
+          Set.of("chunks", "sourceTextSha256"),
+          "Model mapping should contain chunks and sourceTextSha256");
+      @SuppressWarnings("unchecked")
+      Map<String, Object> sourceTextSha256 =
+          (Map<String, Object>) cohereModelProperties.get("sourceTextSha256");
+      assertEquals(sourceTextSha256.get("type"), "keyword");
 
       // Verify OpenAI model has different dimension
       @SuppressWarnings("unchecked")

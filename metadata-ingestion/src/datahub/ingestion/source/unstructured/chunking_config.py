@@ -10,6 +10,10 @@ from datahub.configuration.common import ConfigModel, TransparentSecretStr
 
 _LOCAL_EMBEDDING_DEFAULT_ENDPOINT = "http://localhost:11434/v1/embeddings"
 
+# Default per-document chunk cap. Shared with the staleness fingerprint so the cap is
+# only fingerprinted when it deviates from this value (see get_processing_config_fingerprint).
+DEFAULT_MAX_CHUNKS_PER_DOCUMENT = 100
+
 
 class ServerEmbeddingConfig(ConfigModel):
     """Embedding configuration fetched from DataHub server via AppConfig API."""
@@ -41,6 +45,14 @@ class ChunkingConfig(ConfigModel):
     combine_text_under_n_chars: int = Field(
         default=100, description="Combine chunks smaller than this size"
     )
+    max_chunks_per_document: int = Field(
+        default=DEFAULT_MAX_CHUNKS_PER_DOCUMENT,
+        ge=1,
+        description="Maximum number of chunks embedded per document. A document that "
+        "produces more chunks is truncated to the first N so its semanticContent aspect "
+        "stays under the Kafka producer size limit; the dropped chunks are reported as a "
+        "warning, not a failure.",
+    )
 
 
 class EmbeddingConfig(ConfigModel):
@@ -51,16 +63,31 @@ class EmbeddingConfig(ConfigModel):
     """
 
     # Core configuration (Optional - loaded from server if not set)
-    provider: Optional[Literal["bedrock", "cohere", "openai", "local", "vertex_ai"]] = (
-        Field(
-            default=None,
-            description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. If not set, loads from server.",
-        )
+    provider: Optional[
+        Literal[
+            "bedrock", "cohere", "openai", "local", "vertex_ai", "onnx", "classical"
+        ]
+    ] = Field(
+        default=None,
+        description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). 'classical' is a deterministic hashed-feature embedding with no external service (matches the GMS built-in provider). If not set, loads from server.",
     )
     endpoint: Optional[str] = Field(
         default=None,
         description="Endpoint URL for local embedding server (e.g., http://localhost:11434/v1/embeddings). "
         "Only used when provider='local'. Falls back to LOCAL_EMBEDDING_ENDPOINT env var.",
+    )
+    onnx_model_dir: Optional[str] = Field(
+        default=None,
+        description="Directory containing model.onnx (or model_quantized.onnx) and tokenizer.json. "
+        "Only used when provider='onnx'. Falls back to ONNX_EMBEDDING_MODEL_DIR env var. "
+        "Must be the same model the GMS query-side provider uses, or semantic search will not match.",
+    )
+    onnx_pooling: str = Field(
+        default="cls",
+        description="Pooling strategy for provider='onnx': 'cls' (first-token, default) or 'mean' "
+        "(attention-masked mean). Must match the GMS provider's pooling for query/doc vector parity. "
+        "When config is loaded from the server, falls back to the ONNX_EMBEDDING_POOLING env var "
+        "(the same variable GMS reads), since the server API does not expose pooling.",
     )
     model: Optional[str] = Field(
         default=None,
@@ -181,6 +208,16 @@ class EmbeddingConfig(ConfigModel):
                 _LOCAL_EMBEDDING_DEFAULT_ENDPOINT,
             )
 
+        # The server names the onnx model but not where its files live or how it
+        # pools; the executor resolves both from the same env vars GMS uses so
+        # both sides load the identical model.onnx + tokenizer.json and pool the
+        # same way (query/doc vector parity).
+        onnx_model_dir: Optional[str] = None
+        onnx_pooling = "cls"
+        if provider == "onnx":
+            onnx_model_dir = os.environ.get("ONNX_EMBEDDING_MODEL_DIR")
+            onnx_pooling = os.environ.get("ONNX_EMBEDDING_POOLING", "cls")
+
         config = cls(
             provider=provider,
             model=server_config.model_id,
@@ -190,6 +227,8 @@ class EmbeddingConfig(ConfigModel):
             vertex_location=server_config.vertex_location,
             api_key=api_key,
             endpoint=endpoint,
+            onnx_model_dir=onnx_model_dir,
+            onnx_pooling=onnx_pooling,
         )
         # Set private field after construction
         config._server_config = server_config
@@ -284,12 +323,18 @@ class EmbeddingConfig(ConfigModel):
             return "local"
         if "vertex" in provider_lower:
             return "vertex_ai"
+        if "onnx" in provider_lower:
+            return "onnx"
+        if "classical" in provider_lower:
+            return "classical"
         return provider_lower
 
     @staticmethod
     def _normalize_provider_from_server(
         server_provider: str,
-    ) -> Literal["bedrock", "cohere", "openai", "local", "vertex_ai"]:  # type: ignore
+    ) -> Literal[
+        "bedrock", "cohere", "openai", "local", "vertex_ai", "onnx", "classical"
+    ]:  # type: ignore
         """Convert server provider format to local config format."""
         normalized = EmbeddingConfig._normalize_provider(server_provider)
         if normalized == "bedrock":
@@ -302,6 +347,10 @@ class EmbeddingConfig(ConfigModel):
             return "local"
         elif normalized == "vertex_ai":
             return "vertex_ai"
+        elif normalized == "onnx":
+            return "onnx"
+        elif normalized == "classical":
+            return "classical"
         else:
             raise ValueError(f"Unsupported provider from server: {server_provider}")
 
@@ -537,7 +586,7 @@ def get_processing_config_fingerprint(
     # Embedding is enabled when provider is configured
     embedding_enabled = embedding.provider is not None
 
-    return {
+    fingerprint: dict[str, Any] = {
         # Chunking affects chunk boundaries and structure
         "chunking_strategy": chunking.strategy if embedding_enabled else None,
         "chunking_max_characters": chunking.max_characters
@@ -554,6 +603,18 @@ def get_processing_config_fingerprint(
             embedding.model_embedding_key if embedding_enabled else None
         ),
     }
+    # The chunk cap changes emitted output (fewer chunks), so a change must re-hash
+    # affected documents. Only add the key when the cap is non-default, so merely
+    # upgrading to a build that introduces the knob does not re-fingerprint (and
+    # re-embed) every already-processed document.
+    if (
+        embedding_enabled
+        and chunking.max_chunks_per_document != DEFAULT_MAX_CHUNKS_PER_DOCUMENT
+    ):
+        fingerprint["chunking_max_chunks_per_document"] = (
+            chunking.max_chunks_per_document
+        )
+    return fingerprint
 
 
 def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:

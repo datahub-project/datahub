@@ -133,6 +133,7 @@ def setup_timeseries_data(auth_session):
     cleanup_test_data(auth_session)
 
 
+@pytest.mark.p0
 def test_timeseries_scroll_returns_scrollid(auth_session, setup_timeseries_data):
     """Test that scrollId is returned when there are more results than the page size."""
     test_data = setup_timeseries_data

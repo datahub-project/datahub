@@ -96,15 +96,6 @@ export const PillContainer = styled.div`
     display: flex;
 `;
 
-export const MenuItem = styled.div`
-    display: flex;
-    padding: 5px 100px 5px 5px;
-    font-size: 14px;
-    font-weight: 400;
-    color: ${(props) => props.theme.colors.text};
-    font-family: ${typography.fonts.body};
-`;
-
 export const DrawerHeader = styled.div`
     display: flex;
     justify-content: space-between;
@@ -198,6 +189,7 @@ export const FlexContainer = styled.div`
 export const StyledDrawer = styled(Drawer)`
     .ant-drawer-content,
     .ant-drawer-header,
+    .ant-drawer-title,
     .ant-drawer-body {
         font-family: ${typography.fonts.body};
     }
@@ -249,7 +241,7 @@ export const CreatedByContainer = styled.div`
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 6px 3px 4px;
+    padding: 2px 6px 2px 4px;
     border-radius: 20px;
     border: 1px solid ${(props) => props.theme.colors.border};
 
