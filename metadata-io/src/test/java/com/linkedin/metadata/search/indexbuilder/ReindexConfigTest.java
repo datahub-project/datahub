@@ -50,10 +50,11 @@ public class ReindexConfigTest {
     // Verify constants are properly defined
     Assert.assertNotNull(ReindexConfig.OBJECT_MAPPER);
     Assert.assertEquals(ReindexConfig.SETTINGS_DYNAMIC, Arrays.asList("refresh_interval"));
-    Assert.assertEquals(ReindexConfig.SETTINGS_STATIC, Arrays.asList("number_of_shards"));
-    Assert.assertEquals(ReindexConfig.SETTINGS.size(), 2);
+    Assert.assertEquals(ReindexConfig.SETTINGS_STATIC, Arrays.asList("number_of_shards", "knn"));
+    Assert.assertEquals(ReindexConfig.SETTINGS.size(), 3);
     Assert.assertTrue(ReindexConfig.SETTINGS.contains("refresh_interval"));
     Assert.assertTrue(ReindexConfig.SETTINGS.contains("number_of_shards"));
+    Assert.assertTrue(ReindexConfig.SETTINGS.contains("knn"));
   }
 
   @Test
@@ -822,6 +823,118 @@ public class ReindexConfigTest {
     Assert.assertTrue(config.requiresApplySettings());
     Assert.assertTrue(config.isSettingsReindex());
     Assert.assertTrue(config.requiresReindex()); // Static setting change requires reindex
+  }
+
+  @Test
+  void testKnnMismatchRequiresSettingsReindexWhenEnabled() {
+    Settings currentSettings =
+        Settings.builder().put("index.number_of_shards", "1").put("index.knn", "false").build();
+    Map<String, Object> targetSettings = new HashMap<>();
+    targetSettings.put("index", ImmutableMap.of("number_of_shards", "1", "knn", true));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(true)
+            .build();
+
+    Assert.assertTrue(config.requiresApplySettings());
+    Assert.assertTrue(config.isSettingsReindex());
+    Assert.assertTrue(config.requiresReindex());
+    Assert.assertFalse(config.cannotApplyKnnVectorMappingInPlace());
+  }
+
+  @Test
+  void testKnnMismatchDoesNotReindexWhenSettingsReindexDisabled() {
+    Settings currentSettings = Settings.builder().put("index.number_of_shards", "1").build();
+    Map<String, Object> targetSettings = new HashMap<>();
+    targetSettings.put("index", ImmutableMap.of("number_of_shards", "1", "knn", true));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(false)
+            .build();
+
+    Assert.assertTrue(config.requiresApplySettings());
+    Assert.assertTrue(config.isSettingsReindex());
+    Assert.assertFalse(config.requiresReindex());
+    Assert.assertTrue(config.cannotApplyKnnVectorMappingInPlace());
+  }
+
+  @Test
+  void testOmittedTargetKnnDoesNotReindexWhenCurrentKnnFalse() {
+    Settings currentSettings =
+        Settings.builder().put("index.number_of_shards", "1").put("index.knn", "false").build();
+    Map<String, Object> targetSettings = new HashMap<>();
+    targetSettings.put("index", ImmutableMap.of("number_of_shards", "1"));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(true)
+            .build();
+
+    Assert.assertFalse(config.requiresApplySettings());
+    Assert.assertFalse(config.isSettingsReindex());
+    Assert.assertFalse(config.requiresReindex());
+    Assert.assertFalse(config.cannotApplyKnnVectorMappingInPlace());
+  }
+
+  @Test
+  void testMappingsWithoutKnnVectorFieldsDropsVectorLeavesAndKeepsProvenance() {
+    Map<String, Object> original =
+        ImmutableMap.of(
+            PROPERTIES_KEY,
+            ImmutableMap.of(
+                "urn",
+                ImmutableMap.of(TYPE_KEY, "keyword"),
+                "resolvedTextSha256",
+                ImmutableMap.of(TYPE_KEY, "keyword"),
+                "embeddings",
+                ImmutableMap.of(
+                    PROPERTIES_KEY,
+                    ImmutableMap.of(
+                        "model_a",
+                        ImmutableMap.of(
+                            PROPERTIES_KEY,
+                            ImmutableMap.of(
+                                "vector",
+                                ImmutableMap.of(
+                                    TYPE_KEY,
+                                    ReindexConfig.KNN_VECTOR_TYPE,
+                                    "dimension",
+                                    8,
+                                    "method",
+                                    ImmutableMap.of("name", "hnsw")),
+                                "sourceTextSha256",
+                                ImmutableMap.of(TYPE_KEY, "keyword")))))));
+
+    Map<String, Object> stripped = ReindexConfig.mappingsWithoutKnnVectorFields(original);
+
+    Assert.assertTrue(original.toString().contains(ReindexConfig.KNN_VECTOR_TYPE));
+    Assert.assertFalse(stripped.toString().contains(ReindexConfig.KNN_VECTOR_TYPE));
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) stripped.get(PROPERTIES_KEY);
+    Assert.assertTrue(properties.containsKey("urn"));
+    Assert.assertTrue(properties.containsKey("resolvedTextSha256"));
+    Assert.assertTrue(properties.containsKey("embeddings"));
+    Assert.assertTrue(ReindexConfig.mappingHasProperties(stripped));
   }
 
   @Test
