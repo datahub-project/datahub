@@ -80,6 +80,16 @@ export default function ManageLineageMenuForImpactAnalysis({
 
     const unauthorizedText = t('manageLineage.unauthorized');
 
+    function getUpstreamDisabledPopoverContent() {
+        if (!canEditLineage) {
+            return unauthorizedText;
+        }
+        if (!hasValidUpstreamTypes) {
+            return t('manageLineage.metricNoUpstream');
+        }
+        return <PopoverContent centerEntity={centerEntity} direction="upstream" />;
+    }
+
     function getDownstreamDisabledPopoverContent() {
         if (!canEditLineage) {
             return unauthorizedText;
@@ -100,15 +110,7 @@ export default function ManageLineageMenuForImpactAnalysis({
                   label: (
                       <MenuItemStyle onClick={() => manageLineage(Direction.Upstream)} disabled={isUpstreamDisabled}>
                           <Popover
-                              content={
-                                  !canEditLineage ? (
-                                      unauthorizedText
-                                  ) : !hasValidUpstreamTypes ? (
-                                      t('manageLineage.metricNoUpstream')
-                                  ) : (
-                                      <PopoverContent centerEntity={centerEntity} direction="upstream" />
-                                  )
-                              }
+                              content={getUpstreamDisabledPopoverContent()}
                               overlayStyle={isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
                           >
                               <MenuItemContent data-testid="edit-upstream-lineage">
