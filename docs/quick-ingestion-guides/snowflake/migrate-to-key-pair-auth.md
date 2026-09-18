@@ -61,14 +61,10 @@ USE ROLE ACCOUNTADMIN;
 
 -- Assign the public key to the existing DataHub user
 ALTER USER datahub_user SET RSA_PUBLIC_KEY = 'MIIBIjANBgkqhkiG9w0B...';
-
--- (Recommended) Mark the user as a service account and drop the password
-ALTER USER datahub_user SET TYPE = SERVICE;
-ALTER USER datahub_user UNSET PASSWORD;
 ```
 
 :::note Keep the old password for one run
-Do not drop the password until you have validated the new key-pair connection (Step 4). Keep the old password as a rollback for one ingestion run.
+Do not drop the password or change the user type yet. Keep the old password as a rollback for one ingestion run — you will retire it in [Step 4](#step-4--validate-before-retiring-the-old-credentials) after the new key-pair connection is validated. Switching the user to `TYPE = SERVICE` now would also disable password auth, which breaks that rollback.
 :::
 
 ### 1c. Confirm role and warehouse grants
@@ -116,7 +112,7 @@ source:
     # private_key_password: "${SNOWFLAKE_PRIVATE_KEY_PASSWORD}"
 ```
 
-:::important Keep the private key in PEM format
+:::caution Keep the private key in PEM format
 `private_key` must be the full PEM string, including the `-----BEGIN PRIVATE KEY-----` / `-----END PRIVATE KEY-----` markers, with `\n` line breaks at the beginning, end, and roughly every 64 characters. When you store it as a DataHub secret, paste the literal PEM content (newlines included) into the secret value.
 :::
 
@@ -149,7 +145,7 @@ Reference the private key with the same `${SECRET_NAME}` syntax as any other sec
 
 - **DataHub UI secret:** create a secret named `SNOWFLAKE_PRIVATE_KEY` whose value is the full PEM content, then reference it as `private_key: ${SNOWFLAKE_PRIVATE_KEY}`.
 - **Environment variable:** set `SNOWFLAKE_PRIVATE_KEY` in the ingestion environment.
-- **File secret on a Remote Executor:** mount the key file under `/mnt/secrets/` and reference it. For a Kubernetes Remote Executor, mount the key from a Kubernetes Secret (see [Configuring Secret Mounting](../../managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md#configure-secret-mounting-optional)):
+- **File secret on a Remote Executor:** mount the key file under `/mnt/secrets/` and reference it. For a Kubernetes Remote Executor, mount the key from a Kubernetes Secret (see [Deploy on Kubernetes](../../managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md#deploy-on-kubernetes) in the Remote Executor guide):
 
 ```yaml
 extraVolumes:
@@ -204,9 +200,10 @@ You can apply the recipe change in place — edit the existing source in the Dat
 
 3. **Keep the old password for one run as a rollback.** If the new run fails, revert the recipe to the password config, re-run, and re-check the Snowflake-side key assignment.
 
-4. **Only after a successful run**, retire the old credentials in Snowflake:
+4. **Only after a successful run**, retire the old credentials in Snowflake. Switch the user to a service account and drop the password together — once the user is `TYPE = SERVICE` it can no longer authenticate with a password, so do this last:
 
    ```sql
+   ALTER USER datahub_user SET TYPE = SERVICE;
    ALTER USER datahub_user UNSET PASSWORD;
    ```
 
@@ -217,6 +214,6 @@ You can apply the recipe change in place — edit the existing source in the Dat
 
 ## Migrating from the DataHub UI
 
-The DataHub Snowflake ingestion form currently documents a password-based quick setup. In-UI support for configuring key-pair auth directly in the form is being added separately. Until then, the most reliable path is to edit the recipe YAML directly (the **YAML editor** in the source configuration flow) using the diff in [Step 2](#step-2--datahub-side-update-the-recipe).
+The DataHub Snowflake ingestion form supports key-pair auth directly. In the source builder, set **Authentication Type** to **Private Key**, then provide the private key via the **Private Key** field (as a secret reference) and, if your key is passphrase-protected, the **Private Key Password** field. The form fields map to the same `authentication_type`, `private_key`, and `private_key_password` recipe keys used in [Step 2](#step-2--datahub-side-update-the-recipe), so the YAML diff above applies equally to the YAML editor in the source configuration flow.
 
 If you need help confirming your account's enforcement date or want a guided migration, contact DataHub support.

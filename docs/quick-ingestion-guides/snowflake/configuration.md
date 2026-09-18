@@ -7,6 +7,10 @@ description: "Configure DataHub UI ingestion to connect to Snowflake using the d
 
 Now that you have created a DataHub-specific user with the relevant roles in Snowflake in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
 
+:::note Migrating an existing source?
+If you already ingest from Snowflake with username + password auth, follow the [key-pair migration guide](migrate-to-key-pair-auth.md) instead of recreating the source — it switches the auth mode in place without resetting your ingestion state.
+:::
+
 ## Configure Secrets
 
 1. Within DataHub, navigate to the **Ingestion** tab in the top, right corner of your screen
@@ -25,17 +29,21 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
    <img width="75%" alt="Secrets Tab" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_secrets_tab.png"/>
 </p>
 
-3. Create a Password secret
+3. Create a Private Key secret
 
-This will securely store your Snowflake password within DataHub
+This will securely store the Snowflake private key (the `snowflake_key.p8` you generated in [Setup](setup.md)) within DataHub.
 
-- Enter a name like `SNOWFLAKE_PASSWORD` - we will use this later to refer to the secret
-- Enter the password configured for the DataHub user in the previous step
+- Enter a name like `SNOWFLAKE_PRIVATE_KEY` - we will use this later to refer to the secret
+- Paste the full PEM content of the private key, including the `-----BEGIN PRIVATE KEY-----` / `-----END PRIVATE KEY-----` markers and newlines, into the secret value
 - Optionally add a description
 - Click **Create**
 
+:::note Passphrase-protected key?
+If your private key is encrypted, also create a `SNOWFLAKE_PRIVATE_KEY_PASSWORD` secret holding the passphrase. You'll reference both secrets in the recipe below.
+:::
+
 <p align="center">
-   <img width="70%" alt="Snowflake Password Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_password_secret.png"/>
+   <img width="70%" alt="Create a Snowflake secret in DataHub" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_password_secret.png"/>
 </p>
 
 ## Configure Recipe
@@ -62,14 +70,19 @@ Enter the Snowflake Account Identifier as **Account ID** field. Account identifi
 
 _Learn more about Snowflake Account Identifiers [here](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#account-identifiers)_
 
-Add the previously added Password secret to **Password** field:
+Set the authentication mode to key-pair and reference the secret you just created:
 
-- Click on the Password input field
-- Select `SNOWFLAKE_PASSWORD` secret
+- Set **Authentication Type** to **Private Key** (`KEY_PAIR_AUTHENTICATOR`)
+- In the **Private Key** field, select the `SNOWFLAKE_PRIVATE_KEY` secret
+- If your private key is passphrase-protected, select the `SNOWFLAKE_PRIVATE_KEY_PASSWORD` secret in the **Private Key Password** field
 
 <p align="center">
-     <img width="70%" alt="Password field" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_password_secret_field.png"/>
+   <img width="70%" alt="Snowflake authentication and key fields" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_password_secret_field.png"/>
 </p>
+
+:::note Editing the YAML directly?
+The form fields map to the `authentication_type`, `private_key`, and `private_key_password` recipe keys. See the [key-pair migration guide](migrate-to-key-pair-auth.md#step-2--datahub-side-update-the-recipe) for the exact YAML.
+:::
 
 Populate the relevant fields using the same **Username**, **Role**, and **Warehouse** you created and/or specified in [Snowflake Prerequisites](setup.md).
 
