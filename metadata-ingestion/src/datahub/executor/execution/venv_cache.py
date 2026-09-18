@@ -89,6 +89,25 @@ class EntryLock:
 
 
 def _entry_size(venv: pathlib.Path) -> int:
+    """Nominal size of one entry: the sum of its files' sizes.
+
+    NOT the bytes deleting it would reclaim. DataHub defaults uv to
+    UV_LINK_MODE=hardlink, so most of a venv's files are hardlinks into uv's
+    package cache and are shared with sibling entries -- removing this
+    directory drops the directory entries, and the data survives as long as
+    anything else links it.
+
+    Deliberately not corrected for that. Over-counting makes the cache reach
+    its budget sooner than real disk usage does, so eviction runs earlier than
+    strictly necessary and actual usage stays under the configured ceiling;
+    under-counting would be the direction that lets a disk fill. Deduplicating
+    by inode would measure the cache more accurately and err the less safe way,
+    and would still be wrong about links uv holds outside the cache -- which is
+    why uv documents `uv cache prune` as a separate operation.
+
+    The consequence to know: DATAHUB_VENV_CACHE_MAX_GB is a budget in nominal
+    size, so it does not line up with `du` on the cache directory.
+    """
     total = 0
     for dirpath, _dirnames, filenames in os.walk(venv):
         for name in filenames:
