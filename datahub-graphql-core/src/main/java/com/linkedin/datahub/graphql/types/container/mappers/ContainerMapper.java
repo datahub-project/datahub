@@ -35,6 +35,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtil
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
 import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -206,14 +207,11 @@ public class ContainerMapper {
       propertiesResult.setQualifiedName(gmsProperties.getQualifiedName().toString());
     }
     if (gmsProperties.hasEnv()) {
-      try {
-        propertiesResult.setEnv(
-            com.linkedin.datahub.graphql.generated.FabricType.valueOf(
-                gmsProperties.getEnv().toString()));
-      } catch (IllegalArgumentException e) {
-        // An unrecognized fabric (e.g. Pegasus $UNKNOWN) has no GraphQL enum value;
-        // leave env unset rather than failing the whole container/search response.
-      }
+      // PdlEnumMapper falls back to null for an unrecognized fabric (e.g. Pegasus
+      // $UNKNOWN) instead of throwing and failing the container/search response.
+      propertiesResult.setEnv(
+          PdlEnumMapper.mapDefaultNull(
+              com.linkedin.datahub.graphql.generated.FabricType.class, gmsProperties.getEnv()));
     }
 
     return propertiesResult;
