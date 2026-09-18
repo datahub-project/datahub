@@ -7,6 +7,7 @@ import static org.testng.Assert.*;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.service.SettingsService;
+import com.linkedin.settings.global.EnvironmentBadgeSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
@@ -27,7 +28,12 @@ public class UpdateEnvironmentBadgeSettingsResolverTest {
     when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertTrue(resolver.get(mockEnv).get());
-    verify(mockService, times(1)).updateGlobalSettings(any(), any());
+    verify(mockService, times(1))
+        .updateGlobalSettings(
+            any(),
+            eq(
+                new GlobalSettingsInfo()
+                    .setEnvironmentBadge(new EnvironmentBadgeSettings().setEnabled(true))));
   }
 
   @Test
