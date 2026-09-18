@@ -43,20 +43,25 @@ def _set_version_job_id(repo: str, run_id: int) -> str:
 
 
 def _job_log(repo: str, job_id: str) -> str | None:
-    """Return the job's log as text, or None if gh refuses to fetch it."""
-    # Job logs contain ANSI escape sequences; without this flag newer gh
-    # versions refuse to emit them to a non-terminal and exit non-zero.
-    res = subprocess.run(
-        [
-            "gh",
-            "api",
-            "--allow-escape-sequences",
-            f"/repos/{repo}/actions/jobs/{job_id}/logs",
-        ],
-        capture_output=True,
-        text=True,
+    """Return the job's log as text, or None if gh refuses to fetch it.
+
+    Job logs contain ANSI escape sequences. Some gh versions refuse to emit
+    them to a non-terminal unless --allow-escape-sequences is passed, while
+    others (e.g. 2.92.0) don't know that flag and exit 1 with "unknown flag".
+    On those versions every fetch failed, so the scan silently matched nothing
+    and `stable` could never see a passing connector-tests run. Try the
+    flagged form first, then fall back to the plain one.
+    """
+    endpoint = f"/repos/{repo}/actions/jobs/{job_id}/logs"
+    attempts = (
+        ["gh", "api", "--allow-escape-sequences", endpoint],
+        ["gh", "api", endpoint],
     )
-    return res.stdout if res.returncode == 0 else None
+    for args in attempts:
+        res = subprocess.run(args, capture_output=True, text=True)
+        if res.returncode == 0 and res.stdout:
+            return res.stdout
+    return None
 
 
 def _find(rc_tag: str, repo: str, runs: list[dict]) -> dict | None:

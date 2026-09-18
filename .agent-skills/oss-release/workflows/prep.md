@@ -271,7 +271,7 @@ chance to abort before any real tag is created.
 both real and dry-run. Use the dry-run column of the placeholder table for dry-run
 output, the real-run column for live output.
 
-## Step 5 — Wait for the pypi wheel
+## Step 5 — Wait for the pypi wheel (plus a settle window)
 
 The connector-tests workflow runs `pip install acryl-datahub==<version>` as
 its first step. Dispatching it before the pypi-release workflow has finished
@@ -282,18 +282,44 @@ Gate the dispatch on `pypi-release metadata-ingestion` success:
 .agent-skills/oss-release/scripts/wait-for-pypi-release.sh <NEXT_VERSION>
 ```
 
+**Why a settle window.** The workflow reporting `success` only means `twine
+upload` returned — pypi's index and its CDN edges converge slightly later. A
+dispatch inside that gap is the recurring release race:
+
+```
+error: No solution found when resolving dependencies
+  (uv pip install 'acryl-datahub[testing-utils,bigquery,bigquery-usage]==<version>')
+```
+
+So the script requires **both** a successful run **and** that at least
+`PYPI_SETTLE_SECONDS` (default 120) have elapsed since that run completed. The
+window is derived from the run's own `updatedAt` timestamp, which keeps the
+script stateless — no local state file, and no network calls beyond the `gh run
+list` query it already makes.
+
+This is a **probabilistic mitigation for index-propagation lag, not a hard
+guarantee.** Even after the window, a connector job can occasionally still lose
+the race. If one fails with `No solution found when resolving dependencies`
+shortly after a release: **re-run the failed connector-test jobs.** Do not
+re-cut the RC, do not treat it as a connector regression, and do not block
+promotion on that first failure (see `known-flaky-tests.md`).
+
 **In dry-run mode, skip this step entirely** — no real release was created,
 so there's no pypi-release run to wait on. Announce "dry-run: skipping pypi
 wait" and proceed to Step 6.
 
 **Interpret the exit code:**
 
-| Exit | Meaning                                                   | Action                                                                                                                                                |
-| ---- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0`  | `pypi-release metadata-ingestion` succeeded.              | Proceed to Step 6 (dispatch connector-tests).                                                                                                         |
-| `2`  | No run found yet — release event hasn't scheduled it.     | Wait ~30s and re-invoke. Or set up `/loop 2m wait-for-pypi-release.sh <NEXT_VERSION> && dispatch-connector-tests.sh <NEXT_VERSION>` to auto-progress. |
-| `3`  | Run is queued or in progress. Typical end-to-end 5-10min. | Same — retry, or use `/loop` to auto-poll. Do NOT dispatch connector-tests yet.                                                                       |
-| `4`  | Run completed but not successfully (failure, cancelled…). | Do NOT dispatch connector-tests — the wheel isn't on pypi. Surface the failing run URL to the user and stop. Likely needs a new RC with a fix.        |
+| Exit | Meaning                                                                                        | Action                                                                                                                                                |
+| ---- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | `pypi-release metadata-ingestion` succeeded **and** the settle window has elapsed.             | Proceed to Step 6 (dispatch connector-tests).                                                                                                         |
+| `2`  | No run found yet — release event hasn't scheduled it.                                          | Wait ~30s and re-invoke. Or set up `/loop 2m wait-for-pypi-release.sh <NEXT_VERSION> && dispatch-connector-tests.sh <NEXT_VERSION>` to auto-progress. |
+| `3`  | Run is queued or in progress. Typical end-to-end 5-10min.                                      | Same — retry, or use `/loop` to auto-poll. Do NOT dispatch connector-tests yet.                                                                       |
+| `4`  | Run completed but not successfully (failure, cancelled…).                                      | Do NOT dispatch connector-tests — the wheel isn't on pypi. Surface the failing run URL to the user and stop. Likely needs a new RC with a fix.        |
+| `5`  | Run succeeded, but the settle window hasn't elapsed. Nothing is running — you're just waiting. | Wait out the remaining seconds the script prints (~2 min after publish) and re-invoke. Do NOT dispatch yet.                                           |
+
+Exit `5` is deliberately distinct from `3`: `3` means CI is still working, `5`
+means CI is done and only the propagation grace period remains.
 
 ## Step 6 — Dispatch connector tests
 
@@ -310,10 +336,19 @@ Invoke as a single command — append `--dry-run` if Step 0 set
 ```
 
 **Dry-run:** the script prints the `gh workflow run` command it would execute
-and exits.
+and exits. No gating, no network checks.
 
-**Real run:** the script fires the dispatch and prints the resulting run URL
-(parsed from `gh workflow run`'s stdout). If cut-release in Step 4 failed or
-was skipped, **do not** run this step — there's nothing to test.
+**Real run:** the script re-runs the Step 5 gate itself (defense in depth) and
+**refuses to dispatch unless that gate exits 0**, propagating the gate's exit
+code (2/3/4/5) so you can tell why. Once the gate passes it fires the dispatch
+and prints the resulting run URL (parsed from `gh workflow run`'s stdout). If
+cut-release in Step 4 failed or was skipped, **do not** run this step — there's
+nothing to test.
+
+The escape hatch `--skip-pypi-check` bypasses the gate. Use it only on explicit
+human instruction. The one routine justification is an **older tag whose
+pypi-release run has aged out** of the 60-run queryable window (gate exits 2)
+while its wheel has obviously been on pypi for days — e.g. re-dispatching for
+an old RC from `finish`. Never use it to skip past exit `4`.
 
 Surface the run URL to the user as the final artifact of `prep`.

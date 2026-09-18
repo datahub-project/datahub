@@ -6,6 +6,10 @@ changes and are now failing.
 
 Always verify: check recent run history for the same workflow to confirm the pattern.
 
+One entry below (`No solution found when resolving dependencies`) is not flakiness at all but a
+**release-timing race in our own tooling** — it is documented here because it surfaces as a
+connector-test failure and has a specific, non-obvious remedy.
+
 ---
 
 ## `spark smoke test`
@@ -26,6 +30,40 @@ Always verify: check recent run history for the same workflow to confirm the pat
 - **Pattern:** Intermittent; same commit will pass on a re-run. Push-triggered runs on the same SHA pass consistently.
 - **How to verify:** Check if another run of `Metadata Ingestion` on the same commit succeeded: `gh run list --repo acryldata/datahub --workflow "Metadata Ingestion" --limit 10`
 - **Safe to ignore if:** The same commit has at least one passing `Metadata Ingestion` run (any trigger)
+
+---
+
+## Connector tests — `No solution found when resolving dependencies`
+
+**This is not connector flakiness.** It is a release-timing race in our own tooling, listed here
+because that is where a release engineer looks first. The connector code and the tests are fine —
+the wheel simply wasn't resolvable from pypi yet when the job ran.
+
+- **Workflow:** `Nightly Connector Tests` (`acryldata/connector-tests` → `nightly_tests.yaml`),
+  dispatched by `prep` Step 6
+- **Failure signature:** the install step fails immediately with
+
+  ```
+  + uv pip install --build-constraint .../build-constraints.txt --constraint .../constraints.txt \
+      'acryl-datahub[testing-utils,bigquery,bigquery-usage]==<version>'
+  error: No solution found when resolving dependencies
+  ```
+
+- **Cause:** `pypi-release metadata-ingestion` reporting `success` only means `twine upload`
+  returned. Pypi's index and CDN edges converge a little later, so a dispatch fired right after
+  the workflow succeeds can resolve against an index that doesn't list the version yet.
+- **Pattern:** only ever happens within minutes of a release; **a re-run of the same job
+  succeeds** with no code change. Jobs for older versions never show it.
+- **Mitigation already in place:** `wait-for-pypi-release.sh` enforces a settle window
+  (`PYPI_SETTLE_SECONDS`, default 120s after the pypi-release run completed) and
+  `dispatch-connector-tests.sh` refuses to dispatch until that gate passes. This reduces the
+  race; it does not eliminate it.
+- **Remedy:** **re-run the failed connector-test jobs.** Do NOT re-cut the RC, do NOT open a
+  connector bug, and do NOT block stable promotion on this first failure — promote once the
+  re-run is green.
+- **How to verify it's this and not a real dependency problem:** the version resolves when you
+  try it yourself (`pip index versions acryl-datahub` / `pip download acryl-datahub==<version>`),
+  and only install steps failed — no test assertions did.
 
 ---
 

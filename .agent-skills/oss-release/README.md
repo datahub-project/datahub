@@ -84,6 +84,7 @@ Run any of them whenever you want; they don't touch remote state:
 .agent-skills/oss-release/scripts/compare-upstream.sh                   # prints upstream diff
 .agent-skills/oss-release/scripts/check-ci.sh <sha>                     # prints release-CI status
 .agent-skills/oss-release/scripts/check-connector-tests.sh <rc-tag>     # prints connector-tests status
+.agent-skills/oss-release/scripts/wait-for-pypi-release.sh <rc-tag>     # prints pypi-release status + settle window
 ```
 
 `dispatch-connector-tests.sh` actually fires a workflow in
@@ -93,6 +94,10 @@ would do without spending them:
 ```bash
 .agent-skills/oss-release/scripts/dispatch-connector-tests.sh v1.5.0.13rc1 --dry-run
 ```
+
+A real (non-`--dry-run`) dispatch first re-checks the pypi gate and refuses unless
+`wait-for-pypi-release.sh` exits 0; `--skip-pypi-check` overrides that. `--dry-run`
+does no gating at all.
 
 To test the full workflow end-to-end without creating a tag or publishing a release, use dry-run:
 
@@ -130,16 +135,17 @@ The agent walks through the stages below. Each one can stop the workflow if some
 looks off; [Validations performed](#validations-performed) lists what each gate is
 actually checking and why.
 
-| #   | Stage                                                        | What happens                                                                                                                                                                                                   |
-| --- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0   | **Preflight**                                                | Fetch origin, verify clean tree, verify `HEAD == origin/master`, check whether HEAD is already tagged.                                                                                                         |
-| 1   | **Upstream diff** (`compare-upstream.sh`)                    | Show how the fork compares to `datahub-project/datahub`. Posture context only — does **not** describe the release content.                                                                                     |
-| 2a  | **Release-range diff**                                       | Show the actual commits and files changed between the latest stable tag and HEAD. This is the input to safety judgment.                                                                                        |
-| 2b  | **Safety assessment**                                        | Agent classifies dep changes, breaking-API risk, and OSS scope into ✅ SAFE / ⚠️ REVIEW NEEDED / ❌ BLOCKED.                                                                                                   |
-| 3   | **Next version** (`next-version.sh`)                         | Auto-compute next RC tag (e.g. `v1.5.0.12` → `v1.5.0.13rc1`). **Asks you to confirm.** Empty-range republishes are flagged.                                                                                    |
-| 3.5 | **Stale-notes check + generate changelog**                   | Detect a stale `release-notes-<version>.md` from a prior run, then generate fresh notes via `generating-datahub-changelog` (or fall back to skip / user-provided file). **Shown to you for approval.**         |
-| 4   | **Cut the RC** (`cut-release.sh`)                            | Create annotated tag, push, publish GitHub pre-release. Re-rendered as a readable Markdown summary in the chat.                                                                                                |
-| 5   | **Dispatch connector tests** (`dispatch-connector-tests.sh`) | Fire the `Nightly Connector Tests` workflow on `acryldata/connector-tests` with `version=<new-rc>`. Stateless — run URL printed to chat; `finish` later queries GitHub for its conclusion. Skipped in dry-run. |
+| #   | Stage                                                        | What happens                                                                                                                                                                                                                                                                       |
+| --- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0   | **Preflight**                                                | Fetch origin, verify clean tree, verify `HEAD == origin/master`, check whether HEAD is already tagged.                                                                                                                                                                             |
+| 1   | **Upstream diff** (`compare-upstream.sh`)                    | Show how the fork compares to `datahub-project/datahub`. Posture context only — does **not** describe the release content.                                                                                                                                                         |
+| 2a  | **Release-range diff**                                       | Show the actual commits and files changed between the latest stable tag and HEAD. This is the input to safety judgment.                                                                                                                                                            |
+| 2b  | **Safety assessment**                                        | Agent classifies dep changes, breaking-API risk, and OSS scope into ✅ SAFE / ⚠️ REVIEW NEEDED / ❌ BLOCKED.                                                                                                                                                                       |
+| 3   | **Next version** (`next-version.sh`)                         | Auto-compute next RC tag (e.g. `v1.5.0.12` → `v1.5.0.13rc1`). **Asks you to confirm.** Empty-range republishes are flagged.                                                                                                                                                        |
+| 3.5 | **Stale-notes check + generate changelog**                   | Detect a stale `release-notes-<version>.md` from a prior run, then generate fresh notes via `generating-datahub-changelog` (or fall back to skip / user-provided file). **Shown to you for approval.**                                                                             |
+| 4   | **Cut the RC** (`cut-release.sh`)                            | Create annotated tag, push, publish GitHub pre-release. Re-rendered as a readable Markdown summary in the chat.                                                                                                                                                                    |
+| 5   | **Wait for the pypi wheel** (`wait-for-pypi-release.sh`)     | Poll until `pypi-release metadata-ingestion` succeeds **and** a settle window (default 120s after it completed) has elapsed, so the version has had time to propagate through pypi's index. Skipped in dry-run.                                                                    |
+| 6   | **Dispatch connector tests** (`dispatch-connector-tests.sh`) | Fire the `Nightly Connector Tests` workflow on `acryldata/connector-tests` with `version=<new-rc>`. Re-checks the Stage 5 gate and refuses to dispatch until it passes. Stateless — run URL printed to chat; `finish` later queries GitHub for its conclusion. Skipped in dry-run. |
 
 RCs are a real deliverable on their own. Ship one to a customer for testing and leave
 it as an RC forever if you want; nothing forces you to promote.
@@ -147,7 +153,7 @@ it as an RC forever if you want; nothing forces you to promote.
 ### 2. Check CI + connector tests
 
 After `prep`, GitHub Actions runs against the new tag and the connector-tests
-workflow dispatched by Step 5 kicks off in `acryldata/connector-tests`.
+workflow dispatched by Step 6 kicks off in `acryldata/connector-tests`.
 Check progress with:
 
 ```
@@ -237,7 +243,17 @@ agent (Step 4 — Cut the RC)
         Release URL: https://github.com/acryldata/datahub/releases/tag/v1.5.0.13rc1
   [3/3] Done.
 
-agent (Step 5 — Dispatch connector tests)
+agent (Step 5 — Wait for the pypi wheel)
+  === pypi-release metadata-ingestion: v1.5.0.13rc1 ===
+    Status     : completed
+    Conclusion : success
+    Completed  : 2026-09-17T13:14:28+00:00 (31s ago)
+    ⏳ pypi-release succeeded, but only 31s of the 120s settle window has elapsed.
+       Retry in ~89s (override with PYPI_SETTLE_SECONDS).
+  [waits, re-invokes]
+    ✓ pypi-release complete 133s ago (≥ 120s settle window).
+
+agent (Step 6 — Dispatch connector tests)
   === Dispatching connector tests for v1.5.0.13rc1 ===
   Run: https://github.com/acryldata/connector-tests/actions/runs/24670000000
 
@@ -302,8 +318,9 @@ agent (Step 6 — Cut stable)
 
 ### Example C — `stable` blocks because connector tests haven't run
 
-Typical case: `rc` Step 5 didn't actually dispatch — either you did a dry-run, or the
-skill version predates Step 5, or the dispatch itself failed quietly.
+Typical case: `rc` Step 6 didn't actually dispatch — either you did a dry-run, or the
+skill version predates Step 6, or the dispatch itself failed quietly (including the pypi
+gate refusing to dispatch, which is now the loud path).
 
 ```
 you  > /oss-release stable
@@ -330,10 +347,15 @@ you  > 1
 
 ```
 agent  → dispatch-connector-tests.sh v1.5.0.13rc1
+         [pypi gate re-checked: run succeeded 4d ago, settle window elapsed]
          Run: https://github.com/acryldata/connector-tests/actions/runs/24690000000
        Stopping stable promotion. Re-run /oss-release stable once CI completes.
        Starting /loop to auto-poll every 3 min ...
 ```
+
+If the RC is old enough that its `pypi-release` run has aged out of the queryable
+window, the gate exits 2 and the dispatch refuses. That's the one routine case for
+`--skip-pypi-check` — the wheel has obviously been on pypi for days.
 
 ### Example D — Preview a release without touching anything
 
@@ -341,15 +363,17 @@ agent  → dispatch-connector-tests.sh v1.5.0.13rc1
 you  > /oss-release rc --dry-run
 ```
 
-Walks through Steps 0-5 end-to-end:
+Walks through Steps 0-6 end-to-end:
 
 - Preflight runs real checks
 - Safety assessment is real
 - Release notes are really generated
 - `cut-release.sh` prints the exact `git tag` + `gh release create` commands it
   _would_ run, then exits 0 without tagging
+- The pypi wait is skipped — there's no release to wait for
 - `dispatch-connector-tests.sh` prints the `gh workflow run` command it
-  _would_ fire, then exits without dispatching
+  _would_ fire, then exits without dispatching (`--dry-run` does no gating and
+  makes no network calls)
 
 No tags, no dispatches, no side effects. Run it whenever you want a preview.
 
@@ -417,6 +441,14 @@ the actual diff (not just the commit title) and classifies each bump:
 
 If the detector fires, the agent defaults to regenerating the notes. Reuse only happens if you explicitly acknowledge the SHA mismatch is intentional.
 
+### pypi propagation gate (Stages 5 and 6)
+
+| Check                        | What it verifies                                                                                        | Why it exists                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pypi-release` run succeeded | `wait-for-pypi-release.sh <tag>` finds a `success` run on that tag                                      | connector-tests installs `acryl-datahub==<version>` as its first step; dispatching before the wheel is published guarantees a false-negative run.                                                                                                                                                                                                          |
+| Settle window elapsed        | ≥ `PYPI_SETTLE_SECONDS` (default 120s) since that run's `updatedAt`                                     | A `success` conclusion only means `twine upload` returned — pypi's index and CDN edges converge slightly later. Dispatching inside that gap is the recurring `No solution found when resolving dependencies` failure. Probabilistic mitigation, not a guarantee: if a job still hits it, **re-run the failed connector-test jobs** rather than re-cutting. |
+| Dispatch re-checks the gate  | `dispatch-connector-tests.sh` refuses to fire unless the gate exits 0 (`--skip-pypi-check` to override) | Defense in depth for hand-run dispatches and for the `finish` "dispatch one now" path, where nobody has just looked at Stage 5's output.                                                                                                                                                                                                                   |
+
 ### Confirmation gates (Stages 3 and 6/finish)
 
 | Gate                           | When             | What you confirm                                                                                         |
@@ -456,8 +488,16 @@ needed.
 ### How it works
 
 ```
-prep Step 5    →  dispatch-connector-tests.sh v1.5.0.13rc1
+prep Step 5    →  wait-for-pypi-release.sh v1.5.0.13rc1
                   │
+                  └─ `pypi-release metadata-ingestion` succeeded for this tag?
+                     AND ≥ PYPI_SETTLE_SECONDS (120s) since it completed?
+                     (window derived from the run's updatedAt — no local state)
+                                │
+                                ▼
+prep Step 6    →  dispatch-connector-tests.sh v1.5.0.13rc1
+                  │
+                  ├─ re-runs the Step 5 gate; refuses to dispatch unless it exits 0
                   └─ gh workflow run nightly_tests.yaml -f version=v1.5.0.13rc1
                      prints run URL, no state written
                                 │
@@ -472,6 +512,21 @@ finish Step 3.5 →  check-connector-tests.sh v1.5.0.13rc1
                      match "Testing version: v1.5.0.13rc1" (exact)
                      return exit code by status/conclusion
 ```
+
+### `wait-for-pypi-release.sh` exit codes
+
+| Exit | Meaning                                                                           | `prep` behavior                                                    |
+| ---- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 0    | `pypi-release metadata-ingestion` succeeded **and** the settle window has elapsed | Proceed to Step 6 (dispatch)                                       |
+| 2    | No matching run yet (release event hasn't scheduled it), or the run has aged out  | Wait ~30s and retry (or `/loop`)                                   |
+| 3    | Run is queued / in progress (typical end-to-end 5-10 min)                         | Retry; do not dispatch                                             |
+| 4    | Run completed with a non-success conclusion                                       | Stop — the wheel isn't on pypi. Investigate; likely needs a new RC |
+| 5    | Run succeeded, but the settle window hasn't elapsed yet                           | Wait out the printed remaining seconds and retry; do not dispatch  |
+| 1    | Usage error                                                                       | Fix the invocation                                                 |
+
+`5` exists as its own code because "CI is still running" (3) and "CI is done, pypi just
+needs a moment" (5) call for different waits. Override the window with
+`PYPI_SETTLE_SECONDS` (seconds; `0` disables it and restores the old racy behavior).
 
 ### `check-connector-tests.sh` exit codes
 
@@ -566,7 +621,7 @@ ls .agent-skills/oss-release/notes/
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SKILL.md`                            | Router for `/oss-release` — handles cross-cutting policies (dry-run gates, prerequisites, dispatch table); reads workflow files for actual steps                                                                                       |
 | `README.md`                           | This file — human-facing docs and validation reference                                                                                                                                                                                 |
-| `workflows/prep.md`                   | Full `prep` workflow (Steps 0–5)                                                                                                                                                                                                       |
+| `workflows/prep.md`                   | Full `prep` workflow (Steps 0–6)                                                                                                                                                                                                       |
 | `workflows/finish.md`                 | Full `finish` workflow (Steps 0–6, with 3.5 sub-step for RC identity + connector-tests) plus `status` subcommand at the bottom                                                                                                         |
 | `references/safety-assessment.md`     | 5-category structured checklist used in `prep` Step 2b                                                                                                                                                                                 |
 | `references/cut-release-render.md`    | Markdown rendering template for `cut-release.sh` output (dry-run + real-run)                                                                                                                                                           |
@@ -578,7 +633,8 @@ ls .agent-skills/oss-release/notes/
 | `scripts/cut-release.sh`              | Create annotated tag + push + `gh release create`                                                                                                                                                                                      |
 | `scripts/compare-upstream.sh`         | Show how far the fork is behind `datahub-project/datahub`                                                                                                                                                                              |
 | `scripts/check-ci.sh`                 | Poll GitHub Actions CI status for a commit SHA (release-triggered runs on `acryldata/datahub`)                                                                                                                                         |
-| `scripts/dispatch-connector-tests.sh` | Fire `acryldata/connector-tests/nightly_tests.yaml` with `version=<rc-tag>`. Stateless; prints the run URL. Called from `prep` Step 5.                                                                                                 |
+| `scripts/wait-for-pypi-release.sh`    | Report the state of `pypi-release metadata-ingestion` for a tag and whether its post-publish settle window has elapsed. Read-only, stateless; exit 0 = safe to dispatch. Called from `prep` Step 5.                                    |
+| `scripts/dispatch-connector-tests.sh` | Fire `acryldata/connector-tests/nightly_tests.yaml` with `version=<rc-tag>`. Re-checks the pypi gate first and refuses unless it passes (`--skip-pypi-check` overrides). Stateless; prints the run URL. Called from `prep` Step 6.     |
 | `scripts/check-connector-tests.sh`    | Query GitHub for the most recent `workflow_dispatch` run matching `Testing version: <rc-tag>`; return exit 0/2/3/4 by conclusion. Called from `finish` Step 3.5.                                                                       |
 | `scripts/safe-fetch-tags.sh`          | Wrap `git fetch origin --tags`; suppress benign legacy-tag clobber warnings; loud only on real failures                                                                                                                                |
 | `tests/*.sh`                          | Shell tests for helper scripts (run via `tests/run-all.sh`)                                                                                                                                                                            |
@@ -589,11 +645,12 @@ ls .agent-skills/oss-release/notes/
 
 Defaults come from the git remote; override only if you need to.
 
-| Variable                     | Default                     | Description                                                                                                                               |
-| ---------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `GITHUB_REPO_OWNER`          | `acryldata`                 | Owner of the release repo                                                                                                                 |
-| `GITHUB_REPO_NAME`           | `datahub`                   | Name of the release repo                                                                                                                  |
-| `CONNECTOR_TESTS_REPO`       | `acryldata/connector-tests` | Repo hosting the connector-tests workflow                                                                                                 |
-| `CONNECTOR_TESTS_WORKFLOW`   | `nightly_tests.yaml`        | Workflow filename to dispatch + scan                                                                                                      |
-| `CONNECTOR_TESTS_REF`        | `main`                      | Branch/ref of connector-tests to dispatch from                                                                                            |
-| `CONNECTOR_TESTS_SCAN_LIMIT` | `30`                        | How many recent `workflow_dispatch` runs `check-connector-tests.sh` scans before giving up. Raise this if you need to verify an older RC. |
+| Variable                     | Default                     | Description                                                                                                                                                                                       |
+| ---------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GITHUB_REPO_OWNER`          | `acryldata`                 | Owner of the release repo                                                                                                                                                                         |
+| `GITHUB_REPO_NAME`           | `datahub`                   | Name of the release repo                                                                                                                                                                          |
+| `CONNECTOR_TESTS_REPO`       | `acryldata/connector-tests` | Repo hosting the connector-tests workflow                                                                                                                                                         |
+| `CONNECTOR_TESTS_WORKFLOW`   | `nightly_tests.yaml`        | Workflow filename to dispatch + scan                                                                                                                                                              |
+| `CONNECTOR_TESTS_REF`        | `main`                      | Branch/ref of connector-tests to dispatch from                                                                                                                                                    |
+| `CONNECTOR_TESTS_SCAN_LIMIT` | `30`                        | How many recent `workflow_dispatch` runs `check-connector-tests.sh` scans before giving up. Raise this if you need to verify an older RC.                                                         |
+| `PYPI_SETTLE_SECONDS`        | `120`                       | Minimum seconds between the `pypi-release` run completing and "safe to dispatch connector tests". Absorbs pypi index/CDN propagation lag. `0` disables the wait (restores the old racy behavior). |
