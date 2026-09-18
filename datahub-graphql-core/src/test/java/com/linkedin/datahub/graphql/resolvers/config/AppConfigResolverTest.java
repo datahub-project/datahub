@@ -105,7 +105,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false, // isS3Enabled
-            mockSemanticSearchConfiguration);
+            mockSemanticSearchConfiguration,
+            false);
   }
 
   private void setupFeatureFlags() {
@@ -211,7 +212,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false, // isS3Enabled
-            mockSemanticSearchConfiguration);
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -381,7 +383,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             null, // null settings service
             false,
-            mockSemanticSearchConfiguration);
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -413,7 +416,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false,
-            mockSemanticSearchConfiguration);
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -458,7 +462,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             true, // isS3Enabled
-            mockSemanticSearchConfiguration);
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -492,7 +497,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             true, // isS3Enabled
-            mockSemanticSearchConfiguration);
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -569,7 +575,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false,
-            semanticSearchConfig);
+            semanticSearchConfig,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -637,7 +644,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false,
-            semanticSearchConfig);
+            semanticSearchConfig,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -698,7 +706,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false,
-            semanticSearchConfig);
+            semanticSearchConfig,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -772,7 +781,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false,
-            semanticSearchConfig);
+            semanticSearchConfig,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -806,7 +816,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false,
-            null);
+            null,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -841,7 +852,8 @@ public class AppConfigResolverTest {
         mockChromeExtensionConfiguration,
         mockSettingsService,
         false,
-        semanticSearchConfig);
+        semanticSearchConfig,
+        false);
   }
 
   /**
@@ -1096,7 +1108,8 @@ public class AppConfigResolverTest {
               mockChromeExtensionConfiguration,
               mockSettingsService,
               false,
-              semanticSearchConfig);
+              semanticSearchConfig,
+              false);
 
       AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
