@@ -2493,6 +2493,27 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         decision = resolve_emit_semantic_model_entities(
             graph=self.ctx.graph, recipe_value=recipe_value
         )
+        # These two fail closed, so on the default managed-server path
+        # (recipe_value=None) they would otherwise drop to legacy mode with no
+        # warning at all -- the recipe-request warning below cannot fire. Same
+        # reasoning, and same pair of warnings, as the Snowflake caller.
+        if decision.version_unparseable:
+            self.report.warning(
+                title="Could not parse DataHub server version",
+                message="The DataHub server version string could not be "
+                "parsed, so semanticModel/metric emission stayed off and "
+                "ingestion proceeded in legacy dataset mode.",
+                context=decision.reason,
+            )
+        if decision.metrics_probe_failed:
+            self.report.warning(
+                title="Could not verify Metrics kill-switch",
+                message="The metricsEnabled feature-flag probe failed, so "
+                "semanticModel/metric emission stayed off and ingestion "
+                "proceeded in legacy dataset mode.",
+                context=decision.reason,
+            )
+
         # Warned only when the recipe asked outright and was refused. An
         # unset flag resolving to off is the documented default, not a problem.
         if recipe_value and not decision.enabled:

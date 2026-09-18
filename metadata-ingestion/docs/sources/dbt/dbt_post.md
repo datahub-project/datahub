@@ -583,8 +583,9 @@ source:
     # semantic_model_project_name: jaffle_shop
 ```
 
-Either mode requires a DataHub server new enough to have `semanticModel` and `metric` in its entity
-registry: DataHub Cloud 2.1.0 or later, or DataHub Core v1.7.0 or later.
+The legacy mode emits ordinary datasets and needs nothing in particular from the server. The
+first-class mode needs one new enough to have `semanticModel` and `metric` in its entity registry:
+DataHub Cloud 2.1.0 or later, or DataHub Core v1.7.0 or later.
 
 - **On DataHub Cloud**, the server is interrogated before emitting: both the version and the
   Metrics feature flag. Left unset, first-class entities are emitted when the server can accept
@@ -728,11 +729,16 @@ The two modes use different URNs (`<database>.<schema>.<name>` versus
 `<project>.semantic_layer.<name>`), so changing mode is a replacement, not an in-place upgrade. That
 applies whether you set the flag yourself or the default switches you over on a capable server.
 
-Run with `stateful_ingestion.enabled: true` so the datasets from the previous mode are soft-deleted;
-without it they are left behind with no owner. Governance authored on them — owners, tags, terms,
-documentation — is not carried across automatically: use
-[`datahub migrate dbt-semantic-models`](../../../../docs/features/feature-guides/metrics-and-semantic-models.md)
-for that, which works in both directions so the change stays reversible.
+Governance authored on the old datasets — owners, tags, terms, documentation — is not carried
+across automatically. Migrate it **before** the re-ingest, with
+[`datahub migrate dbt-semantic-models`](../../../../docs/features/feature-guides/metrics-and-semantic-models.md),
+which works in both directions so the change stays reversible. Then re-ingest with
+`stateful_ingestion.enabled: true`, so the datasets from the previous mode are soft-deleted; without
+it they are left behind with no owner.
+
+That order matters: migration discovery skips soft-deleted entities by default, so running it after
+the re-ingest finds nothing. If you have already re-ingested, pass `--include-soft-deleted` to reach
+the old datasets.
 
 If you are not ready, pin `emit_semantic_model_entities: false` and nothing changes.
 

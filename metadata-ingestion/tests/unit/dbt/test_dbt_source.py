@@ -4836,6 +4836,40 @@ def test_entities_enabled_no_warns_only_on_an_explicit_opt_in(
     )
 
 
+def test_a_fail_closed_cloud_decision_is_warned_about_even_when_unset() -> None:
+    """Unset is now the default, so these two paths would otherwise be silent.
+
+    Neither can reach the recipe-request warning, since that needs an explicit
+    opt-in -- so an operator would see legacy datasets and nothing saying why.
+    """
+    unparseable = _semantic_model_source()
+    graph = mock.MagicMock()
+    graph.server_config.is_datahub_cloud = True
+    graph.server_config.service_version = "not-a-version"
+    graph.server_config.supports_feature.side_effect = ValueError("bad version")
+    unparseable.ctx.graph = graph
+
+    assert unparseable._emit_semantic_model_entities() is False
+    assert any(
+        w.title == "Could not parse DataHub server version"
+        for w in unparseable.report.warnings
+    )
+
+    probe_failed = _semantic_model_source()
+    graph = mock.MagicMock()
+    graph.server_config.is_datahub_cloud = True
+    graph.server_config.service_version = "2.1.0"
+    graph.server_config.supports_feature.return_value = True
+    graph.execute_graphql.side_effect = Exception("transport failure")
+    probe_failed.ctx.graph = graph
+
+    assert probe_failed._emit_semantic_model_entities() is False
+    assert any(
+        w.title == "Could not verify Metrics kill-switch"
+        for w in probe_failed.report.warnings
+    )
+
+
 def test_emit_semantic_model_entities_unset_stays_off_without_a_graph():
     """Unset follows the server, and a connectionless run has none to follow.
 
@@ -4858,7 +4892,10 @@ def test_emit_semantic_model_entities_unset_follows_a_capable_server():
     graph.server_config.is_datahub_cloud = True
     graph.server_config.service_version = "2.1.0"
     graph.server_config.supports_feature.return_value = True
-    graph.get_config.return_value = {"featureFlags": {"metricsEnabled": True}}
+    # The gate probes execute_graphql; a get_config mock never reaches it.
+    graph.execute_graphql.return_value = {
+        "appConfig": {"featureFlags": {"metricsEnabled": True}}
+    }
     source.ctx.graph = graph
 
     assert source._emit_semantic_model_entities() is True
@@ -4873,7 +4910,10 @@ def test_emit_semantic_model_entities_false_forces_the_legacy_datasets():
     graph.server_config.is_datahub_cloud = True
     graph.server_config.service_version = "2.1.0"
     graph.server_config.supports_feature.return_value = True
-    graph.get_config.return_value = {"featureFlags": {"metricsEnabled": True}}
+    # The gate probes execute_graphql; a get_config mock never reaches it.
+    graph.execute_graphql.return_value = {
+        "appConfig": {"featureFlags": {"metricsEnabled": True}}
+    }
     source.ctx.graph = graph
 
     assert source._emit_semantic_model_entities() is False

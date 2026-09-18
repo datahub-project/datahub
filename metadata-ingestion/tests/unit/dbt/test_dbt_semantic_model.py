@@ -2090,3 +2090,34 @@ def test_a_rate_over_one_measure_renders_both_sides():
         "count(orders.order_count) FILTER (WHERE status = 'cancelled') "
         "/ count(orders.order_count)"
     )
+
+
+def test_a_simple_metric_taking_a_measures_name_for_a_different_measure_warns():
+    """Isolates the name-match half of the dbt-generated-copy check.
+
+    A simple metric over the *same* measure is dbt's own materialization; a
+    simple metric that takes the name and computes something else is an
+    author's collision.
+    """
+    node = _sm_node("orders", _ORDERS)  # order_total has create_metric: true
+    mapper = _mapper()
+    _emit(
+        mapper,
+        [node],
+        _metrics(
+            {
+                "metric.jaffle_shop.order_total": {
+                    "name": "order_total",
+                    "label": "Order total",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {"measure": {"name": "order_count"}},
+                }
+            }
+        ),
+    )
+
+    assert any(
+        w.title == "dbt metric shadows a create_metric measure"
+        for w in mapper.report.warnings
+    )

@@ -27,7 +27,12 @@ def _cloud_graph() -> mock.MagicMock:
     graph.server_config.is_datahub_cloud = True
     graph.server_config.service_version = "2.1.0"
     graph.server_config.supports_feature.return_value = True
-    graph.get_config.return_value = {"featureFlags": {"metricsEnabled": True}}
+    # The probe reads execute_graphql, not get_config. Configuring the wrong
+    # one leaves a MagicMock auto-response, which the probe reads as ENABLED --
+    # so a mock expressing a veto would still resolve to enabled.
+    graph.execute_graphql.return_value = {
+        "appConfig": {"featureFlags": {"metricsEnabled": True}}
+    }
     return graph
 
 
@@ -69,3 +74,28 @@ def test_capable_server_honours_every_tri_state(
     decision = resolve_emit_semantic_model_entities(_cloud_graph(), recipe_value)
     assert decision.enabled is expected
     assert decision.is_saas is True
+
+
+def test_the_metrics_kill_switch_vetoes_an_unset_flag() -> None:
+    """The whole point of the managed-server default: metricsEnabled can say no."""
+    graph = _cloud_graph()
+    graph.execute_graphql.return_value = {
+        "appConfig": {"featureFlags": {"metricsEnabled": False}}
+    }
+
+    decision = resolve_emit_semantic_model_entities(graph, None)
+
+    assert decision.enabled is False
+    assert decision.metrics_enabled is False
+    assert "disabled on the server" in decision.reason
+
+
+def test_an_operational_probe_failure_fails_closed() -> None:
+    """Distinct from a positively-absent field, which is an older server."""
+    graph = _cloud_graph()
+    graph.execute_graphql.side_effect = Exception("transport failure")
+
+    decision = resolve_emit_semantic_model_entities(graph, None)
+
+    assert decision.enabled is False
+    assert decision.metrics_probe_failed is True
