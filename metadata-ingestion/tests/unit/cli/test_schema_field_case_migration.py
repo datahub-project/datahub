@@ -769,6 +769,52 @@ class TestStructuredPropertyMerge:
         assert old_sf not in graph.soft_deleted
         assert any("structuredProperties" in s for s in result.skipped)
 
+    def test_same_values_keeps_destination_attribution(self):
+        # The destination carries an attributed (e.g. propagated) assignment; the
+        # stranded field has the same property/value but no attribution. Equal
+        # values are not a conflict, so the destination assignment must survive
+        # rather than be downgraded to the un-attributed stranded copy.
+        old_sf = _sf("product2id")
+        new_sf = _sf("Product2Id")
+        attributed = StructuredPropertiesClass(
+            properties=[
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn="urn:li:structuredProperty:tier",
+                    values=["gold"],
+                    attribution=MetadataAttributionClass(
+                        time=123,
+                        actor="urn:li:corpuser:propagation",
+                    ),
+                )
+            ]
+        )
+        graph = FakeGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Product2Id")},
+                old_sf: {
+                    "structuredProperties": _structured_prop(
+                        "urn:li:structuredProperty:tier", "gold"
+                    )
+                },
+                new_sf: {"structuredProperties": attributed},
+            }
+        )
+        reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        # Equal values are a true no-op on the destination: no downgrade emitted,
+        # attribution intact, and the stranded source still soft-deleted.
+        assert not [a for (u, a) in graph.emitted if u == new_sf]
+        stored = graph.get_aspect(new_sf, StructuredPropertiesClass)
+        assert stored is not None
+        assert stored.properties[0].attribution is not None
+        assert stored.properties[0].attribution.actor == "urn:li:corpuser:propagation"
+        assert old_sf in graph.soft_deleted
+
 
 class _FixedResolver(ClashResolver):
     """Test double: returns a fixed target / overwrite decision and records calls."""

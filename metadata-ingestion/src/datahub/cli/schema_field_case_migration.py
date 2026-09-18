@@ -304,7 +304,15 @@ def _merge_structured_properties(
     }
     for prop in src_props:
         prev = merged.get(prop.propertyUrn)
-        if prev is None or prev.values == prop.values or prefer_src_on_conflict:
+        if prev is None:
+            merged[prop.propertyUrn] = prop
+        elif prev.values == prop.values:
+            # No value conflict: keep the destination assignment so its
+            # attribution/audit stamps (e.g. a propagated or immutable marker on
+            # the correctly-cased field) aren't downgraded to the stranded copy.
+            # Mirrors the tag/term dedup, which preserves the destination side.
+            continue
+        elif prefer_src_on_conflict:
             merged[prop.propertyUrn] = prop
         else:
             return None, True
