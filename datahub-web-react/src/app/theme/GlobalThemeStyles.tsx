@@ -130,7 +130,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         color: ${(props) => props.theme.colors.text};
     }
     .ant-dropdown-menu {
-        background-color: ${(props) => props.theme.colors.bg};
+        background-color: ${(props) => props.theme.colors.bgOverlay};
         box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
     .ant-dropdown-menu .ant-dropdown-menu-item,
@@ -156,13 +156,13 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         background-color: ${(props) => props.theme.colors.border};
     }
     .ant-dropdown-arrow {
-        background-color: ${(props) => props.theme.colors.bg};
+        background-color: ${(props) => props.theme.colors.bgOverlay};
         box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
     .ant-dropdown-menu-submenu-popup {
         .ant-dropdown-menu,
         .ant-dropdown-menu-sub {
-            background-color: ${(props) => props.theme.colors.bg} !important;
+            background-color: ${(props) => props.theme.colors.bgOverlay} !important;
             box-shadow: ${(props) => props.theme.colors.shadowMd} !important;
         }
         .ant-dropdown-menu-item,
@@ -175,7 +175,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         }
     }
     .ant-select-dropdown {
-        background-color: ${(props) => props.theme.colors.bg};
+        background-color: ${(props) => props.theme.colors.bgOverlay};
         color: ${(props) => props.theme.colors.text};
         box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
@@ -425,7 +425,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         color: ${(props) => props.theme.colors.text};
     }
     .ant-popover-inner {
-        background-color: ${(props) => props.theme.colors.bg};
+        background-color: ${(props) => props.theme.colors.bgOverlay};
         box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
     .ant-popover-inner-content {
@@ -436,7 +436,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         border-bottom-color: ${(props) => props.theme.colors.border};
     }
     .ant-popover-arrow-content {
-        background-color: ${(props) => props.theme.colors.bg};
+        background-color: ${(props) => props.theme.colors.bgOverlay};
         box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
     .ant-popover-message {
@@ -1476,12 +1476,12 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
 
     /* ── Tooltip ──────────────────────────────────────────── */
     .ant-tooltip-inner {
-        background-color: ${(props) => props.theme.colors.bgSurfaceDarker};
+        background-color: ${(props) => props.theme.colors.bgOverlay};
         color: ${(props) => props.theme.colors.text};
         box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
     .ant-tooltip-arrow-content {
-        background-color: ${(props) => props.theme.colors.bgSurfaceDarker};
+        background-color: ${(props) => props.theme.colors.bgOverlay};
         box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
 
