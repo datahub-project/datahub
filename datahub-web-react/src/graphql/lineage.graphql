@@ -425,6 +425,14 @@ fragment lineageNodeProperties on EntityWithRelationships {
             description
             externalUrl
         }
+        metricUpstreams {
+            fieldUpstreams {
+                destination {
+                    urn
+                    type
+                }
+            }
+        }
         platform {
             ...platformFields
         }
@@ -1003,7 +1011,7 @@ query getColumnLineageCounts(
         input: {
             urn: $urn
             direction: UPSTREAM
-            types: [SCHEMA_FIELD]
+            types: [SCHEMA_FIELD, METRIC]
             orFilters: $orFilters
             lineageFlags: {
                 startTimeMillis: $startTimeMillis
@@ -1020,7 +1028,7 @@ query getColumnLineageCounts(
         input: {
             urn: $urn
             direction: DOWNSTREAM
-            types: [SCHEMA_FIELD]
+            types: [SCHEMA_FIELD, METRIC]
             orFilters: $orFilters
             lineageFlags: {
                 startTimeMillis: $startTimeMillis

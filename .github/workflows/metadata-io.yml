@@ -60,6 +60,7 @@ jobs:
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
     timeout-minutes: 40
     needs: setup
+    if: ${{ needs.setup.outputs.backend_change == 'true' }}
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
@@ -103,6 +104,7 @@ jobs:
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
     timeout-minutes: 40
     needs: [setup, metadata-io-seed]
+    if: ${{ always() && !failure() && !cancelled() && needs.setup.outputs.backend_change == 'true' }}
     strategy:
       # One runner per TestNG sub-suite (aggregated by testng.xml), replacing the single ~17m
       # serial `:metadata-io:test`. One suite per leg = one fork = one testcontainer stack, which
@@ -112,6 +114,7 @@ jobs:
         suite:
           - { name: other, task: testOther }
           - { name: opensearch, task: testOpenSearch }
+          - { name: opensearch3, task: testOpenSearch3 }
           - { name: es8, task: testEs8 }
           - { name: es7-cassandra-neo4j, task: testEs7CassandraNeo4j }
           - { name: postgresql, task: testPostgresql }
@@ -217,6 +220,7 @@ jobs:
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
     timeout-minutes: 30
     needs: [setup, metadata-io-seed]
+    if: ${{ always() && !failure() && !cancelled() && needs.setup.outputs.backend_change == 'true' }}
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space

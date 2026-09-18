@@ -310,8 +310,8 @@ class DataJob(
                 browse_path.append(
                     models.BrowsePathEntryClass(id=entry.id, urn=entry.urn)
                 )
-        browse_path.append(models.BrowsePathEntryClass(id=flow.name, urn=str(flow.urn)))
-        # Set the browse path aspect
+        flow_urn = str(flow.urn)
+        browse_path.append(models.BrowsePathEntryClass(id=flow_urn, urn=flow_urn))
         self._set_aspect(models.BrowsePathsV2Class(path=browse_path))
 
     # TODO: support datajob input/output

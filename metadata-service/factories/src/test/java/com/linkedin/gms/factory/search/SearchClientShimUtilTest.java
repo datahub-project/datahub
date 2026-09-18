@@ -33,8 +33,8 @@ import org.testng.annotations.Test;
       "elasticsearch.pathPrefix=",
       "elasticsearch.opensearchUseAwsIamAuth=false",
       "elasticsearch.region=",
-      "elasticsearch.shim.engineType=ELASTICSEARCH_7",
-      "elasticsearch.shim.autoDetectEngine=false"
+      "elasticsearch.clusters.primary.shim.engineType=ELASTICSEARCH_7",
+      "elasticsearch.clusters.primary.shim.autoDetectEngine=false"
     })
 @SpringBootTest(classes = {SearchClientShimFactory.class, ObjectMapperFactory.class})
 @EnableConfigurationProperties(ConfigurationProvider.class)
@@ -68,7 +68,7 @@ public class SearchClientShimUtilTest extends AbstractTestNGSpringContextTests {
     // Attempting to create a shim without a live cluster should fail
     // but the factory should be properly configured
     try {
-      shimFactory.createSearchClientShim(new ObjectMapper());
+      shimFactory.createSearchClientShims(new ObjectMapper());
       fail("Expected shim creation to fail without live cluster");
     } catch (Exception e) {
       log.info("Expected failure when creating shim without live cluster: {}", e.getMessage());
@@ -87,7 +87,8 @@ public class SearchClientShimUtilTest extends AbstractTestNGSpringContextTests {
       SearchEngineType.ELASTICSEARCH_7,
       SearchEngineType.ELASTICSEARCH_8,
       SearchEngineType.ELASTICSEARCH_9,
-      SearchEngineType.OPENSEARCH_2
+      SearchEngineType.OPENSEARCH_2,
+      SearchEngineType.OPENSEARCH_3
     };
 
     for (SearchEngineType engineType : supportedTypes) {
@@ -114,16 +115,25 @@ public class SearchClientShimUtilTest extends AbstractTestNGSpringContextTests {
     assertFalse(SearchEngineType.ELASTICSEARCH_8.isOpenSearch());
     assertFalse(SearchEngineType.ELASTICSEARCH_9.isOpenSearch());
     assertTrue(SearchEngineType.OPENSEARCH_2.isOpenSearch());
+    assertTrue(SearchEngineType.OPENSEARCH_3.isOpenSearch());
 
     // Test client compatibility
     assertTrue(SearchEngineType.ELASTICSEARCH_7.supportsEs7HighLevelClient());
     assertTrue(SearchEngineType.OPENSEARCH_2.supportsEs7HighLevelClient());
     assertFalse(SearchEngineType.ELASTICSEARCH_8.supportsEs7HighLevelClient());
     assertFalse(SearchEngineType.ELASTICSEARCH_9.supportsEs7HighLevelClient());
+    assertFalse(SearchEngineType.OPENSEARCH_3.supportsEs7HighLevelClient());
 
     assertFalse(SearchEngineType.ELASTICSEARCH_7.requiresEs8JavaClient());
     assertTrue(SearchEngineType.ELASTICSEARCH_8.requiresEs8JavaClient());
     assertTrue(SearchEngineType.ELASTICSEARCH_9.requiresEs8JavaClient());
     assertFalse(SearchEngineType.OPENSEARCH_2.requiresEs8JavaClient());
+    assertFalse(SearchEngineType.OPENSEARCH_3.requiresEs8JavaClient());
+
+    assertTrue(SearchEngineType.OPENSEARCH_2.requiresOpenSearchClient());
+    assertTrue(SearchEngineType.OPENSEARCH_3.requiresOpenSearchClient());
+    assertFalse(SearchEngineType.ELASTICSEARCH_7.requiresOpenSearchClient());
+    assertFalse(SearchEngineType.ELASTICSEARCH_8.requiresOpenSearchClient());
+    assertFalse(SearchEngineType.ELASTICSEARCH_9.requiresOpenSearchClient());
   }
 }

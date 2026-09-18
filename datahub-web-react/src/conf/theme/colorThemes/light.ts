@@ -126,6 +126,7 @@ const lightTheme: ColorTheme = {
     bgHighlight: '#ffe58f',
     // Tooltip
     bgTooltip: colors.gray1000,
+    bgOverlay: colors.gray0,
     // Brand gradients
     brandGradient: 'radial-gradient(115.48% 144.44% at 50% -44.44%, #705EE4 38.97%, #533FD1 100%)',
     brandGradientSelected: 'linear-gradient(180deg, #7565d6 20%, #5340cc 80%)',

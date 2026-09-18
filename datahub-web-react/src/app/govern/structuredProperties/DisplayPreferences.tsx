@@ -102,12 +102,13 @@ const DisplayPreferences = ({
                             <Switch
                                 label={t('display.showInSearchFilters')}
                                 size="sm"
-                                checked={formValues?.settings?.showInSearchFilters}
+                                checked={formValues?.settings?.showInSearchFilters ?? false}
                                 onChange={(e) =>
                                     handleDisplaySettingChange(DISPLAY_SETTING.showInSearchFilters, e.target.checked)
                                 }
                                 isDisabled={formValues?.settings?.isHidden}
                                 labelHoverText={t('display.showInSearchFiltersTooltip')}
+                                data-testid="structured-props-show-in-search-filters-switch"
                             />
                         </StyledFormItem>
                         <CompoundedItemWrapper>

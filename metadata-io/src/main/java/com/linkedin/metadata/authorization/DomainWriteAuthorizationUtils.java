@@ -14,8 +14,10 @@ import com.datahub.authorization.ResolvedEntitySpec;
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.domain.DomainAssociationArray;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -221,6 +223,50 @@ public final class DomainWriteAuthorizationUtils {
   /** Whether {@code domains} carries at least one domain URN. */
   public static boolean hasDomainMembership(@Nullable Domains domains) {
     return domains != null && domains.hasDomains() && !domains.getDomains().isEmpty();
+  }
+
+  /**
+   * Drops Domain URNs that no longer resolve to an existing Domain. Authorization must not depend
+   * on a Domain that does not exist — otherwise the before-set check freezes {@code domains} writes
+   * (including detach patches) after the Domain is deleted.
+   *
+   * <p>Applies to the <em>before</em> set only. Do not prune proposed/after domains.
+   */
+  @Nullable
+  public static Domains existingDomainsOnly(
+      @Nonnull OperationFingerprint ctx,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nullable Domains domains) {
+    if (domains == null) {
+      return null;
+    }
+    Set<Urn> unique = EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(domains);
+    if (unique.isEmpty()) {
+      return domains;
+    }
+    Map<Urn, Boolean> exists = aspectRetriever.entityExists(ctx, unique);
+    if (unique.stream().allMatch(urn -> Boolean.TRUE.equals(exists.get(urn)))) {
+      return domains;
+    }
+    Domains pruned = new Domains();
+    if (domains.getDomains() != null) {
+      pruned.setDomains(
+          new UrnArray(
+              domains.getDomains().stream()
+                  .filter(urn -> urn != null && Boolean.TRUE.equals(exists.get(urn)))
+                  .collect(Collectors.toList())));
+    }
+    if (domains.getDomainAssociations() != null) {
+      pruned.setDomainAssociations(
+          new DomainAssociationArray(
+              domains.getDomainAssociations().stream()
+                  .filter(
+                      association ->
+                          association.hasDomain()
+                              && Boolean.TRUE.equals(exists.get(association.getDomain())))
+                  .collect(Collectors.toList())));
+    }
+    return pruned;
   }
 
   /**

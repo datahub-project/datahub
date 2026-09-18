@@ -236,7 +236,8 @@ platform_filter: null # or omit the field
 ```
 
 - Processes all NATIVE documents (sourceType=NATIVE)
-- Ignores EXTERNAL documents from other platforms
+- Also processes EXTERNAL documents from every platform (`include_external_documents`
+  defaults to true); set `platform_filter` to restrict them to specific platforms
 
 **Specific Platforms:**
 
@@ -362,6 +363,45 @@ embedding:
   write and query vectors in different spaces. Both providers log their effective
   model, pooling, and truncation length at startup; compare those log lines across
   GMS and the executor when recall looks wrong.
+
+**Classical (deterministic hashing; CI and smoke tests only):**
+
+Not semantic search: a testing provider that ranks by hashed lexical overlap, for
+CI, smoke tests and quickstarts that need the full pipeline with zero external
+dependencies. Server-side configuration is all that is needed: set
+`EMBEDDING_PROVIDER_TYPE=classical` and `CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true`
+on GMS (it refuses the provider without the opt-in and logs a warning while it is
+active) and leave the recipe's `embedding` section empty (it is loaded from the
+server). To pin it explicitly in the recipe instead:
+
+```yaml
+embedding:
+  provider: classical
+  model: hash-v1-2048
+  model_embedding_key: hash_v1_2048 # Must match server!
+```
+
+- A stateless, non-neural embedding: words plus boundary-marked character
+  bigrams/trigrams are SHA-256 feature-hashed into a fixed-width integer vector.
+  No API key, endpoint, or model download, and nothing extra to install. GMS
+  computes query vectors with the identical algorithm.
+- The ingestion CLI must know this provider, which ships in the same release as
+  the server side. An older CLI pointed at a `classical` server cannot map the
+  provider: it logs `Unsupported provider from server: classical` while loading
+  the server embedding config and ingests documents without embeddings, so
+  upgrade the CLI (on managed instances, the executor's CLI) before switching
+  the server.
+- Quality is lexical, not semantic: results rank by shared words and character
+  fragments (`user_id` scores against `customer_id` through the fragments they
+  share, and no query matches by meaning). Use it for CI, smoke tests and
+  deterministic baselines; a deployment that needs semantic quality without a
+  cloud dependency should use the in-process `onnx` provider above.
+- The model name encodes the algorithm version and vector width
+  (`hash-v1-<dimensions>`), and the storage key is derived from it
+  (`hash_v1_2048`). GMS requires a `semanticSearch.models` entry for that key with
+  the same dimension and a cosine space type. Changing the model name (another
+  width, or a future `v2`) is a new key: existing vectors are not reused and every
+  document must be re-embedded, exactly as when switching any other provider.
 
 **Break-Glass Override (NOT RECOMMENDED):**
 
@@ -596,7 +636,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 **Solution:**
 
 1. Configure semantic search on your DataHub server first
-2. See [Semantic Search Configuration Guide](/docs/how-to/semantic-search-configuration)
+2. See [Semantic Search Configuration Guide](../../../how-to/semantic-search-configuration.md)
 3. Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` in server config
 
 #### Issue: "Server does not support semantic search configuration API"

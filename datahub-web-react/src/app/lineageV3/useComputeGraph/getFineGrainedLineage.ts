@@ -1,5 +1,6 @@
 import {
     ColumnRef,
+    ENTITY_LEVEL_FIELD,
     FineGrainedLineage,
     FineGrainedLineageMap,
     FineGrainedOperationRef,
@@ -11,7 +12,7 @@ import {
     parseColumnRef,
     setDefault,
 } from '@app/lineageV3/common';
-import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
+import { downgradeV2FieldPath, getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
 
@@ -38,21 +39,16 @@ interface TentativeEdge {
  */
 export function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: NodeContext['nodes']): boolean {
     const node = nodes.get(datasetUrn);
-    if (!node?.entity?.schemaMetadata?.fields) {
+    if (!node?.entity?.lineageAssets) {
         return false;
     }
 
-    // Normalize both paths to V1 format for comparison, since fineGrainedLineages paths
-    // are downgraded to V1 in EntityRegistry but schema field paths may still be V2
-    const normalizedFieldPath = downgradeV2FieldPath(fieldPath);
-    return node.entity.schemaMetadata.fields.some(
-        (field) => downgradeV2FieldPath(field.fieldPath) === normalizedFieldPath,
-    );
+    return node.entity.lineageAssets.has(downgradeV2FieldPath(fieldPath));
 }
 
 /**
  * Piece together column-level lineage directly from aspects,
- * e.g. dataset upstreamLineage, chart inputFields, and datajob dataJobInputOutput
+ * e.g. dataset upstreamLineage, chart inputFields, datajob dataJobInputOutput, and metric metricUpstreams
  *
  * @param context Node context
  * @return A map of column -> column edges, enhanced with information about the query for each edge.
@@ -86,9 +82,10 @@ export default function getFineGrainedLineage(
 
         // Validate that both upstream and downstream schema fields actually exist in their datasets
         // This prevents phantom lineage connections when fine-grained lineage references non-existent fields
+        // An entity-level downstream stands for the entity itself, so there is no field to validate
         if (
             !schemaFieldExists(upstreamUrn, upstreamField, nodes) ||
-            !schemaFieldExists(downstreamUrn, downstreamField, nodes)
+            (downstreamField !== ENTITY_LEVEL_FIELD && !schemaFieldExists(downstreamUrn, downstreamField, nodes))
         ) {
             return;
         }
@@ -138,6 +135,14 @@ export default function getFineGrainedLineage(
                 const upstreamField = getFieldPathFromSchemaFieldUrn(input.schemaFieldUrn);
                 processEdge(upstreamUrn, upstreamField, node.urn, input.schemaField.fieldPath);
             }
+        });
+        node.entity?.upstreamSchemaFieldUrns?.forEach((schemaFieldUrn) => {
+            processEdge(
+                getSourceUrnFromSchemaFieldUrn(schemaFieldUrn),
+                getV1FieldPathFromSchemaFieldUrn(schemaFieldUrn),
+                node.urn,
+                ENTITY_LEVEL_FIELD,
+            );
         });
     });
 

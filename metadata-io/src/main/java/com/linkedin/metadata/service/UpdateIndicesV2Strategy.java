@@ -654,7 +654,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
                           newDefinition,
                           reindexState.name());
                       elasticSearchService
-                          .getIndexBuilder()
+                          .getIndexBuilder(reindexState.name())
                           .applyMappings(opContext, reindexState, false);
                     } catch (Exception e) {
                       log.error(
