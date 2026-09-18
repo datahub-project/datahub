@@ -37,7 +37,7 @@ export default function NumberInput({ selectedValues, cardinality, updateSelecte
     return (
         <Input
             type="number"
-            value={selectedValues[0] !== undefined ? String(selectedValues[0]) : ''}
+            value={selectedValues[0] !== undefined && selectedValues[0] !== null ? String(selectedValues[0]) : ''}
             setValue={updateInput}
         />
     );

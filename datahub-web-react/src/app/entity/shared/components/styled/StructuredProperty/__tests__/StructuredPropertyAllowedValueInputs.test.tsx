@@ -3,6 +3,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import MultiSelectInput from '@app/entity/shared/components/styled/StructuredProperty/MultiSelectInput';
+import NumberInput from '@app/entity/shared/components/styled/StructuredProperty/NumberInput';
 import SingleSelectInput from '@app/entity/shared/components/styled/StructuredProperty/SingleSelectInput';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { mockVisibilityObserver } from '@utils/test-utils/mockVisibilityObserver';
@@ -27,6 +28,12 @@ const wrapper = (children: React.ReactNode) => <CustomThemeProvider>{children}</
 beforeEach(mockVisibilityObserver);
 
 describe('structured-property allowed-value inputs', () => {
+    it('renders a null single-cardinality number as an empty input', () => {
+        render(wrapper(<NumberInput selectedValues={[null]} updateSelectedValues={vi.fn()} />));
+
+        expect(screen.getByRole('spinbutton')).toHaveValue(null);
+    });
+
     it('renders single-select choices in definition order and returns the original value', () => {
         const selectSingleValue = vi.fn();
         render(
