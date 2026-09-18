@@ -37,6 +37,7 @@ fragment searchResultCardFields on Entity {
     ... on Dataset {
         exists
         name
+        origin
         platform {
             ...platformFields
         }
