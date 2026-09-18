@@ -7,6 +7,8 @@ Currently, DataHub formally supports 2 types of plugins:
 - [Authentication](#authentication)
 - [Authorization](#authorization)
 
+To extend the **UI** rather than the backend, see [Micro Frontends](./micro-frontends.md).
+
 ## Authentication
 
 > **Note:** This is in <b>BETA</b> version

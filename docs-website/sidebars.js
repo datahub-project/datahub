@@ -1721,6 +1721,7 @@ module.exports = {
         "docs/browseV2/browse-paths-v2",
         "metadata-ingestion/docs/dev_guides/reporting_telemetry",
         "docs/plugins",
+        "docs/micro-frontends",
         "docs/advanced/bootstrap-mcps",
       ],
     },
