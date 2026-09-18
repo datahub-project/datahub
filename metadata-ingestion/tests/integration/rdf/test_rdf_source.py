@@ -503,7 +503,9 @@ def test_stateful_ingestion(
     )
 
 
-def _glossary_ttl_with_terms(tmp_path, terms: list[tuple[str, str]]) -> str:
+def _glossary_ttl_with_terms(
+    tmp_path: pathlib.Path, terms: list[tuple[str, str]]
+) -> str:
     lines = [
         "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .",
         "@prefix ex: <http://example.org/glossary/> .",
@@ -527,8 +529,8 @@ def _run_rdf_pipeline(
     *,
     run_id: str,
     source_path: str,
-    output_path,
-    state_path,
+    output_path: pathlib.Path,
+    state_path: pathlib.Path,
 ) -> Pipeline:
     pipeline = Pipeline.create(
         {
@@ -561,7 +563,9 @@ def _run_rdf_pipeline(
     return pipeline
 
 
-def _status_urns_by_removed(output_path) -> tuple[set[str], set[str]]:
+def _status_urns_by_removed(
+    output_path: pathlib.Path,
+) -> tuple[set[str], set[str]]:
     records = json.loads(output_path.read_text())
     removed: set[str] = set()
     present: set[str] = set()
