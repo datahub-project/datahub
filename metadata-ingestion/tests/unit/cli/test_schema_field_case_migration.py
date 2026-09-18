@@ -486,6 +486,54 @@ class TestReconcileDataset:
             "urn:li:tag:b",
         }
 
+    def test_editable_stranded_description_drop_is_reported(self):
+        # Two stranded editable entries ("product2id"/"PRODUCT2ID") fold onto one
+        # current "Product2Id" with *different* descriptions. The wholesale rewrite
+        # keeps one, so the dropped description must be surfaced for review rather
+        # than silently lost; tags from both peers still union.
+        graph = FakeGraph(
+            {
+                _DATASET: {
+                    "schemaMetadata": _schema("Product2Id"),
+                    "editableSchemaMetadata": EditableSchemaMetadataClass(
+                        editableSchemaFieldInfo=[
+                            EditableSchemaFieldInfoClass(
+                                fieldPath="product2id",
+                                description="from lower",
+                                globalTags=_tags("urn:li:tag:a"),
+                            ),
+                            EditableSchemaFieldInfoClass(
+                                fieldPath="PRODUCT2ID",
+                                description="from upper",
+                                globalTags=_tags("urn:li:tag:b"),
+                            ),
+                        ]
+                    ),
+                },
+            }
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        infos = [a for (u, a) in graph.emitted if u == _DATASET][
+            0
+        ].editableSchemaFieldInfo
+        assert len(infos) == 1
+        assert infos[0].fieldPath == "Product2Id"
+        assert infos[0].description in {"from lower", "from upper"}
+        assert {t.tag for t in infos[0].globalTags.tags} == {
+            "urn:li:tag:a",
+            "urn:li:tag:b",
+        }
+        assert any(
+            "description differs from an entry already mapped there" in s
+            for s in result.skipped
+        )
+
     def test_case_collision_reported_not_migrated(self):
         # Two current fields differ only by case; a stale lowercased schemaField
         # cannot be attributed to either.
@@ -1317,6 +1365,80 @@ class TestFailureHandling:
         assert fail_old not in graph.soft_deleted
         assert fail_new not in graph._store
         assert any("failed to write" in s and "alpha" in s for s in result.skipped)
+
+    def test_destination_read_failure_isolated_to_its_group(self):
+        # Reading the destination aspects of one group fails transiently. That
+        # group is skipped with its source kept, while the other group on the same
+        # dataset still migrates — the read error must not abort the dataset after
+        # earlier groups were already written.
+        fail_old, fail_new = _sf("alpha"), _sf("Alpha")
+        ok_old, ok_new = _sf("beta"), _sf("Beta")
+
+        class _DestReadFailingGraph(FakeGraph):
+            def get_entity_semityped(
+                self, entity_urn: str, aspects: Optional[List[str]] = None
+            ) -> Dict[str, _Aspect]:
+                if entity_urn == fail_new:  # destination read for the "Alpha" group
+                    raise RuntimeError("simulated GMS read failure")
+                return super().get_entity_semityped(entity_urn, aspects)
+
+        graph = _DestReadFailingGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Alpha", "Beta")},
+                fail_old: {"documentation": _doc("alpha doc")},
+                ok_old: {"documentation": _doc("beta doc")},
+            }
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        assert result.error is None  # dataset not aborted
+        assert graph._store[ok_new]["documentation"] == _doc("beta doc")
+        assert ok_old in graph.soft_deleted
+        assert fail_old not in graph.soft_deleted  # source kept for a re-run
+        assert any(
+            "could not read destination" in s and "Alpha" in s for s in result.skipped
+        )
+
+    def test_source_read_failure_isolated_to_its_field(self):
+        # Reading one stranded source's aspects fails; that field is skipped and
+        # kept, while a sibling field is still discovered and migrated.
+        fail_old = _sf("alpha")
+        ok_old, ok_new = _sf("beta"), _sf("Beta")
+
+        class _SourceReadFailingGraph(FakeGraph):
+            def get_entity_semityped(
+                self, entity_urn: str, aspects: Optional[List[str]] = None
+            ) -> Dict[str, _Aspect]:
+                if entity_urn == fail_old:
+                    raise RuntimeError("simulated GMS read failure")
+                return super().get_entity_semityped(entity_urn, aspects)
+
+        graph = _SourceReadFailingGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Alpha", "Beta")},
+                fail_old: {"documentation": _doc("alpha doc")},
+                ok_old: {"documentation": _doc("beta doc")},
+            }
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        assert result.error is None
+        assert graph._store[ok_new]["documentation"] == _doc("beta doc")
+        assert ok_old in graph.soft_deleted
+        assert fail_old not in graph.soft_deleted
+        assert any(
+            "could not read aspects" in s and "alpha" in s for s in result.skipped
+        )
 
 
 class TestRunMigrationReport:

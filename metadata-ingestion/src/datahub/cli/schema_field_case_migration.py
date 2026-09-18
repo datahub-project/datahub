@@ -504,7 +504,19 @@ def _reconcile_schema_field_entities(
         if old_path in reconciler.current_paths:
             continue
 
-        aspects = _read_schema_field_aspects(graph, schema_field_urn)
+        try:
+            aspects = _read_schema_field_aspects(graph, schema_field_urn)
+        except (click.Abort, KeyboardInterrupt):
+            raise
+        except Exception as e:
+            # Isolate a transient read failure to this one field so later fields
+            # on the same dataset are still remapped, rather than aborting the
+            # dataset. The source is left in place for a re-run.
+            log.warning(f"Could not read aspects for schemaField '{old_path}': {e}")
+            result.skipped.append(
+                f"schemaField '{old_path}': could not read aspects ({e}); left in place"
+            )
+            continue
         if not aspects:
             # Nothing user-authored here; a stale key-only field entity is not
             # worth moving or reporting.
@@ -539,6 +551,36 @@ def _reconcile_schema_field_entities(
         )
 
 
+def _read_destination_or_skip(
+    graph: DataHubGraph,
+    dataset_urn: str,
+    new_path: str,
+    new_schema_field_urn: str,
+    sources: List[_StrandedField],
+    result: DatasetReconcileResult,
+) -> Optional[Dict[str, _Aspect]]:
+    """Read the destination field's aspects, isolating a transient read failure.
+
+    On failure the group is skipped with its sources kept, so groups already
+    written stand and later groups on the same dataset are still processed.
+    Returns the aspect bag (possibly empty) or ``None`` to signal "skip group".
+    """
+    try:
+        return _read_schema_field_aspects(graph, new_schema_field_urn)
+    except (click.Abort, KeyboardInterrupt):
+        raise
+    except Exception as e:
+        log.warning(
+            f"Could not read destination schemaField '{new_path}' "
+            f"for {dataset_urn}: {e}"
+        )
+        result.skipped.append(
+            f"schemaField -> '{new_path}': could not read destination ({e}); "
+            f"sources left in place: {sorted(s.old_path for s in sources)}"
+        )
+        return None
+
+
 def _reconcile_destination_group(
     graph: DataHubGraph,
     dataset_urn: str,
@@ -553,8 +595,13 @@ def _reconcile_destination_group(
 ) -> None:
     new_schema_field_urn = make_schema_field_urn(dataset_urn, new_path)
     # Read the destination so we never clobber metadata already sitting on the
-    # correctly-cased field (e.g. propagated by an automation/transformer).
-    existing_dest = _read_schema_field_aspects(graph, new_schema_field_urn)
+    # correctly-cased field (e.g. propagated by an automation/transformer). A
+    # transient read failure is isolated to this group (skip + keep sources).
+    existing_dest = _read_destination_or_skip(
+        graph, dataset_urn, new_path, new_schema_field_urn, sources, result
+    )
+    if existing_dest is None:
+        return
 
     # Which sources contributed each aspect, so a per-aspect outcome (carried,
     # conflict, write failure) is attributed back to every peer that supplied it.
@@ -718,9 +765,24 @@ def _reconcile_editable_schema_metadata(
                     by_path.get(info.fieldPath), info, info.fieldPath
                 )
             continue
-        by_path[new_path] = _merge_editable_field_info(
-            by_path.get(new_path), info, new_path
-        )
+        prev = by_path.get(new_path)
+        if (
+            info.description
+            and prev is not None
+            and prev.description
+            and prev.description != info.description
+        ):
+            # A different description already claimed this destination (a
+            # deliberate edit on the correctly-cased field, or an earlier stranded
+            # peer). The wholesale rewrite keeps one description, so surface the
+            # dropped one for review instead of losing it silently — matching how
+            # the schemaField path reports non-union peer collisions.
+            result.skipped.append(
+                f"editableSchemaMetadata '{info.fieldPath}' -> '{new_path}': "
+                "description differs from an entry already mapped there; kept the "
+                "existing one and dropped this description for review"
+            )
+        by_path[new_path] = _merge_editable_field_info(prev, info, new_path)
         editable_remaps.append((info.fieldPath, new_path))
 
     if not editable_remaps:
