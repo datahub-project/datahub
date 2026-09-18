@@ -4760,6 +4760,82 @@ def _semantic_model_source(**config_overrides: Any) -> DBTCoreSource:
     return DBTCoreSource(DBTCoreConfig(**config_dict), ctx)
 
 
+def _write_manifest(
+    tmp_path: pathlib.Path, semantic_models: Dict[str, Any]
+) -> Dict[str, str]:
+    """A minimal on-disk manifest/catalog pair, for driving the whole source."""
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "metadata": {
+                    "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json",
+                    "project_name": "p",
+                    "adapter_type": "postgres",
+                },
+                "nodes": {},
+                "sources": {},
+                "exposures": {},
+                "metrics": {},
+                "semantic_models": semantic_models,
+            }
+        )
+    )
+    catalog = tmp_path / "catalog.json"
+    catalog.write_text(json.dumps({"nodes": {}, "sources": {}}))
+    return {
+        "manifest_path": str(manifest),
+        "catalog_path": str(catalog),
+        "sources_path": None,  # type: ignore[dict-item]
+        "write_semantics": "OVERRIDE",
+    }
+
+
+_ONE_SEMANTIC_MODEL = {
+    "semantic_model.p.orders": {
+        "name": "orders",
+        "node_relation": {"database": "d", "schema_name": "s", "alias": "orders"},
+        "entities": [{"name": "order_id", "type": "primary"}],
+        "measures": [{"name": "total", "agg": "sum"}],
+    }
+}
+
+
+def test_unsupported_options_report_only_what_the_recipe_set() -> None:
+    """Several of these default to True, so reading values misreports a plain
+    recipe as having set options it never mentions."""
+    plain = _semantic_model_source()
+    assert plain._unsupported_semantic_model_config() == []
+
+    explicit = _semantic_model_source(incremental_lineage=True)
+    assert explicit._unsupported_semantic_model_config() == ["incremental_lineage"]
+
+
+def test_entities_enabled_no_warns_only_on_an_explicit_opt_in(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Unset auto-enables on a capable server, so an unconditional warning
+    would fire on every run of any recipe that turned semantic models off."""
+    files = _write_manifest(tmp_path, _ONE_SEMANTIC_MODEL)
+    entities_off: Dict[str, Any] = {"entities_enabled": {"semantic_models": "NO"}}
+
+    unset = _semantic_model_source(**files, **entities_off)
+    list(unset.get_workunits())
+    assert not any(
+        w.title == "emit_semantic_model_entities has no effect"
+        for w in unset.report.warnings
+    )
+
+    asked = _semantic_model_source(
+        **files, **entities_off, emit_semantic_model_entities=True
+    )
+    list(asked.get_workunits())
+    assert any(
+        w.title == "emit_semantic_model_entities has no effect"
+        for w in asked.report.warnings
+    )
+
+
 def test_emit_semantic_model_entities_unset_stays_off_without_a_graph():
     """Unset follows the server, and a connectionless run has none to follow.
 

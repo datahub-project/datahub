@@ -1970,3 +1970,66 @@ def test_a_simple_metric_gets_no_accumulation_note():
         f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},running)"
     ]
     assert _expression_of(info.expression).expression == "count(orders.order_count)"
+
+
+def test_a_filter_on_a_ratio_is_stated_not_hung_off_the_denominator():
+    # SQL's FILTER clause attaches to an aggregate call, so
+    # `a / b FILTER (WHERE p)` reads as constraining b alone -- while dbt
+    # applies the filter to the whole metric.
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.rate": {
+                    "name": "rate",
+                    "label": "Rate",
+                    "description": "",
+                    "type": "ratio",
+                    "type_params": {
+                        "numerator": {"name": "revenue"},
+                        "denominator": {"name": "order_count"},
+                    },
+                    "filter": {
+                        "where_filters": [{"where_sql_template": "country = 'US'"}]
+                    },
+                }
+            }
+        ),
+    )
+
+    info = dict(_aspects(workunits, MetricInfoClass))[
+        f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},rate)"
+    ]
+    assert _expression_of(info.expression).expression == (
+        "revenue / order_count /* filtered: country = 'US' */"
+    )
+
+
+def test_a_filter_on_an_aggregation_still_uses_a_real_filter_clause():
+    # The distinction is whether the expression is an aggregate call.
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.us": {
+                    "name": "us",
+                    "label": "US",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {"measure": {"name": "order_count"}},
+                    "filter": {
+                        "where_filters": [{"where_sql_template": "country = 'US'"}]
+                    },
+                }
+            }
+        ),
+    )
+
+    info = dict(_aspects(workunits, MetricInfoClass))[
+        f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},us)"
+    ]
+    assert _expression_of(info.expression).expression == (
+        "count(orders.order_count) FILTER (WHERE country = 'US')"
+    )

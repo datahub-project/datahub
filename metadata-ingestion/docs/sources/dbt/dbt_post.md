@@ -663,6 +663,15 @@ sum(payments.payment_amount) FILTER (WHERE {{ Dimension('payment__payment_amount
 
 Two predicates are parenthesized before being joined, so a disjunction in either keeps its scope.
 
+A filter only becomes a `FILTER (WHERE ...)` clause when the computation is an aggregation, which is
+the only thing SQL lets that clause attach to. On a ratio or an author-written `expr` it is stated
+as a comment instead, since `revenue / order_count FILTER (WHERE ...)` would read as constraining
+the denominator alone:
+
+```
+revenue / order_count /* filtered: country = 'US' */
+```
+
 A cumulative metric ends with a comment saying how it accumulates, because its computation is
 otherwise the plain aggregation it is built on — a 7-day running total and a plain total would read
 identically:

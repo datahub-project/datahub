@@ -2456,9 +2456,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 yield from self.create_exposure_mcps(exposures, all_nodes_map)
 
         if self._emit_semantic_model_entities():
-            yield from self._create_semantic_model_workunits(
-                semantic_model_nodes, all_nodes_map
-            )
+            if self.config.entities_enabled.can_emit_semantic_models:
+                yield from self._create_semantic_model_workunits(
+                    semantic_model_nodes, all_nodes_map
+                )
+            elif self.config.emit_semantic_model_entities:
+                # Only when the recipe asked outright. Since an unset flag
+                # auto-enables on a capable server, warning unconditionally
+                # would fire on every run of any recipe that turned semantic
+                # models off -- including projects that have none.
+                self.report.warning(
+                    title="emit_semantic_model_entities has no effect",
+                    message="`entities_enabled.semantic_models` is not set to "
+                    "YES, so no semanticModel, Semantic Model Dataset or metric "
+                    "entities will be emitted.",
+                )
 
     def _emit_semantic_model_entities(self) -> bool:
         """Resolve the tri-state semantic-model decision once, then cache it.
@@ -2544,34 +2556,28 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return None
 
     def _unsupported_semantic_model_config(self) -> List[str]:
-        """Config options that have no effect in semantic-model mode."""
-        candidates = {
-            "include_column_lineage": self.config.include_column_lineage,
-            "column_meta_mapping": bool(self.config.column_meta_mapping),
-            "meta_mapping": bool(self.config.meta_mapping),
-            "infer_dbt_schemas": not self.config.infer_dbt_schemas,
-            "incremental_lineage": self.config.incremental_lineage,
-            "skip_missing_upstreams_in_lineage": (
-                self.config.skip_missing_upstreams_in_lineage
-            ),
-            "dbt_is_primary_sibling": not self.config.dbt_is_primary_sibling,
-        }
-        return sorted(name for name, is_set in candidates.items() if is_set)
+        """Options the recipe set that have no effect in semantic-model mode.
+
+        Restricted to options actually present in the recipe. Several of these
+        default to True, so reading their values would report a plain recipe as
+        having "set" options it never mentions.
+        """
+        names = [
+            "include_column_lineage",
+            "column_meta_mapping",
+            "meta_mapping",
+            "infer_dbt_schemas",
+            "incremental_lineage",
+            "skip_missing_upstreams_in_lineage",
+            "dbt_is_primary_sibling",
+        ]
+        return sorted(name for name in names if name in self.config.model_fields_set)
 
     def _create_semantic_model_workunits(
         self,
         semantic_model_nodes: List[DBTNode],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
-        if not self.config.entities_enabled.can_emit_semantic_models:
-            self.report.warning(
-                title="emit_semantic_model_entities has no effect",
-                message="`entities_enabled.semantic_models` is not set to YES, "
-                "so no semanticModel, Semantic Model Dataset or metric entities "
-                "will be emitted.",
-            )
-            return
-
         metric_definitions = self.load_metrics()
         if not semantic_model_nodes and not metric_definitions:
             return

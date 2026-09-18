@@ -138,6 +138,10 @@ class _MetricComputation:
     measure_predicate: Optional[str] = None
     # Appended as a trailing SQL comment, after any FILTER clause.
     annotation: Optional[str] = None
+    # False for a ratio or an author-written expr: SQL's FILTER clause attaches
+    # to an aggregate call, so hanging one off `a / b` reads as constraining `b`
+    # alone when dbt applies the filter to the whole metric.
+    takes_filter_clause: bool = True
 
 
 @dataclass(frozen=True)
@@ -270,8 +274,8 @@ class DbtSemanticModelMapper:
                 title="Failed to emit dbt semantic model entities",
                 message="No semanticModel, Semantic Model Dataset or metric "
                 "entities were emitted for this project. Fix the reported "
-                "modelling problem, or unset emit_semantic_model_entities to "
-                "fall back to emitting semantic models as datasets.",
+                "modelling problem, or set emit_semantic_model_entities to "
+                "false to fall back to emitting semantic models as datasets.",
                 context=f"dbt project {self.project_name}",
                 exc=e,
             )
@@ -1011,6 +1015,19 @@ class DbtSemanticModelMapper:
             for predicate in (computation.measure_predicate, metric_definition.filter)
             if predicate
         ]
+        if predicates and not computation.takes_filter_clause:
+            # Stated as a comment rather than a FILTER clause it cannot carry,
+            # so the predicate is still visible and the expression still reads
+            # as the computation dbt declared.
+            return self._expression(
+                self._annotated(
+                    computation.expression,
+                    "; ".join(
+                        [f"filtered: {' AND '.join(predicates)}"]
+                        + ([computation.annotation] if computation.annotation else [])
+                    ),
+                )
+            )
         if not predicates:
             return self._expression(
                 self._annotated(computation.expression, computation.annotation)
@@ -1054,7 +1071,9 @@ class DbtSemanticModelMapper:
         # author who writes `expr: revenue` over measure `revenue` means the
         # same thing, so preferring the aggregation is right either way.
         if expr and not self._expr_is_bare_measure_name(metric_definition, expr):
-            return _MetricComputation(expr)
+            # An author's expression is arbitrary SQL, not necessarily an
+            # aggregate call, so a FILTER clause cannot be hung off it either.
+            return _MetricComputation(expr, takes_filter_clause=False)
         if (
             metric_definition.type == METRIC_TYPE_RATIO
             and len(metric_definition.input_metrics) == 2
@@ -1065,7 +1084,10 @@ class DbtSemanticModelMapper:
             # call, so there is nowhere in `a / b` to put a predicate that
             # constrains just `a`. Folding it at the top level would be worse
             # than omitting it: `(a / b) FILTER (WHERE p)` constrains both.
-            return _MetricComputation(f"{numerator.name} / {denominator.name}")
+            return _MetricComputation(
+                f"{numerator.name} / {denominator.name}",
+                takes_filter_clause=False,
+            )
         # A simple metric is just its measure's aggregation, so reuse it rather
         # than leaving the metric with no expression at all.
         if len(metric_definition.measures) == 1:
