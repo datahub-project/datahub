@@ -8,6 +8,8 @@ performing any actual venv creation or management.
 import hashlib
 from typing import Union
 
+from datahub.executor.common.env_config import get_venv_cache_path
+
 # Version constants
 VENV_VERSION_LATEST = "latest"
 VENV_VERSION_BUNDLED = "bundled"
@@ -51,3 +53,19 @@ def get_venv_path(venv_name: str, tmp_dir: str) -> str:
 def should_use_bundled_venv_by_name(venv_name: str) -> bool:
     """Determine if venv should be treated as bundled based on its name."""
     return venv_name.endswith("-bundled")
+
+
+def venv_location(venv_name: str, tmp_dir: str, *, cacheable: bool) -> str:
+    """Where this venv should live.
+
+    `cacheable` comes from VenvConfig.get_stable_venv_name() returning a name
+    rather than None -- the caller has already decided whether this venv's
+    contents are fully determined by its name. A cacheable venv goes in the
+    node-local cache and survives the task; an ephemeral one stays under the
+    execution directory and is deleted with it.
+    """
+    if should_use_bundled_venv_by_name(venv_name):
+        return get_venv_path(venv_name, tmp_dir)
+    if cacheable:
+        return f"{get_venv_cache_path(tmp_dir)}/venv-{venv_name}"
+    return f"{tmp_dir}/venv-{venv_name}"
