@@ -11,10 +11,7 @@ export default function DataHubTooltip(props: TooltipProps & React.RefAttributes
         <Tooltip
             showArrow={false}
             color={bgColor}
-            overlayInnerStyle={{
-                color: textColor,
-                border: `1px solid ${themeConfig.colors.border}`,
-            }}
+            overlayInnerStyle={{ color: textColor }}
             overlayStyle={{ borderRadius: '12px' }}
             {...props}
         />
