@@ -293,6 +293,20 @@ export const toAllowedValueInputs = (
         return [...inputs, { stringValue, description }];
     }, []);
 
+/**
+ * Allowed values to send on update, or `undefined` when there are none. The update input replaces
+ * the whole list, so an empty list reads as "remove every allowed value" — which the backend
+ * rejects on any property that has none to begin with. Open-ended properties therefore send
+ * nothing, leaving the rest of the edit (settings, description, entity types) free to save.
+ */
+export const toAllowedValueUpdate = (
+    rows: AllowedValueFormRow[] | undefined,
+    valueField: PropValueField,
+): AllowedValueInput[] | undefined => {
+    const inputs = toAllowedValueInputs(rows, valueField);
+    return inputs.length > 0 ? inputs : undefined;
+};
+
 export const isEntityTypeSelected = (selectedType: string) => {
     if (selectedType === 'entity' || selectedType === 'entityList') return true;
     return false;

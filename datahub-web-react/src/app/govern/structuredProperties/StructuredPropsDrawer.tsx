@@ -29,6 +29,7 @@ import {
     getStringOrNumberValueField,
     getValueType,
     toAllowedValueInputs,
+    toAllowedValueUpdate,
     valueTypes,
 } from '@app/govern/structuredProperties/utils';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
@@ -141,7 +142,7 @@ const StructuredPropsDrawer = ({
                     newAllowedPlatforms: getNewAllowedPlatforms(selectedProperty, updateValues),
                     // Sends the whole list rather than only the additions so the order the user
                     // arranged survives the edit.
-                    allowedValues: toAllowedValueInputs(updateValues.allowedValues, valueField),
+                    allowedValues: toAllowedValueUpdate(updateValues.allowedValues, valueField),
                     setCardinalityAsMultiple: cardinality === PropertyCardinality.Multiple,
                     settings: {
                         isHidden: updateValues.settings?.isHidden ?? false,

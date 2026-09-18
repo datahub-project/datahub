@@ -4,6 +4,7 @@ import {
     getNewAllowedPlatforms,
     matchesAllowedPlatforms,
     toAllowedValueInputs,
+    toAllowedValueUpdate,
 } from '@app/govern/structuredProperties/utils';
 import { StructuredPropertyEntity } from '@src/types.generated';
 
@@ -187,5 +188,21 @@ describe('toAllowedValueInputs', () => {
 
     it('returns an empty list when there are no rows', () => {
         expect(toAllowedValueInputs(undefined, 'stringValue')).toEqual([]);
+    });
+});
+
+describe('toAllowedValueUpdate', () => {
+    it('sends nothing for a property with no allowed values, so the rest of the edit can save', () => {
+        expect(toAllowedValueUpdate(undefined, 'stringValue')).toBeUndefined();
+        expect(toAllowedValueUpdate([], 'stringValue')).toBeUndefined();
+    });
+
+    it('sends nothing when every row was left blank', () => {
+        expect(toAllowedValueUpdate([{}, { stringValue: '' }], 'stringValue')).toBeUndefined();
+    });
+
+    it('sends the ordered list when there are values', () => {
+        const rows = [{ stringValue: 'Gold' }, { stringValue: 'Silver' }];
+        expect(toAllowedValueUpdate(rows, 'stringValue')?.map((v) => v.stringValue)).toEqual(['Gold', 'Silver']);
     });
 });
