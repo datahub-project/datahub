@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
 import {
+    HOME_RECOMMENDATION_MODULE_LIMIT,
     HOME_V2_RECOMMENDATION_MODULE_IDS,
     collectHomeRecommendationModuleIds,
 } from '@app/homeV2/homeRecommendationModules';
@@ -48,7 +49,7 @@ export const useHomeRecommendations = (): UseHomeRecommendationsResult => {
                     scenario: ScenarioType.Home,
                     modules: modulesFilter,
                 },
-                limit: modulesFilter.length,
+                limit: HOME_RECOMMENDATION_MODULE_LIMIT,
                 viewUrn: selectedViewUrn,
             },
         },

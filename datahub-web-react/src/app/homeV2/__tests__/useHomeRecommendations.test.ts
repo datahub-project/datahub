@@ -2,7 +2,10 @@ import { renderHook } from '@testing-library/react-hooks';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { HOME_V2_RECOMMENDATION_MODULE_IDS } from '@app/homeV2/homeRecommendationModules';
+import {
+    HOME_RECOMMENDATION_MODULE_LIMIT,
+    HOME_V2_RECOMMENDATION_MODULE_IDS,
+} from '@app/homeV2/homeRecommendationModules';
 import { useHomeRecommendations } from '@app/homeV2/useHomeRecommendations';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
@@ -81,13 +84,26 @@ describe('useHomeRecommendations', () => {
                         scenario: ScenarioType.Home,
                         modules: [RecommendationModuleId.Domains],
                     },
-                    limit: 1,
+                    limit: HOME_RECOMMENDATION_MODULE_LIMIT,
                     viewUrn: 'urn:li:view:1',
                 },
             },
             fetchPolicy: 'cache-first',
             skip: false,
         });
+    });
+
+    it('keeps the module limit independent of the requested modules', () => {
+        showV3Mock.mockReturnValue(true);
+        templateMock.mockReturnValue({ template: DEFAULT_TEMPLATE });
+
+        renderHook(() => useHomeRecommendations());
+
+        // A GMS that does not honor `modules` applies `limit` to its own ranked order, which puts
+        // Platforms ahead of Domains. Sizing `limit` to the requested modules would drop Domains.
+        const { input } = queryMock.mock.calls[0][0].variables;
+        expect(input.requestContext.modules).toEqual([RecommendationModuleId.Domains]);
+        expect(input.limit).toBeGreaterThan(input.requestContext.modules.length);
     });
 
     it('adds Platforms when the template includes it, in stable order', () => {
@@ -140,7 +156,7 @@ describe('useHomeRecommendations', () => {
                             scenario: ScenarioType.Home,
                             modules: [RecommendationModuleId.Domains, RecommendationModuleId.Platforms],
                         },
-                        limit: 2,
+                        limit: HOME_RECOMMENDATION_MODULE_LIMIT,
                     }),
                 }),
             }),
@@ -194,7 +210,7 @@ describe('useHomeRecommendations', () => {
                         scenario: ScenarioType.Home,
                         modules: HOME_V2_RECOMMENDATION_MODULE_IDS,
                     },
-                    limit: HOME_V2_RECOMMENDATION_MODULE_IDS.length,
+                    limit: HOME_RECOMMENDATION_MODULE_LIMIT,
                     viewUrn: 'urn:li:view:1',
                 },
             },

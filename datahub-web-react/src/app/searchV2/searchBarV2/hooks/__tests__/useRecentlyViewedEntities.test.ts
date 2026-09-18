@@ -2,6 +2,7 @@ import { renderHook } from '@testing-library/react-hooks';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { HOME_RECOMMENDATION_MODULE_LIMIT } from '@app/homeV2/homeRecommendationModules';
 import useRecentlyViewedEntities from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntities';
 
 import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
@@ -43,7 +44,7 @@ describe('useRecentlyViewedEntities', () => {
                         scenario: ScenarioType.Home,
                         modules: [RecommendationModuleId.RecentlyViewedEntities],
                     },
-                    limit: 1,
+                    limit: HOME_RECOMMENDATION_MODULE_LIMIT,
                     viewUrn: undefined,
                 },
             },

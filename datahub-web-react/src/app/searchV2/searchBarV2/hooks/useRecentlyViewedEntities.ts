@@ -1,4 +1,5 @@
 import { useUserContext } from '@app/context/useUserContext';
+import { HOME_RECOMMENDATION_MODULE_LIMIT } from '@app/homeV2/homeRecommendationModules';
 import { RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES } from '@src/app/entityV2/shared/constants';
 import { Entity } from '@src/types.generated';
 
@@ -24,7 +25,7 @@ export default function useRecentlyViewedEntities(skip?: boolean): Response {
                     scenario: ScenarioType.Home,
                     modules: [RecommendationModuleId.RecentlyViewedEntities],
                 },
-                limit: 1,
+                limit: HOME_RECOMMENDATION_MODULE_LIMIT,
                 viewUrn: selectedViewUrn,
             },
         },
