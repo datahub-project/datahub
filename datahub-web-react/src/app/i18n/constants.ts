@@ -131,22 +131,9 @@ export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
     ru: RU_LOCALE_CONFIG,
 };
 
-export const LANGUAGE_OPTIONS: SelectOption[] = [
-    EN_LOCALE_CONFIG,
-    DE_LOCALE_CONFIG,
-    ES_LOCALE_CONFIG,
-    PT_BR_LOCALE_CONFIG,
-    FR_LOCALE_CONFIG,
-    IT_LOCALE_CONFIG,
-    NB_LOCALE_CONFIG,
-    SV_LOCALE_CONFIG,
-    HU_LOCALE_CONFIG,
-    FI_LOCALE_CONFIG,
-    JA_LOCALE_CONFIG,
-    ZH_CN_LOCALE_CONFIG,
-    ZH_TW_LOCALE_CONFIG,
-    RU_LOCALE_CONFIG,
-].map((localeConfig) => ({
+// Derived from LOCALE_MAP so a new language shows up in the picker automatically — no hand-kept
+// list to drift. Object key order is insertion order, matching LOCALE_MAP's declared order.
+export const LANGUAGE_OPTIONS: SelectOption[] = Object.values(LOCALE_MAP).map((localeConfig) => ({
     value: localeConfig.lang,
     label: localeConfig.label,
 }));
