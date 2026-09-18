@@ -2,6 +2,7 @@ package com.datahub.graphql;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.EOFException;
 import java.io.FilterOutputStream;
 import java.io.IOException;
@@ -17,6 +18,7 @@ import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.AbstractHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.server.ServletServerHttpResponse;
 
 /**
  * Streams a {@link GraphQLResponseBody} straight to the response socket, so the full response is
@@ -34,6 +36,11 @@ public class GraphQLResponseBodyConverter
 
   /** Metric: a genuine server-side mid-stream serialization failure. */
   static final String STREAM_ERROR_METRIC = "streamError";
+
+  /**
+   * Metric: serialization failed before commit and the response can be replaced with a clean 503.
+   */
+  static final String SERIALIZE_ERROR_METRIC = "serializeError";
 
   /** Metric: client disconnected mid-stream (routine, not a server error). */
   static final String CLIENT_ABORT_METRIC = "clientAbort";
@@ -68,31 +75,81 @@ public class GraphQLResponseBodyConverter
   protected void writeInternal(GraphQLResponseBody body, HttpOutputMessage outputMessage)
       throws IOException {
     final CountingOutputStream counting = new CountingOutputStream(outputMessage.getBody());
+    boolean writeSucceeded = false;
+    Throwable primaryFailure = null;
     try {
-      // UTF-8 Writer (not writeValue(OutputStream)): same char generator as the buffered
-      // writeValueAsString path, so wire bytes are identical across the flag — incl. raw UTF-8 for
-      // supplementary chars (emoji) that the byte generator would \\u-escape instead.
-      mapper.writeValue(new OutputStreamWriter(counting, StandardCharsets.UTF_8), body.spec());
-    } catch (IOException e) {
-      // 200 is already committed, so a failure here is a broken response, not a 503. A client
-      // disconnect mid-read is routine — count it separately and log quietly; everything else is a
-      // real server error.
-      final boolean clientAbort = isClientAbort(e);
-      if (metricUtils != null) {
-        metricUtils.increment(
-            getClass(), clientAbort ? CLIENT_ABORT_METRIC : STREAM_ERROR_METRIC, 1);
-      }
-      if (clientAbort) {
-        log.debug(
-            "GraphQL response streaming aborted by client after {} bytes: {}",
-            counting.getCount(),
-            e.toString());
-      } else {
+      try {
+        // UTF-8 Writer (not writeValue(OutputStream)): same char generator as the buffered
+        // writeValueAsString path, so wire bytes are identical across the flag — incl. raw UTF-8
+        // for supplementary chars (emoji) that the byte generator would \\u-escape instead.
+        mapper.writeValue(new OutputStreamWriter(counting, StandardCharsets.UTF_8), body.spec());
+        writeSucceeded = true;
+      } catch (IOException | RuntimeException e) {
+        final boolean clientAbort = isClientAbort(e);
+        final HttpServletResponse servletResponse =
+            outputMessage instanceof ServletServerHttpResponse servletOutput
+                ? servletOutput.getServletResponse()
+                : null;
+
+        if (clientAbort) {
+          incrementMetric(CLIENT_ABORT_METRIC);
+          log.debug(
+              "GraphQL response streaming aborted by client after {} bytes: {}",
+              counting.getCount(),
+              e.toString());
+          primaryFailure = e;
+          throw e;
+        }
+
+        if (servletResponse != null && !servletResponse.isCommitted()) {
+          try {
+            // Jackson and the servlet both buffer, so byte count alone cannot tell whether headers
+            // are committed. Clear partial servlet-buffered JSON before the 503 handler writes.
+            servletResponse.resetBuffer();
+            incrementMetric(SERIALIZE_ERROR_METRIC);
+            log.error("Failed to serialize GraphQL response before commit", e);
+            GraphQLResponseSerializationException serializationException =
+                new GraphQLResponseSerializationException(e);
+            primaryFailure = serializationException;
+            throw serializationException;
+          } catch (IllegalStateException commitRace) {
+            // The container committed between isCommitted() and resetBuffer(); fall through to the
+            // irrecoverable mid-stream path and preserve the original serialization failure.
+            log.debug("GraphQL response committed before its buffer could be reset", commitRace);
+          }
+        }
+
+        incrementMetric(STREAM_ERROR_METRIC);
+        // Once committed, HTTP 200 and any bytes already sent cannot be replaced.
         log.error("Failed to stream GraphQL response after {} bytes", counting.getCount(), e);
+        primaryFailure = e;
+        throw e;
       }
-      throw e;
+      body.onBytesWritten().accept(counting.getCount());
+    } finally {
+      try {
+        body.onWriteFinished().accept(writeSucceeded);
+      } catch (RuntimeException completionFailure) {
+        if (primaryFailure != null) {
+          primaryFailure.addSuppressed(completionFailure);
+          log.error("Failed to complete GraphQL response write lifecycle", completionFailure);
+        } else {
+          throw completionFailure;
+        }
+      }
     }
-    body.onBytesWritten().accept(counting.getCount());
+  }
+
+  private void incrementMetric(String metric) {
+    if (metricUtils != null) {
+      try {
+        metricUtils.increment(getClass(), metric, 1);
+      } catch (RuntimeException metricFailure) {
+        // Observability must never change response status or mask the primary socket/serialization
+        // failure.
+        log.warn("Failed to increment GraphQL response metric {}", metric, metricFailure);
+      }
+    }
   }
 
   /**

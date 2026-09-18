@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -51,10 +52,15 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.NativeWebRequest;
+import org.springframework.web.context.request.async.DeferredResult;
+import org.springframework.web.context.request.async.DeferredResultProcessingInterceptor;
+import org.springframework.web.context.request.async.WebAsyncUtils;
 
 @Slf4j
 @RestController
@@ -84,6 +90,8 @@ public class GraphQLController {
   private OperationContext systemOperationContext;
 
   private static final int MAX_LOG_WIDTH = 512;
+  static final String RATE_LIMIT_RELEASE_INTERCEPTOR_KEY =
+      GraphQLController.class.getName() + ".rateLimitRelease";
 
   /** GraphQL response serializer for the buffered path; see GraphQLResponseObjectMapperFactory. */
   @Autowired
@@ -308,7 +316,29 @@ public class GraphQLController {
     final HttpHeaders rateLimitHeaders = new HttpHeaders();
     RateLimitHeaderWriter.createHeaders(rateLimitDecision).forEach(rateLimitHeaders::add);
     final AtomicBoolean executionSucceeded = new AtomicBoolean(false);
+    final AtomicBoolean rateLimitReleased = new AtomicBoolean(false);
+    final Consumer<Boolean> releaseRateLimitOnce =
+        success -> {
+          if (rateLimitReleased.compareAndSet(false, true)) {
+            rateLimitEngine.release(rateLimitLease, success);
+          }
+        };
     final OperationContext usageSessionContext = context.getOperationContext();
+    final boolean streamResponse = configurationProvider.getGraphQL().getQuery().isStreamResponse();
+    if (streamResponse) {
+      // Converter completion owns the normal release. This request-completion hook is the safety
+      // net when timeout/error handling discards the marker before the converter can run.
+      WebAsyncUtils.getAsyncManager(request)
+          .registerDeferredResultInterceptor(
+              RATE_LIMIT_RELEASE_INTERCEPTOR_KEY,
+              new DeferredResultProcessingInterceptor() {
+                @Override
+                public <T> void afterCompletion(
+                    NativeWebRequest webRequest, DeferredResult<T> deferredResult) {
+                  releaseRateLimitOnce.accept(false);
+                }
+              });
+    }
     boolean asyncStarted = false;
     try {
       CompletableFuture<ResponseEntity<Object>> executionFuture =
@@ -342,7 +372,7 @@ public class GraphQLController {
                   executionResult.getExtensions().remove("tracing");
                   final Map<String, Object> responseSpec = executionResult.toSpecification();
 
-                  if (configurationProvider.getGraphQL().getQuery().isStreamResponse()) {
+                  if (streamResponse) {
                     // Log duration here, not after the write — else a slow/abandoned read loses
                     // the slow-query log. Size is unknown until the converter finishes; do not
                     // log variables (same leak surface as dumping mutation inputs).
@@ -351,7 +381,11 @@ public class GraphQLController {
                     // the size metric is recorded from its callback then.
                     final Object body =
                         new GraphQLResponseBody(
-                            responseSpec, bytes -> recordResponseBytes(usageSessionContext, bytes));
+                            responseSpec,
+                            bytes -> recordResponseBytes(usageSessionContext, bytes),
+                            writeSucceeded ->
+                                releaseRateLimitOnce.accept(
+                                    writeSucceeded && executionSucceeded.get()));
                     return new ResponseEntity<>(body, rateLimitHeaders, HttpStatus.OK);
                   }
 
@@ -394,18 +428,21 @@ public class GraphQLController {
               this.getClass().getSimpleName(),
               "postGraphQL");
       executionFuture.whenComplete(
-          (response, error) ->
-              rateLimitEngine.release(
-                  rateLimitLease,
-                  error == null
-                      && response != null
-                      && response.getStatusCode().is2xxSuccessful()
-                      && executionSucceeded.get()));
+          (response, error) -> {
+            if (response != null && response.getBody() instanceof GraphQLResponseBody) {
+              return;
+            }
+            releaseRateLimitOnce.accept(
+                error == null
+                    && response != null
+                    && response.getStatusCode().is2xxSuccessful()
+                    && executionSucceeded.get());
+          });
       asyncStarted = true;
       return executionFuture;
     } finally {
       if (!asyncStarted) {
-        rateLimitEngine.release(rateLimitLease, false);
+        releaseRateLimitOnce.accept(false);
       }
     }
   }
@@ -415,6 +452,12 @@ public class GraphQLController {
       throws HttpRequestMethodNotSupportedException {
     log.info("GET on GraphQL API is not supported");
     throw new HttpRequestMethodNotSupportedException("GET");
+  }
+
+  @ExceptionHandler(GraphQLResponseSerializationException.class)
+  ResponseEntity<Map<String, String>> handleResponseSerializationFailure() {
+    return new ResponseEntity<>(
+        Map.of("error", "Failed to serialize GraphQL response"), HttpStatus.SERVICE_UNAVAILABLE);
   }
 
   /**

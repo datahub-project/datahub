@@ -6,13 +6,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.expectThrows;
 
 import com.linkedin.metadata.ratelimit.RateLimitEngine;
 import com.linkedin.metadata.ratelimit.model.RateLimitDecision;
 import com.linkedin.metadata.ratelimit.model.RateLimitSource;
+import java.io.IOException;
 import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
 import org.testng.annotations.Test;
 
 /**
@@ -25,6 +29,19 @@ public class GraphQLControllerTest {
 
   private static final List<String> ONE_HEAVY = List.of("searchAcrossEntities");
   private static final String ACTOR = "urn:li:corpuser:tester";
+
+  @Test
+  public void testResponseSerializationExceptionMapsToServiceUnavailable() {
+    GraphQLResponseSerializationException exception =
+        new GraphQLResponseSerializationException(new IOException("boom"));
+    ExceptionHandlerMethodResolver resolver =
+        new ExceptionHandlerMethodResolver(GraphQLController.class);
+
+    assertEquals(resolver.resolveMethod(exception).getName(), "handleResponseSerializationFailure");
+    assertEquals(
+        new GraphQLController().handleResponseSerializationFailure().getStatusCode(),
+        HttpStatus.SERVICE_UNAVAILABLE);
+  }
 
   @Test
   public void testFrontGateDenialShortCircuitsHeavyGate() {
