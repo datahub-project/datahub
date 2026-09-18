@@ -1,3 +1,6 @@
+import os
+import pathlib
+
 import pytest
 
 from datahub.executor.execution import venv_utils
@@ -237,3 +240,66 @@ class TestVenvLocation:
         )
 
         assert loc == "/tmp/datahub/ingest/_venv_cache/venv-snowflake-abc"
+
+
+class TestVenvEntryState:
+    """A half-built venv must never be reused.
+
+    setup_venv's reuse check accepts any directory containing bin/python. A
+    build killed midway -- pod evicted, OOM, cancellation -- leaves exactly
+    that: a venv with no packages. Per-run directories made this harmless
+    because they were deleted; a cache turns it into a poisoned entry every
+    later run reuses.
+    """
+
+    def _venv_with_python(self, root: pathlib.Path) -> pathlib.Path:
+        (root / "bin").mkdir(parents=True)
+        (root / "bin" / "python").touch()
+        return root
+
+    def test_a_venv_with_a_python_binary_but_no_marker_is_incomplete(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        venv = self._venv_with_python(tmp_path / "venv-x")
+
+        assert not venv_utils.is_venv_complete(venv), (
+            "this is exactly the shape a killed build leaves behind"
+        )
+
+    def test_marking_complete_makes_it_reusable(self, tmp_path: pathlib.Path) -> None:
+        venv = self._venv_with_python(tmp_path / "venv-x")
+
+        venv_utils.mark_venv_complete(venv)
+
+        assert venv_utils.is_venv_complete(venv)
+
+    def test_a_marker_without_a_python_binary_is_still_incomplete(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """Both conditions, not either: some systems clear files out of temp
+        directories but leave the directories themselves."""
+        venv = tmp_path / "venv-x"
+        venv.mkdir()
+        venv_utils.mark_venv_complete(venv)
+
+        assert not venv_utils.is_venv_complete(venv)
+
+    def test_last_used_advances_on_touch(self, tmp_path: pathlib.Path) -> None:
+        """LRU orders by THIS file, never by filesystem atime: containers mount
+        relatime or noatime, so atime lags by a day or never updates."""
+        venv = self._venv_with_python(tmp_path / "venv-x")
+
+        venv_utils.touch_last_used(venv)
+        first = venv_utils.last_used_at(venv)
+        os.utime(venv / venv_utils.LAST_USED_MARKER, (first - 500, first - 500))
+        venv_utils.touch_last_used(venv)
+
+        assert venv_utils.last_used_at(venv) > first - 500
+
+    def test_last_used_of_an_unmarked_venv_sorts_oldest(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """So an entry from before this feature is evicted first, not never."""
+        venv = self._venv_with_python(tmp_path / "venv-x")
+
+        assert venv_utils.last_used_at(venv) == 0.0

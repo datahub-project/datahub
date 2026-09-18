@@ -6,9 +6,13 @@ performing any actual venv creation or management.
 """
 
 import hashlib
+import logging
+import pathlib
 from typing import Union
 
 from datahub.executor.common.env_config import get_venv_cache_path
+
+logger = logging.getLogger(__name__)
 
 # Version constants
 VENV_VERSION_LATEST = "latest"
@@ -69,3 +73,54 @@ def venv_location(venv_name: str, tmp_dir: str, *, cacheable: bool) -> str:
     if cacheable:
         return f"{get_venv_cache_path(tmp_dir)}/venv-{venv_name}"
     return f"{tmp_dir}/venv-{venv_name}"
+
+
+# Written as the LAST step of a successful build, and required before reuse.
+# Rename-after-build would be the usual way to make a build atomic, and it is
+# unavailable here: venv console scripts hard-code the absolute venv path in
+# their shebang (#!/.../venv/bin/python3), and validate_venv requires
+# bin/datahub, so a venv built at one path is broken at another.
+COMPLETE_MARKER = ".datahub-venv-complete"
+
+# The LRU signal. Deliberately not filesystem atime: container filesystems are
+# routinely mounted relatime or noatime, so atime either lags by a day or never
+# updates -- an eviction policy built on it looks correct in development and
+# does the wrong thing in production.
+LAST_USED_MARKER = ".datahub-venv-last-used"
+
+
+def is_venv_complete(venv_loc: pathlib.Path) -> bool:
+    """Whether this venv finished installing and may be reused.
+
+    Both conditions: the interpreter AND the marker. bin/python alone is what a
+    killed build leaves behind, and the marker alone is what survives a system
+    that clears files out of temp directories but keeps the directories.
+    """
+    return (venv_loc / "bin" / "python").exists() and (
+        venv_loc / COMPLETE_MARKER
+    ).exists()
+
+
+def mark_venv_complete(venv_loc: pathlib.Path) -> None:
+    (venv_loc / COMPLETE_MARKER).touch()
+
+
+def touch_last_used(venv_loc: pathlib.Path) -> None:
+    """Record a cache hit. Never allowed to fail a run: a read-only or full
+    filesystem costs us eviction accuracy, not the task."""
+    try:
+        (venv_loc / LAST_USED_MARKER).touch()
+    except OSError:
+        logger.debug("Could not touch the last-used marker in %s", venv_loc)
+
+
+def last_used_at(venv_loc: pathlib.Path) -> float:
+    """Epoch seconds of the last recorded hit, or 0.0 when never recorded.
+
+    0.0 rather than "now" so an entry predating this feature sorts oldest and
+    is evicted first, instead of being immortal.
+    """
+    try:
+        return (venv_loc / LAST_USED_MARKER).stat().st_mtime
+    except OSError:
+        return 0.0
