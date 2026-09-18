@@ -4,7 +4,7 @@ import { useTheme } from 'styled-components';
 
 export default function DataHubTooltip(props: TooltipProps & React.RefAttributes<unknown>) {
     const themeConfig = useTheme();
-    const bgColor = themeConfig.colors.bgTooltip;
+    const bgColor = themeConfig.colors.bgOverlay;
     const textColor = themeConfig.colors.text;
 
     return (

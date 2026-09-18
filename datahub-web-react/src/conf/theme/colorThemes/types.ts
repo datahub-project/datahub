@@ -122,6 +122,10 @@ export default interface ColorTheme {
     bgHighlight: string;
     // Tooltip
     bgTooltip: string;
+    // Surface for floating overlays (menus, dropdowns, popovers, tooltips). Matches the
+    // canvas in light mode and lifts above it in dark mode, where shadows alone read as
+    // nothing. Not the same as `bgTooltip`, which is an inverted surface in light mode.
+    bgOverlay: string;
     // Brand gradients
     brandGradient: string;
     brandGradientSelected: string;

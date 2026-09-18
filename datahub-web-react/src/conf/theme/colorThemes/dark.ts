@@ -135,9 +135,11 @@ const darkTheme: ColorTheme = {
     // Highlight
     bgHighlight: '#4a3d00',
     // Tooltip
-    // Lift floating overlays off the canvas. gray1000 sat next to bg (gray1100)
-    // so tooltips and menus disappeared; gray800 keeps dark-on-dark copy readable.
-    bgTooltip: colors.gray800,
+    // Tooltip copy is painted with `text`, so this has to stay a dark surface —
+    // pointing it at a light gray made the two colors near-identical.
+    bgTooltip: colors.gray1000,
+    // gray1000 sat one step off the canvas (gray1100), so overlays disappeared.
+    bgOverlay: colors.gray800,
     // Brand gradients
     brandGradient: 'radial-gradient(115.48% 144.44% at 50% -44.44%, #8C7EE0 38.97%, #705EE4 100%)',
     // Stops stay above 4.5:1 on the nav surface — this paints selected label text
