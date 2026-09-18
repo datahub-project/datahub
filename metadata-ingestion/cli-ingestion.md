@@ -22,7 +22,7 @@ datahub version
 Or via pip on any platform:
 
 :::note Required Python Version
-Installing DataHub CLI via pip requires Python 3.11+.
+Installing DataHub CLI via pip requires Python 3.10+.
 :::
 
 ```bash

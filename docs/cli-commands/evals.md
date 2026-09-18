@@ -17,7 +17,7 @@ Context Evals are in private beta, so the command surface can change between rel
 ## Installation
 
 The command lives in the `acryl-datahub-cloud` package only — it is not part of the open source
-`acryl-datahub` CLI. It needs Python 3.11 or later.
+`acryl-datahub` CLI. It needs Python 3.10 or later.
 
 ```shell
 pip install 'acryl-datahub-cloud[datahub-evals]>=2.1.4rc1'
