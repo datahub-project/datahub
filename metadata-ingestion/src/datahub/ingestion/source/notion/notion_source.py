@@ -516,12 +516,11 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         """Filter unknown kwargs on every FromJSONMixin dataclass in notion types.
 
         Notion's API regularly adds new fields across blocks, pages, databases,
-        and properties (icon, color, is_locked, is_archived, list_start_index,
-        list_format, ...). unstructured-ingest 1.4.28 still models many of these as
-        dataclasses and parses many of them with ``cls(**data)``, so a new
-        field still raises ``TypeError: __init__() got an unexpected keyword
-        argument`` and aborts ingestion (AI-603: Paragraph 'icon'; also
-        observed: Page 'is_archived'). unstructured-ingest 1.4.28 already
+        and properties. unstructured-ingest 1.4.28 models some former drift
+        (for example Paragraph/Heading ``icon``) but still uses dataclasses
+        with ``cls(**data)`` for many types, so an unmodeled field raises
+        ``TypeError: __init__() got an unexpected keyword argument`` and
+        aborts ingestion (observed: Page ``is_archived``). 1.4.28 already
         filters extra keys on Page.from_dict, but other types still use
         ``cls(**data)``.
 
