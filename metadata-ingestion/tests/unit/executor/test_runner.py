@@ -29,6 +29,7 @@ from datahub.executor.execution.runner import (
     setup_venv,
     validate_dependency_resolution_enabled,
 )
+from datahub.executor.execution.task import TaskError
 from datahub.executor.execution.venv_cache import EntryLock
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -2039,3 +2040,111 @@ class TestVenvCacheInSetupVenv:
         ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
         assert ref.lock is not None
         ref.lock.release()
+
+
+async def test_the_expanded_requirements_file_does_not_outlive_the_install(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """extra-requirements.txt holds a token, so it must not persist.
+
+    resolve_pip_requirements substitutes ${VAR} before the file is written, so
+    a private index URL arrives here with its credential in it. The file is an
+    input to `uv pip install -r` and nothing reads it afterwards.
+
+    The venv cache is what made this matter: venv_loc for a cacheable venv is
+    the node-local cache root, which get_venv_cache_path deliberately places
+    OUTSIDE exec_out_dir -- so the file stopped being cleaned up with the run
+    and sat in a directory shared by every task on the node.
+    """
+    monkeypatch.setenv("PIP_INDEX_TOKEN", "index-token-value-1")
+    logs = LogHolder()
+    runner = SubprocessRunner(logs)
+
+    seen: dict = {}
+
+    async def mock_execute(command, env=None, cwd=None):
+        if "venv" in command:
+            venv_path = Path(command[-1])
+            venv_path.mkdir(parents=True, exist_ok=True)
+            (venv_path / "bin").mkdir(exist_ok=True)
+            (venv_path / "bin" / "python").touch()
+        if "-r" in command:
+            # While the install runs the file must exist, carry the expanded
+            # token, and not be readable by anyone else on the node.
+            req = Path(command[command.index("-r") + 1])
+            seen["existed"] = req.is_file()
+            seen["text"] = req.read_text()
+            seen["mode"] = req.stat().st_mode & 0o777
+
+    with patch.object(runner, "execute", AsyncMock(side_effect=mock_execute)):
+        venv_ref = await setup_venv(
+            VenvConfig(
+                version="0.12.1.5",
+                main_plugin="snowflake",
+                extra_pip_requirements=["pkg @ https://u:${PIP_INDEX_TOKEN}@x/simple"],
+            ),
+            runner,
+            tmp_path,
+        )
+
+    assert seen.get("existed"), "the install never saw a requirements file"
+    assert "index-token-value-1" in seen["text"], "the token was not expanded"
+    assert seen["mode"] == 0o600, (
+        f"world/group readable while it existed: {seen['mode']:o}"
+    )
+
+    leftover = pathlib.Path(venv_ref.venv_loc) / "extra-requirements.txt"
+    assert not leftover.exists(), (
+        f"{leftover} outlived the install; it holds an expanded credential and "
+        "for a cacheable venv this directory is never cleaned up"
+    )
+    # And the token is not recoverable anywhere else under the venv.
+    assert not any(
+        "index-token-value-1" in p.read_text(errors="ignore")
+        for p in pathlib.Path(venv_ref.venv_loc).rglob("*")
+        if p.is_file()
+    )
+
+
+async def test_a_failed_install_does_not_leave_the_token_file_behind(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The reason the cleanup is in a `finally`.
+
+    A bad token or an unreachable private index is the common failure here,
+    and it is exactly the run whose requirements file must not survive: the
+    venv is left incomplete in the cache, so nothing rebuilds over it until
+    the next attempt.
+    """
+    monkeypatch.setenv("PIP_INDEX_TOKEN", "index-token-value-2")
+    runner = SubprocessRunner(LogHolder())
+    req_paths: list[pathlib.Path] = []
+
+    async def mock_execute(command, env=None, cwd=None):
+        if "venv" in command:
+            venv_path = Path(command[-1])
+            venv_path.mkdir(parents=True, exist_ok=True)
+            (venv_path / "bin").mkdir(exist_ok=True)
+            (venv_path / "bin" / "python").touch()
+        if "-r" in command:
+            req_paths.append(Path(command[command.index("-r") + 1]))
+            raise TaskError("uv pip install failed: 401 Unauthorized from index")
+
+    with patch.object(runner, "execute", AsyncMock(side_effect=mock_execute)):
+        with pytest.raises(TaskError):
+            await setup_venv(
+                VenvConfig(
+                    version="0.12.1.5",
+                    main_plugin="snowflake",
+                    extra_pip_requirements=[
+                        "pkg @ https://u:${PIP_INDEX_TOKEN}@x/simple"
+                    ],
+                ),
+                runner,
+                tmp_path,
+            )
+
+    assert req_paths, "the install was never attempted"
+    assert not req_paths[0].exists(), (
+        f"{req_paths[0]} survived a failed install still holding the token"
+    )

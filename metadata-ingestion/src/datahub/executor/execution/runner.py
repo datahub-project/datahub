@@ -723,6 +723,65 @@ def _resolve_existing_venv(entry: _CacheEntry, runner: SubprocessRunner) -> bool
     return False
 
 
+async def _install_extra_requirements(
+    runner: SubprocessRunner,
+    venv_loc: pathlib.Path,
+    expanded_pip_reqs: list[str],
+    venv_env: dict,
+) -> None:
+    """Install extra_pip_requirements, leaving no credential on disk.
+
+    These are the EXPANDED requirements: a private index URL arrives here with
+    its token already substituted in. The file is only an input to `uv pip
+    install -r` and nothing reads it afterwards, so it does not outlive the
+    install.
+
+    It used to, and the venv cache is what made that matter. `venv_loc` for a
+    cacheable venv is the node-local cache root, which get_venv_cache_path
+    places outside exec_out_dir on purpose -- "deliberately not inside ... the
+    directory finalize_task_output removes when a task ends". So the token
+    stopped being cleaned up at all: it sat in a directory that survives by
+    design and is shared by every task on the node, until LRU eviction
+    happened to reclaim it. Before the cache it went into exec_out_dir and was
+    removed with the run.
+
+    Extracted from setup_venv rather than inlined: the cleanup pushed that
+    function one step past ruff's complexity limit, and this is a self
+    contained step with its own invariant to state.
+    """
+    extra_req_file = venv_loc / "extra-requirements.txt"
+    # 0600 before the contents are written rather than after, so there is no
+    # window at the ambient umask -- the cache directory itself is
+    # umask-default and may be group- or world-readable. chmod as well as
+    # touch(mode=...), because mode only applies when touch CREATES the file
+    # and a discarded incomplete venv can leave a stale one behind.
+    extra_req_file.touch(mode=0o600, exist_ok=True)
+    extra_req_file.chmod(0o600)
+    extra_req_file.write_text("\n".join(expanded_pip_reqs))
+    runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
+    runner._logs.append_masked("\n".join(expanded_pip_reqs))
+    try:
+        await runner.execute(
+            [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
+            env=venv_env,
+        )
+    finally:
+        # In a `finally` because an install failing on a bad token is exactly
+        # the run whose requirements file must not be left behind. Guarded for
+        # the reason mark_venv_complete is: a full or read-only cache
+        # filesystem must not turn a build that otherwise succeeded into a
+        # failure.
+        try:
+            extra_req_file.unlink(missing_ok=True)
+        except OSError:
+            logger.warning(
+                "Could not remove %s; it holds expanded requirements and may "
+                "contain a credential",
+                extra_req_file,
+                exc_info=True,
+            )
+
+
 # I had to change this from the base file because we needed to introduce
 # support for handling bundled venvs.
 async def setup_venv(
@@ -916,15 +975,8 @@ async def setup_venv(
 
         # Pass 2: Install extra_pip_requirements without constraints.
         if venv_config.requirements_file is None and expanded_pip_reqs:
-            extra_req_file = venv_loc / "extra-requirements.txt"
-            extra_req_file.write_text("\n".join(expanded_pip_reqs))
-            runner._logs.append(
-                f"Installing extra requirements from: {extra_req_file}\n"
-            )
-            runner._logs.append_masked("\n".join(expanded_pip_reqs))
-            await runner.execute(
-                [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
-                env=venv_env,
+            await _install_extra_requirements(
+                runner, venv_loc, expanded_pip_reqs, venv_env
             )
 
         if venv_reference.lock is not None:
