@@ -11,6 +11,7 @@ import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SearchEngineStructuredPropertyMappingLookup;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSearchMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.DocumentV3EmbeddingMappingContributor;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3MappingContributor;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
@@ -67,14 +68,15 @@ public class MappingsBuilderFactory {
         searchClusterRegistry.configFor(SearchComponent.SEARCH_V3).getEntityIndex();
     int keywordMaxLength = resolveKeywordMaxLength(configProvider);
     SearchClientShim<?> v3Client = searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3);
+    SemanticSearchConfiguration semanticConfig = entityIndexConfig.getSemanticSearch();
+    List<V3MappingContributor> contributors =
+        new ArrayList<>(mappingContributors == null ? List.of() : mappingContributors);
+    contributors.add(new DocumentV3EmbeddingMappingContributor(semanticConfig, v3Client));
     log.info(
-        "Creating MultiEntityMappingsBuilder bean (engineType={} is diagnostic only; V3 mappings are engine-agnostic)",
+        "Creating MultiEntityMappingsBuilder bean (engineType={}; document V3 embeddings when semanticSearch is on)",
         v3Client.getEngineType());
     try {
-      return new MultiEntityMappingsBuilder(
-          entityIndexConfig,
-          keywordMaxLength,
-          mappingContributors == null ? List.of() : mappingContributors);
+      return new MultiEntityMappingsBuilder(entityIndexConfig, keywordMaxLength, contributors);
     } catch (IOException e) {
       log.error("Failed to initialize MultiEntityMappingsBuilder", e);
       throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);

@@ -332,6 +332,9 @@ public class GraphQLEngineFactory {
     args.setSemanticSearchService(semanticSearchService);
     args.setSemanticSearchConfiguration(
         configProvider.getElasticSearch().getEntityIndex().getSemanticSearch());
+    args.setEntityIndexV3Enabled(
+        configProvider.getElasticSearch().getEntityIndex().getV3() != null
+            && configProvider.getElasticSearch().getEntityIndex().getV3().isEnabled());
 
     // Create the GmsGraphQLEngine and build the GraphQL schema
     GmsGraphQLEngine gmsGraphQLEngine = new GmsGraphQLEngine(args);
