@@ -14,6 +14,10 @@ This tab is enabled if you use [Data Quality Integration with Great Expectations
 
 ## Common to multiple entities
 
+### Tabs contributed by micro frontends
+
+Additional tabs can be added to entity pages by placing a micro frontend in the `entity.detail.tab` slot. See [Micro Frontends](../micro-frontends.md).
+
 ### Properties Tab
 
 Properties are a catch-all bag for metadata not captured in other aspects stored for a Dataset. These are populated via the various source connectors when [metadata is ingested](../../metadata-ingestion/README.md).
