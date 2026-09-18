@@ -83,4 +83,13 @@ The source report lists every skipped cell with its `dataConnectionId` and a rea
 
 #### Column Lineage Looks Sparse
 
-When `use_queried_tables_lineage` is enabled on a Hex Enterprise workspace, the report exposes `enterprise_cells_with_mismatch` and `enterprise_sample_mismatched_cells` — SQL cells whose parsed table URN did not match the `queriedTables` result. Adjusting `default_database` / `default_schema` in `connection_platform_map` resolves most cases.
+When `use_queried_tables_lineage` is enabled on a Hex Enterprise workspace, the report exposes `enterprise_cells_with_mismatch` and `enterprise_sample_mismatched_cells` — SQL cells whose parsed table URN did not match the `queriedTables` result. Both tiers resolve through the same schema resolver, so a mismatch usually means the `queriedTables` entry and the SQL cell genuinely refer to different tables (different `default_database` / `default_schema` scope, or a typo). If column lineage is dropped for _every_ cell of an entity, the run logs a `Column lineage dropped` warning pointing at the entity — inspect the mismatch sample to confirm whether the tables are the same.
+
+Casing is chosen by the shared schema resolver. The resolver dialect-normalizes the `tableName` before probing DataHub, so its behaviour splits by whether the platform's `sqlglot` dialect preserves case:
+
+- **Case-preserving dialects** (bigquery) or explicitly quoted identifiers keep the author casing, so a URN already in DataHub is matched exactly. Ingesting the warehouse before Hex is the reliable way to line up lineage here.
+- **Case-folding dialects** (snowflake, postgres, redshift, mssql, …) have the identifier lower-cased before the probe. That matches a Snowflake warehouse ingested with the source default (`convert_urns_to_lowercase: true`). Postgres, Redshift and MSSQL default to preserving case, so a warehouse ingested with those defaults ends up with a URN like `MyDb.dbo.Orders` in DataHub while Hex's tier-1 edge is emitted as `mydb.dbo.orders` — the edge dangles even after re-ingesting the warehouse, because the casing is folded before the probe. There is no per-connection override yet; re-ingest the warehouse with `convert_urns_to_lowercase: true` to align them.
+
+The resolver also folds BigQuery date-shard suffixes (`events_20240101` → `events_yyyymmdd`) so partitioned tables line up.
+
+Every resolver miss is counted under `queried_tables_unresolved_in_datahub`, with the synthesized URNs sampled in `queried_tables_unresolved_sample`. A high count is the signal for the dangling-edge case above.
