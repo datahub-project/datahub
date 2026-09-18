@@ -193,6 +193,24 @@ class TestPathReconciler:
         assert new_path is None
         assert reason and "collision" in reason
 
+    def test_v2_union_members_sharing_leaf_do_not_collapse(self):
+        # An Avro-style union emits one schemaField per member with the same leaf.
+        # get_simple_field_path_from_v2_field_path strips the [type=...] tokens, so
+        # simplifying would bucket both members together and misreport a casing
+        # variant of one as a case-only collision. The nested-token guard keeps
+        # them distinct so each resolves uniquely.
+        int_member = "[version=2.0].[type=union].[type=int].a"
+        str_member = "[version=2.0].[type=union].[type=string].a"
+        r = PathReconciler.build([int_member, str_member])
+        assert r.resolve("[version=2.0].[type=union].[type=int].A") == (
+            int_member,
+            None,
+        )
+        assert r.resolve("[version=2.0].[type=union].[type=string].A") == (
+            str_member,
+            None,
+        )
+
 
 class TestReconcileDataset:
     def test_no_schema_metadata_errors(self):

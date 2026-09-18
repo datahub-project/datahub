@@ -54,10 +54,22 @@ MIGRATED_SCHEMA_FIELD_ASPECTS: List[str] = [
 ]
 
 
+# Nested-type v2 tokens that carry structural meaning: two fields sharing a
+# dotted leaf but differing in these are distinct fields, not a casing change.
+# get_simple_field_path_from_v2_field_path strips them, so collapsing on the
+# simple path would bucket e.g. union members together. Dataset._simplify_field_path
+# refuses to simplify paths containing these for the same reason.
+_NO_SIMPLIFY_TOKENS = ("[type=array]", "[type=map]", "[type=union]")
+
+
 def _norm(field_path: str) -> str:
     # Reduce both v1 and v2 field paths to the simple dotted path, then casefold,
     # so a casing change matches regardless of encoding. The full current path is
-    # still used when writing.
+    # still used when writing. Paths with nested-type tokens are casefolded whole
+    # (giving up cross-encoding matching for those, which is far rarer than a
+    # casing change) so distinct nested fields don't collapse into one bucket.
+    if any(token in field_path for token in _NO_SIMPLIFY_TOKENS):
+        return field_path.casefold()
     return get_simple_field_path_from_v2_field_path(field_path).casefold()
 
 
