@@ -1932,6 +1932,12 @@ graphQL:
     # Set > 0 only if you want an ArrayBlockingQueue of that capacity.
     queueSize: ${GRAPHQL_CONCURRENCY_QUEUE_SIZE:0}
     keepAlive: ${GRAPHQL_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
+  documentCache:
+    # Shared cache of parsed/validated GraphQL documents, reused across the rate-limit parse
+    # path and query execution so a given query text is parsed at most once per process.
+    enabled: ${GRAPHQL_DOCUMENT_CACHE_ENABLED:true}
+    # Maximum cache weight in bytes, approximated as 5x the cached queries' UTF-8 byte length.
+    maximumWeightBytes: ${GRAPHQL_DOCUMENT_CACHE_MAX_BYTES:26214400}
   query:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
