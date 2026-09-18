@@ -4,6 +4,7 @@ import { Modal } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
+import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import {
     DEFAULT_PAGE_SIZE,
     removeFromListPoliciesCache,
@@ -30,7 +31,7 @@ type PrivilegeOptionType = {
 };
 
 export function usePolicy(
-    policiesConfig,
+    policyPrivileges: PolicyPrivilegesConfig | undefined,
     focusPolicyUrn,
     policiesRefetch,
     setShowViewPolicyModal,
@@ -42,8 +43,8 @@ export function usePolicy(
     const client = useApolloClient();
 
     // Construct privileges
-    const platformPrivileges = policiesConfig?.platformPrivileges || [];
-    const resourcePrivileges = policiesConfig?.resourcePrivileges || [];
+    const platformPrivileges = policyPrivileges?.platformPrivileges || [];
+    const resourcePrivileges = policyPrivileges?.resourcePrivileges || [];
 
     // Any time a policy is removed, edited, or created, refetch the list.
     const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation();
@@ -194,12 +195,17 @@ export function usePolicy(
         if (focusPolicyUrn) {
             // If there's an URN associated with the focused policy, then we are editing an existing policy.
             updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } }).then(() => {
+                const newPolicy = {
+                    __typename: 'ListPoliciesResult',
+                    urn: focusPolicyUrn,
+                    ...savePolicy,
+                };
                 analytics.event({
                     type: EventType.UpdatePolicyEvent,
                     policyUrn: focusPolicyUrn,
                 });
                 toast.success(t('savePolicySuccess'));
-                // Refetch will update the cache with complete data
+                updateListPoliciesCache(client, newPolicy, DEFAULT_PAGE_SIZE);
                 setTimeout(() => {
                     policiesRefetch();
                 }, 1000);
@@ -207,15 +213,20 @@ export function usePolicy(
             });
         } else {
             // If there's no URN associated with the focused policy, then we are creating.
-            createPolicy({ variables: { input: toPolicyInput(savePolicy) } }).then(() => {
+            createPolicy({ variables: { input: toPolicyInput(savePolicy) } }).then((result) => {
+                const newPolicy = {
+                    __typename: 'ListPoliciesResult',
+                    urn: result?.data?.createPolicy,
+                    ...savePolicy,
+                };
                 analytics.event({
                     type: EventType.CreatePolicyEvent,
                 });
                 toast.success(t('savePolicySuccess'));
-                // Refetch will update the cache with complete data
                 setTimeout(() => {
                     policiesRefetch();
                 }, 1000);
+                updateListPoliciesCache(client, newPolicy, DEFAULT_PAGE_SIZE);
                 onClosePolicyBuilder();
             });
         }

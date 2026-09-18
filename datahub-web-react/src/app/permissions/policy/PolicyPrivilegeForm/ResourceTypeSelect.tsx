@@ -1,4 +1,4 @@
-import { Input, SimpleSelect } from '@components';
+import { MultiValueInput, SimpleSelect } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -6,7 +6,6 @@ import styled from 'styled-components/macro';
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
-import { toStartsWithValues } from '@app/permissions/policy/policyUtils';
 
 import { PolicyMatchCondition, ResourceFilter } from '@types';
 
@@ -32,10 +31,6 @@ const SelectContainer = styled.div`
     min-width: 0;
 `;
 
-const StyledInput = styled(Input)`
-    width: 100%;
-`;
-
 export default function ResourceTypeSelect({
     resourceTypeSelectValue,
     resourceTypes,
@@ -48,8 +43,6 @@ export default function ResourceTypeSelect({
     const { t } = useTranslation('settings.permissions');
 
     const isStartsWithCondition = resourceTypeCondition === PolicyMatchCondition.StartsWith;
-    const startsWithValue =
-        isStartsWithCondition && resourceTypeSelectValue.length > 0 ? resourceTypeSelectValue[0] : '';
 
     const handleConditionChange = useClearOnConditionChange(
         resourceTypeCondition,
@@ -68,10 +61,11 @@ export default function ResourceTypeSelect({
             />
             <SelectContainer>
                 {isStartsWithCondition ? (
-                    <StyledInput
+                    <MultiValueInput
                         placeholder={t('privilegeForm.resourceTypePatternPlaceholder')}
-                        value={startsWithValue}
-                        onChange={(e) => onResourceTypesChange(toStartsWithValues(e.target.value))}
+                        values={resourceTypeSelectValue}
+                        onUpdate={onResourceTypesChange}
+                        width="full"
                     />
                 ) : (
                     <SimpleSelect

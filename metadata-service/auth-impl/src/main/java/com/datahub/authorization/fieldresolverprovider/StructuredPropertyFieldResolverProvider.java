@@ -77,6 +77,10 @@ public class StructuredPropertyFieldResolverProvider implements EntityFieldResol
         .forEach(
             property -> {
               try {
+                if (property.getPropertyUrn() == null) {
+                  log.warn("Skipping structured property with null URN");
+                  return;
+                }
                 java.util.Set<String> values =
                     property.getValues().stream()
                         .filter(v -> v != null)
@@ -86,17 +90,17 @@ public class StructuredPropertyFieldResolverProvider implements EntityFieldResol
                                 if (v.isString()) {
                                   return v.getString();
                                 } else if (v.isDouble()) {
-                                  return String.valueOf(v.getDouble());
+                                  return "DOUBLE:" + v.getDouble();
                                 } else {
                                   log.warn(
                                       "Unexpected union type for structured property value: {}",
-                                      property.getPropertyUrn().toString());
+                                      property.getPropertyUrn());
                                   return null;
                                 }
                               } catch (Exception e) {
                                 log.warn(
                                     "Failed to extract value from structured property: {}",
-                                    property.getPropertyUrn().toString(),
+                                    property.getPropertyUrn(),
                                     e);
                                 return null;
                               }
@@ -105,10 +109,7 @@ public class StructuredPropertyFieldResolverProvider implements EntityFieldResol
                         .collect(Collectors.toSet());
                 propertyMap.put(property.getPropertyUrn().toString(), values);
               } catch (Exception e) {
-                log.warn(
-                    "Failed to process structured property: {}",
-                    property.getPropertyUrn().toString(),
-                    e);
+                log.warn("Failed to process structured property: {}", property.getPropertyUrn(), e);
               }
             });
 

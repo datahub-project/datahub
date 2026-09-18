@@ -50,6 +50,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.unstructured.chunking_config import (
+    DEFAULT_MAX_CHUNKS_PER_DOCUMENT,
     DataHubConnectionConfig,
     DocumentChunkingSourceConfig,
 )
@@ -95,6 +96,9 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     embedding_failures: list[str] = field(default_factory=list)
     processing_errors: list[str] = []
     num_documents_limit_reached: bool = False
+    # Documents whose semanticContent was truncated/dropped to fit the size floor
+    num_documents_truncated_oversized: int = 0
+    num_documents_dropped_oversized: int = 0
 
     def report_document_fetched(self) -> None:
         self.num_documents_fetched += 1
@@ -1380,7 +1384,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # Chunking/embedding is enabled when embedding provider is configured
         embedding_enabled = self.config.embedding.provider is not None
 
-        return {
+        fingerprint: Dict[str, Any] = {
             # Chunking affects chunk boundaries and structure
             "chunking_enabled": embedding_enabled,
             "chunking_strategy": self.config.chunking.strategy
@@ -1406,6 +1410,18 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # Partitioning affects how text is extracted
             "partition_strategy": self.config.partition_strategy,
         }
+        # Only fingerprint the chunk cap when non-default, so upgrading to a build that
+        # adds the knob does not re-hash (and re-embed) every already-processed document;
+        # a tuned cap changes emitted output and must re-hash.
+        if (
+            embedding_enabled
+            and self.config.chunking.max_chunks_per_document
+            != DEFAULT_MAX_CHUNKS_PER_DOCUMENT
+        ):
+            fingerprint["chunking_max_chunks_per_document"] = (
+                self.config.chunking.max_chunks_per_document
+            )
+        return fingerprint
 
     @staticmethod
     def _resolve_embed_text(contents: Dict[str, Any]) -> str:
@@ -1667,6 +1683,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         )
         self.report.processing_errors = list(
             self.chunking_source.report.processing_errors
+        )
+        self.report.num_documents_truncated_oversized = (
+            self.chunking_source.report.num_documents_truncated_oversized
+        )
+        self.report.num_documents_dropped_oversized = (
+            self.chunking_source.report.num_documents_dropped_oversized
         )
         return self.report
 

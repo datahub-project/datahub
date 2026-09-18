@@ -50,6 +50,7 @@ import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffect;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
+import com.linkedin.metadata.domains.sideeffects.DomainReferenceDetachSideEffect;
 import com.linkedin.metadata.entity.AspectSizePayloadValidator;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
@@ -300,6 +301,36 @@ public class SpringStandardPluginConfiguration {
         DataProductAssetsSideEffect.class.getName(),
         maxFanoutPerCommit);
     return new DataProductAssetsSideEffect()
+        .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
+        .setConfig(config);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.domainReferenceDetach.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public MCPSideEffect domainReferenceDetachSideEffect(
+      @Value("${metadataChangeProposal.sideEffects.domainReferenceDetach.maxFanoutPerCommit:500}")
+          final int maxFanoutPerCommit) {
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(DomainReferenceDetachSideEffect.class.getName())
+            .supportedOperations(List.of("DELETE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DOMAIN_ENTITY_NAME)
+                        .aspectName(Constants.DOMAIN_KEY_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    log.info(
+        "Initialized {} with maxFanoutPerCommit={}",
+        DomainReferenceDetachSideEffect.class.getName(),
+        maxFanoutPerCommit);
+    return new DomainReferenceDetachSideEffect()
         .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
         .setConfig(config);
   }
