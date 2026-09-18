@@ -42,9 +42,7 @@ This will securely store the Snowflake private key (the `snowflake_key.p8` you g
 If your private key is encrypted, also create a `SNOWFLAKE_PRIVATE_KEY_PASSWORD` secret holding the passphrase. You'll reference both secrets in the recipe below.
 :::
 
-<p align="center">
-   <img width="70%" alt="Create a Snowflake secret in DataHub" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_password_secret.png"/>
-</p>
+The **Create new secret** form has three fields: a **Name** (use `SNOWFLAKE_PRIVATE_KEY`), a **Value** (paste the full PEM content of `snowflake_key.p8`, including the `-----BEGIN PRIVATE KEY-----` / `-----END PRIVATE KEY-----` markers and newlines), and an optional **Description**. Click **Create** to save it.
 
 ## Configure Recipe
 
@@ -76,9 +74,21 @@ Set the authentication mode to key-pair and reference the secret you just create
 - In the **Private Key** field, select the `SNOWFLAKE_PRIVATE_KEY` secret
 - If your private key is passphrase-protected, select the `SNOWFLAKE_PRIVATE_KEY_PASSWORD` secret in the **Private Key Password** field
 
-<p align="center">
-   <img width="70%" alt="Snowflake authentication and key fields" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_password_secret_field.png"/>
-</p>
+Selecting **Private Key** reveals the **Private Key** and **Private Key Password** fields and hides the **Password** field. The resulting recipe keys are:
+
+```yaml
+source:
+  type: snowflake
+  config:
+    account_id: "abc48144"
+    username: "${SNOWFLAKE_USER}"
+    authentication_type: KEY_PAIR_AUTHENTICATOR
+    private_key: "${SNOWFLAKE_PRIVATE_KEY}"
+    # Required only if the private key is passphrase-protected:
+    # private_key_password: "${SNOWFLAKE_PRIVATE_KEY_PASSWORD}"
+    role: "datahub_role"
+    warehouse: "COMPUTE_WH"
+```
 
 :::note Editing the YAML directly?
 The form fields map to the `authentication_type`, `private_key`, and `private_key_password` recipe keys. See the [key-pair migration guide](migrate-to-key-pair-auth.md#step-2--datahub-side-update-the-recipe) for the exact YAML.
