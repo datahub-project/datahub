@@ -32,6 +32,15 @@ from datahub.configuration.config_loader import _extract_env_var_names
 from datahub.executor.common.env_config import (
     get_bundled_venv_path,
     get_dependency_resolution_enabled,
+    get_venv_cache_enabled,
+    get_venv_cache_max_bytes,
+)
+from datahub.executor.execution.venv_cache import EntryLock, evict_to_budget
+from datahub.executor.execution.venv_utils import (
+    is_venv_complete,
+    mark_venv_complete,
+    touch_last_used,
+    venv_location,
 )
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
@@ -324,6 +333,10 @@ class VenvConfig(pydantic.BaseModel):
 class VenvReference:
     venv_loc: pathlib.Path
     venv_config: VenvConfig
+    # Held for the task's life when this venv came from the cache, so eviction
+    # cannot delete it mid-run. None for ephemeral venvs and whenever the cache
+    # is off or unusable. finalize_task_output releases it; see Task 6.
+    lock: Optional["EntryLock"] = None
 
     def command(self, cmd: str) -> str:
         return str(self.venv_loc / "bin" / cmd)
@@ -472,6 +485,117 @@ class SubprocessRunner:
                     await self._process.wait()
 
 
+def _stable_name_for_latest(venv_config: VenvConfig) -> Optional[str]:
+    """A cache name for `latest`, which get_stable_venv_name() refuses.
+
+    It refuses because `latest` is a moving target and a cached venv could be
+    stale indefinitely. That reasoning holds for a cache that outlives the
+    process; this one is node-local and dies with the pod, so the staleness
+    window is the pod's lifetime.
+
+    Only `latest`. Dev-build wheel URLs stay ephemeral: they set UV_NO_CACHE=1
+    on purpose so executor pods do not over-consume storage, and caching the
+    venv would reintroduce exactly that.
+    """
+    if venv_config.version != VENV_VERSION_LATEST or venv_config.main_plugin is None:
+        return None
+    suffix = hashlib.sha256()
+    suffix.update(VENV_VERSION_LATEST.encode("utf-8"))
+    suffix.update(str(venv_config.resolve_pip_requirements()).encode("utf-8"))
+    suffix.update(str(venv_config.extra_pip_plugins).encode("utf-8"))
+    return f"{venv_config.main_plugin}-latest-{suffix.digest().hex()[:16]}"
+
+
+def _name_dynamic_venv(
+    venv_config: VenvConfig, expanded_pip_reqs: list[str]
+) -> tuple[str, bool]:
+    """Pick the venv's name and whether it is cacheable.
+
+    Versions that are "moving targets" get random names, everything else gets
+    a stable one. `latest` is deliberately included in the stable set now: it
+    was excluded because a cached entry could be stale forever, and a
+    node-local cache that dies with the pod cannot be. `latest` is also the
+    default for every recipe, so excluding it would leave the cache almost
+    never hit -- and sharing one entry makes a probe and the ingestion run it
+    predicts install the same version, which resolving twice does not.
+
+    The kill switch is consulted BEFORE _stable_name_for_latest, not after:
+    with the cache disabled, `latest` must fall back to today's ephemeral
+    random name exactly, not keep a stable cache-shaped name that just
+    happens to live under tmp_dir. A pinned version keeps its stable name
+    either way -- that's today's behaviour too.
+    """
+    cache_enabled = get_venv_cache_enabled()
+    stable_name = venv_config.get_stable_venv_name(expanded_pip_reqs=expanded_pip_reqs)
+    if stable_name is None and cache_enabled:
+        stable_name = _stable_name_for_latest(venv_config)
+    cacheable = stable_name is not None and cache_enabled
+    venv_name = stable_name or f"eph-{hashlib.sha256(os.urandom(32)).hexdigest()[:16]}"
+    return venv_name, cacheable
+
+
+def _acquire_cache_entry(
+    venv_name: str, tmp_dir: pathlib.Path, cacheable: bool
+) -> tuple[pathlib.Path, Optional["EntryLock"], bool]:
+    """Where a dynamic venv lives, and the lock held on it if it is cacheable.
+
+    Returns (location, lock, cacheable) -- cacheable may come back False even
+    when the caller thought the venv was nameable, if the cache root turned
+    out to be unwritable or lacks lock support. That fallback path rebuilds
+    `venv_loc` under `tmp_dir` instead, matching the ephemeral layout exactly.
+    """
+    venv_loc = pathlib.Path(venv_location(venv_name, str(tmp_dir), cacheable=cacheable))
+    if not cacheable:
+        return venv_loc, None, False
+
+    evict_to_budget(venv_loc.parent, get_venv_cache_max_bytes())
+    candidate = EntryLock(venv_loc.parent / f"{venv_loc.name}.lock")
+    if candidate.acquire(exclusive=True):
+        return venv_loc, candidate, True
+
+    # No lock means no cache: an unwritable root or a filesystem without lock
+    # support. Fall back to the per-run path rather than building an
+    # unguarded shared entry two runs could race on.
+    logger.info(
+        "venv cache unavailable at %s; building a per-run venv", venv_loc.parent
+    )
+    venv_loc = pathlib.Path(venv_location(venv_name, str(tmp_dir), cacheable=False))
+    return venv_loc, None, False
+
+
+def _try_reuse_existing_venv(
+    venv_loc: pathlib.Path,
+    cacheable: bool,
+    lock: Optional["EntryLock"],
+    runner: SubprocessRunner,
+) -> bool:
+    """Whether venv_loc can be returned as-is, without building anything.
+
+    For a cacheable entry, completeness is decided by is_venv_complete()
+    (the interpreter AND the completion marker); an incomplete directory is a
+    build killed midway and is discarded here so the caller rebuilds it
+    fresh. For a non-cached entry: unchanged legacy behaviour, where the
+    interpreter's presence alone is enough, since certain systems clean up
+    files in temp directories but not the directories themselves.
+    """
+    if cacheable:
+        if is_venv_complete(venv_loc):
+            touch_last_used(venv_loc)
+            assert lock is not None
+            lock.downgrade_to_shared()
+            runner._logs.append(f"Reusing cached venv at {venv_loc}.\n")
+            return True
+        if venv_loc.exists():
+            runner._logs.append(f"Discarding incomplete venv at {venv_loc}.\n")
+            shutil.rmtree(venv_loc, ignore_errors=True)
+        return False
+
+    if venv_loc.exists() and (venv_loc / "bin/python").exists():
+        runner._logs.append(f"venv at {venv_loc} already exists, skipping setup.\n")
+        return True
+    return False
+
+
 # I had to change this from the base file because we needed to introduce
 # support for handling bundled venvs.
 async def setup_venv(
@@ -562,121 +686,138 @@ async def setup_venv(
     # requirements file see the same os.environ snapshot.
     expanded_pip_reqs = venv_config.resolve_pip_requirements()
 
-    # Versions that are "moving targets" get random names, everything else gets a stable name
-    venv_name_candidate = venv_config.get_stable_venv_name(
-        expanded_pip_reqs=expanded_pip_reqs
-    )
-    if venv_name_candidate is None:
-        venv_name = f"eph-{hashlib.sha256(os.urandom(32)).hexdigest()[:16]}"
-    else:
-        venv_name = venv_name_candidate
+    venv_name, cacheable = _name_dynamic_venv(venv_config, expanded_pip_reqs)
+    venv_loc, lock, cacheable = _acquire_cache_entry(venv_name, tmp_dir, cacheable)
 
-    # Setup the venv in tmp_dir with venv- prefix for dynamic venvs
-    venv_loc = tmp_dir / f"venv-{venv_name}"
     venv_reference = VenvReference(
         venv_loc=venv_loc,
         venv_config=venv_config,
+        lock=lock,
     )
 
-    if venv_loc.exists() and (venv_loc / "bin/python").exists():
-        # Certain systems clean up the files in temp directories, but not the directories themselves.
-        # By checking for the python binary, we can be reasonably sure that the venv is still usable.
-        runner._logs.append(f"venv at {venv_loc} already exists, skipping setup.\n")
+    if _try_reuse_existing_venv(venv_loc, cacheable, lock, runner):
         return venv_reference
 
-    runner._logs.append(f"Creating new venv: {venv_loc}\n")
+    try:
+        runner._logs.append(f"Creating new venv: {venv_loc}\n")
 
-    # Create the venv. We need to pass --python <executable> so that uv uses the same
-    # Python as the current process.
-    await runner.execute(
-        [_find_uv(), "venv", "--python", sys.executable, str(venv_loc)]
-    )
-
-    venv_env = {
-        **os.environ,
-        **venv_config.extra_env_vars,
-        "VIRTUAL_ENV": str(venv_loc),
-    }
-
-    version = venv_config.version
-
-    if venv_config.requirements_file is not None:
-        # Case 2: the caller supplied its own requirements file, so install from it
-        # verbatim rather than composing an acryl-datahub requirement line.
-        runner._logs.append(
-            f"Installing requirements from: {venv_config.requirements_file}\n"
-        )
-        runner._logs.append_masked(venv_config.requirements_file.read_text())
-        install_cmd = [
-            _find_uv(),
-            "pip",
-            "install",
-            "-r",
-            str(venv_config.requirements_file),
-        ]
-        runner._logs.append(f"Installing datahub: {' '.join(install_cmd)}\n")
-        await runner.execute(install_cmd, env=venv_env)
-    elif version == VENV_NO_DATAHUB:
-        pass
-    else:
-        # Case 1: install acryl-datahub as a named requirement. uv keys its cache
-        # by source path for local wheels, so installing from a per-run wheel path
-        # wrote a fresh ~20mb archive entry for the same version on every run.
-        plugins_list = list(
-            filter(None, [venv_config.main_plugin, *venv_config.extra_pip_plugins])
-        )
-        plugins = f"[{','.join(plugins_list)}]" if plugins_list else ""
-
-        url = ""
-        is_dev_build = version.startswith(("http://", "https://"))
-        if is_dev_build:
-            if not _validate_wheel_url(version):
-                raise RuntimeError(
-                    f"Invalid wheel URL: {version}. "
-                    "Non-.whl URLs must be from *.datahub-wheels.pages.dev."
-                )
-            url = version if version.endswith(".whl") else _pages_wheel_url(version)
-
-        def _requirement(extras: str) -> str:
-            if is_dev_build:
-                return f"acryl-datahub{extras} @ {url}"
-            if version == VENV_VERSION_LATEST:
-                return f"acryl-datahub{extras}"
-            return f"acryl-datahub{extras}=={version}"
-
-        # Dev builds bypass the uv cache: always re-fetch a rebuilt wheel, persist nothing.
-        # This makes usage of dev packages inefficient, but prevents cache build up which causes
-        # executor pods to over-consume storage.
-        install_env = {**venv_env, "UV_NO_CACHE": "1"} if is_dev_build else venv_env
-
-        # Install acryl-datahub alone first to read its bundled constraints, then
-        # install with plugins under those constraints.
-        bootstrap_cmd = [_find_uv(), "pip", "install", "--no-deps", _requirement("")]
-        runner._logs.append(
-            f"Installing datahub (constraints bootstrap): {' '.join(bootstrap_cmd)}\n"
-        )
-        await runner.execute(bootstrap_cmd, env=install_env)
-        constraints_path = _bundled_constraints_path(venv_loc)
-
-        install_cmd = [_find_uv(), "pip", "install", _requirement(plugins)]
-        if constraints_path:
-            install_cmd.extend(["--constraint", str(constraints_path)])
-
-        runner._logs.append(f"Installing datahub: {' '.join(install_cmd)}\n")
-        await runner.execute(install_cmd, env=install_env)
-
-    # Pass 2: Install extra_pip_requirements without constraints.
-    if venv_config.requirements_file is None and expanded_pip_reqs:
-        extra_req_file = venv_loc / "extra-requirements.txt"
-        extra_req_file.write_text("\n".join(expanded_pip_reqs))
-        runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
-        runner._logs.append_masked("\n".join(expanded_pip_reqs))
+        # Create the venv. We need to pass --python <executable> so that uv uses the same
+        # Python as the current process.
         await runner.execute(
-            [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
-            env=venv_env,
+            [_find_uv(), "venv", "--python", sys.executable, str(venv_loc)]
         )
 
-    return venv_reference
+        venv_env = {
+            **os.environ,
+            **venv_config.extra_env_vars,
+            "VIRTUAL_ENV": str(venv_loc),
+        }
+
+        version = venv_config.version
+
+        if venv_config.requirements_file is not None:
+            # Case 2: the caller supplied its own requirements file, so install from it
+            # verbatim rather than composing an acryl-datahub requirement line.
+            runner._logs.append(
+                f"Installing requirements from: {venv_config.requirements_file}\n"
+            )
+            runner._logs.append_masked(venv_config.requirements_file.read_text())
+            install_cmd = [
+                _find_uv(),
+                "pip",
+                "install",
+                "-r",
+                str(venv_config.requirements_file),
+            ]
+            runner._logs.append(f"Installing datahub: {' '.join(install_cmd)}\n")
+            await runner.execute(install_cmd, env=venv_env)
+        elif version == VENV_NO_DATAHUB:
+            pass
+        else:
+            # Case 1: install acryl-datahub as a named requirement. uv keys its cache
+            # by source path for local wheels, so installing from a per-run wheel path
+            # wrote a fresh ~20mb archive entry for the same version on every run.
+            plugins_list = list(
+                filter(None, [venv_config.main_plugin, *venv_config.extra_pip_plugins])
+            )
+            plugins = f"[{','.join(plugins_list)}]" if plugins_list else ""
+
+            url = ""
+            is_dev_build = version.startswith(("http://", "https://"))
+            if is_dev_build:
+                if not _validate_wheel_url(version):
+                    raise RuntimeError(
+                        f"Invalid wheel URL: {version}. "
+                        "Non-.whl URLs must be from *.datahub-wheels.pages.dev."
+                    )
+                url = version if version.endswith(".whl") else _pages_wheel_url(version)
+
+            def _requirement(extras: str) -> str:
+                if is_dev_build:
+                    return f"acryl-datahub{extras} @ {url}"
+                if version == VENV_VERSION_LATEST:
+                    return f"acryl-datahub{extras}"
+                return f"acryl-datahub{extras}=={version}"
+
+            # Dev builds bypass the uv cache: always re-fetch a rebuilt wheel, persist nothing.
+            # This makes usage of dev packages inefficient, but prevents cache build up which causes
+            # executor pods to over-consume storage.
+            install_env = {**venv_env, "UV_NO_CACHE": "1"} if is_dev_build else venv_env
+
+            # Install acryl-datahub alone first to read its bundled constraints, then
+            # install with plugins under those constraints.
+            bootstrap_cmd = [
+                _find_uv(),
+                "pip",
+                "install",
+                "--no-deps",
+                _requirement(""),
+            ]
+            runner._logs.append(
+                f"Installing datahub (constraints bootstrap): {' '.join(bootstrap_cmd)}\n"
+            )
+            await runner.execute(bootstrap_cmd, env=install_env)
+            constraints_path = _bundled_constraints_path(venv_loc)
+
+            install_cmd = [_find_uv(), "pip", "install", _requirement(plugins)]
+            if constraints_path:
+                install_cmd.extend(["--constraint", str(constraints_path)])
+
+            runner._logs.append(f"Installing datahub: {' '.join(install_cmd)}\n")
+            await runner.execute(install_cmd, env=install_env)
+
+        # Pass 2: Install extra_pip_requirements without constraints.
+        if venv_config.requirements_file is None and expanded_pip_reqs:
+            extra_req_file = venv_loc / "extra-requirements.txt"
+            extra_req_file.write_text("\n".join(expanded_pip_reqs))
+            runner._logs.append(
+                f"Installing extra requirements from: {extra_req_file}\n"
+            )
+            runner._logs.append_masked("\n".join(expanded_pip_reqs))
+            await runner.execute(
+                [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
+                env=venv_env,
+            )
+
+        if venv_reference.lock is not None:
+            # LAST, so a build killed before this point leaves an entry that fails
+            # is_venv_complete() and is rebuilt rather than reused empty.
+            mark_venv_complete(venv_loc)
+            touch_last_used(venv_loc)
+            venv_reference.lock.downgrade_to_shared()
+
+        return venv_reference
+    except BaseException:
+        # Any failure during the build -- a failed subprocess, or
+        # cancellation -- must release an exclusive lock before propagating.
+        # Without this, an exception path never returns the VenvReference,
+        # so nobody else ever gets a chance to release it, and the entry name
+        # stays locked for the rest of this process's life -- a later task in
+        # the same long-lived pod that wants the same venv would block on
+        # EntryLock.acquire()'s default blocking=True forever.
+        if lock is not None:
+            lock.release()
+        raise
 
 
 def validate_dependency_resolution_enabled(version: str) -> None:
