@@ -9,8 +9,7 @@ name: product-update CTA live
 #
 # Admin: add the check named product_update_cta_live as a required status
 # check on master (branch protection or ruleset). Until then this job is
-# advisory only. After a CTA URL returns 2xx, re-run this one job — there
-# is no scheduled retry.
+# advisory only. After a CTA URL returns 2xx, re-run this one job.
 
 on:
   pull_request:
