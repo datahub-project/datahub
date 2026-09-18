@@ -130,28 +130,78 @@ def _api_returning_row(row: SimpleNamespace) -> CassandraAPI:
 
 # Reproduces "Object of type bytes is not JSON serializable": Scylla's
 # extensions map<text, blob> comes back with bytes values, which broke the
-# json.dumps() call during custom-property emission. The json.dumps() below
-# raises TypeError on the extracted extensions map before the fix.
-def test_get_tables_decodes_bytes_extensions() -> None:
+# json.dumps() call during custom-property emission. b'\xff\xfe' is not valid
+# UTF-8 (unlike e.g. b"\x00\x01", which decodes cleanly and wouldn't exercise
+# the fallback), so it exercises the base64 fallback path.
+_INVALID_UTF8_BYTES = b"\xff\xfe"
+_VALID_UTF8_BYTES = b'{"cipher":"AES256"}'
+
+
+def test_get_tables_decodes_valid_utf8_extension() -> None:
     api = _api_returning_row(
-        _schema_row_with_extensions({"scylla_encryption_options": b"\x00\x01"})
+        _schema_row_with_extensions({"scylla_encryption_options": _VALID_UTF8_BYTES})
     )
 
     tables = api.get_tables("ks")
 
     assert len(tables) == 1
+    assert tables[0].extensions == {"scylla_encryption_options": '{"cipher":"AES256"}'}
     json.dumps(tables[0].extensions)
+    api.report.warning.assert_not_called()  # type: ignore[attr-defined]
 
 
-def test_get_views_decodes_bytes_extensions() -> None:
+def test_get_tables_base64_encodes_invalid_utf8_extension_and_warns() -> None:
     api = _api_returning_row(
-        _schema_row_with_extensions({"scylla_encryption_options": b"\x00\x01"})
+        _schema_row_with_extensions({"scylla_encryption_options": _INVALID_UTF8_BYTES})
+    )
+
+    tables = api.get_tables("ks")
+
+    assert len(tables) == 1
+    assert tables[0].extensions == {"scylla_encryption_options": "base64://4="}
+    json.dumps(tables[0].extensions)
+    api.report.warning.assert_called_once()  # type: ignore[attr-defined]
+    assert "ks.tbl" in str(api.report.warning.call_args)  # type: ignore[attr-defined]
+
+
+def test_get_tables_leaves_non_bytes_extension_values_untouched() -> None:
+    api = _api_returning_row(
+        _schema_row_with_extensions(
+            {"already_text": "not bytes", "binary_value": _INVALID_UTF8_BYTES}
+        )
+    )
+
+    tables = api.get_tables("ks")
+
+    assert tables[0].extensions["already_text"] == "not bytes"
+    assert tables[0].extensions["binary_value"] == "base64://4="
+
+
+def test_get_views_decodes_valid_utf8_extension() -> None:
+    api = _api_returning_row(
+        _schema_row_with_extensions({"scylla_encryption_options": _VALID_UTF8_BYTES})
     )
 
     views = api.get_views("ks")
 
     assert len(views) == 1
+    assert views[0].extensions == {"scylla_encryption_options": '{"cipher":"AES256"}'}
     json.dumps(views[0].extensions)
+    api.report.warning.assert_not_called()  # type: ignore[attr-defined]
+
+
+def test_get_views_base64_encodes_invalid_utf8_extension_and_warns() -> None:
+    api = _api_returning_row(
+        _schema_row_with_extensions({"scylla_encryption_options": _INVALID_UTF8_BYTES})
+    )
+
+    views = api.get_views("ks")
+
+    assert len(views) == 1
+    assert views[0].extensions == {"scylla_encryption_options": "base64://4="}
+    json.dumps(views[0].extensions)
+    api.report.warning.assert_called_once()  # type: ignore[attr-defined]
+    assert "ks.vw" in str(api.report.warning.call_args)  # type: ignore[attr-defined]
 
 
 def _get_base_config_dict() -> dict:
