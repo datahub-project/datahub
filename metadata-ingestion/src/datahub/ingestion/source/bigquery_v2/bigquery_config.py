@@ -684,13 +684,10 @@ class BigQueryV2Config(
     @field_validator("profiling", mode="before")
     @classmethod
     def coerce_profiling_config(cls, v: object) -> object:
-        # A caller may build the config in code and pass a GEProfilingConfig *instance*
-        # here (rather than a dict from YAML). Retyping this field to the
-        # BigQueryProfilingConfig subclass makes pydantic re-validate the value, and
-        # GEProfilingConfig's inherited mode="before" validators treat their input as a
-        # dict (values.get(...)/del values[...]), which raises on a model instance. Dump
-        # the instance back to a dict so re-validation runs on plain data and the
-        # BigQuery-specific fields fall back to their defaults.
+        # A code caller may pass a GEProfilingConfig instance rather than a YAML dict.
+        # Re-validating it as the BigQueryProfilingConfig subclass runs GEProfilingConfig's
+        # inherited before-validators, which assume a dict and raise on a model instance;
+        # dump it back to a dict so re-validation runs on plain data.
         if isinstance(v, GEProfilingConfig):
             return v.dict()
         return v
