@@ -7452,7 +7452,7 @@
                 "dialects": [
                     {
                         "dialect": "ANSI_SQL",
-                        "expression": "payment_amount / payment_count"
+                        "expression": "sum(payments.payment_amount) / count(payments.payment_count)"
                     }
                 ]
             }

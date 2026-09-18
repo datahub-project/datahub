@@ -647,6 +647,16 @@ A metric's expression is whatever dbt gives us, in this order: an explicit `expr
 (`sum(payments.payment_amount)`). A metric dbt gives no computable form is emitted without an
 expression rather than with a fabricated one.
 
+Each side of a ratio renders as its aggregation where it names a measure, and as a bare metric name
+where it references another metric — so `sum(payments.payment_amount) / count(payments.payment_count)`
+rather than `payment_amount / payment_count`. That matters for a rate, whose two sides often name the
+**same** measure and differ only by a filter; names alone would render as `x / x`, and each side's own
+filter would have nowhere to go:
+
+```
+count(orders.order_count) FILTER (WHERE status = 'cancelled') / count(orders.order_count)
+```
+
 Both kinds of dbt filter are folded into that expression, ANDed into one `FILTER (WHERE ...)` clause
 when a metric has both:
 
@@ -697,12 +707,13 @@ declared `foreign`, `unique`, or `natural` in one semantic model is matched by n
 declared `primary`, `unique`, or `natural` (or named by `primary_entity`) in another. The referencing
 side is the many side, so the cardinality is `N_ONE`.
 
-Two cases are deliberately not guessed at, and appear in the ingestion report instead:
+A key declared in more than one semantic model produces **one relationship per owner**, because
+MetricFlow will join the referencing model to each of them — two models sharing a key is valid dbt,
+not an ambiguity.
 
-| Case                                                         | Behaviour                                                                                                                               |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Two semantic models declare the same entity name as a key    | The relationship is skipped, with a warning — the join target is ambiguous                                                              |
-| An entity has no matching key in any ingested semantic model | Recorded in `semantic_model_relationships_unresolved`; not a warning, since the target may legitimately be outside the ingested project |
+An entity with no matching key in any ingested semantic model is recorded in
+`semantic_model_relationships_unresolved`. That is not a warning, since the target may legitimately
+be outside the ingested project.
 
 ##### URN stability
 

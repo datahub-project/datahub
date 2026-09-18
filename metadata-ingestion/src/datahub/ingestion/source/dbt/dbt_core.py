@@ -632,8 +632,9 @@ def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBT
     # A ratio's numerator/denominator name metrics in modern dbt but named
     # measures in early 1.6. Collect both; the emitter resolves against the
     # known metric names first and falls back to measures.
-    for ratio_key in ("numerator", "denominator"):
-        ratio_input = _metric_input(type_params.get(ratio_key))
+    numerator = _metric_input(type_params.get("numerator"))
+    denominator = _metric_input(type_params.get("denominator"))
+    for ratio_input in (numerator, denominator):
         if ratio_input:
             input_metrics.append(ratio_input)
 
@@ -670,6 +671,8 @@ def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBT
         type=metric_type,
         measures=_dedupe_metric_inputs(measures),
         input_metrics=_dedupe_metric_inputs(input_metrics),
+        numerator=numerator,
+        denominator=denominator,
         # Coerced: `_metric_computation` calls .strip() on it, and a manifest
         # can hold anything. Same guard as measure `agg`.
         expr=_optional_str_value(type_params.get("expr")),

@@ -15,6 +15,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     METRIC_TYPE_SIMPLE,
     DBTCommonConfig,
     DBTMetric,
+    DBTMetricInput,
     DBTNode,
     DBTSemanticDimension,
     DBTSemanticEntity,
@@ -703,34 +704,31 @@ class DbtSemanticModelMapper:
                         f"{prepared.node.dbt_name}.{entity.name}"
                     )
                     continue
-                if len(owners) > 1:
-                    self.report.warning(
-                        title="Ambiguous dbt semantic model join",
-                        message="More than one semantic model declares this "
-                        "entity as a key, so the join target is ambiguous. "
-                        "Skipping this relationship rather than guessing.",
-                        context=f"{prepared.node.dbt_name}.{entity.name} -> "
-                        f"{sorted(owner.alias for owner in owners)}",
+                # One relationship per owner. Two models declaring the same
+                # entity as a key is valid dbt -- MetricFlow joins the
+                # referencing model to each of them -- so both edges are real,
+                # and emitting neither lost joins rather than avoiding a guess.
+                for target in sorted(owners, key=lambda owner: owner.alias):
+                    key = (prepared.alias, target.alias, entity.name.casefold())
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    relationships.append(
+                        SemanticModelRelationshipInput(
+                            from_alias=prepared.alias,
+                            # The join column is always the entity's name, never
+                            # its `expr`: `name` is the field_path in the schema,
+                            # and the SDK raises on a join column it cannot find
+                            # there.
+                            from_columns=[from_field],
+                            to_alias=target.alias,
+                            to_columns=[target.field_path],
+                            name=(
+                                f"{prepared.alias}_to_{target.alias}_on_{entity.name}"
+                            ),
+                            cardinality=ERModelRelationshipCardinalityClass.N_ONE,
+                        )
                     )
-                    continue
-                target = owners[0]
-                key = (prepared.alias, target.alias, entity.name.casefold())
-                if key in seen:
-                    continue
-                seen.add(key)
-                relationships.append(
-                    SemanticModelRelationshipInput(
-                        from_alias=prepared.alias,
-                        # The join column is always the entity's name, never its
-                        # `expr`: `name` is the field_path in the schema, and the
-                        # SDK raises on a join column it cannot find there.
-                        from_columns=[from_field],
-                        to_alias=target.alias,
-                        to_columns=[target.field_path],
-                        name=f"{prepared.alias}_to_{target.alias}_on_{entity.name}",
-                        cardinality=ERModelRelationshipCardinalityClass.N_ONE,
-                    )
-                )
         return relationships
 
     @staticmethod
@@ -1074,18 +1072,21 @@ class DbtSemanticModelMapper:
             # An author's expression is arbitrary SQL, not necessarily an
             # aggregate call, so a FILTER clause cannot be hung off it either.
             return _MetricComputation(expr, takes_filter_clause=False)
+        numerator = metric_definition.numerator
+        denominator = metric_definition.denominator
         if (
             metric_definition.type == METRIC_TYPE_RATIO
-            and len(metric_definition.input_metrics) == 2
+            and numerator is not None
+            and denominator is not None
         ):
-            numerator, denominator = metric_definition.input_metrics
             # A filter on either input is not carried. These are metric names,
             # not aggregates, and SQL FILTER attaches only to an aggregate
             # call, so there is nowhere in `a / b` to put a predicate that
             # constrains just `a`. Folding it at the top level would be worse
             # than omitting it: `(a / b) FILTER (WHERE p)` constrains both.
             return _MetricComputation(
-                f"{numerator.name} / {denominator.name}",
+                f"{self._ratio_side(metric_definition, index, numerator)} / "
+                f"{self._ratio_side(metric_definition, index, denominator)}",
                 takes_filter_clause=False,
             )
         # A simple metric is just its measure's aggregation, so reuse it rather
@@ -1120,6 +1121,24 @@ class DbtSemanticModelMapper:
             and metric_definition.measures[0].name.casefold()
             == metric_definition.name.casefold()
         )
+
+    def _ratio_side(
+        self, metric_definition: DBTMetric, index: _MeasureIndex, side: DBTMetricInput
+    ) -> str:
+        """One side of a ratio, as its aggregation where that is knowable.
+
+        Preferred over the bare name because the two sides of a rate metric
+        often name the *same* measure and differ only by filter -- so names
+        alone would render as `x / x`. A side that resolves to no measure is a
+        reference to another metric, which has no aggregation to render and
+        nothing for a FILTER clause to attach to.
+        """
+        located = self._locate_measure(metric_definition, index, side.name)
+        if located is None or located.expression is None:
+            return side.name
+        if side.filter:
+            return f"{located.expression} FILTER (WHERE {side.filter})"
+        return located.expression
 
     @staticmethod
     def _expr_is_bare_measure_name(metric_definition: DBTMetric, expr: str) -> bool:

@@ -507,7 +507,12 @@ def test_self_referencing_entity_produces_no_relationship():
     assert _one(workunits, SemanticModelInfoClass).relationships is None
 
 
-def test_ambiguous_join_target_is_skipped_with_a_warning():
+def test_a_key_shared_across_models_joins_to_each_of_them():
+    """Valid dbt: MetricFlow joins the referencing model to every key owner.
+
+    So both edges are real, and skipping them as "ambiguous" lost joins rather
+    than avoiding a guess.
+    """
     owner = {"entities": [{"name": "customer_id", "type": "primary"}]}
     mapper = _mapper()
     workunits = _emit(
@@ -519,8 +524,13 @@ def test_ambiguous_join_target_is_skipped_with_a_warning():
         ],
     )
 
-    assert _one(workunits, SemanticModelInfoClass).relationships is None
-    assert any(
+    info = _one(workunits, SemanticModelInfoClass)
+    assert [(r.from_, r.to, r.cardinality) for r in _relationships(info)] == [
+        ("orders", "customers", ERModelRelationshipCardinalityClass.N_ONE),
+        ("orders", "people", ERModelRelationshipCardinalityClass.N_ONE),
+    ]
+    # Nothing is being skipped, so nothing to warn about.
+    assert not any(
         w.title == "Ambiguous dbt semantic model join" for w in mapper.report.warnings
     )
 
@@ -2001,8 +2011,10 @@ def test_a_filter_on_a_ratio_is_stated_not_hung_off_the_denominator():
     info = dict(_aspects(workunits, MetricInfoClass))[
         f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},rate)"
     ]
+    # `order_count` resolves to a measure, so it renders as its aggregation;
+    # `revenue` names no measure here, so it stays a metric reference.
     assert _expression_of(info.expression).expression == (
-        "revenue / order_count /* filtered: country = 'US' */"
+        "revenue / count(orders.order_count) /* filtered: country = 'US' */"
     )
 
 
@@ -2032,4 +2044,49 @@ def test_a_filter_on_an_aggregation_still_uses_a_real_filter_clause():
     ]
     assert _expression_of(info.expression).expression == (
         "count(orders.order_count) FILTER (WHERE country = 'US')"
+    )
+
+
+def test_a_rate_over_one_measure_renders_both_sides():
+    """A ratio's sides often name the same measure and differ only by filter.
+
+    They were deduplicated by name into a single input, which collapsed the
+    ratio branch and published the numerator's computation as the whole metric.
+    """
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.cancellation_rate": {
+                    "name": "cancellation_rate",
+                    "label": "Cancellation rate",
+                    "description": "",
+                    "type": "ratio",
+                    "type_params": {
+                        "numerator": {
+                            "name": "order_count",
+                            "filter": {
+                                "where_filters": [
+                                    {"where_sql_template": "status = 'cancelled'"}
+                                ]
+                            },
+                        },
+                        "denominator": {"name": "order_count"},
+                        "input_measures": [
+                            {"name": "order_count"},
+                            {"name": "order_count"},
+                        ],
+                    },
+                }
+            }
+        ),
+    )
+
+    info = dict(_aspects(workunits, MetricInfoClass))[
+        f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},cancellation_rate)"
+    ]
+    assert _expression_of(info.expression).expression == (
+        "count(orders.order_count) FILTER (WHERE status = 'cancelled') "
+        "/ count(orders.order_count)"
     )

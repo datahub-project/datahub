@@ -1631,6 +1631,12 @@ class DBTMetric:
     measures: List[DBTMetricInput] = field(default_factory=list)
     # type_params.metrics + metric-valued numerator/denominator
     input_metrics: List[DBTMetricInput] = field(default_factory=list)
+    # A ratio's two sides, kept whole. input_metrics above is deduplicated by
+    # name for derivedFrom edges, which collapses a ratio whose sides name the
+    # same metric with different filters -- and the filter is then the only
+    # thing telling them apart.
+    numerator: Optional[DBTMetricInput] = None
+    denominator: Optional[DBTMetricInput] = None
     expr: Optional[str] = None
     filter: Optional[str] = None
     # A cumulative metric accumulates over one of these. Rendered into the
