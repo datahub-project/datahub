@@ -1136,6 +1136,16 @@ DataHub supports CDC mode for MetadataChangeLog generation, which guarantees ord
 | `AUTH_COOKIE_SAME_SITE` | `LAX`   | SameSite attribute for authentication cookies   | Frontend   |
 | `AUTH_COOKIE_SECURE`    | `false` | Whether authentication cookies should be secure | Frontend   |
 
+### Security headers (opt-in)
+
+Play's `SecurityHeadersFilter` is enabled in the frontend filter chain. With no env vars set, `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy` are **not** sent. Set a variable to emit that header. Content-Security-Policy is configured separately via `DATAHUB_CSP_*` (see `play.filters.csp` in `datahub-frontend/conf/application.conf`).
+
+| Environment Variable                            | Default                 | Description                                                          | Components |
+| ----------------------------------------------- | ----------------------- | -------------------------------------------------------------------- | ---------- |
+| `DATAHUB_SECURITY_HEADERS_FRAME_OPTIONS`        | `null` (header omitted) | Value for `X-Frame-Options` (e.g. `DENY`, `SAMEORIGIN`)              | Frontend   |
+| `DATAHUB_SECURITY_HEADERS_CONTENT_TYPE_OPTIONS` | `null` (header omitted) | Value for `X-Content-Type-Options` (e.g. `nosniff`)                  | Frontend   |
+| `DATAHUB_SECURITY_HEADERS_REFERRER_POLICY`      | `null` (header omitted) | Value for `Referrer-Policy` (e.g. `strict-origin-when-cross-origin`) | Frontend   |
+
 ## Authentication Configuration
 
 ### OIDC Configuration
