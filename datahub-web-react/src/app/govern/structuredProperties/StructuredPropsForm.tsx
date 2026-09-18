@@ -15,9 +15,14 @@ import {
     RowContainer,
 } from '@app/govern/structuredProperties/styledComponents';
 import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
-import { PropValueField, StructuredProp, valueTypes } from '@app/govern/structuredProperties/utils';
+import {
+    AllowedValueFormRow,
+    PropValueField,
+    StructuredProp,
+    valueTypes,
+} from '@app/govern/structuredProperties/utils';
 import { Icon, Input, SimpleSelect, TextArea } from '@src/alchemy-components';
-import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
+import { PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
     selectedProperty: StructuredPropertyEntity | undefined;
@@ -28,7 +33,7 @@ interface Props {
     isEditMode: boolean;
     selectedValueType: string;
     setSelectedValueType: React.Dispatch<React.SetStateAction<string>>;
-    allowedValues: AllowedValue[] | undefined;
+    allowedValues: AllowedValueFormRow[] | undefined;
     valueField: PropValueField;
     setShowAllowedValuesDrawer: React.Dispatch<React.SetStateAction<boolean>>;
     refetchProperties: () => void;

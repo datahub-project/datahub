@@ -12,11 +12,16 @@ import {
     StyledFormSubItem,
     TogglesContainer,
 } from '@app/govern/structuredProperties/styledComponents';
-import { StructuredProp, canBeAssetBadge, getDisplayName } from '@app/govern/structuredProperties/utils';
+import {
+    AllowedValueFormRow,
+    StructuredProp,
+    canBeAssetBadge,
+    getDisplayName,
+} from '@app/govern/structuredProperties/utils';
 import { Checkbox, Icon, Pill, Switch, Text } from '@src/alchemy-components';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { useUpdateStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
-import { AllowedValue, StructuredPropertyEntity } from '@src/types.generated';
+import { StructuredPropertyEntity } from '@src/types.generated';
 
 const SCHEMA_FIELD_URN = 'urn:li:entityType:datahub.schemaField';
 const DISPLAY_SETTING = {
@@ -33,7 +38,7 @@ interface Props {
     handleDisplaySettingChange: (settingField: string, value: boolean) => void;
     selectedValueType: string;
     refetchProperties: () => void;
-    allowedValues?: AllowedValue[];
+    allowedValues?: AllowedValueFormRow[];
     badgeProperty?: StructuredPropertyEntity;
 }
 

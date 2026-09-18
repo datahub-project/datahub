@@ -3,7 +3,7 @@ import { Tooltip } from '@components';
 import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Form } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import AllowedValuesDrawer from '@app/govern/structuredProperties/AllowedValuesDrawer';
@@ -18,15 +18,17 @@ import {
 } from '@app/govern/structuredProperties/styledComponents';
 import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
 import {
+    AllowedValueFormRow,
     PropValueField,
     StructuredProp,
     getDisplayName,
+    getExistingAllowedValueKeys,
     getNewAllowedPlatforms,
     getNewAllowedTypes,
-    getNewAllowedValues,
     getNewEntityTypes,
     getStringOrNumberValueField,
     getValueType,
+    toAllowedValueInputs,
     valueTypes,
 } from '@app/govern/structuredProperties/utils';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
@@ -40,12 +42,7 @@ import {
     useCreateStructuredPropertyMutation,
     useUpdateStructuredPropertyMutation,
 } from '@src/graphql/structuredProperties.generated';
-import {
-    AllowedValue,
-    PropertyCardinality,
-    StructuredPropertyEntity,
-    UpdateStructuredPropertyInput,
-} from '@src/types.generated';
+import { PropertyCardinality, StructuredPropertyEntity, UpdateStructuredPropertyInput } from '@src/types.generated';
 
 interface Props {
     isDrawerOpen: boolean;
@@ -81,7 +78,7 @@ const StructuredPropsDrawer = ({
     const [cardinality, setCardinality] = useState<PropertyCardinality>(PropertyCardinality.Single);
     const [formValues, setFormValues] = useState<StructuredProp>();
     const [selectedValueType, setSelectedValueType] = useState<string>('');
-    const [allowedValues, setAllowedValues] = useState<AllowedValue[] | undefined>([]);
+    const [allowedValues, setAllowedValues] = useState<AllowedValueFormRow[] | undefined>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [valueField, setValueField] = useState<PropValueField>('stringValue');
 
@@ -96,6 +93,8 @@ const StructuredPropsDrawer = ({
     });
 
     const isEditMode = !!selectedProperty;
+
+    const existingValueKeys = useMemo(() => getExistingAllowedValueKeys(selectedProperty), [selectedProperty]);
 
     const clearValues = () => {
         form.resetFields();
@@ -140,7 +139,9 @@ const StructuredPropsDrawer = ({
                     },
                     newEntityTypes: getNewEntityTypes(selectedProperty, updateValues),
                     newAllowedPlatforms: getNewAllowedPlatforms(selectedProperty, updateValues),
-                    newAllowedValues: getNewAllowedValues(selectedProperty, updateValues),
+                    // Sends the whole list rather than only the additions so the order the user
+                    // arranged survives the edit.
+                    allowedValues: toAllowedValueInputs(updateValues.allowedValues, valueField),
                     setCardinalityAsMultiple: cardinality === PropertyCardinality.Multiple,
                     settings: {
                         isHidden: updateValues.settings?.isHidden ?? false,
@@ -204,7 +205,7 @@ const StructuredPropsDrawer = ({
                     ...form.getFieldsValue(),
                     qualifiedName: form.getFieldValue('qualifiedName') || undefined,
                     valueType: valueTypes.find((type) => type.value === form.getFieldValue('valueType'))?.urn,
-                    allowedValues,
+                    allowedValues: toAllowedValueInputs(allowedValues, valueField),
                     typeQualifier,
                     cardinality,
                     settings: {
@@ -306,7 +307,7 @@ const StructuredPropsDrawer = ({
             return {
                 [field]: item.value[field],
                 description: item.description,
-            } as AllowedValue;
+            } as AllowedValueFormRow;
         });
         setAllowedValues(allowedList);
     }, [selectedProperty, selectedValueType, setAllowedValues]);
@@ -384,7 +385,7 @@ const StructuredPropsDrawer = ({
                             propType={valueField}
                             allowedValues={allowedValues}
                             isEditMode={isEditMode}
-                            noOfExistingValues={selectedProperty?.definition?.allowedValues?.length || 0}
+                            existingValueKeys={existingValueKeys}
                             form={valuesForm}
                         />
                     </>

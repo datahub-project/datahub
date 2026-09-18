@@ -18,6 +18,7 @@
     "allowedValues.addTooltip": "Add a new value to the allowed list",
     "allowedValues.anyValueAllowed": "Any <type>{{valueType}}</type> value will be allowed",
     "allowedValues.descriptionPlaceholder": "Provide a description",
+    "allowedValues.dragLabel": "Reorder this value",
     "allowedValues.editExistingTooltip": "Editing existing allowed values is not permitted",
     "allowedValues.fieldTooltip": "Define the set of valid values for this property. If none are provided, any value will be allowed",
     "allowedValues.removeTooltip": "Remove from the allowed values list",

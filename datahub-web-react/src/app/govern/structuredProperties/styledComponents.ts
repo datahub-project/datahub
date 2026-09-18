@@ -299,7 +299,6 @@ export const DeleteIconContainer = styled.div`
 export const ValuesContainer = styled.div<{ height: number }>`
     max-height: ${(props) => `calc(${props.height}px - 200px)`};
     overflow: auto;
-    padding: 20px;
 `;
 
 export const ValuesList = styled.div`
@@ -332,7 +331,7 @@ export const ItemsContainer = styled.div`
 
 export const AddButtonContainer = styled.div`
     display: flex;
-    margin: 10px 20px 0 0;
+    margin: 10px 0 0;
     justify-self: end;
 `;
 

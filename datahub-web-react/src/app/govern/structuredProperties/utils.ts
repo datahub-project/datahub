@@ -18,6 +18,7 @@ import {
 } from '@src/app/search/utils/constants';
 import {
     AllowedValue,
+    AllowedValueInput,
     Entity,
     EntityType,
     FacetFilterInput,
@@ -245,18 +246,52 @@ export const getNewAllowedPlatforms = (entity: StructuredPropertyEntity, values:
     return (newPlatforms?.length || 0) > 0 ? newPlatforms : undefined;
 };
 
-export const getAllowedValueKey = (val: {
-    numberValue?: number | null;
+/**
+ * Shape of an allowed value while it is being edited. A saved `AllowedValue` nests its value under
+ * `value`; the form flattens it so each row binds to a single input.
+ */
+export type AllowedValueFormRow = {
+    numberValue?: number | string | null;
     stringValue?: string | null;
-}): number | string | undefined | null => val.numberValue ?? val.stringValue;
-
-export const getNewAllowedValues = (entity: StructuredPropertyEntity, values: StructuredProp) => {
-    const currentAllowedValues = entity.definition.allowedValues?.map((val: any) => getAllowedValueKey(val.value));
-    return values.allowedValues?.filter(
-        (val: any) =>
-            !(currentAllowedValues?.includes(val.stringValue) || currentAllowedValues?.includes(val.numberValue)),
-    );
+    description?: string | null;
 };
+
+export const getAllowedValueKey = (val: AllowedValueFormRow): number | string | undefined | null =>
+    val.numberValue ?? val.stringValue;
+
+/**
+ * Keys of the values already saved on the property. Saved values stay read-only, but they are
+ * matched by value rather than by position so that reordering does not make a different row
+ * read-only than the one the user saved.
+ */
+export const getExistingAllowedValueKeys = (entity?: StructuredPropertyEntity): Set<string | number> =>
+    new Set(
+        (entity?.definition?.allowedValues ?? [])
+            .map((val) => getAllowedValueKey(val.value as AllowedValueFormRow))
+            .filter((key): key is string | number => key !== undefined && key !== null),
+    );
+
+/**
+ * Converts form rows into the mutation input, dropping rows the user left blank. Number inputs hand
+ * back strings, so numeric rows are parsed before they reach a Float field.
+ */
+export const toAllowedValueInputs = (
+    rows: AllowedValueFormRow[] | undefined,
+    valueField: PropValueField,
+): AllowedValueInput[] =>
+    (rows ?? []).reduce<AllowedValueInput[]>((inputs, row) => {
+        const description = row?.description || undefined;
+
+        if (valueField === 'numberValue') {
+            const numberValue = typeof row?.numberValue === 'string' ? Number(row.numberValue) : row?.numberValue;
+            if (numberValue === undefined || numberValue === null || !Number.isFinite(numberValue)) return inputs;
+            return [...inputs, { numberValue, description }];
+        }
+
+        const stringValue = row?.stringValue;
+        if (!stringValue) return inputs;
+        return [...inputs, { stringValue, description }];
+    }, []);
 
 export const isEntityTypeSelected = (selectedType: string) => {
     if (selectedType === 'entity' || selectedType === 'entityList') return true;
@@ -274,7 +309,7 @@ export const isStringOrNumberTypeSelected = (selectedType: string) => {
     return false;
 };
 
-export const canBeAssetBadge = (selectedType: string, allowedValues?: AllowedValue[]) => {
+export const canBeAssetBadge = (selectedType: string, allowedValues?: AllowedValueFormRow[]) => {
     if (selectedType === 'string' || selectedType === 'number') {
         return !!allowedValues?.length;
     }

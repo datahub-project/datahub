@@ -16,6 +16,7 @@ import useAvailablePlatforms, { PlatformOption } from '@app/govern/structuredPro
 import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
 import {
     APPLIES_TO_ENTITIES,
+    AllowedValueFormRow,
     PropValueField,
     SEARCHABLE_ENTITY_TYPES,
     StructuredProp,
@@ -23,7 +24,7 @@ import {
 } from '@app/govern/structuredProperties/utils';
 import { Icon, SimpleSelect, Text, Tooltip } from '@src/alchemy-components';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
-import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
+import { PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
 const PlatformOptionLabel = styled.div`
     display: flex;
@@ -44,7 +45,7 @@ interface Props {
     isEditMode: boolean;
     selectedValueType: string;
     setSelectedValueType: React.Dispatch<React.SetStateAction<string>>;
-    allowedValues: AllowedValue[] | undefined;
+    allowedValues: AllowedValueFormRow[] | undefined;
     valueField: PropValueField;
     setShowAllowedValuesDrawer: React.Dispatch<React.SetStateAction<boolean>>;
 }
