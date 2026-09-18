@@ -14,6 +14,7 @@ import com.linkedin.common.EdgeArray;
 import com.linkedin.common.UpstreamMetrics;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
@@ -24,8 +25,10 @@ import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -47,9 +50,11 @@ public class UpstreamMetricsAuthorizationValidatorTest {
   private AuthorizationSession mockAuthSession;
   private MockedStatic<AuthUtil> authUtilMockedStatic;
   private io.datahubproject.metadata.context.RetrieverContext retrieverContext;
+  private final Map<Urn, Map<String, Aspect>> currentAspects = new HashMap<>();
 
   @BeforeMethod
   public void setup() {
+    currentAspects.clear();
     authUtilMockedStatic = Mockito.mockStatic(AuthUtil.class);
     validator = new UpstreamMetricsAuthorizationValidator();
     validator.setConfig(
@@ -68,7 +73,7 @@ public class UpstreamMetricsAuthorizationValidatorTest {
     CachingAspectRetriever mockAspectRetriever = Mockito.mock(CachingAspectRetriever.class);
     Mockito.when(mockAspectRetriever.getEntityRegistry()).thenReturn(registry);
     Mockito.when(mockAspectRetriever.getLatestAspectObjects(any(), any(), any()))
-        .thenReturn(Map.of());
+        .thenAnswer(invocation -> Map.copyOf(currentAspects));
     retrieverContext =
         io.datahubproject.metadata.context.RetrieverContext.builder()
             .searchRetriever(Mockito.mock(SearchRetriever.class))
@@ -110,6 +115,37 @@ public class UpstreamMetricsAuthorizationValidatorTest {
     Assert.assertTrue(result.findAny().isEmpty());
   }
 
+  @Test
+  public void testDenyWhenClearingWithoutPrivilegeOnRemovedMetric() {
+    stubStoredMetrics(METRIC_URN);
+    stubLineageAuthForUrn(CHART_URN, true);
+    stubLineageAuthForUrn(METRIC_URN, false);
+
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(buildItem(emptyUpstreamMetrics())),
+            retrieverContext,
+            mockAuthSession);
+
+    Assert.assertTrue(result.findAny().isPresent());
+  }
+
+  @Test
+  public void testAllowWhenClearingWithPrivilegeOnRemovedMetric() {
+    stubStoredMetrics(METRIC_URN);
+    stubLineageAuth(true);
+
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(buildItem(emptyUpstreamMetrics())),
+            retrieverContext,
+            mockAuthSession);
+
+    Assert.assertTrue(result.findAny().isEmpty());
+  }
+
   private void stubLineageAuth(boolean allowed) {
     authUtilMockedStatic
         .when(
@@ -119,12 +155,37 @@ public class UpstreamMetricsAuthorizationValidatorTest {
         .thenReturn(allowed);
   }
 
+  private void stubLineageAuthForUrn(Urn urn, boolean allowed) {
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorizedUrns(
+                    eq(mockAuthSession), eq(LINEAGE), eq(UPDATE), eq(Set.of(urn))))
+        .thenReturn(allowed);
+  }
+
+  private void stubStoredMetrics(Urn metricUrn) {
+    currentAspects.put(
+        CHART_URN,
+        Map.of(UPSTREAM_METRICS_ASPECT_NAME, new Aspect(upstreamMetrics(metricUrn).data())));
+  }
+
   private TestMCP buildItem() {
-    UpstreamMetrics aspect =
-        new UpstreamMetrics().setMetrics(new EdgeArray(new Edge().setDestinationUrn(METRIC_URN)));
+    return buildItem(upstreamMetrics(METRIC_URN));
+  }
+
+  private TestMCP buildItem(UpstreamMetrics aspect) {
     return TestMCP.ofOneUpsertItem(CHART_URN, aspect, registry).stream()
         .map(i -> (TestMCP) i)
         .findFirst()
         .get();
+  }
+
+  private static UpstreamMetrics emptyUpstreamMetrics() {
+    return new UpstreamMetrics().setMetrics(new EdgeArray());
+  }
+
+  private static UpstreamMetrics upstreamMetrics(Urn metricUrn) {
+    return new UpstreamMetrics().setMetrics(new EdgeArray(new Edge().setDestinationUrn(metricUrn)));
   }
 }
