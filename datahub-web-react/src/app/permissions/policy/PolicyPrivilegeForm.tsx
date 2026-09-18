@@ -12,6 +12,7 @@ import ResourceSelect from '@app/permissions/policy/PolicyPrivilegeForm/Resource
 import ResourceTypeSelect from '@app/permissions/policy/PolicyPrivilegeForm/ResourceTypeSelect';
 import TagsSelect from '@app/permissions/policy/PolicyPrivilegeForm/TagsSelect';
 import { FIELD_TYPES, RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
+import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import {
     EMPTY_POLICY,
     convertLegacyResourceFilter,
@@ -27,7 +28,6 @@ import {
 import StructuredPropertyResourceSelect from '@app/permissions/policy/structuredProperties/StructuredPropertyResourceSelect';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useIsStructuredPropertiesInPoliciesEnabled } from '@app/shared/hooks/useIsStructuredPropertiesInPoliciesEnabled';
-import { useAppConfig } from '@app/useAppConfig';
 
 import { PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
 
@@ -42,6 +42,7 @@ type Props = {
     privileges: Array<string>;
     setPrivileges: (newPrivs: Array<string>) => void;
     focusPolicyUrn: string | undefined;
+    policyPrivileges?: PolicyPrivilegesConfig;
 };
 
 const PrivilegesForm = styled(Form)`
@@ -70,6 +71,7 @@ export default function PolicyPrivilegeForm({
     setEditState,
     isEditState,
     focusPolicyUrn,
+    policyPrivileges,
 }: Props) {
     const { t } = useTranslation('settings.permissions');
     const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
@@ -88,11 +90,6 @@ export default function PolicyPrivilegeForm({
     const updateCondition = (fieldType: string, condition: PolicyMatchCondition) => {
         setConditions((prev) => ({ ...prev, [fieldType]: condition }));
     };
-
-    // Configuration used for displaying options
-    const {
-        config: { policiesConfig },
-    } = useAppConfig();
 
     // Memoized: convertLegacyResourceFilter returns a new object for legacy (filter-less)
     // policies, and downstream effects key on resources.filter identity — an unstable
@@ -202,7 +199,7 @@ export default function PolicyPrivilegeForm({
 
     // Construct privilege options for dropdown, deduplicating by type
     const platformPrivileges = useMemo(() => {
-        const privs = policiesConfig?.platformPrivileges || [];
+        const privs = policyPrivileges?.platformPrivileges || [];
         // Deduplicate by type, keeping first occurrence
         const seen = new Set<string>();
         return privs.filter((priv) => {
@@ -212,8 +209,11 @@ export default function PolicyPrivilegeForm({
             seen.add(priv.type);
             return true;
         });
-    }, [policiesConfig]);
-    const resourcePrivileges = useMemo(() => policiesConfig?.resourcePrivileges || [], [policiesConfig]);
+    }, [policyPrivileges]);
+    const resourcePrivileges = useMemo(
+        () => policyPrivileges?.resourcePrivileges || [],
+        [policyPrivileges?.resourcePrivileges],
+    );
     const resourcePrivilegesForType = useMemo(
         () => mapResourceTypeToPrivileges(resourceTypeSelectValue, resourcePrivileges),
         [resourceTypeSelectValue, resourcePrivileges],
