@@ -4,14 +4,17 @@ import { useTheme } from 'styled-components';
 
 export default function DataHubTooltip(props: TooltipProps & React.RefAttributes<unknown>) {
     const themeConfig = useTheme();
-    const bgColor = themeConfig.colors.bg;
-    const textColor = themeConfig.colors.textSecondary;
+    const bgColor = themeConfig.colors.bgTooltip;
+    const textColor = themeConfig.colors.text;
 
     return (
         <Tooltip
             showArrow={false}
             color={bgColor}
-            overlayInnerStyle={{ color: textColor }}
+            overlayInnerStyle={{
+                color: textColor,
+                border: `1px solid ${themeConfig.colors.border}`,
+            }}
             overlayStyle={{ borderRadius: '12px' }}
             {...props}
         />
