@@ -1,5 +1,8 @@
 # Micro-Frontends in DataHub
 
+> User-facing documentation, including the YAML reference and the typed slot contract, lives at
+> [docs/micro-frontends.md](/docs/micro-frontends.md). This file covers local development of the framework.
+
 DataHub now supports hosting micro-frontends (MFEs), which can be easily configured via YAML files. Each MFE must expose a `remoteEntry.js` file using [Module Federation](https://webpack.js.org/concepts/module-federation/).
 
 > **Note:** Exporting your `<App/>` component is not sufficient.  
@@ -84,6 +87,104 @@ As described in the [DataHub Quickstart Guide](https://docs.datahub.com/docs/qui
 
 Navigate to [http://localhost:9002](http://localhost:9002).  
 You should see a waving hand menu item in the left navigation bar.
+
+## Placements (slots)
+
+By default an MFE is a **full page** reached from the left navigation (`/mfe<path>`). An entry can
+instead be placed into a named, host-owned region of an existing page — a _slot_ — with the optional
+`placement` field. The host owns the slot and everything around it; the MFE owns only what renders inside.
+
+| Slot                | Where it renders                    | Extra context passed to `mount` |
+| ------------------- | ----------------------------------- | ------------------------------- |
+| `nav.page`          | Full page at `/mfe<path>` (default) | —                               |
+| `entity.detail.tab` | A tab on every entity profile page  | `entity: { urn, type }`         |
+
+```yaml
+microFrontends:
+    - id: access-tab
+      label: Access
+      remoteEntry: https://mydomain-dev.com/access/remoteEntry.js
+      module: accessMFE/mount
+      flags:
+          enabled: true
+          showInNav: false
+      placement:
+          slot: entity.detail.tab
+          entityTypes: [dataset] # optional coarse filter (GraphQL EntityType names, case-insensitive)
+          tabName: 'Access' # optional tab label; defaults to label
+```
+
+`path` and `navIcon` are only required for `nav.page` entries. A slot entry never gets a `/mfe` route or a
+navigation item. The tab appears only when the entry is `enabled` and (if `entityTypes` is set) the page's
+entity type matches; the remote bundle is loaded the first time the tab is opened.
+
+### The typed contract
+
+`mount(el, ctx)` receives a typed context for the slot it was placed in. Import the types from
+`datahub-web-react/src/app/mfeframework/slots/slotTypes.ts` so both sides share one definition:
+
+```ts
+import type { EntityDetailTabContext } from '.../mfeframework/slots/slotTypes';
+
+export function mount(el: HTMLElement, ctx: EntityDetailTabContext): () => void {
+    // ctx.slot === 'entity.detail.tab', ctx.version === '1.0.0'
+    // ctx.entity.urn, ctx.entity.type (e.g. 'DATASET'), ctx.principal?.user (the viewer's urn)
+    const root = createRoot(el);
+    root.render(<AccessPanel urn={ctx.entity.urn} />);
+    return () => root.unmount();
+}
+```
+
+Every context carries `slot`, `version` and an optional `principal: { user }`; per-slot fields live on the
+per-slot type (`EntityDetailTabContext`, `NavPageContext`). To pass more to a slot later, extend that slot's
+type and bump `SLOT_CONTRACT_VERSION` — never add surface-specific fields to `SlotBaseContext`.
+
+### Slots are MFE placements
+
+A slot is just a named region the MFE loader knows how to attach to. The set of slots is fixed in code
+(`slots/slotTypes.ts`), the YAML is the only registry, and `MFEMount` is the only thing that renders into one.
+Built-in tabs and pages do not use slots, and nothing but a Module Federation remote can fill one. Do not
+describe slots as a general UI extension point.
+
+### Adding a new slot
+
+Three things are defined at three different times. Keep them separate:
+
+| Question                                | Answered by                               | When         |
+| --------------------------------------- | ----------------------------------------- | ------------ |
+| Does this placement exist and is it on? | YAML `placement` (`slot`, filters)        | config time  |
+| What shape does the MFE receive?        | The slot's context type in `slotTypes.ts` | compile time |
+| What are the values for this page?      | The host component building `ctx`         | render time  |
+
+Steps, using `entity.detail.tab` as the worked example:
+
+1. **Type.** Add the id to `MFESlotId`, a `<Slot>Context` that extends `SlotBaseContext` with only the fields
+   that region needs, and an entry in `SlotContextMap` (`slots/slotTypes.ts`). Never add surface-specific
+   fields to the base.
+2. **YAML.** If the slot needs placement options (like `entityTypes` or `tabName`), add them to `MFEPlacement`
+   and validate them in `validatePlacement` (`mfeConfigLoader.tsx`). Invalid entries must be dropped, not
+   partially accepted.
+3. **Host.** In the region that owns the slot, call `useResolveSlot('<slot>', filter)` to get the placed
+   entries, build the context from data the page already has, and render `<MFEMount config ctx />`. Memoize
+   `ctx`: a new object identity remounts the remote. See `slots/MFEEntityTab.tsx` and
+   `slots/useMFEEntityTabs.tsx`; the wiring into the page is one line in `EntityProfile.tsx`.
+4. **Lazy.** Make sure the remote is only loaded when the region is shown (antd `Tabs` does this for tabs).
+5. **Tests.** Add a Playwright flow under `e2e-test/ui/playwright/tests/mfeframework/` modelled on
+   `entity-tab-slot.spec.ts`: presence, context delivery, filter, disabled, remote failure, lazy load.
+6. **Docs.** Add the slot to the table in `docs/micro-frontends.md`.
+
+Versioning: `SLOT_CONTRACT_VERSION` is shared by all slots. Adding a new slot does not bump it. Changing the
+shape of an existing slot's context does; add fields as optional where possible so older MFEs keep working,
+and note the change in `docs/how/updating-datahub.md`.
+
+### Iterating on placements locally
+
+The Vite dev server can serve a local YAML at `/mfe/config` instead of proxying to `datahub-frontend`, so
+placements can be changed without restarting the Play service:
+
+```shell
+DATAHUB_DEV_MFE_CONFIG_FILE=/path/to/mfe.config.yaml yarn start
+```
 
 ## Deploying to Kubernetes
 

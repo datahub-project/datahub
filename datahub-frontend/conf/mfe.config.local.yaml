@@ -1,2 +1,28 @@
 subNavigationMode: false
 microFrontends: []
+# Example entries (see datahub-web-react/src/app/mfeframework/README-MFE.md):
+#
+# A full page reached from the left navigation (the default placement, nav.page):
+#   - id: HelloWorld
+#     label: HelloWorld DEV
+#     path: /helloworld-mfe
+#     remoteEntry: http://localhost:3002/remoteEntry.js
+#     module: helloWorldMFE/mount
+#     flags:
+#       enabled: true
+#       showInNav: true
+#     navIcon: HandWaving
+#
+# A tab on entity profile pages (placement entity.detail.tab); mount(el, ctx) receives
+# ctx.entity = { urn, type } for the entity being viewed:
+#   - id: access-tab
+#     label: Access
+#     remoteEntry: http://localhost:3002/remoteEntry.js
+#     module: accessMFE/mount
+#     flags:
+#       enabled: true
+#       showInNav: false
+#     placement:
+#       slot: entity.detail.tab
+#       entityTypes: [dataset]      # optional coarse filter; omit for every entity type
+#       tabName: "Access"           # optional; defaults to label

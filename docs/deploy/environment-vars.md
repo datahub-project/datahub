@@ -1350,6 +1350,14 @@ DataHub supports CDC mode for MetadataChangeLog generation, which guarantees ord
 | `AUTH_COOKIE_SAME_SITE` | `LAX`   | SameSite attribute for authentication cookies   | Frontend   |
 | `AUTH_COOKIE_SECURE`    | `false` | Whether authentication cookies should be secure | Frontend   |
 
+### Micro Frontends
+
+| Environment Variable   | Default                                                     | Description                                                                                                                                                                                                                                                                                                            | Components |
+| ---------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `MFE_CONFIG_FILE_PATH` | `/datahub-frontend/conf/mfe.config.dev.yaml` (Docker image) | Path to the YAML that declares micro frontends (navigation pages and entity tabs), served to the UI at `/mfe/config`. Read once at startup; restart the frontend after editing. Unreadable or empty file: `/mfe/config` returns 500 and the UI shows no micro frontends. See [Micro Frontends](../micro-frontends.md). | Frontend   |
+
+Remote bundles are subject to the frontend Content-Security-Policy; allow their origins with `DATAHUB_CSP_SCRIPT_SRC` and `DATAHUB_CSP_CONNECT_SRC` (see `play.filters.csp` in `datahub-frontend/conf/application.conf`).
+
 ### Security headers (opt-in)
 
 Play's `SecurityHeadersFilter` is enabled in the frontend filter chain. With no env vars set, `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy` are **not** sent. Set a variable to emit that header. Content-Security-Policy is configured separately via `DATAHUB_CSP_*` (see `play.filters.csp` in `datahub-frontend/conf/application.conf`).
