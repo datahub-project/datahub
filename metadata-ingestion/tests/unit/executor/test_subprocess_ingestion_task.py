@@ -333,7 +333,7 @@ class TestSubProcessIngestionTaskSubprocessCreation:
                 secret_values,
             )
 
-            assert result == mock_process
+            assert result == (mock_process, mock_venv_ref)
 
             mock_setup_venv.assert_called_once_with(
                 validated_args, plugin, exec_out_dir, shared_logs
@@ -361,6 +361,42 @@ class TestSubProcessIngestionTaskSubprocessCreation:
             assert kwargs["stdin"] == asyncio.subprocess.PIPE
             # Own session/process group, so cancellation can signal the whole tree.
             assert kwargs["start_new_session"] is True
+
+    async def test_a_spawn_failure_releases_the_venv_cache_lock(
+        self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
+    ) -> None:
+        """venv_ref reaches execute()'s finally only through the tuple return.
+
+        So anything raising after _setup_venv succeeded -- a cancellation at
+        create_subprocess_exec, which is a first-class flow here, or a broken
+        pipe on the stdin write -- strands the entry's SHARED hold with no
+        owner. execute()'s own `except BaseException` cannot help: venv_ref is
+        not bound there yet.
+        """
+        validated_args = SubProcessIngestionTaskArgs.model_validate(sample_args)
+        mock_venv_ref = Mock()
+        mock_venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
+
+        with (
+            patch(
+                "asyncio.create_subprocess_exec",
+                side_effect=asyncio.CancelledError(),
+            ),
+            patch.object(ingestion_task, "_setup_venv", return_value=mock_venv_ref),
+        ):
+            with pytest.raises(asyncio.CancelledError):
+                await ingestion_task._create_subprocess(
+                    validated_args,
+                    "demo-data",
+                    {"source": {"type": "demo-data"}},
+                    "/tmp/report.json",
+                    {"TEST": "value"},
+                    "/tmp/exec",
+                    LogHolder(),
+                    {},
+                )
+
+        mock_venv_ref.lock.release.assert_called_once()
 
     async def test_create_subprocess_writes_stdin_envelope(
         self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
@@ -468,7 +504,7 @@ class TestSubProcessIngestionTaskExecution:
                     return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=mock_process),
+                _create_subprocess=AsyncMock(return_value=(mock_process, Mock())),
                 _monitor_subprocess=AsyncMock(),
                 _handle_subprocess_completion=Mock(),
             ),
@@ -487,6 +523,46 @@ class TestSubProcessIngestionTaskExecution:
             ingestion_task._create_subprocess.assert_called_once()  # type: ignore[attr-defined]
             ingestion_task._monitor_subprocess.assert_called_once()  # type: ignore[attr-defined]
             ingestion_task._handle_subprocess_completion.assert_called_once()  # type: ignore[attr-defined]
+
+    async def test_execute_forwards_the_venv_ref_to_completion(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        sample_args: dict[str, str],
+        mock_execution_context: Mock,
+    ) -> None:
+        """This wiring is the ONLY thing that releases the lock on the happy path.
+
+        _handle_subprocess_completion delegates to finalize_task_output, which
+        releases venv_ref.lock. Drop the keyword here and every cached entry
+        stays held SHARED for the pod's life, so eviction -- which needs a
+        non-blocking exclusive -- can never reclaim any of them, and the cache
+        grows without bound. Nothing else observes the forwarding.
+        """
+        mock_process = AsyncMock()
+        mock_process.returncode = 0
+        venv_ref = Mock()
+        mock_completion = Mock()
+
+        with (
+            patch.multiple(
+                ingestion_task,
+                _setup_directories=Mock(
+                    return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
+                ),
+                _prepare_subprocess_environment=Mock(return_value={}),
+                _create_subprocess=AsyncMock(return_value=(mock_process, venv_ref)),
+                _monitor_subprocess=AsyncMock(),
+                _handle_subprocess_completion=mock_completion,
+            ),
+            patch(
+                _RESOLVE_RECIPE, return_value=({"source": {"type": "demo-data"}}, {})
+            ),
+            patch(_GET_PLUGIN, return_value="demo-data"),
+            patch("builtins.open", mock_open()),
+        ):
+            await ingestion_task.execute(sample_args, mock_execution_context)
+
+        assert mock_completion.call_args.kwargs["venv_ref"] is venv_ref
 
     async def test_execute_publishes_artifact_dir_on_context(
         self,
@@ -510,7 +586,7 @@ class TestSubProcessIngestionTaskExecution:
                     )
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=mock_process),
+                _create_subprocess=AsyncMock(return_value=(mock_process, Mock())),
                 _monitor_subprocess=AsyncMock(),
                 _handle_subprocess_completion=Mock(),
             ),
@@ -618,7 +694,7 @@ class TestSubProcessIngestionTaskExecution:
                     return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=mock_process),
+                _create_subprocess=AsyncMock(return_value=(mock_process, Mock())),
                 _monitor_subprocess=AsyncMock(side_effect=asyncio.CancelledError()),
                 _handle_subprocess_completion=mock_completion,
             ),
@@ -655,7 +731,7 @@ class TestSubProcessIngestionTaskExecution:
                     return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=mock_process),
+                _create_subprocess=AsyncMock(return_value=(mock_process, Mock())),
                 _monitor_subprocess=AsyncMock(),  # completes normally
                 _handle_subprocess_completion=mock_completion,
             ),
@@ -1293,7 +1369,7 @@ class TestSubProcessIngestionTaskHybridArchitecture:
         env = call_args[1]["env"]
         assert env["VENV_PATH"] == str(mock_venv_ref.venv_loc)
 
-        assert result == mock_process
+        assert result == (mock_process, mock_venv_ref)
 
     async def test_log_holder_integration_in_task_context(
         self,
@@ -1309,7 +1385,7 @@ class TestSubProcessIngestionTaskHybridArchitecture:
                     return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=AsyncMock()),
+                _create_subprocess=AsyncMock(return_value=(AsyncMock(), Mock())),
                 _monitor_subprocess=AsyncMock(),
                 _handle_subprocess_completion=Mock(),
             ),

@@ -108,6 +108,26 @@ Two constraints follow from how hardlinks work:
 
 Repeated runs that use the same package artifacts reuse the cache, but new package versions, platforms, and build artifacts can continue to grow it. Monitor cache usage on long-lived executors and reclaim space with `uv cache prune` when needed.
 
+### Reusing venvs between runs
+
+The uv cache above keeps repeated runs from re-downloading packages; it still
+rebuilds the venv itself on every run. Short-lived tasks — `test-connection`,
+and the recipe probe — pay that rebuild to do a few seconds of work. The
+executor therefore keeps reusable venvs in a node-local cache outside the
+per-execution directory.
+
+| Variable                         | Meaning                                                                                                    |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **`DATAHUB_VENV_CACHE_ENABLED`** | **`false`** restores a freshly built venv per run (default **`true`**).                                    |
+| **`DATAHUB_VENV_CACHE_PATH`**    | Cache root (default **`<tmp_dir>/_venv_cache`**, i.e. **`/tmp/datahub/ingest/_venv_cache`**).              |
+| **`DATAHUB_VENV_CACHE_MAX_GB`**  | Eviction budget in GB (default **`20`**). Least-recently-used venvs are removed once the cache exceeds it. |
+
+The cache is node-local and is lost when the pod restarts, which is what bounds
+how stale a `latest` venv can become: the first run in a pod resolves `latest`,
+and the rest of that pod's life reuses it. A venv in use by a running task is
+never evicted. Pin `version` in the recipe if a run must control its CLI
+version exactly.
+
 ## Rebuild from this repository
 
 Maintainers: **`docker/datahub-actions/Dockerfile`** + **`--build-arg`** (see Dockerfile and snippet README)—requires a repo checkout.

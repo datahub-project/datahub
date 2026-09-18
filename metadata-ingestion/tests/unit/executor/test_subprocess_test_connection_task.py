@@ -394,3 +394,39 @@ async def test_exec_out_dir_exists_when_the_subprocess_is_launched(
         await task.execute(sample_args, exec_ctx)
 
     assert observed["exec_out_dir_exists"]
+
+
+@pytest.mark.asyncio
+async def test_a_popen_failure_releases_the_venv_cache_lock(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """Spawning sits before the try/finally that calls finalize_task_output.
+
+    So an OSError from Popen -- ENOMEM, a bad interpreter path -- or a broken
+    pipe on the stdin write is the one window on this path where nothing
+    releases the cached venv's SHARED lock. Left held, eviction can never
+    reclaim that entry, because eviction needs a non-blocking exclusive.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "venv-demo-data"
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            side_effect=OSError("cannot fork"),
+        ),
+        pytest.raises(OSError, match="cannot fork"),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    venv_ref.lock.release.assert_called_once()

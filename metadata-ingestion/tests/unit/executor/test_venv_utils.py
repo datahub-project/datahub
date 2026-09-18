@@ -1,3 +1,8 @@
+import os
+import pathlib
+
+import pytest
+
 from datahub.executor.execution import venv_utils
 
 
@@ -174,3 +179,133 @@ class TestVenvUtilsIntegration:
         # Get venv path
         venv_path = venv_utils.get_venv_path(venv_name, "/tmp/dynamic")
         assert venv_path == f"/tmp/dynamic/venv-{venv_name}"
+
+
+class TestVenvLocation:
+    """Where a venv is built decides whether it can ever be reused.
+
+    A cacheable venv already gets a content-addressed name from
+    get_stable_venv_name(); it was the LOCATION -- under the per-execution
+    exec_out_dir, deleted in the task's finally -- that made the existing
+    "already exists, skip setup" branch in setup_venv unreachable.
+    """
+
+    def test_a_cacheable_venv_lands_outside_the_execution_directory(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("DATAHUB_VENV_CACHE_PATH", raising=False)
+        exec_out_dir = "/tmp/datahub/ingest/exec-123"
+
+        loc = venv_utils.venv_location("snowflake-abc123", exec_out_dir, cacheable=True)
+
+        assert exec_out_dir not in loc, (
+            "a cacheable venv under exec_out_dir is deleted with it, which is "
+            "why the reuse branch never fired"
+        )
+
+    def test_an_ephemeral_venv_stays_in_the_execution_directory(self) -> None:
+        exec_out_dir = "/tmp/datahub/ingest/exec-123"
+
+        loc = venv_utils.venv_location("eph-deadbeef", exec_out_dir, cacheable=False)
+
+        assert loc == f"{exec_out_dir}/venv-eph-deadbeef"
+
+    def test_bundled_still_resolves_to_the_shared_image_path(self) -> None:
+        """Unchanged behaviour: bundled venvs are pre-built, never created."""
+        loc = venv_utils.venv_location(
+            "snowflake-bundled", "/tmp/whatever", cacheable=False
+        )
+
+        assert loc == "/opt/datahub/venvs/snowflake-bundled"
+
+    def test_the_cache_root_is_overridable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", "/mnt/cache")
+
+        loc = venv_utils.venv_location("snowflake-abc", "/tmp/x", cacheable=True)
+
+        assert loc == "/mnt/cache/venv-snowflake-abc"
+
+    def test_the_cache_is_a_sibling_of_the_execution_directory(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Not inside it. exec_out_dir is what finalize_task_output deletes,
+        so a cache underneath it would be destroyed with every run -- the
+        exact problem this feature exists to fix."""
+        monkeypatch.delenv("DATAHUB_VENV_CACHE_PATH", raising=False)
+
+        loc = venv_utils.venv_location(
+            "snowflake-abc", "/tmp/datahub/ingest/exec-123", cacheable=True
+        )
+
+        assert loc == "/tmp/datahub/ingest/_venv_cache/venv-snowflake-abc"
+
+
+class TestVenvEntryState:
+    """A half-built venv must never be reused.
+
+    setup_venv's reuse check accepts any directory containing bin/python. A
+    build killed midway -- pod evicted, OOM, cancellation -- leaves exactly
+    that: a venv with no packages. Per-run directories made this harmless
+    because they were deleted; a cache turns it into a poisoned entry every
+    later run reuses.
+    """
+
+    def _venv_with_python(self, root: pathlib.Path) -> pathlib.Path:
+        (root / "bin").mkdir(parents=True)
+        (root / "bin" / "python").touch()
+        return root
+
+    def test_a_venv_with_a_python_binary_but_no_marker_is_incomplete(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        venv = self._venv_with_python(tmp_path / "venv-x")
+
+        assert not venv_utils.is_venv_complete(venv), (
+            "this is exactly the shape a killed build leaves behind"
+        )
+
+    def test_marking_complete_makes_it_reusable(self, tmp_path: pathlib.Path) -> None:
+        venv = self._venv_with_python(tmp_path / "venv-x")
+
+        venv_utils.mark_venv_complete(venv)
+
+        assert venv_utils.is_venv_complete(venv)
+
+    def test_a_marker_without_a_python_binary_is_still_incomplete(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """Both conditions, not either: some systems clear files out of temp
+        directories but leave the directories themselves."""
+        venv = tmp_path / "venv-x"
+        venv.mkdir()
+        venv_utils.mark_venv_complete(venv)
+
+        assert not venv_utils.is_venv_complete(venv)
+
+    def test_last_used_reads_mtime_not_atime(self, tmp_path: pathlib.Path) -> None:
+        """LRU orders by mtime, never by filesystem atime.
+
+        Containers mount relatime or noatime, so atime either lags by a day or
+        never updates -- an eviction policy reading it looks correct in
+        development and evicts the wrong entries in production. Set the two to
+        DIFFERENT values: a version reading st_atime returns the wrong one and
+        fails here, which a test touching both together cannot detect.
+        """
+        venv = self._venv_with_python(tmp_path / "venv-x")
+        venv_utils.touch_last_used(venv)
+        marker = venv / venv_utils.LAST_USED_MARKER
+
+        atime, mtime = 1_000_000.0, 2_000_000.0
+        os.utime(marker, (atime, mtime))
+
+        assert venv_utils.last_used_at(venv) == mtime
+
+    def test_last_used_of_an_unmarked_venv_sorts_oldest(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """So an entry from before this feature is evicted first, not never."""
+        venv = self._venv_with_python(tmp_path / "venv-x")
+
+        assert venv_utils.last_used_at(venv) == 0.0
