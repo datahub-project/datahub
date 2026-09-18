@@ -12,6 +12,7 @@ query getContainer($urn: String!) {
             qualifiedName
             description
             externalUrl
+            env
             customProperties {
                 key
                 value
