@@ -24,6 +24,17 @@ export const WORKSPACE_URL: RecipeField = {
     rules: null,
 };
 
+export const WAREHOUSE_ID: RecipeField = {
+    name: 'warehouse_id',
+    label: 'Warehouse Id',
+    tooltip: 'The id of the warehouse to run queries. If not provided, we will use the default for the workspace.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.warehouse_id',
+    placeholder: 'fab3e5ee0bcbfc56',
+    required: true,
+    rules: null,
+};
+
 export const INCLUDE_COLUMN_LINEAGE: RecipeField = {
     name: 'include_column_lineage',
     label: 'Include Column Lineage',

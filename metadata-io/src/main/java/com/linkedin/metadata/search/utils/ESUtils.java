@@ -1652,6 +1652,7 @@ public class ESUtils {
         return createPointInTimeElasticSearch(opContext, client, indexArray, keepAlive);
       case ELASTICSEARCH_8:
       case OPENSEARCH_2:
+      case OPENSEARCH_3:
       case ELASTICSEARCH_9:
         return createPointInTimeOpenSearch(opContext, client, indexArray, keepAlive);
       default:
@@ -1732,6 +1733,7 @@ public class ESUtils {
     try {
       switch (client.getEngineType()) {
         case OPENSEARCH_2:
+        case OPENSEARCH_3:
         case ELASTICSEARCH_8:
         case ELASTICSEARCH_9:
           {

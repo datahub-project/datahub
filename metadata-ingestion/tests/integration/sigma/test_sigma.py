@@ -444,6 +444,23 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         "json": {"entries": [], "total": 0, "nextPage": None},
     }
 
+    # Default dataset-sources mocks. Sigma Dataset warehouse resolution calls
+    # /datasets/{id}/sources for any dataset-backed element whose SQL named no
+    # tables, which is most tests. Without these the call is unmocked, the error
+    # is caught into a warning, and the suite stays green while quietly
+    # exercising the failure path. An empty list means "no warehouse source".
+    for _default_dataset_id in (
+        "8891fd40-5470-4ff2-a74f-6e61ee44d3fc",
+        "bd6b86e8-cd4a-4b25-ab65-f258c2a68a8f",
+    ):
+        api_vs_response[
+            f"https://aws-api.sigmacomputing.com/v2/datasets/{_default_dataset_id}/sources"
+        ] = {
+            "method": "GET",
+            "status_code": 200,
+            "json": [],
+        }
+
     # Default /v2/connections mock (one Snowflake connection). Every Sigma
     # integration test now exercises the connection registry build at
     # SigmaSource.__init__, so this default keeps existing tests from hitting
@@ -7784,3 +7801,186 @@ def test_sigma_ingest_workbook_customsql(pytestconfig, tmp_path, requests_mock):
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_workbook_customsql.json",
     )
+
+
+@pytest.mark.integration
+def test_dataset_warehouse_upstream_survives_empty_element_sql(
+    pytestconfig, tmp_path, requests_mock
+):
+    """A dataset-backed element's /query returns empty SQL, and the edge survives.
+
+    Sigma retired datasets as a data source on 2026-09-15. A workbook element
+    reading through a dataset still answers ``/elements/{id}/query`` with HTTP
+    200, but the body no longer carries SQL -- so the dataset's url id cannot be
+    found in a query string any more, and that string match was the only way the
+    Sigma Dataset -> warehouse table edge was derived.
+
+    ``/datasets/{id}/sources`` still names the source table by inode and
+    ``/connections/paths/{inodeId}`` still resolves it to a connection plus a
+    path, so the edge is recoverable structurally rather than textually. Shapes
+    below are the ones the live API returns.
+    """
+    output_path = f"{tmp_path}/sigma_dataset_inode_mces.json"
+
+    override_data: Dict[str, Dict] = {
+        # Post-deprecation: 200 with no SQL, for EVERY element whose lineage
+        # names the dataset. Emptying only one leaves the other's SQL to supply
+        # the warehouse side, and the edge resolves for the wrong reason.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/Ml9C5ezT5W/query": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/tQJu5N1l81/query": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {},
+        },
+        # The structural route that still works.
+        "https://aws-api.sigmacomputing.com/v2/datasets/8891fd40-5470-4ff2-a74f-6e61ee44d3fc/sources": {
+            "method": "GET",
+            "status_code": 200,
+            "json": [
+                {"type": "table", "inodeId": "14139218-f19c-408f-bcb5-be88ee9f3659"}
+            ],
+        },
+        # Column formulas referencing the warehouse table by its short name.
+        # This is what drives the chart inputFields bridge: the per-element
+        # warehouse index is built from dataset_inputs, so without the dataset
+        # entry these columns fall back to self-references.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {"elementId": "Ml9C5ezT5W", "name": "Pk", "formula": "[PETS/Pk]"},
+                    {
+                        "elementId": "Ml9C5ezT5W",
+                        "name": "Status",
+                        "formula": "[PETS/Status]",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # Carries the connectionId, so the warehouse URN is built through the
+        # connection registry rather than chart_sources_platform_mapping.
+        # conn-test-snowflake is the default /v2/connections mock entry.
+        "https://aws-api.sigmacomputing.com/v2/connections/paths/14139218-f19c-408f-bcb5-be88ee9f3659": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "connectionId": "conn-test-snowflake",
+                "path": ["LONG_TAIL_COMPANIONS", "ADOPTION", "PETS"],
+            },
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                # No chart_sources_platform_mapping: the platform now comes from
+                # the connection registry, so this route must resolve without it.
+                # Data Models are off because this fixture has no /dataModels
+                # mock; leaving them on banks a caught pagination warning and
+                # defeats the no-warnings assertion below.
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "ingest_data_models": False,
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    sigma_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sigma,49HFLTr6xytgrPly3PFsNC,PROD)"
+    )
+    expected_upstream = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "long_tail_companions.adoption.pets,PROD)"
+    )
+    upstreams = [
+        u["dataset"]
+        for mce in mces
+        if mce.get("entityUrn") == sigma_dataset_urn
+        and mce.get("aspectName") == "upstreamLineage"
+        for u in mce["aspect"]["json"]["upstreams"]
+    ]
+    assert expected_upstream in upstreams, (
+        "Sigma Dataset -> warehouse edge must be derived from "
+        "/datasets/{id}/sources + /connections/paths/{inodeId} when the element "
+        "SQL is empty"
+    )
+
+    # The same missing dict entry also dropped the Sigma Dataset from
+    # ChartInfo.inputs, so assert that edge came back for both dataset-backed
+    # charts rather than trusting the upstreamLineage aspect alone.
+    inputs_by_chart = {
+        mce["entityUrn"]: [i["string"] for i in mce["aspect"]["json"]["inputs"]]
+        for mce in mces
+        if mce.get("aspectName") == "chartInfo"
+    }
+    for element_id in ("Ml9C5ezT5W", "tQJu5N1l81"):
+        chart_urn = f"urn:li:chart:(sigma,{element_id})"
+        assert sigma_dataset_urn in inputs_by_chart[chart_urn], (
+            f"chart {element_id} must keep its Sigma Dataset input; "
+            f"got {inputs_by_chart[chart_urn]}"
+        )
+
+    # /sources is fetched once per dataset, not once per referencing element:
+    # two charts read this dataset, and the cache must collapse that to one
+    # call. Guards the cache against a refactor that resolves per element.
+    sources_calls = [
+        r
+        for r in requests_mock.request_history
+        if r.path.endswith("/v2/datasets/8891fd40-5470-4ff2-a74f-6e61ee44d3fc/sources")
+    ]
+    assert len(sources_calls) == 1, (
+        f"expected exactly 1 /sources call for the dataset, got {len(sources_calls)}"
+    )
+
+    # The third symptom: chart columns sourced through the dataset fell back to
+    # self-references, because the per-element warehouse index is built from
+    # dataset_inputs. Columns carrying a [PETS/...] formula must now point at the
+    # Snowflake column; columns with no formula have nothing to bridge and
+    # correctly stay self-referencing.
+    fields = {
+        f["schemaField"]["fieldPath"]: f["schemaFieldUrn"]
+        for mce in mces
+        if mce.get("entityUrn") == "urn:li:chart:(sigma,Ml9C5ezT5W)"
+        and mce.get("aspectName") == "inputFields"
+        for f in mce["aspect"]["json"]["fields"]
+    }
+    for column in ("Pk", "Status"):
+        assert fields[column] == (
+            f"urn:li:schemaField:({expected_upstream},{column})"
+        ), (
+            f"column {column} should resolve to the warehouse column; got {fields[column]}"
+        )
+    assert fields["Profile Id"].startswith(
+        "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W)"
+    ), "a column with no formula has nothing to bridge and stays a self-reference"
+
+    report = _sigma_report(pipeline)
+    assert report.dataset_warehouse_upstream_from_inode == 1, (
+        "counter is per dataset, not per referencing element; got "
+        f"{report.dataset_warehouse_upstream_from_inode}"
+    )
+    assert report.dataset_warehouse_unknown_connection == 0
+    assert report.dataset_sources_lookup_failed == 0
+    assert report.connection_path_lookup_failed == 0
+    # No endpoint was left unmocked and no failure path was taken: a caught
+    # exception here would otherwise pass silently, since goldens and counters
+    # above would both still look right.
+    assert not report.warnings, f"unexpected warnings: {list(report.warnings)}"

@@ -7,8 +7,12 @@ interface Response {
     loading: boolean;
 }
 
-export default function useRecentlyViewedEntities(): Response {
+export default function useRecentlyViewedEntities(skip?: boolean): Response {
     const { modules, loading } = useHomeRecommendations();
+
+    if (skip) {
+        return { entities: [], loading: false };
+    }
 
     const viewedModule = modules?.find(
         (module) => module.moduleId === RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES,

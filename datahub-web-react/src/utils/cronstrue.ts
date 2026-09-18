@@ -11,6 +11,7 @@ import 'cronstrue/locales/pt_BR';
 import 'cronstrue/locales/ru';
 import 'cronstrue/locales/sv';
 import 'cronstrue/locales/zh_CN';
+import 'cronstrue/locales/zh_TW';
 import i18next from 'i18next';
 
 import { SupportedLanguage } from '@app/i18n/types';
@@ -21,6 +22,7 @@ type CronOptions = Exclude<Parameters<typeof cronstrue.toString>[1], undefined>;
 const CRONSTRUE_LOCALE: Partial<Record<SupportedLanguage, string>> = {
     'pt-BR': 'pt_BR',
     'zh-CN': 'zh_CN',
+    'zh-TW': 'zh_TW',
 };
 
 // Word that cronstrue prepends to time in each language (e.g. "At 9:00 AM" / "Um 9:00 Uhr").

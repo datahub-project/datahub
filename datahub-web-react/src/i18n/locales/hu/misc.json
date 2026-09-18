@@ -22,6 +22,7 @@
     "applications.noCreatePermissionTooltip": "Nincs jogosultsága alkalmazások létrehozására",
     "applications.pageSubtitle": "Alkalmazások létrehozása és szerkesztése",
     "applications.pageTitle": "Alkalmazások kezelése",
+    "applications.searchMinCharsHint": "A kereséshez adjon meg legalább {{minLength}} karaktert",
     "applications.searchPlaceholder": "Alkalmazások keresése...",
     "authorization.unauthorizedSubtitle": "Sajnáljuk, nincs jogosultsága az oldal megtekintéséhez.",
     "authorization.unauthorizedTitle": "Nincs jogosultság",
