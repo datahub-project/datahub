@@ -261,6 +261,24 @@ public class EntityAspectAuthorizationUtilsTest {
   }
 
   @Test
+  public void testIsAuthorizedToManagePolicies_requiresManageOnPolicyEntityType() {
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorizedEntityType(
+                    eq(mockAuthSession), eq(ApiOperation.MANAGE), eq(List.of("dataHubPolicy"))))
+        .thenReturn(true);
+
+    Assert.assertTrue(EntityAspectAuthorizationUtils.isAuthorizedToManagePolicies(mockAuthSession));
+  }
+
+  @Test
+  public void testIsAuthorizedToManagePolicies_deniesWithoutPrivilege() {
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.isAuthorizedToManagePolicies(mockAuthSession));
+  }
+
+  @Test
   public void testIsAuthorizedToRenameDataProduct_allowsEditOnProduct() {
     authUtilMockedStatic
         .when(

@@ -19,6 +19,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PatchEntityInput;
 import com.linkedin.knowledge.DocumentInfo;
+import com.linkedin.metadata.authorization.ApiGroup;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
@@ -489,7 +491,13 @@ public class AuthorizationUtils {
   }
 
   /**
-   * Checks authorization for patch operations
+   * Checks authorization for patch operations.
+   *
+   * <p>Uses the same entity-type-aware UPDATE privilege that the OpenAPI and Rest.li ingest paths
+   * use, so entity types with an elevated write privilege (for example {@code dataHubPolicy}
+   * requiring Manage Policies, or {@code dataHubSecret} requiring Manage Secrets) are not writable
+   * with a generic Edit Entity grant. For entity types without a specific rule this resolves to
+   * Edit Entity, as before.
    *
    * @param input Patch entity input
    * @param context Query context
@@ -497,13 +505,6 @@ public class AuthorizationUtils {
    */
   public static boolean isAuthorizedForPatch(
       @Nonnull PatchEntityInput input, @Nonnull QueryContext context) {
-
-    // For patch operations, we need EDIT_ENTITY_PRIVILEGE
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
 
     // Use entity type from URN if not provided in input
     String entityType = input.getEntityType();
@@ -514,6 +515,9 @@ public class AuthorizationUtils {
         log.warn("Failed to extract entity type from URN: {}", input.getUrn(), e);
       }
     }
+
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        AuthUtil.buildDisjunctivePrivilegeGroup(ApiGroup.ENTITY, ApiOperation.UPDATE, entityType);
 
     return isAuthorized(context, entityType, input.getUrn(), orPrivilegeGroups);
   }

@@ -6,7 +6,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
@@ -22,6 +25,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -316,6 +320,67 @@ public class PatchEntitiesResolverTest {
   }
 
   // Helper methods
+
+  /** A flat Edit Entity grant must not be enough to rewrite access policies in a batch. */
+  @Test
+  public void testPatchEntitiesPolicyDeniedWithOnlyEditEntity() throws Exception {
+    PatchEntityInput policy1 = createPolicyInput("urn:li:dataHubPolicy:p1");
+    PatchEntityInput policy2 = createPolicyInput("urn:li:dataHubPolicy:p2");
+    when(_environment.getArgument("input")).thenReturn(new PatchEntityInput[] {policy1, policy2});
+
+    com.linkedin.metadata.models.EntitySpec mockEntitySpec =
+        mock(com.linkedin.metadata.models.EntitySpec.class);
+    when(_entityRegistry.getEntitySpec("dataHubPolicy")).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getAspectSpec("dataHubPolicyInfo")).thenReturn(mock(AspectSpec.class));
+
+    QueryContext editEntityOnly = contextGrantingOnly(Set.of("EDIT_ENTITY"));
+    when(_environment.getContext()).thenReturn(editEntityOnly);
+
+    List<PatchEntityResult> results = _resolver.get(_environment).get();
+
+    assertEquals(results.size(), 2);
+    for (PatchEntityResult result : results) {
+      assertFalse(result.getSuccess());
+      assertNotNull(result.getError());
+      assertTrue(result.getError().contains("is unauthorized to update entity"));
+    }
+  }
+
+  private PatchEntityInput createPolicyInput(String urn) {
+    PatchEntityInput input = new PatchEntityInput();
+    input.setUrn(urn);
+    input.setEntityType("dataHubPolicy");
+    input.setAspectName("dataHubPolicyInfo");
+    input.setPatch(
+        Arrays.asList(
+            createPatchOperation(
+                PatchOperationType.REPLACE, "/privileges", "[\"MANAGE_POLICIES\"]")));
+    return input;
+  }
+
+  /** A query context whose authorizer answers ALLOW only for the named privileges. */
+  private QueryContext contextGrantingOnly(Set<String> privileges) {
+    QueryContext context = mock(QueryContext.class);
+    Authentication authentication = mock(Authentication.class);
+    OperationContext operationContext = mock(OperationContext.class);
+    when(context.getAuthentication()).thenReturn(authentication);
+    when(context.getOperationContext()).thenReturn(operationContext);
+    when(context.getActorUrn()).thenReturn("urn:li:corpuser:test-user");
+    when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "test-user"));
+    when(operationContext.getObjectMapper()).thenReturn(_objectMapper);
+    when(operationContext.authorize(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Object privilege = invocation.getArgument(0);
+              return new AuthorizationResult(
+                  null,
+                  privileges.contains(String.valueOf(privilege))
+                      ? AuthorizationResult.Type.ALLOW
+                      : AuthorizationResult.Type.DENY,
+                  "");
+            });
+    return context;
+  }
 
   private PatchEntityInput createGlossaryTermInput(String urn, String name) {
     PatchEntityInput input = new PatchEntityInput();
