@@ -53,7 +53,6 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
   @DataProvider(name = "searchEngineTypes")
   public Object[][] searchEngineTypes() {
     return new Object[][] {
-      {SearchEngineType.ELASTICSEARCH_7},
       {SearchEngineType.ELASTICSEARCH_8},
       {SearchEngineType.ELASTICSEARCH_9},
       {SearchEngineType.OPENSEARCH_2},
@@ -111,16 +110,6 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
 
     // Test client compatibility based on engine type
     switch (engineType) {
-      case ELASTICSEARCH_7:
-        assertTrue(isElasticsearch);
-        assertFalse(isOpenSearch);
-        assertTrue(engineType.supportsEs7HighLevelClient());
-        assertFalse(engineType.requiresEs8JavaClient());
-        assertFalse(engineType.requiresOpenSearchClient());
-        assertEquals(engineType.getEngine(), "elasticsearch");
-        assertEquals(engineType.getMajorVersion(), "7");
-        break;
-
       case ELASTICSEARCH_8:
       case ELASTICSEARCH_9:
         assertTrue(isElasticsearch);

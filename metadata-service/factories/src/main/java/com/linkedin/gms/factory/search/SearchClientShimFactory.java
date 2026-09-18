@@ -8,7 +8,6 @@ import com.linkedin.metadata.config.MaeConsumerConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.ShimConfigurationBuilder;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es7CompatibilitySearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
@@ -164,7 +163,6 @@ public class SearchClientShimFactory {
       ((Es8SearchClientShim) shim).verifySemanticSearchSupport();
     }
 
-    assertCompatModeNotSemanticEnabled(shim, semanticEnabled);
     assertNoNmslibOnOpenSearch3(shim, esConfig, semanticEnabled);
 
     return shim;
@@ -182,21 +180,6 @@ public class SearchClientShimFactory {
       throw new IllegalStateException(
           "Shared DefaultCredentialsProvider is required when elasticsearch.iam /"
               + " opensearchUseAwsIamAuth is enabled");
-    }
-  }
-
-  /**
-   * Fails fast if semantic search is enabled while the shim is in ES 7 compatibility mode. Called
-   * at startup so misconfigurations surface immediately rather than at query time.
-   *
-   * <p>Package-private for direct invocation by unit tests.
-   */
-  static void assertCompatModeNotSemanticEnabled(
-      @Nonnull SearchClientShim<?> shim, boolean semanticEnabled) {
-    if (semanticEnabled && shim instanceof Es7CompatibilitySearchClientShim) {
-      throw new IllegalStateException(
-          "Elasticsearch 8.18+ required for semantic search; cluster is in ES 7 compatibility mode. "
-              + "Upgrade the cluster or set semanticSearch.enabled=false.");
     }
   }
 
@@ -249,7 +232,11 @@ public class SearchClientShimFactory {
             "AUTO_DETECT engine type requires shimAutoDetectEngine=true");
       case "ELASTICSEARCH_7":
       case "ES7":
-        return SearchClientShim.SearchEngineType.ELASTICSEARCH_7;
+        throw new IllegalArgumentException(
+            "Elasticsearch 7.x is no longer supported as a DataHub search backend. Upgrade the"
+                + " cluster to Elasticsearch 8+ or OpenSearch 2+ and set"
+                + " ELASTICSEARCH_SHIM_ENGINE_TYPE to ELASTICSEARCH_8, ELASTICSEARCH_9,"
+                + " OPENSEARCH_2, OPENSEARCH_3, or AUTO_DETECT.");
       case "ELASTICSEARCH_8":
       case "ES8":
         return SearchClientShim.SearchEngineType.ELASTICSEARCH_8;
@@ -266,8 +253,8 @@ public class SearchClientShimFactory {
         throw new IllegalArgumentException(
             "Unsupported engine type: "
                 + engineTypeStr
-                + ". Supported types: ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9,"
-                + " OPENSEARCH_2, OPENSEARCH_3");
+                + ". Supported types: ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2,"
+                + " OPENSEARCH_3");
     }
   }
 }

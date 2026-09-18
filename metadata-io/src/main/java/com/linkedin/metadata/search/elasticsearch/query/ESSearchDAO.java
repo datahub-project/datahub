@@ -812,12 +812,6 @@ public class ESSearchDAO {
             opContext, postFilters, indexConvention, rewriteEntityTypeToIndex());
 
     boolean hasSliceOptions = opContext.getSearchContext().getSearchFlags().hasSliceOptions();
-    if (hasSliceOptions && isSliceDisabled()) {
-      throw new IllegalStateException(
-          "Slice options are not supported with the current ES implementation: "
-              + client.getEngineType()
-              + ". Please disable slice options in the search flags.");
-    }
 
     boolean usePIT = (pointInTimeCreationEnabled || hasSliceOptions) && keepAlive != null;
     String pitId =
@@ -921,10 +915,6 @@ public class ESSearchDAO {
               }
             })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
-
-  private boolean isSliceDisabled() {
-    return SearchClientShim.SearchEngineType.ELASTICSEARCH_7.equals(client.getEngineType());
   }
 
   public ExplainResponse explain(

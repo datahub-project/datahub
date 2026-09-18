@@ -49,6 +49,8 @@ Requirements:
 
 ### Breaking Changes
 
+- **(GMS / Search backend)** Elasticsearch 7.x is no longer a supported search backend. DataHub requires Elasticsearch 8.x or 9.x, or OpenSearch 2.x or 3.x. GMS fails startup if it detects a 7.x cluster or if `ELASTICSEARCH_SHIM_ENGINE_TYPE` is set to `ELASTICSEARCH_7` / `ES7`. **Action:** upgrade the search cluster before this DataHub version. Helm values that still set engine type `ELASTICSEARCH_7` must be changed to auto-detect or a supported type.
+
 - #19815 **(Sigma ingestion)** Sigma ended support for datasets as a data source on 2026-09-15, and a dataset-backed workbook element no longer returns SQL. The connector now recovers a Sigma Dataset's warehouse table from Sigma's connection metadata instead, so **Sigma Dataset** lineage URNs are built from `connection_to_platform_map` rather than `chart_sources_platform_mapping`. Three things to know:
 
   - **`env` and `platform_instance` move.** Without a `connection_to_platform_map` entry the URN uses the recipe's own `env` and no platform instance, where the SQL route used the mapping's.

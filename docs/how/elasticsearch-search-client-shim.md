@@ -10,11 +10,10 @@ This guide explains how to use DataHub's multi-client search engine shim to supp
 
 DataHub's search client shim provides seamless support for:
 
-- **Elasticsearch 7.17**
-- **Elasticsearch 8.17+**
-- **OpenSearch 2.x** with full REST high-level client support
+- **Elasticsearch 8.17+** (and Elasticsearch 9.x)
+- **OpenSearch 2.x and 3.x**
 
-This enables smooth migrations between different search engine versions while maintaining backward compatibility with existing DataHub deployments.
+Elasticsearch 7.x is not supported as a DataHub search backend.
 
 ## Architecture
 
@@ -25,17 +24,16 @@ The shim consists of several key components:
 1. **`SearchClientShim`** - Main abstraction interface
 2. **`SearchClientShimFactory`** - Factory for creating appropriate client implementations
 3. **Implementation Classes** - Concrete implementations for each search engine:
-   - `Es7CompatibilitySearchClientShim` - ES 7.17
-   - `Es8SearchClientShim` - ES 8.17+
-   - `OpenSearch2SearchClientShim` - OpenSearch 2.x
+   - `Es8SearchClientShim` - ES 8.17+ / 9.x
+   - `OpenSearchSearchClientShim` - OpenSearch 2.x / 3.x
 
 ### Supported Configurations
 
-| Source Engine            | Target Engine  | Shim Implementation                | Status      |
-| ------------------------ | -------------- | ---------------------------------- | ----------- |
-| DataHub → ES 7.17        | ES 7.17        | `Es7CompatibilitySearchClientShim` | ✅ Complete |
-| DataHub → ES 8.17+       | ES 8.17+       | `Es8SearchClientShim`              | ✅ Complete |
-| DataHub → OpenSearch 2.x | OpenSearch 2.x | `OpenSearch2SearchClientShim`      | ✅ Complete |
+| Source Engine            | Target Engine  | Shim Implementation          | Status      |
+| ------------------------ | -------------- | ---------------------------- | ----------- |
+| DataHub → ES 8.17+       | ES 8.17+       | `Es8SearchClientShim`        | Complete    |
+| DataHub → OpenSearch 2.x | OpenSearch 2.x | `OpenSearchSearchClientShim` | Complete    |
+| DataHub → OpenSearch 3.x | OpenSearch 3.x | `OpenSearchSearchClientShim` | Complete    |
 
 ## Configuration
 
@@ -49,7 +47,7 @@ ELASTICSEARCH_SHIM_ENABLED=true
 
 # Specify engine type (or use AUTO_DETECT)
 ELASTICSEARCH_SHIM_ENGINE_TYPE=AUTO_DETECT
-# Options: AUTO_DETECT, ELASTICSEARCH_7, ELASTICSEARCH_8, OPENSEARCH_2
+# Options: AUTO_DETECT, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2, OPENSEARCH_3
 
 # Enable auto-detection (recommended)
 ELASTICSEARCH_SHIM_AUTO_DETECT=true
@@ -77,9 +75,7 @@ elasticsearch:
 
 ## Migration Scenarios
 
-### Scenario 1: Elasticsearch 7.17 → Elasticsearch 8.x
-
-This is the most common migration path.
+### Scenario 1: Elasticsearch 8.x
 
 **Step 1: Enable the shim**
 
@@ -94,7 +90,7 @@ ELASTICSEARCH_SHIM_ENGINE_TYPE=ELASTICSEARCH_8
 # Check logs for successful connection
 ```
 
-### Scenario 2: Elasticsearch 7.17 → OpenSearch 2.x
+### Scenario 2: OpenSearch 2.x / 3.x
 
 Direct migration from Elasticsearch to OpenSearch 2.x.
 
@@ -185,8 +181,8 @@ docker logs datahub-gms | grep -i "shim\|search"
 Look for messages like:
 
 ```
-INFO  Creating SearchClientShim for engine type: ELASTICSEARCH_7
-INFO  Auto-detected search engine type: ELASTICSEARCH_7
+INFO  Creating SearchClientShim for engine type: ELASTICSEARCH_8
+INFO  Auto-detected search engine type: ELASTICSEARCH_8
 ```
 
 1. **Test search functionality** in DataHub UI:
@@ -335,10 +331,9 @@ To extend the shim for additional search engines:
 
 ## Support Matrix
 
-| DataHub Version | ES 7.17 | ES 8.x   | OpenSearch 2.x |
-| --------------- | ------- | -------- | -------------- |
-| 0.3.15+         | ✅ Full | ✅ 8.17+ | ✅ Full        |
-| Future          | ✅ Full | ✅ Full  | ✅ Full        |
+| DataHub Version | ES 8.x   | OpenSearch 2.x | OpenSearch 3.x |
+| --------------- | -------- | -------------- | -------------- |
+| Current         | ✅ 8.17+ | ✅ Full        | ✅ Full        |
 
 ## FAQ
 

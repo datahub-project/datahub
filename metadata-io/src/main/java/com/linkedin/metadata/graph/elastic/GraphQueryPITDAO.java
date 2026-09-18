@@ -97,9 +97,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
   }
 
   /**
-   * Search using PIT and slice-based parallel processing for better performance. Note:
-   * Elasticsearch 7 doesn't support slicing with PIT searches, so we fall back to scroll+slice for
-   * Elasticsearch.
+   * Search using PIT and slice-based parallel processing for better performance.
    *
    * @param maxRelations The remaining capacity for relationships (decremented from original limit)
    * @param allowPartialResults If true, return partial results on timeout or maxRelations instead

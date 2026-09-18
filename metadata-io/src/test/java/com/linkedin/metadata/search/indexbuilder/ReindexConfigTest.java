@@ -257,7 +257,7 @@ public class ReindexConfigTest {
 
   @Test
   void testImplicitObjectTypeNormalizedAcrossSides() {
-    // ES8 echoes "type":"object" back for any field that has "properties"; ES7 / OpenSearch
+    // ES8 echoes "type":"object" back for any field that has "properties"; OpenSearch
     // omit it. Mapping builders that don't emit the explicit type must not cause a perpetual
     // mapping diff (and therefore a perpetual reindex loop) when running against ES8.
     Map<String, Object> currentMappings = new HashMap<>();
@@ -590,29 +590,8 @@ public class ReindexConfigTest {
   }
 
   @Test
-  void testEngineRoundTrip_ES7_PreservesImplicitObject() {
-    // ES7 round-trip: stored mapping looks the same as what was sent.
-    // Both sides remain implicit-object form. Comparison must report no diff.
-    ReindexConfig config =
-        ReindexConfig.builder()
-            .name(TEST_INDEX_NAME)
-            .exists(true)
-            .currentMappings(implicitObjectMapping())
-            .targetMappings(implicitObjectMapping())
-            .currentSettings(Settings.EMPTY)
-            .targetSettings(new HashMap<>())
-            .enableIndexMappingsReindex(true)
-            .build();
-
-    Assert.assertFalse(
-        config.requiresApplyMappings(),
-        "ES7 preserves implicit-object form on round-trip — both sides should match");
-    Assert.assertFalse(config.requiresReindex());
-  }
-
-  @Test
   void testEngineRoundTrip_OpenSearch_PreservesImplicitObject() {
-    // OpenSearch behaves like ES7 on object round-trips: implicit form preserved.
+    // OpenSearch preserves implicit-object form on object round-trips.
     // The universal normalization should be a no-op (both sides already match).
     ReindexConfig config =
         ReindexConfig.builder()
@@ -697,10 +676,10 @@ public class ReindexConfigTest {
   }
 
   @Test
-  void testEngineRoundTrip_ES7_RealMappingChangeStillDetected() {
+  void testEngineRoundTrip_ImplicitObject_RealMappingChangeStillDetected() {
     // Sanity check that the universal normalization does not inadvertently mask real changes
-    // on ES7/OpenSearch either.
-    Map<String, Object> currentEs7 = implicitObjectMapping();
+    // on OpenSearch either.
+    Map<String, Object> currentOpenSearch = implicitObjectMapping();
 
     Map<String, Object> targetCode = new HashMap<>();
     targetCode.put(
@@ -719,7 +698,7 @@ public class ReindexConfigTest {
         ReindexConfig.builder()
             .name(TEST_INDEX_NAME)
             .exists(true)
-            .currentMappings(currentEs7)
+            .currentMappings(currentOpenSearch)
             .targetMappings(targetCode)
             .currentSettings(Settings.EMPTY)
             .targetSettings(new HashMap<>())
@@ -728,7 +707,7 @@ public class ReindexConfigTest {
 
     Assert.assertTrue(
         config.requiresApplyMappings(),
-        "Real schema change must still be detected on ES7/OpenSearch — universal "
+        "Real schema change must still be detected on OpenSearch — universal "
             + "normalization is mathematically incapable of masking a content diff");
   }
 

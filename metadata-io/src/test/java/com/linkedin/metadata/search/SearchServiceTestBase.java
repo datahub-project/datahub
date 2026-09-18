@@ -33,7 +33,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
@@ -200,7 +200,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             TEST_ES_SEARCH_CONFIG,
             new V2MappingsBuilder(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-                OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG),
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
             settingsBuilder,
             searchDAO,
             browseDAO,
@@ -236,7 +236,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             TEST_SEARCH_SERVICE_CONFIG,
             esConfig,
             new V2MappingsBuilder(
-                esConfig.getEntityIndex(), OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG),
+                esConfig.getEntityIndex(), OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
             settingsBuilder,
             searchDAO,
             browseDAO,

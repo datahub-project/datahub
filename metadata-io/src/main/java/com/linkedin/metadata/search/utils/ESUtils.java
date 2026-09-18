@@ -45,7 +45,6 @@ import com.linkedin.metadata.throttle.ThrottleMechanismType;
 import com.linkedin.metadata.throttle.ThrottleResponseSource;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -67,8 +66,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.CreatePitRequest;
 import org.opensearch.action.search.CreatePitResponse;
 import org.opensearch.action.search.DeletePitRequest;
-import org.opensearch.action.search.DeletePitResponse;
-import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -1648,8 +1645,6 @@ public class ESUtils {
       }
     }
     switch (client.getEngineType()) {
-      case ELASTICSEARCH_7:
-        return createPointInTimeElasticSearch(opContext, client, indexArray, keepAlive);
       case ELASTICSEARCH_8:
       case OPENSEARCH_2:
       case OPENSEARCH_3:
@@ -1658,25 +1653,6 @@ public class ESUtils {
       default:
         log.warn("Unsupported elasticsearch implementation: {}", client.getEngineType());
         throw new IllegalStateException("Unsupported elasticsearch implementation.");
-    }
-  }
-
-  private static @Nonnull String createPointInTimeElasticSearch(
-      @Nonnull OperationContext opContext,
-      SearchClientShim<?> client,
-      String[] indexArray,
-      String keepAlive) {
-    String endPoint = String.join(",", indexArray) + "/_pit";
-    Request request = new Request("POST", endPoint);
-    request.addParameter("keep_alive", keepAlive);
-    try {
-      RawResponse response = client.performLowLevelRequest(opContext, request);
-      Map<String, Object> mappedResponse =
-          OBJECT_MAPPER.readValue(response.getEntity().getContent(), new TypeReference<>() {});
-      return (String) mappedResponse.get("id");
-    } catch (IOException e) {
-      log.warn("Failed to generate PointInTime Identifier:", e);
-      throw new IllegalStateException("Failed to generate PointInTime Identifier.", e);
     }
   }
 
@@ -1738,31 +1714,15 @@ public class ESUtils {
         case ELASTICSEARCH_9:
           {
             DeletePitRequest deletePitRequest = new DeletePitRequest(pitId);
-            DeletePitResponse deletePitResponse =
-                client.deletePit(opContext, deletePitRequest, RequestOptions.DEFAULT);
-            // DeletePitResponse doesn't have isAcknowledged(), but if we get here without
-            // exception, it
-            // succeeded
+            client.deletePit(opContext, deletePitRequest, RequestOptions.DEFAULT);
             log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
             break;
           }
-        case ELASTICSEARCH_7:
-          {
-            // For Elasticsearch, use the low-level client to delete PIT
-            String endPoint = "/_pit";
-            Request request = new Request("DELETE", endPoint);
-            request.setJsonEntity("{\"id\":\"" + pitId + "\"}");
-            RawResponse response = client.performLowLevelRequest(opContext, request);
-            if (response.getStatusLine().getStatusCode() == 200) {
-              log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
-            } else {
-              log.warn(
-                  "Failed to clean up PIT {} for {}: HTTP {}",
-                  pitId,
-                  context,
-                  response.getStatusLine().getStatusCode());
-            }
-          }
+        default:
+          log.warn(
+              "Skipping PIT cleanup for unsupported engine type {} ({})",
+              client.getEngineType(),
+              context);
       }
     } catch (Exception e) {
       log.warn("Error cleaning up PIT {} for {}: {}", pitId, context, e.getMessage());

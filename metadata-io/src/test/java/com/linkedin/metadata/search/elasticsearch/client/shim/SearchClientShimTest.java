@@ -15,7 +15,7 @@ public class SearchClientShimTest {
     // Test configuration builder
     SearchClientShim.ShimConfiguration config =
         new ShimConfigurationBuilder()
-            .withEngineType(SearchEngineType.ELASTICSEARCH_7)
+            .withEngineType(SearchEngineType.ELASTICSEARCH_8)
             .withHost("localhost")
             .withPort(9200)
             .withCredentials("user", "pass")
@@ -27,7 +27,7 @@ public class SearchClientShimTest {
             .withSocketTimeout(30000)
             .build();
 
-    assertEquals(config.getEngineType(), SearchEngineType.ELASTICSEARCH_7);
+    assertEquals(config.getEngineType(), SearchEngineType.ELASTICSEARCH_8);
     assertEquals(config.getHost(), "localhost");
     assertEquals(config.getPort(), Integer.valueOf(9200));
     assertEquals(config.getUsername(), "user");
@@ -43,32 +43,26 @@ public class SearchClientShimTest {
   @Test
   public void testSearchEngineTypeHelpers() {
     // Test engine type helper methods
-    assertTrue(SearchEngineType.ELASTICSEARCH_7.isElasticsearch());
     assertTrue(SearchEngineType.ELASTICSEARCH_8.isElasticsearch());
     assertTrue(SearchEngineType.ELASTICSEARCH_9.isElasticsearch());
     assertFalse(SearchEngineType.OPENSEARCH_2.isElasticsearch());
-    assertFalse(SearchEngineType.OPENSEARCH_2.isElasticsearch());
 
-    assertFalse(SearchEngineType.ELASTICSEARCH_7.isOpenSearch());
     assertFalse(SearchEngineType.ELASTICSEARCH_8.isOpenSearch());
     assertFalse(SearchEngineType.ELASTICSEARCH_9.isOpenSearch());
     assertTrue(SearchEngineType.OPENSEARCH_2.isOpenSearch());
     assertTrue(SearchEngineType.OPENSEARCH_3.isOpenSearch());
 
     // Test client compatibility
-    assertTrue(SearchEngineType.ELASTICSEARCH_7.supportsEs7HighLevelClient());
     assertTrue(SearchEngineType.OPENSEARCH_2.supportsEs7HighLevelClient());
     assertFalse(SearchEngineType.ELASTICSEARCH_8.supportsEs7HighLevelClient());
     assertFalse(SearchEngineType.ELASTICSEARCH_9.supportsEs7HighLevelClient());
     assertFalse(SearchEngineType.OPENSEARCH_3.supportsEs7HighLevelClient());
 
-    assertFalse(SearchEngineType.ELASTICSEARCH_7.requiresEs8JavaClient());
     assertTrue(SearchEngineType.ELASTICSEARCH_8.requiresEs8JavaClient());
     assertTrue(SearchEngineType.ELASTICSEARCH_9.requiresEs8JavaClient());
     assertFalse(SearchEngineType.OPENSEARCH_2.requiresEs8JavaClient());
     assertFalse(SearchEngineType.OPENSEARCH_3.requiresEs8JavaClient());
 
-    assertFalse(SearchEngineType.ELASTICSEARCH_7.requiresOpenSearchClient());
     assertFalse(SearchEngineType.ELASTICSEARCH_8.requiresOpenSearchClient());
     assertFalse(SearchEngineType.ELASTICSEARCH_9.requiresOpenSearchClient());
     assertTrue(SearchEngineType.OPENSEARCH_2.requiresOpenSearchClient());
@@ -83,7 +77,7 @@ public class SearchClientShimTest {
 
     SearchClientShim.ShimConfiguration mockConfig =
         new ShimConfigurationBuilder()
-            .withEngineType(SearchEngineType.ELASTICSEARCH_7)
+            .withEngineType(SearchEngineType.ELASTICSEARCH_8)
             .withHost("localhost")
             .withPort(9200)
             .withCredentials("user", "pass")
@@ -99,7 +93,7 @@ public class SearchClientShimTest {
     // but we can test the configuration and enum logic
     assertNotNull(mockConfig);
     assertEquals(mockConfig.getEngineType().getEngine(), "elasticsearch");
-    assertEquals(mockConfig.getEngineType().getMajorVersion(), "7");
+    assertEquals(mockConfig.getEngineType().getMajorVersion(), "8");
   }
 
   @Test
@@ -153,5 +147,5 @@ public class SearchClientShimTest {
   // 2. Search operations
   // 3. Index management
   // 4. Auto-detection logic
-  // 5. API compatibility mode with ES 7.17 -> ES 8.x
+  // 5. API compatibility across Elasticsearch 8.x / 9.x and OpenSearch
 }

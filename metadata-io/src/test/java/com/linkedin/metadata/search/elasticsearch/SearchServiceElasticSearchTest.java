@@ -141,7 +141,6 @@ public class SearchServiceElasticSearchTest extends SearchServiceTestBase {
     assertEquals(searchResultAll.getNumEntities().intValue(), 4);
 
     // Test slice
-    try {
       // Test with slice options - slice 0 of 2 (should get roughly half the results)
       SliceOptions slice0of2 = new SliceOptions().setId(0).setMax(2);
       ScrollResult searchResultSlice0A =
@@ -242,12 +241,6 @@ public class SearchServiceElasticSearchTest extends SearchServiceTestBase {
         assert slice0of4Count <= 2
             : "Slice 0 of 4 should contain at most 2 documents, got " + slice0of4Count;
       }
-    } catch (IllegalStateException e) {
-      if (!SearchClientShim.SearchEngineType.ELASTICSEARCH_7.equals(
-          _searchClient.getEngineType())) {
-        throw e;
-      }
-    }
 
     // Clean up test data
     elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn1.toString());
