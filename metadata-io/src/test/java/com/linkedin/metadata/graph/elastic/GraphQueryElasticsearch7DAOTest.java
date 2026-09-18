@@ -39,6 +39,7 @@ import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
@@ -3148,5 +3149,221 @@ public class GraphQueryElasticsearch7DAOTest {
 
     // Recursively check the cause
     return hasMessageInChain(throwable.getCause(), expectedMessage, visited);
+  }
+
+  @Test(timeOut = 10000)
+  public void testScrollSearchServerSideTimeoutSurfacesLineageTimeout() throws Exception {
+    // ES7 scroll path: when a shard search reports timedOut=true, that page must not be treated as
+    // a
+    // completed slice. In strict mode the distinct LineageTimeoutException must surface so the
+    // GraphQL layer maps it to DEADLINE_EXCEEDED instead of returning truncated lineage as
+    // complete.
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
+
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .timeoutSeconds(
+                                30) // ample budget; the timeout is server-side, not wall
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .partialResults(false) // strict mode must throw
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+
+    GraphQueryElasticsearch7DAO dao =
+        new GraphQueryElasticsearch7DAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, null);
+
+    SearchHit[] hits =
+        createFakeLineageHits(
+            3,
+            "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+            "dest",
+            "DownstreamOf");
+    SearchResponse timedOutResponse = createFakeSearchResponse(hits, 3, "scroll_id_1");
+    when(timedOutResponse.isTimedOut()).thenReturn(true);
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(timedOutResponse);
+
+    try {
+      dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+      Assert.fail("Expected a timeout when a scroll search reports timedOut=true");
+    } catch (RuntimeException e) {
+      LineageTimeoutException timeout = null;
+      for (Throwable c = e; c != null; c = c.getCause()) {
+        if (c instanceof LineageTimeoutException) {
+          timeout = (LineageTimeoutException) c;
+          break;
+        }
+      }
+      Assert.assertNotNull(
+          timeout,
+          "A LineageTimeoutException should be present in the cause chain. Got: "
+              + e.getClass().getName()
+              + " - "
+              + e.getMessage());
+    }
+  }
+
+  @Test(timeOut = 10000)
+  public void testScrollContinuationServerSideTimeoutSurfacesLineageTimeout() throws Exception {
+    // ES7 scroll continuations cannot carry a per-search timeout, so the isTimedOut guard is the
+    // only protection there. A successful initial page followed by a timed-out scroll continuation
+    // must still surface LineageTimeoutException in strict mode rather than ending the slice as if
+    // there were no more results.
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
+
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .timeoutSeconds(30)
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .partialResults(false) // strict mode must throw
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+
+    GraphQueryElasticsearch7DAO dao =
+        new GraphQueryElasticsearch7DAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, null);
+
+    // Initial page succeeds (has a scroll id and hits so pagination continues)...
+    SearchResponse initialPage =
+        createFakeSearchResponse(
+            createFakeLineageHits(
+                3,
+                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                "dest",
+                "DownstreamOf"),
+            3,
+            "scroll_id_1");
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(initialPage);
+
+    // ...then the scroll continuation reports a server-side timeout.
+    SearchResponse timedOutScroll =
+        createFakeSearchResponse(
+            createFakeLineageHits(
+                2,
+                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                "more",
+                "DownstreamOf"),
+            2,
+            "scroll_id_1");
+    when(timedOutScroll.isTimedOut()).thenReturn(true);
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(timedOutScroll);
+
+    try {
+      dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+      Assert.fail("Expected a timeout when a scroll continuation reports timedOut=true");
+    } catch (RuntimeException e) {
+      LineageTimeoutException timeout = null;
+      for (Throwable c = e; c != null; c = c.getCause()) {
+        if (c instanceof LineageTimeoutException) {
+          timeout = (LineageTimeoutException) c;
+          break;
+        }
+      }
+      Assert.assertNotNull(
+          timeout,
+          "A LineageTimeoutException should be present in the cause chain. Got: "
+              + e.getClass().getName()
+              + " - "
+              + e.getMessage());
+    }
+  }
+
+  @Test(timeOut = 10000)
+  public void testScrollContinuationServerSideTimeoutPartialModeKeepsCollectedResults()
+      throws Exception {
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .timeoutSeconds(30)
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .maxRelations(-1)
+                                    .partialResults(true)
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+    GraphQueryElasticsearch7DAO dao =
+        new GraphQueryElasticsearch7DAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, null);
+
+    SearchResponse initialPage =
+        createFakeSearchResponse(
+            createFakeLineageHits(
+                3,
+                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                "dest",
+                "DownstreamOf"),
+            3,
+            "scroll_id_1");
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(initialPage);
+    SearchResponse timedOutScroll =
+        createFakeSearchResponse(
+            createFakeLineageHits(
+                2,
+                "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                "late",
+                "DownstreamOf"),
+            2,
+            "scroll_id_1");
+    when(timedOutScroll.isTimedOut()).thenReturn(true);
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(timedOutScroll);
+
+    LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+    Assert.assertEquals(
+        response.getTotal(),
+        5,
+        "partial mode keeps the initial page and the valid hits on the timed-out continuation");
+    Assert.assertTrue(
+        response.isPartial(), "a timed-out continuation must mark the hop partial (ES7 path)");
   }
 }
