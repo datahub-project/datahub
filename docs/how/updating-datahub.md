@@ -49,7 +49,7 @@ Requirements:
 
 ### Breaking Changes
 
-- **(CLI / Python)** Optional extras that pull `unstructured` / `unstructured-ingest` (`notion`, `confluence`, `unstructured`, `datahub-documents`, and `[all]`) now pin patched releases that fix CVE-2026-71428. Those libraries require **Python 3.11+**, so installing those extras on Python 3.10 will fail at `pip install`. Core `acryl-datahub` and other extras remain **Python 3.10+**. **Action:** If you use Notion, Confluence, unstructured, or documents ingestion, upgrade that environment to Python 3.11 or later.
+- **(CLI / Python)** Optional extras that pull `unstructured` / `unstructured-ingest` (`notion`, `confluence`, `unstructured`, `datahub-documents`) now pin patched releases that fix CVE-2026-71428. Those libraries require **Python 3.11+**, so installing those extras on Python 3.10 will fail at `pip install`. They are **not** included in `acryl-datahub[all]`; core `acryl-datahub` and `[all]` remain **Python 3.10+**. Managed ingestion still installs the extra from the recipe source type. **Action:** If you use Notion, Confluence, unstructured, or documents ingestion, install the matching extra (for example `pip install 'acryl-datahub[datahub-documents]'`) on Python 3.11 or later. If you previously relied on `[all]` for those sources, add the extra explicitly.
 
 - #19815 **(Sigma ingestion)** Sigma ended support for datasets as a data source on 2026-09-15, and a dataset-backed workbook element no longer returns SQL. The connector now recovers a Sigma Dataset's warehouse table from Sigma's connection metadata instead, so **Sigma Dataset** lineage URNs are built from `connection_to_platform_map` rather than `chart_sources_platform_mapping`. Three things to know:
 

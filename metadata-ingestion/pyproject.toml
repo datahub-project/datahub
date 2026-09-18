@@ -1161,11 +1161,10 @@ vertica = [
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
 ]
 
-# All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc, onnx-embeddings, sqlmesh)
+# All plugins (excluding: airflow, confluence, datahub-documents, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc, notion, onnx-embeddings, sqlmesh, unstructured)
 all = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
-    "atlassian-python-api>=3.41.0,<5.0.0",
     "Authlib>=1.6.11,<2.0.0",
     "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
@@ -1195,7 +1194,6 @@ all = [
     "flatdict!=4.0.1",
     "GeoAlchemy2<0.19.0",
     "GitPython>=3.1.58,<4.0.0",
-    "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
     "google-cloud-bigquery<4.0.0",
@@ -1214,12 +1212,10 @@ all = [
     "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
-    "jsonpath-ng==1.7.0",
     "kerberos>=1.3.0,<2.0.0",
     "lark>=1.3.1,<2.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
-    "markdownify>=0.14.1,<2.0.0",
     "mini-racer==0.14.1",
     "mlflow-skinny>=2.3.0,<2.21.0",
     "more-itertools>=8.12.0,<11.0.0",
@@ -1227,7 +1223,6 @@ all = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "nltk!=3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
     "openpyxl>=3.1.5,<4.0.0",
@@ -1280,8 +1275,6 @@ all = [
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
-    "unstructured-ingest[confluence,notion]==1.4.28",
-    "unstructured[md]==0.24.1",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
     "websocket-client<2.0.0",
@@ -1977,6 +1970,14 @@ datahub = ["py.typed", "constraints.txt"]
 # ===== TOOL CONFIGURATION =====
 
 [tool.uv]
+# Lock resolution is 3.11–3.13 (CI, Docker, bundled venvs). Published
+# requires-python stays >=3.10; extras that pull unstructured still fail
+# closed on 3.10 at pip install. Without this, uv lock --check tries to
+# solve those extras (and [dev]/[docs]) on 3.10. Cap below 3.14 to match
+# unstructured / onnxruntime wheel availability.
+environments = [
+    "python_full_version >= '3.11' and python_full_version < '3.14'",
+]
 # Security constraints applied during resolution (see each comment).
 constraint-dependencies = [
     "jaraco-context>=6.1.0,<7",  # GHSA-58pv-8j8x-9vj2 (path traversal)
