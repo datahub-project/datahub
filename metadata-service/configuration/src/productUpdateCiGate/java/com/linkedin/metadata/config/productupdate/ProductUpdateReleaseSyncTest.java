@@ -35,9 +35,9 @@ import org.testng.annotations.Test;
  * datahub-web-react/src/i18n/locales} must have translated copy for the English fields the toast
  * actually uses.
  *
- * <p>Live HTTP reachability of CTA URLs is the {@code product_update_release_sync} GitHub Actions
- * job (after this Gradle task). This Gradle job stays hermetic so it can stay green while a blog
- * post is unpublished.
+ * <p>Live HTTP reachability of CTA URLs is GitHub Actions job {@code product_update_cta_live} (a
+ * required status check on master). That job probes only when a product-update JSON file changed.
+ * This Gradle job stays hermetic so it can stay green while a blog post is unpublished.
  */
 public class ProductUpdateReleaseSyncTest {
 

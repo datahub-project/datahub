@@ -1,0 +1,50 @@
+name: product-update CTA live
+
+# Merge gate for toast CTA hrefs. Does not run Gradle.
+#
+# Do not put `paths:` on the workflow trigger. A required check that never
+# starts stays pending and blocks unrelated PRs. This workflow always runs;
+# the HTTP probe is skipped unless a product-update JSON file changed, so
+# product_update_cta_live still goes green on every other PR.
+#
+# Admin: add the check named product_update_cta_live as a required status
+# check on master (branch protection or ruleset). Until then this job is
+# advisory only. After a CTA URL returns 2xx, re-run this one job — there
+# is no scheduled retry.
+
+on:
+  pull_request:
+    branches:
+      - master
+      - releases/**
+      - hotfixes/**
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  product_update_cta_live:
+    name: product_update_cta_live
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4
+        id: filter
+        with:
+          filters: |
+            product-update-json:
+              - metadata-service/configuration/src/main/resources/product-update.json
+              - metadata-service/configuration/src/main/resources/product-update-saas.json
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: steps.filter.outputs.product-update-json == 'true'
+      - name: Probe product-update CTA URLs
+        if: steps.filter.outputs.product-update-json == 'true'
+        run: python3 .github/scripts/check_product_update_cta.py
+      - name: Skip probe (no product-update JSON changes)
+        if: steps.filter.outputs.product-update-json != 'true'
+        run: echo "No product-update JSON changes; CTA probe not required."

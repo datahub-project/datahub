@@ -39,17 +39,16 @@ Before you submit your Pull Request (PR), consider the following guidelines:
 
 The Cloud/Core "What's New" toast CTA is a live URL republished from
 `product-update.json` / `product-update-saas.json`. GitHub Actions job
-`product_update_cta_live` GET-probes those links on every PR targeting `master`
-(and `releases/**` / `hotfixes/**`). It is not part of Gradle, so the rest of CI
-can go green while a blog post is still unpublished.
+`product_update_cta_live` GET-probes those links only when a PR changes one of
+those JSON files. Other PRs still run the job so a required check does not stay
+pending, but they skip the HTTP probe and pass. The probe is not part of Gradle,
+so the rest of CI can go green while a blog post is still unpublished.
 
 **Repo admins:** add `product_update_cta_live` as a **required status check** on
 `master` (classic branch protection or a ruleset). Until that is set, the job
-is advisory and will not block merge. Do not require
-`rerun_failed_product_update_cta`.
+is advisory and will not block merge.
 
-After the URL returns 2xx, re-run that one job (or wait up to 15 minutes for the
-scheduled retry in `product-update CTA rerun`). Do not rerun the full CI suite.
+After the URL returns 2xx, re-run that one job. Do not rerun the full CI suite.
 
 ### PR Title Format
 
