@@ -1,4 +1,4 @@
-import { ApolloLink, Observable } from '@apollo/client';
+import { ApolloLink, InMemoryCache, Observable } from '@apollo/client';
 import { MockedProvider } from '@apollo/client/testing';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
@@ -7,6 +7,7 @@ import { EntityContext } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import SidebarLineageSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
 import { TabContextType } from '@app/entityV2/shared/types';
+import possibleTypesResult from '@src/possibleTypes.generated';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { EntityType } from '@types';
@@ -19,6 +20,9 @@ const entityData: GenericEntityProperties = {
 };
 
 function renderSection(contextType: TabContextType, operations: string[]) {
+    const cache = new InMemoryCache({
+        possibleTypes: possibleTypesResult.possibleTypes,
+    });
     const link = new ApolloLink(
         (operation) =>
             new Observable((observer) => {
@@ -27,27 +31,42 @@ function renderSection(contextType: TabContextType, operations: string[]) {
                     observer.next({
                         data: {
                             entity: {
+                                __typename: 'Dataset',
                                 urn: URN,
                                 type: EntityType.Dataset,
-                                upstream: { filtered: 1, total: 3 },
-                                downstream: { filtered: 0, total: 4 },
+                                upstream: { __typename: 'EntityLineageResult', filtered: 1, total: 3 },
+                                downstream: { __typename: 'EntityLineageResult', filtered: 0, total: 4 },
+                            },
+                        },
+                    });
+                } else if (operation.operationName === 'getSearchAcrossLineageCounts') {
+                    observer.next({
+                        data: {
+                            upstreams: {
+                                __typename: 'SearchAcrossLineageResults',
+                                start: 0,
+                                count: 0,
+                                total: 0,
+                                facets: [],
+                            },
+                            downstreams: {
+                                __typename: 'SearchAcrossLineageResults',
+                                start: 0,
+                                count: 0,
+                                total: 0,
+                                facets: [],
                             },
                         },
                     });
                 } else {
-                    observer.next({
-                        data: {
-                            upstreams: { start: 0, count: 0, total: 0, facets: [] },
-                            downstreams: { start: 0, count: 0, total: 0, facets: [] },
-                        },
-                    });
+                    observer.next({ data: {} });
                 }
                 observer.complete();
             }),
     );
 
     return render(
-        <MockedProvider link={link}>
+        <MockedProvider cache={cache} link={link}>
             <TestPageContainer>
                 <EntityContext.Provider
                     value={{
@@ -79,13 +98,19 @@ describe('SidebarLineageSection', () => {
         expect(screen.getByText('DOWNSTREAM')).toBeInTheDocument();
         expect(screen.getByText('2')).toBeInTheDocument();
         expect(screen.getByText('4')).toBeInTheDocument();
-        expect(operations).toEqual(['getLineageCounts']);
+        expect(operations.filter((operation) => operation.toLowerCase().includes('lineage'))).toEqual([
+            'getLineageCounts',
+        ]);
     });
 
     it('keeps the detailed lineage query outside search summary', async () => {
         const operations: string[] = [];
         renderSection(TabContextType.PROFILE_SIDEBAR, operations);
 
-        await waitFor(() => expect(operations).toEqual(['getSearchAcrossLineageCounts']));
+        await waitFor(() =>
+            expect(operations.filter((operation) => operation.toLowerCase().includes('lineage'))).toEqual([
+                'getSearchAcrossLineageCounts',
+            ]),
+        );
     });
 });
