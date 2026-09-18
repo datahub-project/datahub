@@ -1661,7 +1661,6 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
                 logoUrl
             }
         }
-        cardinality
         typeQualifier {
             allowedTypes {
                 urn
