@@ -9,10 +9,10 @@ import themeV2 from '@conf/theme/themeV2';
 
 import { EntityType, StructuredPropertyEntity } from '@types';
 
-const { softDelete, hardDelete, showToastMessage } = vi.hoisted(() => ({
+const { softDelete, hardDelete, toastError } = vi.hoisted(() => ({
     softDelete: vi.fn(),
     hardDelete: vi.fn(),
-    showToastMessage: vi.fn(),
+    toastError: vi.fn(),
 }));
 
 vi.mock('@src/graphql/mutations.generated', () => ({
@@ -42,10 +42,11 @@ vi.mock('@src/app/useEntityRegistry', () => ({
     }),
 }));
 
-vi.mock('@src/app/sharedV2/toastMessageUtils', () => ({
-    showToastMessage,
-    ToastType: { ERROR: 'error', SUCCESS: 'success', LOADING: 'loading' },
-}));
+// Only `toast` is stubbed; the table renders real components from this barrel.
+vi.mock('@components', async () => {
+    const actual = await vi.importActual<typeof import('@components')>('@components');
+    return { ...actual, toast: { ...actual.toast, error: toastError } };
+});
 
 const testProperty = {
     urn: 'urn:li:structuredProperty:io.acryl.test.deleteMe',
@@ -112,7 +113,7 @@ describe('StructuredPropsTable delete flow', () => {
 
         await confirmDeleteFromMenu();
 
-        await waitFor(() => expect(showToastMessage).toHaveBeenCalledWith('error', expect.anything(), 3));
+        await waitFor(() => expect(toastError).toHaveBeenCalledWith(expect.anything(), { duration: 3 }));
         expect(hardDelete).not.toHaveBeenCalled();
     });
 

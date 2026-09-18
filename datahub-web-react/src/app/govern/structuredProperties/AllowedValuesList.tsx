@@ -3,8 +3,8 @@ import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, us
 import type { DragEndEvent } from '@dnd-kit/core';
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { NotePencil } from '@phosphor-icons/react/dist/csr/NotePencil';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { TextAlignLeft } from '@phosphor-icons/react/dist/csr/TextAlignLeft';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -33,10 +33,9 @@ type Props = {
 const AllowedValuesList = ({ propType, isReadOnly, rows, errors, addRow, updateRow, removeRow, moveRow }: Props) => {
     const { t } = useTranslation('governance.structured-properties');
     const { t: tc } = useTranslation('common.actions');
-    const { t: tl } = useTranslation('common.labels');
 
-    // Only rows the user has explicitly toggled live here; everything else falls back to being
-    // open when it already has a description and closed when it does not.
+    // Rows on which the user opened an empty description field. A row that already has a
+    // description is always open and never appears here.
     const [descriptionOverrides, setDescriptionOverrides] = useState<Record<string, boolean>>({});
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -81,9 +80,11 @@ const AllowedValuesList = ({ propType, isReadOnly, rows, errors, addRow, updateR
                                 const isExisting = !!row.isPersisted;
 
                                 const hasDescription = !!row.description;
-                                const showDescription = isReadOnly
-                                    ? hasDescription
-                                    : (descriptionOverrides[row.rowId] ?? hasDescription);
+                                const showDescription =
+                                    hasDescription || (!isReadOnly && !!descriptionOverrides[row.rowId]);
+                                // An existing description always stays visible, so the toggle only ever adds
+                                // one. A saved value's description cannot be edited, so it gets no toggle.
+                                const canToggleDescription = !hasDescription && !isExisting;
 
                                 return (
                                     <SortableAllowedValue
@@ -118,7 +119,6 @@ const AllowedValuesList = ({ propType, isReadOnly, rows, errors, addRow, updateR
                                         descriptionInput={
                                             showDescription ? (
                                                 <TextArea
-                                                    label={tl('description')}
                                                     placeholder={t('allowedValues.descriptionPlaceholder')}
                                                     value={row.description ?? ''}
                                                     onChange={(e) =>
@@ -131,28 +131,30 @@ const AllowedValuesList = ({ propType, isReadOnly, rows, errors, addRow, updateR
                                         actions={
                                             isReadOnly ? undefined : (
                                                 <>
-                                                    <Tooltip
-                                                        title={t(
-                                                            showDescription
-                                                                ? 'allowedValues.hideDescriptionTooltip'
-                                                                : 'allowedValues.descriptionTooltip',
-                                                        )}
-                                                        showArrow={false}
-                                                    >
-                                                        <Button
-                                                            onClick={() =>
-                                                                toggleDescription(row.rowId, showDescription)
-                                                            }
-                                                            variant="text"
-                                                            isCircle
-                                                            icon={{ icon: NotePencil, size: 'lg' }}
-                                                            aria-label={t(
+                                                    {canToggleDescription && (
+                                                        <Tooltip
+                                                            title={t(
                                                                 showDescription
                                                                     ? 'allowedValues.hideDescriptionTooltip'
                                                                     : 'allowedValues.descriptionTooltip',
                                                             )}
-                                                        />
-                                                    </Tooltip>
+                                                            showArrow={false}
+                                                        >
+                                                            <Button
+                                                                onClick={() =>
+                                                                    toggleDescription(row.rowId, showDescription)
+                                                                }
+                                                                variant="text"
+                                                                isCircle
+                                                                icon={{ icon: TextAlignLeft, size: 'lg' }}
+                                                                aria-label={t(
+                                                                    showDescription
+                                                                        ? 'allowedValues.hideDescriptionTooltip'
+                                                                        : 'allowedValues.descriptionTooltip',
+                                                                )}
+                                                            />
+                                                        </Tooltip>
+                                                    )}
                                                     {!isExisting && (
                                                         <Tooltip
                                                             title={t('allowedValues.removeTooltip')}

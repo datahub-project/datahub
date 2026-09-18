@@ -26,13 +26,33 @@ const SortableRow = styled.div<{
             : `grid-template-areas: 'value actions handle';`}
     align-items: center;
     column-gap: 8px;
-    row-gap: 6px;
-    padding: 4px 0;
+    row-gap: 8px;
+    /* Vertical padding sits between the content and the divider, so a value is closer to its own
+       description (row-gap) than to the neighbouring pair. The first row omits it so the list keeps
+       the standard 4px label gap. */
+    padding: 16px 0;
+
+    &:first-child {
+        padding-top: 0;
+    }
     border-radius: 6px;
     background-color: ${(props) => (props.$isDragging ? props.theme.colors.bgSurface : 'transparent')};
     box-shadow: ${(props) => (props.$isDragging ? props.theme.colors.shadowSm : 'none')};
     z-index: ${(props) => (props.$isDragging ? '999' : 'auto')};
-    position: ${(props) => (props.$isDragging ? 'relative' : 'static')};
+    position: relative;
+
+    /* Separates one value from the next, so it is drawn as its own line rather than as a border on
+       the row, whose corner radius would bow its ends. */
+    &:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 1px;
+        background-color: ${(props) => props.theme.colors.border};
+        opacity: ${(props) => (props.$isDragging ? '0' : '1')};
+    }
     transform: ${(props) => props.$transform};
     transition: ${(props) => props.$transition};
 `;

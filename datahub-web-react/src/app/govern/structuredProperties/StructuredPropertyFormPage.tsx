@@ -1,4 +1,4 @@
-import { ActionsBar, Breadcrumb, Button, Loader, PageTitle } from '@components';
+import { ActionsBar, Breadcrumb, Button, Loader, PageTitle, toast } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect, useHistory, useLocation, useParams } from 'react-router';
@@ -34,7 +34,6 @@ import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/type
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
-import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { PageRoutes } from '@src/conf/Global';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
@@ -114,7 +113,9 @@ export default function StructuredPropertyFormPage() {
     const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const location = useLocation<LocationState>();
-    const { urn } = useParams<RouteParams>();
+    // The URN is percent-encoded into the path, and react-router v5 hands params back undecoded.
+    const { urn: urnParam } = useParams<RouteParams>();
+    const urn = urnParam && decodeURIComponent(urnParam);
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
@@ -217,11 +218,11 @@ export default function StructuredPropertyFormPage() {
     };
 
     const showErrorMessage = () => {
-        showToastMessage(ToastType.ERROR, t(isEditMode ? 'updateError' : 'createError'), 3);
+        toast.error(t(isEditMode ? 'updateError' : 'createError'), { duration: 3 });
     };
 
     const showSuccessMessage = () => {
-        showToastMessage(ToastType.SUCCESS, t(isEditMode ? 'updateSuccess' : 'createSuccess'), 3);
+        toast.success(t(isEditMode ? 'updateSuccess' : 'createSuccess'), { duration: 3 });
     };
 
     const trackSavedProperty = (event: SavedPropertyEvent, allowedValues: AllowedValueInput[]) => {
@@ -258,11 +259,14 @@ export default function StructuredPropertyFormPage() {
     }, [history, isSaveComplete]);
 
     useEffect(() => {
-        if (!isSubmitting) return undefined;
         // A pending mutation cannot be safely abandoned: its completion could otherwise redirect
         // from whichever page the user navigated to. Block in-app transitions until it settles.
+        // Releasing on `isSaveComplete` rather than waiting for `isSubmitting` to clear matters:
+        // those land in separate commits, and effect cleanups all run before any effect body, so
+        // this unblocks ahead of the redirect above instead of cancelling it.
+        if (!isSubmitting || isSaveComplete) return undefined;
         return history.block(() => false);
-    }, [history, isSubmitting]);
+    }, [history, isSubmitting, isSaveComplete]);
 
     const handleSubmit = async () => {
         const validationErrors = validateStructuredProperty(formValues, allowedValueRows);

@@ -1,4 +1,4 @@
-import { Button, Menu, Pill, Table, Text, Tooltip } from '@components';
+import { Button, Menu, Pill, Table, Text, Tooltip, toast } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import React, { useRef, useState } from 'react';
 import Highlight from 'react-highlighter';
@@ -31,7 +31,6 @@ import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
-import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { PageRoutes } from '@src/conf/Global';
 import { useBatchUpdateSoftDeletedMutation } from '@src/graphql/mutations.generated';
@@ -123,7 +122,7 @@ const StructuredPropsTable = ({
         if (!propertyToDelete || deleteInProgress.current) return;
 
         deleteInProgress.current = true;
-        showToastMessage(ToastType.LOADING, t('table.deleting'), 1);
+        toast.loading(t('table.deleting'), { duration: 1 });
         try {
             // Soft-delete first: the backend rejects hard deletion of an active structured property,
             // since hard deletion can permanently reserve the property's qualified name in the search
@@ -162,11 +161,11 @@ const StructuredPropsTable = ({
                 hideInAssetSummaryWhenEmpty: propertyToDelete.settings?.hideInAssetSummaryWhenEmpty ?? false,
                 showInColumnsTable: propertyToDelete.settings?.showInColumnsTable ?? false,
             });
-            showToastMessage(ToastType.SUCCESS, t('table.deleteSuccess'), 3);
+            toast.success(t('table.deleteSuccess'), { duration: 3 });
             setDeletedPropertyUrns((urns) => [...urns, propertyToDelete.urn]);
             setTotalCount?.((prev) => Math.max(0, prev - 1));
         } catch {
-            showToastMessage(ToastType.ERROR, t('table.deleteError'), 3);
+            toast.error(t('table.deleteError'), { duration: 3 });
         } finally {
             deleteInProgress.current = false;
             setShowConfirmDelete(false);
