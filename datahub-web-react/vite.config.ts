@@ -118,18 +118,46 @@ export default defineConfig(async ({ mode }) => {
         configure: proxyDebugConfig,
     };
 
+    // DATAHUB_DEV_MFE_CONFIG_FILE=<path to yaml> serves that file at /mfe/config from the dev server
+    // instead of proxying to datahub-frontend, so MFE placements can be iterated on without
+    // rebuilding or restarting the frontend service. Development mode only.
+    const devMfeConfigFile = mode === 'development' ? process.env.DATAHUB_DEV_MFE_CONFIG_FILE : undefined;
+
     const proxyOptions = {
         '/logIn': frontendProxy,
         '/authenticate': frontendProxy,
         '/api/v2/graphql': frontendProxy,
         '/openapi/v1/tracking/track': frontendProxy,
         '/openapi/v1/files': frontendProxy,
-        '/mfe/config': frontendProxy,
+        ...(devMfeConfigFile ? {} : { '/mfe/config': frontendProxy }),
     };
 
     const isHttps = process.env.REACT_APP_HTTPS === 'true';
     const localesDir = path.resolve(__dirname, 'src/i18n/locales');
     const devPlugins: PluginOption[] = mode === 'development' ? [injectMeticulous()] : [];
+
+    if (devMfeConfigFile) {
+        const mfeConfigPath = path.resolve(devMfeConfigFile);
+        devPlugins.push({
+            name: 'datahub-dev-mfe-config',
+            configureServer(server) {
+                server.middlewares.use('/mfe/config', (_req, res) => {
+                    try {
+                        const body = fs.readFileSync(mfeConfigPath, 'utf-8');
+                        res.setHeader('Content-Type', 'application/yaml');
+                        res.setHeader('Cache-Control', 'no-store');
+                        res.end(body);
+                    } catch (e) {
+                        res.statusCode = 500;
+                        res.end(
+                            `Failed to read DATAHUB_DEV_MFE_CONFIG_FILE (${mfeConfigPath}): ${(e as Error).message}`,
+                        );
+                    }
+                });
+                console.log(`[MFE] serving /mfe/config from ${mfeConfigPath}`);
+            },
+        });
+    }
 
     if (isHttps) {
         devPlugins.push(
