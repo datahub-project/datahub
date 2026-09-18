@@ -1,8 +1,8 @@
-import { Divider, Popover } from 'antd';
+import { Popover } from '@components';
+import { Divider } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityHealthStatus } from '@app/entity/shared/containers/profile/header/EntityHealthStatus';
 import { HealthSummaryIconType, getHealthSummaryIcon, getHealthSummaryMessage } from '@app/shared/health/healthUtils';
 
@@ -22,7 +22,7 @@ const Icon = styled.span`
 
 const Title = styled.span`
     font-weight: bold;
-    color: ${ANTD_GRAY[1]};
+    color: ${(props) => props.theme.colors.bg};
     padding-top: 4px;
     padding-bottom: 4px;
     font-size: 14px;
@@ -40,7 +40,7 @@ const StyledDivider = styled(Divider)`
         padding-left: 8px;
         margin-top: 8px;
         margin-bottom: 8px;
-        border-color: ${ANTD_GRAY[5]};
+        border-color: ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -53,10 +53,11 @@ type Props = {
 };
 
 export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, placement = 'right' }: Props) => {
+    const theme = useTheme();
     return (
         <Popover
             content={
-                <>
+                <div data-testid="assertion-details">
                     <Header>
                         <Icon>{getHealthSummaryIcon(health, HealthSummaryIconType.OUTLINED, fontSize)}</Icon>{' '}
                         <Title>{getHealthSummaryMessage(health)}</Title>
@@ -67,9 +68,9 @@ export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, place
                             <EntityHealthStatus type={h.type} message={h.message || undefined} baseUrl={baseUrl} />
                         </StatusContainer>
                     ))}
-                </>
+                </div>
             }
-            color="#262626"
+            color={theme.colors.bgTooltip}
             placement={placement}
             zIndex={10000000}
         >
