@@ -7,8 +7,10 @@ import { useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
 import { THEME_DARK_MODE_FLAG } from '@app/theme/useIsDarkMode';
 import themes from '@conf/theme/themes';
 
+let mockManageFeatures = false;
+
 vi.mock('@app/context/useUserContext', () => ({
-    useUserContext: () => ({ platformPrivileges: { manageFeatures: false } }),
+    useUserContext: () => ({ platformPrivileges: { manageFeatures: mockManageFeatures } }),
 }));
 
 vi.mock('@app/i18n/hooks/useIsI18nEnabled', () => ({
@@ -26,11 +28,13 @@ vi.mock('@app/sharedV2/hooks/useFeatureFlag', () => ({
 
 vi.mock('@graphql/app.generated', () => ({
     useUpdateApplicationsSettingsMutation: () => [vi.fn()],
+    useUpdateEnvironmentBadgeSettingsMutation: () => [vi.fn()],
 }));
 
 describe('Preferences', () => {
     beforeEach(() => {
         localStorage.clear();
+        mockManageFeatures = false;
         vi.mocked(useFeatureFlag).mockImplementation((key: string) => key === THEME_DARK_MODE_FLAG);
     });
 
@@ -80,5 +84,27 @@ describe('Preferences', () => {
 
         expect(screen.queryByRole('checkbox', { name: 'Dark mode' })).not.toBeInTheDocument();
         expect(screen.getByText('No appearance settings found.')).toBeInTheDocument();
+    });
+
+    it('shows the environment badge toggle when the user can manage features', () => {
+        mockManageFeatures = true;
+
+        render(
+            <ThemeProvider theme={themes.themeV2}>
+                <Preferences />
+            </ThemeProvider>,
+        );
+
+        expect(screen.getByText('Show environment badge on assets')).toBeInTheDocument();
+    });
+
+    it('hides the environment badge toggle when the user cannot manage features', () => {
+        render(
+            <ThemeProvider theme={themes.themeV2}>
+                <Preferences />
+            </ThemeProvider>,
+        );
+
+        expect(screen.queryByText('Show environment badge on assets')).not.toBeInTheDocument();
     });
 });

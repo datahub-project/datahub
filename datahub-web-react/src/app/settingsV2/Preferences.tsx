@@ -12,7 +12,10 @@ import { useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
 import { THEME_DARK_MODE_FLAG } from '@app/theme/useIsDarkMode';
 import { useAppConfig } from '@app/useAppConfig';
 
-import { useUpdateApplicationsSettingsMutation } from '@graphql/app.generated';
+import {
+    useUpdateApplicationsSettingsMutation,
+    useUpdateEnvironmentBadgeSettingsMutation,
+} from '@graphql/app.generated';
 
 const Page = styled.div`
     width: 100%;
@@ -80,8 +83,10 @@ export const Preferences = () => {
     const darkModeEnabled = useFeatureFlag(THEME_DARK_MODE_FLAG);
 
     const applicationsEnabled = appConfig.config?.visualConfig?.application?.showApplicationInNavigation ?? false;
+    const showEnvironmentBadge = appConfig.config?.visualConfig?.showEnvironmentBadge ?? false;
 
     const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
+    const [updateEnvironmentBadgeSettingsMutation] = useUpdateEnvironmentBadgeSettingsMutation();
 
     const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
 
@@ -124,6 +129,34 @@ export const Preferences = () => {
                                     });
                                     message.success({
                                         content: t('showApplications.successMessage'),
+                                        duration: 2,
+                                    });
+                                    appConfig?.refreshContext();
+                                }}
+                            />
+                        </UserSettingRow>
+                    </StyledCard>
+                )}
+                {canManageApplicationAppearance && (
+                    <StyledCard>
+                        <UserSettingRow>
+                            <TextContainer>
+                                <SettingText>{t('showEnvironmentBadge.title')}</SettingText>
+                                <DescriptionText>{t('showEnvironmentBadge.description')}</DescriptionText>
+                            </TextContainer>
+                            <Switch
+                                label=""
+                                checked={showEnvironmentBadge}
+                                onChange={async () => {
+                                    await updateEnvironmentBadgeSettingsMutation({
+                                        variables: {
+                                            input: {
+                                                enabled: !showEnvironmentBadge,
+                                            },
+                                        },
+                                    });
+                                    message.success({
+                                        content: t('showEnvironmentBadge.successMessage'),
                                         duration: 2,
                                     });
                                     appConfig?.refreshContext();

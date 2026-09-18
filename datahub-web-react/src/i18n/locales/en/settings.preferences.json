@@ -8,5 +8,8 @@
     "noSettings": "No appearance settings found.",
     "showApplications.description": "Applications are another way to organize your data, similar to Domains. They are hidden by default.",
     "showApplications.successMessage": "Setting updated!",
-    "showApplications.title": "Show Applications"
+    "showApplications.title": "Show Applications",
+    "showEnvironmentBadge.description": "Show a badge with each asset's environment (PROD, DEV, QA, …) in search and on entity pages.",
+    "showEnvironmentBadge.successMessage": "Setting updated!",
+    "showEnvironmentBadge.title": "Show environment badge on assets"
 }
