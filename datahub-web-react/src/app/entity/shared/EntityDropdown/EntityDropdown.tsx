@@ -9,7 +9,8 @@ import {
     PlusOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { Dropdown, Menu, Tooltip, message } from 'antd';
+import { Tooltip } from '@components';
+import { Dropdown, Menu, message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect, useHistory } from 'react-router';

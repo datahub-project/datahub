@@ -1,5 +1,5 @@
 import { Popover } from '@components';
-import React, { useRef } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -148,8 +148,6 @@ export const ViewSelect = () => {
 
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
-    const selectRef = useRef(null);
-
     return (
         <>
             {isShowNavBarRedesign && createPortal(<Blur $isOpen={isInternalOpen} />, document.body)}
@@ -208,8 +206,6 @@ export const ViewSelect = () => {
                     overlayInnerStyle={getOverlayInnerStyle(isShowNavBarRedesign, theme)}
                     overlayStyle={getOverlayStyle(isShowNavBarRedesign, theme)}
                     showArrow={false}
-                    popupVisible={false}
-                    ref={selectRef}
                     data-testid="view-select-popover-trigger"
                 >
                     {renderSelectedView({ selectedViewName, onClear, isShowNavBarRedesign })}

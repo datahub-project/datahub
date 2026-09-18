@@ -89,7 +89,8 @@ describe('AccessButtonHelpers', () => {
             render(<TestWrapper>{result}</TestWrapper>);
 
             const button = screen.getByRole('button');
-            expect(button.parentElement?.className).not.toContain('ant-tooltip');
+            fireEvent.focus(button);
+            expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
         });
     });
 

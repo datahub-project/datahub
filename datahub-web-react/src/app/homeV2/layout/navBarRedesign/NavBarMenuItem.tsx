@@ -1,4 +1,5 @@
-import { Menu, MenuItemProps, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Menu, MenuItemProps } from 'antd';
 import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';

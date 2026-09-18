@@ -1,7 +1,6 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Popover } from '@components';
+import { Popover, TooltipPlacement } from '@components';
 import { Empty, Typography } from 'antd';
-import { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';

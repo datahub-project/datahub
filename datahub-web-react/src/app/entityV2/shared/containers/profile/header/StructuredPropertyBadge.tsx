@@ -13,7 +13,7 @@ import { StructuredProperties } from '@src/types.generated';
 const MAX_PROP_BADGE_WIDTH = 150;
 
 const StyledTooltip = styled(Tooltip)`
-    .ant-tooltip-inner {
+    .alchemy-floating-overlay-inner {
         border-radius: 8px;
         box-shadow: ${(props) => props.theme.colors.shadowSm};
     }

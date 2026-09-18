@@ -1,5 +1,5 @@
-import { InfoCircleFilled, InfoCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
+import { Icon, Tooltip } from '@components';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -25,7 +25,7 @@ export default function InfoTooltip({ content, className }: Props) {
                 onOpenChange={setShowTooltip}
                 showArrow={false}
             >
-                {showTooltip ? <InfoCircleFilled /> : <InfoCircleOutlined />}
+                <Icon icon={Info} size="md" weight={showTooltip ? 'fill' : 'regular'} color="inherit" />
             </Tooltip>
         </InfoWrapper>
     );

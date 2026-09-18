@@ -85,7 +85,7 @@ const DepthNumber = styled(Typography.Text)`
 `;
 
 const StyledTooltip = styled(Tooltip)`
-    .ant-tooltip-inner {
+    .alchemy-floating-overlay-inner {
         border-radius: 3px;
         background: ${(props) => props.theme.colors.bgSurface};
         font-size: 10px;

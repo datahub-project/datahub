@@ -2,7 +2,7 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { EntityCapabilityType, PreviewType } from '@app/entityV2/Entity';
+import { EntityCapabilityType } from '@app/entityV2/Entity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
@@ -11,7 +11,7 @@ import PreviewCardFooterRightSection from '@app/previewV2/PreviewCardFooterRight
 import { entityHasCapability } from '@app/previewV2/utils';
 import { useHideLineageInSearchCards } from '@app/useAppConfig';
 
-import { DatasetStatsSummary, EntityPath, EntityType, GlobalTags, GlossaryTerms, Maybe, Owner } from '@types';
+import { DatasetStatsSummary, EntityPath, EntityType, GlobalTags, GlossaryTerms, Owner } from '@types';
 
 interface DefaultPreviewCardFooterProps {
     glossaryTerms?: GlossaryTerms;
@@ -19,8 +19,6 @@ interface DefaultPreviewCardFooterProps {
     owners?: Array<Owner> | null;
     entityCapabilities: Set<EntityCapabilityType>;
     tier?: PopularityTier;
-    entityTitleSuffix?: React.ReactNode;
-    previewType: Maybe<PreviewType> | undefined;
     entityType: EntityType;
     urn: string;
     entityRegistry: EntityRegistry;
@@ -49,30 +47,6 @@ const RightSection = styled.div<{ isFullViewCard?: boolean }>`
     padding: ${(props) => (props.isFullViewCard ? '0 10px' : '0 5px')};
 `;
 
-const EntityLink = styled.div`
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-
-    .ant-btn-link {
-        display: flex;
-        align-items: center;
-        color: ${(props) => props.theme.colors.textBrand};
-        height: 100%;
-
-        :hover {
-            color: ${(props) => props.theme.colors.textHover};
-        }
-
-        > span:first-child {
-            display: flex;
-            align-items: center;
-            height: 100%;
-            line-height: normal;
-        }
-    }
-`;
-
 const HorizontalDivider = styled(Divider)`
     color: ${(props) => props.theme.colors.border};
     margin-top: 14px;
@@ -87,8 +61,6 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     owners,
     entityCapabilities,
     tier,
-    entityTitleSuffix,
-    previewType,
     entityType,
     urn,
     entityRegistry,
@@ -101,11 +73,10 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     const showLineageBadge = !hideLineage && entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
 
     const shouldRenderPillsRow = [glossaryTerms?.terms, tags?.tags, owners?.length].some(Boolean);
-    const shouldRenderEntityLink = previewType === PreviewType.HOVER_CARD && entityTitleSuffix;
     const shouldRenderRightSection =
         tier !== undefined || lastUpdatedMs?.lastUpdatedMs || statsSummary?.queryCountLast30Days || showLineageBadge;
 
-    return shouldRenderPillsRow || shouldRenderRightSection || shouldRenderEntityLink ? (
+    return shouldRenderPillsRow || shouldRenderRightSection ? (
         <>
             {isFullViewCard && <HorizontalDivider />}
 
@@ -130,7 +101,6 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
                         tier={tier}
                         statsSummary={statsSummary}
                     />
-                    {previewType === PreviewType.HOVER_CARD && <EntityLink>{entityTitleSuffix}</EntityLink>}
                 </RightSection>
             </Container>
         </>

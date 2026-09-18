@@ -2,13 +2,10 @@ import { Hexagon } from '@phosphor-icons/react/dist/csr/Hexagon';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { getRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import UrlButton from '@app/entityV2/shared/UrlButton';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { EntityType, Owner } from '@types';
 
@@ -42,11 +39,6 @@ export const Preview = ({
             logoComponent={<Hexagon size={20} color="currentColor" />}
             type={t('businessAttribute.name')}
             typeIcon={entityRegistry.getIcon(EntityType.BusinessAttribute, 14, IconStyleType.ACCENT)}
-            entityTitleSuffix={
-                <UrlButton href={resolveRuntimePath(getRelatedEntitiesUrl(entityRegistry, urn))}>
-                    {t('businessAttribute.viewRelatedEntities')}
-                </UrlButton>
-            }
         />
     );
 };

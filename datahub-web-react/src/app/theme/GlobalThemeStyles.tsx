@@ -420,32 +420,6 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         background-color: ${(props) => props.theme.colors.bgSurface};
     }
 
-    /* ── Popover / Tooltip ────────────────────────────────── */
-    .ant-popover {
-        color: ${(props) => props.theme.colors.text};
-    }
-    .ant-popover-inner {
-        background-color: ${(props) => props.theme.colors.bgOverlay};
-        box-shadow: ${(props) => props.theme.colors.shadowMd};
-    }
-    .ant-popover-inner-content {
-        color: ${(props) => props.theme.colors.text};
-    }
-    .ant-popover-title {
-        color: ${(props) => props.theme.colors.text};
-        border-bottom-color: ${(props) => props.theme.colors.border};
-    }
-    .ant-popover-arrow-content {
-        background-color: ${(props) => props.theme.colors.bgOverlay};
-        box-shadow: ${(props) => props.theme.colors.shadowSm};
-    }
-    .ant-popover-message {
-        color: ${(props) => props.theme.colors.text};
-    }
-    .ant-popover-message > .anticon {
-        color: ${(props) => props.theme.colors.iconWarning};
-    }
-
     /* ── Tabs ─────────────────────────────────────────────── */
     .ant-tabs {
         color: ${(props) => props.theme.colors.text};
@@ -1472,17 +1446,6 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     }
     .ant-switch-checked .ant-switch-loading-icon {
         color: ${(props) => props.theme.colors.iconBrand};
-    }
-
-    /* ── Tooltip ──────────────────────────────────────────── */
-    .ant-tooltip-inner {
-        background-color: ${(props) => props.theme.colors.bgOverlay};
-        color: ${(props) => props.theme.colors.text};
-        box-shadow: ${(props) => props.theme.colors.shadowMd};
-    }
-    .ant-tooltip-arrow-content {
-        background-color: ${(props) => props.theme.colors.bgOverlay};
-        box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
 
     /* ── Segmented ────────────────────────────────────────── */

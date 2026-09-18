@@ -1,5 +1,5 @@
 import { ArrowRightOutlined } from '@ant-design/icons';
-import { TooltipPlacement } from 'antd/es/tooltip';
+import { TooltipPlacement } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
 

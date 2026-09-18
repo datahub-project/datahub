@@ -1,9 +1,41 @@
-import { Popover, PopoverProps } from 'antd';
 import * as React from 'react';
 
-export default function DataHubPopover({ overlayInnerStyle, ...props }: PopoverProps & React.RefAttributes<unknown>) {
-    // Merge (don't replace) the default font so callers that pass their own
-    // overlayInnerStyle for padding/background/shadow still inherit Mulish instead of
-    // silently falling back to antd's default font token (Manrope).
-    return <Popover overlayInnerStyle={{ fontFamily: 'Mulish', ...overlayInnerStyle }} {...props} showArrow={false} />;
+import FloatingOverlay, {
+    FloatingOverlayProps,
+    OverlayPlacement,
+} from '@components/components/FloatingOverlay/FloatingOverlay';
+
+export type PopoverPlacement = OverlayPlacement;
+
+export type PopoverProps = Omit<FloatingOverlayProps, 'content'> & {
+    content?: React.ReactNode | (() => React.ReactNode);
+    title?: React.ReactNode | (() => React.ReactNode);
+};
+
+function resolveContent(content: PopoverProps['content']): React.ReactNode {
+    return typeof content === 'function' ? content() : content;
+}
+
+export default function Popover({ title, content, showArrow = false, overlayInnerStyle, ...props }: PopoverProps) {
+    const resolvedTitle = resolveContent(title);
+    const resolvedContent = resolveContent(content);
+    const popoverContent =
+        resolvedTitle || resolvedContent ? (
+            <>
+                {resolvedTitle && (
+                    <div style={{ fontWeight: 600, marginBottom: resolvedContent ? 8 : 0 }}>{resolvedTitle}</div>
+                )}
+                {resolvedContent}
+            </>
+        ) : undefined;
+
+    return (
+        <FloatingOverlay
+            content={popoverContent}
+            role="dialog"
+            showArrow={showArrow}
+            overlayInnerStyle={{ fontFamily: 'Mulish', ...overlayInnerStyle }}
+            {...props}
+        />
+    );
 }

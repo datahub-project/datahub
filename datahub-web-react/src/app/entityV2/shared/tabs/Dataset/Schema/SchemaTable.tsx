@@ -77,7 +77,7 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
             background-color: ${(props) => props.theme.colors.bgHighlight} !important;
         }
 
-        .row-icon-tooltip .ant-tooltip-inner {
+        .row-icon-tooltip .alchemy-floating-overlay-inner {
             background: ${(props) => props.theme.colors.bgSurface} !important;
             color: ${(props) => props.theme.colors.text} !important;
         }

@@ -1,12 +1,8 @@
-import { Tooltip } from '@components';
-import { TooltipPlacement } from 'antd/es/tooltip';
+import { Popover, PopoverPlacement } from '@components';
 import React from 'react';
-import { useTheme } from 'styled-components';
 
-import { PreviewType } from '@app/entity/Entity';
 import { PreviewContextProps } from '@app/entityV2/shared/PreviewContext';
-import { HoverEntityTooltipContext } from '@app/recommendations/HoverEntityTooltipContext';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import EntityHoverCard from '@app/sharedV2/hoverCard/EntityHoverCard';
 
 import { Entity } from '@types';
 
@@ -15,11 +11,8 @@ type Props = {
     // whether the tooltip can be opened or if it should always stay closed
     canOpen?: boolean;
     children: React.ReactNode;
-    placement?: TooltipPlacement;
+    placement?: PopoverPlacement;
     showArrow?: boolean;
-    width?: number;
-    maxWidth?: number;
-    entityCount?: number;
     previewContext?: PreviewContextProps;
 };
 
@@ -29,49 +22,22 @@ export const HoverEntityTooltip = ({
     children,
     placement,
     showArrow = false,
-    width = 360,
-    maxWidth = 500,
-    entityCount = undefined,
     previewContext,
 }: Props) => {
-    const theme = useTheme();
-    const entityRegistry = useEntityRegistryV2();
-
     if (!entity || !entity.type || !entity.urn) {
         return <>{children}</>;
     }
 
-    const clampToViewportWidth = (value: number | string) => {
-        // defensive programming in case HoverEntityTooltip ever starts allowing
-        // maxWidth as a string.
-        return `min(100vw, ${value}${typeof value === 'number' ? 'px' : ''})`;
-    };
-
     return (
-        <HoverEntityTooltipContext.Provider value={{ entityCount }}>
-            <Tooltip
-                showArrow={showArrow}
-                open={canOpen ? undefined : false}
-                placement={placement || 'bottom'}
-                overlayStyle={{ minWidth: width, maxWidth: clampToViewportWidth(maxWidth), zIndex: 1100 }}
-                overlayInnerStyle={{
-                    padding: 16,
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    position: 'relative',
-                    color: theme.colors.textSecondary,
-                }}
-                title={entityRegistry.renderPreview(
-                    entity.type,
-                    PreviewType.HOVER_CARD,
-                    entity,
-                    undefined,
-                    previewContext,
-                )}
-                zIndex={1000}
-            >
-                {children}
-            </Tooltip>
-        </HoverEntityTooltipContext.Provider>
+        <Popover
+            showArrow={showArrow}
+            open={canOpen ? undefined : false}
+            placement={placement || 'bottom'}
+            content={<EntityHoverCard entity={entity} propagationDetails={previewContext?.propagationDetails} />}
+            // Above the 1051 browser/modal wrappers a hover trigger can sit inside.
+            zIndex={1100}
+        >
+            {children}
+        </Popover>
     );
 };

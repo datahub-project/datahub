@@ -13,6 +13,7 @@
         "@dnd-kit/modifiers": "^9.0.0",
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
+        "@floating-ui/react-dom": "^2.1.9",
         "@fontsource/mulish": "^5.0.16",
         "@geometricpanda/storybook-addon-badges": "^2.0.2",
         "@graphql-codegen/fragment-matcher": "^5.0.0",

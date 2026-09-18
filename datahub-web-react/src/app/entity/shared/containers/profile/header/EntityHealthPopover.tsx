@@ -1,4 +1,5 @@
-import { Divider, Popover } from 'antd';
+import { Popover } from '@components';
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 

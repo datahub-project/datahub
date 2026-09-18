@@ -1,5 +1,6 @@
 import { DeleteOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Button, Form, Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 

@@ -1,4 +1,5 @@
-import { Button, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Button } from 'antd';
 import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';

@@ -1,5 +1,4 @@
-import { Tooltip } from '@components';
-import { TooltipPlacement } from 'antd/es/tooltip';
+import { Tooltip, TooltipPlacement } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 

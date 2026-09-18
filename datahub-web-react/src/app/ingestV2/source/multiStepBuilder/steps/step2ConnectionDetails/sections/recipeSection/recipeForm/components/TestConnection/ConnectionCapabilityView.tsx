@@ -1,8 +1,7 @@
 import { QuestionCircleOutlined } from '@ant-design/icons';
-import { Icon, Text, spacing } from '@components';
+import { Icon, Text, Tooltip, spacing } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 

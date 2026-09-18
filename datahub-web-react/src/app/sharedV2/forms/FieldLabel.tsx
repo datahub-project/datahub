@@ -1,6 +1,5 @@
-import { QuestionCircleOutlined } from '@ant-design/icons';
-import { Text, typography } from '@components';
-import { Tooltip } from 'antd';
+import { Icon, Text, Tooltip, typography } from '@components';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -15,11 +14,9 @@ const RequiredMark = styled.span`
     font-family: ${typography.fonts.body};
 `;
 
-const TooltipIcon = styled(QuestionCircleOutlined)`
+const TooltipIcon = styled(Icon)`
     cursor: pointer;
-    svg {
-        fill: ${(props) => props.theme.colors.icon};
-    }
+    color: ${(props) => props.theme.colors.icon};
 `;
 
 interface Props {
@@ -40,7 +37,7 @@ export function FieldLabel({ label, required, tooltip, labelHelper, className }:
             {required && <RequiredMark>*</RequiredMark>}
             {tooltip && (
                 <Tooltip title={tooltip}>
-                    <TooltipIcon />
+                    <TooltipIcon icon={Question} size="sm" weight="regular" />
                 </Tooltip>
             )}
             {labelHelper}
