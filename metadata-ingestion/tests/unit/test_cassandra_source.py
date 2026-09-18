@@ -167,8 +167,10 @@ def test_get_tables_leaves_non_bytes_extension_values_untouched() -> None:
 
     tables = api.get_tables("ks")
 
-    assert tables[0].extensions["already_text"] == "not bytes"
-    assert tables[0].extensions["binary_value"] == "base64://4="
+    assert tables[0].extensions == {
+        "already_text": "not bytes",
+        "binary_value": "base64://4=",
+    }
 
 
 def test_get_views_decodes_valid_utf8_extension() -> None:
