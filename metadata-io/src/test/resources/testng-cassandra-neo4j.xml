@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
-<suite name="metadata-io-es7-cassandra-neo4j" parallel="tests" thread-count="3">
+<suite name="metadata-io-cassandra-neo4j" parallel="tests" thread-count="2">
     <test name="cassandra-testcontainers">
         <packages>
             <package name="com.linkedin.metadata.entity.cassandra.*" />
@@ -12,13 +12,4 @@
             <package name="com.linkedin.metadata.graph.neo4j.*" />
         </packages>
     </test>
-    <test name="es7-testcontainers">
-        <parameter name="elasticVersion" value="7.10.2"/>
-        <packages>
-            <package name="com.linkedin.metadata.graph.search.elasticsearch.*" />
-            <package name="com.linkedin.metadata.search.elasticsearch.*"/>
-        </packages>
-    </test>
 </suite>
-
-
