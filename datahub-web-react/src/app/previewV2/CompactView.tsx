@@ -7,6 +7,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
+import { getEntityEnvironment } from '@app/entityV2/shared/containers/profile/header/getEntityEnvironment';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import ColoredBackgroundPlatformIconGroup, {
     PlatformContentWrapper,
@@ -104,6 +105,10 @@ export const CompactView = ({
     parentEntities,
     browsePaths,
 }: Props) => {
+    // `data` is a GenericEntityProperties projection of the raw search-result entity, but it's
+    // built by spreading that entity (see getDataForEntityType), so the fields getEntityEnvironment
+    // needs (type, origin, properties.env) are present on it at runtime.
+    const environment = getEntityEnvironment(data as unknown as Entity);
     return (
         <>
             <RowContainer>
@@ -118,6 +123,7 @@ export const CompactView = ({
                     health={health}
                     degree={degree}
                     connectionName={previewData?.name}
+                    environment={environment}
                 />
                 <CompactActionsAndStatusSection>
                     <ViewInPlatform data={data} urn={urn} />
