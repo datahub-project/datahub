@@ -10,10 +10,10 @@ This guide explains how to use DataHub's multi-client search engine shim to supp
 
 DataHub's search client shim provides seamless support for:
 
-- **Elasticsearch 8.17+** (and Elasticsearch 9.x)
+- **Elasticsearch 8.17+**
 - **OpenSearch 2.x and 3.x**
 
-Elasticsearch 7.x is not supported as a DataHub search backend. OpenSearch **Elasticsearch compatibility mode** (`compatibility.override_main_response_version`, which reports `7.10.2`) is also not supported — turn it off so `GET /` reports the real OpenSearch 2.x/3.x version.
+Elasticsearch 7.x is not supported as a DataHub search backend. Elasticsearch 9.x is **not** a certified backend (no ES9 CI; the 8.x Java client is used if auto-detect sees 9.x). OpenSearch **Elasticsearch compatibility mode** (`compatibility.override_main_response_version`, which reports `7.10.2`) is also not supported — turn it off so `GET /` reports the real OpenSearch 2.x/3.x version.
 
 ## Architecture
 
@@ -24,7 +24,7 @@ The shim consists of several key components:
 1. **`SearchClientShim`** - Main abstraction interface
 2. **`SearchClientShimFactory`** - Factory for creating appropriate client implementations
 3. **Implementation Classes** - Concrete implementations for each search engine:
-   - `Es8SearchClientShim` - ES 8.17+ / 9.x
+   - `Es8SearchClientShim` - ES 8.17+ (also used if a 9.x cluster is detected; ES9 is not certified)
    - `OpenSearchSearchClientShim` - OpenSearch 2.x / 3.x
 
 ### Supported Configurations

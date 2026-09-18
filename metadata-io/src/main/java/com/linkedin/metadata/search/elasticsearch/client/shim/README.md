@@ -6,7 +6,7 @@ This package provides a shim layer that abstracts different Elasticsearch and Op
 
 The shim supports the following search engines:
 
-- **Elasticsearch 8.x / 9.x** - Using the Elasticsearch Java Client (8.17+)
+- **Elasticsearch 8.x / 9.x** - Using the Elasticsearch Java Client (8.17+). Elasticsearch 9.x is detected and served by the same client; it is **not** a certified backend.
 - **OpenSearch 2.x / 3.x** - Using the unified OpenSearch low-level RestClient shim
 
 Elasticsearch 7.x is not supported. OpenSearch Elasticsearch compatibility mode (GET / reports 7.10.2) is not supported; disable it so the cluster reports 2.x/3.x.
@@ -108,9 +108,9 @@ try (SearchClientShim shim = SearchClientShimFactory.createShimWithAutoDetection
 
 | Engine Type        | Status      | Client Library                                            |
 | ------------------ | ----------- | --------------------------------------------------------- |
-| Elasticsearch 8.x  | ✅ Complete | `co.elastic.clients:elasticsearch-java`                   |
-| Elasticsearch 9.x  | ✅ Complete | `co.elastic.clients:elasticsearch-java`                   |
-| OpenSearch 2.x/3.x | ✅ Complete | `org.opensearch.client:opensearch-rest-high-level-client` |
+| Elasticsearch 8.x  | ✅ Complete     | `co.elastic.clients:elasticsearch-java`                   |
+| Elasticsearch 9.x  | ⚠️ Not certified | Same ES8 Java client; no ES9 CI                           |
+| OpenSearch 2.x/3.x | ✅ Complete     | `org.opensearch.client:opensearch-rest-high-level-client` |
 
 ## Extending the Shim
 
