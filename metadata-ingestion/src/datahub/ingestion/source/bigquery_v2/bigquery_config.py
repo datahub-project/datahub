@@ -96,6 +96,17 @@ class BigQueryProfilingConfig(GEProfilingConfig):
         "(for require_partition_filter=false tables) profiled without a partition filter.",
     )
 
+    partition_fetch_max_bytes_billed: Optional[PositiveInt] = Field(
+        default=None,
+        description="Optional ceiling (in bytes) on the data scanned by each partition-value "
+        "fetch query. These probes group by a partition column across the table, so on a very "
+        "large table they can scan a lot of data. Set this to fail such a probe fast instead "
+        "of billing for a full-column scan; on failure the table is treated as having no "
+        "discoverable partition. Left unset (no cap) by default because a low ceiling would "
+        "spuriously fail discovery on legitimately large tables; `partition_fetch_timeout` "
+        "already bounds runaway probes by time.",
+    )
+
     profiling_row_limit: NonNegativeInt = Field(
         default=1000000,
         description="Maximum number of rows to scan when profiling a table (applied as a LIMIT "
@@ -669,6 +680,20 @@ class BigQueryV2Config(
         default_factory=BigQueryProfilingConfig,
         description="Profiling related configs",
     )
+
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def coerce_profiling_config(cls, v: object) -> object:
+        # A caller may build the config in code and pass a GEProfilingConfig *instance*
+        # here (rather than a dict from YAML). Retyping this field to the
+        # BigQueryProfilingConfig subclass makes pydantic re-validate the value, and
+        # GEProfilingConfig's inherited mode="before" validators treat their input as a
+        # dict (values.get(...)/del values[...]), which raises on a model instance. Dump
+        # the instance back to a dict so re-validation runs on plain data and the
+        # BigQuery-specific fields fall back to their defaults.
+        if isinstance(v, GEProfilingConfig):
+            return v.dict()
+        return v
 
     pushdown_deny_usernames: List[str] = Field(
         default=[],
