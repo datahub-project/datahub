@@ -1,6 +1,7 @@
 package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.METRIC_UPSTREAMS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.UPSTREAM_METRICS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 
@@ -10,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
+import com.linkedin.common.UpstreamMetrics;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
@@ -120,6 +122,33 @@ public class MetricUpstreamsValidatorTest {
 
   @Test
   public void testAcceptsDatasetOnly() {
+    MetricUpstreams aspect =
+        new MetricUpstreams().setDatasetUpstreams(new EdgeArray(datasetEdge(DATASET_URN)));
+
+    Assert.assertTrue(validateUpsert(aspect).isEmpty());
+  }
+
+  @Test
+  public void testRejectsWhenDatasetAlreadyConsumesMetric() {
+    UpstreamMetrics consumer =
+        new UpstreamMetrics().setMetrics(new EdgeArray(datasetEdge(METRIC_URN)));
+    currentAspects
+        .computeIfAbsent(DATASET_URN, u -> new HashMap<>())
+        .put(UPSTREAM_METRICS_ASPECT_NAME, new Aspect(consumer.data()));
+
+    MetricUpstreams aspect =
+        new MetricUpstreams().setDatasetUpstreams(new EdgeArray(datasetEdge(DATASET_URN)));
+
+    Assert.assertFalse(validateUpsert(aspect).isEmpty());
+  }
+
+  @Test
+  public void testAcceptsWhenDatasetDoesNotConsumeMetric() {
+    UpstreamMetrics consumer = new UpstreamMetrics().setMetrics(new EdgeArray());
+    currentAspects
+        .computeIfAbsent(DATASET_URN, u -> new HashMap<>())
+        .put(UPSTREAM_METRICS_ASPECT_NAME, new Aspect(consumer.data()));
+
     MetricUpstreams aspect =
         new MetricUpstreams().setDatasetUpstreams(new EdgeArray(datasetEdge(DATASET_URN)));
 

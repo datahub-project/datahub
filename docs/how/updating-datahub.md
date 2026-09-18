@@ -49,6 +49,8 @@ Requirements:
 
 ### Breaking Changes
 
+- **(GMS / Lineage)** Chart, dashboard, and dataset may take a Metric as an upstream; those edges are stored on the shared `upstreamMetrics` aspect (`ConsumesMetric`). OpenAPI and Rest.li writes of `upstreamMetrics` require **Edit Lineage** or **Edit Entity** on the consumer and each destination Metric. A Dataset cannot both consume a Metric via `upstreamMetrics` and appear on that Metric's `metricUpstreams.datasetUpstreams`. **Action:** automation that sent unsupported `updateLineage` pairs (for example Metric as the downstream, or DataJob↔Metric) will now receive an error instead of a silent no-op. Use `metricUpstreams` to attach a dataset to a Metric. Grant **Edit Lineage** to any client that writes `upstreamMetrics` outside the UI.
+
 - #19815 **(Sigma ingestion)** Sigma ended support for datasets as a data source on 2026-09-15, and a dataset-backed workbook element no longer returns SQL. The connector now recovers a Sigma Dataset's warehouse table from Sigma's connection metadata instead, so **Sigma Dataset** lineage URNs are built from `connection_to_platform_map` rather than `chart_sources_platform_mapping`. Three things to know:
 
   - **`env` and `platform_instance` move.** Without a `connection_to_platform_map` entry the URN uses the recipe's own `env` and no platform instance, where the SQL route used the mapping's.
