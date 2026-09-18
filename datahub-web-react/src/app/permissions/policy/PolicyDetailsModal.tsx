@@ -11,6 +11,7 @@ import {
 } from '@app/govern/structuredProperties/utils';
 import AvatarsGroup from '@app/permissions/AvatarsGroup';
 import { FIELD_TYPES, RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
+import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import {
     convertLegacyResourceFilter,
     getFieldCondition,
@@ -20,7 +21,6 @@ import {
 import { CompactEntityNameComponent } from '@app/recommendations/renderer/component/CompactEntityNameComponent';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useIsStructuredPropertiesInPoliciesEnabled } from '@app/shared/hooks/useIsStructuredPropertiesInPoliciesEnabled';
-import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
@@ -37,6 +37,7 @@ type Props = {
     open: boolean;
     onClose: () => void;
     privileges: PrivilegeOptionType[] | undefined;
+    resourcePrivileges?: PolicyPrivilegesConfig['resourcePrivileges'];
 };
 
 const PolicyContainer = styled.div`
@@ -84,7 +85,7 @@ const ValueLabel = styled.span`
 /**
  * Component used for displaying the details about an existing Policy.
  */
-export default function PolicyDetailsModal({ policy, open, onClose, privileges }: Props) {
+export default function PolicyDetailsModal({ policy, open, onClose, privileges, resourcePrivileges }: Props) {
     const { t } = useTranslation('settings.permissions');
     const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistryV2();
@@ -121,10 +122,6 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                 ?.structuredPropertyValues || [],
         [resources?.filter?.criteria],
     );
-
-    const {
-        config: { policiesConfig },
-    } = useAppConfig();
 
     // Ingestion sources aren't in the entity registry and the policy query doesn't resolve
     // them into entities, so look their names up directly (same as the policy edit form).
@@ -306,10 +303,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                             {(resourceTypes?.length &&
                                 resourceTypes.map((value) =>
                                     renderValueDisplay(
-                                        mapResourceTypeToDisplayName(
-                                            value.value,
-                                            policiesConfig?.resourcePrivileges || [],
-                                        ) || '',
+                                        mapResourceTypeToDisplayName(value.value, resourcePrivileges || []) || '',
                                         resourceTypeCondition,
                                     ),
                                 )) || <Pill label={t('details.tagAll')} size="md" />}

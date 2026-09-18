@@ -1,0 +1,40 @@
+namespace com.linkedin.common
+
+/**
+ * Metrics this entity reads, declared by the consumer.
+ *
+ * Registered on chart, dashboard, and dataset.
+ *
+ * The edge is declared on the consumer with isLineage (isUpstream defaults
+ * to true), so Metric downstream falls out of LineageRegistry reversal.
+ */
+@Aspect = {
+  "name": "upstreamMetrics"
+}
+record UpstreamMetrics {
+
+  /**
+   * Write the full set on every update; an empty array clears stale edges.
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "ConsumesMetric",
+      "entityTypes": [ "metric" ],
+      "isLineage": true,
+      "createdOn":    "metrics/*/created/time",
+      "createdActor": "metrics/*/created/actor",
+      "updatedOn":    "metrics/*/lastModified/time",
+      "updatedActor": "metrics/*/lastModified/actor",
+      "properties":   "metrics/*/properties"
+    }
+  }
+  @Searchable = {
+    "/*/destinationUrn": {
+      "fieldName": "upstreamMetrics",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasUpstreamMetrics",
+      "queryByDefault": false
+    }
+  }
+  metrics: array[Edge]
+}

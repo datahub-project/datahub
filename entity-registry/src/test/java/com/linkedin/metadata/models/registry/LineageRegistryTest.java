@@ -39,11 +39,15 @@ public class LineageRegistryTest {
         lineageRegistry.getLineageRelationships("dataset", LineageDirection.UPSTREAM);
 
     // Verify
-    assertEquals(upstreamEdges.size(), 3);
+    assertEquals(upstreamEdges.size(), 4);
     assertTrue(
         upstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
                 "DownstreamOf", RelationshipDirection.OUTGOING, "dataset")));
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.OUTGOING, "metric")));
     assertTrue(
         upstreamEdges.contains(
             new LineageRegistry.EdgeInfo("Produces", RelationshipDirection.INCOMING, "dataJob")));
@@ -56,7 +60,7 @@ public class LineageRegistryTest {
         lineageRegistry.getLineageRelationships("dataset", LineageDirection.DOWNSTREAM);
 
     // Verify
-    assertEquals(downstreamEdges.size(), 8);
+    assertEquals(downstreamEdges.size(), 9);
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
@@ -64,6 +68,63 @@ public class LineageRegistryTest {
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.INCOMING, "dataJob")));
+  }
+
+  @Test
+  public void testMetricDownstreamIncludesConsumerOwnedEdges() {
+    List<LineageRegistry.EdgeInfo> downstreamEdges =
+        lineageRegistry.getLineageRelationships("metric", LineageDirection.DOWNSTREAM);
+
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "chart")),
+        "Chart ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "dashboard")),
+        "Dashboard ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "dataset")),
+        "Dataset ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo("DerivedFrom", RelationshipDirection.INCOMING, "metric")),
+        "Derived metrics remain Metric downstream via DerivedFrom");
+  }
+
+  @Test
+  public void testProductionRegistryMetricDownstreamIncludesConsumerOwnedEdges() {
+    EntityRegistry productionRegistry =
+        new ConfigEntityRegistry(
+            LineageRegistryTest.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+    LineageRegistry productionLineageRegistry = new LineageRegistry(productionRegistry);
+
+    List<LineageRegistry.EdgeInfo> downstreamEdges =
+        productionLineageRegistry.getLineageRelationships("metric", LineageDirection.DOWNSTREAM);
+
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "chart")),
+        "Chart ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "dashboard")),
+        "Dashboard ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "ConsumesMetric", RelationshipDirection.INCOMING, "dataset")),
+        "Dataset ConsumesMetric should reverse to Metric downstream");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo("DerivedFrom", RelationshipDirection.INCOMING, "metric")),
+        "Derived metrics remain Metric downstream via DerivedFrom");
   }
 
   @Test
@@ -83,8 +144,8 @@ public class LineageRegistryTest {
 
     // Verify
     assertNotNull(lineageSpec);
-    assertEquals(lineageSpec.getUpstreamEdges().size(), 3);
-    assertEquals(lineageSpec.getDownstreamEdges().size(), 8);
+    assertEquals(lineageSpec.getUpstreamEdges().size(), 4);
+    assertEquals(lineageSpec.getDownstreamEdges().size(), 9);
   }
 
   @Test
