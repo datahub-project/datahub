@@ -1033,6 +1033,11 @@ elasticsearch:
     partial:
       urnFactor: ${ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR:0.5} # multiplier on Urn token match, a partial match on Urn > non-Urn is assumed
       factor: ${ELASTICSEARCH_QUERY_PARTIAL_FACTOR:0.4} # multiplier on possible non-Urn token match
+    autocomplete:
+      # Typeahead for these entities requires EVERY typed token to prefix-match once 2+ tokens are typed, so people
+      # pickers return "Johnathan Killroy" for "John K" instead of ranking the whole-term match "John Fitzgerald" first.
+      # Single-token queries and all other entities are unchanged. Empty disables.
+      allTokensMustPrefixMatchEntities: ${ELASTICSEARCH_QUERY_AUTOCOMPLETE_ALL_TOKENS_MUST_PREFIX_MATCH_ENTITIES:corpuser,corpGroup}
     custom:
       enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:true}
       file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yaml}

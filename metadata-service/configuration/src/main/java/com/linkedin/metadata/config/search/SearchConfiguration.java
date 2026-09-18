@@ -19,6 +19,7 @@ public class SearchConfiguration {
   private CustomConfiguration custom;
   private GraphQueryConfiguration graph;
   private WordGramConfiguration wordGram;
+  private AutocompleteQueryConfiguration autocomplete;
   private SearchValidationConfiguration validation;
 
   /**
