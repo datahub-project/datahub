@@ -135,12 +135,13 @@ export const SNOWFLAKE_USERNAME: RecipeField = {
 export const SNOWFLAKE_PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
-    tooltip: 'Snowflake password.',
+    tooltip: 'Snowflake password. Required when using Username & Password authentication.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',
     placeholder: 'password',
-    rules: null,
-    required: true,
+    rules: [createAuthTypeValidator('DEFAULT_AUTHENTICATOR', 'Password', 'Username & Password')],
+    required: false,
+    shouldShow: (formValues) => shouldShowSnowflakeField('password', formValues.authentication_type),
 };
 
 export const SNOWFLAKE_ROLE: RecipeField = {

@@ -149,6 +149,7 @@
     "searchBar.sections.bestMatches": "最適な一致",
     "searchBar.sections.recentlySearched": "最近検索した内容",
     "searchBar.sections.recentlyViewed": "最近表示した内容",
+    "searchBar.viewAll": "すべて表示 →",
     "searchBar.viewAllResults": "<bold>{{query}}</bold>のすべての結果を表示",
     "searchHeader.discover": "探索",
     "sidebar.loadingError": "サイドバーの読み込みに失敗しました。",

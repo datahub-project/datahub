@@ -11,6 +11,7 @@ const MAX_DOMAINS = 5;
 export const useGetDomains = (
     user?: CorpUser | null,
     fetchPolicy?: WatchQueryFetchPolicy,
+    count: number = MAX_DOMAINS,
 ): { domains: { entity: Domain; assetCount: number }[]; loading: boolean } => {
     const { localState } = useUserContext();
     const { selectedViewUrn } = localState;
@@ -21,6 +22,10 @@ export const useGetDomains = (
                 requestContext: {
                     scenario: ScenarioType.Home,
                 },
+                // `limit` caps the number of recommendation *modules* returned, not the
+                // content within the Domains module (that is bounded by the candidate
+                // source's getMaxContent()). Keep it decoupled from `count`, which only
+                // drives the per-module slice below.
                 limit: 10,
                 viewUrn: selectedViewUrn,
             },
@@ -38,6 +43,6 @@ export const useGetDomains = (
                 entity: content.entity as Domain,
                 assetCount: content.params?.contentParams?.count || 0,
             }))
-            ?.slice(0, MAX_DOMAINS) || [];
+            ?.slice(0, count) || [];
     return { domains, loading };
 };

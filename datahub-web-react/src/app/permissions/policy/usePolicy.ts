@@ -4,6 +4,7 @@ import { Modal } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
+import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import {
     DEFAULT_PAGE_SIZE,
     removeFromListPoliciesCache,
@@ -30,7 +31,7 @@ type PrivilegeOptionType = {
 };
 
 export function usePolicy(
-    policiesConfig,
+    policyPrivileges: PolicyPrivilegesConfig | undefined,
     focusPolicyUrn,
     policiesRefetch,
     setShowViewPolicyModal,
@@ -42,8 +43,8 @@ export function usePolicy(
     const client = useApolloClient();
 
     // Construct privileges
-    const platformPrivileges = policiesConfig?.platformPrivileges || [];
-    const resourcePrivileges = policiesConfig?.resourcePrivileges || [];
+    const platformPrivileges = policyPrivileges?.platformPrivileges || [];
+    const resourcePrivileges = policyPrivileges?.resourcePrivileges || [];
 
     // Any time a policy is removed, edited, or created, refetch the list.
     const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation();
@@ -53,10 +54,9 @@ export function usePolicy(
     const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation();
 
     const toFilterInput = (filter: PolicyMatchFilter, state?: string | undefined): PolicyMatchFilterInput => {
-        console.log({ state });
         return {
             criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
-                return {
+                const criterionInput: PolicyMatchCriterionInput = {
                     field: criterion.field,
                     values: criterion.values.map((criterionValue) =>
                         criterion.field === 'TAG' && state !== 'TOGGLE'
@@ -65,6 +65,16 @@ export function usePolicy(
                     ),
                     condition: criterion.condition,
                 };
+                // Include structuredPropertyValues if present
+                if ((criterion as any).structuredPropertyValues) {
+                    criterionInput.structuredPropertyValues = (criterion as any).structuredPropertyValues.map(
+                        (propValue: any) => ({
+                            propertyUrn: propValue.propertyUrn,
+                            values: propValue.values || [],
+                        }),
+                    );
+                }
+                return criterionInput;
             }),
         };
     };
@@ -189,7 +199,6 @@ export function usePolicy(
                     __typename: 'ListPoliciesResult',
                     urn: focusPolicyUrn,
                     ...savePolicy,
-                    resources: null,
                 };
                 analytics.event({
                     type: EventType.UpdatePolicyEvent,
@@ -209,9 +218,6 @@ export function usePolicy(
                     __typename: 'ListPoliciesResult',
                     urn: result?.data?.createPolicy,
                     ...savePolicy,
-                    type: null,
-                    actors: null,
-                    resources: null,
                 };
                 analytics.event({
                     type: EventType.CreatePolicyEvent,
