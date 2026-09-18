@@ -1,7 +1,7 @@
 import logging
 import threading
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Final, Optional
 
 import pydantic
 import snowflake.connector
@@ -51,7 +51,6 @@ from datahub.utilities.config_clean import (
     remove_suffix,
     remove_trailing_slashes,
 )
-from datahub.utilities.global_warning_util import add_global_warning
 
 logger = logging.getLogger(__name__)
 
@@ -68,17 +67,27 @@ _VALID_AUTH_TYPES: Dict[str, str] = {
 # Snowflake is deprecating username + password (DEFAULT_AUTHENTICATOR) auth
 # during its Strong Authentication rollout (Phase 3: Aug-Oct 2026, account-
 # specific enforcement dates).
-SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL = "https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/migrate-to-key-pair-auth"
+SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL: Final = "https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/migrate-to-key-pair-auth"
+
+# report.warning() requires LiteralString so identical warnings group in the
+# report; the URL goes in `context`, not the message.
+SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_TITLE: Final = "Snowflake password auth deprecation"
+SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_MESSAGE: Final = (
+    "Snowflake is deprecating username + password authentication "
+    "(DEFAULT_AUTHENTICATOR) as part of its Strong Authentication rollout. "
+    "Password auth will stop working on an account-specific enforcement date "
+    "during Phase 3 (Aug-Oct 2026). Switch this recipe to key-pair "
+    "authentication (KEY_PAIR_AUTHENTICATOR) before your account's enforcement date."
+)
 
 
 def get_password_auth_deprecation_warning() -> str:
+    """Full warning text (with URL) for warnings.warn, which reaches
+    --test-source-connection (that path prints neither the summary nor the
+    source report)."""
     return (
-        "Snowflake is deprecating username + password authentication "
-        "(DEFAULT_AUTHENTICATOR) as part of its Strong Authentication rollout. "
-        "Password auth will stop working on an account-specific enforcement date "
-        "during Phase 3 (Aug-Oct 2026). Switch this recipe to key-pair "
-        "authentication (KEY_PAIR_AUTHENTICATOR) before your account's enforcement "
-        f"date. See the migration guide: {SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL}"
+        f"{SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_MESSAGE} "
+        f"See the migration guide: {SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL}"
     )
 
 
@@ -225,13 +234,17 @@ class SnowflakeConnectionConfig(ConfigModel):
                     f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
                 )
 
-        # add_global_warning reaches the CLI summary; warnings.warn reaches
-        # --test-source-connection, which prints neither the summary nor the
-        # source report. SnowflakeV2Source mirrors this in its structured report.
+        # warnings.warn reaches --test-source-connection, which prints neither
+        # the summary nor the source report. SnowflakeV2Source mirrors this in
+        # its structured report for the UI. add_global_warning was dropped
+        # because Pipeline.run() clears global warnings in its finally block,
+        # before pretty_print_summary() reads them.
         if self.is_using_password_auth():
-            warning = get_password_auth_deprecation_warning()
-            add_global_warning(warning)
-            warnings.warn(warning, ConfigurationWarning, stacklevel=2)
+            warnings.warn(
+                get_password_auth_deprecation_warning(),
+                ConfigurationWarning,
+                stacklevel=2,
+            )
 
         return self
 
