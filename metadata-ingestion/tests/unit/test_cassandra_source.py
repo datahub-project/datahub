@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from types import SimpleNamespace
 from typing import Any, Dict, List, Tuple
 
 # Unit tests for CassandraAPI SSL Configuration
@@ -13,7 +14,6 @@ from datahub.ingestion.source.cassandra.cassandra import CassandraToSchemaFieldC
 from datahub.ingestion.source.cassandra.cassandra_api import (
     CassandraAPI,
     CassandraColumn,
-    _decode_bytes_values,
 )
 from datahub.ingestion.source.cassandra.cassandra_config import (
     CassandraSourceConfig,
@@ -91,17 +91,67 @@ def test_no_properties_in_mappings_schema() -> None:
     assert fields == []
 
 
-def test_decode_bytes_values_makes_extensions_json_serializable() -> None:
-    # `extensions` is map<text, blob> in Cassandra/Scylla, so blob values arrive
-    # as bytes and previously broke json.dumps during custom-property emission.
-    decoded = _decode_bytes_values(
-        {"scylla_encryption_options": b"\x00\x01key", "plain": "value"}
+def _schema_row_with_extensions(extensions: Dict[str, Any]) -> SimpleNamespace:
+    # Mimics a system_schema.tables/views row from the driver. `extensions` is
+    # map<text, blob>, so the driver hands its values back as bytes.
+    return SimpleNamespace(
+        keyspace_name="ks",
+        table_name="tbl",
+        view_name="vw",
+        base_table_name="tbl",
+        include_all_columns=True,
+        where_clause="",
+        bloom_filter_fp_chance=0.01,
+        caching={"keys": "ALL"},
+        comment="",
+        compaction={"class": "SizeTieredCompactionStrategy"},
+        compression={"class": "LZ4Compressor"},
+        crc_check_chance=1.0,
+        dclocal_read_repair_chance=0.0,
+        default_time_to_live=0,
+        extensions=extensions,
+        gc_grace_seconds=864000,
+        max_index_interval=2048,
+        memtable_flush_period_in_ms=0,
+        min_index_interval=128,
+        read_repair_chance=0.0,
+        speculative_retry="99p",
     )
 
-    assert decoded["plain"] == "value"
-    assert isinstance(decoded["scylla_encryption_options"], str)
-    # The actual failure mode was json.dumps raising on the raw bytes.
-    assert json.loads(json.dumps(decoded))["plain"] == "value"
+
+def _api_returning_row(row: SimpleNamespace) -> CassandraAPI:
+    api = CassandraAPI(
+        CassandraSourceConfig.model_validate(_get_base_config_dict()),
+        MagicMock(spec=SourceReport),
+    )
+    api.get = MagicMock(return_value=[row])  # type: ignore[method-assign]
+    return api
+
+
+# Reproduces "Object of type bytes is not JSON serializable": Scylla's
+# extensions map<text, blob> comes back with bytes values, which broke the
+# json.dumps() call during custom-property emission. The json.dumps() below
+# raises TypeError on the extracted extensions map before the fix.
+def test_get_tables_decodes_bytes_extensions() -> None:
+    api = _api_returning_row(
+        _schema_row_with_extensions({"scylla_encryption_options": b"\x00\x01"})
+    )
+
+    tables = api.get_tables("ks")
+
+    assert len(tables) == 1
+    json.dumps(tables[0].extensions)
+
+
+def test_get_views_decodes_bytes_extensions() -> None:
+    api = _api_returning_row(
+        _schema_row_with_extensions({"scylla_encryption_options": b"\x00\x01"})
+    )
+
+    views = api.get_views("ks")
+
+    assert len(views) == 1
+    json.dumps(views[0].extensions)
 
 
 def _get_base_config_dict() -> dict:
