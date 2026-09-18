@@ -1,5 +1,6 @@
 import { useUserContext } from '@app/context/useUserContext';
 import { HOME_RECOMMENDATION_MODULE_LIMIT } from '@app/homeV2/homeRecommendationModules';
+import { useRecommendationModulesFilter } from '@app/homeV2/useRecommendationModulesFilter';
 import { RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES } from '@src/app/entityV2/shared/constants';
 import { Entity } from '@src/types.generated';
 
@@ -17,19 +18,24 @@ export default function useRecentlyViewedEntities(skip?: boolean): Response {
     const { selectedViewUrn } = localState;
     const userUrn = user?.urn;
 
+    const { modules, onFilteredQueryError } = useRecommendationModulesFilter([
+        RecommendationModuleId.RecentlyViewedEntities,
+    ]);
+
     const { data, loading, refetch } = useListRecommendationsQuery({
         variables: {
             input: {
                 userUrn: userUrn as string,
                 requestContext: {
                     scenario: ScenarioType.Home,
-                    modules: [RecommendationModuleId.RecentlyViewedEntities],
+                    ...(modules ? { modules } : {}),
                 },
                 limit: HOME_RECOMMENDATION_MODULE_LIMIT,
                 viewUrn: selectedViewUrn,
             },
         },
         fetchPolicy: 'cache-first',
+        onError: onFilteredQueryError,
         skip: skip || !userUrn,
     });
 

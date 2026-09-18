@@ -6,6 +6,7 @@ import {
     HOME_V2_RECOMMENDATION_MODULE_IDS,
     collectHomeRecommendationModuleIds,
 } from '@app/homeV2/homeRecommendationModules';
+import { useRecommendationModulesFilter } from '@app/homeV2/useRecommendationModulesFilter';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 
@@ -41,19 +42,22 @@ export const useHomeRecommendations = (): UseHomeRecommendationsResult => {
         return collectHomeRecommendationModuleIds(template);
     }, [isHomeV3, template]);
 
+    const { modules, onFilteredQueryError } = useRecommendationModulesFilter(modulesFilter);
+
     const { data, loading, refetch } = useListRecommendationsQuery({
         variables: {
             input: {
                 userUrn: userUrn as string,
                 requestContext: {
                     scenario: ScenarioType.Home,
-                    modules: modulesFilter,
+                    ...(modules ? { modules } : {}),
                 },
                 limit: HOME_RECOMMENDATION_MODULE_LIMIT,
                 viewUrn: selectedViewUrn,
             },
         },
         fetchPolicy: 'cache-first',
+        onError: onFilteredQueryError,
         skip: !userUrn || modulesFilter.length === 0,
     });
 

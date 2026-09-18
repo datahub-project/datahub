@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react-hooks';
+import { act, renderHook } from '@testing-library/react-hooks';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -89,6 +89,7 @@ describe('useHomeRecommendations', () => {
                 },
             },
             fetchPolicy: 'cache-first',
+            onError: expect.any(Function),
             skip: false,
         });
     });
@@ -215,8 +216,23 @@ describe('useHomeRecommendations', () => {
                 },
             },
             fetchPolicy: 'cache-first',
+            onError: expect.any(Function),
             skip: false,
         });
+    });
+
+    it('retries without the modules filter when the server rejects it', () => {
+        showV3Mock.mockReturnValue(false);
+        templateMock.mockReturnValue({ template: null });
+
+        renderHook(() => useHomeRecommendations());
+
+        const { onError } = queryMock.mock.calls[0][0];
+        act(() => onError(new Error('Unknown field "modules"')));
+
+        const { input } = queryMock.mock.calls[queryMock.mock.calls.length - 1][0].variables;
+        expect(input.requestContext).toEqual({ scenario: ScenarioType.Home });
+        expect(input.limit).toBe(HOME_RECOMMENDATION_MODULE_LIMIT);
     });
 
     it('skips when the user urn is missing', () => {
