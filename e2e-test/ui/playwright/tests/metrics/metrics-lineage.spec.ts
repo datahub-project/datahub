@@ -103,9 +103,7 @@ test.describe('Metrics lineage topologies', () => {
     await lineagePage.checkEdgeExists(PHYS_STANDALONE_URN, STANDALONE_EVENT_COUNT_URN);
   });
 
-  test('hovering and selecting a metric highlights the columns it reads and draws arrows to it', async ({
-    page,
-  }) => {
+  test('hovering and selecting a metric highlights the columns it reads and draws arrows to it', async ({ page }) => {
     // total_revenue reads orders_ds.amount (metricUpstreams.fieldUpstreams). Hovering the metric
     // must surface that column and draw a column -> metric arrow, as hovering a column does;
     // selecting the metric must keep them once the pointer leaves.
