@@ -72,7 +72,7 @@
     "prop.firstSynchronized": "首次同步",
     "prop.firstSynchronizedDesc": "此資料資產首次透過資料擷取進入 DataHub 的時間（毫秒）。",
     "prop.glossaryTermGroups": "詞彙群組",
-    "prop.glossaryTermGroupsDesc": "附加至此資料資產的詞彙 所屬父層術語群組集合。",
+    "prop.glossaryTermGroupsDesc": "附加至此資料資產的詞彙所屬父層術語群組集合。",
     "prop.glossaryTerms": "詞彙",
     "prop.glossaryTermsAppliedDesc": "套用至資料資產的詞彙",
     "prop.glossaryTermsDesc": "附加至此資料資產的詞彙。",

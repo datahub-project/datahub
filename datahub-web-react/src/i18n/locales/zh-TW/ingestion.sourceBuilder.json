@@ -240,7 +240,7 @@
     "sqlmesh.auditResultsPath.tooltip": "包含 SQLMesh 稽核通過／失敗結果的 JSON 檔案路徑。設定後，連接器會發出斷言執行事件，讓通過／失敗狀態顯示在「資料品質」索引標籤。該檔案必須在執行資料擷取時已存在。",
     "sqlmesh.defaultCatalog.helper": "加在兩段式模型名稱前的目錄",
     "sqlmesh.defaultCatalog.label": "預設目錄",
-    "sqlmesh.defaultCatalog.tooltip": "預設目錄（資料庫），會加在兩段式模型名稱（結構描述.model）之前，讓倉儲的同層 URN 成為三段式（catalog.結構描述.table）。若你的倉儲連接器發出三段式 URN，但 SQLMesh 模型名稱省略了目錄，請設定此值。例如：設為「analytics」會將「star.dim_developer」轉為「analytics.star.dim_developer」。",
+    "sqlmesh.defaultCatalog.tooltip": "預設目錄（資料庫），會加在兩段式模型名稱（schema.model）之前，讓倉儲的同層 URN 成為三段式（catalog.schema.table）。若你的倉儲連接器發出三段式 URN，但 SQLMesh 模型名稱省略了目錄，請設定此值。例如：設為「analytics」會將「star.dim_developer」轉為「analytics.star.dim_developer」。",
     "sqlmesh.env.helper": "所發出 URN 使用的 DataHub 環境（Fabric）",
     "sqlmesh.env.label": "DataHub 環境",
     "sqlmesh.env.tooltip": "所發出的資料集 URN 會標記的 DataHub 環境（Fabric），例如 PROD、DEV。",
