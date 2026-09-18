@@ -47,6 +47,7 @@ from datahub.ingestion.source.sap_datasphere.analytic_model import (
 )
 from datahub.ingestion.source.sap_datasphere.client import SapDatasphereClient
 from datahub.ingestion.source.sap_datasphere.config import (
+    FolderContainerKey,
     SapDatasphereConfig,
     SpaceContainerKey,
 )
@@ -64,6 +65,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_KEY_QUERY,
     CSN_KEY_SQL_EDITOR_QUERY,
     FIELD_TECHNICAL_NAME,
+    FOLDER_PATH_SEPARATOR,
     GENERIC_SCHEME_PLATFORMS,
     MANAGED_CONNECTION_KEY,
     OBJECT_TYPE_ANALYTIC_MODELS,
@@ -100,6 +102,11 @@ from datahub.ingestion.source.sap_datasphere.csn_parser import (
 )
 from datahub.ingestion.source.sap_datasphere.edmx_parser import EdmxParser
 from datahub.ingestion.source.sap_datasphere.flows import parse_flow
+from datahub.ingestion.source.sap_datasphere.folders import (
+    FolderPath,
+    SpaceFolders,
+    parse_folder_assignments,
+)
 from datahub.ingestion.source.sap_datasphere.formula import (
     extract_calculated_column_formulas,
     make_description_with_formula,
@@ -218,7 +225,10 @@ _JOB_SUBTYPE_BY_FLOW: Dict[DataFlowSubTypes, DataJobSubTypes] = {
     SourceCapability.PLATFORM_INSTANCE,
     "Per-connection platform_instance via connection_to_platform_map",
 )
-@capability(SourceCapability.CONTAINERS, "Spaces emitted as containers")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Spaces and their folders emitted as nested containers",
+)
 @capability(SourceCapability.SCHEMA_METADATA, "Columns from OData EDMX")
 @capability(
     SourceCapability.DESCRIPTIONS,
@@ -285,6 +295,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # to copy scalar types into analytic-model elements (which carry none). One
         # CSN fetch per distinct source object, reused across analytic models.
         self._source_field_type_cache: Dict[str, Dict[str, SchemaFieldClass]] = {}
+        # Folder assignments per space. Populated serially before that space's
+        # asset workers start, then read-only, so the threaded emit can share it.
+        self._folders_by_space: Dict[str, SpaceFolders] = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
@@ -387,6 +400,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
             try:
                 yield from self._emit_space(space_name, space_label)
+                # Must precede the asset/table/flow emits: they read the folder
+                # map this populates to pick each object's parent container.
+                yield from self._emit_folders(space_name)
                 yield from self._emit_assets_in_space(space_name)
 
                 if self.config.include_local_tables:
@@ -472,13 +488,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if resolved is None:
             return
 
-        space_key = self._space_key(space_name)
-
         for technical_name in self._iter_allowed_technical_names(local_tables):
             yield from self._isolate(
                 f"{space_name}.{OBJECT_TYPE_LOCAL_TABLES}.{technical_name}",
                 self._emit_one_local_table(
-                    space_name, technical_name, resolved, space_key
+                    space_name,
+                    technical_name,
+                    resolved,
+                    self._parent_container(space_name, technical_name),
                 ),
             )
 
@@ -487,7 +504,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         space_name: str,
         technical_name: str,
         resolved: ResolvedPlatform,
-        space_key: SpaceContainerKey,
+        parent_container: ContainerKey,
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = self._build_dataset_name(space_name, technical_name)
 
@@ -532,7 +549,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             env=resolved.env,
             display_name=technical_name,
             subtype=DatasetSubTypes.SAP_LOCAL_TABLE,
-            parent_container=space_key,
+            parent_container=parent_container,
             custom_properties={
                 PROP_SPACE_NAME: space_name,
                 PROP_SAP_DATASPHERE_SPACE: space_name,
@@ -642,7 +659,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
             display_name=parsed.technical_name,
             subtype=parsed.subtype,
-            parent_container=self._space_key(space_name),
+            parent_container=self._parent_container(space_name, parsed.technical_name),
         )
 
     def _emit_flow_jobs(
@@ -921,13 +938,16 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         resolver = self._get_resolver(space_name)
-        space_key = self._space_key(space_name)
         for technical_name in self._iter_allowed_technical_names(entries):
             self.report.remote_tables_scanned += 1
             yield from self._isolate(
                 f"{space_name}.{OBJECT_TYPE_REMOTE_TABLES}.{technical_name}",
                 self._emit_one_remote_table(
-                    space_name, technical_name, local_resolved, resolver, space_key
+                    space_name,
+                    technical_name,
+                    local_resolved,
+                    resolver,
+                    self._parent_container(space_name, technical_name),
                 ),
             )
 
@@ -937,7 +957,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         technical_name: str,
         local_resolved: ResolvedPlatform,
         resolver: PlatformMappingResolver,
-        space_key: SpaceContainerKey,
+        parent_container: ContainerKey,
     ) -> Iterable[MetadataWorkUnit]:
         csn_obj = self._client.fetch_object_definition(
             space_name, OBJECT_TYPE_REMOTE_TABLES, technical_name
@@ -986,7 +1006,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             env=local_resolved.env,
             display_name=technical_name,
             subtype=DatasetSubTypes.SAP_REMOTE_TABLE,
-            parent_container=space_key,
+            parent_container=parent_container,
             custom_properties={
                 PROP_SPACE_NAME: space_name,
                 PROP_SAP_DATASPHERE_SPACE: space_name,
@@ -1223,6 +1243,45 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
         return self._resolvers[space]
 
+    def _folder_key(self, space_name: str, path: FolderPath) -> FolderContainerKey:
+        return FolderContainerKey(
+            platform=PLATFORM,
+            instance=self.config.platform_instance,
+            space=self._maybe_lower(space_name),
+            folder_path=self._maybe_lower(FOLDER_PATH_SEPARATOR.join(path)),
+        )
+
+    def _parent_container(self, space_name: str, object_name: str) -> ContainerKey:
+        """The container an object hangs off: its innermost folder, else the space."""
+        folders = self._folders_by_space.get(space_name)
+        path = folders.path_for(object_name) if folders is not None else None
+        if not path:
+            return self._space_key(space_name)
+        self.report.objects_assigned_to_folder += 1
+        return self._folder_key(space_name, path)
+
+    def _emit_folders(self, space_name: str) -> Iterable[MetadataWorkUnit]:
+        """Load the space's folder assignments and emit one container per folder."""
+        records = self._client.list_folder_assignments(space_name)
+        if records is None:
+            return
+        folders = parse_folder_assignments(records)
+        self._folders_by_space[space_name] = folders
+        space_key = self._space_key(space_name)
+        # Sorted so a parent is always emitted before its children.
+        for path in sorted(folders.paths):
+            parent: ContainerKey = (
+                self._folder_key(space_name, path[:-1]) if len(path) > 1 else space_key
+            )
+            container = Container(
+                self._folder_key(space_name, path),
+                display_name=path[-1],
+                subtype=DatasetContainerSubTypes.FOLDER,
+                parent_container=parent,
+            )
+            yield from container.as_workunits()
+            self.report.folders_emitted += 1
+
     def _emit_space(
         self, space_name: str, space_label: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -1455,9 +1514,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
         view_properties = self._build_view_properties(csn_def)
 
-        # 2-tier model: parent directly to the Space container; the object kind
-        # survives as the dataset subtype (a UI filter facet).
-        dataset_parent: ContainerKey = self._space_key(space_name)
+        # The object's innermost folder when one resolved, else the space. The
+        # object kind survives as the dataset subtype either way (a UI filter
+        # facet).
+        dataset_parent: ContainerKey = self._parent_container(space_name, asset_name)
 
         dataset_tags = self._entity_tag_urns(custom_properties)
 

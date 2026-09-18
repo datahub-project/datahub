@@ -86,10 +86,46 @@ TOKEN_RESP_ERROR_DESCRIPTION: Final[str] = "error_description"
 # OData list-response body keys ({"value": [...], "@odata.nextLink": "..."}).
 ODATA_VALUE_KEY: Final[str] = "value"
 ODATA_NEXT_LINK_KEY: Final[str] = "@odata.nextLink"
+ODATA_COUNT_KEY: Final[str] = "@odata.count"
 
 # OData server-driven paging query params for the catalog list endpoints.
 ODATA_PARAM_TOP: Final[str] = "$top"
 ODATA_PARAM_SKIP: Final[str] = "$skip"
+
+# --- Repository search API (folder assignments) -----------------------------
+# Neither the catalog nor the dwaas-core surface returns the folder an object
+# lives in: the CSN's `_meta.dependencies.folderAssignment` is write-only and
+# reads back as null. The Repository search endpoint is the only surface that
+# exposes it, and SAP documents the Repository API as reserved for internal use
+# (KBA 3517441), so every failure here degrades to the 2-tier Space -> object
+# layout rather than failing the space.
+REPOSITORY_SEARCH_BASE: Final[str] = "/deepsea/repository"
+REPOSITORY_SEARCH_RESOURCE: Final[str] = "search/$all"
+# Design-time scope; the trailing "*" matches every object in the space.
+REPOSITORY_SEARCH_QUERY: Final[str] = "SCOPE:SEARCH_DESIGN *"
+ODATA_PARAM_COUNT: Final[str] = "$count"
+ODATA_PARAM_APPLY: Final[str] = "$apply"
+# Makes the response carry each object's folder ancestor chain.
+REPOSITORY_SEARCH_PARAM_HIERARCHY: Final[str] = "valuehierarchy"
+# The search endpoint caps a page below the catalog's 500.
+REPOSITORY_SEARCH_PAGE_SIZE: Final[int] = 200
+
+# Repository search record fields.
+SEARCH_FIELD_ID: Final[str] = "id"
+SEARCH_FIELD_NAME: Final[str] = "name"
+SEARCH_FIELD_BUSINESS_NAME: Final[str] = "business_name"
+SEARCH_FIELD_KIND: Final[str] = "kind"
+SEARCH_FIELD_FOLDER_ID: Final[str] = "folder_id"
+SEARCH_FIELD_FOLDER_NAME: Final[str] = "folder_name"
+SEARCH_FIELD_PARENT_HIERARCHIES: Final[str] = (
+    "@com.sap.vocabularies.Search.v1.ParentHierarchies"
+)
+SEARCH_KEY_HIERARCHY: Final[str] = "hierarchy"
+# `kind` discriminator marking a search record as a folder rather than an object.
+SEARCH_KIND_FOLDER: Final[str] = "sap.repo.folder"
+
+# Joins folder path segments into the FolderContainerKey field that seeds its guid.
+FOLDER_PATH_SEPARATOR: Final[str] = "/"
 
 # Reserved CDS/CQN pseudo-alias: {"ref": ["$projection", "<col>"]} references
 # another OUTPUT column of the same query (a calculated column layered on a

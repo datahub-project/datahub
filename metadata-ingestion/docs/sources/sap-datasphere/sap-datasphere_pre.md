@@ -88,8 +88,35 @@ real entities. Their column schema is read from the per-table CSN
 (`/dwaas-core/api/v1/spaces/X/localtables/Y`) when available, enabling
 column-level lineage edges between a View and its base table; if the CSN is
 unavailable the table is still emitted as a schema-less stub. Each Local Table
-has subtype `Local Table` and parents directly to its Space container — the
-connector uses a 2-tier Space → object model, with no separate folder layer.
+has subtype `Local Table` and, like every other object, parents to its Space
+container (or to its folder — see below).
+
+#### Folders
+
+The connector reproduces the folders that organize a space in the _Repository
+Explorer_ / _Data Builder_ as nested DataHub containers, so an asset browses as
+`Space → Folder → Sub-folder → Asset`. Folders nest to any depth, and two
+folders with the same name under different parents stay distinct. An object
+that sits at the space root parents directly to its Space container.
+
+> **Folder discovery calls an undocumented endpoint.** No supported SAP API
+> reports which folder an object lives in: the catalog API omits it entirely,
+> and the design-time CSN's `_meta.dependencies.folderAssignment` is write-only
+> (it reads back as `null`). The only surface that exposes folder assignments
+> is the Repository search endpoint
+> (`/deepsea/repository/X/search/$all`), which SAP
+> [reserves for internal use](https://userapps.support.sap.com/sap/support/knowledge/en/3517441)
+> and may change or withdraw without notice. Every failure degrades
+> gracefully — the space falls back to a 2-tier Space → object layout and the
+> reason is recorded under `folder_lookup_failed`.
+>
+> Some tenants do not route this path to an API at all: the SAP approuter
+> answers it with an HTTP 200 SSO login page, which a technical user cannot
+> follow. The connector detects that non-JSON response, reports it once under
+> `folder_api_unavailable`, and skips folder lookup for the rest of the run, so
+> such a tenant ingests exactly as it did before folders existed. Folders there
+> require an SAP-supported API that reports folder assignments to a
+> client-credentials principal.
 
 ### Prerequisites
 

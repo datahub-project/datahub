@@ -8,7 +8,8 @@ DataHub ingests Spaces as containers and Views, Analytic Models, and Local Table
 
 | SAP Datasphere concept                       | DataHub entity                      | Notes                                                                         |
 | -------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------- |
-| Space                                        | Container                           | 2-tier Space → object model (no folder layer)                                 |
+| Space                                        | Container                           | Top-level container for every object in the space                             |
+| Folder                                       | Container (subtype `Folder`)        | Nested under the Space, to any depth                                          |
 | View                                         | Dataset (subtype `View`)            | Emits `viewProperties`; SQL-editor views use `viewLanguage="SQL"`, else `CSN` |
 | Analytic Model                               | Dataset (subtype `Analytic Model`)  | Assets with `supportsAnalyticalQueries: true`; star-schema lineage            |
 | Local Table (base table)                     | Dataset (subtype `Local Table`)     | Discovered when `include_local_tables: true`; schema from per-table CSN       |

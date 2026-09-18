@@ -112,6 +112,17 @@ def register_handlers(
         content_type="application/json",
     )
 
+    # The recording has no folder assignments, so the space keeps the flat
+    # Space -> object layout. Folder nesting is covered in
+    # tests/unit/sap_datasphere/test_sap_datasphere_folders.py.
+    httpserver.expect_request(
+        f"/deepsea/repository/{SPACE}/search/$all",
+        method="GET",
+    ).respond_with_data(
+        json.dumps({"value": []}),
+        content_type="application/json",
+    )
+
     for name in VIEW_NAMES:
         httpserver.expect_request(
             f"/api/v1/dwc/consumption/relational/{SPACE}/{name}/$metadata",

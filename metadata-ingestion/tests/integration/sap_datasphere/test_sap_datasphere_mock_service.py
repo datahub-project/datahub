@@ -134,6 +134,42 @@ def sap_mock_service(httpserver: HTTPServer) -> Iterator[str]:
         content_type="application/json",
     )
 
+    # MID_VIEW sits two folders deep, so the run has to nest Sales > Reporting
+    # under the space before parenting the view to the inner folder.
+    httpserver.expect_request(
+        "/deepsea/repository/LINEAGE_TEST/search/$all",
+        method="GET",
+    ).respond_with_data(
+        json.dumps(
+            {
+                "value": [
+                    {
+                        "name": "MID_VIEW",
+                        "kind": "entity",
+                        "folder_id": "Folder_CHILD",
+                        "folder_name": "Reporting",
+                        "@com.sap.vocabularies.Search.v1.ParentHierarchies": [
+                            {
+                                "scope": "folder",
+                                "hierarchy": [
+                                    {
+                                        "folder_id": "Folder_ROOT",
+                                        "folder_name": "Sales",
+                                    },
+                                    {
+                                        "folder_id": "Folder_CHILD",
+                                        "folder_name": "Reporting",
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            }
+        ),
+        content_type="application/json",
+    )
+
     httpserver.expect_request(
         "/edmx/LINEAGE_TEST/BASE_TABLE/$metadata",
         method="GET",
@@ -242,7 +278,7 @@ def test_sap_datasphere_against_mock_service_emits_column_lineage(
     ]
     assert dataset_events, "No dataset events emitted"
 
-    # Datasets land under sap-datasphere (managed — incl. FED_UNSUPPORTED, whose
+    # Datasets land under sap-datasphere (managed - incl. FED_UNSUPPORTED, whose
     # mock CSN omits @remote.source) or snowflake (FED_SNOWFLAKE_CUST).
     for e in dataset_events:
         urn = e["entityUrn"]
@@ -260,7 +296,7 @@ def test_sap_datasphere_against_mock_service_emits_column_lineage(
         if e.get("aspect", {}).get("json", {}).get("fineGrainedLineages")
     ]
     assert fine_grained_events, (
-        "No fineGrainedLineages — column lineage path didn't fire"
+        "No fineGrainedLineages - column lineage path didn't fire"
     )
 
     all_fg = [
@@ -271,6 +307,28 @@ def test_sap_datasphere_against_mock_service_emits_column_lineage(
     assert any(fg.get("transformOperation") == "AGGREGATE" for fg in all_fg), (
         "Expected at least one AGGREGATE transformOperation"
     )
+
+    # The folder chain must survive the whole pipeline, not just the key helpers:
+    # MID_VIEW -> Reporting -> Sales -> the space container.
+    container_names = {
+        e["entityUrn"]: e["aspect"]["json"]["name"]
+        for e in events
+        if e.get("aspectName") == "containerProperties"
+    }
+    parent_of = {
+        e["entityUrn"]: e["aspect"]["json"]["container"]
+        for e in events
+        if e.get("aspectName") == "container"
+    }
+    mid_view_urn = next(
+        urn for urn in parent_of if "lineage_test.mid_view" in urn.lower()
+    )
+    ancestors = []
+    parent = parent_of.get(mid_view_urn)
+    while parent is not None:
+        ancestors.append(container_names[parent])
+        parent = parent_of.get(parent)
+    assert ancestors == ["Reporting", "Sales", "Lineage Test Space"], ancestors
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -333,6 +391,14 @@ def test_sap_datasphere_against_mock_service_handles_oauth_refresh_on_401(
         method="GET",
     ).respond_with_data(
         _fixture_text("connections_lineage.json"),
+        content_type="application/json",
+    )
+
+    httpserver.expect_request(
+        "/deepsea/repository/LINEAGE_TEST/search/$all",
+        method="GET",
+    ).respond_with_data(
+        json.dumps({"value": []}),
         content_type="application/json",
     )
 

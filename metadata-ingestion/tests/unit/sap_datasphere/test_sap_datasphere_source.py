@@ -80,6 +80,18 @@ def _default_csn_endpoint_404(requests_mock):
     )
 
 
+@pytest.fixture(autouse=True)
+def _default_empty_folder_search(requests_mock):
+    """Low-priority empty folder listing, so tests that assert on assets rather
+    than on the space layout don't each have to mock the Repository search
+    endpoint. Folder behaviour itself is covered in
+    test_sap_datasphere_folders.py."""
+    requests_mock.get(
+        re.compile(r"https://[^/]+/deepsea/repository/"),
+        json={"value": []},
+    )
+
+
 def test_get_workunits_emits_container_for_space(requests_mock):
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
