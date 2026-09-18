@@ -7,7 +7,7 @@ import pytest
 from shard_pack import ModuleShard, pack_module_plans, pack_modules
 from tests.utilities.domains import Domain
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = pytest.mark.domain(Domain.PLATFORM_INTERNAL)
 
 
 def _batch_of(plans, path: str) -> int:
