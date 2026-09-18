@@ -59,6 +59,11 @@ extend type Mutation {
   Update the applications settings.
   """
   updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
+
+  """
+  Update the environment badge settings. Requires the Manage Features privilege.
+  """
+  updateEnvironmentBadgeSettings(input: UpdateEnvironmentBadgeSettingsInput!): Boolean!
 }
 
 """
@@ -449,6 +454,11 @@ type VisualConfig {
   Configuration for the application sidebar section
   """
   application: ApplicationConfig
+
+  """
+  Whether to show the environment (fabric) badge on assets in search and on entity pages
+  """
+  showEnvironmentBadge: Boolean
 }
 
 """
@@ -970,6 +980,16 @@ input UpdateApplicationsSettingsInput {
   Whether the Applications feature is enabled
   """
   enabled: Boolean
+}
+
+"""
+Input for updating environment badge settings
+"""
+input UpdateEnvironmentBadgeSettingsInput {
+  """
+  Whether the environment badge is shown
+  """
+  enabled: Boolean!
 }
 
 """

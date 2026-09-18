@@ -257,6 +257,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.applications.UpdateApplic
 import com.linkedin.datahub.graphql.resolvers.settings.asset.UpdateAssetSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.environmentbadge.UpdateEnvironmentBadgeSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.homePage.GlobalHomePageSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserLocaleSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
@@ -1707,6 +1708,9 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateApplicationsSettings",
                   new UpdateApplicationsSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "updateEnvironmentBadgeSettings",
+                  new UpdateEnvironmentBadgeSettingsResolver(this.settingsService))
               .dataFetcher(
                   "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient));
 
