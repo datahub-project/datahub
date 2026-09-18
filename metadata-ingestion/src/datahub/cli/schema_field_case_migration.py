@@ -487,6 +487,11 @@ def _reconcile_schema_field_entities(
     # outcome independent of discovery order, rather than letting the first source
     # write-and-soft-delete before the next is seen as a conflict.
     groups: Dict[str, List[_StrandedField]] = {}
+    # Destinations that a field we *couldn't read* could casefold onto. Its peers
+    # must not consolidate there as if it didn't exist (that would bypass the
+    # multi-peer guard and mutate the destination on partial data), so any such
+    # group is skipped wholesale below.
+    tainted: Set[str] = set()
     for schema_field_urn in discover_schema_field_urns(
         graph, dataset_urn, include_soft_deleted
     ):
@@ -516,6 +521,7 @@ def _reconcile_schema_field_entities(
             result.skipped.append(
                 f"schemaField '{old_path}': could not read aspects ({e}); left in place"
             )
+            tainted.update(reconciler.candidates(old_path))
             continue
         if not aspects:
             # Nothing user-authored here; a stale key-only field entity is not
@@ -538,6 +544,17 @@ def _reconcile_schema_field_entities(
     # Phase 2: reconcile each destination once, deterministically.
     for new_path in sorted(groups):
         sources = sorted(groups[new_path], key=lambda s: s.old_path)
+        if new_path in tainted:
+            # A peer that casefolds here couldn't be read, so we can't know the
+            # full contributor set. Skip the whole group (sources kept) rather than
+            # consolidate on partial data; a re-run reconciles it once the read
+            # succeeds.
+            result.skipped.append(
+                f"schemaField -> '{new_path}': a peer that casefolds here could "
+                f"not be read; group left in place to avoid partial consolidation: "
+                f"{[s.old_path for s in sources]}"
+            )
+            continue
         _reconcile_destination_group(
             graph,
             dataset_urn,

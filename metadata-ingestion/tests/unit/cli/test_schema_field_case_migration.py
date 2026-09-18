@@ -1440,6 +1440,44 @@ class TestFailureHandling:
             "could not read aspects" in s and "alpha" in s for s in result.skipped
         )
 
+    def test_peer_group_not_consolidated_when_a_peer_read_fails(self):
+        # Two stranded peers ("col"/"COL") casefold to one live "Col"; reading
+        # "col" fails. The readable "COL" must NOT be consolidated alone — that
+        # would write its non-union aspect and soft-delete it, bypassing the
+        # multi-peer guard and mutating the destination on partial data. The whole
+        # group is left in place for a re-run.
+        col_lower, col_upper = _sf("col"), _sf("COL")
+        new_sf = _sf("Col")
+
+        class _PeerReadFailingGraph(FakeGraph):
+            def get_entity_semityped(
+                self, entity_urn: str, aspects: Optional[List[str]] = None
+            ) -> Dict[str, _Aspect]:
+                if entity_urn == col_lower:
+                    raise RuntimeError("simulated GMS read failure")
+                return super().get_entity_semityped(entity_urn, aspects)
+
+        graph = _PeerReadFailingGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Col")},
+                col_lower: {"documentation": _doc("from lower")},
+                col_upper: {"documentation": _doc("from upper")},
+            }
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        assert result.error is None
+        assert not [a for (u, a) in graph.emitted if u == new_sf]  # dest untouched
+        assert col_upper not in graph.soft_deleted  # readable peer kept
+        assert col_lower not in graph.soft_deleted
+        assert not result.remaps
+        assert any("avoid partial consolidation" in s for s in result.skipped)
+
 
 class TestRunMigrationReport:
     def test_report_counts(self):
