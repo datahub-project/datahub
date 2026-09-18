@@ -28,6 +28,7 @@ import {
     setDefault,
     setDifference,
 } from '@app/lineageV3/common';
+import { HIGHLIGHTED_EDGE_STROKE_WIDTH } from '@app/lineageV3/constants';
 import { LINEAGE_ARROW_MARKER } from '@app/lineageV3/lineageSVGs';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -76,10 +77,10 @@ export default function useColumnHighlighting(
             resolveColumnHighlightSource(
                 selectedColumn,
                 hoveredColumn,
-                getEntityRef(selectedNode, fineGrainedLineage),
-                getEntityRef(hoveredNode, fineGrainedLineage),
+                getEntityRef(selectedNode, fineGrainedLineage, nodes),
+                getEntityRef(hoveredNode, fineGrainedLineage, nodes),
             ),
-        [selectedColumn, hoveredColumn, selectedNode, hoveredNode, fineGrainedLineage],
+        [selectedColumn, hoveredColumn, selectedNode, hoveredNode, fineGrainedLineage, nodes],
     );
 
     const { cllHighlightedNodes, highlightedColumns, shownRelatedColumns, columnEdges, columnHighlightedEdges } =
@@ -139,10 +140,19 @@ export default function useColumnHighlighting(
     };
 }
 
-/** The node's entity ref, if it takes part in column lineage as a whole; see `ENTITY_LEVEL_FIELD`. */
-export function getEntityRef(urn: string | null, fineGrainedLineage: FineGrainedLineage): ColumnRef | null {
+/**
+ * The node's entity ref, if it takes part in column lineage as a whole; see `ENTITY_LEVEL_FIELD`.
+ * A column-like entity always qualifies, including one whose column lineage is only reachable
+ * through another such entity, so has no fine grained lineage of its own.
+ */
+export function getEntityRef(
+    urn: string | null,
+    fineGrainedLineage: FineGrainedLineage,
+    nodes: NodeContext['nodes'],
+): ColumnRef | null {
     if (!urn) return null;
     const ref = createEntityRef(urn);
+    if (isColumnLikeEntity(urn, nodes)) return ref;
     return fineGrainedLineage.upstream.has(ref) || fineGrainedLineage.downstream.has(ref) ? ref : null;
 }
 
@@ -183,6 +193,8 @@ export function computeSingleColumnHighlights(
     const highlightedColumns = new Map<string, Set<string>>();
     const shownRelatedColumns: ShownRelatedColumns = new Map();
     const columnEdges = new Map<string, Edge>();
+    // Regular entity -> entity edges that get highlighted due to column interaction
+    // e.g. a metric -> metric edge when a connected metric / column is hovered or selected
     const columnHighlightedEdges: ColumnHighlightedEdges = new Map();
     const nodeIdsFor = (urn: string) => nodeIdsByUrn.get(urn) ?? [urn];
 
@@ -237,7 +249,7 @@ export function computeSingleColumnHighlights(
                         targetHandle: toField ? toRef : undefined,
                         type: isTentative ? TENTATIVE_EDGE_NAME : 'default',
                         markerEnd: LINEAGE_ARROW_MARKER,
-                        style: { stroke, strokeWidth: 1.25 },
+                        style: { stroke, strokeWidth: HIGHLIGHTED_EDGE_STROKE_WIDTH },
                         data: { isColumnEdge: true }, // Used to hide column edges
                     });
                 });
@@ -345,6 +357,13 @@ export function computeSingleColumnHighlights(
             });
         });
     });
+
+    // A column keeps its own highlight even with no lineage, showing what is selected; an entity
+    // ref has no column to stand for, so leave its node untouched instead
+    if (isEntityRef(column) && !columnEdges.size && !columnHighlightedEdges.size) {
+        cllHighlightedNodes.clear();
+        highlightedColumns.clear();
+    }
 
     return { cllHighlightedNodes, highlightedColumns, shownRelatedColumns, columnEdges, columnHighlightedEdges };
 }

@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import useEdgeHighlight from '@app/lineageV3/LineageEdge/LineageEdge.hooks';
 import { DataJobInputOutputEdgeData, LINEAGE_NODE_HEIGHT } from '@app/lineageV3/common';
+import { HIGHLIGHTED_EDGE_STROKE_WIDTH } from '@app/lineageV3/constants';
 
 import { LineageDirection } from '@types';
 
@@ -22,7 +23,9 @@ const StyledPath = styled.path<{
     /* React Flow's stylesheet sets a light-only default stroke here. */
     stroke: ${({ theme }) => theme.colors.icon};
     ${({ isHighlighted, highlightStroke, theme }) =>
-        isHighlighted ? `stroke: ${highlightStroke ?? theme.colors.borderHover}; stroke-width: 2px;` : ''};
+        isHighlighted
+            ? `stroke: ${highlightStroke ?? theme.colors.borderHover}; stroke-width: ${HIGHLIGHTED_EDGE_STROKE_WIDTH}px;`
+            : ''};
     stroke-opacity: ${({ isColumnSelected }) => (isColumnSelected ? 0.5 : 1)};
     stroke-dasharray: ${({ isManual }) => (isManual ? '5,2' : 'none')};
 `;

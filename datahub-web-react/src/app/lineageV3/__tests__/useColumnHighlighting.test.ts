@@ -462,6 +462,20 @@ describe('entity lineage between column-like entities', () => {
         expect(highlightedColumns.has(DOWNSTREAM_OF_DOWNSTREAM)).toBe(false);
     });
 
+    it('leaves a metric with no column lineage untouched', () => {
+        const { highlightedColumns, cllHighlightedNodes, columnEdges, columnHighlightedEdges } = run(new Map(), {
+            source: metricRef,
+            fineGrainedLineage: lineageFromEdges([]),
+            nodes: new Map([[METRIC, metricNode(METRIC)]]),
+            displayedNodeIds: new Set([METRIC]),
+        });
+
+        expect(highlightedColumns.size).toEqual(0);
+        expect(cllHighlightedNodes.size).toEqual(0);
+        expect(columnEdges.size).toEqual(0);
+        expect(columnHighlightedEdges.size).toEqual(0);
+    });
+
     it('adds no column edges of its own, so the drawn entity edge is the one highlighted', () => {
         const { columnEdges } = runFromColumn([[METRIC, DERIVED]]);
 
@@ -472,15 +486,29 @@ describe('entity lineage between column-like entities', () => {
 
 describe('getEntityRef', () => {
     const METRIC = 'urn:li:metric:(urn:li:dataPlatform:snowflake,db,total)';
+    const DERIVED = 'urn:li:metric:(urn:li:dataPlatform:snowflake,db,derived)';
+
+    const nodes = new Map<string, any>([
+        [UPSTREAM, node(UPSTREAM)],
+        [METRIC, { id: METRIC, urn: METRIC, type: EntityType.Metric, entity: {} }],
+        [DERIVED, { id: DERIVED, urn: DERIVED, type: EntityType.Metric, entity: {} }],
+    ]);
 
     it('returns the entity ref for a node that takes part in column lineage as a whole', () => {
         const lineage = lineageFromEdges([[upstreamRef, createEntityRef(METRIC)]]);
-        expect(getEntityRef(METRIC, lineage)).toEqual(createEntityRef(METRIC));
+        expect(getEntityRef(METRIC, lineage, nodes)).toEqual(createEntityRef(METRIC));
+    });
+
+    it('returns the entity ref for a column-like entity with no fine grained lineage of its own', () => {
+        // A derived metric reaches column lineage only through the metric it derives from, which is
+        // an entity edge, so it is absent from the fine grained lineage map
+        const lineage = lineageFromEdges([[upstreamRef, createEntityRef(METRIC)]]);
+        expect(getEntityRef(DERIVED, lineage, nodes)).toEqual(createEntityRef(DERIVED));
     });
 
     it('returns null for a node whose column lineage is all through its columns, or no node', () => {
-        expect(getEntityRef(UPSTREAM, fineGrainedLineage())).toBeNull();
-        expect(getEntityRef(null, fineGrainedLineage())).toBeNull();
+        expect(getEntityRef(UPSTREAM, fineGrainedLineage(), nodes)).toBeNull();
+        expect(getEntityRef(null, fineGrainedLineage(), nodes)).toBeNull();
     });
 });
 
