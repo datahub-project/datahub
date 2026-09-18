@@ -2,7 +2,8 @@
  * Semantic Model and Metric lineage topologies.
  *
  * Covers bounding-box membership, canonical Metric → SMD → physical chains,
- * derived metrics, standalone metrics, multi-input metrics, and a BI boundary hop.
+ * derived metrics, standalone metrics, multi-input metrics, a BI boundary hop, and
+ * column -> metric lineage highlighting.
  *
  * Prerequisites: fixtures/data.json (featureName: 'metrics')
  */
@@ -100,6 +101,37 @@ test.describe('Metrics lineage topologies', () => {
     await lineagePage.checkNodeExists(STANDALONE_EVENT_COUNT_URN);
     await lineagePage.checkNodeExists(PHYS_STANDALONE_URN);
     await lineagePage.checkEdgeExists(PHYS_STANDALONE_URN, STANDALONE_EVENT_COUNT_URN);
+  });
+
+  test('hovering and selecting a metric highlights the columns it reads and draws arrows to it', async ({
+    page,
+  }) => {
+    // total_revenue reads orders_ds.amount (metricUpstreams.fieldUpstreams). Hovering the metric
+    // must surface that column and draw a column -> metric arrow, as hovering a column does;
+    // selecting the metric must keep them once the pointer leaves.
+    await loadLineageGraph('metric', TOTAL_REVENUE_URN);
+    await lineagePage.checkNodeExists(ORDERS_LOGICAL_URN);
+    // The minimap floats over the bottom-right of the canvas and can intercept pointer events
+    await page.addStyleTag({ content: '.react-flow__minimap { pointer-events: none !important; }' });
+    await lineagePage.waitForViewportToSettle();
+
+    const ordersNode = lineagePage.getReactFlowNodeByUrn(ORDERS_LOGICAL_URN);
+    const amountColumn = ordersNode.getByTestId('column-amount');
+    const columnToMetricEdge = lineagePage.getColumnToEntityEdge(ORDERS_LOGICAL_URN, 'amount', TOTAL_REVENUE_URN);
+    await expect(amountColumn).not.toBeAttached();
+
+    await lineagePage.hoverNode(TOTAL_REVENUE_URN);
+    await expect(amountColumn).toHaveAttribute('data-highlighted', 'true', { timeout: TIMEOUTS.MEDIUM });
+    await expect(columnToMetricEdge).toBeAttached({ timeout: TIMEOUTS.MEDIUM });
+    await lineagePage.checkEdgeHasArrowMarker(columnToMetricEdge);
+    await lineagePage.checkNodeHighlighted(TOTAL_REVENUE_URN, true);
+
+    await lineagePage.selectNode(TOTAL_REVENUE_URN);
+    await page.mouse.move(0, 0);
+    await expect(lineagePage.lineageSidebar).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await expect(columnToMetricEdge).toBeAttached();
+    await expect(amountColumn).toHaveAttribute('data-highlighted', 'true');
+    await lineagePage.checkNodeHighlighted(TOTAL_REVENUE_URN, true);
   });
 
   test('multi-input metric keeps dataset and metric upstreams', async () => {
