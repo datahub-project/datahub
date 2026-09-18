@@ -433,6 +433,115 @@ describe('usePolicy', () => {
         });
     });
 
+    describe('onRemovePolicy and delete flow', () => {
+        it('should set policyToDelete when onRemovePolicy is called', async () => {
+            const { result } = renderUsePolicy();
+
+            const policyToDelete = {
+                urn: 'urn:li:policy:123',
+                type: PolicyType.Metadata,
+                name: 'Test Policy',
+                state: PolicyState.Active,
+                description: 'Test',
+                editable: true,
+                privileges: ['VIEW_DATASET'],
+                actors: {
+                    users: [],
+                    groups: [],
+                    allUsers: false,
+                    allGroups: false,
+                    resourceOwners: false,
+                },
+                resources: {
+                    allResources: true,
+                },
+            } as any;
+
+            result.current.onRemovePolicy(policyToDelete);
+
+            await new Promise((resolve) => {
+                setTimeout(resolve, 50);
+            });
+            expect(result.current.policyToDelete).toEqual(policyToDelete);
+        });
+
+        it('should clear policyToDelete when handleDeleteCancel is called', async () => {
+            const { result } = renderUsePolicy();
+
+            const policyToDelete = {
+                urn: 'urn:li:policy:123',
+                type: PolicyType.Metadata,
+                name: 'Test Policy',
+                state: PolicyState.Active,
+                description: 'Test',
+                editable: true,
+                privileges: ['VIEW_DATASET'],
+                actors: {
+                    users: [],
+                    groups: [],
+                    allUsers: false,
+                    allGroups: false,
+                    resourceOwners: false,
+                },
+                resources: {
+                    allResources: true,
+                },
+            } as any;
+
+            result.current.onRemovePolicy(policyToDelete);
+            await new Promise((resolve) => {
+                setTimeout(resolve, 50);
+            });
+
+            result.current.handleDeleteCancel();
+            await new Promise((resolve) => {
+                setTimeout(resolve, 50);
+            });
+
+            expect(result.current.policyToDelete).toBeNull();
+        });
+
+        it('should handle delete confirmation and clear state', async () => {
+            const { result } = renderUsePolicy();
+
+            const policyToDelete = {
+                urn: 'urn:li:policy:456',
+                type: PolicyType.Metadata,
+                name: 'Delete Test Policy',
+                state: PolicyState.Active,
+                description: 'Test',
+                editable: true,
+                privileges: ['VIEW_DATASET'],
+                actors: {
+                    users: [],
+                    groups: [],
+                    allUsers: false,
+                    allGroups: false,
+                    resourceOwners: false,
+                },
+                resources: {
+                    allResources: true,
+                },
+            } as any;
+
+            result.current.onRemovePolicy(policyToDelete);
+            await new Promise((resolve) => {
+                setTimeout(resolve, 50);
+            });
+            expect(result.current.policyToDelete).toEqual(policyToDelete);
+
+            result.current.handleDeleteConfirm();
+            // Wait for mutation to complete and callbacks to fire
+            await new Promise((resolve) => {
+                setTimeout(resolve, 2100);
+            });
+
+            expect(mockOnCancelViewPolicy).toHaveBeenCalled();
+            expect(result.current.policyToDelete).toBeNull();
+            expect(mockPoliciesRefetch).toHaveBeenCalled();
+        });
+    });
+
     describe('getPrivilegeNames', () => {
         it('should return empty array when policy has no privileges', () => {
             const { result } = renderUsePolicy();
