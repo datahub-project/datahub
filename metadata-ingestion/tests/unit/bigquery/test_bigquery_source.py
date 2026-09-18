@@ -14,6 +14,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
@@ -47,6 +48,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     calculate_dynamic_batch_size,
     is_shard_newer,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+    BigQuerySharingHandler,
+)
 from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
     LineageEdgeColumnMapping,
@@ -70,6 +74,8 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
     UpstreamLineageClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -1732,6 +1738,25 @@ def test_bigquery_source_reports_linked_dataset_lineage_needs_table_lineage():
     assert any("`include_table_lineage` is False" in m for m in messages)
 
 
+def test_bigquery_source_does_not_warn_when_schema_metadata_off_with_table_lineage():
+    # Pins the deletion, not just the reword: with table lineage on, nothing should warn
+    # about the feature being inert.
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "p",
+            "include_linked_dataset_lineage": True,
+            "include_table_lineage": True,
+            "include_schema_metadata": False,
+        }
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    assert not fake_source.report.warnings
+
+
 def test_bigquery_source_no_linked_dataset_warnings_when_configured():
     config = BigQueryV2Config.model_validate(
         {
@@ -2205,9 +2230,6 @@ def test_linked_entities_recorded_only_past_the_pattern_gates(
     # pointing at an entity that was never ingested. Both gates are covered: an
     # earlier version filtered views separately from tables and let a denied view
     # through.
-    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
-        BigQuerySharingHandler,
-    )
 
     project_id = "consumer-project"
     linked_dataset = "linked_ds"
@@ -2292,9 +2314,6 @@ def test_linked_entities_recorded_only_past_the_pattern_gates(
     # past their pattern gate, so a denied entity is absent from table_refs and gets no
     # COPY edge. add_known_lineage_mapping emits the table-level edge even with an empty
     # resolver, which is all this asserts.
-    from datahub.ingestion.api.source_helpers import auto_workunit
-    from datahub.sql_parsing.schema_resolver import SchemaResolver
-    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
     aggregator = SqlParsingAggregator(
         platform="bigquery",
@@ -2332,11 +2351,6 @@ def test_linked_entities_get_no_copy_edge_when_denied_by_type_pattern_schema_off
 ):
     # register_known_lineage emits a COPY over each ref in table_refs, so a view or snapshot denied
     # by its own pattern gets none.
-    from google.cloud.bigquery.table import TableListItem
-
-    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
-        BigQuerySharingHandler,
-    )
 
     project_id = "consumer-project"
     linked_dataset = "linked_ds"
@@ -2407,10 +2421,6 @@ def test_linked_entities_get_no_copy_edge_when_denied_by_type_pattern_schema_off
     ):
         schema_gen._add_table_to_refs(item, project_id, linked_dataset)
 
-    from datahub.ingestion.api.source_helpers import auto_workunit
-    from datahub.sql_parsing.schema_resolver import SchemaResolver
-    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
-
     aggregator = SqlParsingAggregator(
         platform="bigquery",
         platform_instance=None,
@@ -2447,11 +2457,6 @@ def test_linked_dataset_view_allowed_by_view_pattern_despite_table_pattern_schem
 ):
     # A linked view that is denied by table_pattern but allowed by view_pattern still gets a
     # COPY edge because the schema-off path picks the type's own pattern.
-    from google.cloud.bigquery.table import TableListItem
-
-    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
-        BigQuerySharingHandler,
-    )
 
     project_id = "consumer-project"
     linked_dataset = "linked_ds"
@@ -2513,10 +2518,6 @@ def test_linked_dataset_view_allowed_by_view_pattern_despite_table_pattern_schem
     )
     schema_gen._add_table_to_refs(view, project_id, linked_dataset)
 
-    from datahub.ingestion.api.source_helpers import auto_workunit
-    from datahub.sql_parsing.schema_resolver import SchemaResolver
-    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
-
     aggregator = SqlParsingAggregator(
         platform="bigquery",
         platform_instance=None,
@@ -2551,11 +2552,6 @@ def test_linked_dataset_view_and_snapshot_kept_regardless_of_include_flags_schem
     # include_views / include_table_snapshots mean "ingest this object's schema", not
     # "include it in lineage" (sql_config.py:87-89), so a linked dataset's view and snapshot
     # stay in table_refs even with both off; only their own pattern can exclude them.
-    from google.cloud.bigquery.table import TableListItem
-
-    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
-        BigQuerySharingHandler,
-    )
 
     project_id = "consumer-project"
     linked_dataset = "linked_ds"
@@ -2638,7 +2634,6 @@ def test_non_linked_dataset_view_kept_when_include_views_false_schema_off(
 ):
     # Opt-in invariant: include_views must not gate a dataset that was never registered as
     # linked (get_info returns None here since populate_for_project is not called).
-    from google.cloud.bigquery.table import TableListItem
 
     config = BigQueryV2Config.model_validate(
         {
@@ -2675,7 +2670,6 @@ def test_flag_off_view_kept_when_include_views_false_schema_off(
     get_projects_client_mock, get_bq_client_mock
 ):
     # Opt-in invariant: with the feature flag off, include_views=False must still not drop views.
-    from google.cloud.bigquery.table import TableListItem
 
     config = BigQueryV2Config.model_validate(
         {
@@ -2711,11 +2705,6 @@ def test_non_linked_dataset_keeps_table_pattern_only_schema_off(
 ):
     # A non-linked dataset filters every object type through table_pattern, so table_snapshot_pattern
     # does not apply even while the feature is on.
-    from google.cloud.bigquery.table import TableListItem
-
-    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
-        BigQuerySharingHandler,
-    )
 
     project_id = "consumer-project"
 
