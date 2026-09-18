@@ -1,6 +1,5 @@
-import { Input } from 'antd';
-import React, { ChangeEvent } from 'react';
-import styled from 'styled-components';
+import { Input } from '@components';
+import React from 'react';
 
 import MultipleOpenEndedInput from '@app/entity/shared/components/styled/StructuredProperty/MultipleOpenEndedInput';
 import { PropertyCardinality } from '@src/types.generated';
@@ -8,24 +7,19 @@ import { PropertyCardinality } from '@src/types.generated';
 // Programmatic discriminator for MultipleOpenEndedInput; not user-visible text.
 const NUMBER_INPUT_TYPE = 'number';
 
-const StyledInput = styled(Input)`
-    border: 1px solid ${(props) => props.theme.colors.border};
-    width: 250px;
-`;
-
 interface Props {
-    selectedValues: any[];
+    selectedValues: (string | number | null)[];
     cardinality?: PropertyCardinality | null;
-    updateSelectedValues: (values: string[] | number[]) => void;
+    updateSelectedValues: (values: (string | number | null)[]) => void;
 }
 
 export default function NumberInput({ selectedValues, cardinality, updateSelectedValues }: Props) {
-    function updateInput(event: ChangeEvent<HTMLInputElement>) {
-        const number = Number(event.target.value);
+    function updateInput(value: string) {
+        const number = Number(value);
         updateSelectedValues([number]);
     }
 
-    function updateMultipleValues(values: string[] | number[]) {
+    function updateMultipleValues(values: (string | number | null)[]) {
         const numbers = values.map((v) => Number(v));
         updateSelectedValues(numbers);
     }
@@ -41,10 +35,10 @@ export default function NumberInput({ selectedValues, cardinality, updateSelecte
     }
 
     return (
-        <StyledInput
+        <Input
             type="number"
-            value={selectedValues[0] !== undefined ? selectedValues[0] : null}
-            onChange={updateInput}
+            value={selectedValues[0] !== undefined ? String(selectedValues[0]) : ''}
+            setValue={updateInput}
         />
     );
 }

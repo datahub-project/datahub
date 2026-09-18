@@ -41,14 +41,13 @@ export const Radio = ({
         setChecked(isChecked || false);
     }, [isChecked]);
 
-    const id = props.id || `checkbox-${resolvedLabel}`;
+    const id = props.id || `radio-${resolvedLabel}`;
 
     return (
-        <RadioWrapper disabled={isDisabled} error={error}>
-            <RadioBase>
+        <RadioWrapper disabled={isDisabled}>
+            <RadioBase disabled={isDisabled} error={error}>
                 <HiddenInput
                     type="radio"
-                    id={resolvedLabel}
                     value={resolvedLabel}
                     checked={checked}
                     disabled={isDisabled}
@@ -57,15 +56,15 @@ export const Radio = ({
                         setIsChecked?.(true);
                     }}
                     aria-label={resolvedLabel}
-                    aria-labelledby={id}
                     aria-checked={checked}
                     {...props}
+                    id={id}
                 />
                 <Checkmark checked={checked} disabled={isDisabled} error={error} />
             </RadioBase>
             {resolvedLabel && (
                 <RadioLabel>
-                    <Label onClick={() => setChecked(true)}>
+                    <Label htmlFor={id}>
                         {resolvedLabel} {isRequired && <Required>*</Required>}
                     </Label>
                 </RadioLabel>
