@@ -284,17 +284,23 @@ class TestVenvEntryState:
 
         assert not venv_utils.is_venv_complete(venv)
 
-    def test_last_used_advances_on_touch(self, tmp_path: pathlib.Path) -> None:
-        """LRU orders by THIS file, never by filesystem atime: containers mount
-        relatime or noatime, so atime lags by a day or never updates."""
+    def test_last_used_reads_mtime_not_atime(self, tmp_path: pathlib.Path) -> None:
+        """LRU orders by mtime, never by filesystem atime.
+
+        Containers mount relatime or noatime, so atime either lags by a day or
+        never updates -- an eviction policy reading it looks correct in
+        development and evicts the wrong entries in production. Set the two to
+        DIFFERENT values: a version reading st_atime returns the wrong one and
+        fails here, which a test touching both together cannot detect.
+        """
         venv = self._venv_with_python(tmp_path / "venv-x")
-
         venv_utils.touch_last_used(venv)
-        first = venv_utils.last_used_at(venv)
-        os.utime(venv / venv_utils.LAST_USED_MARKER, (first - 500, first - 500))
-        venv_utils.touch_last_used(venv)
+        marker = venv / venv_utils.LAST_USED_MARKER
 
-        assert venv_utils.last_used_at(venv) > first - 500
+        atime, mtime = 1_000_000.0, 2_000_000.0
+        os.utime(marker, (atime, mtime))
+
+        assert venv_utils.last_used_at(venv) == mtime
 
     def test_last_used_of_an_unmarked_venv_sorts_oldest(
         self, tmp_path: pathlib.Path
