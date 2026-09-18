@@ -532,5 +532,71 @@ def test_config_model_all_optional_parameters():
     assert config.export_only == ["glossary"]
 
 
+def test_rdf_source_uses_parent_workunit_processors(tmp_path):
+    """Stale entity removal depends on AutoWorkunitsReporterProcessor incrementing
+    events_produced. RDF must not replace the parent processor chain with a
+    stale-removal-only list, or deletion is skipped as if no metadata was produced.
+    """
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.source.rdf.ingestion.rdf_source import (
+        RDFSource,
+        RDFSourceConfig,
+    )
+    from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+        AutoStaleEntityRemovalProcessor,
+    )
+    from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+        AutoWorkunitsReporterProcessor,
+    )
+
+    assert "get_workunit_processors" not in RDFSource.__dict__
+    assert "get_allowed_workunit_processors" not in RDFSource.__dict__
+
+    ttl_file = tmp_path / "glossary.ttl"
+    ttl_file.write_text(
+        """@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix ex: <http://example.org/glossary/> .
+
+ex:AccountIdentifier a skos:Concept ;
+    skos:prefLabel "Account Identifier" ;
+    skos:definition "A unique identifier for an account" .
+"""
+    )
+    config = RDFSourceConfig.model_validate(
+        {
+            "source": str(ttl_file),
+            "format": "turtle",
+            "stateful_ingestion": {
+                "enabled": True,
+                "remove_stale_metadata": True,
+                "state_provider": {
+                    "type": "file",
+                    "config": {"filename": str(tmp_path / "state.json")},
+                },
+            },
+        }
+    )
+    source = RDFSource(
+        config,
+        PipelineContext(
+            run_id="test-rdf-processors",
+            pipeline_name="test-rdf-processors",
+        ),
+    )
+
+    workunits = list(source.get_workunits())
+    report = source.get_report()
+
+    assert workunits
+    assert report.events_produced > 0
+    assert report.events_produced == len(workunits)
+    assert AutoWorkunitsReporterProcessor.__name__ in report.workunit_processor_reports
+    assert AutoStaleEntityRemovalProcessor.__name__ in report.workunit_processor_reports
+    assert not any(
+        "did not produce any metadata" in str(failure).lower()
+        for failure in report.failures
+    )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
