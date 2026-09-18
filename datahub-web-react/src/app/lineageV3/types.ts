@@ -65,6 +65,8 @@ export interface FetchedEntityV2 {
     platform?: DataPlatform;
     status?: Status;
     fineGrainedLineages?: FineGrainedLineage[];
+    /** Schema fields this entity reads as a whole, having no columns of its own, e.g. a metric. */
+    upstreamSchemaFieldUrns?: string[];
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;
