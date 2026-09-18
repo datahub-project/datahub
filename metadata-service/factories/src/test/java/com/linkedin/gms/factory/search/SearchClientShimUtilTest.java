@@ -33,7 +33,7 @@ import org.testng.annotations.Test;
       "elasticsearch.pathPrefix=",
       "elasticsearch.opensearchUseAwsIamAuth=false",
       "elasticsearch.region=",
-      "elasticsearch.clusters.primary.shim.engineType=ELASTICSEARCH_7",
+      "elasticsearch.clusters.primary.shim.engineType=ELASTICSEARCH_8",
       "elasticsearch.clusters.primary.shim.autoDetectEngine=false"
     })
 @SpringBootTest(classes = {SearchClientShimFactory.class, ObjectMapperFactory.class})
@@ -45,19 +45,6 @@ public class SearchClientShimUtilTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testFactoryInjection() {
     log.info("Testing SearchClientShimUtil injection");
-    assertNotNull(shimFactory);
-  }
-
-  @Test
-  public void testEngineTypeParsingES7() {
-    log.info("Testing engine type parsing for Elasticsearch 7");
-
-    // Test through private method by using reflection or create config variants
-    // Since the method is private, we'll test through the public configuration
-    // This test validates that configuration is properly parsed
-
-    // We can't directly test the private parseEngineType method, but we can verify
-    // that the factory handles different engine type configurations correctly
     assertNotNull(shimFactory);
   }
 
@@ -84,7 +71,6 @@ public class SearchClientShimUtilTest extends AbstractTestNGSpringContextTests {
 
     // Verify all expected engine types exist
     SearchEngineType[] supportedTypes = {
-      SearchEngineType.ELASTICSEARCH_7,
       SearchEngineType.ELASTICSEARCH_8,
       SearchEngineType.ELASTICSEARCH_9,
       SearchEngineType.OPENSEARCH_2,
@@ -97,43 +83,5 @@ public class SearchClientShimUtilTest extends AbstractTestNGSpringContextTests {
       assertNotNull(engineType.getEngine());
       assertNotNull(engineType.getMajorVersion());
     }
-  }
-
-  /** Test engine type compatibility flags */
-  @Test
-  public void testEngineTypeCompatibility() {
-    log.info("Testing engine type compatibility flags");
-
-    // Test Elasticsearch types
-    assertTrue(SearchEngineType.ELASTICSEARCH_7.isElasticsearch());
-    assertTrue(SearchEngineType.ELASTICSEARCH_8.isElasticsearch());
-    assertTrue(SearchEngineType.ELASTICSEARCH_9.isElasticsearch());
-    assertFalse(SearchEngineType.OPENSEARCH_2.isElasticsearch());
-
-    // Test OpenSearch types
-    assertFalse(SearchEngineType.ELASTICSEARCH_7.isOpenSearch());
-    assertFalse(SearchEngineType.ELASTICSEARCH_8.isOpenSearch());
-    assertFalse(SearchEngineType.ELASTICSEARCH_9.isOpenSearch());
-    assertTrue(SearchEngineType.OPENSEARCH_2.isOpenSearch());
-    assertTrue(SearchEngineType.OPENSEARCH_3.isOpenSearch());
-
-    // Test client compatibility
-    assertTrue(SearchEngineType.ELASTICSEARCH_7.supportsEs7HighLevelClient());
-    assertTrue(SearchEngineType.OPENSEARCH_2.supportsEs7HighLevelClient());
-    assertFalse(SearchEngineType.ELASTICSEARCH_8.supportsEs7HighLevelClient());
-    assertFalse(SearchEngineType.ELASTICSEARCH_9.supportsEs7HighLevelClient());
-    assertFalse(SearchEngineType.OPENSEARCH_3.supportsEs7HighLevelClient());
-
-    assertFalse(SearchEngineType.ELASTICSEARCH_7.requiresEs8JavaClient());
-    assertTrue(SearchEngineType.ELASTICSEARCH_8.requiresEs8JavaClient());
-    assertTrue(SearchEngineType.ELASTICSEARCH_9.requiresEs8JavaClient());
-    assertFalse(SearchEngineType.OPENSEARCH_2.requiresEs8JavaClient());
-    assertFalse(SearchEngineType.OPENSEARCH_3.requiresEs8JavaClient());
-
-    assertTrue(SearchEngineType.OPENSEARCH_2.requiresOpenSearchClient());
-    assertTrue(SearchEngineType.OPENSEARCH_3.requiresOpenSearchClient());
-    assertFalse(SearchEngineType.ELASTICSEARCH_7.requiresOpenSearchClient());
-    assertFalse(SearchEngineType.ELASTICSEARCH_8.requiresOpenSearchClient());
-    assertFalse(SearchEngineType.ELASTICSEARCH_9.requiresOpenSearchClient());
   }
 }

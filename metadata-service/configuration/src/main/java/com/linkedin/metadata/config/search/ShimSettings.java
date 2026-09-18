@@ -20,7 +20,7 @@ public class ShimSettings {
   /** When false the legacy RestHighLevelClient is used instead of the shim. */
   private Boolean enabled;
 
-  /** AUTO_DETECT, ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2, OPENSEARCH_3. */
+  /** AUTO_DETECT, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2, OPENSEARCH_3. */
   private String engineType;
 
   /** Takes precedence over {@link #engineType} when true, matching existing behavior. */

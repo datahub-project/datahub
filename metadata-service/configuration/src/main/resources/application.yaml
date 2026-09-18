@@ -784,7 +784,7 @@ elasticsearch:
       shim:
         # Enable the search client shim (false = use legacy RestHighLevelClient)
         enabled: ${ELASTICSEARCH_SHIM_ENABLED:false}
-        # Engine type: AUTO_DETECT, ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2, OPENSEARCH_3
+        # Engine type: AUTO_DETECT, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2, OPENSEARCH_3
         engineType: ${ELASTICSEARCH_SHIM_ENGINE_TYPE:AUTO_DETECT}
         # Whether to auto-detect the engine type by connecting to the cluster
         autoDetectEngine: ${ELASTICSEARCH_SHIM_AUTO_DETECT:true}
@@ -1096,7 +1096,7 @@ elasticsearch:
     catchUpFlushBytesThreshold: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_BYTES_THRESHOLD:134217728} # metadata-column char proxy for early flush (128 MiB); 0 disables
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
-    pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
+    pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or Elasticsearch >= 8. Regardless of this flag's value, PIT will be created for sliced scrolls.
     # Defines the behavior of quoted searches, do they apply weights or exclude results
     exactMatch:
       exclusive: ${ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE:false} # if false will only apply weights, if true will exclude non-exact

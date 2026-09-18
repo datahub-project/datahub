@@ -282,12 +282,12 @@ test {
 // this every suite task below silently runs zero tests (NO-SOURCE), and the global
 // failOnNoDiscoveredTests=false in the root build masks it as a green build.
 //
-// testMysql, testOther, testEs8 and testEs7CassandraNeo4j are deliberately left unwired for now:
+// testMysql, testOther, testEs8 and testCassandraNeo4j are deliberately left unwired for now:
 // resurrecting them surfaces pre-existing failures that accumulated while the suites were dead.
 // They keep the same no-op behavior as before this change and must be re-enabled in a follow-up
 // once those tests are fixed. The container-free shim unit tests the es8 suite used to carry now
 // run in the OpenSearch suites (see testng-opensearch.xml).
-def deliberatelyUnwiredSuites = ['testMysql', 'testOther', 'testEs8', 'testEs7CassandraNeo4j']
+def deliberatelyUnwiredSuites = ['testMysql', 'testOther', 'testEs8', 'testCassandraNeo4j']
 tasks.withType(Test).configureEach {
   if (!(name in deliberatelyUnwiredSuites)) {
     testClassesDirs = sourceSets.test.output.classesDirs
@@ -323,12 +323,12 @@ gradle.taskGraph.whenReady { graph ->
   }
 }
 
-task testEs7CassandraNeo4j(type: Test) {
+task testCassandraNeo4j(type: Test) {
   doFirst {
     maxParallelForks = 1
   }
   useTestNG() {
-    suites 'src/test/resources/testng-es7-cassandra-neo4j.xml'
+    suites 'src/test/resources/testng-cassandra-neo4j.xml'
   }
   testLogging {
     events "failed", "skipped", "passed"
@@ -339,7 +339,7 @@ task testEs7CassandraNeo4j(type: Test) {
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
 
   group = 'verification'
-  description = 'Runs only the testng-es7-cassandra-neo4j.xml test suite'
+  description = 'Runs only the testng-cassandra-neo4j.xml test suite'
 }
 
 task testOpenSearch(type: Test) {
@@ -512,7 +512,7 @@ gradle.taskGraph.whenReady { graph ->
 // partials — no separate merge job. classDirectories excludes generated code, matching the base
 // jacocoTestReport in gradle/coverage/java-coverage.gradle.
 def jacocoCoverageExcludes = ['**/generated/**']
-['testOpenSearch', 'testOpenSearch3', 'testEs8', 'testEs7CassandraNeo4j', 'testOther', 'testSqlOpt', 'testPostgresql', 'testMysql'].each { suiteTask ->
+['testOpenSearch', 'testOpenSearch3', 'testEs8', 'testCassandraNeo4j', 'testOther', 'testSqlOpt', 'testPostgresql', 'testMysql'].each { suiteTask ->
   def reportTask = tasks.register("jacoco${suiteTask.capitalize()}Report", JacocoReport) {
     dependsOn suiteTask
     executionData.setFrom(fileTree(layout.buildDirectory.dir('jacoco')).include("${suiteTask}.exec"))
