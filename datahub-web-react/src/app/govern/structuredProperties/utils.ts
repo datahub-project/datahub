@@ -17,7 +17,6 @@ import {
     VALUE_TYPE_FIELD_NAME,
 } from '@src/app/search/utils/constants';
 import {
-    AllowedValue,
     AllowedValueInput,
     Entity,
     EntityType,
@@ -64,7 +63,6 @@ export type StructuredProp = {
         allowedTypes?: string[];
     };
     immutable?: boolean;
-    allowedValues?: AllowedValue[];
     settings?: StructuredPropertySettings | null;
 };
 
@@ -246,52 +244,142 @@ export const getNewAllowedPlatforms = (entity: StructuredPropertyEntity, values:
     return (newPlatforms?.length || 0) > 0 ? newPlatforms : undefined;
 };
 
+// A row the user just added has no value yet, and the live list is read on every keystroke, so
+// this has to tolerate an empty or missing row.
+export const getAllowedValueKey = (
+    val: { numberValue?: number | string | null; stringValue?: string | null } | undefined | null,
+): number | string | undefined | null => val?.numberValue ?? val?.stringValue;
+
 /**
- * Shape of an allowed value while it is being edited. A saved `AllowedValue` nests its value under
- * `value`; the form flattens it so each row binds to a single input.
+ * An allowed value while it is being edited. `rowId` is client-only: rows are reorderable and can
+ * be blank, so neither the value nor the list position can identify a row across renders.
  */
-export type AllowedValueFormRow = {
-    numberValue?: number | string | null;
+export type AllowedValueRow = {
+    rowId: string;
+    isPersisted?: boolean;
     stringValue?: string | null;
+    // A number row holds the raw text while the user types (e.g. "1." or "-"), coerced on submit.
+    numberValue?: number | string | null;
     description?: string | null;
 };
 
-export const getAllowedValueKey = (val: AllowedValueFormRow): number | string | undefined | null =>
-    val.numberValue ?? val.stringValue;
+let allowedValueRowCounter = 0;
 
-/**
- * Keys of the values already saved on the property. Saved values stay read-only, but they are
- * matched by value rather than by position so that reordering does not make a different row
- * read-only than the one the user saved.
- */
-export const getExistingAllowedValueKeys = (entity?: StructuredPropertyEntity): Set<string | number> =>
-    new Set(
-        (entity?.definition?.allowedValues ?? [])
-            .map((val) => getAllowedValueKey(val.value as AllowedValueFormRow))
-            .filter((key): key is string | number => key !== undefined && key !== null),
-    );
+export const createAllowedValueRow = (value?: Omit<AllowedValueRow, 'rowId'>): AllowedValueRow => {
+    allowedValueRowCounter += 1;
+    return { ...value, rowId: `allowed-value-${allowedValueRowCounter}` };
+};
 
-/**
- * Converts form rows into the mutation input, dropping rows the user left blank. Number inputs hand
- * back strings, so numeric rows are parsed before they reach a Float field.
- */
-export const toAllowedValueInputs = (
-    rows: AllowedValueFormRow[] | undefined,
-    valueField: PropValueField,
-): AllowedValueInput[] =>
-    (rows ?? []).reduce<AllowedValueInput[]>((inputs, row) => {
-        const description = row?.description || undefined;
+export const toAllowedValueInput = ({
+    stringValue,
+    numberValue,
+    description,
+}: AllowedValueRow): AllowedValueInput | undefined => {
+    const normalizedDescription = description ?? undefined;
 
-        if (valueField === 'numberValue') {
-            const numberValue = typeof row?.numberValue === 'string' ? Number(row.numberValue) : row?.numberValue;
-            if (numberValue === undefined || numberValue === null || !Number.isFinite(numberValue)) return inputs;
-            return [...inputs, { numberValue, description }];
+    if (numberValue !== null && numberValue !== undefined && String(numberValue).trim() !== '') {
+        const parsedNumber = Number(numberValue);
+        if (Number.isFinite(parsedNumber)) {
+            return { numberValue: parsedNumber, description: normalizedDescription };
         }
+    }
 
-        const stringValue = row?.stringValue;
-        if (!stringValue) return inputs;
-        return [...inputs, { stringValue, description }];
-    }, []);
+    if (stringValue !== null && stringValue !== undefined && stringValue.trim() !== '') {
+        return { stringValue, description: normalizedDescription };
+    }
+
+    return undefined;
+};
+
+/** Drops client-only row IDs and blank rows, and coerces numeric input for GraphQL. */
+export const toAllowedValueInputs = (rows: AllowedValueRow[] | undefined): AllowedValueInput[] =>
+    (rows ?? []).flatMap((row) => {
+        const input = toAllowedValueInput(row);
+        return input ? [input] : [];
+    });
+
+export const haveAllowedValuesChanged = (
+    savedRows: AllowedValueRow[] | undefined,
+    currentRows: AllowedValueRow[],
+): boolean => JSON.stringify(toAllowedValueInputs(savedRows)) !== JSON.stringify(toAllowedValueInputs(currentRows));
+
+export type StructuredPropertyFormErrors = {
+    displayName?: string;
+    valueType?: string;
+    entityTypes?: string;
+    qualifiedName?: string;
+    /** Keyed by `AllowedValueRow.rowId`. */
+    allowedValues?: Record<string, string>;
+};
+
+const NO_WHITESPACE_PATTERN = /^\S*$/;
+
+export const validateStructuredProperty = (
+    values: StructuredProp | undefined,
+    allowedValueRows: AllowedValueRow[],
+): StructuredPropertyFormErrors => {
+    const errors: StructuredPropertyFormErrors = {};
+
+    if (!values?.displayName?.trim()) {
+        errors.displayName = i18next.t('governance.structured-properties:create.nameError');
+    }
+    if (!values?.valueType) {
+        errors.valueType = i18next.t('governance.structured-properties:create.propertyTypeError');
+    }
+    if (!values?.entityTypes?.length) {
+        errors.entityTypes = i18next.t('governance.structured-properties:appliesTo.error');
+    }
+    if (values?.qualifiedName && !NO_WHITESPACE_PATTERN.test(values.qualifiedName)) {
+        errors.qualifiedName = i18next.t('governance.structured-properties:advancedOptions.qualifiedNameError');
+    }
+
+    // The list as a whole is optional, but a row the user added has to be filled in or removed.
+    const blankRows = allowedValueRows.filter((row) => toAllowedValueInputs([row]).length === 0);
+    if (blankRows.length) {
+        errors.allowedValues = Object.fromEntries(
+            blankRows.map((row) => [row.rowId, i18next.t('governance.structured-properties:allowedValues.valueError')]),
+        );
+    }
+
+    return errors;
+};
+
+export const hasFormErrors = (errors: StructuredPropertyFormErrors): boolean =>
+    Object.values(errors).some((error) => (typeof error === 'string' ? !!error : Object.keys(error ?? {}).length > 0));
+
+export const getBadgeUrnToReplace = (
+    existingBadgeUrn: string | undefined,
+    savedPropertyUrn: string | undefined,
+    enableBadge: boolean,
+): string | undefined =>
+    enableBadge && existingBadgeUrn && savedPropertyUrn && existingBadgeUrn !== savedPropertyUrn
+        ? existingBadgeUrn
+        : undefined;
+
+type BadgeReplacement = {
+    existingBadgeUrn?: string;
+    savedPropertyUrn?: string;
+    enableBadge: boolean;
+    updateBadge: (urn: string, enabled: boolean) => Promise<unknown>;
+};
+
+export async function replaceAssetBadge({
+    existingBadgeUrn,
+    savedPropertyUrn,
+    enableBadge,
+    updateBadge,
+}: BadgeReplacement): Promise<void> {
+    const badgeUrnToReplace = getBadgeUrnToReplace(existingBadgeUrn, savedPropertyUrn, enableBadge);
+    if (!badgeUrnToReplace || !savedPropertyUrn) return;
+
+    try {
+        await updateBadge(badgeUrnToReplace, false);
+    } catch (error) {
+        // Roll the newly saved property back so the previous badge remains authoritative.
+        await updateBadge(savedPropertyUrn, false);
+        throw error;
+    }
+}
 
 export const isEntityTypeSelected = (selectedType: string) => {
     if (selectedType === 'entity' || selectedType === 'entityList') return true;
@@ -309,9 +397,12 @@ export const isStringOrNumberTypeSelected = (selectedType: string) => {
     return false;
 };
 
-export const canBeAssetBadge = (selectedType: string, allowedValues?: AllowedValueFormRow[]) => {
+export const canBeAssetBadge = (selectedType: string, allowedValues?: AllowedValueInput[]) => {
     if (selectedType === 'string' || selectedType === 'number') {
-        return !!allowedValues?.length;
+        return (allowedValues ?? []).some((value) => {
+            const key = getAllowedValueKey(value);
+            return key !== undefined && key !== null && String(key).trim() !== '';
+        });
     }
     return false;
 };

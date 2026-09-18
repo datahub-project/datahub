@@ -21,7 +21,7 @@ export class StructuredPropertiesPage extends BasePage {
   readonly entityPageTable: Locator;
   readonly pageTitle: Locator;
 
-  // ── Form elements in drawer ──────────────────────────────────────────────
+  // ── Form page elements ───────────────────────────────────────────────────
 
   readonly nameInputField: Locator;
   readonly descriptionInputField: Locator;
@@ -45,7 +45,6 @@ export class StructuredPropertiesPage extends BasePage {
   // ── Modal elements ───────────────────────────────────────────────────────
 
   readonly confirmButton: Locator;
-  readonly managementDrawer: Locator;
   readonly fieldDrawer: Locator;
   readonly pageBody: Locator;
 
@@ -67,7 +66,7 @@ export class StructuredPropertiesPage extends BasePage {
     this.entityPageTable = page.getByTestId('entity-properties-table');
     this.pageTitle = page.getByRole('heading', { level: 1 });
 
-    // Form elements in drawer
+    // Form page elements
     this.nameInputField = page.getByTestId('structured-props-input-name').getByRole('textbox');
     this.descriptionInputField = page.getByTestId('structured-props-input-description');
     this.typeSelector = page.getByTestId('structured-props-select-input-type');
@@ -88,7 +87,6 @@ export class StructuredPropertiesPage extends BasePage {
 
     // Modal elements
     this.confirmButton = page.getByTestId('modal-confirm-button');
-    this.managementDrawer = page.getByTestId('structured-props-drawer-content');
     this.fieldDrawer = page.getByTestId('schema-field-drawer-content');
     this.pageBody = page.getByRole('document');
 
@@ -156,11 +154,6 @@ export class StructuredPropertiesPage extends BasePage {
 
   private getActionMenuItem(action: string): Locator {
     return this.menuItem.filter({ hasText: action });
-  }
-
-  private getPropertyNameCell(row: Locator, propertyName: string): Locator {
-    // Gets the property name cell by filtering cells in the row by text content
-    return row.getByRole('cell').filter({ hasText: propertyName });
   }
 
   // ── Create structured property ───────────────────────────────────────────
@@ -231,12 +224,8 @@ export class StructuredPropertiesPage extends BasePage {
     const propRow = this.findPropertyRowInManagement(oldName);
     // Wait for the property row to appear and be visible in the table
     await propRow.waitFor({ state: 'visible' });
-    // Click on the property name cell to open the drawer
-    const propNameCell = this.getPropertyNameCell(propRow, oldName);
-    await propNameCell.click();
+    await propRow.click();
 
-    // Wait for the drawer to appear
-    await this.managementDrawer.waitFor({ state: 'visible' });
     await this.nameInputField.waitFor({ state: 'visible' });
 
     // Update name if provided
@@ -272,12 +261,9 @@ export class StructuredPropertiesPage extends BasePage {
 
     // Find property row (management page)
     const propRow = this.findPropertyRowInManagement(prop.name);
-    const propCell = this.getPropertyNameCell(propRow, prop.name);
-    await propCell.click();
+    await propRow.click();
 
-    // Wait for the drawer to appear
-    await this.managementDrawer.waitFor({ state: 'visible' });
-    // Wait for the form to be fully loaded
+    // Wait for the form page to be fully loaded
     await this.createUpdateButton.waitFor({ state: 'visible' });
 
     // Toggle hide switch
@@ -297,8 +283,7 @@ export class StructuredPropertiesPage extends BasePage {
 
     // Find and click property in table (management page)
     const propRow = this.findPropertyRowInManagement(prop.name);
-    const propCell = this.getPropertyNameCell(propRow, prop.name);
-    await propCell.click();
+    await propRow.click();
 
     // Wait for the form to be fully loaded
     await this.createUpdateButton.waitFor({ state: 'visible' });
