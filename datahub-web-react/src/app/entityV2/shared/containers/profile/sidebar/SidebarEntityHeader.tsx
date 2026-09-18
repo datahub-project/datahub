@@ -42,6 +42,10 @@ const NameWrapper = styled.div`
     align-items: center;
 
     font-size: 16px;
+    // The entity name renders as an inline-block antd Typography element, which
+    // otherwise inherits the tall line-height here and sits a few px below the
+    // flex-centered badges. 'normal' lets it center with the environment pill.
+    line-height: normal;
 `;
 
 const SidebarEntityHeader = () => {
