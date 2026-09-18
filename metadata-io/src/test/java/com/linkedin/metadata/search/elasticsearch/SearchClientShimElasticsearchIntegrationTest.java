@@ -5,7 +5,6 @@ import static org.testng.Assert.*;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;

@@ -29,11 +29,11 @@ The shim consists of several key components:
 
 ### Supported Configurations
 
-| Source Engine            | Target Engine  | Shim Implementation          | Status      |
-| ------------------------ | -------------- | ---------------------------- | ----------- |
-| DataHub → ES 8.17+       | ES 8.17+       | `Es8SearchClientShim`        | Complete    |
-| DataHub → OpenSearch 2.x | OpenSearch 2.x | `OpenSearchSearchClientShim` | Complete    |
-| DataHub → OpenSearch 3.x | OpenSearch 3.x | `OpenSearchSearchClientShim` | Complete    |
+| Source Engine            | Target Engine  | Shim Implementation          | Status   |
+| ------------------------ | -------------- | ---------------------------- | -------- |
+| DataHub → ES 8.17+       | ES 8.17+       | `Es8SearchClientShim`        | Complete |
+| DataHub → OpenSearch 2.x | OpenSearch 2.x | `OpenSearchSearchClientShim` | Complete |
+| DataHub → OpenSearch 3.x | OpenSearch 3.x | `OpenSearchSearchClientShim` | Complete |
 
 ## Configuration
 

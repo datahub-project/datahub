@@ -13,7 +13,6 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
 import com.datahub.context.OperationFingerprint;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.MapDataSchema;

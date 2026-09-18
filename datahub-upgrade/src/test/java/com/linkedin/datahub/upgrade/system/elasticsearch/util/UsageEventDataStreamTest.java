@@ -35,8 +35,8 @@ import org.testng.annotations.Test;
  * "cannot create index with name [...], because it matches with template [...] that creates data
  * streams only, use create data stream api instead"
  *
- * <p>Tests run against Elasticsearch 8 using testcontainers to ensure compatibility
- * across versions.
+ * <p>Tests run against Elasticsearch 8 using testcontainers to ensure compatibility across
+ * versions.
  */
 @Slf4j
 public class UsageEventDataStreamTest {
