@@ -313,10 +313,14 @@ def _merge_structured_properties(
         if prev is None:
             merged[prop.propertyUrn] = prop
         elif prev.values == prop.values:
-            # No value conflict: keep the destination assignment so its
+            # No value conflict. Keep the destination assignment so its
             # attribution/audit stamps (e.g. a propagated or immutable marker on
-            # the correctly-cased field) aren't downgraded to the stranded copy.
-            # Mirrors the tag/term dedup, which preserves the destination side.
+            # the correctly-cased field) aren't downgraded to the stranded copy —
+            # but promote the incoming one if the kept side has no attribution and
+            # the incoming does, so peer folds don't drop a later peer's
+            # attribution. Mirrors the tag/term dedup, which preserves attribution.
+            if prev.attribution is None and prop.attribution is not None:
+                merged[prop.propertyUrn] = prop
             continue
         elif prefer_src_on_conflict:
             merged[prop.propertyUrn] = prop
@@ -442,23 +446,25 @@ def _combine_peer_aspects(
 ) -> Tuple[Optional[_Aspect], bool]:
     """Fold one aspect across several stranded peers that resolve to the same field.
 
-    Union aspects (tags/terms/structured properties) merge additively across the
-    peers, so consolidation is order-independent; a genuine structured-property
-    value clash between two peers is still a conflict. A non-union aspect
-    (documentation, ownership, ...) must be identical on every peer — differing
-    values are a conflict we refuse to order, because which peer "wins" would
-    otherwise depend on discovery order. Returns ``(combined, peer_conflict)``.
+    A single contributor passes through unchanged. Union aspects (tags/terms/
+    structured properties) merge additively across the peers, so consolidation is
+    order-independent (attribution-preserving; a genuine structured-property value
+    clash between two peers is a conflict). A non-union aspect (documentation,
+    ownership, ...) contributed by more than one peer is *not* auto-merged: we
+    can't tell agreement from disagreement without comparing audit stamps — which
+    production aspects vary per write — and picking a winner would depend on
+    discovery order. Such a case is reported for review with the sources kept.
+    Returns ``(combined, peer_conflict)``.
     """
+    if len(values) == 1:
+        return values[0], False
+    if name not in UNION_SCHEMA_FIELD_ASPECTS:
+        return None, True
     combined: Optional[_Aspect] = values[0]
-    if name in UNION_SCHEMA_FIELD_ASPECTS:
-        for value in values[1:]:
-            assert combined is not None
-            combined, conflict = _merge_aspect(name, combined, value)
-            if conflict:  # only structuredProperties can clash under a union
-                return None, True
-        return combined, False
     for value in values[1:]:
-        if value != combined:
+        assert combined is not None
+        combined, conflict = _merge_aspect(name, combined, value)
+        if conflict:  # only structuredProperties can clash under a union
             return None, True
     return combined, False
 
@@ -568,9 +574,11 @@ def _reconcile_destination_group(
             name, [c.aspects[name] for c in contributors]
         )
         if peer_conflict:
+            # Either a genuine structured-property value clash, or several stranded
+            # peers each carrying a non-union '{name}' that we won't auto-merge.
             result.skipped.append(
-                f"schemaField -> '{new_path}': stranded fields "
-                f"{[c.old_path for c in contributors]} disagree on '{name}'; "
+                f"schemaField -> '{new_path}': multiple stranded fields "
+                f"{[c.old_path for c in contributors]} carry '{name}'; "
                 "left in place for review"
             )
             kept.update(c.urn for c in contributors)

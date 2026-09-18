@@ -638,11 +638,13 @@ class TestReconcileDataset:
         assert lower_sf not in graph.soft_deleted
         assert upper_sf not in graph.soft_deleted
         assert not result.remaps
-        assert any("disagree on 'documentation'" in s for s in result.skipped)
+        assert any("carry 'documentation'" in s for s in result.skipped)
 
-    def test_two_stale_variants_agree_on_nonunion_aspect_consolidate(self):
-        # Same shape, but the peers agree: identical documentation is not a
-        # conflict, so it lands once on the live field and both sources retire.
+    def test_two_stale_variants_with_same_nonunion_text_are_still_reported(self):
+        # Even when two peers carry byte-identical documentation *text*, real
+        # aspects vary in their per-write attribution/audit stamps, so we don't
+        # try to detect agreement — a non-union aspect supplied by more than one
+        # stranded peer is always left in place for review, never auto-merged.
         lower_sf = _sf("col")
         upper_sf = _sf("COL")
         new_sf = _sf("Col")
@@ -653,16 +655,17 @@ class TestReconcileDataset:
                 upper_sf: {"documentation": _doc("same doc")},
             }
         )
-        reconcile_dataset(
+        result = reconcile_dataset(
             graph,  # type: ignore[arg-type]
             _DATASET,
             dry_run=False,
             delete_source=True,
             include_soft_deleted=False,
         )
-        assert graph._store[new_sf]["documentation"] == _doc("same doc")
-        assert lower_sf in graph.soft_deleted
-        assert upper_sf in graph.soft_deleted
+        assert not [a for (u, a) in graph.emitted if u == new_sf]
+        assert lower_sf not in graph.soft_deleted
+        assert upper_sf not in graph.soft_deleted
+        assert any("carry 'documentation'" in s for s in result.skipped)
 
 
 def _attr_tag(urn: str, source: str) -> TagAssociationClass:
@@ -868,6 +871,51 @@ class TestStructuredPropertyMerge:
         assert attribution is not None
         assert attribution.actor == "urn:li:corpuser:propagation"
         assert old_sf in graph.soft_deleted
+
+    def test_peer_fold_promotes_attributed_property(self):
+        # Two stranded peers ("col"/"COL") carry the same structured-property value
+        # onto an empty live field; only one copy is attributed. Folding the peers
+        # must land the attributed assignment, not silently keep the first peer's
+        # un-attributed copy and then soft-delete the attributed source.
+        lower_sf = _sf("col")
+        upper_sf = _sf("COL")
+        new_sf = _sf("Col")
+        attributed = StructuredPropertiesClass(
+            properties=[
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn="urn:li:structuredProperty:tier",
+                    values=["gold"],
+                    attribution=MetadataAttributionClass(
+                        time=123, actor="urn:li:corpuser:propagation"
+                    ),
+                )
+            ]
+        )
+        graph = FakeGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Col")},
+                lower_sf: {
+                    "structuredProperties": _structured_prop(
+                        "urn:li:structuredProperty:tier", "gold"
+                    )
+                },
+                upper_sf: {"structuredProperties": attributed},
+            }
+        )
+        reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        stored = graph.get_aspect(new_sf, StructuredPropertiesClass)
+        assert isinstance(stored, StructuredPropertiesClass)
+        attribution = stored.properties[0].attribution
+        assert attribution is not None
+        assert attribution.actor == "urn:li:corpuser:propagation"
+        assert lower_sf in graph.soft_deleted
+        assert upper_sf in graph.soft_deleted
 
 
 class _FixedResolver(ClashResolver):
