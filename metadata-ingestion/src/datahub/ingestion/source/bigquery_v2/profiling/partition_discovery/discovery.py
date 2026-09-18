@@ -565,14 +565,10 @@ class PartitionDiscovery:
         table: BigqueryTable,
         result_values: Dict[str, PartitionValue],
     ) -> List[str]:
-        # Each entry here is an independent DATE/DATETIME/TIMESTAMP partition column with
-        # its own directly-queryable MAX() value, so dropping one on failure still leaves
-        # the others individually correct (only broader on the dropped dimension) and each
-        # drop is surfaced via warn() in _fetch_top_partition_row / the except below. This
-        # is deliberately unlike _process_date_components_hierarchically, which aborts on a
-        # missing component: there the year/month/day components pin a single partition
-        # only *together*, so a partial set would mislabel a year-wide scan as a precise
-        # single-partition selection.
+        # These columns are independent (each has its own MAX() value), so dropping one on
+        # failure only widens that dimension and is surfaced via warn(). Contrast with
+        # _process_date_components_hierarchically, which aborts on a missing component
+        # because year/month/day only pin a partition together.
         latest_date_filters = []
 
         for col_name in date_columns:
@@ -629,9 +625,8 @@ class PartitionDiscovery:
                 col_type.upper() == "DATE"
                 and (granularity or "").upper() == PARTITION_GRANULARITY_HOUR
             ):
-                # A DATE column can't express an hour, so an HOUR range would floor both
-                # bounds to the same YYYY-MM-DD and match nothing. Degrade to DAY,
-                # mirroring the guard in FilterBuilder._partition_id_range.
+                # A DATE column can't express an hour, so an HOUR range floors both bounds
+                # to the same day and matches nothing; degrade to DAY (as _partition_id_range).
                 granularity = PARTITION_GRANULARITY_DAY
             moment: Optional[datetime]
             if isinstance(val, datetime):
@@ -921,12 +916,9 @@ class PartitionDiscovery:
     def _partition_fetch_job_config(
         self, query_parameters: Optional[List[ScalarQueryParameter]] = None
     ) -> QueryJobConfig:
-        # Bound every partition-value probe. These probes group by a partition column
-        # across the whole table, so on a large table they can scan a lot of data:
-        # partition_fetch_timeout caps runaway time (BigQuery cancels the job) and
-        # partition_fetch_max_bytes_billed, when set, caps data scanned (BigQuery fails
-        # the job before running). On either, the caller treats the table as having no
-        # discoverable partition.
+        # Partition-value probes group by a column across the whole table, so bound them:
+        # timeout always, and max_bytes_billed when set. On failure the caller treats the
+        # table as having no discoverable partition.
         job_config = QueryJobConfig()
         if query_parameters:
             job_config.query_parameters = query_parameters
@@ -1617,10 +1609,8 @@ class PartitionDiscovery:
 
         logger.debug(f"Generated fallback partition filters: {fallback_filters}")
 
-        # A guessed fallback date narrows the scan to (typically) yesterday's partition
-        # without confirming that partition holds any rows. A table loaded less often than
-        # daily can then profile zero rows instead of the previous full-scan numbers, so
-        # warn operators to pin a known-populated partition.
+        # The guessed date (yesterday) isn't verified to hold rows, so a sub-daily table
+        # could profile zero rows; warn so operators pin a known-populated partition.
         if guessed_date_cols:
             warn(
                 self.report,
@@ -1662,16 +1652,13 @@ class PartitionDiscovery:
         col_type: str = "",
         guessed_date_cols: Optional[List[str]] = None,
     ) -> str:
-        # Prefer a user-configured override, then a date-derived value for temporal /
-        # date-component columns, then IS NOT NULL so profiling still runs (with a less
-        # targeted scan). When a column is pruned to the guessed fallback_date (rather
-        # than a user-configured value), its name is appended to guessed_date_cols so the
-        # caller can warn that the partition was guessed and may hold no rows.
+        # Priority: user-configured override, then a date-derived value for temporal /
+        # date-component columns, else IS NOT NULL. Columns pruned to the guessed
+        # fallback_date (not a user value) are recorded in guessed_date_cols so the
+        # caller can warn the partition is unverified.
         if col_name in self.config.profiling.fallback_partition_values:
             fallback_value = self.config.profiling.fallback_partition_values[col_name]
             try:
-                # _value_filter builds a granularity-aware half-open range for temporal
-                # columns; an equality would match only a single instant of the partition.
                 return self._value_filter(table, col_name, fallback_value, col_type)
             except ValueError as e:
                 logger.warning(f"Invalid fallback value for {col_name}: {e}")
@@ -1679,12 +1666,8 @@ class PartitionDiscovery:
 
         try:
             if col_type.upper() in TEMPORAL_PARTITION_TYPES:
-                # A genuine DATE/DATETIME/TIMESTAMP partition (the most common type):
-                # prune to fallback_date's partition with a granularity-aware range rather
-                # than full-scanning via IS NOT NULL. This mirrors how the date-component
-                # (year/month/day) columns below also derive their fallback value from
-                # fallback_date. The date is a guess (yesterday), not a verified-populated
-                # partition, so flag it for the caller's warning.
+                # Prune to fallback_date's partition via a granularity-aware range instead
+                # of IS NOT NULL. The date is a guess, so flag it for the caller's warning.
                 if guessed_date_cols is not None:
                     guessed_date_cols.append(col_name)
                 return self._value_filter(table, col_name, fallback_date, col_type)
@@ -1905,13 +1888,10 @@ class PartitionDiscovery:
                 if self._is_date_like_column(col_name) or self._is_date_type_column(
                     col_data_type
                 ):
-                    # The date path resolves date columns into date_filters (equality,
-                    # BETWEEN, or a `>=`/`<` half-open range - all contain "=" so they
-                    # were carried into date_filters above). If this date column was not
-                    # resolved, its only initial filter was the IS NOT NULL placeholder,
-                    # which was dropped from date_filters; keep that placeholder so a
-                    # require_partition_filter table still gets a predicate for it, and
-                    # record it as unresolved so the full-scan warning below fires.
+                    # If the date path didn't resolve this column, its only filter was the
+                    # IS NOT NULL placeholder (dropped from date_filters). Keep it so a
+                    # require_partition_filter table still has a predicate, and flag it
+                    # unresolved to fire the full-scan warning.
                     if not any(f"`{col_name}`" in f for f in date_filters):
                         enhanced_filters.append(FilterBuilder.is_not_null(col_name))
                         unresolved_cols.append(col_name)
