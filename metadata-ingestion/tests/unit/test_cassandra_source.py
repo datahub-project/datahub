@@ -92,8 +92,6 @@ def test_no_properties_in_mappings_schema() -> None:
 
 
 def _schema_row_with_extensions(extensions: Dict[str, Any]) -> SimpleNamespace:
-    # Mimics a system_schema.tables/views row from the driver. `extensions` is
-    # map<text, blob>, so the driver hands its values back as bytes.
     return SimpleNamespace(
         keyspace_name="ks",
         table_name="tbl",
@@ -128,11 +126,7 @@ def _api_returning_row(row: SimpleNamespace) -> CassandraAPI:
     return api
 
 
-# Reproduces "Object of type bytes is not JSON serializable": Scylla's
-# extensions map<text, blob> comes back with bytes values, which broke the
-# json.dumps() call during custom-property emission. b'\xff\xfe' is not valid
-# UTF-8 (unlike e.g. b"\x00\x01", which decodes cleanly and wouldn't exercise
-# the fallback), so it exercises the base64 fallback path.
+# b"\xff\xfe" is not valid UTF-8, so it exercises the base64 fallback path.
 _INVALID_UTF8_BYTES = b"\xff\xfe"
 _VALID_UTF8_BYTES = b'{"cipher":"AES256"}'
 

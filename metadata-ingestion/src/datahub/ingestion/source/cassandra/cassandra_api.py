@@ -20,14 +20,10 @@ from datahub.ingestion.source.cassandra.cassandra_config import CassandraSourceC
 def _decode_extensions(
     mapping: Dict[str, Any], report: SourceReport, context: str
 ) -> Dict[str, Any]:
-    # Cassandra/Scylla type the `extensions` column as map<text, blob>, so the
-    # driver returns its values as bytes. Those are not JSON-serializable and
-    # break custom-property emission ("Object of type bytes is not JSON
-    # serializable"). Most extension values are UTF-8 text (e.g. some Scylla
-    # features store JSON there); decode those directly. A value that isn't
-    # valid UTF-8 (e.g. Scylla's binary-encoded `scylla_encryption_options`) is
-    # base64-encoded instead of lossily decoded with replacement characters, so
-    # no data is silently corrupted, and a warning flags which value it was.
+    # The `extensions` column is map<text, blob>, so the driver returns bytes
+    # values that aren't JSON-serializable when emitted as custom properties.
+    # Decode UTF-8 values directly; base64-encode non-UTF-8 ones so binary
+    # values (e.g. scylla_encryption_options) survive losslessly.
     decoded: Dict[str, Any] = {}
     for key, value in mapping.items():
         if not isinstance(value, bytes):
