@@ -972,7 +972,7 @@ def test_embedding_stats_aggregation(notion_source):
 
 
 def test_notion_types_filter_unknown_fields_paragraph_icon():
-    """AI-603: Paragraph blocks now include 'icon' which unstructured-ingest 0.7.2 rejects."""
+    """AI-603: Paragraph blocks may include 'icon'; extra kwargs must be dropped."""
     pytest.importorskip("unstructured_ingest")
     from unstructured_ingest.processes.connectors.notion.types.blocks import Paragraph
 
@@ -1066,10 +1066,11 @@ def test_icon_dispatcher_handles_none_payload():
 
 
 def test_icon_dispatcher_unknown_types_preserves_known_types():
-    """Emoji and external icons must still parse correctly after the patch."""
+    """Emoji, external, and file icons must still parse after the patch."""
     pytest.importorskip("unstructured_ingest")
     from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
         EmojiIcon,
+        FileIcon,
         Icon,
     )
 
@@ -1078,6 +1079,30 @@ def test_icon_dispatcher_unknown_types_preserves_known_types():
     emoji_result = Icon.from_dict({"type": "emoji", "emoji": "📝"})
     assert isinstance(emoji_result, EmojiIcon)
     assert emoji_result.emoji == "📝"
+
+    file_result = Icon.from_dict(
+        {"type": "file", "file": {"url": "https://example.com/icon.png"}}
+    )
+    assert isinstance(file_result, FileIcon)
+
+
+def test_unstructured_ingest_syncblock_handles_null_synced_from():
+    """1.4.28 already treats synced_from=null as an original block; do not re-patch."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
+        DuplicateSyncedBlock,
+        OriginalSyncedBlock,
+        SyncBlock,
+    )
+
+    original = SyncBlock.from_dict({"synced_from": None})
+    assert isinstance(original, OriginalSyncedBlock)
+
+    duplicate = SyncBlock.from_dict(
+        {"synced_from": {"type": "block_id", "block_id": "abc"}}
+    )
+    assert isinstance(duplicate, DuplicateSyncedBlock)
+    assert duplicate.block_id == "abc"
 
 
 def _document_entity_test_setup(notion_source, side_effect):
