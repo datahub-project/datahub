@@ -83,13 +83,39 @@ def test_release_is_idempotent(tmp_path: pathlib.Path) -> None:
     assert not lock.held
 
 
-def test_an_unusable_lock_directory_degrades_rather_than_raising(
+def test_an_unwritable_lock_directory_degrades_rather_than_raising(
     tmp_path: pathlib.Path,
 ) -> None:
-    """The cache is an optimisation. A locking failure must cost us the cache,
-    never the task."""
-    lock = EntryLock(tmp_path / "does" / "not" / "exist" / "entry.lock")
+    """The cache is an optimisation: a locking failure costs the cache, never
+    the task.
 
-    assert not lock.acquire(exclusive=True)
-    assert not lock.held
+    A path whose parents are merely MISSING is not this case -- that is the
+    normal state of a fresh pod's cache root, and acquire() is expected to
+    create it. The real failure is a parent that exists and cannot be written
+    to: a read-only volume, or a directory owned by another user.
+    """
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+    blocked.chmod(0o500)
+    try:
+        lock = EntryLock(blocked / "entry.lock")
+
+        assert not lock.acquire(exclusive=True)
+        assert not lock.held
+        lock.release()
+    finally:
+        blocked.chmod(0o700)
+
+
+def test_acquire_creates_a_missing_cache_root(tmp_path: pathlib.Path) -> None:
+    """The first run on a pod finds no cache directory and must make one.
+
+    Nothing else creates it: eviction only reads the directory. If acquire
+    degraded here instead, every run would fall back to a per-run venv and the
+    cache would never engage.
+    """
+    lock = EntryLock(tmp_path / "fresh" / "_venv_cache" / "venv-x.lock")
+
+    assert lock.acquire(exclusive=True)
     lock.release()
+    assert (tmp_path / "fresh" / "_venv_cache").is_dir()

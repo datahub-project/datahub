@@ -38,8 +38,12 @@ class EntryLock:
         if not blocking:
             mode |= fcntl.LOCK_NB
         try:
-            # The cache directory structure is created by the cache setup path,
-            # not here -- EntryLock only locks an entry that already exists.
+            # The cache root does not exist on a fresh pod, and a first run
+            # must create it rather than degrade: a missing directory is the
+            # normal initial state, not a failure. Nothing else creates it --
+            # eviction only reads the directory, and setup_venv reaches this
+            # before anything has written to the cache.
+            self._lock_path.parent.mkdir(parents=True, exist_ok=True)
             fd = os.open(self._lock_path, os.O_RDWR | os.O_CREAT, 0o644)
         except OSError:
             logger.debug("venv cache: cannot open lock %s", self._lock_path)
