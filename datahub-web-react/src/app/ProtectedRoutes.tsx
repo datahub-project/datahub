@@ -12,6 +12,7 @@ import { useSetUserPersona } from '@app/homeV2/persona/useUserPersona';
 import { HomePage as HomePageV3 } from '@app/homeV3/HomePage';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { useSetUserTitle } from '@app/identity/user/useUserTitle';
+import MFEConfigProvider from '@app/mfeframework/MFEConfigProvider';
 import { OnboardingContextProvider } from '@app/onboarding/OnboardingContextProvider';
 import { useSetAppTheme } from '@app/useSetAppTheme';
 import { useSetNavBarRedesignEnabled } from '@app/useShowNavBarRedesign';
@@ -46,15 +47,17 @@ export const ProtectedRoutes = (): JSX.Element => {
 
     return (
         <OnboardingContextProvider>
-            <DataHubTitle />
-            <StyledLayout className="themeV2">
-                <Switch>
-                    <Route exact path="/" render={() => <FinalHomePage />} />
-                    <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />
-                    <Route exact path={PageRoutes.INTRODUCE} render={() => <IntroduceYourself />} />
-                    <Route path="/*" component={SearchRoutes} />
-                </Switch>
-            </StyledLayout>
+            <MFEConfigProvider>
+                <DataHubTitle />
+                <StyledLayout className="themeV2">
+                    <Switch>
+                        <Route exact path="/" render={() => <FinalHomePage />} />
+                        <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />
+                        <Route exact path={PageRoutes.INTRODUCE} render={() => <IntroduceYourself />} />
+                        <Route path="/*" component={SearchRoutes} />
+                    </Switch>
+                </StyledLayout>
+            </MFEConfigProvider>
         </OnboardingContextProvider>
     );
 };
