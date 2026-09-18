@@ -1,3 +1,4 @@
+import { ThunderboltOutlined } from '@ant-design/icons';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
@@ -10,6 +11,8 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
 import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
+
+const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
 const StyledTag = styled(Tag)<{ fontSize?: number; $highlightTerm?: boolean; $showOneAndCount?: boolean }>`
     &&& {
@@ -32,6 +35,12 @@ const StyledTag = styled(Tag)<{ fontSize?: number; $highlightTerm?: boolean; $sh
             text-overflow: ellipsis;
             vertical-align: middle;
         `}
+`;
+
+const PropagateThunderbolt = styled(ThunderboltOutlined)`
+    color: ${(props) => props.theme.colors.textSuccess};
+    margin-right: -4px;
+    font-weight: bold;
 `;
 
 interface Props {
@@ -122,6 +131,7 @@ export default function TermContent({
             <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>
                 {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
             </Highlight>
+            {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
         </StyledTag>
     );
 }
