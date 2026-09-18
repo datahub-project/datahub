@@ -53,6 +53,12 @@ MIGRATED_SCHEMA_FIELD_ASPECTS: List[str] = [
     "aiContext",
 ]
 
+# Aspects merged additively rather than conflict-guarded: a value already on the
+# correctly-cased field survives, and several stranded peers consolidate cleanly.
+UNION_SCHEMA_FIELD_ASPECTS = frozenset(
+    {"globalTags", "glossaryTerms", "structuredProperties"}
+)
+
 
 # Nested-type v2 tokens that carry structural meaning: two fields sharing a
 # dotted leaf but differing in these are distinct fields, not a casing change.
@@ -422,6 +428,41 @@ def _resolve_or_choose(
     return None, reason
 
 
+@dataclass
+class _StrandedField:
+    """A stranded schemaField entity and the user-authored aspects it carries."""
+
+    urn: str
+    old_path: str
+    aspects: Dict[str, _Aspect]
+
+
+def _combine_peer_aspects(
+    name: str, values: Sequence[_Aspect]
+) -> Tuple[Optional[_Aspect], bool]:
+    """Fold one aspect across several stranded peers that resolve to the same field.
+
+    Union aspects (tags/terms/structured properties) merge additively across the
+    peers, so consolidation is order-independent; a genuine structured-property
+    value clash between two peers is still a conflict. A non-union aspect
+    (documentation, ownership, ...) must be identical on every peer — differing
+    values are a conflict we refuse to order, because which peer "wins" would
+    otherwise depend on discovery order. Returns ``(combined, peer_conflict)``.
+    """
+    combined: Optional[_Aspect] = values[0]
+    if name in UNION_SCHEMA_FIELD_ASPECTS:
+        for value in values[1:]:
+            assert combined is not None
+            combined, conflict = _merge_aspect(name, combined, value)
+            if conflict:  # only structuredProperties can clash under a union
+                return None, True
+        return combined, False
+    for value in values[1:]:
+        if value != combined:
+            return None, True
+    return combined, False
+
+
 def _reconcile_schema_field_entities(
     graph: DataHubGraph,
     dataset_urn: str,
@@ -434,6 +475,12 @@ def _reconcile_schema_field_entities(
     delete_source: bool,
     include_soft_deleted: bool,
 ) -> None:
+    # Phase 1: resolve every stranded field, grouping peers that casefold to the
+    # same current field. Several stale entities (e.g. historical ``col`` and
+    # ``COL``) can resolve to one live ``Col``; merging them as a group makes the
+    # outcome independent of discovery order, rather than letting the first source
+    # write-and-soft-delete before the next is seen as a conflict.
+    groups: Dict[str, List[_StrandedField]] = {}
     for schema_field_urn in discover_schema_field_urns(
         graph, dataset_urn, include_soft_deleted
     ):
@@ -466,90 +513,154 @@ def _reconcile_schema_field_entities(
             )
             continue
 
-        new_schema_field_urn = make_schema_field_urn(dataset_urn, new_path)
-        # Read the destination so we never clobber metadata already sitting on the
-        # correctly-cased field (e.g. propagated by an automation/transformer).
-        existing_dest = _read_schema_field_aspects(graph, new_schema_field_urn)
-        carried: List[str] = []
-        left_behind = False
-        for name, aspect in aspects.items():
-            to_emit, conflict = _merge_aspect(name, existing_dest.get(name), aspect)
-            if conflict:
-                if resolver.resolve_conflict(old_path, new_path, name):
-                    # Operator chose the stranded value. For structuredProperties
-                    # that means "src wins the conflicting property" — still a
-                    # union, so destination-only assignments are not dropped.
-                    if name == "structuredProperties":
-                        to_emit, _ = _merge_structured_properties(
-                            existing_dest.get(name), aspect, prefer_src_on_conflict=True
-                        )
-                    else:
-                        to_emit = aspect
+        groups.setdefault(new_path, []).append(
+            _StrandedField(schema_field_urn, old_path, aspects)
+        )
+
+    # Phase 2: reconcile each destination once, deterministically.
+    for new_path in sorted(groups):
+        sources = sorted(groups[new_path], key=lambda s: s.old_path)
+        _reconcile_destination_group(
+            graph,
+            dataset_urn,
+            new_path,
+            sources,
+            remaps,
+            result,
+            resolver,
+            dry_run=dry_run,
+            delete_source=delete_source,
+        )
+
+
+def _reconcile_destination_group(
+    graph: DataHubGraph,
+    dataset_urn: str,
+    new_path: str,
+    sources: List[_StrandedField],
+    remaps: Dict[Tuple[str, str], FieldRemap],
+    result: DatasetReconcileResult,
+    resolver: ClashResolver,
+    *,
+    dry_run: bool,
+    delete_source: bool,
+) -> None:
+    new_schema_field_urn = make_schema_field_urn(dataset_urn, new_path)
+    # Read the destination so we never clobber metadata already sitting on the
+    # correctly-cased field (e.g. propagated by an automation/transformer).
+    existing_dest = _read_schema_field_aspects(graph, new_schema_field_urn)
+
+    # Which sources contributed each aspect, so a per-aspect outcome (carried,
+    # conflict, write failure) is attributed back to every peer that supplied it.
+    aspect_sources: Dict[str, List[_StrandedField]] = {}
+    for src in sources:
+        for name in src.aspects:
+            aspect_sources.setdefault(name, []).append(src)
+
+    # A source is kept (not soft-deleted) if any aspect it supplied could not be
+    # carried over, so the un-migrated copy is never lost behind a soft delete.
+    kept: Set[str] = set()
+    carried_by: Dict[str, List[str]] = {src.urn: [] for src in sources}
+
+    for name in sorted(aspect_sources):
+        contributors = aspect_sources[name]
+        combined, peer_conflict = _combine_peer_aspects(
+            name, [c.aspects[name] for c in contributors]
+        )
+        if peer_conflict:
+            result.skipped.append(
+                f"schemaField -> '{new_path}': stranded fields "
+                f"{[c.old_path for c in contributors]} disagree on '{name}'; "
+                "left in place for review"
+            )
+            kept.update(c.urn for c in contributors)
+            continue
+
+        assert combined is not None
+        to_emit, conflict = _merge_aspect(name, existing_dest.get(name), combined)
+        if conflict:
+            # Representative source path for the interactive prompt / abort path.
+            if resolver.resolve_conflict(contributors[0].old_path, new_path, name):
+                # Operator chose the stranded value. For structuredProperties that
+                # means "src wins the conflicting property" — still a union, so
+                # destination-only assignments are not dropped.
+                if name == "structuredProperties":
+                    to_emit, _ = _merge_structured_properties(
+                        existing_dest.get(name), combined, prefer_src_on_conflict=True
+                    )
                 else:
-                    result.skipped.append(
-                        f"schemaField '{old_path}' -> '{new_path}': destination "
-                        f"already has a different '{name}'; left source copy in "
-                        "place for review"
-                    )
-                    left_behind = True
-                    continue
-            assert to_emit is not None
-            if existing_dest.get(name) == to_emit:
-                # The destination already carries exactly this value — from a prior
-                # run under --keep-source-fields (where the stale source is never
-                # deleted, so it is rediscovered every time), or from automation
-                # that put it there. Skip the redundant write and do not count it as
-                # a re-anchoring, so repeated runs stay a no-op in the report.
+                    to_emit = combined
+            else:
+                result.skipped.append(
+                    f"schemaField '{contributors[0].old_path}' -> '{new_path}': "
+                    f"destination already has a different '{name}'; left source "
+                    "copy in place for review"
+                )
+                kept.update(c.urn for c in contributors)
                 continue
-            if not dry_run:
-                try:
-                    graph.emit_mcp(
-                        MetadataChangeProposalWrapper(
-                            entityUrn=new_schema_field_urn, aspect=to_emit
-                        )
+
+        assert to_emit is not None
+        if existing_dest.get(name) == to_emit:
+            # The destination already carries exactly this value — from a prior run
+            # under --keep-source-fields (where the stale source is never deleted,
+            # so it is rediscovered every time), or from automation that put it
+            # there. Skip the redundant write and do not count it as a re-anchoring,
+            # so repeated runs stay a no-op in the report. The peers' copies are
+            # safely on the destination, so they are not "kept" — a stale source
+            # whose every aspect already matches is still soft-deleted.
+            continue
+        if not dry_run:
+            try:
+                graph.emit_mcp(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=new_schema_field_urn, aspect=to_emit
                     )
-                except (click.Abort, KeyboardInterrupt):
-                    raise
-                except Exception as e:
-                    # A per-field write failure is attributed and isolated: the rest
-                    # of the field's aspects and the rest of the dataset still run,
-                    # and the source is kept (below) so nothing is lost.
-                    log.warning(
-                        f"Failed to write '{name}' onto '{new_path}' "
-                        f"({new_schema_field_urn}): {e}"
-                    )
-                    result.skipped.append(
-                        f"schemaField '{old_path}' -> '{new_path}': failed to write "
-                        f"'{name}' ({e}); source kept"
-                    )
-                    left_behind = True
-                    continue
-            carried.append(name)
+                )
+            except (click.Abort, KeyboardInterrupt):
+                raise
+            except Exception as e:
+                # A per-field write failure is attributed and isolated: the rest of
+                # the aspects and the rest of the dataset still run, and every
+                # contributing source is kept (below) so nothing is lost.
+                log.warning(
+                    f"Failed to write '{name}' onto '{new_path}' "
+                    f"({new_schema_field_urn}): {e}"
+                )
+                result.skipped.append(
+                    f"schemaField {[c.old_path for c in contributors]} -> "
+                    f"'{new_path}': failed to write '{name}' ({e}); source kept"
+                )
+                kept.update(c.urn for c in contributors)
+                continue
+        for c in contributors:
+            carried_by[c.urn].append(name)
+
+    for src in sources:
         # Only record a remap when something actually moved — a field whose sole
         # aspect hit the conflict guard carried nothing and is not a re-anchoring.
+        carried = carried_by[src.urn]
         if carried:
-            _get_or_add_remap(remaps, old_path, new_path).schema_field_aspects.extend(
-                carried
-            )
-        # Keep the source field if anything could not be carried over, so the
-        # un-migrated aspect is not lost behind a soft delete. Note: this only
+            _get_or_add_remap(
+                remaps, src.old_path, new_path
+            ).schema_field_aspects.extend(carried)
+        # Keep the source if anything could not be carried over. Note: this only
         # tombstones the schemaField's own aspects — entities that reference the old
         # field (native assertions, incidents) are not repointed and will dangle;
         # use --keep-source-fields if that matters for the dataset.
-        if delete_source and not left_behind:
+        if delete_source and src.urn not in kept:
             if not dry_run:
                 try:
-                    graph.soft_delete_entity(schema_field_urn)
+                    graph.soft_delete_entity(src.urn)
                 except (click.Abort, KeyboardInterrupt):
                     raise
                 except Exception as e:
-                    log.warning(f"Failed to soft-delete '{schema_field_urn}': {e}")
+                    log.warning(f"Failed to soft-delete '{src.urn}': {e}")
                     result.skipped.append(
-                        f"schemaField '{old_path}': aspects re-anchored onto "
+                        f"schemaField '{src.old_path}': aspects re-anchored onto "
                         f"'{new_path}' but soft-delete of the source failed ({e})"
                     )
                     continue
-            result.soft_deleted.append(old_path)
+            result.soft_deleted.append(src.old_path)
 
 
 def _reconcile_editable_schema_metadata(

@@ -611,6 +611,59 @@ class TestReconcileDataset:
         assert lower_sf in graph.soft_deleted
         assert upper_sf in graph.soft_deleted
 
+    def test_two_stale_variants_disagree_on_nonunion_aspect_are_reported(self):
+        # Two stale entities ("col", "COL") casefold to one current "Col" but carry
+        # *different* documentation. A non-union aspect can't be consolidated by
+        # ordering the peers (whichever wrote first would win, and the loser would
+        # be soft-deleted, run-dependent), so neither is written, both sources are
+        # kept for review, and the outcome is independent of discovery order.
+        lower_sf = _sf("col")
+        upper_sf = _sf("COL")
+        new_sf = _sf("Col")
+        graph = FakeGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Col")},
+                lower_sf: {"documentation": _doc("from lower")},
+                upper_sf: {"documentation": _doc("from upper")},
+            }
+        )
+        result = reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        assert not [a for (u, a) in graph.emitted if u == new_sf]
+        assert lower_sf not in graph.soft_deleted
+        assert upper_sf not in graph.soft_deleted
+        assert not result.remaps
+        assert any("disagree on 'documentation'" in s for s in result.skipped)
+
+    def test_two_stale_variants_agree_on_nonunion_aspect_consolidate(self):
+        # Same shape, but the peers agree: identical documentation is not a
+        # conflict, so it lands once on the live field and both sources retire.
+        lower_sf = _sf("col")
+        upper_sf = _sf("COL")
+        new_sf = _sf("Col")
+        graph = FakeGraph(
+            {
+                _DATASET: {"schemaMetadata": _schema("Col")},
+                lower_sf: {"documentation": _doc("same doc")},
+                upper_sf: {"documentation": _doc("same doc")},
+            }
+        )
+        reconcile_dataset(
+            graph,  # type: ignore[arg-type]
+            _DATASET,
+            dry_run=False,
+            delete_source=True,
+            include_soft_deleted=False,
+        )
+        assert graph._store[new_sf]["documentation"] == _doc("same doc")
+        assert lower_sf in graph.soft_deleted
+        assert upper_sf in graph.soft_deleted
+
 
 def _attr_tag(urn: str, source: str) -> TagAssociationClass:
     return TagAssociationClass(
