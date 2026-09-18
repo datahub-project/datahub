@@ -13,6 +13,7 @@ from datahub.ingestion.source.cassandra.cassandra import CassandraToSchemaFieldC
 from datahub.ingestion.source.cassandra.cassandra_api import (
     CassandraAPI,
     CassandraColumn,
+    _decode_bytes_values,
 )
 from datahub.ingestion.source.cassandra.cassandra_config import (
     CassandraSourceConfig,
@@ -88,6 +89,19 @@ def test_cassandra_schema_conversion(
 def test_no_properties_in_mappings_schema() -> None:
     fields = list(CassandraToSchemaFieldConverter.get_schema_fields([]))
     assert fields == []
+
+
+def test_decode_bytes_values_makes_extensions_json_serializable() -> None:
+    # `extensions` is map<text, blob> in Cassandra/Scylla, so blob values arrive
+    # as bytes and previously broke json.dumps during custom-property emission.
+    decoded = _decode_bytes_values(
+        {"scylla_encryption_options": b"\x00\x01key", "plain": "value"}
+    )
+
+    assert decoded["plain"] == "value"
+    assert isinstance(decoded["scylla_encryption_options"], str)
+    # The actual failure mode was json.dumps raising on the raw bytes.
+    assert json.loads(json.dumps(decoded))["plain"] == "value"
 
 
 def _get_base_config_dict() -> dict:

@@ -16,6 +16,19 @@ from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.cassandra.cassandra_config import CassandraSourceConfig
 
 
+def _decode_bytes_values(mapping: Dict[str, Any]) -> Dict[str, Any]:
+    # Cassandra/Scylla type the `extensions` column as map<text, blob>, so the
+    # driver returns its values as bytes. Those are not JSON-serializable and
+    # break custom-property emission ("Object of type bytes is not JSON
+    # serializable"), so decode them to text up front.
+    return {
+        key: value.decode("utf-8", errors="replace")
+        if isinstance(value, bytes)
+        else value
+        for key, value in mapping.items()
+    }
+
+
 @dataclass
 class CassandraKeyspace:
     keyspace_name: str
@@ -245,7 +258,7 @@ class CassandraAPI:
                     crc_check_chance=row.crc_check_chance,
                     dclocal_read_repair_chance=row.dclocal_read_repair_chance,
                     default_time_to_live=row.default_time_to_live,
-                    extensions=dict(row.extensions),
+                    extensions=_decode_bytes_values(dict(row.extensions)),
                     gc_grace_seconds=row.gc_grace_seconds,
                     max_index_interval=row.max_index_interval,
                     memtable_flush_period_in_ms=row.memtable_flush_period_in_ms,
@@ -320,7 +333,7 @@ class CassandraAPI:
                     crc_check_chance=row.crc_check_chance,
                     dclocal_read_repair_chance=row.dclocal_read_repair_chance,
                     default_time_to_live=row.default_time_to_live,
-                    extensions=dict(row.extensions),
+                    extensions=_decode_bytes_values(dict(row.extensions)),
                     gc_grace_seconds=row.gc_grace_seconds,
                     include_all_columns=row.include_all_columns,
                     max_index_interval=row.max_index_interval,
