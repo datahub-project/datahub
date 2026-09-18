@@ -15,6 +15,7 @@ import com.linkedin.common.DataJobUrnArray;
 import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
+import com.linkedin.common.UpstreamMetrics;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.DataJobUrn;
@@ -77,6 +78,12 @@ public class LineageServiceTest {
       "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test2)";
   private static final String DATAJOB_URN_3 =
       "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test3)";
+  private static final String METRIC_URN_1 =
+      "urn:li:metric:(urn:li:dataPlatform:looker,kpi.revenue,PROD)";
+  private static final String METRIC_URN_2 =
+      "urn:li:metric:(urn:li:dataPlatform:looker,kpi.churn,PROD)";
+  private static final String METRIC_URN_3 =
+      "urn:li:metric:(urn:li:dataPlatform:looker,kpi.nps,PROD)";
   private Urn actorUrn;
   private Urn datasetUrn1;
   private Urn datasetUrn2;
@@ -90,6 +97,9 @@ public class LineageServiceTest {
   private Urn datajobUrn1;
   private Urn datajobUrn2;
   private Urn datajobUrn3;
+  private Urn metricUrn1;
+  private Urn metricUrn2;
+  private Urn metricUrn3;
 
   @BeforeMethod
   public void setupTest() {
@@ -109,6 +119,9 @@ public class LineageServiceTest {
     datajobUrn1 = UrnUtils.getUrn(DATAJOB_URN_1);
     datajobUrn2 = UrnUtils.getUrn(DATAJOB_URN_2);
     datajobUrn3 = UrnUtils.getUrn(DATAJOB_URN_3);
+    metricUrn1 = UrnUtils.getUrn(METRIC_URN_1);
+    metricUrn2 = UrnUtils.getUrn(METRIC_URN_2);
+    metricUrn3 = UrnUtils.getUrn(METRIC_URN_3);
 
     _lineageService = new LineageService(_mockClient);
   }
@@ -501,6 +514,194 @@ public class LineageServiceTest {
                 opContext, datajobUrn1, downstreamUrnsToAdd, downstreamUrnsToRemove, actorUrn));
   }
 
+  @Test
+  public void testUpdateChartUpstreamMetricsLineage() throws Exception {
+    assertUpdateUpstreamMetricsLineage(chartUrn1, Constants.CHART_ENTITY_NAME);
+  }
+
+  @Test
+  public void testUpdateDashboardUpstreamMetricsLineage() throws Exception {
+    assertUpdateUpstreamMetricsLineage(dashboardUrn1, Constants.DASHBOARD_ENTITY_NAME);
+  }
+
+  @Test
+  public void testUpdateDatasetUpstreamMetricsLineage() throws Exception {
+    assertUpdateUpstreamMetricsLineage(datasetUrn1, Constants.DATASET_ENTITY_NAME);
+  }
+
+  @Test
+  public void testFailUpdateUpstreamMetricsWithMissingMetric() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(metricUrn1))).thenReturn(false);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateUpstreamMetricsLineage(
+                opContext,
+                chartUrn1,
+                Collections.singletonList(metricUrn1),
+                Collections.emptyList(),
+                actorUrn));
+  }
+
+  @Test
+  public void testFailUpdateUpstreamMetricsWithNonMetric() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn1))).thenReturn(true);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateUpstreamMetricsLineage(
+                opContext,
+                chartUrn1,
+                Collections.singletonList(datasetUrn1),
+                Collections.emptyList(),
+                actorUrn));
+  }
+
+  @Test
+  public void testFailUpdateUpstreamMetricsWithUnsupportedConsumer() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(metricUrn1))).thenReturn(true);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateUpstreamMetricsLineage(
+                opContext,
+                datajobUrn1,
+                Collections.singletonList(metricUrn1),
+                Collections.emptyList(),
+                actorUrn));
+  }
+
+  @Test
+  public void testUpdateDatasetLineagePeelsMetricUrns() throws Exception {
+    assertTypedWriterPeelsMetricUrns(
+        datasetUrn1,
+        Constants.DATASET_ENTITY_NAME,
+        Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
+        () ->
+            _lineageService.updateDatasetLineage(
+                opContext,
+                datasetUrn1,
+                Collections.singletonList(metricUrn1),
+                Collections.emptyList(),
+                actorUrn));
+  }
+
+  @Test
+  public void testUpdateChartLineagePeelsMetricUrns() throws Exception {
+    assertTypedWriterPeelsMetricUrns(
+        chartUrn1,
+        Constants.CHART_ENTITY_NAME,
+        Constants.CHART_INFO_ASPECT_NAME,
+        () ->
+            _lineageService.updateChartLineage(
+                opContext,
+                chartUrn1,
+                Collections.singletonList(metricUrn1),
+                Collections.emptyList(),
+                actorUrn));
+  }
+
+  @Test
+  public void testUpdateDashboardLineagePeelsMetricUrns() throws Exception {
+    assertTypedWriterPeelsMetricUrns(
+        dashboardUrn1,
+        Constants.DASHBOARD_ENTITY_NAME,
+        Constants.DASHBOARD_INFO_ASPECT_NAME,
+        () ->
+            _lineageService.updateDashboardLineage(
+                opContext,
+                dashboardUrn1,
+                Collections.singletonList(metricUrn1),
+                Collections.emptyList(),
+                actorUrn));
+  }
+
+  @Test
+  public void testValidateDatasetUrnsRejectsMetric() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(metricUrn1))).thenReturn(true);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.validateDatasetUrns(opContext, Collections.singletonList(metricUrn1)));
+  }
+
+  @FunctionalInterface
+  private interface LineageUpdate {
+    void run() throws Exception;
+  }
+
+  private void assertTypedWriterPeelsMetricUrns(
+      Urn consumerUrn, String entityType, String leftoverAspectName, LineageUpdate update)
+      throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(metricUrn1))).thenReturn(true);
+
+    update.run();
+
+    UpstreamMetrics updated =
+        createUpstreamMetrics(consumerUrn, Collections.singletonList(metricUrn1));
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(consumerUrn);
+    proposal.setEntityType(entityType);
+    proposal.setAspectName(Constants.UPSTREAM_METRICS_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(updated));
+    proposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
+    Mockito.verify(_mockClient, Mockito.never())
+        .getV2(
+            any(OperationContext.class),
+            eq(entityType),
+            eq(consumerUrn),
+            eq(ImmutableSet.of(leftoverAspectName)));
+  }
+
+  private void assertUpdateUpstreamMetricsLineage(Urn consumerUrn, String entityType)
+      throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(metricUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(metricUrn2))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(metricUrn3))).thenReturn(true);
+
+    UpstreamMetrics existing =
+        createUpstreamMetrics(consumerUrn, Arrays.asList(metricUrn1, metricUrn2));
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(entityType),
+                eq(consumerUrn),
+                eq(ImmutableSet.of(Constants.UPSTREAM_METRICS_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(consumerUrn)
+                .setEntityName(entityType)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.UPSTREAM_METRICS_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(existing.data()))))));
+
+    _lineageService.updateUpstreamMetricsLineage(
+        opContext,
+        consumerUrn,
+        Collections.singletonList(metricUrn3),
+        Collections.singletonList(metricUrn1),
+        actorUrn);
+
+    UpstreamMetrics updated =
+        createUpstreamMetrics(consumerUrn, Arrays.asList(metricUrn2, metricUrn3));
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(consumerUrn);
+    proposal.setEntityType(entityType);
+    proposal.setAspectName(Constants.UPSTREAM_METRICS_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(updated));
+    proposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
+  }
+
   private UpstreamLineage createUpstreamLineage(List<String> upstreamUrns) throws Exception {
     UpstreamLineage upstreamLineage = new UpstreamLineage();
     UpstreamArray upstreams = new UpstreamArray();
@@ -620,6 +821,16 @@ public class LineageServiceTest {
     dataJobInputOutput.setOutputDatasetEdges(outputDatasetEdges);
 
     return dataJobInputOutput;
+  }
+
+  private UpstreamMetrics createUpstreamMetrics(Urn consumerUrn, List<Urn> metricUrns) {
+    UpstreamMetrics upstreamMetrics = new UpstreamMetrics();
+    EdgeArray metrics = new EdgeArray();
+    for (Urn metricUrn : metricUrns) {
+      addNewEdge(metricUrn, consumerUrn, metrics);
+    }
+    upstreamMetrics.setMetrics(metrics);
+    return upstreamMetrics;
   }
 
   private void addNewEdge(

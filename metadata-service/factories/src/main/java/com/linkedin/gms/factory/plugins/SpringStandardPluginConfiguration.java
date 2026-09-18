@@ -40,6 +40,8 @@ import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValida
 import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.TagPrivilegeConstraintsValidator;
+import com.linkedin.metadata.aspect.validation.UpstreamMetricsAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.UpstreamMetricsValidator;
 import com.linkedin.metadata.aspect.validation.UrlValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
@@ -1114,6 +1116,57 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(SCHEMA_FIELD_ENTITY_NAME)
                             .aspectName(LOGICAL_PARENT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator upstreamMetricsAuthorizationValidator() {
+    return new UpstreamMetricsAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(UpstreamMetricsAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CHART_ENTITY_NAME)
+                            .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DASHBOARD_ENTITY_NAME)
+                            .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATASET_ENTITY_NAME)
+                            .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator upstreamMetricsValidator() {
+    return new UpstreamMetricsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(UpstreamMetricsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CHART_ENTITY_NAME)
+                            .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DASHBOARD_ENTITY_NAME)
+                            .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATASET_ENTITY_NAME)
+                            .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
                             .build()))
                 .build());
   }
