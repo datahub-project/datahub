@@ -4,7 +4,9 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 #### Index Cleanup
 
-Manages Elasticsearch indices in DataHub, particularly focusing on time-series data.
+Truncates old timeseries aspect data via GMS `truncateTimeseriesAspect`. Works for
+Elasticsearch/OpenSearch and for PostgreSQL when
+`TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION=postgres` (delete-by-query; no reindex).
 
 ##### Configuration
 
@@ -16,20 +18,30 @@ source:
     truncate_index_older_than_days: 30
     truncation_watch_until: 10000
     truncation_sleep_between_seconds: 30
+    # Optional: replace the built-in aspect list and/or set per-aspect days
+    # truncate_aspect_retentions:
+    #   - entity_type: dataset
+    #     aspect: datasetusagestatistics
+    #     older_than_days: 30
+    #   - entity_type: dataset
+    #     aspect: operation
+    #     older_than_days: 14
 ```
 
 ##### Features
 
-- Truncates old Elasticsearch indices for the following timeseries aspects:
+- Truncates old timeseries data for the following aspects by default:
   - DatasetOperations
   - DatasetUsageStatistics
   - ChartUsageStatistics
   - DashboardUsageStatistics
   - QueryUsageStatistics
-  - Timeseries Aspects
+- Optional `truncate_aspect_retentions` for per-(entity, aspect) day overrides or a custom target list
 - Monitors truncation progress
 - Implements safe deletion with monitoring thresholds
 - Supports gradual truncation with sleep intervals
+- On PostgreSQL timeseries SoT, pairs with the partman retention ceiling
+  (`DATAHUB_PGTIMESERIES_RETENTION_MAX_AGE_SECONDS`) for efficient partition drops of older data
 
 #### Expired Token Cleanup
 

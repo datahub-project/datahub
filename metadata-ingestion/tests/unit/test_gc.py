@@ -10,6 +10,11 @@ import time_machine
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RemovedStatusFilter, SearchFilterRule
+from datahub.ingestion.source.gc.datahub_gc import (
+    DataHubGcSource,
+    DataHubGcSourceConfig,
+    TimeseriesAspectRetentionConfig,
+)
 from datahub.ingestion.source.gc.dataprocess_cleanup import (
     DataJobEntity,
     DataProcessCleanup,
@@ -24,6 +29,45 @@ from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
 from datahub.utilities.urns._urn_base import Urn
 
 FROZEN_TIME = "2021-12-07 07:00:00"
+
+
+class TestDataHubGcTimeseriesTruncateTargets(unittest.TestCase):
+    def _source_with_config(self, config: DataHubGcSourceConfig) -> DataHubGcSource:
+        ctx = PipelineContext(run_id="test_gc_truncate")
+        ctx.graph = MagicMock(spec=DataHubGraph)
+        return DataHubGcSource(ctx, config)
+
+    def test_default_targets_use_global_days(self):
+        config = DataHubGcSourceConfig(truncate_index_older_than_days=45)
+        source = self._source_with_config(config)
+        targets = source._timeseries_truncate_targets()
+        self.assertEqual(len(targets), 5)
+        self.assertIn(("dataset", "operation", 45), targets)
+        self.assertIn(("dataset", "datasetusagestatistics", 45), targets)
+
+    def test_aspect_retentions_override_list_and_days(self):
+        config = DataHubGcSourceConfig(
+            truncate_index_older_than_days=30,
+            truncate_aspect_retentions=[
+                TimeseriesAspectRetentionConfig(
+                    entity_type="dataset",
+                    aspect="operation",
+                    older_than_days=14,
+                ),
+                TimeseriesAspectRetentionConfig(
+                    entity_type="dataset",
+                    aspect="datasetusagestatistics",
+                ),
+            ],
+        )
+        source = self._source_with_config(config)
+        self.assertEqual(
+            source._timeseries_truncate_targets(),
+            [
+                ("dataset", "operation", 14),
+                ("dataset", "datasetusagestatistics", 30),
+            ],
+        )
 
 
 class TestSoftDeletedEntitiesCleanup(unittest.TestCase):
