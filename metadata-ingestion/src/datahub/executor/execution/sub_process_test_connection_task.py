@@ -82,23 +82,33 @@ class SubProcessTestConnectionTask(Task):
         )
         stdout_lines: deque = deque(maxlen=SubProcessTaskUtil.MAX_LOG_LINES)
 
-        ingest_process = subprocess.Popen(
-            [
-                sys.executable,
-                command_script,
-                str(prepared.venv_ref.venv_loc),
-            ],
-            env=prepared.subprocess_env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
+        try:
+            ingest_process = subprocess.Popen(
+                [
+                    sys.executable,
+                    command_script,
+                    str(prepared.venv_ref.venv_loc),
+                ],
+                env=prepared.subprocess_env,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
 
-        # Write envelope to stdin and close
-        assert ingest_process.stdin is not None
-        ingest_process.stdin.write(prepared.stdin_envelope)
-        ingest_process.stdin.close()
+            # Write envelope to stdin and close
+            assert ingest_process.stdin is not None
+            ingest_process.stdin.write(prepared.stdin_envelope)
+            ingest_process.stdin.close()
+        except BaseException:
+            # Spawning and the stdin write sit before the try/finally that
+            # calls finalize_task_output, so a failure here -- an OSError from
+            # Popen, a broken pipe, a cancellation -- is the one window where
+            # nothing releases the cached venv's SHARED lock. Left held, the
+            # entry can never be evicted for the rest of the pod's life.
+            # Guarded inside, so it cannot replace the exception in flight.
+            SubProcessTaskUtil.release_venv_lock(prepared.venv_ref)
+            raise
 
         masking_filter = SecretMaskingFilter()
 

@@ -561,6 +561,45 @@ class TestSharedRecipeTaskSkeleton:
         assert not exec_out_dir.exists(), "the run directory outlived the failure"
 
     @pytest.mark.asyncio
+    async def test_a_failure_after_the_venv_releases_its_cache_lock(
+        self, tmp_path: Path
+    ) -> None:
+        """The window between setup_task_venv returning and PreparedRun existing.
+
+        PreparedRun is the only thing that carries venv_ref out to the caller
+        whose finally releases the lock, so a failure while BUILDING it --
+        build_subprocess_env or build_stdin_envelope raising, or a
+        cancellation between them -- leaves the entry held SHARED with no
+        owner. Eviction needs a non-blocking exclusive, so that entry becomes
+        unreclaimable for the life of the pod.
+        """
+        venv_ref = Mock()
+        venv_ref.venv_loc = "/tmp/venv"
+
+        with (
+            patch.object(
+                SubProcessTaskUtil,
+                "_resolve_recipe",
+                return_value=({"source": {"type": "mysql"}}, {}),
+            ),
+            patch.object(SubProcessTaskUtil, "setup_task_venv", return_value=venv_ref),
+            patch.object(
+                SubProcessTaskUtil,
+                "build_stdin_envelope",
+                side_effect=RuntimeError("envelope failed"),
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="envelope failed"):
+                await SubProcessTaskUtil.prepare_recipe_run(
+                    self._args(),
+                    execution_ctx=Mock(),
+                    executor_ctx=Mock(),
+                    exec_out_dir=str(tmp_path / "exec-789"),
+                )
+
+        venv_ref.lock.release.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_a_directory_the_caller_already_made_is_left_alone(
         self, tmp_path: Path
     ) -> None:

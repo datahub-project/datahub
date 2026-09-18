@@ -529,6 +529,28 @@ class SubProcessTaskUtil:
         )
 
     @staticmethod
+    def release_venv_lock(venv_ref: Optional[VenvReference]) -> None:
+        """Let go of a cached venv's lock. Safe from any `except`/`finally`.
+
+        Every caller invokes this while unwinding, so it can never raise: it
+        would replace the exception that got us here. Idempotent, because the
+        normal path releases in finalize_task_output and a failure part-way
+        may already have released. A venv that is not cached carries no lock,
+        so this is a no-op for every path where the cache is off or unusable.
+
+        Called from every window between setup_venv returning and
+        finalize_task_output running, because in those windows nothing else
+        owns the lock: a leak there holds the entry SHARED for the process's
+        life, so eviction -- which needs a non-blocking exclusive -- can never
+        reclaim it.
+        """
+        try:
+            if venv_ref is not None and venv_ref.lock is not None:
+                venv_ref.lock.release()
+        except Exception:
+            logger.exception("Failed to release the venv cache lock")
+
+    @staticmethod
     def finalize_task_output(
         report_file: str,
         exec_out_dir: str,
@@ -638,11 +660,7 @@ class SubProcessTaskUtil:
         # has to be let go of here or the entry becomes immortal and the cache
         # can never be trimmed. An ephemeral venv carries no lock, so this is a
         # no-op for every path where the cache is off or unusable.
-        try:
-            if venv_ref is not None and venv_ref.lock is not None:
-                venv_ref.lock.release()
-        except Exception:
-            logger.exception("Failed to release the venv cache lock")
+        SubProcessTaskUtil.release_venv_lock(venv_ref)
 
         # Last, and guarded separately: this directory holds the run's reports,
         # with real object names in them, so leaving it behind on a failure
@@ -697,17 +715,31 @@ class SubProcessTaskUtil:
             if ours:
                 SubProcessTaskUtil._remove_directory(exec_out_dir)
             raise
-        return PreparedRun(
-            recipe=recipe,
-            plugin=plugin,
-            venv_ref=venv_ref,
-            subprocess_env=SubProcessTaskUtil.build_subprocess_env(
-                args, venv_ref, extra=env_extra
-            ),
-            stdin_envelope=SubProcessTaskUtil.build_stdin_envelope(
-                args, recipe, secret_values, extra=envelope_extra
-            ),
-        )
+
+        try:
+            return PreparedRun(
+                recipe=recipe,
+                plugin=plugin,
+                venv_ref=venv_ref,
+                subprocess_env=SubProcessTaskUtil.build_subprocess_env(
+                    args, venv_ref, extra=env_extra
+                ),
+                stdin_envelope=SubProcessTaskUtil.build_stdin_envelope(
+                    args, recipe, secret_values, extra=envelope_extra
+                ),
+            )
+        except BaseException:
+            # PreparedRun is the only thing that carries venv_ref out to the
+            # caller whose finally releases it, so anything that raises while
+            # building it -- an unresolvable env var in build_subprocess_env,
+            # a serialisation failure in build_stdin_envelope, a cancellation
+            # between them -- strands the venv's lock with no owner at all.
+            # BaseException for that cancellation; both cleanups guarded
+            # individually so neither can replace the exception in flight.
+            SubProcessTaskUtil.release_venv_lock(venv_ref)
+            if ours:
+                SubProcessTaskUtil._remove_directory(exec_out_dir)
+            raise
 
 
 class SubProcessRecipeTaskArgs(PermissiveConfigModel):

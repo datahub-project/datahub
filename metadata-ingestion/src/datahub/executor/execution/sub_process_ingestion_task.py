@@ -223,6 +223,40 @@ class SubProcessIngestionTask(Task):
             validated_args, plugin, exec_out_dir, shared_logs
         )
 
+        try:
+            return await self._spawn_ingestion_subprocess(
+                validated_args,
+                recipe,
+                report_out_file,
+                subprocess_env,
+                secret_values,
+                venv_ref,
+            )
+        except BaseException:
+            # venv_ref only reaches execute() -- and therefore the finally that
+            # releases its lock -- through this method's return value. Anything
+            # that raises after _setup_venv succeeded, most realistically a
+            # cancellation at create_subprocess_exec or a broken pipe on the
+            # stdin write, would otherwise strand the SHARED hold for the
+            # process's life and make that cache entry unevictable. Guarded, so
+            # it cannot replace the exception in flight.
+            SubProcessTaskUtil.release_venv_lock(venv_ref)
+            raise
+
+    async def _spawn_ingestion_subprocess(
+        self,
+        validated_args: SubProcessIngestionTaskArgs,
+        recipe: dict,
+        report_out_file: str,
+        subprocess_env: dict,
+        secret_values: dict[str, str],
+        venv_ref: VenvReference,
+    ) -> tuple[asyncio.subprocess.Process, VenvReference]:
+        """Spawn the child and hand it its stdin envelope.
+
+        Split out of _create_subprocess purely so the venv lock's release has
+        a single `except` covering everything after the venv exists.
+        """
         # Now create subprocess with Python wrapper that enables secret masking
         # Invoked as a module with this interpreter rather than by bare name off PATH:
         # the wrapper must run in the executor's own environment (it then activates the
