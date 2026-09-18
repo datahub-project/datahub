@@ -7,6 +7,7 @@ import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -64,7 +65,8 @@ public class TrackingController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "trackEvent", List.of()),
+                    authentication.getActor().toUrnStr(), request, "trackEvent", List.of())
+                .withUsageOperation(UsageOperation.OTHER_WRITE),
             authorizationChain,
             authentication,
             true);
