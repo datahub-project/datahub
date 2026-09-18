@@ -226,7 +226,7 @@ def main():
     if project.get("name") != "acryl-datahub":
         print("  name... MISMATCH")
         meta_ok = False
-    if project.get("requires-python") != ">=3.10":
+    if project.get("requires-python") != ">=3.11":
         print(f"  requires-python... MISMATCH: {project.get('requires-python')}")
         meta_ok = False
     if meta_ok:

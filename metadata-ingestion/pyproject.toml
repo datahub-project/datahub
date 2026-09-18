@@ -17,13 +17,12 @@ dynamic = ["version"]
 description = "DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Intended Audience :: Developers",
@@ -253,8 +252,8 @@ confluence = [
     "jsonpath-ng==1.7.0",
     "markdownify>=0.14.1,<2.0.0",
     "nltk!=3.10.1",
-    "unstructured-ingest[confluence]==1.4.28 ; python_version >= \"3.11\"",
-    "unstructured[md]==0.24.1; python_version >= '3.11'",
+    "unstructured-ingest[confluence]==1.4.28",
+    "unstructured[md]==0.24.1",
 ]
 
 cube = [
@@ -298,8 +297,8 @@ datahub-documents = [
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
-    "unstructured-ingest==1.4.28; python_version >= '3.11'",
-    "unstructured[md]==0.24.1; python_version >= '3.11'",
+    "unstructured-ingest==1.4.28",
+    "unstructured[md]==0.24.1",
 ]
 
 datahub-gc = []
@@ -756,8 +755,8 @@ notion = [
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
-    "unstructured-ingest[notion]==1.4.28 ; python_version >= \"3.11\"",
-    "unstructured[md]==0.24.1; python_version >= '3.11'",
+    "unstructured-ingest[notion]==1.4.28",
+    "unstructured[md]==0.24.1",
 ]
 
 odcs = [
@@ -1134,8 +1133,8 @@ unstructured = [
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
-    "unstructured-ingest==1.4.28; python_version >= '3.11'",
-    "unstructured[md]==0.24.1; python_version >= '3.11'",
+    "unstructured-ingest==1.4.28",
+    "unstructured[md]==0.24.1",
 ]
 
 vertexai = [
@@ -1269,8 +1268,8 @@ all = [
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
-    "unstructured-ingest[confluence,notion]==1.4.28 ; python_version >= \"3.11\"",
-    "unstructured[md]==0.24.1; python_version >= '3.11'",
+    "unstructured-ingest[confluence,notion]==1.4.28",
+    "unstructured[md]==0.24.1",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
     "websocket-client<2.0.0",
@@ -1462,8 +1461,8 @@ dev = [
     "typing-inspect<0.10.0",
     "typing_extensions>=4.8.0,<5.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "unstructured-ingest[confluence,notion]==1.4.28 ; python_version >= \"3.11\"",
-    "unstructured[md]==0.24.1; python_version >= '3.11'",
+    "unstructured-ingest[confluence,notion]==1.4.28",
+    "unstructured[md]==0.24.1",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
@@ -1655,8 +1654,8 @@ docs = [
     "typing-inspect<0.10.0",
     "typing_extensions>=4.8.0,<5.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "unstructured-ingest[confluence,notion]==1.4.28 ; python_version >= \"3.11\"",
-    "unstructured[md]==0.24.1; python_version >= '3.11'",
+    "unstructured-ingest[confluence,notion]==1.4.28",
+    "unstructured[md]==0.24.1",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
@@ -1986,7 +1985,7 @@ constraint-dependencies = [
 ]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 # Same as Black.
 line-length = 88
 # Exclude directories matching these patterns.

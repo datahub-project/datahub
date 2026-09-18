@@ -191,6 +191,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private 
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install \
         -e "/metadata-ingestion/[all]" \
+    && python -m spacy download en_core_web_sm \
     && datahub --version
 RUN rm -rf $HOME/.config/uv
 

@@ -9,7 +9,7 @@ The integration works two ways:
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.11+
 - Google ADK (`pip install google-adk`)
 - A DataHub instance and [access token](../../authentication/personal-access-tokens.md)
 - A Google API key (Gemini Developer API) **or** Google Cloud credentials (Vertex AI)

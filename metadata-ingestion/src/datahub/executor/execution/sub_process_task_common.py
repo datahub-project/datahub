@@ -322,8 +322,8 @@ def resolve_wrapper_script(module_name: str) -> str:
     matches the console-script entry points this replaced: their ``<venv>/bin`` held no
     importable modules either.
 
-    ``PYTHONSAFEPATH`` / ``-P`` would also fix it but are 3.11+, and this package
-    supports 3.10.
+    ``PYTHONSAFEPATH`` / ``-P`` would also fix it (3.11+). We still invoke by
+    path so ``sys.path[0]`` matches the console-script entry points this replaced.
 
     Uses ``find_spec`` rather than importing: resolving a path must not execute the
     wrapper in the *parent* process.
