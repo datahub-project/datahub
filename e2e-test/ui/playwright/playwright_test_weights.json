@@ -248,6 +248,14 @@
     "duration": "90.000s"
   },
   {
+    "filePath": "mfeframework/entity-tab-slot-adversarial.spec.ts",
+    "duration": "48.000s"
+  },
+  {
+    "filePath": "mfeframework/entity-tab-slot.spec.ts",
+    "duration": "40.000s"
+  },
+  {
     "filePath": "mfeframework/valid-config-mfe.spec.ts",
     "duration": "18.482s"
   },
