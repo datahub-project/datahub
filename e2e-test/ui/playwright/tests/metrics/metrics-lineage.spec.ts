@@ -157,6 +157,13 @@ test.describe('Metrics lineage topologies', () => {
 
     await lineagePage.openManageLineageMenu(TOTAL_REVENUE_URN);
     await expect(lineagePage.editDownstreamLineageButton).toBeVisible();
+    await expect(lineagePage.editUpstreamLineageButton).toBeVisible();
+    await expect(
+      lineagePage.editUpstreamLineageButton.locator('xpath=ancestor::*[@aria-disabled="true"]'),
+    ).toBeVisible();
+    await expect(
+      lineagePage.editDownstreamLineageButton.locator('xpath=ancestor::*[@aria-disabled="true"]'),
+    ).toHaveCount(0);
   });
 
   test('metric impact analysis lists chart and dashboard downstream', async () => {

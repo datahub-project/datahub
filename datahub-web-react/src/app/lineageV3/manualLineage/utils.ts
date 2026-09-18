@@ -21,13 +21,7 @@ export function getValidEntityTypes(lineageDirection: LineageDirection, entityTy
     } else {
         switch (entityType) {
             case EntityType.Dataset:
-                return [
-                    EntityType.Dataset,
-                    EntityType.Chart,
-                    EntityType.Dashboard,
-                    EntityType.DataJob,
-                    EntityType.Metric,
-                ];
+                return [EntityType.Dataset, EntityType.Chart, EntityType.Dashboard, EntityType.DataJob];
             case EntityType.Chart:
                 return [EntityType.Dashboard];
             case EntityType.Dashboard:

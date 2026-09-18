@@ -9,9 +9,9 @@ describe('getValidEntityTypes', () => {
             expect(result).toStrictEqual(['DASHBOARD']);
         });
 
-        it('should return DATASET,CHART,DASHBOARD, DATA_JOB, METRIC if Dataset Entity type is passed', () => {
+        it('should return DATASET,CHART,DASHBOARD, DATA_JOB if Dataset Entity type is passed', () => {
             const result = getValidEntityTypes(LineageDirection.Downstream, EntityType.Dataset);
-            expect(result).toStrictEqual(['DATASET', 'CHART', 'DASHBOARD', 'DATA_JOB', 'METRIC']);
+            expect(result).toStrictEqual(['DATASET', 'CHART', 'DASHBOARD', 'DATA_JOB']);
         });
 
         it('should return DATASET, CHART, DASHBOARD if Metric Entity type is passed', () => {
