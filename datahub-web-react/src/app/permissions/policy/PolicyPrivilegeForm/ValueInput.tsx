@@ -1,4 +1,4 @@
-import { DatePicker, MultiSelectInput, SimpleSelect } from '@components';
+import { DatePicker, MultiValueInput, SimpleSelect } from '@components';
 import dayjs from 'dayjs';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -129,10 +129,10 @@ export default function ValueInput({
         );
     }
 
-    // Number type: use MultiSelectInput with HTML number input
+    // Number type: use MultiValueInput with HTML number input
     if (valueTypeUrn === NUMBER_TYPE_URN) {
         return (
-            <MultiSelectInput
+            <MultiValueInput
                 values={values}
                 onUpdate={onUpdate}
                 placeholder={t(PLACEHOLDER_KEYS.NUMBER)}
@@ -142,8 +142,6 @@ export default function ValueInput({
         );
     }
 
-    // Default: String type without allowed values - use MultiSelectInput
-    return (
-        <MultiSelectInput values={values} onUpdate={onUpdate} placeholder={t(PLACEHOLDER_KEYS.VALUE)} width="full" />
-    );
+    // Default: String type without allowed values - use MultiValueInput
+    return <MultiValueInput values={values} onUpdate={onUpdate} placeholder={t(PLACEHOLDER_KEYS.VALUE)} width="full" />;
 }

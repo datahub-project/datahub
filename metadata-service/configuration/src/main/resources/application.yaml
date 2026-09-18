@@ -2083,6 +2083,9 @@ metadataChangeProposal:
     dataProductAssets:
       enabled: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_ENABLED:true} # Mirrors Data Product membership onto member assets' dataProducts aspect for search filtering/faceting
       maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_MAX_FANOUT:500} # Batch size for reading existing asset-side dataProducts; ADD patches are not capped per commit
+    domainReferenceDetach:
+      enabled: ${MCP_SIDE_EFFECTS_DOMAIN_REFERENCE_DETACH_ENABLED:true}
+      maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_DOMAIN_REFERENCE_DETACH_MAX_FANOUT:500}
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 

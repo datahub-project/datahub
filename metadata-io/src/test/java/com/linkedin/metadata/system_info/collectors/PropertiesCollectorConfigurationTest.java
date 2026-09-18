@@ -987,6 +987,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.sideEffects.aliases.enabled",
           "metadataChangeProposal.sideEffects.dataProductAssets.enabled",
           "metadataChangeProposal.sideEffects.dataProductAssets.maxFanoutPerCommit",
+          "metadataChangeProposal.sideEffects.domainReferenceDetach.enabled",
+          "metadataChangeProposal.sideEffects.domainReferenceDetach.maxFanoutPerCommit",
           "metadataChangeProposal.sideEffects.dataProductUnset.enabled",
           "metadataChangeProposal.sideEffects.schemaField.enabled",
           "metadataChangeProposal.sideEffects.schemaField.domain.enabled",
