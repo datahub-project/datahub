@@ -187,6 +187,26 @@ public class LineageServiceTest {
   }
 
   @Test
+  public void testUpdateDatasetLineageDoesNotWriteMetricsWhenLeftoverDatasetMissing()
+      throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(metricUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn2)))
+        .thenReturn(false);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateDatasetLineage(
+                opContext,
+                datasetUrn1,
+                Arrays.asList(metricUrn1, datasetUrn2),
+                Collections.emptyList(),
+                actorUrn));
+    Mockito.verify(_mockClient, Mockito.never())
+        .ingestProposal(any(OperationContext.class), any(), eq(false));
+  }
+
+  @Test
   public void testFailUpdateDatasetWithInvalidEdge() throws Exception {
     Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn1))).thenReturn(true);
 

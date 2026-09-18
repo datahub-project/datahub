@@ -238,21 +238,24 @@ public class LineageService {
       @Nonnull final List<Urn> upstreamUrnsToRemove,
       @Nonnull final Urn actor)
       throws Exception {
-    maybeUpdateUpstreamMetrics(
-        opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
     final List<Urn> remainingToAdd = filterOutMetricUrns(upstreamUrnsToAdd);
     final List<Urn> remainingToRemove = filterOutMetricUrns(upstreamUrnsToRemove);
-    if (remainingToAdd.isEmpty() && remainingToRemove.isEmpty()) {
+    MetadataChangeProposal leftoverProposal = null;
+    if (!remainingToAdd.isEmpty() || !remainingToRemove.isEmpty()) {
+      validateDatasetUrns(opContext, remainingToAdd);
+      leftoverProposal =
+          buildDatasetLineageProposal(
+              opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor);
+    }
+    maybeUpdateUpstreamMetrics(
+        opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+    if (leftoverProposal == null) {
       return;
     }
-    validateDatasetUrns(opContext, remainingToAdd);
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
     try {
-      MetadataChangeProposal changeProposal =
-          buildDatasetLineageProposal(
-              opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      _entityClient.ingestProposal(opContext, leftoverProposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update dataset lineage for urn %s", downstreamUrn), e);
@@ -324,23 +327,26 @@ public class LineageService {
       @Nonnull final List<Urn> upstreamUrnsToRemove,
       @Nonnull final Urn actor)
       throws Exception {
-    maybeUpdateUpstreamMetrics(
-        opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
     final List<Urn> remainingToAdd = filterOutMetricUrns(upstreamUrnsToAdd);
     final List<Urn> remainingToRemove = filterOutMetricUrns(upstreamUrnsToRemove);
-    if (remainingToAdd.isEmpty() && remainingToRemove.isEmpty()) {
+    MetadataChangeProposal leftoverProposal = null;
+    if (!remainingToAdd.isEmpty() || !remainingToRemove.isEmpty()) {
+      // ensure all upstream urns are either dataset or chart urns and they exist
+      validateChartUpstreamUrns(opContext, remainingToAdd);
+      leftoverProposal =
+          buildChartLineageProposal(
+              opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor);
+    }
+    maybeUpdateUpstreamMetrics(
+        opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+    if (leftoverProposal == null) {
       return;
     }
-    // ensure all upstream urns are either dataset or chart urns and they exist
-    validateChartUpstreamUrns(opContext, remainingToAdd);
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 
     try {
-      MetadataChangeProposal changeProposal =
-          buildChartLineageProposal(
-              opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      _entityClient.ingestProposal(opContext, leftoverProposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
@@ -414,22 +420,25 @@ public class LineageService {
       @Nonnull final List<Urn> upstreamUrnsToRemove,
       @Nonnull final Urn actor)
       throws Exception {
-    maybeUpdateUpstreamMetrics(
-        opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
     final List<Urn> remainingToAdd = filterOutMetricUrns(upstreamUrnsToAdd);
     final List<Urn> remainingToRemove = filterOutMetricUrns(upstreamUrnsToRemove);
-    if (remainingToAdd.isEmpty() && remainingToRemove.isEmpty()) {
+    MetadataChangeProposal leftoverProposal = null;
+    if (!remainingToAdd.isEmpty() || !remainingToRemove.isEmpty()) {
+      validateDashboardUpstreamUrns(opContext, remainingToAdd);
+      leftoverProposal =
+          buildDashboardLineageProposal(
+              opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor);
+    }
+    maybeUpdateUpstreamMetrics(
+        opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+    if (leftoverProposal == null) {
       return;
     }
-    validateDashboardUpstreamUrns(opContext, remainingToAdd);
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 
     try {
-      MetadataChangeProposal changeProposal =
-          buildDashboardLineageProposal(
-              opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      _entityClient.ingestProposal(opContext, leftoverProposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
