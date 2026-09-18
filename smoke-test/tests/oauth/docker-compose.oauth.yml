@@ -60,7 +60,7 @@ services:
 
   # Runs the pytest smoke test inside the compose network (see header note).
   tester:
-    image: python:3.10-slim
+    image: python:3.11-slim
     working_dir: /smoke
     volumes:
       - "${DATAHUB_OAUTH_HARNESS_DIR:-.}/../../..:/repo:ro"

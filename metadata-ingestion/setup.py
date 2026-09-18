@@ -77,7 +77,7 @@ framework_common = {
     # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; patched releases are >=3.13.3.
     # Minimum patch is enforced for Docker via docker/snippets/ingestion/constraints.txt only —
     # do not add a lower bound here: Airflow 2.7.x constraints pin aiohttp==3.8.6 and
-    # airflow-plugin CI installs with -c constraints-3.10.txt (unsatisfiable if we require >=3.13.x).
+    # airflow-plugin CI installs with -c constraints-3.11.txt (unsatisfiable if we require >=3.13.x).
     "aiohttp<4",
     "cached_property<3.0.0",
     # 3.2.0 is the first release with ijson.parse(use_float=...), which the JSON
@@ -521,9 +521,9 @@ onnx_embeddings = {
 unstructured_lib = {
     # Unstructured.io core library for document partitioning with markdown support
     # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+)
-    "unstructured[md]==0.24.1; python_version >= '3.11'",
+    "unstructured[md]==0.24.1",
     # unstructured 0.24.x requires ingest >=1.4.0
-    "unstructured-ingest==1.4.28; python_version >= '3.11'",
+    "unstructured-ingest==1.4.28",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
     # Transitive via unstructured, which requires plain `nltk`. 3.10.1 added an
@@ -542,12 +542,12 @@ unstructured_lib = {
 
 notion_common = {
     # Notion-specific connector adds notion-client and related dependencies
-    "unstructured-ingest[notion]==1.4.28; python_version >= '3.11'",
+    "unstructured-ingest[notion]==1.4.28",
 } | unstructured_lib
 
 confluence_common = {
     # Confluence-specific connector adds atlassian-python-api and related dependencies
-    "unstructured-ingest[confluence]==1.4.28; python_version >= '3.11'",
+    "unstructured-ingest[confluence]==1.4.28",
     "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
     # Preserve Confluence storage HTML structure as Markdown for chunking/retrieval
     "markdownify>=0.14.1,<2.0.0",
@@ -1372,7 +1372,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Intended Audience :: Developers",
@@ -1386,7 +1385,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.10",
+    python_requires=">=3.11",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={
