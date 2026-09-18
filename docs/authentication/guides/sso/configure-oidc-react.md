@@ -100,13 +100,59 @@ AUTH_OIDC_SCOPE=your-custom-scope
 AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
 ```
 
-| Configuration                          | Description                                                                                                                                                                                                                                                                                                                                                                                                                         | Default             |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| AUTH_OIDC_USER_NAME_CLAIM              | The attribute that will contain the username used on the DataHub platform. By default, this is "email" providedas part of the standard `email` scope.                                                                                                                                                                                                                                                                               |                     |
-| AUTH_OIDC_USER_NAME_CLAIM_REGEX        | A regex string used for extracting the username from the userNameClaim attribute. For example, if the userNameClaim field will contain an email address, and we want to omit the domain name suffix of the email, we can specify a customregex to do so. (e.g. `([^@]+)`)                                                                                                                                                           |                     |
-| AUTH_OIDC_SCOPE                        | A string representing the scopes to be requested from the identity provider, granted by the end user. For more info, see [OpenID Connect Scopes](https://auth0.com/docs/scopes/openid-connect-scopes).                                                                                                                                                                                                                              |                     |
-| AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD | a string representing the token authentication method to use with the identity provider. Default value is `client_secret_basic`, which uses HTTP Basic authentication. Another option is `client_secret_post`, which includes the client_id and secret_id as form parameters in the HTTP POST request. For more info, see [OAuth 2.0 Client Authentication](https://darutk.medium.com/oauth-2-0-client-authentication-4b5f929305d4) | client_secret_basic |
-| AUTH_OIDC_PREFERRED_JWS_ALGORITHM      | Can be used to select a preferred signing algorithm for id tokens. Examples include: `RS256` or `HS256`. If your IdP includes `none` before `RS256`/`HS256` in the list of signing algorithms, then this value **MUST** be set.                                                                                                                                                                                                     |                     |
+| Configuration                          | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Default              |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| AUTH_OIDC_USER_NAME_CLAIM              | The attribute that contains the username used on the DataHub platform. By default, this is `email`, provided as part of the standard `email` scope.                                                                                                                                                                                                                                                                                                                                                                          | email                |
+| AUTH_OIDC_USER_NAME_CLAIM_REGEX        | A regex string used for extracting the username from the user-name claim. For example, if the claim contains an email address and you want to omit its domain suffix, specify a custom regex such as `([^@]+)`.                                                                                                                                                                                                                                                                                                              | `(.*)`               |
+| AUTH_OIDC_SCOPE                        | A string representing the scopes to be requested from the identity provider and granted by the end user. For more info, see [OpenID Connect Scopes](https://auth0.com/docs/scopes/openid-connect-scopes).                                                                                                                                                                                                                                                                                                                    | openid profile email |
+| AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD | A string representing the token authentication method to use with the identity provider. The default is `client_secret_basic`, which uses HTTP Basic authentication. Another option is `client_secret_post`, which includes `client_id` and `client_secret` as form parameters in the HTTP POST request. A third option is `private_key_jwt`, which uses a signed client assertion (see below). For more info, see [OAuth 2.0 Client Authentication](https://darutk.medium.com/oauth-2-0-client-authentication-4b5f929305d4) | client_secret_basic  |
+| AUTH_OIDC_PREFERRED_JWS_ALGORITHM      | Can be used to select a preferred signing algorithm for id tokens. Examples include: `RS256` or `HS256`. If your IdP includes `none` before `RS256`/`HS256` in the list of signing algorithms, then this value **MUST** be set.                                                                                                                                                                                                                                                                                              |                      |
+
+### Certificate-Based Authentication (private_key_jwt)
+
+DataHub supports [RFC 7523](https://datatracker.ietf.org/doc/html/rfc7523) `private_key_jwt` client authentication as an alternative to a shared client secret. Instead of sending `client_secret`, DataHub signs a short-lived JWT assertion with an RSA private key held on disk; the identity provider verifies it against the registered public certificate.
+
+This is vendor-agnostic and works with OIDC providers that accept `RS256`, `RS384`, or `RS512` for `private_key_jwt` and the token endpoint URI as the client assertion audience. DataHub populates the JWT header with `kid`, `x5t#S256` ([RFC 7515 §4.1.8](https://datatracker.ietf.org/doc/html/rfc7515#section-4.1.8)), and `x5c` ([§4.1.6](https://datatracker.ietf.org/doc/html/rfc7515#section-4.1.6)) to support common key-identification mechanisms.
+
+```
+# Certificate-based authentication (alternative to client secret)
+AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=private_key_jwt
+AUTH_OIDC_PRIVATE_KEY_FILE_PATH=/path/to/private-key.pem
+AUTH_OIDC_CERTIFICATE_FILE_PATH=/path/to/certificate.pem
+
+# Optional settings
+AUTH_OIDC_PRIVATE_KEY_PASSWORD=password-if-key-is-encrypted
+AUTH_OIDC_PRIVATE_KEY_JWT_ALGORITHM=RS256 # default
+AUTH_OIDC_PRIVATE_KEY_JWT_KID=provider-specific-key-id
+```
+
+| Configuration                       | Description                                                                                                                                                                                                                                       | Default                 |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| AUTH_OIDC_PRIVATE_KEY_FILE_PATH     | Path to the PEM file containing an RSA private key of at least 2048 bits. Required when using `private_key_jwt`. Accepts PKCS#8 (`BEGIN PRIVATE KEY` / `BEGIN ENCRYPTED PRIVATE KEY`) and traditional OpenSSL (`BEGIN RSA PRIVATE KEY`) variants. |                         |
+| AUTH_OIDC_CERTIFICATE_FILE_PATH     | Path to the PEM file containing the X.509 certificate (`BEGIN CERTIFICATE`). Required when using `private_key_jwt`. If the file contains multiple concatenated certificates, they are treated as a chain (leaf first) and sent as `x5c`.          |                         |
+| AUTH_OIDC_PRIVATE_KEY_PASSWORD      | Password for the private key file, if it is encrypted. Leave empty for unencrypted keys.                                                                                                                                                          |                         |
+| AUTH_OIDC_PRIVATE_KEY_JWT_ALGORITHM | Signing algorithm for the client assertion JWT. Supported values: `RS256`, `RS384`, `RS512`.                                                                                                                                                      | RS256                   |
+| AUTH_OIDC_PRIVATE_KEY_JWT_KID       | Explicit value for the JWT `kid` header. Set it to the key ID assigned by your identity provider when that differs from the certificate thumbprint. If unset, DataHub uses the base64url SHA-256 certificate thumbprint.                          | SHA-256 cert thumbprint |
+
+:::note
+PEM is the canonical format for both files. If your key material is in PKCS#12 (`.p12` / `.pfx`), convert it first, for example with `openssl pkcs12 -in keystore.p12 -nocerts -nodes -out private-key.pem` and `openssl pkcs12 -in keystore.p12 -clcerts -nokeys -out certificate.pem`.
+:::
+
+:::note
+When using `private_key_jwt`, `AUTH_OIDC_CLIENT_SECRET` is not required and can be omitted.
+:::
+
+:::caution
+Lock down the private-key file so only the DataHub frontend process can read it, e.g. `chmod 600 /path/to/private-key.pem` and ensure the file is owned by the user the container runs as. A world-readable key on a shared host is equivalent to leaking your client secret.
+:::
+
+:::note
+The private key, certificate, and `kid` are loaded **once when the OIDC provider initializes**. Rotating the key or registered certificate requires restarting the `datahub-frontend-react` container so the new material is picked up.
+:::
+
+:::caution
+Check your identity provider's client-assertion requirements before enabling this method. Providers that require a PSS algorithm such as `PS256` are not currently supported.
+:::
 
 ## SSO Group-Based Access Control and Custom Messaging
 
