@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
@@ -9,12 +9,15 @@ import {
 } from 'virtual:__federation__';
 
 import analytics, { EventType, MfeLoadOutcome } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
 import { ErrorComponent } from '@app/mfeframework/ErrorComponent';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
+import { NavPageContext, SLOT_CONTRACT_VERSION, SlotContext } from '@app/mfeframework/slots/slotTypes';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 // Used when the MFE config yaml specifies no loadTimeoutMs.
 export const DEFAULT_LOAD_TIMEOUT_MS = 10000;
+const DEFAULT_MOUNT_MIN_HEIGHT = 480;
 
 const MFEConfigurableContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
@@ -40,6 +43,7 @@ const MFEConfigurableContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>
 
 interface MountMFEParams {
     config: MFEConfig;
+    ctx: SlotContext;
     containerElement: HTMLDivElement | null;
     onError: () => void;
     aliveRef: { current: boolean };
@@ -48,6 +52,7 @@ interface MountMFEParams {
 
 async function mountMFE({
     config,
+    ctx,
     containerElement,
     onError,
     aliveRef,
@@ -161,11 +166,11 @@ async function mountMFE({
             return undefined;
         }
         const mountFnStart = performance.now();
-        const cleanup = maybeFn(containerElement, {});
+        const cleanup = maybeFn(containerElement, ctx);
         const mountFnEnd = performance.now();
         if (import.meta.env.DEV) {
             console.log(`latency for mount function execution: ${config.id}`, mountFnEnd - mountFnStart, 'ms');
-            console.log('[HOST] mount called');
+            console.log('[HOST] mount called with ctx', ctx);
         }
         const mountEnd = performance.now();
         const latency = mountEnd - mountStart;
@@ -173,7 +178,7 @@ async function mountMFE({
             console.log(`latency for successful MFE id: ${config.id}`, latency, 'ms');
         }
         trackLoad('success');
-        return cleanup;
+        return typeof cleanup === 'function' ? cleanup : undefined;
     } catch (e) {
         if (import.meta.env.DEV) {
             console.log(`latency for unsuccessful MFE id: ${config.id}`, performance.now() - mountStart, 'ms');
@@ -189,18 +194,32 @@ async function mountMFE({
     }
 }
 
-interface MFEBaseConfigurablePageProps {
-    config: MFEConfig;
-    // Already resolved from the yaml by useDynamicRoutes (the yaml's loadTimeoutMs, else the default).
-    loadTimeoutMs?: number;
+/** Optional principal for any slot context, derived from the authenticated user. */
+export function useSlotPrincipal(): { user: string } | undefined {
+    const { urn } = useUserContext();
+    return useMemo(() => (urn ? { user: urn } : undefined), [urn]);
 }
 
-export const MFEBaseConfigurablePage = ({
+type MFEMountProps = {
+    config: MFEConfig;
+    /** Typed context for the slot this MFE is placed in. Memoize it: a new object remounts the remote. */
+    ctx: SlotContext;
+    minHeight?: number;
+    /** Remote-module load timeout: the yaml's loadTimeoutMs, else the default. */
+    loadTimeoutMs?: number;
+};
+
+/**
+ * Loads the remote for `config` into a bare container and calls its `mount(el, ctx)`.
+ * Surface-agnostic: pages and slots wrap this with their own chrome.
+ */
+export const MFEMount = ({
     config,
+    ctx,
+    minHeight = DEFAULT_MOUNT_MIN_HEIGHT,
     loadTimeoutMs = DEFAULT_LOAD_TIMEOUT_MS,
-}: MFEBaseConfigurablePageProps) => {
+}: MFEMountProps) => {
     const { t } = useTranslation('misc');
-    const isShowNavBarRedesign = useShowNavBarRedesign();
     const box = useRef<HTMLDivElement>(null);
     const history = useHistory();
     const [hasError, setHasError] = useState(false);
@@ -210,15 +229,9 @@ export const MFEBaseConfigurablePage = ({
         aliveRef.current = true;
         let cleanup: (() => void) | undefined;
 
-        analytics.event({
-            type: EventType.MfePageViewEvent,
-            mfeId: config.id,
-            mfeLabel: config.label,
-            mfePath: config.path,
-        });
-
         mountMFE({
             config,
+            ctx,
             containerElement: box.current,
             onError: () => setHasError(true),
             aliveRef,
@@ -241,7 +254,7 @@ export const MFEBaseConfigurablePage = ({
                 }
             }
         };
-    }, [config, history, loadTimeoutMs]);
+    }, [config, ctx, history, loadTimeoutMs]);
 
     if (hasError) {
         return <ErrorComponent message={t('mfeframework.notAvailableError', { label: config.label })} />;
@@ -250,9 +263,40 @@ export const MFEBaseConfigurablePage = ({
         return <ErrorComponent message={t('mfeframework.disabledError', { label: config.label })} />;
     }
 
+    return <div ref={box} data-testid="mfe-slot-container" data-mfe-id={config.id} style={{ minHeight }} />;
+};
+
+/** Full-page MFE for the `nav.page` slot, reached from the left navigation at /mfe<path>. */
+interface MFEBaseConfigurablePageProps {
+    config: MFEConfig;
+    // Already resolved from the yaml by useDynamicRoutes (the yaml's loadTimeoutMs, else the default).
+    loadTimeoutMs?: number;
+}
+
+export const MFEBaseConfigurablePage = ({
+    config,
+    loadTimeoutMs = DEFAULT_LOAD_TIMEOUT_MS,
+}: MFEBaseConfigurablePageProps) => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+    const principal = useSlotPrincipal();
+    const ctx = useMemo<NavPageContext>(
+        () => ({ slot: 'nav.page', version: SLOT_CONTRACT_VERSION, ...(principal ? { principal } : {}) }),
+        [principal],
+    );
+
+    // A page view is a nav.page concept; slot mounts only report their load outcome (from mountMFE).
+    useEffect(() => {
+        analytics.event({
+            type: EventType.MfePageViewEvent,
+            mfeId: config.id,
+            mfeLabel: config.label,
+            mfePath: config.path ?? '',
+        });
+    }, [config]);
+
     return (
         <MFEConfigurableContainer $isShowNavBarRedesign={isShowNavBarRedesign} data-testid="mfe-configurable-container">
-            <div ref={box} style={{ minHeight: 480 }} />
+            <MFEMount config={config} ctx={ctx} loadTimeoutMs={loadTimeoutMs} />
         </MFEConfigurableContainer>
     );
 };
