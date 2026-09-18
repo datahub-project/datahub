@@ -3,7 +3,11 @@ from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Tuple
 
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    BigQueryProfilingConfig,
+    BigQueryV2Config,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     RANGE_PARTITION_NAME,
     BigqueryTable,
@@ -21,6 +25,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types im
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_and_filter_expressions,
 )
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 
 
 def make_config(**profiling_overrides: Any) -> BigQueryV2Config:
@@ -1043,3 +1048,111 @@ def test_range_partition_uses_max_bucket_not_most_recently_modified():
     )
 
     assert filters == ["`bucket` >= 300"]
+
+
+def test_date_column_hour_granularity_degrades_to_day():
+    """A DATE partition column cannot express an hour. If the table's partition granularity
+    is HOUR, an hourly range would floor both bounds to the same YYYY-MM-DD and match zero
+    rows; the filter must degrade to a full-day range (mirroring FilterBuilder's guard).
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(
+        partition_info=PartitionInfo(fields=("event_date",), type="HOUR")
+    )
+
+    result = discovery._value_filter(
+        table, "event_date", datetime(2025, 1, 15, 10, 30), "DATE"
+    )
+
+    assert result == "`event_date` >= '2025-01-15' AND `event_date` < '2025-01-16'"
+
+
+def test_guessed_fallback_date_emits_warning():
+    """Narrowing a temporal partition to a guessed fallback date (yesterday) without
+    verifying it holds rows can yield a zero-row profile for infrequently-loaded tables,
+    so the fallback must warn operators to pin a known-populated partition.
+    """
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(make_config(), report)
+
+    filters = discovery._get_fallback_partition_filters(
+        make_table(name="weekly_events"),
+        "test-project-123456",
+        "ds",
+        ["event_ts"],
+        {"event_ts": "TIMESTAMP"},
+    )
+
+    # The column is still pruned to a range (not a full scan)...
+    assert filters and ">=" in filters[0] and "<" in filters[0]
+    # ...but the guess is surfaced so operators know the profile may be empty.
+    assert any("guessed a fallback date" in (w.title or "") for w in report.warnings)
+
+
+def test_unresolved_date_column_keeps_is_not_null_placeholder():
+    """In a composite key, a date column that the date path could not resolve to a concrete
+    value must keep its IS NOT NULL placeholder (so a require_partition_filter table still
+    gets a predicate for it) and be reported as unresolved, rather than being dropped.
+    """
+    report = BigQueryV2Report()
+
+    class TypedDiscovery(PartitionDiscovery):
+        def _get_partition_column_types(
+            self, *args: Any, **kwargs: Any
+        ) -> Dict[str, str]:
+            return {"event_date": "DATE", "other_date": "DATE"}
+
+    discovery = TypedDiscovery(make_config(), report)
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []
+
+    result = discovery._enhance_partition_filters_with_actual_values(
+        make_table(name="composite_dates"),
+        "test-project-123456",
+        "ds",
+        ["event_date", "other_date"],
+        # event_date resolved; other_date only had the IS NOT NULL placeholder.
+        ["`event_date` = '2025-01-15'", "`other_date` IS NOT NULL"],
+        execute,
+    )
+
+    assert result is not None
+    assert "`event_date` = '2025-01-15'" in result
+    assert "`other_date` IS NOT NULL" in result
+    assert any("fell back to full scan" in (w.title or "") for w in report.warnings)
+
+
+def test_partition_fetch_job_config_applies_timeout_and_byte_cap():
+    """partition_fetch_timeout must actually reach the fetch jobs (as job_timeout_ms), and
+    partition_fetch_max_bytes_billed must cap bytes billed only when configured.
+    """
+    capped = PartitionDiscovery(
+        make_config(partition_fetch_timeout=45, partition_fetch_max_bytes_billed=1024)
+    )
+    job_config = capped._partition_fetch_job_config()
+    # The BigQuery client round-trips job_timeout_ms as a string; compare numerically.
+    assert int(job_config.job_timeout_ms) == 45000
+    assert int(job_config.maximum_bytes_billed) == 1024
+
+    uncapped = PartitionDiscovery(make_config(partition_fetch_timeout=10))
+    job_config = uncapped._partition_fetch_job_config()
+    assert int(job_config.job_timeout_ms) == 10000
+    assert job_config.maximum_bytes_billed is None
+
+
+def test_profiling_field_accepts_ge_profiling_config_instance():
+    """A caller may build the config in code and pass a GEProfilingConfig instance for
+    `profiling`. Retyping the field to the BigQueryProfilingConfig subclass must not break
+    that: the before-validator coerces the instance to a dict so re-validation succeeds.
+    """
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_id": "test-project-123456",
+            "profiling": GEProfilingConfig(enabled=True, profile_table_level_only=True),
+        }
+    )
+
+    assert isinstance(config.profiling, BigQueryProfilingConfig)
+    assert config.profiling.enabled is True
+    assert config.profiling.profile_table_level_only is True
