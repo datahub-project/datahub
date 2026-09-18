@@ -397,7 +397,8 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                     "  - IAM instance profile (if on EC2)\n" + "=" * 80
                 )
 
-    def _monkeypatch_database_title_extraction():
+    @staticmethod
+    def _monkeypatch_database_title_extraction() -> None:
         """Monkeypatch unstructured-ingest to include database title in HTML output.
 
         The extract_database_html function retrieves the database object but doesn't
