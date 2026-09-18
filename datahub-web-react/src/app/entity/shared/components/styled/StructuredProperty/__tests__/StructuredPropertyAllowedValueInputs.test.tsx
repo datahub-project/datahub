@@ -46,6 +46,53 @@ describe('structured-property allowed-value inputs', () => {
         expect(selectSingleValue).toHaveBeenCalledWith('Banana');
     });
 
+    it('gives each single-select an accessible radio group with unique input ids', () => {
+        render(
+            wrapper(
+                <>
+                    <SingleSelectInput
+                        allowedValues={DEFINITION_ORDER}
+                        selectedValues={[]}
+                        selectSingleValue={vi.fn()}
+                    />
+                    <SingleSelectInput
+                        allowedValues={DEFINITION_ORDER}
+                        selectedValues={[]}
+                        selectSingleValue={vi.fn()}
+                    />
+                </>,
+            ),
+        );
+
+        const groups = screen.getAllByRole('radiogroup');
+        const firstGroupRadios = within(groups[0]).getAllByRole('radio');
+        const secondGroupRadios = within(groups[1]).getAllByRole('radio');
+
+        expect(new Set(firstGroupRadios.map((radio) => radio.getAttribute('name'))).size).toBe(1);
+        expect(firstGroupRadios[0].getAttribute('name')).not.toBe(secondGroupRadios[0].getAttribute('name'));
+        expect(new Set([...firstGroupRadios, ...secondGroupRadios].map((radio) => radio.id)).size).toBe(6);
+    });
+
+    it('does not offer an unsupported clear action for a single-select dropdown', () => {
+        const allowedValues = [
+            ...DEFINITION_ORDER,
+            makeAllowedValue('Value four'),
+            makeAllowedValue('Value five'),
+            makeAllowedValue('Value six'),
+        ];
+        render(
+            wrapper(
+                <SingleSelectInput
+                    allowedValues={allowedValues}
+                    selectedValues={['Value one']}
+                    selectSingleValue={vi.fn()}
+                />,
+            ),
+        );
+
+        expect(screen.queryByTestId('button-clear')).not.toBeInTheDocument();
+    });
+
     it('renders multi-select choices in definition order and toggles the original value', () => {
         const toggleSelectedValue = vi.fn();
         render(
