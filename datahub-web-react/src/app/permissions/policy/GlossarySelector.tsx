@@ -1,4 +1,4 @@
-import { Input, Text } from '@components';
+import { MultiValueInput, Text } from '@components';
 import React, { useCallback, useMemo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -6,12 +6,7 @@ import styled from 'styled-components/macro';
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
-import {
-    createCriterionValueWithEntity,
-    getFieldValues,
-    setFieldValues,
-    toStartsWithValues,
-} from '@app/permissions/policy/policyUtils';
+import { createCriterionValueWithEntity, getFieldValues, setFieldValues } from '@app/permissions/policy/policyUtils';
 import GlossarySelect from '@app/sharedV2/glossary/GlossarySelect';
 
 import { PolicyMatchCondition, PolicyMatchCriterionValue, ResourceFilter } from '@types';
@@ -32,10 +27,6 @@ const SelectContainer = styled.div`
 const DescriptionText = styled(Text)`
     display: block;
     margin-bottom: 8px;
-`;
-
-const StyledInput = styled(Input)`
-    width: 100%;
 `;
 
 type Props = {
@@ -81,7 +72,6 @@ export default function GlossarySelector({ resources, setResources, glossaryCond
     };
 
     const isStartsWithCondition = glossaryCondition === PolicyMatchCondition.StartsWith;
-    const startsWithValue = isStartsWithCondition && glossarySelectValue.length > 0 ? glossarySelectValue[0] : '';
 
     const handleConditionChange = useClearOnConditionChange(
         glossaryCondition,
@@ -110,10 +100,11 @@ export default function GlossarySelector({ resources, setResources, glossaryCond
                 />
                 <SelectContainer>
                     {isStartsWithCondition ? (
-                        <StyledInput
+                        <MultiValueInput
                             placeholder={t('privilegeForm.glossaryPrefixPlaceholder')}
-                            value={startsWithValue}
-                            onChange={(e) => handleGlossaryUpdate(toStartsWithValues(e.target.value))}
+                            values={glossarySelectValue}
+                            onUpdate={handleGlossaryUpdate}
+                            width="full"
                         />
                     ) : (
                         <GlossarySelect

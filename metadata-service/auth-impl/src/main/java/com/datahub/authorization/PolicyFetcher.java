@@ -102,7 +102,7 @@ public class PolicyFetcher {
             filter,
             scrollId,
             null,
-            List.of(),
+            List.of(POLICY_SORT_CRITERION),
             count);
     List<Urn> policyUrns =
         result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
