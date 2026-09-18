@@ -506,6 +506,31 @@ def _stable_name_for_latest(venv_config: VenvConfig) -> Optional[str]:
     return f"{venv_config.main_plugin}-latest-{suffix.digest().hex()[:16]}"
 
 
+def _extra_env_vars_cache_suffix(extra_env_vars: dict) -> str:
+    """Short digest distinguishing cache entries that differ only in extra_env_vars.
+
+    extra_env_vars is user-supplied per recipe (package index URLs, private-
+    index credentials) and IS merged into the environment the venv is built
+    and installed under (`venv_env`/`install_env` in setup_venv), but
+    get_stable_venv_name() does not hash it. That's fine for that function's
+    existing contract -- it's pre-existing and other callers
+    (SubProcessRecipeTaskArgs.get_venv_name) depend on it -- but it means two
+    recipes differing only in extra_env_vars would otherwise share one
+    node-local cache entry and one of them would silently get a venv built
+    against the other's index. Before the cache was pod-global (this task),
+    that collision was impossible: the name lived under the per-execution
+    tmp_dir. Hashing here, rather than the value itself, is safe even though
+    these can be secrets -- this is a short truncated digest, not the value.
+    """
+    digest = hashlib.sha256()
+    for key, value in sorted(extra_env_vars.items()):
+        digest.update(key.encode("utf-8"))
+        digest.update(b"=")
+        digest.update(str(value).encode("utf-8"))
+        digest.update(b"\n")
+    return digest.hexdigest()[:8]
+
+
 def _name_dynamic_venv(
     venv_config: VenvConfig, expanded_pip_reqs: list[str]
 ) -> tuple[str, bool]:
@@ -530,6 +555,13 @@ def _name_dynamic_venv(
     if stable_name is None and cache_enabled:
         stable_name = _stable_name_for_latest(venv_config)
     cacheable = stable_name is not None and cache_enabled
+    if cacheable and venv_config.extra_env_vars:
+        # An empty dict -- the overwhelmingly common case -- must leave the
+        # name byte-identical to today, so this only applies when there is
+        # something to distinguish.
+        assert stable_name is not None
+        suffix = _extra_env_vars_cache_suffix(venv_config.extra_env_vars)
+        stable_name = f"{stable_name}-{suffix}"
     venv_name = stable_name or f"eph-{hashlib.sha256(os.urandom(32)).hexdigest()[:16]}"
     return venv_name, cacheable
 
@@ -695,10 +727,10 @@ async def setup_venv(
         lock=lock,
     )
 
-    if _try_reuse_existing_venv(venv_loc, cacheable, lock, runner):
-        return venv_reference
-
     try:
+        if _try_reuse_existing_venv(venv_loc, cacheable, lock, runner):
+            return venv_reference
+
         runner._logs.append(f"Creating new venv: {venv_loc}\n")
 
         # Create the venv. We need to pass --python <executable> so that uv uses the same
@@ -802,7 +834,17 @@ async def setup_venv(
         if venv_reference.lock is not None:
             # LAST, so a build killed before this point leaves an entry that fails
             # is_venv_complete() and is rebuilt rather than reused empty.
-            mark_venv_complete(venv_loc)
+            try:
+                mark_venv_complete(venv_loc)
+            except OSError:
+                # The cache is an optimisation: a full or read-only cache
+                # filesystem must not fail a build that otherwise succeeded.
+                # An unmarked venv just looks incomplete and gets rebuilt
+                # next time -- the same degradation touch_last_used already
+                # accepts.
+                logger.debug(
+                    "Could not mark venv complete at %s", venv_loc, exc_info=True
+                )
             touch_last_used(venv_loc)
             venv_reference.lock.downgrade_to_shared()
 
