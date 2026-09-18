@@ -6,6 +6,7 @@ import { GraphQLHelper } from '../helpers/graphql-helper';
 const DROPDOWN_TIMEOUT = 10000;
 const PROPERTY_OPTION_TIMEOUT = 45000;
 const FIELD_PROPERTY_TIMEOUT = 30000;
+const MANAGEMENT_PROPERTY_TIMEOUT = 90000;
 
 /**
  * Page object for the Manage Structured Properties page (/structured-properties).
@@ -156,6 +157,17 @@ export class StructuredPropertiesPage extends BasePage {
     return this.menuItem.filter({ hasText: action });
   }
 
+  async waitForManagementProperty(propertyName: string): Promise<void> {
+    const propertyRow = this.findPropertyRowInManagement(propertyName);
+
+    // Newly created properties are read from the search index, which can lag behind the mutation in CI.
+    await expect(async () => {
+      await this.page.reload();
+      await this.page.waitForLoadState('networkidle');
+      await expect(propertyRow).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: MANAGEMENT_PROPERTY_TIMEOUT, intervals: [3000] });
+  }
+
   // ── Create structured property ───────────────────────────────────────────
 
   async createStructuredProperty(prop: { name: string; entity: string }): Promise<string> {
@@ -199,6 +211,8 @@ export class StructuredPropertiesPage extends BasePage {
   async deleteStructuredProperty(prop: { name: string }): Promise<void> {
     this.logger?.step('deleteStructuredProperty', { prop });
 
+    await this.waitForManagementProperty(prop.name);
+
     // Find the property row and open its action menu (management page)
     const propRow = this.findPropertyRowInManagement(prop.name);
     const moreIcon = this.getPropertyMoreIconFromRow(propRow);
@@ -220,10 +234,10 @@ export class StructuredPropertiesPage extends BasePage {
   ): Promise<void> {
     this.logger?.step('updateStructuredProperty', { oldName, updates });
 
+    await this.waitForManagementProperty(oldName);
+
     // Find and open the property for editing (management page)
     const propRow = this.findPropertyRowInManagement(oldName);
-    // Wait for the property row to appear and be visible in the table
-    await propRow.waitFor({ state: 'visible' });
     await propRow.click();
 
     await this.nameInputField.waitFor({ state: 'visible' });
@@ -259,6 +273,8 @@ export class StructuredPropertiesPage extends BasePage {
   async hideProperty(prop: { name: string }): Promise<void> {
     this.logger?.step('hideProperty', { prop });
 
+    await this.waitForManagementProperty(prop.name);
+
     // Find property row (management page)
     const propRow = this.findPropertyRowInManagement(prop.name);
     await propRow.click();
@@ -280,6 +296,8 @@ export class StructuredPropertiesPage extends BasePage {
 
   async enableShowInColumnsTable(prop: { name: string }): Promise<void> {
     this.logger?.step('enableShowInColumnsTable', { prop });
+
+    await this.waitForManagementProperty(prop.name);
 
     // Find and click property in table (management page)
     const propRow = this.findPropertyRowInManagement(prop.name);
