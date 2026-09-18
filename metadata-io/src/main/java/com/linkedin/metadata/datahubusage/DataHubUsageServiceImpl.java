@@ -8,6 +8,7 @@ import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer.CanonicalNow;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -56,6 +57,7 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     BoolQueryBuilder filterQuery = QueryBuilders.boolQuery();
     filterQuery.filter(
         dateRangeQuery(
+            opContext,
             externalAuditEventsSearchRequest.getStartTime(),
             externalAuditEventsSearchRequest.getEndTime()));
     if (CollectionUtils.isNotEmpty(externalAuditEventsSearchRequest.getEventTypes())) {
@@ -185,12 +187,21 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     }
   }
 
-  private QueryBuilder dateRangeQuery(long start, long end) {
-    if (start < 0) {
-      start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
-    }
-    if (end <= 0) {
-      end = Instant.now().toEpochMilli();
+  /**
+   * Builds the event time window. Caller-supplied bounds are used verbatim; only the defaults,
+   * which this service derives from the wall clock, are canonicalized. The clock is read once, and
+   * only when a default is actually needed, so a fully-specified request neither reads it nor
+   * records a canonicalization.
+   */
+  private QueryBuilder dateRangeQuery(@Nonnull OperationContext opContext, long start, long end) {
+    if (start < 0 || end <= 0) {
+      final CanonicalNow now = opContext.canonicalNow();
+      if (start < 0) {
+        start = Instant.ofEpochMilli(now.reference()).minus(1, ChronoUnit.DAYS).toEpochMilli();
+      }
+      if (end <= 0) {
+        end = now.upperBound();
+      }
     }
     return QueryBuilders.rangeQuery(DataHubUsageEventConstants.TIMESTAMP).gte(start).lt(end);
   }

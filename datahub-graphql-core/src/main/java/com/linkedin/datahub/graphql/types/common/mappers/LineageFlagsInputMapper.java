@@ -49,7 +49,9 @@ public class LineageFlagsInputMapper
     // Default to "now" if no end time is provided, but start time is provided.
     Long endTimeMillis =
         ResolverUtils.getLineageEndTimeMillis(
-            lineageFlags.getStartTimeMillis(), lineageFlags.getEndTimeMillis());
+            context == null ? null : context.getOperationContext(),
+            lineageFlags.getStartTimeMillis(),
+            lineageFlags.getEndTimeMillis());
     if (endTimeMillis != null) {
       result.setEndTimeMillis(endTimeMillis);
     }

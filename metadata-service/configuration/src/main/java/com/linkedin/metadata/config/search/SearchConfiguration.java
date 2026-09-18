@@ -35,4 +35,6 @@ public class SearchConfiguration {
   private EntityTypeListConfig prioritizedSourceEntityTypes;
 
   private EntityTypeListConfig prioritizedDatahubEntityTypes;
+
+  private QueryCanonicalizationConfiguration canonicalization;
 }

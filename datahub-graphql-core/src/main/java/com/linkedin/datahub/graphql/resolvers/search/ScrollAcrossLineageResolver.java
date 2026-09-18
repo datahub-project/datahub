@@ -73,7 +73,8 @@ public class ScrollAcrossLineageResolver
     Long startTimeMillis = input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
     @Nullable
     Long endTimeMillis =
-        ResolverUtils.getLineageEndTimeMillis(input.getStartTimeMillis(), input.getEndTimeMillis());
+        ResolverUtils.getLineageEndTimeMillis(
+            context.getOperationContext(), input.getStartTimeMillis(), input.getEndTimeMillis());
 
     final LineageFlags lineageFlags = LineageFlagsInputMapper.map(context, input.getLineageFlags());
     if (lineageFlags.getStartTimeMillis() == null && startTimeMillis != null) {
