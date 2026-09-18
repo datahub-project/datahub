@@ -206,9 +206,14 @@ public class ContainerMapper {
       propertiesResult.setQualifiedName(gmsProperties.getQualifiedName().toString());
     }
     if (gmsProperties.hasEnv()) {
-      propertiesResult.setEnv(
-          com.linkedin.datahub.graphql.generated.FabricType.valueOf(
-              gmsProperties.getEnv().toString()));
+      try {
+        propertiesResult.setEnv(
+            com.linkedin.datahub.graphql.generated.FabricType.valueOf(
+                gmsProperties.getEnv().toString()));
+      } catch (IllegalArgumentException e) {
+        // An unrecognized fabric (e.g. Pegasus $UNKNOWN) has no GraphQL enum value;
+        // leave env unset rather than failing the whole container/search response.
+      }
     }
 
     return propertiesResult;
