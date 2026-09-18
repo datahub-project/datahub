@@ -3,6 +3,7 @@ fragment recommendationEntityPreview on Entity {
     type
     ... on Dataset {
         name
+        origin
         platform {
             ...platformFields
         }
