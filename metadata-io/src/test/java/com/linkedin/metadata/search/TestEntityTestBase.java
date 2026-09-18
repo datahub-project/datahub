@@ -20,6 +20,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
@@ -77,9 +78,11 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     opContext =
-        TestOperationContexts.systemContextNoSearchAuthorization(
-            new SnapshotEntityRegistry(new Snapshot()),
-            SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(
+                new SnapshotEntityRegistry(new Snapshot()),
+                SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build()),
+            getSearchClient());
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention mockIndexConvention = mock(IndexConvention.class);
@@ -100,7 +103,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
   private ElasticSearchService buildService() {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getSearchClient(),
             false,
             getElasticSearchConfiguration(),
             null,
@@ -108,13 +110,16 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            getSearchClient(),
             getElasticSearchConfiguration(),
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO =
-        new ESWriteDAO(getElasticSearchConfiguration(), getSearchClient(), getBulkProcessor());
+        new ESWriteDAO(
+            getElasticSearchConfiguration(),
+            getSearchClient(),
+            getBulkProcessor(),
+            SearchWriteAccess.fixed(getBulkProcessor()));
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),

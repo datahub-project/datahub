@@ -92,7 +92,7 @@
     "privilegeForm.numberPlaceholder": "Enter number values",
     "privilegeForm.datePlaceholder": "Select date",
     "privilegeForm.addProperty": "Add Property",
-    "privilegeForm.incompleteStructuredPropertiesMessage": "All selected structured properties must have values. Please provide values for them.",
+    "privilegeForm.incompleteStructuredPropertiesMessage": "All selected structured properties must have values.",
     "privilegesLabel": "Privileges",
     "removePolicySuccess": "Successfully removed policy.",
     "roleColumnPolicies": "Policies",

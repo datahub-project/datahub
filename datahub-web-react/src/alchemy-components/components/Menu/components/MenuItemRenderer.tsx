@@ -4,7 +4,7 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { MenuItemRendererProps } from '@components/components/Menu/types';
-import { FontColorLevelOptions, FontColorOptions } from '@components/theme/config';
+import { FontColorOptions } from '@components/theme/config';
 import spacing from '@components/theme/foundations/spacing';
 
 const Wrapper = styled.div`
@@ -32,43 +32,32 @@ const SpaceFiller = styled.div`
 
 interface Colors {
     titleColor: FontColorOptions;
-    titleColorLevel: FontColorLevelOptions;
     descriptionColor: FontColorOptions;
-    descriptionColorLevel: FontColorLevelOptions;
     iconColor: FontColorOptions;
-    iconColorLevel: FontColorLevelOptions;
 }
 
 const DEFAULT_COLORS: Colors = {
-    titleColor: 'gray',
-    titleColorLevel: 600,
-    descriptionColor: 'gray',
-    descriptionColorLevel: 1700,
-    iconColor: 'gray',
-    iconColorLevel: 1800,
+    titleColor: 'text',
+    descriptionColor: 'textSecondary',
+    iconColor: 'icon',
 };
 
 const DISABLED_COLORS: Colors = {
-    ...DEFAULT_COLORS,
-    titleColorLevel: 300,
-    descriptionColorLevel: 300,
-    iconColorLevel: 300,
+    titleColor: 'textDisabled',
+    descriptionColor: 'textDisabled',
+    iconColor: 'iconDisabled',
 };
 
 const DANGER_COLORS: Colors = {
     titleColor: 'red',
-    titleColorLevel: 1000,
     descriptionColor: 'red',
-    descriptionColorLevel: 600,
     iconColor: 'red',
-    iconColorLevel: 600,
 };
 
 const DANGER_DISABLED_COLORS: Colors = {
-    ...DANGER_COLORS,
-    titleColorLevel: 300,
-    descriptionColorLevel: 300,
-    iconColorLevel: 300,
+    titleColor: 'textDisabled',
+    descriptionColor: 'textDisabled',
+    iconColor: 'iconDisabled',
 };
 
 export default function MenuItemRenderer({ item }: MenuItemRendererProps) {
@@ -84,21 +73,16 @@ export default function MenuItemRenderer({ item }: MenuItemRendererProps) {
         <Wrapper data-testid={item.dataTestId || `menu-item-${item.key}`}>
             {item.icon && (
                 <IconWrapper>
-                    <Icon
-                        icon={item.icon}
-                        color={itemColors.iconColor}
-                        colorLevel={itemColors.iconColorLevel}
-                        size="2xl"
-                    />
+                    <Icon icon={item.icon} color={itemColors.iconColor} size="2xl" />
                 </IconWrapper>
             )}
 
             <Container>
-                <Text weight="semiBold" color={itemColors.titleColor} colorLevel={itemColors.titleColorLevel}>
+                <Text weight="semiBold" color={itemColors.titleColor}>
                     {item.title}
                 </Text>
                 {item.description && (
-                    <Text color={itemColors.descriptionColor} colorLevel={itemColors.descriptionColorLevel} size="sm">
+                    <Text color={itemColors.descriptionColor} size="sm">
                         {item.description}
                     </Text>
                 )}
@@ -106,7 +90,7 @@ export default function MenuItemRenderer({ item }: MenuItemRendererProps) {
 
             <SpaceFiller />
 
-            {item.children && <Icon icon={CaretRight} color="gray" colorLevel={1800} size="lg" />}
+            {item.children && <Icon icon={CaretRight} color="icon" size="lg" />}
         </Wrapper>
     );
 
