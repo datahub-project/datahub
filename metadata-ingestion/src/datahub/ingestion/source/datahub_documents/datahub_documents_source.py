@@ -145,6 +145,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     Supports batch mode (GraphQL) and event-driven mode (Kafka MCL) with incremental processing.
     Automatically fetches embedding configuration from server to ensure alignment.
+
+    Embedding generation is gated on the server's semanticSearchConfig, not on Search V3.
+    When both semantic search and V3 are enabled, GMS dual-writes embeddings onto
+    documentindex_v3; this source still only emits SemanticContent via MCP.
     """
 
     def __init__(self, ctx: PipelineContext, config: DataHubDocumentsSourceConfig):
