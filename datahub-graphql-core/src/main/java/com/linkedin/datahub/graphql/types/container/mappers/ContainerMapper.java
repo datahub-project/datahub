@@ -205,6 +205,11 @@ public class ContainerMapper {
     if (gmsProperties.hasQualifiedName()) {
       propertiesResult.setQualifiedName(gmsProperties.getQualifiedName().toString());
     }
+    if (gmsProperties.hasEnv()) {
+      propertiesResult.setEnv(
+          com.linkedin.datahub.graphql.generated.FabricType.valueOf(
+              gmsProperties.getEnv().toString()));
+    }
 
     return propertiesResult;
   }
