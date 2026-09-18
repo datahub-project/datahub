@@ -1,3 +1,4 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import React from 'react';
 import { vi } from 'vitest';
@@ -25,17 +26,19 @@ const sourceConfig = {
 
 function renderBuilder(state: SourceBuilderState, displayRecipe: string) {
     return render(
-        <TestPageContainer>
-            <RecipeBuilder
-                state={state}
-                isEditing={false}
-                displayRecipe={displayRecipe}
-                sourceConfigs={sourceConfig}
-                setStagedRecipe={() => {}}
-                onClickNext={() => {}}
-                goToPrevious={() => {}}
-            />
-        </TestPageContainer>,
+        <MockedProvider mocks={[]} addTypename={false}>
+            <TestPageContainer>
+                <RecipeBuilder
+                    state={state}
+                    isEditing={false}
+                    displayRecipe={displayRecipe}
+                    sourceConfigs={sourceConfig}
+                    setStagedRecipe={() => {}}
+                    onClickNext={() => {}}
+                    goToPrevious={() => {}}
+                />
+            </TestPageContainer>
+        </MockedProvider>,
     );
 }
 

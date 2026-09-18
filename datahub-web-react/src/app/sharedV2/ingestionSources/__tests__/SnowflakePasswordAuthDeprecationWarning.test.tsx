@@ -1,3 +1,4 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import React from 'react';
 
@@ -11,9 +12,11 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
         };
 
         const { getByText, getByRole } = render(
-            <TestPageContainer>
-                <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
-            </TestPageContainer>,
+            <MockedProvider mocks={[]} addTypename={false}>
+                <TestPageContainer>
+                    <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(getByText(/Snowflake is deprecating username \+ password authentication/)).toBeInTheDocument();
@@ -36,9 +39,11 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
         };
 
         const { container } = render(
-            <TestPageContainer>
-                <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
-            </TestPageContainer>,
+            <MockedProvider mocks={[]} addTypename={false}>
+                <TestPageContainer>
+                    <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(container).toBeEmptyDOMElement();
@@ -46,9 +51,11 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
 
     it('renders nothing when the recipe is missing', () => {
         const { container } = render(
-            <TestPageContainer>
-                <SnowflakePasswordAuthDeprecationWarning recipe={null} />
-            </TestPageContainer>,
+            <MockedProvider mocks={[]} addTypename={false}>
+                <TestPageContainer>
+                    <SnowflakePasswordAuthDeprecationWarning recipe={null} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(container).toBeEmptyDOMElement();
@@ -66,9 +73,11 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
         };
 
         const { container } = render(
-            <TestPageContainer>
-                <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
-            </TestPageContainer>,
+            <MockedProvider mocks={[]} addTypename={false}>
+                <TestPageContainer>
+                    <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(container).toBeEmptyDOMElement();
@@ -78,9 +87,11 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
         const recipe = { source: { config: { password: 'secret' } } }; // noqa: secret gitleaks:allow - dummy test fixture
 
         const { getByText } = render(
-            <TestPageContainer>
-                <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
-            </TestPageContainer>,
+            <MockedProvider mocks={[]} addTypename={false}>
+                <TestPageContainer>
+                    <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(getByText(/Snowflake is deprecating username \+ password authentication/)).toBeInTheDocument();
@@ -94,9 +105,11 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
         const recipe = { source: { config: { authentication_type: 'OAUTH_AUTHENTICATOR' } } };
 
         const { container } = render(
-            <TestPageContainer>
-                <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
-            </TestPageContainer>,
+            <MockedProvider mocks={[]} addTypename={false}>
+                <TestPageContainer>
+                    <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(container).toBeEmptyDOMElement();
