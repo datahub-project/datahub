@@ -11,6 +11,7 @@ These tests verify end-to-end functionality including:
 - Different RDF formats
 """
 
+import json
 import pathlib
 
 import pytest
@@ -500,6 +501,133 @@ def test_stateful_ingestion(
         output_path=str(output_path),
         golden_path=str(golden_path),
     )
+
+
+def _glossary_ttl_with_terms(tmp_path, terms: list[tuple[str, str]]) -> str:
+    lines = [
+        "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .",
+        "@prefix ex: <http://example.org/glossary/> .",
+        "",
+    ]
+    for local_name, label in terms:
+        lines.extend(
+            [
+                f"ex:{local_name} a skos:Concept ;",
+                f'    skos:prefLabel "{label}" ;',
+                f'    skos:definition "Definition of {label}" .',
+                "",
+            ]
+        )
+    ttl_file = tmp_path / "glossary.ttl"
+    ttl_file.write_text("\n".join(lines))
+    return str(ttl_file)
+
+
+def _run_rdf_pipeline(
+    *,
+    run_id: str,
+    source_path: str,
+    output_path,
+    state_path,
+) -> Pipeline:
+    pipeline = Pipeline.create(
+        {
+            "run_id": run_id,
+            "pipeline_name": "rdf-test-stale-removal",
+            "source": {
+                "type": "rdf",
+                "config": {
+                    "source": source_path,
+                    "format": "turtle",
+                    "environment": "PROD",
+                    "stateful_ingestion": {
+                        "enabled": True,
+                        "remove_stale_metadata": True,
+                        "state_provider": {
+                            "type": "file",
+                            "config": {"filename": str(state_path)},
+                        },
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": str(output_path)},
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    return pipeline
+
+
+def _status_urns_by_removed(output_path) -> tuple[set[str], set[str]]:
+    records = json.loads(output_path.read_text())
+    removed: set[str] = set()
+    present: set[str] = set()
+    for record in records:
+        if record.get("aspectName") != "status":
+            continue
+        urn = record["entityUrn"]
+        if record.get("aspect", {}).get("json", {}).get("removed"):
+            removed.add(urn)
+        else:
+            present.add(urn)
+    return removed, present
+
+
+@pytest.mark.integration
+def test_stale_entity_removal_soft_deletes_missing_term(
+    tmp_path, mock_datahub_graph_instance
+):
+    """Term present in run 1 and gone in run 2 must be soft-deleted.
+
+    Also asserts the remaining term is emitted with status.removed=false
+    (undelete after a prior soft-delete) and that the empty-run fail-safe
+    does not fire.
+    """
+    kept_urn = "urn:li:glossaryTerm:example.org.glossary.AccountIdentifier"
+    stale_urn = "urn:li:glossaryTerm:example.org.glossary.CustomerName"
+    state_path = tmp_path / "state.json"
+
+    first_ttl = _glossary_ttl_with_terms(
+        tmp_path,
+        [
+            ("AccountIdentifier", "Account Identifier"),
+            ("CustomerName", "Customer Name"),
+        ],
+    )
+    first_pipeline = _run_rdf_pipeline(
+        run_id="rdf-stale-run-1",
+        source_path=first_ttl,
+        output_path=tmp_path / "run1.json",
+        state_path=state_path,
+    )
+    assert first_pipeline.source.get_report().events_produced > 0
+
+    second_ttl = _glossary_ttl_with_terms(
+        tmp_path,
+        [("AccountIdentifier", "Account Identifier")],
+    )
+    second_pipeline = _run_rdf_pipeline(
+        run_id="rdf-stale-run-2",
+        source_path=second_ttl,
+        output_path=tmp_path / "run2.json",
+        state_path=state_path,
+    )
+    report = second_pipeline.source.get_report()
+    assert report.events_produced > 0
+    assert not any(
+        "did not produce any metadata" in str(failure).lower()
+        for failure in report.failures
+    )
+
+    removed, present = _status_urns_by_removed(tmp_path / "run2.json")
+    assert stale_urn in removed, (
+        f"Missing term was not soft-deleted. removed={removed} present={present}"
+    )
+    assert kept_urn not in removed
+    assert kept_urn in present
 
 
 @pytest.mark.integration

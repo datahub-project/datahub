@@ -533,9 +533,9 @@ def test_config_model_all_optional_parameters():
 
 
 def test_rdf_source_uses_parent_workunit_processors(tmp_path):
-    """Stale entity removal depends on AutoWorkunitsReporterProcessor incrementing
-    events_produced. RDF must not replace the parent processor chain with a
-    stale-removal-only list, or deletion is skipped as if no metadata was produced.
+    """RDF must not whitelist processors. The default Source chain includes
+    AutoStatusAspectProcessor (undelete after soft-delete), the workunit
+    reporter, and stale-entity removal.
     """
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (
@@ -589,7 +589,6 @@ ex:AccountIdentifier a skos:Concept ;
 
     assert workunits
     assert report.events_produced > 0
-    assert report.events_produced == len(workunits)
     assert AutoWorkunitsReporterProcessor.__name__ in report.workunit_processor_reports
     assert AutoStaleEntityRemovalProcessor.__name__ in report.workunit_processor_reports
     assert not any(
