@@ -972,15 +972,16 @@ def test_embedding_stats_aggregation(notion_source):
 
 
 def test_notion_types_filter_unknown_fields_paragraph_icon():
-    """AI-603: Paragraph blocks may include 'icon'; extra kwargs must be dropped."""
+    """unstructured-ingest 1.4.28 models Paragraph.icon (AI-603); construction must succeed."""
     pytest.importorskip("unstructured_ingest")
     from unstructured_ingest.processes.connectors.notion.types.blocks import Paragraph
 
     NotionSource._monkeypatch_notion_types_filter_unknown_fields()
 
-    paragraph = Paragraph(color="default", icon={"type": "emoji", "emoji": "📝"})
+    icon = {"type": "emoji", "emoji": "📝"}
+    paragraph = Paragraph(color="default", icon=icon)
     assert paragraph.color == "default"
-    assert not hasattr(paragraph, "icon")
+    assert paragraph.icon == icon
 
 
 def test_notion_types_filter_unknown_fields_page_is_archived():
