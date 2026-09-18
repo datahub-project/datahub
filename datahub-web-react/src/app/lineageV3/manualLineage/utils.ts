@@ -4,13 +4,16 @@ export function getValidEntityTypes(lineageDirection: LineageDirection, entityTy
     if (lineageDirection === LineageDirection.Upstream) {
         switch (entityType) {
             case EntityType.Dataset:
-                return [EntityType.Dataset, EntityType.DataJob];
+                return [EntityType.Dataset, EntityType.DataJob, EntityType.Metric];
             case EntityType.Chart:
-                return [EntityType.Dataset];
+                return [EntityType.Dataset, EntityType.Metric];
             case EntityType.Dashboard:
-                return [EntityType.Chart, EntityType.Dataset];
+                return [EntityType.Chart, EntityType.Dataset, EntityType.Metric];
             case EntityType.DataJob:
                 return [EntityType.DataJob, EntityType.Dataset];
+            case EntityType.Metric:
+                // updateLineage does not write metricUpstreams; do not offer a no-op picker
+                return [];
             default:
                 console.warn('Unexpected entity type to get valid upstream entity types for');
                 return [];
@@ -18,7 +21,13 @@ export function getValidEntityTypes(lineageDirection: LineageDirection, entityTy
     } else {
         switch (entityType) {
             case EntityType.Dataset:
-                return [EntityType.Dataset, EntityType.Chart, EntityType.Dashboard, EntityType.DataJob];
+                return [
+                    EntityType.Dataset,
+                    EntityType.Chart,
+                    EntityType.Dashboard,
+                    EntityType.DataJob,
+                    EntityType.Metric,
+                ];
             case EntityType.Chart:
                 return [EntityType.Dashboard];
             case EntityType.Dashboard:
@@ -26,6 +35,8 @@ export function getValidEntityTypes(lineageDirection: LineageDirection, entityTy
                 return [];
             case EntityType.DataJob:
                 return [EntityType.DataJob, EntityType.Dataset];
+            case EntityType.Metric:
+                return [EntityType.Dataset, EntityType.Chart, EntityType.Dashboard];
             default:
                 console.warn('Unexpected entity type to get valid downstream entity types for');
                 return [];
