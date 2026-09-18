@@ -62,4 +62,21 @@ public class CopyDocumentsToSemanticIndicesTest {
         steps.stream()
             .anyMatch(step -> step.id().equals("CopyDocumentsToSemanticIndex_dashboard")));
   }
+
+  @Test
+  public void testSteps_CanonicalizesLowercaseCamelCaseEntityConfig() {
+    when(semanticSearchConfiguration.getEnabledEntities()).thenReturn(Set.of("dataproduct"));
+
+    CopyDocumentsToSemanticIndices upgrade =
+        new CopyDocumentsToSemanticIndices(
+            opContext,
+            searchClient,
+            entityService,
+            semanticSearchConfiguration,
+            indexConvention,
+            true);
+
+    assertEquals(upgrade.steps().size(), 1);
+    assertEquals(upgrade.steps().get(0).id(), "CopyDocumentsToSemanticIndex_dataProduct");
+  }
 }
