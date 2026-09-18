@@ -7,7 +7,7 @@
     "passIncidents": "沒有進行中的事件",
     "summaryHealthy": "此資料資產狀態良好",
     "summaryUnhealthy": "此資料資產狀態可能異常",
-    "typeAssertions": "Assertions",
+    "typeAssertions": "斷言",
     "typeIncidents": "事件",
     "typeTests": "測試",
     "warnAssertions": "部分斷言有問題。",
