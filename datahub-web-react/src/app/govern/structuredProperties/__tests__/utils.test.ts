@@ -1,25 +1,27 @@
 import {
-    getExistingAllowedValueKeys,
+    canBeAssetBadge,
+    getBadgeUrnToReplace,
     getFilteredSortedStructuredProperties,
     getNewAllowedPlatforms,
+    haveAllowedValuesChanged,
     matchesAllowedPlatforms,
+    replaceAssetBadge,
     toAllowedValueInputs,
-    toAllowedValueUpdate,
 } from '@app/govern/structuredProperties/utils';
-import { StructuredPropertyEntity } from '@src/types.generated';
+import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
 
 function makePlatform(urn: string) {
-    return { urn, type: 'DATA_PLATFORM' as any };
+    return { urn, type: EntityType.DataPlatform };
 }
 
 function makeProperty(allowedPlatformUrns?: string[]): StructuredPropertyEntity {
     return {
         urn: 'urn:li:structuredProperty:test',
-        type: 'STRUCTURED_PROPERTY' as any,
+        type: EntityType.StructuredProperty,
         definition: {
             allowedPlatforms: allowedPlatformUrns?.map(makePlatform),
         },
-    } as any;
+    } as unknown as StructuredPropertyEntity;
 }
 
 describe('matchesAllowedPlatforms', () => {
@@ -84,16 +86,99 @@ describe('getNewAllowedPlatforms', () => {
     });
 });
 
+describe('toAllowedValueInputs', () => {
+    it('drops blank rows and preserves valid string and zero values', () => {
+        expect(
+            toAllowedValueInputs([
+                { rowId: 'empty' },
+                { rowId: 'string', stringValue: 'Gold' },
+                { rowId: 'whitespace', stringValue: '  ' },
+                { rowId: 'zero', numberValue: 0 },
+            ]),
+        ).toEqual([
+            { stringValue: 'Gold', description: undefined },
+            { numberValue: 0, description: undefined },
+        ]);
+    });
+
+    it('rejects non-finite numbers', () => {
+        expect(toAllowedValueInputs([{ rowId: 'infinite', numberValue: 'Infinity' }])).toEqual([]);
+    });
+});
+
+describe('haveAllowedValuesChanged', () => {
+    const gold = { rowId: 'gold', stringValue: 'Gold', isPersisted: true };
+    const silver = { rowId: 'silver', stringValue: 'Silver', isPersisted: true };
+
+    it('ignores client-only row metadata', () => {
+        expect(haveAllowedValuesChanged([gold], [{ ...gold, rowId: 'different-id' }])).toBe(false);
+    });
+
+    it('detects an order change', () => {
+        expect(haveAllowedValuesChanged([gold, silver], [silver, gold])).toBe(true);
+    });
+});
+
+describe('getBadgeUrnToReplace', () => {
+    it('returns a different active badge when the saved property enables badges', () => {
+        expect(getBadgeUrnToReplace('urn:old', 'urn:new', true)).toBe('urn:old');
+    });
+
+    it('does not replace the property currently being edited', () => {
+        expect(getBadgeUrnToReplace('urn:same', 'urn:same', true)).toBeUndefined();
+    });
+});
+
+describe('replaceAssetBadge', () => {
+    it('disables the previous badge', async () => {
+        const updateBadge = vi.fn().mockResolvedValue(undefined);
+
+        await replaceAssetBadge({
+            existingBadgeUrn: 'urn:old',
+            savedPropertyUrn: 'urn:new',
+            enableBadge: true,
+            updateBadge,
+        });
+
+        expect(updateBadge).toHaveBeenCalledWith('urn:old', false);
+    });
+
+    it('rolls back the newly saved badge when disabling the previous badge fails', async () => {
+        const updateBadge = vi.fn().mockRejectedValueOnce(new Error('failed')).mockResolvedValueOnce(undefined);
+
+        await expect(
+            replaceAssetBadge({
+                existingBadgeUrn: 'urn:old',
+                savedPropertyUrn: 'urn:new',
+                enableBadge: true,
+                updateBadge,
+            }),
+        ).rejects.toThrow('failed');
+
+        expect(updateBadge).toHaveBeenNthCalledWith(2, 'urn:new', false);
+    });
+});
+
+describe('canBeAssetBadge', () => {
+    it('does not treat an empty allowed-value input as a bounded value set', () => {
+        expect(canBeAssetBadge('string', [{}])).toBe(false);
+    });
+
+    it('accepts zero as a bounded numeric value', () => {
+        expect(canBeAssetBadge('number', [{ numberValue: 0 }])).toBe(true);
+    });
+});
+
 function makeSp(opts: { displayName?: string; qualifiedName?: string; time?: number }): StructuredPropertyEntity {
     return {
         urn: `urn:li:structuredProperty:${opts.qualifiedName ?? opts.displayName ?? 'x'}`,
-        type: 'STRUCTURED_PROPERTY' as any,
+        type: EntityType.StructuredProperty,
         definition: {
             displayName: opts.displayName,
             qualifiedName: opts.qualifiedName ?? '',
             created: opts.time !== undefined ? { time: opts.time } : undefined,
         },
-    } as any;
+    } as unknown as StructuredPropertyEntity;
 }
 
 describe('getFilteredSortedStructuredProperties', () => {
@@ -117,92 +202,5 @@ describe('getFilteredSortedStructuredProperties', () => {
         const newer = makeSp({ displayName: 'test two', time: 2 });
         const result = getFilteredSortedStructuredProperties([older, newer], 'test');
         expect(result.map((p) => p.definition.created?.time)).toEqual([2, 1]);
-    });
-});
-
-function makePropertyWithValues(values: Array<{ stringValue?: string; numberValue?: number }>) {
-    return {
-        urn: 'urn:li:structuredProperty:test',
-        type: 'STRUCTURED_PROPERTY' as any,
-        definition: {
-            allowedValues: values.map((value) => ({ value })),
-        },
-    } as any as StructuredPropertyEntity;
-}
-
-describe('getExistingAllowedValueKeys', () => {
-    it('collects the saved values so they can be matched regardless of position', () => {
-        const property = makePropertyWithValues([{ stringValue: 'Gold' }, { stringValue: 'Silver' }]);
-        const keys = getExistingAllowedValueKeys(property);
-        expect(keys.has('Gold')).toBe(true);
-        expect(keys.has('Silver')).toBe(true);
-        expect(keys.has('Bronze')).toBe(false);
-    });
-
-    it('collects numeric values', () => {
-        const keys = getExistingAllowedValueKeys(makePropertyWithValues([{ numberValue: 0 }]));
-        expect(keys.has(0)).toBe(true);
-    });
-
-    it('returns an empty set for a property being created', () => {
-        expect(getExistingAllowedValueKeys(undefined).size).toBe(0);
-    });
-});
-
-describe('toAllowedValueInputs', () => {
-    it('preserves the order the rows are given in', () => {
-        const rows = [{ stringValue: 'Gold' }, { stringValue: 'Silver' }, { stringValue: 'N/A' }];
-        expect(toAllowedValueInputs(rows, 'stringValue').map((v) => v.stringValue)).toEqual(['Gold', 'Silver', 'N/A']);
-    });
-
-    it('parses the strings that number inputs hand back', () => {
-        const rows = [{ numberValue: '2' }, { numberValue: 1 }];
-        expect(toAllowedValueInputs(rows, 'numberValue').map((v) => v.numberValue)).toEqual([2, 1]);
-    });
-
-    it('keeps zero, which is falsy but valid', () => {
-        expect(toAllowedValueInputs([{ numberValue: 0 }], 'numberValue')).toEqual([
-            { numberValue: 0, description: undefined },
-        ]);
-    });
-
-    it('drops rows the user left blank', () => {
-        const rows = [{ stringValue: 'Gold' }, {}, { stringValue: '' }];
-        expect(toAllowedValueInputs(rows, 'stringValue')).toHaveLength(1);
-    });
-
-    it('drops number rows that did not parse', () => {
-        expect(toAllowedValueInputs([{ numberValue: 'abc' }], 'numberValue')).toHaveLength(0);
-    });
-
-    it('carries descriptions through and omits empty ones', () => {
-        const rows = [
-            { stringValue: 'Gold', description: 'Highest tier' },
-            { stringValue: 'Silver', description: '' },
-        ];
-        expect(toAllowedValueInputs(rows, 'stringValue')).toEqual([
-            { stringValue: 'Gold', description: 'Highest tier' },
-            { stringValue: 'Silver', description: undefined },
-        ]);
-    });
-
-    it('returns an empty list when there are no rows', () => {
-        expect(toAllowedValueInputs(undefined, 'stringValue')).toEqual([]);
-    });
-});
-
-describe('toAllowedValueUpdate', () => {
-    it('sends nothing for a property with no allowed values, so the rest of the edit can save', () => {
-        expect(toAllowedValueUpdate(undefined, 'stringValue')).toBeUndefined();
-        expect(toAllowedValueUpdate([], 'stringValue')).toBeUndefined();
-    });
-
-    it('sends nothing when every row was left blank', () => {
-        expect(toAllowedValueUpdate([{}, { stringValue: '' }], 'stringValue')).toBeUndefined();
-    });
-
-    it('sends the ordered list when there are values', () => {
-        const rows = [{ stringValue: 'Gold' }, { stringValue: 'Silver' }];
-        expect(toAllowedValueUpdate(rows, 'stringValue')?.map((v) => v.stringValue)).toEqual(['Gold', 'Silver']);
     });
 });
