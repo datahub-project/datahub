@@ -106,11 +106,11 @@ try (SearchClientShim shim = SearchClientShimFactory.createShimWithAutoDetection
 
 ## Implementation Status
 
-| Engine Type        | Status      | Client Library                                            |
-| ------------------ | ----------- | --------------------------------------------------------- |
-| Elasticsearch 8.x  | ✅ Complete     | `co.elastic.clients:elasticsearch-java`                   |
+| Engine Type        | Status           | Client Library                                            |
+| ------------------ | ---------------- | --------------------------------------------------------- |
+| Elasticsearch 8.x  | ✅ Complete      | `co.elastic.clients:elasticsearch-java`                   |
 | Elasticsearch 9.x  | ⚠️ Not certified | Same ES8 Java client; no ES9 CI                           |
-| OpenSearch 2.x/3.x | ✅ Complete     | `org.opensearch.client:opensearch-rest-high-level-client` |
+| OpenSearch 2.x/3.x | ✅ Complete      | `org.opensearch.client:opensearch-rest-high-level-client` |
 
 ## Extending the Shim
 
