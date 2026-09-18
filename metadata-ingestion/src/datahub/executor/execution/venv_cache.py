@@ -31,15 +31,29 @@ class EntryLock:
     def __init__(self, lock_path: pathlib.Path) -> None:
         self._lock_path = lock_path
         self._fd: Optional[int] = None
+        self._unusable = False
 
     @property
     def held(self) -> bool:
         return self._fd is not None
 
+    @property
+    def unusable(self) -> bool:
+        """Whether the last failed acquire() failed for a reason retrying cannot fix.
+
+        False after a merely CONTENDED non-blocking acquire -- someone else
+        holds the entry, and waiting can still win it. True when the lock file
+        could not be opened at all (an unwritable or read-only cache root) or
+        the filesystem does not support flock: retrying those only wastes the
+        caller's time before it falls back to a per-run venv.
+        """
+        return self._unusable
+
     def acquire(self, *, exclusive: bool, blocking: bool = True) -> bool:
         mode = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
         if not blocking:
             mode |= fcntl.LOCK_NB
+        self._unusable = False
         try:
             # The cache root does not exist on a fresh pod, and a first run
             # must create it rather than degrade: a missing directory is the
@@ -50,13 +64,20 @@ class EntryLock:
             fd = os.open(self._lock_path, os.O_RDWR | os.O_CREAT, 0o644)
         except OSError:
             logger.debug("venv cache: cannot open lock %s", self._lock_path)
+            self._unusable = True
             return False
         try:
             fcntl.flock(fd, mode)
-        except OSError:
-            # BlockingIOError for a contended LOCK_NB, and ENOLCK/EINVAL on a
-            # filesystem without lock support. Both mean "no cache", not "fail".
+        except BlockingIOError:
+            # A contended LOCK_NB. Someone else holds the entry right now,
+            # which is transient -- the caller may retry.
             os.close(fd)
+            return False
+        except OSError:
+            # ENOLCK/EINVAL on a filesystem without lock support. Means "no
+            # cache", not "fail", and never resolves by waiting.
+            os.close(fd)
+            self._unusable = True
             return False
         self._fd = fd
         return True

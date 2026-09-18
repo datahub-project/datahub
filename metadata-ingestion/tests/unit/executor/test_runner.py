@@ -7,7 +7,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 from unittest.mock import AsyncMock, patch
 
 import anyio
@@ -435,6 +435,45 @@ class TestVenvReference:
 
         envs = venv_ref.extra_envs()
         assert envs["CUSTOM_VAR"] == "value"
+
+
+class _SetupVenvThread(threading.Thread):
+    """setup_venv on its own OS thread and event loop, as production runs it.
+
+    DefaultExecutor.execute_task documents "each time execute_task is called,
+    it is called from a different thread", each with its own event loop. A
+    real thread is also the only thing that can observe a lock hang from
+    OUTSIDE: a blocking flock() freezes the very event loop an in-loop timeout
+    (anyio.fail_after) would have to fire on.
+    """
+
+    def __init__(self, config: VenvConfig, tmp_dir: Path, execute: Any) -> None:
+        super().__init__()
+        self._config = config
+        self._tmp_dir = tmp_dir
+        self._execute = execute
+        self.result: Optional[VenvReference] = None
+        self.error: Optional[BaseException] = None
+
+    def run(self) -> None:
+        runner = SubprocessRunner()
+
+        async def _go() -> VenvReference:
+            with patch.object(runner, "execute", side_effect=self._execute):
+                return await setup_venv(self._config, runner, self._tmp_dir)
+
+        try:
+            self.result = anyio.run(_go)
+        except BaseException as exc:  # surfaced via `error`, not swallowed
+            self.error = exc
+
+    def finish(self, hang_message: str, timeout: float = 30.0) -> VenvReference:
+        self.join(timeout=timeout)
+        assert not self.is_alive(), hang_message
+        if self.error is not None:
+            raise self.error
+        assert self.result is not None
+        return self.result
 
 
 class TestLogHolder:
@@ -875,85 +914,78 @@ class TestSetupVenv:
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
     async def test_setup_venv_concurrent_creation(self, _find_uv, temp_dir):
-        """Test concurrent venv creation for the same configuration.
+        """Concurrent setups of one entry build it once and never block.
 
-        Modeled on real inter-task concurrency, not a single event loop:
-        DefaultExecutor.execute_task documents "each time execute_task is
-        called, it is called from a different thread", each with its own
-        event loop (default_executor.py). Three coroutines sharing one anyio
-        task group would instead race for the venv cache's exclusive flock on
-        a SINGLE OS thread -- the loser's blocking fcntl call freezes that
-        thread before the winner ever runs again to release it, which
-        deadlocks a shared event loop but cannot happen across real,
-        independent threads. This test uses real threads to match production.
+        Two things are asserted, and each catches a distinct regression:
+
+        * Exactly one build across the three threads. A loser must find the
+          winner's finished entry, not build its own. Deterministic even
+          though the threads genuinely race: at most one can hold the entry
+          EXCLUSIVE, and the mocked build finishes far inside the retry
+          budget, so every loser's next pass is a shared hit.
+        * A fourth thread arriving while those three shared holds are
+          outstanding still returns promptly. This is the C1 regression: an
+          unconditional blocking exclusive acquire makes it wait for holders
+          that, in production, are ingestion runs lasting hours.
         """
         config = VenvConfig(version="0.12.1", main_plugin="snowflake")
+        installs = [0] * 4
 
-        runners = [SubprocessRunner() for _ in range(3)]
+        def make_execute(index: int) -> Any:
+            async def execute(
+                command: List[str],
+                env: Optional[dict] = None,
+                cwd: Optional[str] = None,
+            ) -> None:
+                if "venv" in command:
+                    venv_path = Path(command[-1])
+                    venv_path.mkdir(parents=True, exist_ok=True)
+                    (venv_path / "bin").mkdir(exist_ok=True)
+                    (venv_path / "bin" / "python").touch()
+                elif "install" in command:
+                    installs[index] += 1
 
-        # Mock successful venv creation
-        async def mock_execute(command, env=None, cwd=None):
-            if "venv" in command:
-                venv_path = Path(command[-1])
-                venv_path.mkdir(parents=True, exist_ok=True)
-                (venv_path / "bin").mkdir(exist_ok=True)
-                (venv_path / "bin" / "python").touch()
-
-        # Patch all runners' execute methods
-        patches = []
-        for runner in runners:
-            patcher = patch.object(runner, "execute", side_effect=mock_execute)
-            patches.append(patcher)
-            patcher.start()
-
-        results: List[Optional[VenvReference]] = [None] * len(runners)
-        errors: List[Optional[BaseException]] = [None] * len(runners)
-
-        def run_one(index: int, runner: SubprocessRunner) -> None:
-            async def _go() -> VenvReference:
-                return await setup_venv(config, runner, temp_dir)
-
-            try:
-                ref = anyio.run(_go)
-                results[index] = ref
-                # Release as soon as THIS task's own use of the venv ends,
-                # exactly as finalize_task_output does for a real task (Task
-                # 6) -- not deferred until every concurrent thread finishes.
-                # The lock legitimately serializes concurrent access to the
-                # SAME entry (the builder holds it exclusive, then shared for
-                # its own task's life), so a waiting thread only ever
-                # progresses once an earlier holder releases; batching every
-                # release until after all threads join would deadlock the
-                # threads that are still waiting.
-                if ref.lock is not None:
-                    ref.lock.release()
-            except BaseException as exc:  # surfaced via `errors`, not swallowed
-                errors[index] = exc
+            return execute
 
         threads = [
-            threading.Thread(target=run_one, args=(i, runner))
-            for i, runner in enumerate(runners)
+            _SetupVenvThread(config, temp_dir, make_execute(i)) for i in range(3)
         ]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join(timeout=10)
-            assert not t.is_alive(), "a thread never finished -- likely a lock deadlock"
+        refs: List[VenvReference] = []
+        try:
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                refs.append(
+                    thread.finish("a thread never finished -- setup_venv blocked")
+                )
 
-        for exc in errors:
-            if exc is not None:
-                raise exc
+            for ref in refs:
+                assert ref.venv_config == config
+                assert ref.venv_loc.exists()
+            assert len({ref.venv_loc for ref in refs}) == 1, (
+                "concurrent setups of one config must converge on one entry"
+            )
+            assert sum(1 for count in installs[:3] if count) == 1, (
+                f"exactly one thread should have built the entry: {installs}"
+            )
 
-        # All should succeed and create venvs (potentially different locations)
-        assert len(results) == 3
-        for venv_ref in results:
-            assert venv_ref is not None, "VenvReference should not be None"
-            assert venv_ref.venv_config == config
-            assert venv_ref.venv_loc.exists()
+            # Every thread above is still holding its shared lock, exactly as
+            # a running ingestion would for its whole life.
+            late = _SetupVenvThread(config, temp_dir, make_execute(3))
+            late.start()
+            refs.append(
+                late.finish(
+                    "a complete entry held SHARED by running tasks blocked a "
+                    "new setup_venv -- the acquire must be non-blocking"
+                )
+            )
 
-        # Clean up patches
-        for patcher in patches:
-            patcher.stop()
+            assert refs[-1].venv_loc == refs[0].venv_loc
+            assert installs[3] == 0, "a complete entry was rebuilt"
+        finally:
+            for ref in refs:
+                if ref.lock is not None:
+                    ref.lock.release()
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
     async def test_setup_venv_with_requirements_file(
@@ -1610,6 +1642,9 @@ class TestVenvCacheInSetupVenv:
         assert not [c for c in second.call_args_list if "install" in c[0][0]], (
             "a cached venv was rebuilt"
         )
+        assert not [c for c in second.call_args_list if "venv" in c[0][0]], (
+            "a complete entry was re-created rather than reused"
+        )
         assert ref2.venv_loc == ref.venv_loc
 
     async def test_latest_is_cached_too(
@@ -1676,35 +1711,6 @@ class TestVenvCacheInSetupVenv:
 
         assert first.venv_loc != second.venv_loc
         assert second_installs, "a different requirement set reused an entry"
-
-    async def test_an_already_complete_entry_is_served_without_building(
-        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """The completeness re-check must happen INSIDE the exclusive lock.
-
-        Two callers racing to build the same entry both take the lock in turn;
-        the loser has to notice the winner already finished rather than
-        building a second venv on top of the first. Checked before acquiring,
-        the loser would rebuild. This pins the ordering by pre-creating a
-        finished entry and asserting nothing installs.
-        """
-        cache = tmp_path / "cache"
-        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(cache))
-
-        seed = self._mock_execute()
-        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", seed)
-        assert ref.lock is not None
-        ref.lock.release()
-
-        mock = self._mock_execute()
-        ref2 = await self._setup(tmp_path / "exec-2", "0.15.0.1", mock)
-        assert ref2.lock is not None
-        ref2.lock.release()
-
-        assert ref2.venv_loc == ref.venv_loc
-        assert not [c for c in mock.call_args_list if "venv" in c[0][0]], (
-            "a complete entry was re-created rather than reused"
-        )
 
     async def test_a_dev_build_is_never_cached(
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch

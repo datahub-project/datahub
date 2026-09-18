@@ -47,18 +47,6 @@ def test_a_shared_holder_blocks_an_exclusive_taker(
         user.release()
 
 
-def test_two_shared_holders_coexist(tmp_path: pathlib.Path) -> None:
-    """Concurrent runs share one venv. Safe: nothing writes into a venv after
-    setup, and .pyc writes are atomic-rename."""
-    lock_path = tmp_path / "entry.lock"
-    a, b = EntryLock(lock_path), EntryLock(lock_path)
-
-    assert a.acquire(exclusive=False)
-    assert b.acquire(exclusive=False)
-    a.release()
-    b.release()
-
-
 def test_downgrade_lets_an_evictor_be_refused_but_a_reader_in(
     tmp_path: pathlib.Path,
 ) -> None:
