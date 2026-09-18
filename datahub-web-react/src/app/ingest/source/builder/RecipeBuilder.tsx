@@ -10,9 +10,9 @@ import { IngestionDocumentationHint } from '@app/ingest/source/builder/Ingestion
 import { LookerWarning } from '@app/ingest/source/builder/LookerWarning';
 import RecipeForm from '@app/ingest/source/builder/RecipeForm/RecipeForm';
 import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
-import { CSV, LOOKER, LOOK_ML } from '@app/ingest/source/builder/constants';
+import { CSV, LOOKER, LOOK_ML, SNOWFLAKE } from '@app/ingest/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
-import { SnowflakePasswordAuthDeprecationWarning } from '@app/ingestV2/source/builder/SnowflakePasswordAuthDeprecationWarning';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/sharedV2/ingestionSources/SnowflakePasswordAuthDeprecationWarning';
 import { Button } from '@src/alchemy-components';
 
 const ControlsContainer = styled.div`
@@ -74,13 +74,15 @@ function RecipeBuilder(props: Props) {
     const [hideDocsHint, setHideDocsHint] = useState(false);
 
     // Invalid YAML is ignored; the form/yaml editor surfaces its own validation errors.
+    // Only the Snowflake banner consumes parsedRecipe; skip parsing for other source types.
     const parsedRecipe = React.useMemo(() => {
+        if (type !== SNOWFLAKE || !displayRecipe) return null;
         try {
-            return displayRecipe ? YAML.parse(displayRecipe) : null;
+            return YAML.parse(displayRecipe);
         } catch {
             return null;
         }
-    }, [displayRecipe]);
+    }, [displayRecipe, type]);
 
     function switchViews(isFormView: boolean) {
         try {
@@ -101,7 +103,7 @@ function RecipeBuilder(props: Props) {
             ) : null}
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             {type === CSV && <CSVInfo />}
-            {type === 'snowflake' && <SnowflakePasswordAuthDeprecationWarning recipe={parsedRecipe} />}
+            {type === SNOWFLAKE && <SnowflakePasswordAuthDeprecationWarning recipe={parsedRecipe} />}
             <HeaderContainer>
                 <Title style={{ marginBottom: 0 }} level={5}>
                     {sourceConfigs?.displayName} Details

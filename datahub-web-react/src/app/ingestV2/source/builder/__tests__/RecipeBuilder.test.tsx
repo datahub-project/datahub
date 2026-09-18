@@ -1,11 +1,11 @@
 import { render } from '@testing-library/react';
 import React from 'react';
-import { ThemeProvider } from 'styled-components';
 import { vi } from 'vitest';
+import YAML from 'yamljs';
 
 import RecipeBuilder from '@app/ingestV2/source/builder/RecipeBuilder';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
-import themeV2 from '@conf/theme/themeV2';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 // RecipeForm pulls in GraphQL + a large form tree that is irrelevant to the
 // banner-integration logic under test. Stub it so the test isolates the
@@ -25,7 +25,7 @@ const sourceConfig = {
 
 function renderBuilder(state: SourceBuilderState, displayRecipe: string) {
     return render(
-        <ThemeProvider theme={themeV2}>
+        <TestPageContainer>
             <RecipeBuilder
                 state={state}
                 isEditing={false}
@@ -35,7 +35,7 @@ function renderBuilder(state: SourceBuilderState, displayRecipe: string) {
                 onClickNext={() => {}}
                 goToPrevious={() => {}}
             />
-        </ThemeProvider>,
+        </TestPageContainer>,
     );
 }
 
@@ -69,7 +69,7 @@ source:
         expect(container.querySelector('[data-testid="snowflake-password-auth-deprecation-warning"]')).toBeNull();
     });
 
-    it('does not render the banner for a non-Snowflake recipe', () => {
+    it('does not render the banner for a non-Snowflake recipe and skips YAML parsing', () => {
         // MySQL recipe that happens to carry a password field — must not trigger the
         // Snowflake-only banner, and the memo must skip YAML parsing entirely.
         const recipe = `
@@ -77,9 +77,13 @@ source:
   config:
     password: secret
 `;
+        const parseSpy = vi.spyOn(YAML, 'parse');
         const { queryByText, container } = renderBuilder({ type: 'mysql' }, recipe);
 
         expect(queryByText(/Snowflake is deprecating username \+ password authentication/)).toBeNull();
         expect(container.querySelector('[data-testid="snowflake-password-auth-deprecation-warning"]')).toBeNull();
+        // The memo gates on type === SNOWFLAKE, so a non-Snowflake recipe must not parse YAML at all.
+        expect(parseSpy).not.toHaveBeenCalled();
+        parseSpy.mockRestore();
     });
 });

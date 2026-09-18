@@ -1,9 +1,8 @@
 import { render } from '@testing-library/react';
 import React from 'react';
-import { ThemeProvider } from 'styled-components';
 
-import { SnowflakePasswordAuthDeprecationWarning } from '@app/ingestV2/source/builder/SnowflakePasswordAuthDeprecationWarning';
-import themeV2 from '@conf/theme/themeV2';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/sharedV2/ingestionSources/SnowflakePasswordAuthDeprecationWarning';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('SnowflakePasswordAuthDeprecationWarning', () => {
     it('renders the deprecation banner when the recipe uses DEFAULT_AUTHENTICATOR', () => {
@@ -12,9 +11,9 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
         };
 
         const { getByText, getByRole } = render(
-            <ThemeProvider theme={themeV2}>
+            <TestPageContainer>
                 <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
-            </ThemeProvider>,
+            </TestPageContainer>,
         );
 
         expect(getByText(/Snowflake is deprecating username \+ password authentication/)).toBeInTheDocument();
@@ -37,9 +36,9 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
         };
 
         const { container } = render(
-            <ThemeProvider theme={themeV2}>
+            <TestPageContainer>
                 <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
-            </ThemeProvider>,
+            </TestPageContainer>,
         );
 
         expect(container).toBeEmptyDOMElement();
@@ -47,9 +46,9 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
 
     it('renders nothing when the recipe is missing', () => {
         const { container } = render(
-            <ThemeProvider theme={themeV2}>
+            <TestPageContainer>
                 <SnowflakePasswordAuthDeprecationWarning recipe={null} />
-            </ThemeProvider>,
+            </TestPageContainer>,
         );
 
         expect(container).toBeEmptyDOMElement();
@@ -67,9 +66,9 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
         };
 
         const { container } = render(
-            <ThemeProvider theme={themeV2}>
+            <TestPageContainer>
                 <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
-            </ThemeProvider>,
+            </TestPageContainer>,
         );
 
         expect(container).toBeEmptyDOMElement();
@@ -79,11 +78,27 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
         const recipe = { source: { config: { password: 'secret' } } }; // noqa: secret gitleaks:allow - dummy test fixture
 
         const { getByText } = render(
-            <ThemeProvider theme={themeV2}>
+            <TestPageContainer>
                 <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
-            </ThemeProvider>,
+            </TestPageContainer>,
         );
 
         expect(getByText(/Snowflake is deprecating username \+ password authentication/)).toBeInTheDocument();
+    });
+
+    it('renders nothing for an OAuth recipe (explicit auth type is not DEFAULT_AUTHENTICATOR)', () => {
+        // getSnowflakeAuthTypeFromRecipe returns the explicit auth type verbatim, so an
+        // OAuth recipe must not be treated as password auth. This is also the value the
+        // auth-type select receives; its options are only KEY_PAIR / DEFAULT, so an OAuth
+        // recipe shows an out-of-options value in the form — documented in the PR body.
+        const recipe = { source: { config: { authentication_type: 'OAUTH_AUTHENTICATOR' } } };
+
+        const { container } = render(
+            <TestPageContainer>
+                <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
+            </TestPageContainer>,
+        );
+
+        expect(container).toBeEmptyDOMElement();
     });
 });

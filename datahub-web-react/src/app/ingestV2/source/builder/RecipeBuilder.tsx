@@ -9,11 +9,11 @@ import { CSVInfo } from '@app/ingestV2/source/builder/CSVInfo';
 import { IngestionDocumentationHint } from '@app/ingestV2/source/builder/IngestionDocumentationHint';
 import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
 import RecipeForm from '@app/ingestV2/source/builder/RecipeForm/RecipeForm';
-import { SnowflakePasswordAuthDeprecationWarning } from '@app/ingestV2/source/builder/SnowflakePasswordAuthDeprecationWarning';
 import { YamlEditor } from '@app/ingestV2/source/builder/YamlEditor';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/sharedV2/ingestionSources/SnowflakePasswordAuthDeprecationWarning';
 import { Button } from '@src/alchemy-components';
 
 import { IngestionSource } from '@types';

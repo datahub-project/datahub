@@ -160,6 +160,7 @@ const REDSHIFT = 'redshift';
 const REDSHIFT_USAGE = 'redshift-usage';
 const REDSHIFT_URN = `urn:li:dataPlatform:${REDSHIFT}`;
 const SNOWFLAKE = 'snowflake';
+export { SNOWFLAKE };
 const SNOWFLAKE_BETA = 'snowflake-beta';
 const SNOWFLAKE_USAGE = 'snowflake-usage';
 const SNOWFLAKE_URN = `urn:li:dataPlatform:${SNOWFLAKE}`;

@@ -8,7 +8,6 @@ import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { CSVInfo } from '@app/ingestV2/source/builder/CSVInfo';
 import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
-import { SnowflakePasswordAuthDeprecationWarning } from '@app/ingestV2/source/builder/SnowflakePasswordAuthDeprecationWarning';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
@@ -23,6 +22,7 @@ import { ScheduleSection } from '@app/ingestV2/source/multiStepBuilder/steps/ste
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingestV2/source/utils';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/sharedV2/ingestionSources/SnowflakePasswordAuthDeprecationWarning';
 
 const Container = styled.div`
     display: flex;
@@ -51,13 +51,15 @@ export function ConnectionDetailsStep() {
     const [stagedRecipeYml, setStagedRecipeYml] = useState(initialRecipeYml || placeholderRecipe);
 
     // state.config.recipe is a JSON string; parse it for client-side detection.
+    // Only the Snowflake banner consumes parsedRecipe; skip parsing for other source types.
     const parsedRecipe = useMemo(() => {
+        if (type !== SNOWFLAKE || !state.config?.recipe) return null;
         try {
-            return state.config?.recipe ? JSON.parse(state.config.recipe) : null;
+            return JSON.parse(state.config.recipe);
         } catch {
             return null;
         }
-    }, [state.config?.recipe]);
+    }, [state.config?.recipe, type]);
 
     const analyticsRef = useRef(false);
 
