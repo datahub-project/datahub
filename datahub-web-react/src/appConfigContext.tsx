@@ -1,6 +1,10 @@
 import React from 'react';
 
-import { AppConfig, PersonalSidebarSection, SearchBarApi } from '@types';
+import { AppConfig, PersonalSidebarSection, PoliciesConfig, SearchBarApi } from '@types';
+
+export type AppConfigWithoutPolicyPrivileges = Omit<AppConfig, 'policiesConfig'> & {
+    policiesConfig: Omit<PoliciesConfig, 'platformPrivileges' | 'resourcePrivileges'>;
+};
 
 export const DEFAULT_APP_CONFIG = {
     analyticsConfig: {
@@ -118,7 +122,7 @@ export const DEFAULT_APP_CONFIG = {
 };
 
 export const AppConfigContext = React.createContext<{
-    config: AppConfig;
+    config: AppConfigWithoutPolicyPrivileges;
     loaded: boolean;
     refreshContext: () => void;
 }>({ config: DEFAULT_APP_CONFIG, loaded: false, refreshContext: () => null });
