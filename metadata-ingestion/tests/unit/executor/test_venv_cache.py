@@ -5,9 +5,11 @@ writer. A shared volume would need a different mechanism -- flock on NFS/EFS is
 unreliable -- which is why the spec rules shared storage out of scope.
 """
 
+import os
 import pathlib
 
-from datahub.executor.execution.venv_cache import EntryLock
+from datahub.executor.execution import venv_utils
+from datahub.executor.execution.venv_cache import EntryLock, evict_to_budget
 
 
 def test_two_locks_on_one_entry_do_not_both_get_it_exclusively(
@@ -119,3 +121,80 @@ def test_acquire_creates_a_missing_cache_root(tmp_path: pathlib.Path) -> None:
     assert lock.acquire(exclusive=True)
     lock.release()
     assert (tmp_path / "fresh" / "_venv_cache").is_dir()
+
+
+def _entry(root: pathlib.Path, name: str, size: int, age_s: float) -> pathlib.Path:
+    venv = root / f"venv-{name}"
+    (venv / "bin").mkdir(parents=True)
+    (venv / "bin" / "python").touch()
+    (venv / "payload").write_bytes(b"x" * size)
+    venv_utils.mark_venv_complete(venv)
+    venv_utils.touch_last_used(venv)
+    marker = venv / venv_utils.LAST_USED_MARKER
+    stamp = marker.stat().st_mtime - age_s
+    os.utime(marker, (stamp, stamp))
+    return venv
+
+
+def test_eviction_removes_the_least_recently_used_first(
+    tmp_path: pathlib.Path,
+) -> None:
+    old = _entry(tmp_path, "old", 4000, age_s=10_000)
+    fresh = _entry(tmp_path, "fresh", 4000, age_s=1)
+
+    evict_to_budget(tmp_path, max_bytes=5000)
+
+    assert not old.exists()
+    assert fresh.exists()
+
+
+def test_eviction_stops_once_inside_budget(tmp_path: pathlib.Path) -> None:
+    """It frees enough, not everything -- a cache emptied on every build is
+    not a cache."""
+    oldest = _entry(tmp_path, "a", 4000, age_s=300)
+    middle = _entry(tmp_path, "b", 4000, age_s=200)
+    newest = _entry(tmp_path, "c", 4000, age_s=100)
+
+    evict_to_budget(tmp_path, max_bytes=9000)
+
+    assert not oldest.exists()
+    assert middle.exists() and newest.exists()
+
+
+def test_an_in_use_entry_is_skipped_even_when_it_is_the_oldest(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The point of the shared lock: never delete a venv a running ingestion
+    is executing out of."""
+    in_use = _entry(tmp_path, "inuse", 4000, age_s=10_000)
+    spare = _entry(tmp_path, "spare", 4000, age_s=5_000)
+
+    holder = EntryLock(tmp_path / "venv-inuse.lock")
+    assert holder.acquire(exclusive=False)
+    try:
+        evict_to_budget(tmp_path, max_bytes=5000)
+    finally:
+        holder.release()
+
+    assert in_use.exists(), "evicted a venv that was in use"
+    assert not spare.exists(), "skipping the locked entry must not stop eviction"
+
+
+def test_a_missing_cache_root_is_not_an_error(tmp_path: pathlib.Path) -> None:
+    assert evict_to_budget(tmp_path / "absent", max_bytes=1) == 0
+
+
+def test_an_entry_with_no_last_used_marker_is_evicted_first(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Entries predating this feature must not be immortal."""
+    legacy = tmp_path / "venv-legacy"
+    (legacy / "bin").mkdir(parents=True)
+    (legacy / "bin" / "python").touch()
+    (legacy / "payload").write_bytes(b"x" * 4000)
+    recent = _entry(tmp_path, "recent", 4000, age_s=1)
+
+    evict_to_budget(tmp_path, max_bytes=5000)
+
+    assert not legacy.exists()
+    assert recent.exists()

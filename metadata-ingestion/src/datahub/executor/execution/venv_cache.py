@@ -9,7 +9,10 @@ import fcntl
 import logging
 import os
 import pathlib
-from typing import Optional
+import shutil
+from typing import List, Optional, Tuple
+
+from datahub.executor.execution.venv_utils import last_used_at
 
 logger = logging.getLogger(__name__)
 
@@ -83,3 +86,56 @@ class EntryLock:
             os.close(fd)
         except OSError:
             pass
+
+
+def _entry_size(venv: pathlib.Path) -> int:
+    total = 0
+    for dirpath, _dirnames, filenames in os.walk(venv):
+        for name in filenames:
+            try:
+                total += os.lstat(os.path.join(dirpath, name)).st_size
+            except OSError:
+                continue
+    return total
+
+
+def evict_to_budget(cache_root: pathlib.Path, max_bytes: int) -> int:
+    """Remove least-recently-used entries until the cache fits. Returns bytes freed.
+
+    Ordered by the .datahub-venv-last-used marker, never filesystem atime --
+    containers mount relatime or noatime, so atime is not a usable signal.
+
+    An entry whose exclusive lock cannot be taken immediately is in use and is
+    SKIPPED, never waited on: a build must not block behind an hours-long
+    ingestion, and deleting a venv a running task is executing out of is worse
+    than exceeding the budget.
+    """
+    try:
+        entries = [p for p in cache_root.iterdir() if p.is_dir()]
+    except OSError:
+        return 0
+
+    sized: List[Tuple[float, int, pathlib.Path]] = [
+        (last_used_at(p), _entry_size(p), p) for p in entries
+    ]
+    total = sum(size for _, size, _ in sized)
+    if total <= max_bytes:
+        return 0
+
+    freed = 0
+    for _stamp, size, venv in sorted(sized, key=lambda row: row[0]):
+        if total - freed <= max_bytes:
+            break
+        lock = EntryLock(venv.parent / f"{venv.name}.lock")
+        if not lock.acquire(exclusive=True, blocking=False):
+            logger.debug("venv cache: %s is in use, not evicting", venv)
+            continue
+        try:
+            shutil.rmtree(venv)
+            freed += size
+            logger.info("venv cache: evicted %s (%d bytes)", venv, size)
+        except OSError:
+            logger.warning("venv cache: could not evict %s", venv, exc_info=True)
+        finally:
+            lock.release()
+    return freed
