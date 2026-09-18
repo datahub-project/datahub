@@ -74,16 +74,16 @@ jobs:
         # -Psourcemap was hotfix-removed once).
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: python3 .github/scripts/check_sourcemap_sizes.py datahub-web-react/dist/assets/*.map
+      # pages-action is unpublished (repo 404); Cloudflare's replacement is wrangler-action.
       - name: Publish
         if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
-        uses: cloudflare/pages-action@f0a1cd58cd66095dee69bfa18fa5efd1dde93bca # v1
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: datahub-project-web-react
           workingDirectory: datahub-web-react
-          directory: dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy dist --project-name=datahub-project-web-react
       # Runs LAST because it is destructive: it checks out the base commit's src/ and rebuilds
       # dist/ in place (without -Psourcemap) to measure the base bundle size. It must run after
       # Publish so Cloudflare deploys the real PR build WITH sourcemaps — otherwise the maps
