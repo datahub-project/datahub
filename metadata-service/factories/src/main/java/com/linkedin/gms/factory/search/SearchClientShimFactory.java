@@ -6,60 +6,60 @@ import com.linkedin.gms.factory.common.ElasticsearchSSLContextFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.MaeConsumerConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchClusterSettings;
+import com.linkedin.metadata.config.search.SearchClusterUri;
+import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.config.search.ShimSettings;
+import com.linkedin.metadata.config.search.SslContextSettings;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.ShimConfigurationBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 /**
- * Spring factory for creating SearchClientShim instances based on DataHub configuration. This
- * factory bridges DataHub's existing configuration system with the new shim architecture.
+ * Spring factory for creating {@link SearchClientShim} instances, one per configured search
+ * cluster.
+ *
+ * <p>Each cluster resolves its own engine type: a secondary cluster never inherits the primary's
+ * {@code engineType}, since the reason to add a connection is usually that it runs a different
+ * engine version. Clusters whose endpoint and credentials are identical share a single HTTP client
+ * rather than opening a redundant connection pool.
  */
 @Slf4j
 @Configuration
 @Import({ElasticsearchSSLContextFactory.class, AwsClientFactory.class})
 public class SearchClientShimFactory {
 
-  // New shim-specific configuration properties
-  @Value("${elasticsearch.shim.engineType:AUTO_DETECT}")
-  private String shimEngineType;
-
-  @Value("${elasticsearch.shim.autoDetectEngine:true}")
-  private boolean shimAutoDetectEngine;
-
   @Autowired private ConfigurationProvider configurationProvider;
-
-  @Autowired
-  @Qualifier("elasticSearchSSLContext")
-  private SSLContext elasticSearchSSLContext;
 
   @Autowired(required = false)
   @Qualifier("defaultAwsCredentialsProvider")
   private AwsCredentialsProvider defaultAwsCredentialsProvider;
 
   /**
-   * Create the SearchClientShim bean. This can be configured to either: (1) auto-detect the search
-   * engine type by connecting to the cluster, or (2) use a specific engine type from properties.
+   * Shims for every configured cluster, keyed by cluster name.
    *
-   * <p>Single process-wide shim: uses {@code elasticsearch.*} timeouts, merged with {@code
-   * maeConsumer.elasticsearch.*} via {@code Math.max(global, mae)} when {@code
-   * maeConsumer.enabled=true} so MAE indexing and GMS share one client.
+   * <p>Uses {@code elasticsearch.*} timeouts, merged with {@code maeConsumer.elasticsearch.*} via
+   * {@code Math.max(global, mae)} when {@code maeConsumer.enabled=true} so MAE indexing and GMS
+   * share one client.
    */
-  @Bean(name = "searchClientShim")
+  @Bean(name = "searchClientShims")
   @Nonnull
-  public SearchClientShim<?> createSearchClientShim(ObjectMapper objectMapper) throws IOException {
+  public SearchClientShims createSearchClientShims(ObjectMapper objectMapper) throws IOException {
     ElasticSearchConfiguration esConfig = configurationProvider.getElasticSearch();
     MaeConsumerConfiguration mae = configurationProvider.getMaeConsumer();
     int socketMs = mergeRestClientSocketTimeoutMs(esConfig.getSocketTimeout(), mae);
@@ -72,7 +72,94 @@ public class SearchClientShimFactory {
           socketMs,
           connMs);
     }
-    return buildSearchClientShim(objectMapper, esConfig, socketMs, connMs);
+
+    Map<String, SearchClientShim<?>> shims = new LinkedHashMap<>();
+    Map<String, SearchClientShim<?>> byIdentity = new LinkedHashMap<>();
+
+    for (Map.Entry<String, SearchClusterSettings> entry : esConfig.resolvedClusters().entrySet()) {
+      String clusterName = entry.getKey();
+      SearchClusterSettings cluster = entry.getValue();
+      if (!cluster.isConfigured()) {
+        log.info(
+            "Search cluster '{}' has no uri configured; skipping client creation", clusterName);
+        continue;
+      }
+
+      String identity = connectionIdentity(clusterName, cluster);
+      SearchClientShim<?> existing = byIdentity.get(identity);
+      if (existing != null) {
+        // Same endpoint and credentials: reuse the connection pool instead of doubling it.
+        log.info(
+            "Search cluster '{}' resolves to an already-connected endpoint; reusing that client",
+            clusterName);
+        shims.put(clusterName, existing);
+        continue;
+      }
+
+      SearchClientShim<?> shim =
+          buildSearchClientShim(objectMapper, esConfig, clusterName, cluster, socketMs, connMs);
+      shims.put(clusterName, shim);
+      byIdentity.put(identity, shim);
+    }
+
+    return new SearchClientShims(shims);
+  }
+
+  /** The primary cluster's client. Bean name unchanged so existing injection points still work. */
+  @Bean(name = "searchClientShim")
+  @Nonnull
+  public SearchClientShim<?> createSearchClientShim(final SearchClientShims shims) {
+    SearchClientShim<?> primary = shims.get(ElasticSearchConfiguration.PRIMARY_CLUSTER);
+    if (primary == null) {
+      throw new IllegalStateException(
+          "elasticsearch.clusters.primary must be configured with a uri (or legacy ELASTICSEARCH_HOST)");
+    }
+    return primary;
+  }
+
+  /**
+   * Identity used to decide whether two cluster entries are really the same connection. Includes
+   * every client-affecting setting. Secrets are hashed so the key can be logged without leaking
+   * passwords.
+   */
+  static String connectionIdentity(
+      @Nonnull String clusterName, @Nonnull SearchClusterSettings cluster) {
+    SearchClusterUri uri = cluster.parsedUri(clusterName);
+    ShimSettings shim = cluster.getShim();
+    SslContextSettings ssl = cluster.getSslContext();
+    return String.join(
+        "|",
+        uri.normalized(),
+        String.valueOf(cluster.getUsername()),
+        hashedSecret(cluster.getPassword()),
+        String.valueOf(cluster.isOpensearchUseAwsIamAuth()),
+        String.valueOf(cluster.getRegion()),
+        shim == null ? "auto" : String.valueOf(shim.getEngineType()),
+        shim == null ? "auto" : String.valueOf(shim.getAutoDetectEngine()),
+        sslIdentity(ssl));
+  }
+
+  @Nonnull
+  private static String sslIdentity(@Nullable SslContextSettings ssl) {
+    if (ssl == null || ssl.isEmpty()) {
+      return "ssl:default";
+    }
+    return String.join(
+        ",",
+        String.valueOf(ssl.getProtocol()),
+        String.valueOf(ssl.getSecureRandomImplementation()),
+        String.valueOf(ssl.getTrustStoreFile()),
+        String.valueOf(ssl.getTrustStoreType()),
+        hashedSecret(ssl.getTrustStorePassword()),
+        String.valueOf(ssl.getKeyStoreFile()),
+        String.valueOf(ssl.getKeyStoreType()),
+        hashedSecret(ssl.getKeyStorePassword()),
+        hashedSecret(ssl.getKeyPassword()));
+  }
+
+  @Nonnull
+  private static String hashedSecret(@Nullable String secret) {
+    return Integer.toHexString(Objects.hashCode(secret));
   }
 
   /**
@@ -115,57 +202,71 @@ public class SearchClientShimFactory {
   private SearchClientShim<?> buildSearchClientShim(
       ObjectMapper objectMapper,
       ElasticSearchConfiguration esConfig,
+      String clusterName,
+      SearchClusterSettings cluster,
       int socketTimeoutMs,
       int connectionRequestTimeoutMs)
       throws IOException {
 
-    assertIamAuthHasSharedCredentials(esConfig, defaultAwsCredentialsProvider);
+    assertIamAuthHasSharedCredentials(clusterName, cluster, defaultAwsCredentialsProvider);
 
-    // Build the shim configuration from DataHub configuration
+    SearchClusterUri uri = cluster.parsedUri(clusterName);
+    SSLContext sslContext = ElasticsearchSSLContextFactory.buildSSLContext(cluster.getSslContext());
+
     ShimConfigurationBuilder configBuilder =
         new ShimConfigurationBuilder()
-            .withHost(esConfig.getHost())
-            .withPort(esConfig.getPort())
-            .withCredentials(esConfig.getUsername(), esConfig.getPassword())
-            .withSSL(esConfig.isUseSSL())
-            .withSSLContext(elasticSearchSSLContext)
-            .withPathPrefix(esConfig.getPathPrefix())
-            .withAwsIamAuth(esConfig.isOpensearchUseAwsIamAuth(), esConfig.getRegion())
+            .withHost(uri.getHost())
+            .withPort(uri.getPort())
+            .withCredentials(cluster.getUsername(), cluster.getPassword())
+            .withSSL(uri.isUseSSL())
+            .withSSLContext(sslContext)
+            .withPathPrefix(uri.getPathPrefix())
+            .withAwsIamAuth(cluster.isOpensearchUseAwsIamAuth(), cluster.getRegion())
             .withAwsCredentialsProvider(defaultAwsCredentialsProvider)
-            .withThreadCount(esConfig.getThreadCount())
+            .withThreadCount(
+                cluster.getThreadCount() == null
+                    ? esConfig.getThreadCount()
+                    : cluster.getThreadCount())
             .withConnectionRequestTimeout(connectionRequestTimeoutMs)
             .withSocketTimeout(socketTimeoutMs);
 
-    // Determine how to create the shim
-    SearchClientShim<?> shim;
-    if (shimAutoDetectEngine) {
-      log.info("Auto-detecting search engine type for shim");
-      shim = SearchClientShimUtil.createShimWithAutoDetection(configBuilder.build(), objectMapper);
+    ShimSettings shim = cluster.getShim();
+    SearchClientShim<?> client;
+    if (shim == null || shim.isAutoDetectEnabled()) {
+      log.info(
+          "Auto-detecting search engine type for cluster '{}' at {}",
+          clusterName,
+          uri.normalized());
+      client =
+          SearchClientShimUtil.createShimWithAutoDetection(configBuilder.build(), objectMapper);
     } else {
-      // Parse the configured engine type
-      SearchClientShim.SearchEngineType engineType = parseEngineType(shimEngineType);
+      SearchClientShim.SearchEngineType engineType = parseEngineType(shim.getEngineType());
       configBuilder.withEngineType(engineType);
-
-      log.info("Creating shim with configured engine type: {}", engineType);
-      shim = SearchClientShimUtil.createShim(configBuilder.build(), objectMapper);
+      log.info(
+          "Creating shim for cluster '{}' with configured engine type: {}",
+          clusterName,
+          engineType);
+      client = SearchClientShimUtil.createShim(configBuilder.build(), objectMapper);
     }
 
-    // If semantic search is enabled on an ES 8 shim, verify the cluster meets the 8.18+ minimum.
-    // This fails fast at startup rather than at query time.
+    // Semantic search has an engine floor, and it is checked against whichever cluster actually
+    // serves it rather than against primary.
     boolean semanticEnabled =
         esConfig.getEntityIndex() != null
             && esConfig.getEntityIndex().getSemanticSearch() != null
-            && esConfig.getEntityIndex().getSemanticSearch().isEnabled();
+            && esConfig.getEntityIndex().getSemanticSearch().isEnabled()
+            && clusterName.equals(
+                esConfig.getComponentCluster().clusterFor(SearchComponent.SEMANTIC));
 
-    if (semanticEnabled && shim instanceof Es8SearchClientShim) {
+    if (semanticEnabled && client instanceof Es8SearchClientShim) {
       log.info(
           "Semantic search enabled with ES 8 shim — verifying cluster version meets 8.18+ requirement");
-      ((Es8SearchClientShim) shim).verifySemanticSearchSupport();
+      ((Es8SearchClientShim) client).verifySemanticSearchSupport();
     }
 
-    assertNoNmslibOnOpenSearch3(shim, esConfig, semanticEnabled);
+    assertNoNmslibOnOpenSearch3(client, esConfig, semanticEnabled);
 
-    return shim;
+    return client;
   }
 
   /**
@@ -174,12 +275,14 @@ public class SearchClientShimFactory {
    * default chain.
    */
   static void assertIamAuthHasSharedCredentials(
-      @Nonnull ElasticSearchConfiguration esConfig,
+      @Nonnull String clusterName,
+      @Nonnull SearchClusterSettings cluster,
       @Nullable AwsCredentialsProvider defaultAwsCredentialsProvider) {
-    if (esConfig.isOpensearchUseAwsIamAuth() && defaultAwsCredentialsProvider == null) {
+    if (cluster.isOpensearchUseAwsIamAuth() && defaultAwsCredentialsProvider == null) {
       throw new IllegalStateException(
-          "Shared DefaultCredentialsProvider is required when elasticsearch.iam /"
-              + " opensearchUseAwsIamAuth is enabled");
+          "Shared DefaultCredentialsProvider is required when elasticsearch.clusters."
+              + clusterName
+              + ".opensearchUseAwsIamAuth is enabled");
     }
   }
 

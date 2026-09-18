@@ -377,7 +377,7 @@ task testOpenSearch3(type: Test) {
   }
 
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
-  environment 'OPENSEARCH_IMAGE_FULL_NAME', 'opensearchproject/opensearch:3.2.0'
+  environment 'OPENSEARCH_IMAGE_FULL_NAME', 'opensearchproject/opensearch:3.7.0'
 
   group = 'verification'
   description = 'Runs the testng-opensearch.xml test suite against OpenSearch 3.x'

@@ -519,6 +519,15 @@ def _dev_env() -> Dict[str, str]:
     env = os.environ.copy()
     if not DEV_ENV_FILE.exists():
         DEV_ENV_FILE.touch()
+    # AWS_PROFILE is declared as pass-through in Compose so it is absent—not an empty profile
+    # name—when unconfigured. Promote the datahub-dev value for Compose interpolation/pass-through.
+    if "AWS_PROFILE" not in env:
+        for line in DEV_ENV_FILE.read_text().splitlines():
+            if line.startswith("AWS_PROFILE="):
+                profile = line.split("=", 1)[1]
+                if profile:
+                    env["AWS_PROFILE"] = profile
+                break
     env["DATAHUB_LOCAL_COMMON_ENV"] = str(DEV_ENV_FILE)
     # Only inject if not already set (respects explicit user override)
     env.setdefault("COMPOSE_PROJECT_NAME", COMPOSE_PROJECT)

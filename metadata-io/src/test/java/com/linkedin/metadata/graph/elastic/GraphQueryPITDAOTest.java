@@ -40,6 +40,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.graph.GraphFilters;
@@ -54,6 +55,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -755,6 +757,35 @@ public class GraphQueryPITDAOTest {
 
     // Verify the size was limited to the max (50)
     Assert.assertEquals(sourceBuilder.size(), 50);
+  }
+
+  @Test
+  public void testSearchUsesGraphClientFromOperationContext() throws Exception {
+    SearchClientShim<?> constructorClient = mock(SearchClientShim.class);
+    SearchClientShim<?> graphAccessClient = mock(SearchClientShim.class);
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(graphAccessClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
+        .thenReturn(mockResponse);
+    when(constructorClient.getEngineType())
+        .thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao = createTrackedDAO(constructorClient);
+    GraphFilters graphFilters =
+        GraphFilters.outgoingFilter(newFilter("urn", "urn:li:dataset:test"));
+    graphFilters.setRelationshipDirection(RelationshipDirection.OUTGOING);
+
+    SearchClusterAccess access =
+        component -> component == SearchComponent.GRAPH ? graphAccessClient : constructorClient;
+    OperationContext graphContext =
+        TestOperationContexts.withSearchClusterAccess(operationContext, access);
+
+    dao.getSearchResponse(graphContext, graphFilters, 0, 10);
+
+    verify(graphAccessClient)
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+    verify(constructorClient, never())
+        .search(any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class));
   }
 
   @Test

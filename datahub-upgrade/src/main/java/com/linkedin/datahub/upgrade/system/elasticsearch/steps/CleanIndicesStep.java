@@ -84,7 +84,7 @@ public class CleanIndicesStep implements UpgradeStep {
             .forEach(
                 reindexConfig ->
                     ESIndexBuilder.cleanOrphanedIndices(
-                        searchClient,
+                        IndexUtils.requireIndexBuilder(reindexConfig.name()).getSearchClient(),
                         context.opContext(),
                         esConfig,
                         reindexConfig,
