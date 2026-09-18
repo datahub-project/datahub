@@ -198,7 +198,7 @@ public class LineageGraphFiltersTest {
 
     List<Pair<String, LineageRegistry.EdgeInfo>> streamResult = filters.streamEdgeInfo().toList();
 
-    assertEquals(streamResult.size(), 2);
+    assertEquals(streamResult.size(), 3);
     assertTrue(
         streamResult.contains(
             Pair.of(
@@ -211,6 +211,12 @@ public class LineageGraphFiltersTest {
                 "chart",
                 new LineageRegistry.EdgeInfo(
                     "Consumes", RelationshipDirection.OUTGOING, "chart"))));
+    assertTrue(
+        streamResult.contains(
+            Pair.of(
+                "chart",
+                new LineageRegistry.EdgeInfo(
+                    "ConsumesMetric", RelationshipDirection.OUTGOING, "metric"))));
 
     assertTrue(filters.containsEdgeInfo("chart", streamResult.get(0).getValue()));
     assertFalse(
