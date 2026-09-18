@@ -731,7 +731,7 @@ applies whether you set the flag yourself or the default switches you over on a 
 Run with `stateful_ingestion.enabled: true` so the datasets from the previous mode are soft-deleted;
 without it they are left behind with no owner. Governance authored on them — owners, tags, terms,
 documentation — is not carried across automatically: use
-[`datahub migrate dbt-semantic-models`](../../../docs/features/feature-guides/metrics-and-semantic-models.md)
+[`datahub migrate dbt-semantic-models`](../../../../docs/features/feature-guides/metrics-and-semantic-models.md)
 for that, which works in both directions so the change stays reversible.
 
 If you are not ready, pin `emit_semantic_model_entities: false` and nothing changes.
