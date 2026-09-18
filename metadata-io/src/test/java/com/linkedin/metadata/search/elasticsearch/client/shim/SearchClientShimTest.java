@@ -140,6 +140,25 @@ public class SearchClientShimTest {
     assertEquals(copy.getPort(), Integer.valueOf(9201));
   }
 
+  @Test
+  public void rejectUnsupported7xVersionRejectsElasticsearch7AndOpenSearchCompat() {
+    IllegalStateException es7 =
+        expectThrows(
+            IllegalStateException.class,
+            () -> SearchClientShimUtil.rejectUnsupported7xVersion("7.17.9"));
+    assertTrue(es7.getMessage().contains("compatibility"));
+    IllegalStateException osCompat =
+        expectThrows(
+            IllegalStateException.class,
+            () -> SearchClientShimUtil.rejectUnsupported7xVersion("7.10.2"));
+    assertTrue(osCompat.getMessage().contains("7.10.2"));
+
+    SearchClientShimUtil.rejectUnsupported7xVersion("2.19.3");
+    SearchClientShimUtil.rejectUnsupported7xVersion("3.2.0");
+    SearchClientShimUtil.rejectUnsupported7xVersion("8.17.4");
+    SearchClientShimUtil.rejectUnsupported7xVersion(null);
+  }
+
   // Note: Integration tests that require live Elasticsearch/OpenSearch clusters
   // should be placed in separate test classes and run only when a test cluster is available.
   // These would test:

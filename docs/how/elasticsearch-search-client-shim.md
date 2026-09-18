@@ -13,7 +13,7 @@ DataHub's search client shim provides seamless support for:
 - **Elasticsearch 8.17+** (and Elasticsearch 9.x)
 - **OpenSearch 2.x and 3.x**
 
-Elasticsearch 7.x is not supported as a DataHub search backend.
+Elasticsearch 7.x is not supported as a DataHub search backend. OpenSearch **Elasticsearch compatibility mode** (`compatibility.override_main_response_version`, which reports `7.10.2`) is also not supported — turn it off so `GET /` reports the real OpenSearch 2.x/3.x version.
 
 ## Architecture
 

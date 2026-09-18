@@ -484,6 +484,7 @@ public class SearchClientShimUtil {
 
       try (SearchClientShim<?> testShim = new OpenSearchSearchClientShim(testConfig)) {
         String version = testShim.getEngineVersion();
+        rejectUnsupported7xVersion(version);
 
         if (version != null && version.startsWith("2.")) {
           return SearchEngineType.OPENSEARCH_2;
@@ -493,6 +494,8 @@ public class SearchClientShimUtil {
         }
         failures.add("OpenSearch: connected but version='" + version + "' (expected 2.x/3.x)");
       }
+    } catch (IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
       failures.add("OpenSearch: " + msg);
@@ -509,13 +512,7 @@ public class SearchClientShimUtil {
 
       try (SearchClientShim<?> testShim = new Es8SearchClientShim(testConfig, objectMapper)) {
         String version = testShim.getEngineVersion();
-
-        if (version != null && version.startsWith("7.")) {
-          throw new IllegalStateException(
-              "Elasticsearch 7.x is no longer supported as a DataHub search backend. Upgrade the"
-                  + " cluster to Elasticsearch 8+ or OpenSearch 2+ before starting this DataHub"
-                  + " version.");
-        }
+        rejectUnsupported7xVersion(version);
         if (version != null && version.startsWith("8.")) {
           return SearchEngineType.ELASTICSEARCH_8;
         } else if (version != null && version.startsWith("9.")) {
@@ -541,6 +538,21 @@ public class SearchClientShimUtil {
             + endpoint
             + ". Ensure the cluster is accessible and running a supported version. Details: "
             + detail);
+  }
+
+  /**
+   * Elasticsearch 7.x and OpenSearch Elasticsearch-compatibility mode (GET / reports 7.10.2) are
+   * not supported search backends. Compatibility mode is not treated as OpenSearch 2/3.
+   */
+  static void rejectUnsupported7xVersion(String version) {
+    if (version != null && version.startsWith("7.")) {
+      throw new IllegalStateException(
+          "A 7.x search-engine version is not supported as a DataHub search backend. This includes"
+              + " Elasticsearch 7.x and OpenSearch with Elasticsearch compatibility mode"
+              + " (compatibility.override_main_response_version, which reports 7.10.2). Upgrade to"
+              + " Elasticsearch 8+ or OpenSearch 2+/3+, and turn compatibility mode off so GET /"
+              + " reports the real 2.x/3.x version.");
+    }
   }
 
   /** Builder class for creating ShimConfiguration instances */

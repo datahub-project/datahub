@@ -9,7 +9,7 @@ The shim supports the following search engines:
 - **Elasticsearch 8.x / 9.x** - Using the Elasticsearch Java Client (8.17+)
 - **OpenSearch 2.x / 3.x** - Using the unified OpenSearch low-level RestClient shim
 
-Elasticsearch 7.x is not supported.
+Elasticsearch 7.x is not supported. OpenSearch Elasticsearch compatibility mode (GET / reports 7.10.2) is not supported; disable it so the cluster reports 2.x/3.x.
 
 ## Architecture
 
@@ -54,7 +54,6 @@ elasticsearch:
   shim:
     enabled: true
     engineType: AUTO_DETECT
-    apiCompatibilityMode: false
     autoDetectEngine: true
 ```
 
