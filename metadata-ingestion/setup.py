@@ -935,6 +935,7 @@ all_exclude_plugins: Set[str] = {
     # them out of "all" so uv can lock acryl-datahub for requires-python >=3.10.
     # Install explicitly: acryl-datahub[datahub-documents], [notion], [confluence],
     # or [unstructured]. Managed ingestion still maps source type to those extras.
+    # The full ingestion image re-adds them: [all,datahub-documents,notion,confluence].
     "datahub-documents",
     "unstructured",
     "notion",
