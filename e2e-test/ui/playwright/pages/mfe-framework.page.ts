@@ -15,9 +15,17 @@ export class MFEFrameworkPage {
 
   // Selectors
   readonly navBarItemHome = () => this.page.getByTestId('nav-bar-item-home');
+  readonly navSidebar = () => this.page.getByTestId('nav-sidebar');
   readonly mfeContainer = () => this.page.getByTestId('mfe-configurable-container');
   readonly mfeItemByName = (name: string) => this.page.getByText(name);
   readonly errorMessage = (mfeName: string) => this.page.getByText(`${mfeName} is not available`);
+
+  // Slot (entity.detail.tab) selectors
+  readonly entityHeader = () => this.page.getByTestId('entity-header-test-id');
+  readonly entityTabHeader = (tabName: string) => this.page.getByTestId(`${tabName}-entity-tab-header`);
+  readonly slotContainer = () => this.page.getByTestId('mfe-slot-container');
+  readonly slotCtx = () => this.page.getByTestId('mfe-slot-ctx');
+  readonly notFoundPage = () => this.page.getByRole('button', { name: 'Back to Home' });
 
   constructor(page: Page) {
     this.page = page;
@@ -128,5 +136,40 @@ export class MFEFrameworkPage {
     await this.navigateToHome();
     await this.skipIntroPage();
     await this.waitForPageLoad();
+  }
+
+  // ── Slot (entity.detail.tab) helpers ──────────────────────────────────────
+
+  /**
+   * Start counting requests for the remote entry bundle. Must be called BEFORE navigation.
+   * Returns a getter so tests can assert lazy-loading behaviour (0 until the tab is opened).
+   */
+  trackRemoteEntryRequests(): () => number {
+    let count = 0;
+    this.page.on('request', (request) => {
+      if (request.url().includes('remoteEntry.js')) count += 1;
+    });
+    return () => count;
+  }
+
+  /**
+   * Navigate straight to an entity profile page, optionally deep-linking to a tab.
+   * Mocks for /mfe/config and remoteEntry.js must already be installed.
+   */
+  async gotoDataset(urn: string, tabName?: string): Promise<void> {
+    const tabSegment = tabName ? `/${encodeURIComponent(tabName)}` : '';
+    await this.page.goto(`/dataset/${encodeURIComponent(urn)}${tabSegment}`);
+    await this.page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+    // The first profile load against a Vite dev server compiles the entity page on demand.
+    await this.entityHeader().waitFor({ state: 'visible', timeout: TIMEOUTS.EXTRA_LONG * 2 });
+  }
+
+  /**
+   * Parse the context JSON the stub remote rendered into the slot container.
+   */
+  async readSlotCtx(): Promise<Record<string, unknown>> {
+    await this.slotCtx().waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
+    const text = await this.slotCtx().textContent();
+    return JSON.parse(text ?? '{}') as Record<string, unknown>;
   }
 }
