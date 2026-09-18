@@ -810,9 +810,10 @@ class TestStructuredPropertyMerge:
         # attribution intact, and the stranded source still soft-deleted.
         assert not [a for (u, a) in graph.emitted if u == new_sf]
         stored = graph.get_aspect(new_sf, StructuredPropertiesClass)
-        assert stored is not None
-        assert stored.properties[0].attribution is not None
-        assert stored.properties[0].attribution.actor == "urn:li:corpuser:propagation"
+        assert isinstance(stored, StructuredPropertiesClass)
+        attribution = stored.properties[0].attribution
+        assert attribution is not None
+        assert attribution.actor == "urn:li:corpuser:propagation"
         assert old_sf in graph.soft_deleted
 
 
