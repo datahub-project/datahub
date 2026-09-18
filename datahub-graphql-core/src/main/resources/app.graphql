@@ -63,7 +63,9 @@ extend type Mutation {
   """
   Update the environment badge settings. Requires the Manage Features privilege.
   """
-  updateEnvironmentBadgeSettings(input: UpdateEnvironmentBadgeSettingsInput!): Boolean!
+  updateEnvironmentBadgeSettings(
+    input: UpdateEnvironmentBadgeSettingsInput!
+  ): Boolean!
 }
 
 """
