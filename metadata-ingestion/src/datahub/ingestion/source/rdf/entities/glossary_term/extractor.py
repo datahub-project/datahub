@@ -13,6 +13,10 @@ from rdflib.namespace import DC, DCTERMS, OWL, SKOS
 
 from datahub.ingestion.source.rdf.entities.base import EntityExtractor
 from datahub.ingestion.source.rdf.entities.glossary_term.ast import DataHubGlossaryTerm
+from datahub.ingestion.source.rdf.entities.glossary_term.kinds import (
+    ENTITY_KIND_PROPERTY,
+    resolve_entity_kind,
+)
 from datahub.ingestion.source.rdf.entities.glossary_term.urn_generator import (
     GlossaryTermUrnGenerator,
 )
@@ -126,6 +130,11 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
 
             # LLM-oriented properties: rdf:definition, types, hierarchy, provenance, SHACL, etc.
             self._extract_llm_properties(graph, uri, custom_properties)
+
+            if ENTITY_KIND_PROPERTY not in custom_properties:
+                custom_properties[ENTITY_KIND_PROPERTY] = resolve_entity_kind(
+                    graph, uri
+                )
 
             # Generate DataHub URN
             term_urn = self.urn_generator.generate_glossary_term_urn(source_uri)
