@@ -1,9 +1,10 @@
 import { render } from '@testing-library/react';
 import React from 'react';
 
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { CompactView } from '@app/previewV2/CompactView';
 
-import { Entity, EntityType, FabricType } from '@types';
+import { EntityType, FabricType } from '@types';
 
 // CompactView is the default (non-full-view, non-hover-card) search-result row and the other
 // EntityHeader caller besides DefaultPreviewCard. The pill's show/hide gate is already covered by
@@ -32,7 +33,7 @@ const baseProps = {
 };
 
 function renderCompactView(entityType: EntityType, data: unknown) {
-    return render(<CompactView {...baseProps} entityType={entityType} data={data as Entity as unknown as null} />);
+    return render(<CompactView {...baseProps} entityType={entityType} data={data as GenericEntityProperties} />);
 }
 
 describe('CompactView environment threading', () => {

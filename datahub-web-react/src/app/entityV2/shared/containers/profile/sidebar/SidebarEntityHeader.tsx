@@ -5,7 +5,7 @@ import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/header/EntityHeaderLoadingSection';
 import EntityName from '@app/entityV2/shared/containers/profile/header/EntityName';
-import EnvPill from '@app/entityV2/shared/containers/profile/header/EnvPill';
+import EnvPill, { useShowEnvPill } from '@app/entityV2/shared/containers/profile/header/EnvPill';
 import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { getEntityEnvironment } from '@app/entityV2/shared/containers/profile/header/getEntityEnvironment';
@@ -16,10 +16,9 @@ import ContextPath from '@app/previewV2/ContextPath';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import NotesIcon from '@app/previewV2/NotesIcon';
 import HorizontalScroller from '@app/sharedV2/carousel/HorizontalScroller';
-import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { DataPlatform, Entity, EntityType, Post } from '@types';
+import { DataPlatform, EntityType, Post } from '@types';
 
 const Wrapper = styled.div<{ $hasPlatformIcon?: boolean }>`
     padding: 0 ${(props) => (props.$hasPlatformIcon ? '16px' : '20px')};
@@ -36,7 +35,7 @@ const EntityDetailsContainer = styled.div`
     gap: 5px;
 `;
 
-const NameWrapper = styled.div`
+const NameWrapper = styled.div<{ $hasEnvPill?: boolean }>`
     display: flex;
     gap: 6px;
     align-items: center;
@@ -44,19 +43,20 @@ const NameWrapper = styled.div`
     font-size: 16px;
     // The entity name renders as an inline-block antd Typography element, which
     // otherwise inherits the tall line-height here and sits a few px below the
-    // flex-centered badges. 'normal' lets it center with the environment pill.
-    line-height: normal;
+    // flex-centered badges. Only override it while the environment pill is shown,
+    // so the default rendering is unchanged when the badge is off.
+    ${(props) => props.$hasEnvPill && 'line-height: normal;'}
 `;
 
 const SidebarEntityHeader = () => {
     const { urn, entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
-    const appConfig = useAppConfig();
     const entityUrl = entityRegistry.getEntityUrl(entityType, entityData?.urn as string);
 
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
-    const environment = getEntityEnvironment(entityData as unknown as Entity);
+    const environment = getEntityEnvironment(entityData);
+    const showEnvPill = useShowEnvPill(environment);
 
     const platform = entityType === EntityType.SchemaField ? entityData?.parent?.platform : entityData?.platform;
     const platforms =
@@ -82,7 +82,7 @@ const SidebarEntityHeader = () => {
                     />
                 )}
                 <EntityDetailsContainer>
-                    <NameWrapper>
+                    <NameWrapper $hasEnvPill={showEnvPill}>
                         <EntityName isNameEditable={false} />
                         {!!entityData?.notes?.total && (
                             <NotesIcon notes={entityData?.notes?.relationships?.map((r) => r.entity as Post) || []} />
@@ -97,9 +97,7 @@ const SidebarEntityHeader = () => {
                             />
                         )}
                         {entityData?.health && <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />}
-                        {appConfig.config?.visualConfig?.showEnvironmentBadge && environment && (
-                            <EnvPill environment={environment} />
-                        )}
+                        <EnvPill environment={environment} />
                         <StructuredPropertyBadge
                             structuredProperties={entityData?.structuredProperties}
                             platformUrn={(platform as DataPlatform | undefined)?.urn}

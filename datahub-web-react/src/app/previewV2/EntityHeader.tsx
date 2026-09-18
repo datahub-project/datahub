@@ -15,7 +15,6 @@ import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
-import { useAppConfig } from '@app/useAppConfig';
 
 import { DataPlatform, Deprecation, FabricType, Health, Maybe } from '@types';
 
@@ -100,7 +99,6 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
 }) => {
     const { t } = useTranslation('entity.preview');
     const linkProps = useEmbeddedProfileLinkProps();
-    const appConfig = useAppConfig();
 
     return (
         <EntityTitleContainer>
@@ -137,9 +135,7 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
                 />
             )}
             {health && <HealthIcon urn={urn} health={health} baseUrl={url} />}
-            {appConfig.config?.visualConfig?.showEnvironmentBadge && environment && (
-                <EnvPill environment={environment} />
-            )}
+            <EnvPill environment={environment} />
             <StructuredPropertyBadge
                 structuredProperties={previewData?.structuredProperties}
                 platformUrn={(previewData?.platform as DataPlatform | undefined)?.urn}

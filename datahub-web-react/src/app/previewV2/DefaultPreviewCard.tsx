@@ -270,10 +270,7 @@ export default function DefaultPreviewCard({
     const lastRunEvent = data?.lastRunEvent;
     const shouldShowDPIinfo =
         lastRunEvent?.timestampMillis || lastRunEvent?.durationMillis || lastRunEvent?.result?.resultType;
-    // `data` is a GenericEntityProperties projection of the raw search-result entity, but it's
-    // built by spreading that entity (see getDataForEntityType), so the fields getEntityEnvironment
-    // needs (type, origin, properties.env) are present on it at runtime.
-    const environment = getEntityEnvironment(data as unknown as Entity);
+    const environment = getEntityEnvironment(data);
     const entityHeader = (
         <EntityHeader
             name={name}

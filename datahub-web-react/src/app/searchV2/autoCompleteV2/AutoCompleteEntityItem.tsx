@@ -13,7 +13,6 @@ import { VARIANT_STYLES } from '@app/searchV2/autoCompleteV2/constants';
 import { EntityItemVariant } from '@app/searchV2/autoCompleteV2/types';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
 import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
-import { useAppConfig } from '@app/useAppConfig';
 import { Text } from '@src/alchemy-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity, MatchedField } from '@src/types.generated';
@@ -58,6 +57,8 @@ const DisplayNameHoverFromSelf = styled(DisplayName)`
 
 const DisplayNameWrapper = styled.div`
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: ${(props) => props.theme.colors.text};
     line-height: 20px;
 
@@ -71,10 +72,21 @@ const DisplayNameWrapper = styled.div`
     }
 `;
 
+// Row flex items default to min-width: auto, so a long nowrap name would keep its full
+// width and push the environment pill past the clipped edge. Let the name shrink and
+// truncate instead, and keep the pill at its natural width.
 const NameRow = styled.div`
     display: flex;
     align-items: center;
     gap: 6px;
+
+    & > :first-child {
+        min-width: 0;
+    }
+
+    & > :not(:first-child) {
+        flex-shrink: 0;
+    }
 `;
 
 const SubtitleAndMatchesWrapper = styled.div`
@@ -174,7 +186,6 @@ export default function AutoCompleteEntityItem({
 }: EntityAutocompleteItemProps) {
     const entityRegistry = useEntityRegistryV2();
     const linkProps = useGetModalLinkProps();
-    const appConfig = useAppConfig();
     const environment = getEntityEnvironment(entity);
 
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
@@ -269,9 +280,7 @@ export default function AutoCompleteEntityItem({
                                 <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
                             </HoverEntityTooltip>
                         )}
-                        {appConfig.config?.visualConfig?.showEnvironmentBadge && environment && (
-                            <EnvPill environment={environment} />
-                        )}
+                        <EnvPill environment={environment} />
                     </NameRow>
 
                     {(!hideSubtitle || !hideMatches) && (

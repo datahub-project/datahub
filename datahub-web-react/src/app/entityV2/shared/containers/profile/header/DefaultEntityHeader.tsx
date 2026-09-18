@@ -25,10 +25,9 @@ import ContextPath from '@app/previewV2/ContextPath';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import NotesIcon from '@app/previewV2/NotesIcon';
 import { useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
-import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { DataPlatform, DisplayProperties, Domain, Entity, EntityType, Post } from '@types';
+import { DataPlatform, DisplayProperties, Domain, EntityType, Post } from '@types';
 
 const TitleWrapper = styled.div`
     min-width: 0;
@@ -150,13 +149,12 @@ export const DefaultEntityHeader = ({
 }: Props) => {
     const [showIconPicker, setShowIconPicker] = useState(false);
     const entityRegistry = useEntityRegistry();
-    const appConfig = useAppConfig();
     const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
     const generateDomainColor = useGenerateDomainColorFromPalette();
 
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const { platform, platforms } = getEntityPlatforms(entityType, entityData);
-    const environment = getEntityEnvironment(entityData as unknown as Entity);
+    const environment = getEntityEnvironment(entityData);
 
     const isGlossaryNode = entityType === EntityType.GlossaryNode;
     const isGlossaryTerm = entityType === EntityType.GlossaryTerm;
@@ -249,9 +247,7 @@ export const DefaultEntityHeader = ({
                                         {entityData?.health && (
                                             <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />
                                         )}
-                                        {appConfig.config?.visualConfig?.showEnvironmentBadge && environment && (
-                                            <EnvPill environment={environment} />
-                                        )}
+                                        <EnvPill environment={environment} />
                                         <StructuredPropertyBadge
                                             structuredProperties={entityData?.structuredProperties}
                                             platformUrn={platform?.urn}

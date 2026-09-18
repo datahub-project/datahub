@@ -41,12 +41,8 @@ public class UpdateEnvironmentBadgeSettingsResolver
                   _settingsService.getGlobalSettings(context.getOperationContext());
               final GlobalSettingsInfo newGlobalSettings =
                   maybeGlobalSettings != null ? maybeGlobalSettings : new GlobalSettingsInfo();
-              final EnvironmentBadgeSettings newSettings =
-                  newGlobalSettings.hasEnvironmentBadge()
-                      ? newGlobalSettings.getEnvironmentBadge()
-                      : new EnvironmentBadgeSettings().setEnabled(false);
-              newSettings.setEnabled(input.getEnabled());
-              newGlobalSettings.setEnvironmentBadge(newSettings);
+              newGlobalSettings.setEnvironmentBadge(
+                  new EnvironmentBadgeSettings().setEnabled(input.getEnabled()));
               _settingsService.updateGlobalSettings(
                   context.getOperationContext(), newGlobalSettings);
               return true;

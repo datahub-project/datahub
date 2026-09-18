@@ -65,8 +65,6 @@ interface Props {
     health?: Health[];
     // eslint-disable-next-line react/no-unused-prop-types
     description?: string;
-    // eslint-disable-next-line react/no-unused-prop-types
-    qualifier?: string | null;
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
     actions?: EntityMenuActions;
@@ -105,10 +103,7 @@ export const CompactView = ({
     parentEntities,
     browsePaths,
 }: Props) => {
-    // `data` is a GenericEntityProperties projection of the raw search-result entity, but it's
-    // built by spreading that entity (see getDataForEntityType), so the fields getEntityEnvironment
-    // needs (type, origin, properties.env) are present on it at runtime.
-    const environment = getEntityEnvironment(data as unknown as Entity);
+    const environment = getEntityEnvironment(data);
     return (
         <>
             <RowContainer>
