@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Callable, Optional
 
 from pydantic.fields import Field
 
@@ -9,13 +9,16 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     DashboardInfoClass,
+    DataJobInputOutputClass,
     FineGrainedLineageClass,
     SystemMetadataClass,
     UpstreamLineageClass,
 )
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
+from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +34,73 @@ def convert_upstream_lineage_to_patch(
     for fine_upstream in aspect.fineGrainedLineages or []:
         patch_builder.add_fine_grained_upstream_lineage(fine_upstream)
     mcp = next(iter(patch_builder.build()))
+    return MetadataWorkUnit(id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp)
+
+
+def convert_datajob_input_output_to_patch(
+    urn: str,
+    aspect: DataJobInputOutputClass,
+    system_metadata: Optional[SystemMetadataClass],
+) -> Optional[MetadataWorkUnit]:
+    """Convert a full dataJobInputOutput aspect into an additive patch.
+
+    A full upsert of this aspect replaces the `inputDatasetEdges` /
+    `inputDatajobEdges` / `outputDatasetEdges` fields, which is where DataHub stores
+    lineage added by hand, so re-stating it deletes the user's edges.
+
+    Note the patch writes the `*Edges` fields while a full upsert writes the plain
+    `inputDatasets` / `inputDatajobs` / `outputDatasets` arrays. The patch template
+    server-side only supports the `*Edges` paths, so entries already in the plain
+    arrays from earlier non-patch runs cannot be removed here and will remain until
+    cleaned up out of band.
+    """
+    patch_builder = DataJobPatchBuilder(urn, system_metadata)
+
+    def _add(add: Callable[[str], object], edge_urn: str, kind: str) -> None:
+        try:
+            add(edge_urn)
+        except (ValueError, InvalidUrnError):
+            # A malformed or wrong-typed URN costs its own edge, not the aspect. Both
+            # are needed: a prefix mismatch raises ValueError, while an unparseable URN
+            # raises InvalidUrnError, which does not subclass it.
+            logger.warning("Skipping %s edge %s on %s", kind, edge_urn, urn)
+
+    for dataset_urn in aspect.inputDatasets or []:
+        _add(patch_builder.add_input_dataset, dataset_urn, "input dataset")
+    for dataset_urn in aspect.outputDatasets or []:
+        _add(patch_builder.add_output_dataset, dataset_urn, "output dataset")
+    for datajob_urn in aspect.inputDatajobs or []:
+        _add(patch_builder.add_input_datajob, datajob_urn, "input datajob")
+    for field_urn in aspect.inputDatasetFields or []:
+        _add(patch_builder.add_input_dataset_field, field_urn, "input dataset field")
+    for field_urn in aspect.outputDatasetFields or []:
+        _add(patch_builder.add_output_dataset_field, field_urn, "output dataset field")
+    for fine_upstream in aspect.fineGrainedLineages or []:
+        try:
+            patch_builder.add_fine_grained_lineage(fine_upstream)
+        except TypeError:
+            # The patch path keys on a single downstream, so a multi-downstream entry
+            # can't be expressed. Drop it rather than lose the whole aspect.
+            logger.warning(
+                "Skipping column lineage for %s: a patch needs exactly one downstream, got %d",
+                urn,
+                len(fine_upstream.downstreams or []),
+            )
+
+    values = patch_builder.build()
+    if not values:
+        # Nothing addable in the aspect; a patch would be an empty no-op.
+        return None
+    if len(values) > 1:
+        # Every patch above targets dataJobInputOutput with no array_primary_keys, so
+        # the builder groups them into one MCP. Warn rather than drop silently if that
+        # ever stops holding.
+        logger.warning(
+            "Expected one patch MCP for %s, got %d; emitting the first",
+            urn,
+            len(values),
+        )
+    mcp = next(iter(values))
     return MetadataWorkUnit(id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp)
 
 

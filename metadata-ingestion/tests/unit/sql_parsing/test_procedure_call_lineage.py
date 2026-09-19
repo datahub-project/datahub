@@ -375,3 +375,53 @@ def test_begin_end_wrapped_body_recovers_first_dml_and_call():
     assert result.outputDatasets == [
         "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.target_table,PROD)"
     ]
+
+
+def test_tsql_dispatcher_procedure_without_semicolons():
+    """Newline-separated ``EXEC`` calls inside ``BEGIN TRY`` must resolve every callee.
+
+    Distinct callees on purpose: a repeated callee would dedupe to one URN and hide a
+    dropped call. The trailing ``SET NOCOUNT OFF`` / ``RETURN`` used to swallow the
+    final call.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+
+    code = """
+    CREATE PROCEDURE dbo.add_stats (@p_id CHAR(10), @p_date SMALLDATETIME = NULL)
+    AS
+    BEGIN
+        SET NOCOUNT ON
+
+        BEGIN TRY
+            -- dispatch one row per statistic type
+            EXEC add_stats_detail @p_id,1,@p_date
+            EXEC add_stats_offer @p_id,3,@p_date
+            EXEC add_stats_bid @p_id,4,@p_date
+            SET NOCOUNT OFF
+            RETURN
+        END TRY
+        BEGIN CATCH
+            EXEC master.dbo.sp_LogError @p_id
+            SET NOCOUNT OFF
+            RETURN
+        END CATCH
+    END
+    """
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+    assert result.inputDatajobs == [
+        f"urn:li:dataJob:({flow},add_stats_detail)",
+        f"urn:li:dataJob:({flow},add_stats_offer)",
+        f"urn:li:dataJob:({flow},add_stats_bid)",
+        "urn:li:dataJob:(urn:li:dataFlow:"
+        "(mssql,master.dbo.stored_procedures,STG),sp_LogError)",
+    ]

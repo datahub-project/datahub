@@ -3,7 +3,7 @@ from typing import List
 
 import pytest
 
-from datahub.sql_parsing.split_statements import split_statements
+from datahub.sql_parsing.split_statements import _is_tsql, split_statements
 
 
 def test_split_statements_complex() -> None:
@@ -1152,3 +1152,207 @@ def test_new_identifier_tokenized_as_all_keyword_does_not_merge() -> None:
         )
         == 1
     )
+
+
+def test_new_tsql_consecutive_exec_without_semicolons_split() -> None:
+    # T-SQL separates EXEC calls by newline, not ';'. Distinct callees: a shared callee
+    # would hide a dropped call behind URN dedup.
+    out = [
+        c.strip()
+        for c in split_statements(
+            """
+            BEGIN TRY
+                EXEC my_db.dbo.proc_a @p_id, 1, @p_date
+                EXEC my_db.dbo.proc_b @p_id, 2, @p_date
+                EXECUTE proc_c @p_id
+                SET NOCOUNT OFF
+                RETURN
+            END TRY
+            """,
+            dialect="tsql",
+        )
+    ]
+    assert [c for c in out if c.upper().startswith(("EXEC ", "EXECUTE "))] == [
+        "EXEC my_db.dbo.proc_a @p_id, 1, @p_date",
+        "EXEC my_db.dbo.proc_b @p_id, 2, @p_date",
+        "EXECUTE proc_c @p_id",
+    ], out
+
+
+def test_new_exec_boundary_is_tsql_only() -> None:
+    # The EXECUTE boundary must not leak into dialects where CALL/EXECUTE is a Command
+    # literal whose existing boundary handling is already correct.
+    assert _is_tsql("tsql")
+    assert not _is_tsql("postgres")
+    out = [
+        c.strip()
+        for c in split_statements("EXECUTE proc_a\nEXECUTE proc_b", dialect="postgres")
+    ]
+    assert len(out) == 1, out
+
+
+def test_new_tsql_exec_as_identifier_not_a_boundary() -> None:
+    # `exec` naming a column must not split the statement.
+    out = [
+        c.strip()
+        for c in split_statements("SELECT exec FROM my_db.dbo.my_table", dialect="tsql")
+    ]
+    assert len(out) == 1, out
+
+
+def test_new_tsql_exec_in_branch_and_procedure_header() -> None:
+    # ELSE and AS are continuation tokens, but a real EXEC still follows them.
+    branch = [
+        c.strip()
+        for c in split_statements(
+            "IF @x = 1\n EXEC proc_a @p\nELSE\n EXEC proc_b @p", dialect="tsql"
+        )
+    ]
+    assert [c for c in branch if c.upper().startswith("EXEC ")] == [
+        "EXEC proc_a @p",
+        "EXEC proc_b @p",
+    ], branch
+
+    header = [
+        c.strip()
+        for c in split_statements(
+            "CREATE PROCEDURE dbo.wrapper AS EXEC dbo.child @p", dialect="tsql"
+        )
+    ]
+    assert "EXEC dbo.child @p" in header, header
+
+
+def test_new_tsql_privilege_list_not_split_on_execute() -> None:
+    # GRANT/REVOKE/DENY name EXECUTE as a privilege, not a statement.
+    for stmt in (
+        "GRANT EXECUTE ON dbo.proc_a TO some_role",
+        "DENY EXECUTE ON OBJECT::dbo.proc_a TO some_role",
+    ):
+        out = [c.strip() for c in split_statements(stmt, dialect="tsql")]
+        assert len(out) == 1, out
+
+
+def test_new_tsql_insert_exec_splits_into_two_statements() -> None:
+    # `INSERT INTO t EXEC proc` previously merged into one unparseable statement. It now
+    # splits; pinned because this affects every T-SQL caller, not just procedures.
+    out = [
+        c.strip()
+        for c in split_statements(
+            "INSERT INTO my_db.dbo.t EXEC dbo.proc_a @p", dialect="tsql"
+        )
+    ]
+    assert out == ["INSERT INTO my_db.dbo.t", "EXEC dbo.proc_a @p"], out
+
+
+def test_new_tsql_exec_closes_preceding_exec_without_a_name() -> None:
+    # `EXEC @rc = proc` and `EXEC(@sql)` don't start with a procedure name, so they
+    # can't open a statement. They still close a *preceding EXEC*; a preceding
+    # non-EXEC statement still absorbs them, which sqlglot can't parse either way.
+    for sql in (
+        "EXEC dbo.p1 @a\nEXEC @rc = dbo.p2 @b\nEXEC dbo.p3 @c",
+        "EXEC dbo.p1 @a\nEXEC(@sql)\nEXEC dbo.p3 @c",
+    ):
+        out = [c.strip() for c in split_statements(sql, dialect="tsql")]
+        assert "EXEC dbo.p1 @a" in out, out
+        assert "EXEC dbo.p3 @c" in out, out
+
+
+def test_new_tsql_keyword_valued_argument_does_not_split_exec() -> None:
+    # A string or quoted identifier carries its content as token text, so matching on
+    # text alone would split `@mode = 'RETURN'` or `[SET]` mid-call.
+    for sql in (
+        "EXEC dbo.p @mode = 'RETURN'",
+        "EXEC dbo.audit 'SET', @id",
+        "EXEC dbo.p [SET]",
+        # N-prefixed unicode literals are the T-SQL default and tokenize as
+        # NATIONAL_STRING, again carrying their content as token text.
+        "EXEC dbo.p @mode = N'RETURN', @tbl = N'x'",
+        "EXEC dbo.audit N'SET', @id",
+    ):
+        out = [c.strip() for c in split_statements(sql, dialect="tsql")]
+        assert out == [sql], out
+
+
+def test_new_tsql_keyword_named_parameter_does_not_split_exec() -> None:
+    # `@set` tokenizes as the `@` sigil plus a bare `set`, so matching statement
+    # keywords on token text alone would split the argument list. These are all legal
+    # T-SQL parameter names.
+    for keyword in (
+        "else",
+        "set",
+        "declare",
+        "return",
+        "print",
+        "raiserror",
+        "throw",
+        "goto",
+        "break",
+        "continue",
+        "waitfor",
+        "commit",
+        "rollback",
+    ):
+        sql = f"EXEC dbo.p @{keyword} = 1, @other = 2"
+        out = [c.strip() for c in split_statements(sql, dialect="tsql")]
+        assert out == [sql], out
+
+
+def test_new_tsql_keyword_named_parameter_keeps_neighbouring_call() -> None:
+    # The failure mode this PR exists to fix: a swallowed call.
+    out = [
+        c.strip()
+        for c in split_statements(
+            "EXEC dbo.child_a @set = 1\nEXEC dbo.child_b @p", dialect="tsql"
+        )
+    ]
+    assert out == ["EXEC dbo.child_a @set = 1", "EXEC dbo.child_b @p"], out
+
+
+def test_new_tsql_cursor_keywords_close_an_exec() -> None:
+    # Cursor-driven dispatchers are common; these keywords used to swallow the call
+    # before them into one unparseable statement.
+    for keyword in (
+        "OPEN c",
+        "FETCH NEXT FROM c",
+        "CLOSE c",
+        "DEALLOCATE c",
+        "USE other_db",
+        "DBCC CHECKDB",
+    ):
+        out = [
+            c.strip()
+            for c in split_statements(f"EXEC dbo.p1 @a\n{keyword}", dialect="tsql")
+        ]
+        assert out[0] == "EXEC dbo.p1 @a", out
+
+
+def test_new_deny_guard_is_tsql_only() -> None:
+    # DENY names EXECUTE as a privilege in T-SQL; it must not become a continuation
+    # keyword for other dialects.
+    assert (
+        len(
+            list(split_statements("DENY EXECUTE ON OBJECT::dbo.p TO r", dialect="tsql"))
+        )
+        == 1
+    )
+    assert len(list(split_statements("SELECT deny FROM t", dialect="postgres"))) == 1
+
+
+def test_new_tsql_procedure_named_after_a_statement_keyword() -> None:
+    # The keyword test must not fire on a procedure *name*. After EXEC or a
+    # qualifying DOT the token names something; THROW in particular is not reserved,
+    # so `EXEC dbo.Throw` is legal unbracketed T-SQL.
+    for sql in (
+        "EXEC dbo.Throw @a",
+        "EXEC dbo.Close @a",
+        "EXEC Close @a",
+        "EXEC dbo.[Close] @a",
+    ):
+        assert [c.strip() for c in split_statements(sql, dialect="tsql")] == [sql], sql
+
+    # ...and a following call still starts its own statement.
+    out = [
+        c.strip()
+        for c in split_statements("EXEC Throw @a\nEXEC dbo.p2 @b", dialect="tsql")
+    ]
+    assert out == ["EXEC Throw @a", "EXEC dbo.p2 @b"], out

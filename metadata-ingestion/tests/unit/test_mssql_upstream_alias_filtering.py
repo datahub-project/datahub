@@ -5,12 +5,35 @@ Tests the filtering of spurious TSQL aliases that appear in UPDATE/DELETE statem
 like: UPDATE t SET col = val FROM schema.table t
 """
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_datajob_input_output_to_patch,
+)
 from datahub.ingestion.source.sql.mssql.alias_filter import MSSQLAliasFilter
+from datahub.ingestion.source.sql.mssql.job_models import (
+    MSSQLProceduresContainer,
+    ProcedureDependency,
+    ProcedureLineageStream,
+    StoredProcedure,
+)
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.metadata.schema_classes import (
+    DataJobInfoClass,
+    DataJobInputOutputClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    GenericAspectClass,
+    MetadataChangeProposalClass,
+)
 
 
 @pytest.fixture
@@ -631,3 +654,392 @@ class TestColumnLineageFiltering:
 
         # fineGrainedLineages should be None when all are filtered
         assert aspect.fineGrainedLineages is None
+
+
+class TestProcedureCallLineagePreserved:
+    """A dispatcher procedure's lineage is datajob-only and must survive the filter."""
+
+    def test_datajob_only_lineage_is_not_dropped(self, mssql_source):
+        # The filter only inspects datasets, so without an inputDatajobs check this
+        # aspect would be discarded and the procedure-to-procedure edge lost.
+        callee = (
+            "urn:li:dataJob:(urn:li:dataFlow:"
+            "(mssql,test_instance.db1.dbo.stored_procedures,PROD),callee_proc)"
+        )
+        mcps = [
+            MetadataChangeProposalWrapper(
+                entityUrn=(
+                    "urn:li:dataJob:(urn:li:dataFlow:"
+                    "(mssql,test_instance.db1.dbo.stored_procedures,PROD),caller_proc)"
+                ),
+                aspect=DataJobInputOutputClass(
+                    inputDatasets=[],
+                    outputDatasets=[],
+                    inputDatajobs=[callee],
+                ),
+            )
+        ]
+
+        filtered = list(
+            mssql_source.tsql_alias_cleaner.filter_procedure_lineage(
+                mcps, "caller_proc"
+            )
+        )
+
+        assert len(filtered) == 1
+        aspect = filtered[0].aspect
+        assert isinstance(aspect, DataJobInputOutputClass)
+        assert aspect.inputDatajobs == [callee]
+
+    def test_aspect_with_nothing_left_is_still_dropped(self, mssql_source):
+        # The original behaviour must hold when every field ends up empty.
+        mcps = [
+            MetadataChangeProposalWrapper(
+                entityUrn=(
+                    "urn:li:dataJob:(urn:li:dataFlow:"
+                    "(mssql,test_instance.db1.dbo.stored_procedures,PROD),caller_proc)"
+                ),
+                aspect=DataJobInputOutputClass(
+                    inputDatasets=[
+                        "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)"
+                    ],
+                    outputDatasets=[],
+                    inputDatajobs=[],
+                ),
+            )
+        ]
+
+        filtered = list(
+            mssql_source.tsql_alias_cleaner.filter_procedure_lineage(
+                mcps, "caller_proc"
+            )
+        )
+
+        assert filtered == []
+
+
+class TestProcedureLineagePatchEmit:
+    """`incremental_lineage` must patch dataJobInputOutput rather than replace it.
+
+    A full upsert wipes the `*Edges` fields that hold manually added lineage.
+    """
+
+    CALLER = (
+        "urn:li:dataJob:(urn:li:dataFlow:"
+        "(mssql,test_instance.db1.dbo.stored_procedures,PROD),caller_proc)"
+    )
+    UPSTREAM = "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.real_table,PROD)"
+
+    def _lineage_workunit(self):
+        return MetadataChangeProposalWrapper(
+            entityUrn=self.CALLER,
+            aspect=DataJobInputOutputClass(
+                inputDatasets=[self.UPSTREAM],
+                outputDatasets=[],
+                inputDatajobs=[],
+            ),
+        ).as_workunit()
+
+    def test_emits_patch_when_incremental_lineage_enabled(self, mssql_source):
+        mssql_source.config.incremental_lineage = True
+
+        workunits = list(
+            mssql_source._convert_procedure_lineage_to_patch([self._lineage_workunit()])
+        )
+
+        assert len(workunits) == 1
+        mcp = workunits[0].metadata
+        assert mcp.changeType == "PATCH"
+        assert mcp.aspectName == "dataJobInputOutput"
+        assert mcp.entityUrn == self.CALLER
+
+    def test_emits_full_aspect_when_incremental_lineage_disabled(self, mssql_source):
+        mssql_source.config.incremental_lineage = False
+
+        workunits = list(
+            mssql_source._convert_procedure_lineage_to_patch([self._lineage_workunit()])
+        )
+
+        assert len(workunits) == 1
+        aspect = workunits[0].metadata.aspect
+        assert isinstance(aspect, DataJobInputOutputClass)
+        assert aspect.inputDatasets == [self.UPSTREAM]
+
+
+class TestProcedureDependencyPermissionFailure:
+    """A procedure whose dependencies are unreadable must not take down the schema.
+
+    `loop_stored_procedures` is a generator handled only at the schema level, so an
+    uncaught error here drops every procedure that would have followed it.
+    """
+
+    @staticmethod
+    def _procedure(name):
+        flow = MSSQLProceduresContainer(
+            name="db1.dbo.stored_procedures",
+            env="PROD",
+            db="db1",
+            platform_instance="test_instance",
+        )
+        return StoredProcedure(db="db1", schema="dbo", name=name, flow=flow)
+
+    def test_both_directions_denied_reports_once(self, mssql_source):
+        mssql_source.report = SQLSourceReport()
+        denied = OperationalError("stmt", {}, Exception("permission denied"))
+        with (
+            patch.object(
+                SQLServerSource, "_get_procedure_upstream", side_effect=denied
+            ),
+            patch.object(
+                SQLServerSource, "_get_procedure_downstream", side_effect=denied
+            ),
+        ):
+            result = mssql_source._get_procedure_dependencies(
+                MagicMock(), self._procedure("proc_a")
+            )
+
+        # None, not an empty stream: the properties are omitted rather than reported
+        # as "no dependencies".
+        assert result.upstream is None
+        assert result.downstream is None
+        # The reporter keys on title, so a database-wide denial stays one entry.
+        assert len(mssql_source.report.warnings) == 1
+
+    def test_denied_direction_omits_only_its_own_property(self, mssql_source):
+        # A denied upstream must neither discard the successful downstream nor write an
+        # empty `procedure_depends_on`, which would read as "queried fine, none found".
+        mssql_source.report = SQLSourceReport()
+        downstream = ProcedureLineageStream(
+            dependencies=[
+                ProcedureDependency(
+                    db="db1",
+                    schema="dbo",
+                    name="some_table",
+                    type="USER_TABLE",
+                    env="PROD",
+                    server=None,
+                )
+            ]
+        )
+        with (
+            patch.object(
+                SQLServerSource,
+                "_get_procedure_upstream",
+                side_effect=OperationalError("stmt", {}, Exception("denied")),
+            ),
+            patch.object(
+                SQLServerSource,
+                "_get_procedure_downstream",
+                staticmethod(lambda conn, procedure: downstream),
+            ),
+            patch.object(
+                SQLServerSource,
+                "_get_procedure_code",
+                staticmethod(lambda conn, procedure: (None, None)),
+            ),
+            patch.object(
+                SQLServerSource,
+                "_get_procedure_inputs",
+                staticmethod(lambda conn, procedure: []),
+            ),
+            patch.object(
+                SQLServerSource,
+                "_get_procedure_properties",
+                staticmethod(lambda conn, procedure: {}),
+            ),
+        ):
+            workunits = list(
+                mssql_source._process_stored_procedure(
+                    MagicMock(), self._procedure("proc_a")
+                )
+            )
+
+        properties = next(
+            wu.metadata.aspect.customProperties
+            for wu in workunits
+            if isinstance(wu.metadata.aspect, DataJobInfoClass)
+        )
+        assert "procedure_depends_on" not in properties
+        assert "some_table" in properties["depending_on_procedure"]
+
+    def test_later_procedures_still_processed(self, mssql_source):
+        # The regression that matters: loop_stored_procedures is a generator, so an
+        # uncaught error used to drop every procedure after the failing one.
+        mssql_source.report = SQLSourceReport()
+        mssql_source.stored_procedures = []
+
+        def selective_failure(conn, procedure):
+            if procedure.name == "proc_a":
+                raise OperationalError("stmt", {}, Exception("permission denied"))
+            return ProcedureLineageStream(dependencies=[])
+
+        def no_dependencies(conn, procedure):
+            return ProcedureLineageStream(dependencies=[])
+
+        inspector = MagicMock()
+        inspector.engine.url.database = "db1"
+
+        with (
+            patch.object(
+                SQLServerSource,
+                "_get_stored_procedures",
+                staticmethod(
+                    lambda conn, db_name, schema: [
+                        dict(db="db1", schema="dbo", name=name)
+                        for name in ("proc_a", "proc_b", "proc_c")
+                    ]
+                ),
+            ),
+            patch.object(
+                SQLServerSource,
+                "_get_procedure_upstream",
+                staticmethod(selective_failure),
+            ),
+            patch.object(
+                SQLServerSource,
+                "_get_procedure_downstream",
+                staticmethod(no_dependencies),
+            ),
+            patch.object(
+                SQLServerSource,
+                "_get_procedure_code",
+                staticmethod(lambda conn, procedure: (None, None)),
+            ),
+            patch.object(
+                SQLServerSource,
+                "_get_procedure_inputs",
+                staticmethod(lambda conn, procedure: []),
+            ),
+            patch.object(
+                SQLServerSource,
+                "_get_procedure_properties",
+                staticmethod(lambda conn, procedure: {}),
+            ),
+        ):
+            list(
+                mssql_source.loop_stored_procedures(
+                    inspector, "dbo", mssql_source.config
+                )
+            )
+
+        # All three reached lineage extraction, including the two after the failure.
+        assert [p.name for p in mssql_source.stored_procedures] == [
+            "proc_a",
+            "proc_b",
+            "proc_c",
+        ]
+        assert len(mssql_source.report.warnings) == 1
+
+
+class TestUpsertDropsManualEdges:
+    """Why the patch path exists: a full upsert carries no `*Edges` fields."""
+
+    def test_upsert_payload_has_no_edge_fields(self, mssql_source):
+        mssql_source.config.incremental_lineage = False
+        wu = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataJob:(urn:li:dataFlow:(mssql,f,PROD),j)",
+            aspect=DataJobInputOutputClass(
+                inputDatasets=["urn:li:dataset:(urn:li:dataPlatform:mssql,d,PROD)"],
+                outputDatasets=[],
+                inputDatajobs=[],
+            ),
+        ).as_workunit()
+
+        aspect = list(mssql_source._convert_procedure_lineage_to_patch([wu]))[
+            0
+        ].metadata.aspect
+
+        # Sending this replaces the aspect, so any manual edge is lost.
+        assert isinstance(aspect, DataJobInputOutputClass)
+        assert not aspect.inputDatasetEdges
+        assert not aspect.inputDatajobEdges
+
+    def test_empty_aspect_is_dropped_without_a_warning(self, mssql_source):
+        # SQL Agent job steps always emit an empty lineage aspect, so warning here
+        # would fire for every job step on a default recipe. Dropping it is still
+        # right -- an empty upsert would wipe manual edges.
+        mssql_source.config.incremental_lineage = True
+        mssql_source.report = SQLSourceReport()
+        wu = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataJob:(urn:li:dataFlow:(mssql,f,PROD),step)",
+            aspect=DataJobInputOutputClass(
+                inputDatasets=[], outputDatasets=[], inputDatajobs=[]
+            ),
+        ).as_workunit()
+
+        assert list(mssql_source._convert_procedure_lineage_to_patch([wu])) == []
+        assert len(mssql_source.report.warnings) == 0
+
+    def test_unconvertible_content_is_reported(self, mssql_source):
+        # Had lineage, none of it survived conversion: that is worth surfacing.
+        field = (
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,{},PROD),{})"
+        )
+        mssql_source.config.incremental_lineage = True
+        mssql_source.report = SQLSourceReport()
+        wu = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataJob:(urn:li:dataFlow:(mssql,f,PROD),j)",
+            aspect=DataJobInputOutputClass(
+                inputDatasets=[],
+                outputDatasets=[],
+                inputDatajobs=[],
+                fineGrainedLineages=[
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+                        upstreams=[field.format("d", "a")],
+                        # Two downstreams can't be keyed by the patch template.
+                        downstreams=[field.format("e", "b"), field.format("e", "c")],
+                    )
+                ],
+            ),
+        ).as_workunit()
+
+        assert list(mssql_source._convert_procedure_lineage_to_patch([wu])) == []
+        assert len(mssql_source.report.warnings) == 1
+
+
+class TestPatchConversionOrdering:
+    def test_conversion_runs_after_the_default_processors(self, mssql_source):
+        """The conversion must not run in get_workunits_internal.
+
+        AutoLowercaseUrnsProcessor and AutoResolveLineageUrnsProcessor both need the
+        typed upsert aspect, and the latter skips lineage that already arrived as a
+        PATCH. Appending after super() puts the conversion behind both.
+        """
+        base = SQLAlchemySource.get_workunit_processors(mssql_source)
+        processors = mssql_source.get_workunit_processors()
+
+        # Appended after the whole default chain, whichever of it is enabled, so every
+        # default processor sees the typed upsert before the conversion runs.
+        assert len(processors) == len(base) + 1
+        assert processors[-1] == mssql_source._convert_procedure_lineage_to_patch
+
+
+class TestPatchConverterUrnErrors:
+    """A bad URN must cost its own edge, not the procedure's whole aspect."""
+
+    JOB = "urn:li:dataJob:(urn:li:dataFlow:(mssql,f,PROD),j)"
+    GOOD = "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.t,PROD)"
+
+    def test_malformed_urns_are_skipped_not_raised(self):
+        # add_input_dataset raises ValueError on a prefix mismatch but InvalidUrnError
+        # on an unparseable URN, and the field adders raise only the latter.
+        workunit = convert_datajob_input_output_to_patch(
+            self.JOB,
+            DataJobInputOutputClass(
+                inputDatasets=[self.GOOD, "not-a-urn", "urn:li:dataset:(broken"],
+                outputDatasets=[],
+                inputDatajobs=[],
+                inputDatasetFields=["urn:li:schemaField:(broken", self.GOOD],
+            ),
+            None,
+        )
+
+        assert workunit is not None
+        mcp = workunit.metadata
+        assert isinstance(mcp, MetadataChangeProposalClass)
+        aspect = mcp.aspect
+        assert isinstance(aspect, GenericAspectClass)
+        patches = json.loads(aspect.value.decode())
+        assert [p["path"] for p in patches] == [f"/inputDatasetEdges/{self.GOOD}"]
