@@ -37,6 +37,9 @@ from datahub.ingestion.source.snowflake.snowflake_assertion import (
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_MESSAGE,
+    SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_TITLE,
+    SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL,
     SnowflakeConnection,
     SnowflakeConnectionConfig,
 )
@@ -162,6 +165,16 @@ class SnowflakeV2Source(
         super().__init__(config, ctx)
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
+
+        # Mirror the deprecation in the structured report so it surfaces in the
+        # DataHub UI, not just CLI stdout. The URL goes in `context` and the
+        # message is a Final literal so identical warnings group in the report.
+        if self.config.is_using_password_auth():
+            self.report.warning(
+                SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_MESSAGE,
+                context=SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL,
+                title=SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_TITLE,
+            )
 
         self.filters = SnowflakeFilter(
             filter_config=self.config, structured_reporter=self.report
