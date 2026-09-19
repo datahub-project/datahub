@@ -2,6 +2,10 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+#### Geospatial schema types
+
+`geometry` and `geography` columns are mapped to strings. Their native data type preserves the coordinate reference system and, for geography, the edge interpolation algorithm. Geospatial payloads are not decoded.
+
 #### Setting up connection to an Iceberg catalog
 
 There are multiple servers compatible with the Iceberg Catalog specification. DataHub's `iceberg` connector uses `pyiceberg`
