@@ -406,44 +406,66 @@ class TestObjectStoreSourceAdapter:
         )
 
     @pytest.mark.parametrize(
-        "table_path,region,expected",
+        "table_path,full_path,region,expected",
         [
+            # Single-object dataset: bare key, region defaults to us-east-1.
             (
+                "s3://bucket/path/to/file.txt",
                 "s3://bucket/path/to/file.txt",
                 None,
-                "https://us-east-1.console.aws.amazon.com/s3/buckets/bucket?prefix=path/to/file.txt",
+                "https://s3.console.aws.amazon.com/s3/buckets/bucket?region=us-east-1&prefix=path/to/file.txt",
             ),
+            # Single-object dataset with an explicit region.
             (
                 "s3://bucket/path/to/file.txt",
+                "s3://bucket/path/to/file.txt",
                 "us-west-2",
-                "https://us-west-2.console.aws.amazon.com/s3/buckets/bucket?prefix=path/to/file.txt",
+                "https://s3.console.aws.amazon.com/s3/buckets/bucket?region=us-west-2&prefix=path/to/file.txt",
             ),
-            ("gs://bucket/path", None, None),
+            # Folder-backed (partitioned) dataset: table_path != full_path, so the
+            # prefix gets a trailing slash for the console to open the folder.
+            (
+                "s3://bucket/path/to/table",
+                "s3://bucket/path/to/table/year=2024/part-0.parquet",
+                "us-west-2",
+                "https://s3.console.aws.amazon.com/s3/buckets/bucket?region=us-west-2&prefix=path/to/table/",
+            ),
+            ("gs://bucket/path", "gs://bucket/path", None, None),
         ],
     )
-    def test_get_s3_external_url(self, table_path, region, expected):
+    def test_get_s3_external_url(self, table_path, full_path, region, expected):
         """Test the get_s3_external_url static method."""
         mock_table_data = MagicMock()
         mock_table_data.table_path = table_path
+        mock_table_data.full_path = full_path
         assert (
             ObjectStoreSourceAdapter.get_s3_external_url(mock_table_data, region)
             == expected
         )
 
     @pytest.mark.parametrize(
-        "table_path,expected",
+        "table_path,full_path,expected",
         [
+            # Single-object dataset: links to the object details page.
             (
                 "gs://bucket/path/to/file.txt",
-                "https://console.cloud.google.com/storage/browser/bucket/path/to/file.txt",
+                "gs://bucket/path/to/file.txt",
+                "https://console.cloud.google.com/storage/browser/_details/bucket/path/to/file.txt",
             ),
-            ("s3://bucket/path", None),
+            # Folder-backed dataset: trailing slash so the browser opens the prefix.
+            (
+                "gs://bucket/path/to/table",
+                "gs://bucket/path/to/table/year=2024/part-0.parquet",
+                "https://console.cloud.google.com/storage/browser/bucket/path/to/table/",
+            ),
+            ("s3://bucket/path", "s3://bucket/path", None),
         ],
     )
-    def test_get_gcs_external_url(self, table_path, expected):
+    def test_get_gcs_external_url(self, table_path, full_path, expected):
         """Test the get_gcs_external_url static method."""
         mock_table_data = MagicMock()
         mock_table_data.table_path = table_path
+        mock_table_data.full_path = full_path
         assert (
             ObjectStoreSourceAdapter.get_gcs_external_url(mock_table_data) == expected
         )
@@ -547,12 +569,12 @@ class TestObjectStoreSourceAdapter:
             (
                 "s3",
                 "s3://bucket/path/to/file.txt",
-                "https://us-east-1.console.aws.amazon.com/s3/buckets/bucket?prefix=path/to/file.txt",
+                "https://s3.console.aws.amazon.com/s3/buckets/bucket?region=us-east-1&prefix=path/to/file.txt",
             ),
             (
                 "gcs",
                 "gs://bucket/path/to/file.txt",
-                "https://console.cloud.google.com/storage/browser/bucket/path/to/file.txt",
+                "https://console.cloud.google.com/storage/browser/_details/bucket/path/to/file.txt",
             ),
             (
                 "abs",
@@ -570,6 +592,8 @@ class TestObjectStoreSourceAdapter:
         """Test the get_external_url method."""
         mock_table_data = MagicMock()
         mock_table_data.table_path = table_path
+        # Single-object datasets (file.txt) have full_path == table_path.
+        mock_table_data.full_path = table_path
 
         if platform == "s3":
             adapter = ObjectStoreSourceAdapter(
