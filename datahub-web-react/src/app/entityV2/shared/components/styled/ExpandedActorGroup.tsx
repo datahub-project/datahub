@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { ExpandedActor } from '@app/entityV2/shared/components/styled/ExpandedActor';
 
-import { CorpGroup, CorpUser } from '@types';
+import { OwnerType } from '@types';
 
 const PopoverActors = styled.div`
     max-width: 600px;
@@ -25,9 +25,9 @@ const RemainderText = styled(Text)`
 `;
 
 type Props = {
-    actors: Array<CorpUser | CorpGroup>;
+    actors: Array<OwnerType>;
     max: number;
-    onClose?: (actor: CorpUser | CorpGroup) => void;
+    onClose?: (actor: OwnerType) => void;
     containerStyle?: any;
 };
 
