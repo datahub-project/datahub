@@ -235,6 +235,7 @@
     "secret.notFound": "未找到密钥",
     "selectTemplate.noResults": "未找到名为“{{searchFilter}}”的数据源。",
     "selectTemplate.searchPlaceholder": "搜索数据源…",
+    "snowflake.passwordAuthDeprecation.message": "作为 Strong Authentication 推广的一部分，Snowflake 正在弃用用户名 + 密码身份验证（DEFAULT_AUTHENTICATOR）。密码身份验证将在第 3 阶段（2026 年 8 月至 10 月）的某个账户特定执行日期停止工作。请在账户执行日期之前将此配方切换为密钥对身份验证（KEY_PAIR_AUTHENTICATOR）。请参阅<anchor>迁移指南</anchor>。",
     "sqlmesh.auditResultsPath.helper": "SQLMesh 审计结果 JSON 文件的路径",
     "sqlmesh.auditResultsPath.label": "审计结果路径",
     "sqlmesh.auditResultsPath.tooltip": "包含 SQLMesh 审计通过/失败结果的 JSON 文件路径。设置后，连接器会发出断言运行事件，使通过/失败状态显示在“数据质量”标签页上。该文件必须在数据引入时已存在。",
