@@ -2506,6 +2506,7 @@ describe('useModuleOperations', () => {
                 const mockGlobalModuleToEdit: PageModuleFragment = {
                     urn: 'urn:li:pageModule:global-to-edit',
                     type: 'DATAHUB_PAGE_MODULE' as any,
+                    exists: true,
                     properties: {
                         name: 'Global Module To Edit',
                         type: DataHubPageModuleType.OwnedAssets, // Large module
@@ -2526,6 +2527,7 @@ describe('useModuleOperations', () => {
                                     {
                                         urn: 'urn:li:pageModule:small1',
                                         type: 'DATAHUB_PAGE_MODULE' as any,
+                                        exists: true,
                                         properties: {
                                             name: 'Small Module',
                                             type: DataHubPageModuleType.Link,

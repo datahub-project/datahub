@@ -168,6 +168,8 @@ interface Props {
     /** Whether the node may be hiding lineage in each direction, i.e. it shows a control saying so. */
     mayHideUpstreamLineage: boolean;
     mayHideDownstreamLineage: boolean;
+    /** Whether the entity itself is part of the highlighted column lineage; see `NodeWrapper`. */
+    highlighted: boolean;
 }
 
 const MemoizedNodeContents = React.memo(NodeContents);
@@ -215,6 +217,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         numDownstreams,
         mayHideUpstreamLineage,
         mayHideDownstreamLineage,
+        highlighted,
     } = props;
 
     const { t } = useTranslation('lineage');
@@ -355,6 +358,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 dragging={dragging}
                 isGhost={isGhost}
                 isSearchedEntity={isSearchedEntity}
+                highlighted={highlighted}
             >
                 <LineageCard
                     urn={urn}

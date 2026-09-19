@@ -9,7 +9,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
@@ -48,7 +48,7 @@ public class DelegatingMappingsBuilderTest {
     if (entityIndexConfiguration.getV2().isEnabled()) {
       builders.add(
           new V2MappingsBuilder(
-              entityIndexConfiguration, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG));
+              entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
@@ -114,7 +114,7 @@ public class DelegatingMappingsBuilderTest {
     // Create DelegatingMappingsBuilder with only v2 builder
     List<MappingsBuilder> builders = new ArrayList<>();
     builders.add(
-        new V2MappingsBuilder(v2OnlyConfig, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG));
+        new V2MappingsBuilder(v2OnlyConfig, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
     DelegatingMappingsBuilder v2OnlyBuilder = new DelegatingMappingsBuilder(builders);
     Collection<IndexMapping> result = v2OnlyBuilder.getIndexMappings(operationContext);
 
@@ -253,7 +253,7 @@ public class DelegatingMappingsBuilderTest {
 
     // This should throw RuntimeException wrapping IOException from MultiEntityMappingsBuilder
     List<MappingsBuilder> builders = new ArrayList<>();
-    builders.add(new V2MappingsBuilder(config, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG));
+    builders.add(new V2MappingsBuilder(config, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
     try {
       builders.add(new MultiEntityMappingsBuilder(config));
     } catch (IOException e) {
@@ -1235,7 +1235,7 @@ public class DelegatingMappingsBuilderTest {
     // STRING mapping payloads differ between V2 and V3.
     V2MappingsBuilder v2 =
         new V2MappingsBuilder(
-            entityIndexConfiguration, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
+            entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
     MultiEntityMappingsBuilder v3 = new MultiEntityMappingsBuilder(entityIndexConfiguration);
 
     Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
