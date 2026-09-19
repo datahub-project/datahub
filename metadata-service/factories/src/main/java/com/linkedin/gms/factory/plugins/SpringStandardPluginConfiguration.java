@@ -36,6 +36,7 @@ import com.linkedin.metadata.aspect.validation.LogicalParentFieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentPlatformValidator;
 import com.linkedin.metadata.aspect.validation.MetricUpstreamsValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
+import com.linkedin.metadata.aspect.validation.PolicyWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
@@ -1038,6 +1039,27 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
                             .aspectName(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.policyWrite.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator policyWriteAuthorizationValidator() {
+    return new PolicyWriteAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(PolicyWriteAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(POLICY_ENTITY_NAME)
+                            .aspectName(DATAHUB_POLICY_INFO_ASPECT_NAME)
                             .build()))
                 .build());
   }

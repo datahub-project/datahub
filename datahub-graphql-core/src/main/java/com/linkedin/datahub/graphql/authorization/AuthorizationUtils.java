@@ -19,6 +19,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PatchEntityInput;
 import com.linkedin.knowledge.DocumentInfo;
+import com.linkedin.metadata.authorization.ApiGroup;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
@@ -489,7 +491,21 @@ public class AuthorizationUtils {
   }
 
   /**
-   * Checks authorization for patch operations
+   * Entity types whose writes are governed solely by platform management privileges. A
+   * resource-level Edit Entity grant must never substitute for them, because editing these entities
+   * changes what everyone else is allowed to do or see.
+   */
+  private static final Set<String> PLATFORM_MANAGED_ENTITY_TYPES =
+      Set.of(POLICY_ENTITY_NAME, SECRETS_ENTITY_NAME, GLOBAL_SETTINGS_ENTITY_NAME);
+
+  /**
+   * Checks authorization for patch operations.
+   *
+   * <p>Uses the entity-type-aware UPDATE privilege that the OpenAPI and Rest.li ingest paths use,
+   * so platform-managed entity types ({@code dataHubPolicy} requiring Manage Policies, {@code
+   * dataHubSecret} requiring Manage Secrets, {@code globalSettings} requiring Manage Global
+   * Settings) are not writable with a generic Edit Entity grant. For every other entity type Edit
+   * Entity on the target remains sufficient, as before.
    *
    * @param input Patch entity input
    * @param context Query context
@@ -498,21 +514,41 @@ public class AuthorizationUtils {
   public static boolean isAuthorizedForPatch(
       @Nonnull PatchEntityInput input, @Nonnull QueryContext context) {
 
-    // For patch operations, we need EDIT_ENTITY_PRIVILEGE
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
-
-    // Use entity type from URN if not provided in input
-    String entityType = input.getEntityType();
-    if (entityType == null && input.getUrn() != null) {
+    // The entity type that selects the required privilege must come from the URN, which is what
+    // is actually written, never from the client-supplied entityType. Otherwise a caller could
+    // claim a generic type for a privileged URN and be checked against Edit Entity only.
+    String entityType = null;
+    if (input.getUrn() != null) {
       try {
         entityType = UrnUtils.getUrn(input.getUrn()).getEntityType();
       } catch (Exception e) {
         log.warn("Failed to extract entity type from URN: {}", input.getUrn(), e);
       }
+    }
+    if (entityType == null) {
+      return false;
+    }
+    if (input.getEntityType() != null && !entityType.equals(input.getEntityType())) {
+      log.warn(
+          "Rejecting patch: entityType {} does not match URN entity type {} for {}",
+          input.getEntityType(),
+          entityType,
+          input.getUrn());
+      return false;
+    }
+
+    final DisjunctivePrivilegeGroup apiPrivileges =
+        AuthUtil.buildDisjunctivePrivilegeGroup(ApiGroup.ENTITY, ApiOperation.UPDATE, entityType);
+    final DisjunctivePrivilegeGroup orPrivilegeGroups;
+    if (PLATFORM_MANAGED_ENTITY_TYPES.contains(entityType)) {
+      orPrivilegeGroups = apiPrivileges;
+    } else {
+      // Resource-level Edit Entity (for example via ownership) remains sufficient, matching the
+      // other GraphQL mutations for these types; aspect validators guard sensitive aspects.
+      final List<ConjunctivePrivilegeGroup> groups =
+          new java.util.ArrayList<>(apiPrivileges.getAuthorizedPrivilegeGroups());
+      groups.add(ALL_PRIVILEGES_GROUP);
+      orPrivilegeGroups = new DisjunctivePrivilegeGroup(groups);
     }
 
     return isAuthorized(context, entityType, input.getUrn(), orPrivilegeGroups);

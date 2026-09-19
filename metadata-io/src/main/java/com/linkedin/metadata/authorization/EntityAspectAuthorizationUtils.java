@@ -2,6 +2,7 @@ package com.linkedin.metadata.authorization;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.QUERY_SUBJECTS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
@@ -99,6 +100,16 @@ public final class EntityAspectAuthorizationUtils {
   public static boolean isAuthorizedToManageForms(@Nonnull AuthorizationSession session) {
     return com.datahub.authorization.AuthUtil.isAuthorized(
         session, PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
+  }
+
+  /**
+   * Returns true when the actor may create, modify, or delete access policies, i.e. holds the
+   * privileges the entity API requires to MANAGE {@code dataHubPolicy} (Manage Policies). Matches
+   * the GraphQL policy mutations and the OpenAPI / Rest.li ingest checks.
+   */
+  public static boolean isAuthorizedToManagePolicies(@Nonnull AuthorizationSession session) {
+    return com.datahub.authorization.AuthUtil.isAuthorizedEntityType(
+        session, ApiOperation.MANAGE, List.of(POLICY_ENTITY_NAME));
   }
 
   /**
