@@ -2,7 +2,7 @@ import yaml from 'js-yaml';
 import React, { useEffect, useState } from 'react';
 import { Route, Switch } from 'react-router';
 
-import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
+import { DEFAULT_LOAD_TIMEOUT_MS, MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
@@ -21,6 +21,9 @@ export interface MFEConfig {
     module: string;
     flags: MFEFlags;
     navIcon: string;
+    // Optional per-MFE override for how long to wait on the remote module before showing the
+    // error state. Takes precedence over the top-level MFESchema.loadTimeoutMs.
+    loadTimeoutMs?: number;
 }
 
 // MFESchema: The overall config schema.
@@ -28,9 +31,26 @@ export interface MFESchema {
     topLevelMenuTitle: string;
     subNavigationMode: boolean;
     microFrontends: MFEConfig[];
+    // Optional default remote-module load timeout, applied to every MFE without its own override.
+    loadTimeoutMs?: number;
 }
 
 const REQUIRED_FIELDS: (keyof MFEConfig)[] = ['id', 'label', 'path', 'remoteEntry', 'module', 'flags', 'navIcon'];
+
+/**
+ * parseLoadTimeoutMs:
+ * - Normalizes an optional loadTimeoutMs value from the yaml.
+ * - Returns undefined (so the caller falls back to the next level) when absent or unusable,
+ *   rather than rejecting the surrounding config: a bad timeout should never take an MFE offline.
+ */
+function parseLoadTimeoutMs(value: unknown, context: string): number | undefined {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+        console.error(`[MFE Loader] Ignoring invalid loadTimeoutMs for ${context}; expected a positive number:`, value);
+        return undefined;
+    }
+    return value;
+}
 
 /**
  * validateMFEConfig:
@@ -67,8 +87,11 @@ function validateMFEConfig(config: any): MFEConfig | null {
         console.error(`[MFE Loader] Invalid config for entry (id: ${config.id || 'unknown'}):`, errors);
         return null;
     }
-    // Otherwise, return as valid MFEConfig
-    return config as MFEConfig;
+    // Otherwise, return as valid MFEConfig, with the optional timeout normalized
+    return {
+        ...config,
+        loadTimeoutMs: parseLoadTimeoutMs(config.loadTimeoutMs, `MFE '${config.id}'`),
+    } as MFEConfig;
 }
 
 /**
@@ -91,6 +114,7 @@ export function loadMFEConfigFromYAML(yamlString: string): MFESchema {
         parsed.microFrontends = parsed.microFrontends
             .map(validateMFEConfig)
             .filter((config): config is MFEConfig => config !== null);
+        parsed.loadTimeoutMs = parseLoadTimeoutMs(parsed.loadTimeoutMs, 'the top-level config');
         return parsed;
     } catch (e) {
         console.error('[MFE Loader] Error parsing YAML:', e);
@@ -129,7 +153,17 @@ export function useDynamicRoutes(): JSX.Element[] {
     if (!mfeConfig) return [];
     // TODO- Reintroduce useMemo() hook here. Make it work with getting yaml from api as a react hook.
     return mfeConfig.microFrontends.map((mfe) => (
-        <Route key={mfe.path} path={`/mfe${mfe.path}`} exact render={() => <MFEBaseConfigurablePage config={mfe} />} />
+        <Route
+            key={mfe.path}
+            path={`/mfe${mfe.path}`}
+            exact
+            render={() => (
+                <MFEBaseConfigurablePage
+                    config={mfe}
+                    loadTimeoutMs={mfe.loadTimeoutMs ?? mfeConfig.loadTimeoutMs ?? DEFAULT_LOAD_TIMEOUT_MS}
+                />
+            )}
+        />
     ));
 }
 
