@@ -6,6 +6,11 @@ export interface FineGrainedOperation {
     transformOperation?: string;
 }
 
+export type SearchResultLineageCounts = {
+    upstream?: { filtered?: number | null; total?: number | null } | null;
+    downstream?: { filtered?: number | null; total?: number | null } | null;
+};
+
 interface EntitySidebarContextProps {
     width: number;
     setSidebarClosed: (isClosed: boolean) => void;
@@ -13,6 +18,7 @@ interface EntitySidebarContextProps {
     fineGrainedOperations?: FineGrainedOperation[]; // For query entities in lineage, when a column is selected
     forLineage?: boolean;
     separateSiblings?: boolean;
+    searchResultLineage?: SearchResultLineageCounts | null;
 }
 
 export const entitySidebarContextDefaults: EntitySidebarContextProps = {

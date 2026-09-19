@@ -9,6 +9,7 @@ import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import SidebarLineageLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageLoadingSection';
+import { useSearchSummaryLineage } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection.hooks';
 import {
     getDirectDownstreamSummary,
     getDirectUpstreamSummary,
@@ -23,7 +24,7 @@ import { PageRoutes } from '@conf/Global';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
 import CompactContext from '@src/app/shared/CompactContext';
 
-import { useGetLineageCountsQuery, useGetSearchAcrossLineageCountsQuery } from '@graphql/lineage.generated';
+import { useGetSearchAcrossLineageCountsQuery } from '@graphql/lineage.generated';
 
 const Section = styled.div`
     display: flex;
@@ -67,21 +68,9 @@ const DirectionHeader = styled.div`
     margin-right: 6px;
 `;
 
-type LineageCount = {
-    filtered: number;
-    total: number;
-};
-
-type LineageCountEntity = {
-    upstream?: LineageCount | null;
-    downstream?: LineageCount | null;
-};
-
 type Props = {
     contexType?: TabContextType;
 };
-
-const getVisibleCount = (count?: LineageCount | null): number => (count?.total || 0) - (count?.filtered || 0);
 
 const SidebarLineageSection = ({ contexType }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
@@ -97,10 +86,19 @@ const SidebarLineageSection = ({ contexType }: Props) => {
     const isSearchSummary =
         contexType === TabContextType.SEARCH_SIDEBAR ||
         matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
-    const { data: searchData, loading: searchLoading } = useGetLineageCountsQuery({
-        variables: { urn, separateSiblings, startTimeMillis },
-        fetchPolicy: 'cache-first',
-        skip: !isSearchSummary || onCombinedSiblingPage,
+    const {
+        typeBreakdownData,
+        hasTypeBreakdown,
+        directUpstreamCount: searchUpstreamCount,
+        directDownstreamCount: searchDownstreamCount,
+        loading: searchLoading,
+    } = useSearchSummaryLineage({
+        enabled: isSearchSummary,
+        urn,
+        entityData,
+        separateSiblings,
+        startTimeMillis,
+        skip: onCombinedSiblingPage,
     });
     const { data: profileData, loading: profileLoading } = useGetSearchAcrossLineageCountsQuery({
         variables: { urn, startTimeMillis },
@@ -108,24 +106,32 @@ const SidebarLineageSection = ({ contexType }: Props) => {
         skip: isSearchSummary || onCombinedSiblingPage,
     });
 
-    const directUpstreamSummary = profileData?.upstreams && getDirectUpstreamSummary(profileData.upstreams as any);
-    const directDownstreamSummary =
-        profileData?.downstreams && getDirectDownstreamSummary(profileData.downstreams as any);
-    const searchLineage = searchData?.entity as LineageCountEntity | null | undefined;
+    const directUpstreamSummary = hasTypeBreakdown
+        ? typeBreakdownData?.upstreams && getDirectUpstreamSummary(typeBreakdownData.upstreams as any)
+        : profileData?.upstreams && getDirectUpstreamSummary(profileData.upstreams as any);
+    const directDownstreamSummary = hasTypeBreakdown
+        ? typeBreakdownData?.downstreams && getDirectDownstreamSummary(typeBreakdownData.downstreams as any)
+        : profileData?.downstreams && getDirectDownstreamSummary(profileData.downstreams as any);
 
-    const directUpstreamCount = isSearchSummary
-        ? getVisibleCount(searchLineage?.upstream)
-        : directUpstreamSummary?.total || 0;
-    const directDownstreamCount = isSearchSummary
-        ? getVisibleCount(searchLineage?.downstream)
-        : directDownstreamSummary?.total || 0;
+    const directUpstreamCount = isSearchSummary ? searchUpstreamCount : directUpstreamSummary?.total || 0;
+    const directDownstreamCount = isSearchSummary ? searchDownstreamCount : directDownstreamSummary?.total || 0;
     const loading = isSearchSummary ? searchLoading : profileLoading;
+    const showTypeSummary = !isSearchSummary || hasTypeBreakdown;
 
     const hasLineage = directUpstreamCount > 0 || directDownstreamCount > 0;
 
     if (!hasLineage) {
         return null;
     }
+
+    const genericAssetSummary = (count: number) => (
+        <>
+            {t('entityCount.asset', {
+                count,
+                formattedCount: String(count),
+            })}
+        </>
+    );
 
     return (
         <SidebarSection
@@ -146,9 +152,7 @@ const SidebarLineageSection = ({ contexType }: Props) => {
                                 </DirectionHeader>
                             </Tooltip>
                             <SummaryText>
-                                {isSearchSummary ? (
-                                    directUpstreamCount
-                                ) : (
+                                {showTypeSummary && directUpstreamSummary ? (
                                     <Trans
                                         t={t}
                                         i18nKey="sidebar.lineage.dependsOn"
@@ -157,6 +161,14 @@ const SidebarLineageSection = ({ contexType }: Props) => {
                                                 directUpstreamSummary as any,
                                                 entityRegistry,
                                             ) as React.ReactElement,
+                                        }}
+                                    />
+                                ) : (
+                                    <Trans
+                                        t={t}
+                                        i18nKey="sidebar.lineage.dependsOn"
+                                        components={{
+                                            summary: genericAssetSummary(directUpstreamCount),
                                         }}
                                     />
                                 )}
@@ -174,9 +186,7 @@ const SidebarLineageSection = ({ contexType }: Props) => {
                                 </DirectionHeader>
                             </Tooltip>
                             <SummaryText>
-                                {isSearchSummary ? (
-                                    directDownstreamCount
-                                ) : (
+                                {showTypeSummary && directDownstreamSummary ? (
                                     <Trans
                                         t={t}
                                         i18nKey="sidebar.lineage.usedBy"
@@ -185,6 +195,14 @@ const SidebarLineageSection = ({ contexType }: Props) => {
                                                 directDownstreamSummary as any,
                                                 entityRegistry,
                                             ) as React.ReactElement,
+                                        }}
+                                    />
+                                ) : (
+                                    <Trans
+                                        t={t}
+                                        i18nKey="sidebar.lineage.usedBy"
+                                        components={{
+                                            summary: genericAssetSummary(directDownstreamCount),
                                         }}
                                     />
                                 )}

@@ -106,7 +106,7 @@ export const getRelatedEntitySummary = (
         <>
             {summary.types.map((type, idx) => {
                 return (
-                    <SummaryText>
+                    <SummaryText key={type.type}>
                         {i18next.t('entity.shared.containers:sidebar.entityTypeCount', {
                             count: type.count,
                             type: (type.isEntityType
