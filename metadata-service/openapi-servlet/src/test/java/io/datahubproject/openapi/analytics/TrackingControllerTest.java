@@ -1,15 +1,21 @@
 package io.datahubproject.openapi.analytics;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthorizerChain;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -21,7 +27,9 @@ public class TrackingControllerTest {
 
   @Mock private TrackingService trackingService;
 
-  @Mock private OperationContext systemOperationContext;
+  private OperationContext systemOperationContext;
+
+  @Mock private AuthorizerChain authorizerChain;
 
   @Mock private HttpServletRequest request;
 
@@ -33,7 +41,10 @@ public class TrackingControllerTest {
   @BeforeMethod
   public void setUp() {
     MockitoAnnotations.initMocks(this);
-    controller = new TrackingController(trackingService, systemOperationContext);
+    when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "test_user"));
+    when(request.getRemoteAddr()).thenReturn("");
+    systemOperationContext = TestOperationContexts.systemContextNoValidate();
+    controller = new TrackingController(trackingService, systemOperationContext, authorizerChain);
     objectMapper = new ObjectMapper();
   }
 
@@ -58,7 +69,7 @@ public class TrackingControllerTest {
 
     // Verify tracking service was called with the event
     verify(trackingService)
-        .track(eq("TestEvent"), eq(systemOperationContext), eq(null), eq(null), eq(event));
+        .track(eq("TestEvent"), any(OperationContext.class), eq(null), eq(null), eq(event));
   }
 
   @Test
@@ -78,7 +89,7 @@ public class TrackingControllerTest {
     TrackingService disabledTrackingService =
         new TrackingService(null, null, null, null, null, null, null);
     TrackingController disabledController =
-        new TrackingController(disabledTrackingService, systemOperationContext);
+        new TrackingController(disabledTrackingService, systemOperationContext, authorizerChain);
 
     // Call the endpoint
     ResponseEntity<Void> response = disabledController.trackEvent(request, event);
