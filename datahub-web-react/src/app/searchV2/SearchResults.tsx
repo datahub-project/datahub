@@ -18,11 +18,27 @@ import { useIsBrowseV2, useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVe
 import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { SearchResultLineageCounts } from '@app/sharedV2/EntitySidebarContext';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { SearchCfg } from '@src/conf';
 
 import { Entity, FacetFilterInput, MatchedField, SearchSuggestion } from '@types';
+
+type SearchEntityWithLineage = Entity & {
+    upstream?: SearchResultLineageCounts['upstream'];
+    downstream?: SearchResultLineageCounts['downstream'];
+};
+
+function getSearchResultLineage(entity?: SearchEntityWithLineage | null): SearchResultLineageCounts | null {
+    if (!entity) {
+        return null;
+    }
+    return {
+        upstream: entity.upstream,
+        downstream: entity.downstream,
+    };
+}
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -185,6 +201,10 @@ export const SearchResults = ({
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
+    const highlightedSearchEntity =
+        highlightedIndex !== null && combinedSiblingSearchResults?.length > highlightedIndex
+            ? (combinedSiblingSearchResults[highlightedIndex]?.entity as SearchEntityWithLineage | undefined)
+            : undefined;
 
     const [resultsHeight, setResultsHeight] = useState('calc(100vh - 155px)');
     const resultsRef = React.useCallback((node: HTMLDivElement) => {
@@ -302,16 +322,14 @@ export const SearchResults = ({
                                             height={resultsHeight}
                                             highlightedIndex={highlightedIndex}
                                             selectedEntity={
-                                                highlightedIndex !== null &&
-                                                combinedSiblingSearchResults?.length > highlightedIndex
+                                                highlightedSearchEntity
                                                     ? {
-                                                          urn: combinedSiblingSearchResults[highlightedIndex]?.entity
-                                                              .urn,
-                                                          type: combinedSiblingSearchResults[highlightedIndex]?.entity
-                                                              .type,
+                                                          urn: highlightedSearchEntity.urn,
+                                                          type: highlightedSearchEntity.type,
                                                       }
                                                     : null
                                             }
+                                            searchResultLineage={getSearchResultLineage(highlightedSearchEntity)}
                                         />
                                     </SearchResultsContainer>
                                 </SearchResultsScrollContainer>
