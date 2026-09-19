@@ -227,6 +227,17 @@ class MonteCarloSourceConfig(
         default=[],
         description="Optional list of Monte Carlo domain UUIDs to scope ingestion to.",
     )
+    strict_schema_drift: bool = Field(
+        default=False,
+        description="When enabled, abort the run if the Monte Carlo GraphQL schema has "
+        "drifted in any way from what the connector expects (any requested field is "
+        "missing), even non-critical ones. By default only the loss of a *critical* "
+        "field (uuid/entityMcons on monitors/rules, id/monitorUuids on alerts) aborts; "
+        "non-critical drift (e.g. a removed field the connector can substitute, "
+        "such as customSql/severity which fall back to whereCondition/priority) "
+        "degrades gracefully and is reported as a warning. Enable this in "
+        "environments that want zero silent degradation.",
+    )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,

@@ -27,6 +27,10 @@ from datahub.ingestion.source.montecarlo.mcon_resolver import (
     MconResolver,
     parse_mcon,
 )
+from datahub.ingestion.source.montecarlo.query_builder import (
+    SchemaDrift,
+    StaticQueryBuilder,
+)
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
 from datahub.ingestion.source.montecarlo.source import MonteCarloSource
 from datahub.metadata.schema_classes import (
@@ -1449,6 +1453,10 @@ def _client_with_responses(responses: List[Dict[str, Any]]) -> MonteCarloClient:
 
     client._client = None  # type: ignore[assignment]
     client._call = fake_call  # type: ignore[method-assign]
+    # Bypass live schema introspection: tests mock _call directly, so the
+    # query string is never sent to a real gateway. A StaticQueryBuilder
+    # returns the original hardcoded queries verbatim.
+    client.set_query_builder(StaticQueryBuilder())
     return client
 
 
@@ -2241,6 +2249,9 @@ def test_get_workunits_warns_when_all_assertions_skipped() -> None:
         def get_custom_rules(self):
             return iter(())
 
+        def check_schema_drift(self, strict: bool = False) -> SchemaDrift:
+            return SchemaDrift()
+
     source.client = StubClient()  # type: ignore[assignment]
 
     class StubResolver:
@@ -2282,6 +2293,9 @@ def test_get_workunits_no_guard_when_assertions_emitted() -> None:
         def get_custom_rules(self):
             return iter(())
 
+        def check_schema_drift(self, strict: bool = False) -> SchemaDrift:
+            return SchemaDrift()
+
     source.client = StubClient()  # type: ignore[assignment]
     resolver = MconResolver(
         source.config,
@@ -2315,6 +2329,9 @@ def test_get_workunits_no_guard_when_nothing_scanned() -> None:
 
         def get_custom_rules(self):
             return iter(())
+
+        def check_schema_drift(self, strict: bool = False) -> SchemaDrift:
+            return SchemaDrift()
 
     source.client = EmptyClient()  # type: ignore[assignment]
     # A real builder is required (its bound method is captured when _emit is
@@ -2354,6 +2371,9 @@ def test_get_workunits_no_guard_when_all_dropped_by_pattern() -> None:
 
         def get_custom_rules(self):
             return iter(())
+
+        def check_schema_drift(self, strict: bool = False) -> SchemaDrift:
+            return SchemaDrift()
 
     source.client = StubClient()  # type: ignore[assignment]
     source.builder = MonteCarloAssertionBuilder(  # type: ignore[arg-type]
