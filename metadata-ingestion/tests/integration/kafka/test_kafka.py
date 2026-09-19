@@ -252,9 +252,8 @@ def test_kafka_test_connection(mock_kafka_service, config_dict, is_success):
                 )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_oauth_callback(
-    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time
+    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path
 ):
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "kafka_to_file_oauth.yml").resolve()
