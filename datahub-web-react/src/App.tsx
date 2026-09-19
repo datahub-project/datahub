@@ -1,5 +1,6 @@
 import '@src/App.less';
 import '@src/AppV2.less';
+import { AIChatButton } from './app/aiAssistant/AIChatButton';
 
 import { ApolloClient, ApolloLink, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
@@ -131,6 +132,7 @@ export const InnerApp: React.VFC = () => {
                         <Routes />
                     </Suspense>
                 </Router>
+                <AIChatButton />
             </CustomThemeProvider>
         </HelmetProvider>
     );
