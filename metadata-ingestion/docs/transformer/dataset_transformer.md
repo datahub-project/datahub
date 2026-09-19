@@ -104,7 +104,7 @@ The portion of the tag after the matched tag pattern will be converted into an o
 | --------------------- | -------- | ------------ | ------- | ----------------------------------------------------- |
 | `pattern_for_cleanup` | ✅       | list[string] |         | List of suffix/prefix to remove from the Owner URN(s) |
 
-Matches against a Onwer URN and remove the matching part from the Owner URN
+Matches against an Owner URN and removes the matching part from the Owner URN
 
 ```yaml
 transformers:
@@ -121,7 +121,7 @@ transformers:
 
 | Field     | Required | Type    | Default | Description                                 |
 | --------- | -------- | ------- | ------- | ------------------------------------------- |
-| `removed` | ✅       | boolean |         | Flag to control visbility of dataset on UI. |
+| `removed` | ✅       | boolean |         | Flag to control visibility of dataset on UI. |
 
 If you would like to stop a dataset from appearing in the UI, then you need to mark the status of the dataset as removed.
 
