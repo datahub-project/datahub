@@ -199,6 +199,23 @@ public class PatchEntityResolverTest {
     assertTrue(result.getSuccess(), "error=" + result.getError());
   }
 
+  /** The client-supplied entityType must not select a weaker privilege than the URN's type. */
+  @Test
+  public void testPatchPolicyDeniedWhenClientClaimsGenericEntityType() throws Exception {
+    PatchEntityInput input = createPolicyInput();
+    input.setEntityType("dataset");
+    when(_environment.getArgument("input")).thenReturn(input);
+    setupRegistryMock("dataHubPolicy", "dataHubPolicyInfo");
+    setupRegistryMock("dataset", "dataHubPolicyInfo");
+    grantOnly(Set.of("EDIT_ENTITY"));
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertFalse(result.getSuccess());
+    assertTrue(result.getError().contains("unauthorized"));
+    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+  }
+
   private PatchEntityInput createPolicyInput() {
     PatchEntityInput input = new PatchEntityInput();
     input.setUrn("urn:li:dataHubPolicy:test-policy");

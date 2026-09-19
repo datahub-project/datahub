@@ -506,14 +506,27 @@ public class AuthorizationUtils {
   public static boolean isAuthorizedForPatch(
       @Nonnull PatchEntityInput input, @Nonnull QueryContext context) {
 
-    // Use entity type from URN if not provided in input
-    String entityType = input.getEntityType();
-    if (entityType == null && input.getUrn() != null) {
+    // The entity type that selects the required privilege must come from the URN, which is what
+    // is actually written, never from the client-supplied entityType. Otherwise a caller could
+    // claim a generic type for a privileged URN and be checked against Edit Entity only.
+    String entityType = null;
+    if (input.getUrn() != null) {
       try {
         entityType = UrnUtils.getUrn(input.getUrn()).getEntityType();
       } catch (Exception e) {
         log.warn("Failed to extract entity type from URN: {}", input.getUrn(), e);
       }
+    }
+    if (entityType == null) {
+      return false;
+    }
+    if (input.getEntityType() != null && !entityType.equals(input.getEntityType())) {
+      log.warn(
+          "Rejecting patch: entityType {} does not match URN entity type {} for {}",
+          input.getEntityType(),
+          entityType,
+          input.getUrn());
+      return false;
     }
 
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
