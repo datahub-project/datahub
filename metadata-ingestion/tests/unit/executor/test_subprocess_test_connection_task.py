@@ -126,7 +126,7 @@ async def test_execute_success(
             "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._get_plugin_from_recipe"
         ) as mock_get_plugin,
         patch(
-            "datahub.executor.execution.sub_process_test_connection_task.setup_venv"
+            "datahub.executor.execution.sub_process_task_common.setup_venv"
         ) as mock_setup_venv,
         patch(
             "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
@@ -246,7 +246,7 @@ async def test_execute_failure_raises(
             "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._get_plugin_from_recipe"
         ) as mock_get_plugin,
         patch(
-            "datahub.executor.execution.sub_process_test_connection_task.setup_venv"
+            "datahub.executor.execution.sub_process_task_common.setup_venv"
         ) as mock_setup_venv,
         patch(
             "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
@@ -329,7 +329,7 @@ async def test_cancellation_terminates_the_subprocess(
             "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._get_plugin_from_recipe"
         ) as mock_get_plugin,
         patch(
-            "datahub.executor.execution.sub_process_test_connection_task.setup_venv"
+            "datahub.executor.execution.sub_process_task_common.setup_venv"
         ) as mock_setup_venv,
         patch(
             "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
@@ -382,7 +382,7 @@ async def test_exec_out_dir_exists_when_the_subprocess_is_launched(
 
     with (
         patch(
-            "datahub.executor.execution.sub_process_test_connection_task.setup_venv",
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
             return_value=venv_ref,
         ),
         patch(

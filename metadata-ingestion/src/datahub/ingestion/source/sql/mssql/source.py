@@ -1,7 +1,17 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+)
 
 import sqlalchemy.dialects.mssql
 from pydantic import ValidationInfo, field_validator, model_validator
@@ -25,6 +35,9 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -49,6 +62,10 @@ from datahub.ingestion.source.sql.mssql.job_models import (
     ProcedureLineageStream,
     ProcedureParameter,
     StoredProcedure,
+)
+from datahub.ingestion.source.sql.mssql.query import (
+    MSSQL_SYSTEM_DATABASES,
+    MSSQLQuery,
 )
 from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
     MSSQLLineageExtractor,
@@ -318,6 +335,26 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             )
         return self
 
+    # --- Agent probe contract (see datahub.ingestion.agent.probe_methods) ---
+    def list_databases(self, conn: Connection) -> List[str]:
+        # Raw database listing shared with get_inspectors() below -- no
+        # database_pattern applied here; callers (get_inspectors() and the
+        # Database-level agent probe below) apply that themselves, so the two
+        # paths query the exact same rows instead of each re-deriving the
+        # listing SQL.
+        return MSSQLQuery.list_databases(conn)
+
+    @classmethod
+    def default_databases(cls) -> FrozenSet[str]:
+        # Databases this source drops regardless of database_pattern -- SQL
+        # Server's own system databases plus the reporting services pair.
+        # Same shape as SQLCommonConfig.default_schemas() one level down: lets
+        # the Database-level probe below report one of these as
+        # excluded_by: "default_database" instead of it silently never
+        # appearing. Reuses MSSQLQuery's own exclusion list so the probe and
+        # the query it mirrors cannot drift apart.
+        return frozenset(MSSQL_SYSTEM_DATABASES)
+
     def get_sql_alchemy_url(
         self,
         uri_opts: Optional[Dict[str, Any]] = None,
@@ -357,6 +394,44 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     @property
     def db(self):
         return self.database
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # `sys` is NOT allowed wholesale: it holds sql_modules (procedure source),
+        # syscomments (the same, legacy) and the dm_exec_* dynamic views, which
+        # carry executed SQL and cached plans -- our own source reads
+        # sys.dm_exec_cached_plans, so this is not hypothetical. Relations are named
+        # individually: the ones ingestion reads, plus the structural counterparts
+        # an agent would reach for.
+        return CatalogScope(
+            relations=frozenset(
+                {
+                    "sys.tables",
+                    "sys.views",
+                    "sys.columns",
+                    "sys.all_columns",
+                    "sys.objects",
+                    "sys.schemas",
+                    "sys.types",
+                    "sys.indexes",
+                    "sys.index_columns",
+                    "sys.foreign_keys",
+                    "sys.foreign_key_columns",
+                    "sys.key_constraints",
+                    "sys.procedures",
+                    "sys.parameters",
+                    "sys.extended_properties",
+                    "sys.databases",
+                    # Read by ingestion and omitted at first: the dependency
+                    # view drives lineage (source.py), and query_store_options
+                    # is Query Store *configuration* -- capture mode and
+                    # retention, not captured text. sys.query_store_query_text
+                    # is the one that carries statements, and stays out.
+                    "sys.sql_expression_dependencies",
+                    "sys.database_query_store_options",
+                }
+            ),
+        )
 
 
 @platform_name("Microsoft SQL Server", id="mssql")
@@ -402,7 +477,7 @@ class SQLServerSource(SQLAlchemySource):
         super().__init__(config, ctx, "mssql")
         self.config: SQLServerConfig = config
         self._is_odbc = is_odbc
-        self.current_database = None
+        self.current_database: Optional[str] = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
         self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
@@ -1312,16 +1387,12 @@ class SQLServerSource(SQLAlchemySource):
             yield inspector
         else:
             with engine.begin() as conn:
-                databases = conn.execute(
-                    "SELECT name FROM master.sys.databases WHERE name NOT IN \
-                  ('master', 'model', 'msdb', 'tempdb', 'Resource', \
-                       'distribution' , 'reportserver', 'reportservertempdb'); "
-                ).fetchall()
+                databases = self.config.list_databases(conn)
 
-            for db in databases:
-                if self.config.database_pattern.allowed(db["name"]):
+            for db_name in databases:
+                if self.config.database_pattern.allowed(db_name):
                     url = self.config.get_sql_alchemy_url(
-                        current_db=db["name"], is_odbc=self._is_odbc
+                        current_db=db_name, is_odbc=self._is_odbc
                     )
                     try:
                         engine = create_engine(url, **self.config.options)
@@ -1329,17 +1400,17 @@ class SQLServerSource(SQLAlchemySource):
                     except OperationalError as e:
                         if re.search(r"(?i)login failed", str(e)):
                             logger.warning(
-                                f"Error logging in to database {db['name']}: {e}"
+                                f"Error logging in to database {db_name}: {e}"
                             )
                             self.report.warning(
                                 message="Error logging in to database",
-                                context=db["name"],
+                                context=db_name,
                                 exc=e,
                                 log=False,
                             )
                             continue
                         raise
-                    self.current_database = db["name"]
+                    self.current_database = db_name
                     yield inspector
 
     def get_identifier(

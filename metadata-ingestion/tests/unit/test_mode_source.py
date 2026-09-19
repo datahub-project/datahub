@@ -749,6 +749,78 @@ class TestExcludePersonalCollections:
         assert "tok2" not in result
 
 
+class TestGetPagedRequestJsonUrlSeparator:
+    """_get_paged_request_json used to append "&per_page=...&page=..."
+    unconditionally, assuming its caller's url already had a "?" (true for
+    every current call site). A url with none produces "...&per_page=...",
+    which no server parses as query params -- it would return the same
+    non-empty first page forever, and this generator would never terminate.
+    """
+
+    def _make_source_with_config(self, **kwargs: object) -> ModeSource:
+        config = ModeConfig(
+            token="test",
+            password="test",
+            workspace="test_workspace",
+            **kwargs,
+        )
+        with (
+            patch("datahub.ingestion.source.mode.requests.Session"),
+            patch.object(ModeSource, "_get_request_json", return_value={}),
+        ):
+            ctx = MagicMock()
+            ctx.graph = None
+            ctx.pipeline_name = "test"
+            ctx.run_id = "test-run"
+            ctx.pipeline_config = None
+            source = ModeSource(ctx, config)
+        return source
+
+    def test_paginates_and_terminates_on_a_url_with_no_query_string(self):
+        page_urls: List[str] = []
+
+        def _fake_get_request_json(url: str) -> Dict:
+            page_urls.append(url)
+            page = int(url.rsplit("page=", 1)[1])
+            return {"_embedded": {"things": [{"id": page}] if page == 1 else []}}
+
+        source = self._make_source_with_config()
+        with patch.object(
+            source, "_get_request_json", side_effect=_fake_get_request_json
+        ):
+            pages = list(
+                source._get_paged_request_json("https://x/things", "things", 100)
+            )
+
+        # Terminates after the second (empty) page, rather than looping
+        # forever on a same-url "page 1" the fake server would otherwise keep
+        # echoing.
+        assert pages == [[{"id": 1}]]
+        assert page_urls == [
+            "https://x/things?per_page=100&page=1",
+            "https://x/things?per_page=100&page=2",
+        ]
+
+    def test_appends_with_ampersand_when_the_url_already_has_a_query_string(self):
+        page_urls: List[str] = []
+
+        def _fake_get_request_json(url: str) -> Dict:
+            page_urls.append(url)
+            return {"_embedded": {"things": []}}
+
+        source = self._make_source_with_config()
+        with patch.object(
+            source, "_get_request_json", side_effect=_fake_get_request_json
+        ):
+            list(
+                source._get_paged_request_json(
+                    "https://x/things?filter=all", "things", 100
+                )
+            )
+
+        assert page_urls == ["https://x/things?filter=all&per_page=100&page=1"]
+
+
 class TestChartFetchGating:
     """The connector previously gated chart fetching on explorations_count
     (private user analyses), silently dropping charts and lineage for any

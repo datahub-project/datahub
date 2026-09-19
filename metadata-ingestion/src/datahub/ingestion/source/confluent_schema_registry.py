@@ -15,6 +15,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     SchemaRegistryClient,
 )
 
+from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.ingestion.extractor import protobuf_util, schema_util
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
@@ -42,6 +43,19 @@ class JsonSchemaWrapper:
     references: List[Schema]
 
 
+def get_kafka_schema_registry_client(
+    connection: KafkaConsumerConnectionConfig,
+) -> SchemaRegistryClient:
+    """Single construction point, shared with the live recipe probe.
+
+    The probe used to build its own, so registry auth/SSL settings had to be
+    kept in sync by hand across two files.
+    """
+    return SchemaRegistryClient(
+        {"url": connection.schema_registry_url, **connection.schema_registry_config}
+    )
+
+
 class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     """
     Confluent Schema Registry implementation for DataHub.
@@ -53,11 +67,8 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     ) -> None:
         self.source_config: KafkaSourceConfig = source_config
         self.report: KafkaSourceReport = report
-        self.schema_registry_client = SchemaRegistryClient(
-            {
-                "url": source_config.connection.schema_registry_url,
-                **source_config.connection.schema_registry_config,
-            }
+        self.schema_registry_client = get_kafka_schema_registry_client(
+            source_config.connection
         )
         self.known_schema_registry_subjects: List[str] = []
         try:

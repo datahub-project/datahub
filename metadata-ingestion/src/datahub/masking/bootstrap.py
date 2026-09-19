@@ -24,7 +24,6 @@ from datahub.masking.masking_filter import (
     SecretMaskingFilter,
     install_masking_filter,
 )
-from datahub.masking.secret_registry import SecretRegistry
 
 logger = get_masking_safe_logger(__name__)
 
@@ -113,8 +112,19 @@ def initialize_secret_masking(max_message_size: int = 5000) -> None:
 
     with _bootstrap_lock:
         try:
+            # SECURITY: no registry passed, deliberately. These filters go
+            # onto process-wide logging handlers, stdout/stderr and the
+            # excepthook and outlive this call, while bootstrap runs at the
+            # start of the FIRST task -- inside that task's masking scope.
+            #
+            # Naming a registry here pins that one: passing
+            # SecretRegistry.get_instance() captured task A's scoped
+            # registry, so every later task's secrets never reached the
+            # installed filters and its own output went out unmasked. Left
+            # as None, each filter resolves the registry per call and
+            # follows whichever task is running -- falling back to the
+            # global registry, the fail-safe floor, outside any scope.
             masking_filter = install_masking_filter(
-                secret_registry=SecretRegistry.get_instance(),
                 max_message_size=max_message_size,
                 install_stdout_wrapper=True,
             )

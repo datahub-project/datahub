@@ -11,6 +11,11 @@ SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
 
 DEFAULT_SNOWFLAKE_DOMAIN = "snowflakecomputing.com"
 
+# Snowflake auto-creates an INFORMATION_SCHEMA in every database; ingestion never
+# emits it. Single source of truth for the extraction SQL and the agent probe.
+SNOWFLAKE_INFORMATION_SCHEMA = "INFORMATION_SCHEMA"
+SNOWFLAKE_DEFAULT_SCHEMAS = frozenset({SNOWFLAKE_INFORMATION_SCHEMA})
+
 
 class SnowflakeEdition(StrEnum):
     STANDARD = "Standard"
