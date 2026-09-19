@@ -1,8 +1,9 @@
-import os
 import re
 from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import urlparse
+
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 
 # This file should not import any abs spectific modules as we import it in path_spec.py in datat_lake_common.py
 
@@ -119,19 +120,20 @@ def strip_abs_prefix(abs_uri: str) -> str:
     return abs_uri[length_abs_prefix:]
 
 
-def make_abs_urn(abs_uri: str, env: str) -> str:
-    abs_name = strip_abs_prefix(abs_uri)
-
-    if abs_name.endswith("/"):
-        abs_name = abs_name[:-1]
-
-    name, extension = os.path.splitext(abs_name)
-
-    if extension != "":
-        extension = extension[1:]  # remove the dot
-        return f"urn:li:dataset:(urn:li:dataPlatform:abs,{name}_{extension},{env})"
-
-    return f"urn:li:dataset:(urn:li:dataPlatform:abs,{abs_name},{env})"
+def make_abs_urn(
+    abs_uri: str, env: str, *, platform_instance: Optional[str] = None
+) -> str:
+    # No extension mangling: the ABS source (abs/source.py) names datasets with the raw
+    # `strip_abs_prefix(...).strip("/")` path, so `data.parquet` stays `data.parquet` on
+    # both sides. This is the only caller of make_abs_urn; there is no sibling helper
+    # whose behavior needs preserving the way make_s3_urn is kept separate from
+    # make_s3_urn_for_lineage for Glue/Athena/SageMaker.
+    return make_dataset_urn_with_platform_instance(
+        platform="abs",
+        name=strip_abs_prefix(abs_uri).strip("/"),
+        platform_instance=platform_instance,
+        env=env,
+    )
 
 
 def get_container_name(abs_uri: str) -> str:
