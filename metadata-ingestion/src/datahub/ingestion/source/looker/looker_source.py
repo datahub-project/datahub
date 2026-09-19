@@ -1273,9 +1273,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 fields=fields,
             )
         except (SDKError, DeserializeError) as e:
-            self.reporter.warning(
+            # Reported as a failure (not a warning) so that
+            # StaleEntityRemovalHandler.gen_removed_entity_workunits skips
+            # soft-deletion for this run: an entity we failed to fetch was
+            # never "seen," and treating that the same as "genuinely gone"
+            # causes it to be soft-deleted even though it still exists.
+            self.reporter.failure(
                 title="Failed to fetch dashboard from the Looker API",
-                message="Error occurred while attempting to loading dashboard from Looker API. Skipping.",
+                message="Error occurred while attempting to load dashboard from Looker API. Skipping.",
                 context=f"Dashboard ID: {dashboard_id}",
                 exc=e,
                 log=False,
