@@ -2,7 +2,7 @@ import { useApolloClient } from '@apollo/client';
 import { useContext, useMemo } from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import EntitySidebarContext, { SearchResultLineageCounts } from '@app/sharedV2/EntitySidebarContext';
 
 import {
     GetSearchAcrossLineageCountsDocument,
@@ -11,19 +11,11 @@ import {
     useGetSearchAcrossLineageCountsQuery,
 } from '@graphql/lineage.generated';
 
-type LineageCount = {
-    filtered?: number | null;
-    total?: number | null;
-};
+type LineageCount = NonNullable<SearchResultLineageCounts['upstream']>;
 
-export type LineageCountEntity = {
-    upstream?: LineageCount | null;
-    downstream?: LineageCount | null;
-};
+const getVisibleCount = (count?: LineageCount | null): number => (count?.total || 0) - (count?.filtered || 0);
 
-export const getVisibleCount = (count?: LineageCount | null): number => (count?.total || 0) - (count?.filtered || 0);
-
-function hasLineageCounts(entity?: LineageCountEntity | null): boolean {
+function hasLineageCounts(entity?: SearchResultLineageCounts | null): entity is SearchResultLineageCounts {
     return entity?.upstream != null || entity?.downstream != null;
 }
 
@@ -78,7 +70,7 @@ export function useSearchSummaryLineage({
 
     const hasTypeBreakdown = !!(typeBreakdownData?.upstreams || typeBreakdownData?.downstreams);
 
-    let cachedCounts: LineageCountEntity | undefined;
+    let cachedCounts: SearchResultLineageCounts | undefined;
     if (hasLineageCounts(searchResultLineage)) {
         cachedCounts = searchResultLineage;
     } else if (entityData?.upstream || entityData?.downstream) {
@@ -91,7 +83,7 @@ export function useSearchSummaryLineage({
         skip: !enabled || skip || hasTypeBreakdown || hasLineageCounts(cachedCounts),
     });
 
-    const countsEntity = (networkCounts?.entity as LineageCountEntity | null | undefined) ?? cachedCounts;
+    const countsEntity = (networkCounts?.entity as SearchResultLineageCounts | null | undefined) ?? cachedCounts;
     const directUpstreamCount = hasTypeBreakdown
         ? typeBreakdownData?.upstreams?.total || 0
         : getVisibleCount(countsEntity?.upstream);
