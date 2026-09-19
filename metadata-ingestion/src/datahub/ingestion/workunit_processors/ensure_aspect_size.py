@@ -29,6 +29,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemalessClass,
     SchemaMetadataClass,
+    SemanticModelInfoClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
@@ -113,6 +114,8 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
                 self.ensure_query_properties_size(urn, query_properties)
             if view_properties := wu.get_aspect_of_type(ViewPropertiesClass):
                 self.ensure_view_properties_size(urn, view_properties)
+            if semantic_model_info := wu.get_aspect_of_type(SemanticModelInfoClass):
+                self.ensure_semantic_model_info_size(urn, semantic_model_info)
             yield wu
 
     def ensure_dataset_profile_size(
@@ -657,3 +660,82 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
             message="View properties contained too much data and would have caused ingestion to fail",
             context=context,
         )
+
+    def _semantic_model_info_serialized_size(
+        self, semantic_model_info: SemanticModelInfoClass
+    ) -> int:
+        return len(json.dumps(pre_json_transform(semantic_model_info.to_obj())))
+
+    def ensure_semantic_model_info_size(
+        self, entity_urn: str, semantic_model_info: SemanticModelInfoClass
+    ) -> None:
+        # semanticModelInfo's large parts are nativeDefinition (the DDL) and the
+        # datasets array. Only nativeDefinition is trimmed, and only when the whole
+        # aspect exceeds the payload limit; the datasets array carries the primary
+        # queryable metadata and is left intact. See ensure_query_properties_size.
+
+        # Fast path: if the whole aspect already fits, there's nothing to do.
+        if (
+            self._semantic_model_info_serialized_size(semantic_model_info)
+            < self.payload_constraint
+        ):
+            return
+
+        original_value = semantic_model_info.nativeDefinition
+        if not original_value:
+            # Over budget with no DDL to trim; warn (the datasets array is left intact).
+            self.ctx.source_report.warning(
+                title="Semantic model info remains oversized after truncation",
+                message="semanticModelInfo exceeded the size limit and has no "
+                "nativeDefinition to truncate; the datasets structure was not trimmed "
+                "and the aspect may be rejected by GMS",
+                context=entity_urn,
+            )
+            return
+
+        original_size = len(original_value)
+
+        semantic_model_info.nativeDefinition = ""
+        empty_overhead = self._semantic_model_info_serialized_size(semantic_model_info)
+        overhead_without_value = empty_overhead - len(json.dumps(""))
+
+        def candidate_value(retained: int) -> str:
+            if retained == 0:
+                return f"[removed due to size - original was {original_size} chars]"
+            return (
+                original_value[:retained]
+                + f"... [truncated from {original_size} to {retained} chars]"
+            )
+
+        def fits(retained: int) -> bool:
+            serialized = overhead_without_value + len(
+                json.dumps(candidate_value(retained))
+            )
+            return serialized < self.payload_constraint
+
+        retained_length = _largest_fitting_prefix(original_value, fits)
+        semantic_model_info.nativeDefinition = candidate_value(retained_length)
+
+        if retained_length == 0:
+            context = f"nativeDefinition was removed for {entity_urn} (original was {original_size} chars)"
+        else:
+            context = f"nativeDefinition was truncated from {original_size} to {retained_length} chars for {entity_urn}"
+        self.ctx.source_report.warning(
+            title="Semantic model info truncated due to size constraint",
+            message="Semantic model info contained too much data and would have caused ingestion to fail",
+            context=context,
+        )
+        self._record_truncation("semanticModelInfo")
+
+        # Still over budget after minimizing nativeDefinition; warn (datasets untrimmed).
+        if (
+            self._semantic_model_info_serialized_size(semantic_model_info)
+            >= self.payload_constraint
+        ):
+            self.ctx.source_report.warning(
+                title="Semantic model info remains oversized after truncation",
+                message="semanticModelInfo remained too large after truncating "
+                "nativeDefinition; the datasets structure was not trimmed and the "
+                "aspect may be rejected by GMS",
+                context=entity_urn,
+            )
