@@ -32,6 +32,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -85,6 +86,48 @@ LINKED_DATASET_LINEAGE_NEEDS_TABLE_LINEAGE_MESSAGE = (
 _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
     "((.+\\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
 )
+
+
+class BigQueryProfilingConfig(GEProfilingConfig):
+    fallback_partition_values: Dict[str, Union[str, int, float]] = Field(
+        default_factory=dict,
+        description="Fallback values for partition columns when partition discovery fails. Keys are column "
+        "names, values are the fallback values to use (string, int, or float). For non-date columns, the "
+        "values are used directly. Example: {'batch': 'default', 'region': 'us-east-1'}",
+    )
+
+    partition_fetch_timeout: PositiveInt = Field(
+        default=30,
+        description="Timeout in seconds for each partition value fetch query. On timeout the "
+        "table is treated as having no discoverable partition, so it is either skipped or "
+        "(for require_partition_filter=false tables) profiled without a partition filter.",
+    )
+
+    partition_fetch_max_bytes_billed: Optional[PositiveInt] = Field(
+        default=None,
+        description="Optional ceiling (in bytes) on the data scanned by each partition-value "
+        "fetch query. These probes group by a partition column across the table, so on a very "
+        "large table they can scan a lot of data. Set this to fail such a probe fast instead "
+        "of billing for a full-column scan; on failure the table is treated as having no "
+        "discoverable partition. Left unset (no cap) by default because a low ceiling would "
+        "spuriously fail discovery on legitimately large tables; `partition_fetch_timeout` "
+        "already bounds runaway probes by time.",
+    )
+
+    @field_validator("fallback_partition_values", mode="before")
+    @classmethod
+    def reject_bool_fallback_values(cls, v: object) -> object:
+        # Must run in mode="before": a YAML `true`/`false` is otherwise coerced to 1/0 by
+        # the Union[str, int, float] field before an after-validator sees it (bool is an
+        # int subclass), so the wrong partition could be selected silently. Inspect the
+        # raw mapping here and reject bools; leave other shapes for normal validation.
+        if isinstance(v, dict):
+            for col, val in v.items():
+                if isinstance(val, bool):
+                    raise ValueError(
+                        f"fallback_partition_values[{col!r}] must be a string, int, or float, not bool"
+                    )
+        return v
 
 
 class BigQueryBaseConfig(ConfigModel):
@@ -620,6 +663,22 @@ class BigQueryV2Config(
         "Defaults to False to avoid unexpected query cost increases. "
         "Set to True if your project has datasets in regions beyond `region-us` and `region-eu`.",
     )
+
+    profiling: BigQueryProfilingConfig = Field(
+        default_factory=BigQueryProfilingConfig,
+        description="Profiling related configs",
+    )
+
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def coerce_profiling_config(cls, v: object) -> object:
+        # A code caller may pass a GEProfilingConfig instance rather than a YAML dict.
+        # Re-validating it as the BigQueryProfilingConfig subclass runs GEProfilingConfig's
+        # inherited before-validators, which assume a dict and raise on a model instance;
+        # dump it back to a dict so re-validation runs on plain data.
+        if isinstance(v, GEProfilingConfig):
+            return v.dict()
+        return v
 
     pushdown_deny_usernames: List[str] = Field(
         default=[],
