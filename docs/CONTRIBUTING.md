@@ -38,17 +38,14 @@ Before you submit your Pull Request (PR), consider the following guidelines:
 ### Product-update CTA merge check
 
 The Cloud/Core "What's New" toast CTA is a live URL republished from
-`product-update.json` / `product-update-saas.json`. GitHub Actions job
-`product_update_cta_live` GET-probes those links only when a PR changes one of
-those JSON files. Other PRs still run the job so a required check does not stay
-pending, but they skip the HTTP probe and pass. The probe is not part of Gradle,
-so the rest of CI can go green while a blog post is still unpublished.
+`product-update.json` / `product-update-saas.json`. Lint job
+`product_update_release_sync` GET-probes those links when a PR hits the
+product-update-sync path filter (the JSON files, release notes, or related
+cigate). Unrelated PRs skip that job. The Gradle release-sync tests stay
+hermetic; the probe is a following step so a 404 does not fail unit tests.
 
-**Repo admins:** add `product_update_cta_live` as a **required status check** on
-`master` (classic branch protection or a ruleset). Until that is set, the job
-is advisory and will not block merge.
-
-After the URL returns 2xx, re-run that one job. Do not rerun the full CI suite.
+After the URL returns 2xx, re-run `product_update_release_sync`. Do not rerun
+the full CI suite. There is no scheduled retry.
 
 ### PR Title Format
 

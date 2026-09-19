@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Probe product-update toast CTA URLs so unpublished blog posts cannot merge.
 
-Live HTTP checks belong here (GitHub Actions job product_update_cta_live), not in
+Live HTTP checks belong here (GitHub Actions job product_update_release_sync), not in
 Gradle, so PRs stay creatable and the rest of CI can go green while a CTA 404s.
-The job always reports so it can be a required check; the probe itself runs only
-when a product-update JSON file changed.
 """
 
 from __future__ import annotations
@@ -110,7 +108,7 @@ def check_repo(repo_root: Path) -> list[str]:
             failures.append(
                 f"{relpath} CTA is not reachable: {url} ({error}). "
                 "Point the toast at a published page; cloud-router will republish this JSON. "
-                "Re-run product_update_cta_live after the URL returns 2xx — no full CI rerun needed."
+                "Re-run product_update_release_sync after the URL returns 2xx — no full CI rerun needed."
             )
     return failures
 

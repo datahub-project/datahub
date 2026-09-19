@@ -118,6 +118,7 @@ runs:
             - "metadata-io/**"
             - "metadata-jobs/**"
             - "metadata-service/**"
+            # Toast JSON and productUpdateCiGate are lint-only (product_update_release_sync).
             - "!metadata-service/configuration/src/main/resources/product-update.json"
             - "!metadata-service/configuration/src/main/resources/product-update-saas.json"
             - "!metadata-service/configuration/src/productUpdateCiGate/**"
