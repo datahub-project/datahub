@@ -276,7 +276,7 @@ databricks = [
 
 datahub = [
     "cachetools<6.0.0",
-    "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
+    "confluent_kafka[schemaregistry,avro]>=2.15.1,<3.0.0",
     "fastavro>=1.2.0,<2.0.0",
     "greenlet<4.0.0",
     "pymysql>=1.0.2,<2.0.0",
@@ -616,7 +616,7 @@ json-schema = [
 ]
 
 kafka = [
-    "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
+    "confluent_kafka[schemaregistry,avro]>=2.15.1,<3.0.0",
     "fastavro>=1.2.0,<2.0.0",
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.84.0,<2.0.0",
@@ -1177,7 +1177,7 @@ all = [
     "cachetools<6.0.0",
     "cassandra-driver>=3.30.1,<4.0.0",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
-    "confluent_kafka[avro,schemaregistry]>=2.10.1,!=2.8.1,<2.13.0",
+    "confluent_kafka[avro,schemaregistry]>=2.15.1,!=2.8.1,<3.0.0",
     "cryptography>=50.0.0,<51.0.0",
     "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
@@ -1314,7 +1314,7 @@ dev = [
     "click-spinner<0.2.0",
     "click>=7.1.2,!=8.2.0,<9.0.0",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
-    "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
+    "confluent_kafka[schemaregistry,avro]>=2.15.1,<3.0.0",
     "coverage>=5.1,<8.0.0",
     "cramjam>=2.8.0,<3.0.0",
     "cryptography>=50.0.0,<51.0.0",
@@ -1507,7 +1507,7 @@ docs = [
     "click-spinner<0.2.0",
     "click>=7.1.2,!=8.2.0,<9.0.0",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
-    "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
+    "confluent_kafka[schemaregistry,avro]>=2.15.1,<3.0.0",
     "coverage>=5.1,<8.0.0",
     "cramjam>=2.8.0,<3.0.0",
     "cryptography>=50.0.0,<51.0.0",
