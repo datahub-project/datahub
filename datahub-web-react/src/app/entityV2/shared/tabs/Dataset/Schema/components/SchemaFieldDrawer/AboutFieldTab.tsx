@@ -10,6 +10,7 @@ import { FieldDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/component
 import FieldLogicalSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldLogicalSection';
 import FieldTags from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTags';
 import FieldTerms from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTerms';
+import ForeignKeySection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/ForeignKeySection';
 import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
@@ -23,6 +24,7 @@ import {
     EditableSchemaMetadata,
     Post,
     SchemaField,
+    SchemaMetadata,
     UploadDownloadScenario,
     UsageQueryResult,
 } from '@types';
@@ -37,6 +39,7 @@ interface AboutFieldTabProps {
         schemaFields: SchemaField[];
         expandedDrawerFieldPath: string | null;
         editableSchemaMetadata?: EditableSchemaMetadata | null;
+        schemaMetadata?: SchemaMetadata | null;
         usageStats?: UsageQueryResult | null;
         fieldProfile: DatasetFieldProfile | undefined;
         profiles: DatasetProfile[];
@@ -105,6 +108,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                         />
                         {!!notes?.length && <StyledDivider />}
                         <FieldLogicalSection expandedField={expandedField} />
+                        <ForeignKeySection expandedField={expandedField} schemaMetadata={properties.schemaMetadata} />
                         <FieldDescription
                             expandedField={expandedField}
                             editableFieldInfo={editableFieldInfo}
