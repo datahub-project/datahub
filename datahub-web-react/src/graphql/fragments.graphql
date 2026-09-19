@@ -266,6 +266,24 @@ fragment parentDomainsFields on ParentDomainsResult {
     }
 }
 
+fragment corpGroupMemberCount on CorpGroup {
+    # count: 1 (not 0) because the relationships resolver returns total: 0 for a count-only
+    # query; includeSoftDelete: false so soft-deleted members are excluded, matching the group
+    # profile header. Shared by ownershipFields, entityPreview, search results, and listGroups so
+    # the member-count reads stay in lockstep (relationships-input semantics change in PR #19801).
+    memberCount: relationships(
+        input: {
+            types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+            direction: INCOMING
+            start: 0
+            count: 1
+            includeSoftDelete: false
+        }
+    ) {
+        total
+    }
+}
+
 fragment ownershipFields on Ownership {
     owners {
         owner {
@@ -306,6 +324,7 @@ fragment ownershipFields on Ownership {
                     displayName
                     email
                 }
+                ...corpGroupMemberCount
                 info {
                     displayName
                     email
