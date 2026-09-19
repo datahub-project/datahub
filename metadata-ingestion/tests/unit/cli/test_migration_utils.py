@@ -9,18 +9,26 @@ from avrogen.dict_wrapper import DictWrapper
 from datahub.cli.migration_utils import (
     get_migratable_aspect_names,
     merge_additive_aspects,
+    merge_entity,
     merge_mixed_aspects,
     should_overwrite_non_additive,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ContainerClass,
+    ContainerPropertiesClass,
     DatasetPropertiesClass,
+    DeprecationClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    StatusClass,
+    StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -552,21 +560,24 @@ class TestMigrationReportErrorTracking:
 
 
 class TestMergeEntityNonDataset:
-    """Verify merge_entity falls back to overwrite for non-dataset entity types."""
+    """merge_entity for non-datasets: additive union under PATCH/PROMPT, literal overwrite under OVERWRITE."""
 
     CHART_SRC = "urn:li:chart:(powerbi,old_inst.my_chart)"
     CHART_DST = "urn:li:chart:(powerbi,new_inst.my_chart)"
 
     @patch("datahub.cli.migration_utils.clone_aspect")
-    def test_chart_merge_falls_back_to_overwrite(
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_chart_patch_unions_additive_not_overwrite(
         self,
+        mock_get_aspects: MagicMock,
         mock_clone: MagicMock,
     ) -> None:
-        """Merging a chart takes the clone_aspect overwrite path (no PATCH skips)."""
-        from datahub.cli.migration_utils import merge_entity
-
-        # clone_aspect should be called (overwrite path), not DatasetPatchBuilder
-        mock_clone.return_value = iter([])
+        """PATCH unions additive aspects via the Patch API — no clone/overwrite."""
+        mock_get_aspects.return_value = {
+            "globalTags": GlobalTagsClass(
+                tags=[TagAssociationClass(tag="urn:li:tag:pii")]
+            )
+        }
         graph = MagicMock()
 
         result = merge_entity(
@@ -574,24 +585,21 @@ class TestMergeEntityNonDataset:
             self.CHART_DST,
             ConflictStrategy.PATCH,
             graph,
-            dry_run=True,
+            dry_run=False,
         )
 
-        mock_clone.assert_called_once()
-        assert result.skipped == 0
+        mock_clone.assert_not_called()
+        assert "globalTags" in result.merged_aspects
+        # The union is emitted as a PATCH MCP via graph.emit.
+        assert graph.emit.called
 
     @patch("datahub.cli.migration_utils.clone_aspect")
     def test_overwrite_rewrites_urns_in_cloned_aspects(
         self,
         mock_clone: MagicMock,
     ) -> None:
-        """The overwrite fallback applies transform_urns so self-references
-        (and batch cross-references) in cloned aspects are rewritten."""
-        from datahub.cli.migration_utils import merge_entity
-        from datahub.emitter.mcp import MetadataChangeProposalWrapper
-
-        # Simulate a cloned aspect whose owner URN embeds the old chart URN.
-        # transform_urns walks @Relationship/Urn fields and should rewrite it.
+        """The overwrite fallback applies transform_urns so cloned self-references are rewritten."""
+        # transform_urns walks @Relationship/Urn fields; the owner URN embeds the old chart URN.
         aspect = OwnershipClass(
             owners=[
                 OwnerClass(
@@ -618,14 +626,18 @@ class TestMergeEntityNonDataset:
         assert aspect.owners[0].owner == self.CHART_DST
 
     @patch("datahub.cli.migration_utils.clone_aspect")
-    def test_dataflow_merge_falls_back_to_overwrite(
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_dataflow_patch_keeps_conflicting_target_aspect(
         self,
+        mock_get_aspects: MagicMock,
         mock_clone: MagicMock,
     ) -> None:
-        """Merging a dataFlow takes the clone_aspect overwrite path (no PATCH skips)."""
-        from datahub.cli.migration_utils import merge_entity
-
-        mock_clone.return_value = iter([])
+        """PATCH keeps the target's value for a conflicting non-additive aspect."""
+        actor = "urn:li:corpuser:datahub"
+        mock_get_aspects.side_effect = [
+            {"deprecation": DeprecationClass(deprecated=True, note="src", actor=actor)},
+            {"deprecation": DeprecationClass(deprecated=True, note="dst", actor=actor)},
+        ]
         graph = MagicMock()
 
         result = merge_entity(
@@ -633,21 +645,20 @@ class TestMergeEntityNonDataset:
             "urn:li:dataFlow:(airflow,new.dag,PROD)",
             ConflictStrategy.PATCH,
             graph,
-            dry_run=True,
+            dry_run=False,
         )
 
-        mock_clone.assert_called_once()
-        assert result.skipped == 0
+        mock_clone.assert_not_called()
+        # PATCH keeps the target on conflict — nothing merged, one skip recorded.
+        assert "deprecation" in result.skipped_aspects
+        assert result.merged == 0
 
     @patch("datahub.cli.migration_utils.clone_aspect")
     def test_overwrite_excludes_status_aspect(
         self,
         mock_clone: MagicMock,
     ) -> None:
-        """The overwrite fallback (non-dataset merge) does not clone the status
-        aspect — the target's own soft-delete state is authoritative."""
-        from datahub.cli.migration_utils import merge_entity
-
+        """The non-dataset overwrite fallback does not clone status (target's soft-delete state wins)."""
         mock_clone.return_value = iter([])
         graph = MagicMock()
 
@@ -663,6 +674,147 @@ class TestMergeEntityNonDataset:
         assert "status" not in cloned_aspects
 
 
+class TestMergeGenericEntity:
+    """The additive union path for non-dataset entities (e.g. schemaField)."""
+
+    SF_SRC = (
+        "urn:li:schemaField:"
+        "(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.t,PROD),col_a)"
+    )
+    SF_DST = (
+        "urn:li:schemaField:"
+        "(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.t,PROD),Col_A)"
+    )
+
+    @patch("datahub.cli.migration_utils.clone_aspect")
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_schemafield_patch_unions_tags_terms_and_structured_properties(
+        self,
+        mock_get_aspects: MagicMock,
+        mock_clone: MagicMock,
+    ) -> None:
+        """A schemaField merge unions tags, terms and structured properties."""
+        mock_get_aspects.return_value = {
+            "globalTags": GlobalTagsClass(
+                tags=[TagAssociationClass(tag="urn:li:tag:pii")]
+            ),
+            "glossaryTerms": GlossaryTermsClass(
+                terms=[GlossaryTermAssociationClass(urn="urn:li:glossaryTerm:pii")],
+                auditStamp=AuditStampClass(time=0, actor="urn:li:corpuser:datahub"),
+            ),
+            "structuredProperties": StructuredPropertiesClass(
+                properties=[
+                    StructuredPropertyValueAssignmentClass(
+                        propertyUrn="urn:li:structuredProperty:tier",
+                        values=["gold"],
+                    )
+                ]
+            ),
+        }
+        graph = MagicMock()
+
+        result = merge_entity(
+            self.SF_SRC,
+            self.SF_DST,
+            ConflictStrategy.PATCH,
+            graph,
+            dry_run=False,
+        )
+
+        mock_clone.assert_not_called()
+        assert set(result.merged_aspects) == {
+            "globalTags",
+            "glossaryTerms",
+            "structuredProperties",
+        }
+        emitted_aspects = {name for name, _ in _emitted_patch_values(graph)}
+        assert emitted_aspects == {
+            "globalTags",
+            "glossaryTerms",
+            "structuredProperties",
+        }
+
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_structured_properties_union_for_dataset(
+        self,
+        mock_get_aspects: MagicMock,
+    ) -> None:
+        """structuredProperties now unions on the dataset path too (not clobbered)."""
+        src = StructuredPropertiesClass(
+            properties=[
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn="urn:li:structuredProperty:tier",
+                    values=["gold"],
+                )
+            ]
+        )
+        graph = MagicMock()
+        n = merge_additive_aspects(
+            {"structuredProperties": src},
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,shared.db.t,PROD)",
+            graph,
+            dry_run=False,
+        )
+        assert n == 1
+        emitted = _emitted_patch_values(graph)
+        assert [name for name, _ in emitted] == ["structuredProperties"]
+
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_upstream_lineage_copied_not_dropped(
+        self,
+        mock_get_aspects: MagicMock,
+    ) -> None:
+        """upstreamLineage on a non-dataset entity is copied, not silently dropped."""
+        upstream = UpstreamClass(
+            dataset="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.up,PROD)",
+            type="TRANSFORMED",
+        )
+        mock_get_aspects.side_effect = [
+            {"upstreamLineage": UpstreamLineageClass(upstreams=[upstream])},  # src
+            {},  # dst has no upstreamLineage yet
+        ]
+        graph = MagicMock()
+
+        result = merge_entity(
+            "urn:li:mlModel:(urn:li:dataPlatform:science,old,PROD)",
+            "urn:li:mlModel:(urn:li:dataPlatform:science,new,PROD)",
+            ConflictStrategy.PATCH,
+            graph,
+            dry_run=False,
+        )
+
+        assert "upstreamLineage" in result.merged_aspects
+        assert graph.emit_mcp.called
+
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_container_patch_reseats_container_properties(
+        self,
+        mock_get_aspects: MagicMock,
+    ) -> None:
+        """A container merged via urns-mapping (PATCH) still reseats containerProperties."""
+        mock_get_aspects.return_value = {
+            "containerProperties": ContainerPropertiesClass(name="db.sch"),
+            "globalTags": GlobalTagsClass(
+                tags=[TagAssociationClass(tag="urn:li:tag:pii")]
+            ),
+        }
+        graph = MagicMock()
+
+        result = merge_entity(
+            "urn:li:container:oldguid",
+            "urn:li:container:newguid",
+            ConflictStrategy.PATCH,
+            graph,
+            dry_run=False,
+        )
+
+        # containerProperties is always reseated; globalTags unions.
+        assert "containerProperties" in result.merged_aspects
+        assert "globalTags" in result.merged_aspects
+        assert graph.emit_mcp.called  # full-aspect emit for containerProperties
+        assert graph.emit.called  # patch emit for the tag union
+
+
 class TestMergeExcludesStatus:
     """The merge path must never overwrite the target's status aspect."""
 
@@ -676,8 +828,6 @@ class TestMergeExcludesStatus:
     ) -> None:
         """merge_entity for a dataset never writes the source's status aspect to
         the target — a soft-deleted source must not soft-delete a live target."""
-        from datahub.cli.migration_utils import merge_entity
-        from datahub.metadata.schema_classes import StatusClass
 
         mock_get_aspects.return_value = {
             "status": StatusClass(removed=True),
@@ -704,8 +854,6 @@ class TestMergeExcludesStatus:
     ) -> None:
         """merge_entity for a dataset never writes the source's container aspect
         to the target — the target's parent container is authoritative."""
-        from datahub.cli.migration_utils import merge_entity
-        from datahub.metadata.schema_classes import ContainerClass
 
         mock_get_aspects.return_value = {
             "container": ContainerClass(container="urn:li:container:old"),
