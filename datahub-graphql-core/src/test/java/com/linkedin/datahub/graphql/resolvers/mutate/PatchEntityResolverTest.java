@@ -216,6 +216,25 @@ public class PatchEntityResolverTest {
     verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
   }
 
+  /** Ownership-derived Edit Entity must keep working for groups (guarded by aspect validators). */
+  @Test
+  public void testPatchGroupStillAllowedWithEditEntity() throws Exception {
+    PatchEntityInput input = new PatchEntityInput();
+    input.setUrn("urn:li:corpGroup:test-group");
+    input.setAspectName("corpGroupInfo");
+    input.setPatch(
+        List.of(createPatchOperation(PatchOperationType.REPLACE, "/displayName", "\"Team\"")));
+    when(_environment.getArgument("input")).thenReturn(input);
+    setupRegistryMock("corpGroup", "corpGroupInfo");
+    grantOnly(Set.of("EDIT_ENTITY"));
+    when(_entityService.ingestProposal(any(), any(), any(), eq(false)))
+        .thenReturn(mock(IngestResult.class));
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertTrue(result.getSuccess(), "error=" + result.getError());
+  }
+
   private PatchEntityInput createPolicyInput() {
     PatchEntityInput input = new PatchEntityInput();
     input.setUrn("urn:li:dataHubPolicy:test-policy");

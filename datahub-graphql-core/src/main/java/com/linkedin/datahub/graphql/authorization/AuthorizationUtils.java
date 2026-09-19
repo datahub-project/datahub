@@ -491,13 +491,21 @@ public class AuthorizationUtils {
   }
 
   /**
+   * Entity types whose writes are governed solely by platform management privileges. A
+   * resource-level Edit Entity grant must never substitute for them, because editing these entities
+   * changes what everyone else is allowed to do or see.
+   */
+  private static final Set<String> PLATFORM_MANAGED_ENTITY_TYPES =
+      Set.of(POLICY_ENTITY_NAME, SECRETS_ENTITY_NAME, GLOBAL_SETTINGS_ENTITY_NAME);
+
+  /**
    * Checks authorization for patch operations.
    *
-   * <p>Uses the same entity-type-aware UPDATE privilege that the OpenAPI and Rest.li ingest paths
-   * use, so entity types with an elevated write privilege (for example {@code dataHubPolicy}
-   * requiring Manage Policies, or {@code dataHubSecret} requiring Manage Secrets) are not writable
-   * with a generic Edit Entity grant. For entity types without a specific rule this resolves to
-   * Edit Entity, as before.
+   * <p>Uses the entity-type-aware UPDATE privilege that the OpenAPI and Rest.li ingest paths use,
+   * so platform-managed entity types ({@code dataHubPolicy} requiring Manage Policies, {@code
+   * dataHubSecret} requiring Manage Secrets, {@code globalSettings} requiring Manage Global
+   * Settings) are not writable with a generic Edit Entity grant. For every other entity type Edit
+   * Entity on the target remains sufficient, as before.
    *
    * @param input Patch entity input
    * @param context Query context
@@ -529,8 +537,19 @@ public class AuthorizationUtils {
       return false;
     }
 
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+    final DisjunctivePrivilegeGroup apiPrivileges =
         AuthUtil.buildDisjunctivePrivilegeGroup(ApiGroup.ENTITY, ApiOperation.UPDATE, entityType);
+    final DisjunctivePrivilegeGroup orPrivilegeGroups;
+    if (PLATFORM_MANAGED_ENTITY_TYPES.contains(entityType)) {
+      orPrivilegeGroups = apiPrivileges;
+    } else {
+      // Resource-level Edit Entity (for example via ownership) remains sufficient, matching the
+      // other GraphQL mutations for these types; aspect validators guard sensitive aspects.
+      final List<ConjunctivePrivilegeGroup> groups =
+          new java.util.ArrayList<>(apiPrivileges.getAuthorizedPrivilegeGroups());
+      groups.add(ALL_PRIVILEGES_GROUP);
+      orPrivilegeGroups = new DisjunctivePrivilegeGroup(groups);
+    }
 
     return isAuthorized(context, entityType, input.getUrn(), orPrivilegeGroups);
   }
