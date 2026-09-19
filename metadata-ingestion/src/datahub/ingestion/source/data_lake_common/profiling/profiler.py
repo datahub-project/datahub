@@ -34,6 +34,7 @@ from datahub.ingestion.source.azure.abs_utils import (
     get_container_relative_path,
     is_abs_uri,
 )
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.data_lake_common.profiling.accumulators import (
     ColumnStats,
     TableAccumulator,
@@ -190,7 +191,9 @@ class FileProfiler:
             )
         return smart_open(path, "rb")
 
-    def _iter_table_paths(self, table_data: TableDataLike) -> Iterable[str]:
+    def _iter_table_paths(
+        self, table_data: TableDataLike, path_spec: Optional[PathSpec] = None
+    ) -> Iterable[str]:
         """Enumerate every file under a (possibly partitioned) table path.
 
         `table_data.table_path` is a directory when the table spans multiple
@@ -203,6 +206,20 @@ class FileProfiler:
 
         extension = os.path.splitext(table_data.full_path)[1]
         table_path = table_data.table_path
+        include_hidden = path_spec is not None and path_spec.include_hidden_folders
+
+        def _is_data_file(key: str) -> bool:
+            if not key.endswith(extension):
+                return False
+            # Only the default_extension case (no suffix) risks matching
+            # Spark/Hadoop side-car files (``_SUCCESS``, ``_committed_*``,
+            # ``.crc``) via ``endswith("")``. With an explicit extension a
+            # leading ``_``/``.`` (e.g. ``_events.json``) is a real data file,
+            # so keep it. When the user opts into hidden paths, keep everything.
+            if extension or include_hidden:
+                return True
+            base = key.rsplit("/", 1)[-1]
+            return not base.startswith(("_", "."))
 
         if is_s3_uri(table_path):
             if self.aws_config is None:
@@ -212,7 +229,7 @@ class FileProfiler:
             # Reuse the shared lister (paged, structured, GCS-cursor aware)
             # rather than hand-rolling list_objects_v2 pagination here.
             for obj in list_objects_recursive(bucket, prefix, self.aws_config):
-                if obj.key.endswith(extension):
+                if _is_data_file(obj.key):
                     yield f"s3://{obj.bucket_name}/{obj.key}"
         elif is_abs_uri(table_path):
             if self.azure_config is None:
@@ -226,12 +243,12 @@ class FileProfiler:
                 )
             )
             for blob in container_client.list_blobs(name_starts_with=prefix):
-                if blob.name.endswith(extension):
+                if _is_data_file(blob.name):
                     yield f"{abs_prefix}{container}/{blob.name}"
         else:
             for root, _dirs, files in os.walk(table_path):
                 for name in files:
-                    if name.endswith(extension):
+                    if _is_data_file(name):
                         yield os.path.join(root, name)
 
     def _read_source(
@@ -301,10 +318,20 @@ class FileProfiler:
         return field_profile
 
     def get_table_profile(
-        self, table_data: TableDataLike, dataset_urn: str
+        self,
+        table_data: TableDataLike,
+        dataset_urn: str,
+        path_spec: Optional[PathSpec] = None,
     ) -> Iterable[MetadataWorkUnit]:
         config = self.profiling_config
         extension = os.path.splitext(table_data.full_path)[1]
+
+        # Resolve custom extensions (e.g. `.js` -> `.json`) so files declared via
+        # PathSpec.extension_map are profiled instead of skipped as unsupported.
+        if path_spec is not None:
+            if extension == "" and path_spec.default_extension:
+                extension = f".{path_spec.default_extension}"
+            extension = path_spec.resolve_extension(extension)
 
         telemetry.telemetry_instance.ping("data_lake_file", {"extension": extension})
 
@@ -319,7 +346,7 @@ class FileProfiler:
                 # (throttling / AccessDenied) warns and skips this table like a
                 # read failure, instead of propagating out and aborting the
                 # whole source run.
-                paths = list(self._iter_table_paths(table_data))
+                paths = list(self._iter_table_paths(table_data, path_spec))
             except Exception as e:
                 self.report.warning(
                     title="Failed to list files during profiling",
