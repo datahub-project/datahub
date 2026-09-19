@@ -944,6 +944,11 @@ fragment canEditLineageFragment on EntityWithRelationships {
             canEditLineage
         }
     }
+    ... on Metric {
+        privileges {
+            canEditLineage
+        }
+    }
 }
 
 query getLineageCounts(

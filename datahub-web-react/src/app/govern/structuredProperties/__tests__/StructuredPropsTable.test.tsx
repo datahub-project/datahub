@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter, Route } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,10 +9,10 @@ import themeV2 from '@conf/theme/themeV2';
 
 import { EntityType, StructuredPropertyEntity } from '@types';
 
-const { softDelete, hardDelete, showToastMessage } = vi.hoisted(() => ({
+const { softDelete, hardDelete, toastError } = vi.hoisted(() => ({
     softDelete: vi.fn(),
     hardDelete: vi.fn(),
-    showToastMessage: vi.fn(),
+    toastError: vi.fn(),
 }));
 
 vi.mock('@src/graphql/mutations.generated', () => ({
@@ -41,10 +42,11 @@ vi.mock('@src/app/useEntityRegistry', () => ({
     }),
 }));
 
-vi.mock('@src/app/sharedV2/toastMessageUtils', () => ({
-    showToastMessage,
-    ToastType: { ERROR: 'error', SUCCESS: 'success', LOADING: 'loading' },
-}));
+// Only `toast` is stubbed; the table renders real components from this barrel.
+vi.mock('@components', async () => {
+    const actual = await vi.importActual<typeof import('@components')>('@components');
+    return { ...actual, toast: { ...actual.toast, error: toastError } };
+});
 
 const testProperty = {
     urn: 'urn:li:structuredProperty:io.acryl.test.deleteMe',
@@ -59,19 +61,20 @@ const testProperty = {
 
 function renderTable() {
     render(
-        <ThemeProvider theme={themeV2}>
-            <StructuredPropsTable
-                searchQuery="deleteMe"
-                loading={false}
-                setIsDrawerOpen={vi.fn()}
-                setIsViewDrawerOpen={vi.fn()}
-                selectedProperty={testProperty}
-                setSelectedProperty={vi.fn()}
-                fetchData={vi.fn().mockResolvedValue([])}
-                pageSize={10}
-                searchResults={[testProperty]}
-            />
-        </ThemeProvider>,
+        <MemoryRouter>
+            <ThemeProvider theme={themeV2}>
+                <StructuredPropsTable
+                    searchQuery="deleteMe"
+                    loading={false}
+                    fetchData={vi.fn().mockResolvedValue([])}
+                    pageSize={10}
+                    searchResults={[testProperty]}
+                />
+                <Route path="/structured-properties/edit/:urn">
+                    <div data-testid="structured-property-page" />
+                </Route>
+            </ThemeProvider>
+        </MemoryRouter>,
     );
 }
 
@@ -110,7 +113,15 @@ describe('StructuredPropsTable delete flow', () => {
 
         await confirmDeleteFromMenu();
 
-        await waitFor(() => expect(showToastMessage).toHaveBeenCalledWith('error', expect.anything(), 3));
+        await waitFor(() => expect(toastError).toHaveBeenCalledWith(expect.anything(), { duration: 3 }));
         expect(hardDelete).not.toHaveBeenCalled();
+    });
+
+    it('opens the property page when the row is clicked', async () => {
+        renderTable();
+
+        fireEvent.click(screen.getByTestId(testProperty.urn));
+
+        expect(await screen.findByTestId('structured-property-page')).toBeInTheDocument();
     });
 });
