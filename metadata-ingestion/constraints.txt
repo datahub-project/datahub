@@ -525,7 +525,7 @@ grpc-google-iam-v1==0.14.3 ; python_full_version >= '3.11' and python_full_versi
     #   google-cloud-logging
     #   google-cloud-resource-manager
     #   google-cloud-secret-manager
-grpcio==1.78.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+grpcio==1.84.0
     # via
     #   acryl-datahub
     #   google-api-core
