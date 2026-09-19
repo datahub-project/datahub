@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import shutil
 from dataclasses import dataclass
 from os import PathLike
 from typing import Any, Dict, List, Union
@@ -13,8 +14,10 @@ from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.testing import mce_helpers
+from datahub.testing.compare_metadata_json import assert_metadata_files_equal
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from tests.test_helpers import test_connection_helpers
+from tests.test_helpers.state_helpers import run_and_get_pipeline
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 GMS_PORT = 8080
@@ -119,6 +122,23 @@ class DbtTestConfig:
             },
             **self.sink_config_modifiers,
         )
+
+
+def run_and_verify(config: DbtTestConfig) -> None:
+    run_and_get_pipeline(
+        {
+            "run_id": config.run_id,
+            "source": {"type": "dbt", "config": config.source_config},
+            "sink": {
+                "type": "file",
+                "config": config.sink_config,
+            },
+        }
+    )
+    assert_metadata_files_equal(
+        output_path=config.output_path,
+        golden_path=config.golden_path,
+    )
 
 
 @pytest.mark.parametrize(
@@ -362,23 +382,45 @@ def test_dbt_ingest(
         tmp_path=tmp_path,
     )
 
-    pipeline = Pipeline.create(
-        {
-            "run_id": config.run_id,
-            "source": {"type": "dbt", "config": config.source_config},
-            "sink": {
-                "type": "file",
-                "config": config.sink_config,
-            },
-        }
+    run_and_verify(config)
+
+
+@pytest.mark.integration
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_dbt_multi_project_glob(pytestconfig, tmp_path):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+    projects_root = tmp_path / "projects"
+    # project_a and project_b must be genuinely distinct dbt projects (different
+    # unique_id namespaces), not two dbt-version variants of one fixture project.
+    # Nodes that share a unique_id are a cross-project collision, which the collision
+    # checks deliberately resolve by dropping contenders - so same-namespace fixtures
+    # would exercise collision handling here instead of fan-out, and this golden would
+    # prove nothing about ingesting two projects together.
+    for project, manifest_file, catalog_file in [
+        ("project_a", "sample_dbt_manifest_1.json", "sample_dbt_catalog_1.json"),
+        ("project_b", "jaffle_shop_manifest.json", "jaffle_shop_catalog.json"),
+    ]:
+        project_dir = projects_root / project
+        project_dir.mkdir(parents=True)
+        shutil.copy(test_resources_dir / manifest_file, project_dir / "manifest.json")
+        shutil.copy(test_resources_dir / catalog_file, project_dir / "catalog.json")
+
+    config = DbtTestConfig(
+        "dbt-multi-project-glob",
+        "dbt_test_multi_project_glob.json",
+        "dbt_test_multi_project_glob_golden.json",
+        source_config_modifiers={
+            "manifest_path": f"{projects_root}/*/manifest.json",
+            "catalog_path": None,
+            "sources_path": None,
+        },
     )
-    pipeline.run()
-    pipeline.raise_from_status()
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=config.output_path,
-        golden_path=config.golden_path,
+    config.set_paths(
+        dbt_metadata_uri_prefix=test_resources_dir,
+        test_resources_dir=test_resources_dir,
+        tmp_path=tmp_path,
     )
+    run_and_verify(config)
 
 
 @pytest.mark.parametrize(
