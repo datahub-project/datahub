@@ -331,7 +331,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1782935071940,
+            "timestampMillis": 1609459920000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -342,7 +342,8 @@
             "lastUpdatedTimestamp": 1609459920000,
             "queries": [
                 "urn:li:query:composite_dc81559ee890101eb6edacd23ad13cf7f5b9345e0590ed6bd2f8123defbead10"
-            ]
+            ],
+            "messageId": "composite_dc81559ee890101eb6edacd23ad13cf7f5b9345e0590ed6bd2f8123defbead10"
         }
     },
     "systemMetadata": {
