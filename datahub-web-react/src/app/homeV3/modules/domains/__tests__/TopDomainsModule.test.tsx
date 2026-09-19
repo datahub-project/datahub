@@ -58,29 +58,34 @@ describe('TopDomainsModule reload behavior', () => {
         );
     });
 
-    it('uses the initial query instead of immediately refetching on mount', () => {
+    it('refetches when mounted with a pending reload', async () => {
+        refetch.mockResolvedValue(undefined);
         render(<TopDomainsModule {...({} as React.ComponentProps<typeof TopDomainsModule>)} />);
 
-        expect(refetch).not.toHaveBeenCalled();
-        expect(onReloadingFinished).toHaveBeenCalledOnce();
+        expect(refetch).toHaveBeenCalledOnce();
+        await waitFor(() => expect(onReloadingFinished).toHaveBeenCalledOnce());
     });
 
     it('refetches after an explicit reload transition', async () => {
         refetch.mockResolvedValue(undefined);
         const { rerender } = render(<TopDomainsModule {...({} as React.ComponentProps<typeof TopDomainsModule>)} />);
 
+        await waitFor(() => expect(refetch).toHaveBeenCalledOnce());
+
         isReloading = false;
         rerender(<TopDomainsModule {...({} as React.ComponentProps<typeof TopDomainsModule>)} />);
         isReloading = true;
         rerender(<TopDomainsModule {...({} as React.ComponentProps<typeof TopDomainsModule>)} />);
 
-        expect(refetch).toHaveBeenCalledOnce();
+        expect(refetch).toHaveBeenCalledTimes(2);
         await waitFor(() => expect(onReloadingFinished).toHaveBeenCalledTimes(2));
     });
 
     it('finishes a failed reload so a later reload can be requested', async () => {
         refetch.mockRejectedValue(new Error('refresh failed'));
         const { rerender } = render(<TopDomainsModule {...({} as React.ComponentProps<typeof TopDomainsModule>)} />);
+
+        await waitFor(() => expect(onReloadingFinished).toHaveBeenCalledOnce());
 
         isReloading = false;
         rerender(<TopDomainsModule {...({} as React.ComponentProps<typeof TopDomainsModule>)} />);

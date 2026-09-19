@@ -19,7 +19,7 @@ const TopDomainsModule = (props: ModuleProps) => {
     const { isReloading, onReloadingFinished } = useModuleContext();
 
     const { domains, loading, refetch } = useGetDomains(MAX_DOMAINS);
-    const wasReloading = useRef(isReloading);
+    const wasReloading = useRef(false);
 
     useEffect(() => {
         const reloadWasRequested = isReloading && !wasReloading.current;
@@ -30,11 +30,12 @@ const TopDomainsModule = (props: ModuleProps) => {
         }
 
         if (!reloadWasRequested) {
-            onReloadingFinished();
             return;
         }
 
-        // A failed best-effort refresh should not leave the module permanently unable to reload.
+        // Treat mount-time isReloading as a requested reload. A mutation on another page can
+        // mark the module stale before this component mounts; skipping that left cache-first
+        // data on screen. A failed best-effort refresh should not block a later reload.
         refetch().then(onReloadingFinished, onReloadingFinished);
     }, [isReloading, refetch, onReloadingFinished]);
 
