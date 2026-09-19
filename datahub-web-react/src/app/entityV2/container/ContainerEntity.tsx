@@ -10,6 +10,7 @@ import ContainerSummaryTab from '@app/entityV2/container/ContainerSummaryTab';
 import { Preview } from '@app/entityV2/container/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { DOCUMENTATION_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import SidebarContentsSection from '@app/entityV2/shared/containers/profile/sidebar/Container/SidebarContentsSection';
@@ -125,6 +126,7 @@ export class ContainerEntity implements Entity<Container> {
             ...(!showSummaryTab
                 ? [
                       {
+                          id: DOCUMENTATION_TAB_ID,
                           name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
                           icon: FileOutlined,

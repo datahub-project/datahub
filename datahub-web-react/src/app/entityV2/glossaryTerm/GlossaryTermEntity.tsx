@@ -15,6 +15,7 @@ import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/GlossaryRel
 import useGlossaryRelatedAssetsTabCount from '@app/entityV2/glossaryTerm/profile/useGlossaryRelatedAssetsTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { DOCUMENTATION_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
@@ -149,6 +150,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             ...(!showSummaryTab
                 ? [
                       {
+                          id: DOCUMENTATION_TAB_ID,
                           name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
                           icon: FileText,

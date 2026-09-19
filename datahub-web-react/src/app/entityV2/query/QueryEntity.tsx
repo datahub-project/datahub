@@ -6,6 +6,7 @@ import * as React from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, IconStyleType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { DOCUMENTATION_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import SidebarQueryDefinitionSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryDefinitionSection';
 import SidebarQueryDescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryDescriptionSection';
@@ -60,6 +61,7 @@ export class QueryEntity implements Entity<Query> {
                 useEntityQuery={useGetQueryQuery}
                 tabs={[
                     {
+                        id: DOCUMENTATION_TAB_ID,
                         name: i18next.t('entity.types:tab.documentation'),
                         component: DocumentationTab,
                         icon: FileOutlined,

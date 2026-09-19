@@ -8,6 +8,7 @@ import { BusinessAttributeDataTypeSection } from '@app/entityV2/businessAttribut
 import BusinessAttributeRelatedEntity from '@app/entityV2/businessAttribute/profile/BusinessAttributeRelatedEntity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { DOCUMENTATION_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
@@ -104,6 +105,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
                 isNameEditable
                 tabs={[
                     {
+                        id: DOCUMENTATION_TAB_ID,
                         name: i18next.t('entity.types:tab.documentation'),
                         component: DocumentationTab,
                     },
