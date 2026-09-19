@@ -991,7 +991,7 @@ class SQLServerSource(SQLAlchemySource):
             for procedure_data in procedures_data_list:
                 procedure_full_name = f"{db_name}.{schema}.{procedure_data['name']}"
                 if not self.config.procedure_pattern.allowed(procedure_full_name):
-                    self.report.report_dropped(procedure_full_name)
+                    self.report.report_dropped(procedure_full_name.replace("%", "%%"))
                     continue
                 procedures.append(
                     StoredProcedure(flow=mssql_default_job, **procedure_data)
