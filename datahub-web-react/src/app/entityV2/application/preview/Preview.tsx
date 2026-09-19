@@ -54,7 +54,6 @@ export const Preview = ({
             description={description || ''}
             entityType={EntityType.Application}
             typeIcon={entityRegistry.getIcon(EntityType.Application, 14, IconStyleType.ACCENT)}
-            qualifier={origin}
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}

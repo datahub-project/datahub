@@ -80,7 +80,6 @@ export const Preview = ({
             description={description || ''}
             entityType={EntityType.DataProduct}
             typeIcon={entityRegistry.getIcon(EntityType.DataProduct, 14, IconStyleType.ACCENT)}
-            qualifier={origin}
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}

@@ -2,6 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import EnvPill from '@app/entityV2/shared/containers/profile/header/EnvPill';
+import { getEntityEnvironment } from '@app/entityV2/shared/containers/profile/header/getEntityEnvironment';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import DisplayName from '@app/searchV2/autoCompleteV2/components/DisplayName';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
@@ -55,6 +57,8 @@ const DisplayNameHoverFromSelf = styled(DisplayName)`
 
 const DisplayNameWrapper = styled.div`
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: ${(props) => props.theme.colors.text};
     line-height: 20px;
 
@@ -65,6 +69,23 @@ const DisplayNameWrapper = styled.div`
     & span,
     & div {
         line-height: inherit;
+    }
+`;
+
+// Row flex items default to min-width: auto, so a long nowrap name would keep its full
+// width and push the environment pill past the clipped edge. Let the name shrink and
+// truncate instead, and keep the pill at its natural width.
+const NameRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    & > :first-child {
+        min-width: 0;
+    }
+
+    & > :not(:first-child) {
+        flex-shrink: 0;
     }
 `;
 
@@ -165,6 +186,7 @@ export default function AutoCompleteEntityItem({
 }: EntityAutocompleteItemProps) {
     const entityRegistry = useEntityRegistryV2();
     const linkProps = useGetModalLinkProps();
+    const environment = getEntityEnvironment(entity);
 
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const displayType = getEntityDisplayType(entity, entityRegistry);
@@ -245,18 +267,21 @@ export default function AutoCompleteEntityItem({
                 )}
 
                 <DescriptionContainer>
-                    {customHoverEntityName ? (
-                        customHoverEntityName(entity, <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>)
-                    ) : (
-                        <HoverEntityTooltip
-                            placement="bottom"
-                            entity={entity}
-                            showArrow={false}
-                            canOpen={variantProps?.showEntityPopover}
-                        >
-                            <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
-                        </HoverEntityTooltip>
-                    )}
+                    <NameRow>
+                        {customHoverEntityName ? (
+                            customHoverEntityName(entity, <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>)
+                        ) : (
+                            <HoverEntityTooltip
+                                placement="bottom"
+                                entity={entity}
+                                showArrow={false}
+                                canOpen={variantProps?.showEntityPopover}
+                            >
+                                <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
+                            </HoverEntityTooltip>
+                        )}
+                        <EnvPill environment={environment} />
+                    </NameRow>
 
                     {(!hideSubtitle || !hideMatches) && (
                         <SubtitleAndMatchesWrapper>
