@@ -1,0 +1,66 @@
+{
+    "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+    "version": 1,
+    "newProjectRoot": "projects",
+    "projects": {
+        "hello-world-angular-mfe": {
+            "projectType": "application",
+            "root": "",
+            "sourceRoot": "src",
+            "prefix": "app",
+            "architect": {
+                "build": {
+                    "builder": "ngx-build-plus:browser",
+                    "options": {
+                        "outputPath": "dist",
+                        "index": "src/index.html",
+                        "main": "src/main.ts",
+                        "polyfills": ["zone.js"],
+                        "tsConfig": "tsconfig.json",
+                        "assets": [],
+                        "styles": ["src/styles.css"],
+                        "scripts": [],
+                        "extraWebpackConfig": "webpack.config.js"
+                    },
+                    "configurations": {
+                        "production": {
+                            "budgets": [
+                                {
+                                    "type": "initial",
+                                    "maximumWarning": "500kb",
+                                    "maximumError": "2mb"
+                                }
+                            ],
+                            "outputHashing": "none"
+                        },
+                        "development": {
+                            "optimization": false,
+                            "extractLicenses": false,
+                            "sourceMap": true
+                        }
+                    },
+                    "defaultConfiguration": "development"
+                },
+                "serve": {
+                    "builder": "ngx-build-plus:dev-server",
+                    "configurations": {
+                        "production": {
+                            "buildTarget": "hello-world-angular-mfe:build:production"
+                        },
+                        "development": {
+                            "buildTarget": "hello-world-angular-mfe:build:development"
+                        }
+                    },
+                    "defaultConfiguration": "development",
+                    "options": {
+                        "port": 3004,
+                        "extraWebpackConfig": "webpack.config.js"
+                    }
+                }
+            }
+        }
+    },
+    "cli": {
+      "analytics": false
+    }
+}
