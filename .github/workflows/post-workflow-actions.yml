@@ -75,14 +75,18 @@ permissions:
 
 jobs:
   collect-metrics:
+    # Never on forks: the publish step needs the org's POSTHOG_API_KEY secret, which
+    # forks do not have, so the job fails on every push to every fork otherwise.
     # For push events: only collect metrics for default/release/hotfix branches.
     # All other event types (pull_request, schedule, release, etc.) and workflow_dispatch pass through.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.event != 'push' ||
-      github.event.workflow_run.head_branch == github.event.repository.default_branch ||
-      startsWith(github.event.workflow_run.head_branch, 'releases/') ||
-      startsWith(github.event.workflow_run.head_branch, 'hotfixes/')
+      github.repository_owner == 'datahub-project' && (
+        github.event_name == 'workflow_dispatch' ||
+        github.event.workflow_run.event != 'push' ||
+        github.event.workflow_run.head_branch == github.event.repository.default_branch ||
+        startsWith(github.event.workflow_run.head_branch, 'releases/') ||
+        startsWith(github.event.workflow_run.head_branch, 'hotfixes/')
+      )
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
