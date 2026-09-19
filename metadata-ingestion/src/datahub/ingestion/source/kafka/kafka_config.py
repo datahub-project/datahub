@@ -154,7 +154,11 @@ class KafkaSourceConfig(
     )
     external_url_base: Optional[str] = Field(
         default=None,
-        description="Base URL for external platform (e.g. Aiven) where topics can be viewed. The topic name will be appended to this base URL.",
+        description="Base URL for external platform (e.g. Aiven) where topics can be viewed. The topic name will be appended to this base URL. Takes precedence over the Confluent Cloud console link derived from `confluent_cloud_environment_id`.",
+    )
+    confluent_cloud_environment_id: Optional[str] = Field(
+        default=None,
+        description="Confluent Cloud environment ID (e.g. 'env-xyz123'). When set, each topic gets an external URL pointing at that topic in the Confluent Cloud console. The Kafka cluster ID is read from cluster metadata, so only the environment ID is needed. Ignored unless the cluster is reached over a `confluent.cloud` endpoint, and ignored entirely when `external_url_base` is set.",
     )
     profiling: ProfilerConfig = Field(
         default_factory=ProfilerConfig,

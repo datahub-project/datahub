@@ -25,6 +25,8 @@ from typing import (
 from typing_extensions import LiteralString
 
 from datahub.ingestion.source.kafka.kafka_constants import (
+    CONFLUENT_CLOUD_CLUSTER_ID_PATTERN,
+    CONFLUENT_CLOUD_CONSOLE_URL,
     CONFLUENT_MAGIC_BYTE,
     CONFLUENT_WIRE_HEADER_LENGTH,
     DEFAULT_CONSUMER_TIMEOUT_SECONDS,
@@ -55,6 +57,7 @@ import confluent_kafka
 import confluent_kafka.admin
 from confluent_kafka.admin import (
     AdminClient,
+    ClusterMetadata,
     ConfigEntry,
     ConfigResource,
     TopicMetadata,
@@ -87,6 +90,9 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.confluent.constants import (
+    CONFLUENT_CLOUD_DOMAIN_SUFFIX,
+)
 from datahub.ingestion.source.confluent.models import (
     BM_COLLISION_WITH_BROKER_TOPIC_PROPERTIES,
     non_colliding_business_metadata,
@@ -131,6 +137,15 @@ warnings.filterwarnings(
     module="avro.schema",
     message=".*Unknown .*, using .*",
 )
+
+
+def is_confluent_cloud_bootstrap(bootstrap: str) -> bool:
+    """Whether every broker in a bootstrap list is a Confluent Cloud endpoint."""
+    hosts = [host.strip() for host in bootstrap.split(",") if host.strip()]
+    return bool(hosts) and all(
+        host.rsplit(":", 1)[0].lower().endswith(CONFLUENT_CLOUD_DOMAIN_SUFFIX)
+        for host in hosts
+    )
 
 
 def _needs_schema_resolution(schema_and_fields: Optional[SchemaAndFields]) -> bool:
@@ -363,6 +378,12 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         # globalTags is a replacement aspect: a topic dropped by a partial catalog read
         # would be re-emitted without its catalog tags, deleting them. Warn once.
         self._warned_partial_catalog = False
+        # Resolved once from the cluster metadata the run already fetches; stays
+        # None on anything that is not a verified Confluent Cloud cluster. It is
+        # still None until get_workunits_internal resolves it, which is safe
+        # because the only reader runs downstream of that; a reader added ahead
+        # of it would silently see no cluster and emit no link.
+        self._confluent_cloud_cluster_id: Optional[str] = None
         self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
             self.source_config.connection
         )
@@ -437,9 +458,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        topics = self.consumer.list_topics(
+        cluster_metadata = self.consumer.list_topics(
             timeout=self.source_config.connection.client_timeout_seconds
-        ).topics
+        )
+        self._confluent_cloud_cluster_id = self._resolve_confluent_cloud_cluster_id(
+            cluster_metadata
+        )
+        topics = cluster_metadata.topics
         extra_topic_details = self.fetch_extra_topic_details(topics.keys())
 
         # Filter allowed topics upfront
@@ -1282,10 +1307,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         if not is_subject:
             self._apply_catalog_metadata(topic, all_tags, custom_props)
-
-        if self.source_config.external_url_base:
-            base_url = self.source_config.external_url_base.rstrip("/")
-            external_url = f"{base_url}/{dataset_name}"
+            # Only a topic has somewhere to link to. A Schema Registry subject is
+            # not addressable under a broker's topic path, so a link built for one
+            # 404s.
+            external_url = self._get_topic_external_url(topic)
 
         domain_urn: Optional[str] = None
         for domain, pattern in self.source_config.domain.items():
@@ -1356,6 +1381,67 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             if properties:
                 custom_props.update(properties)
                 self.report.catalog_topics_with_business_metadata += 1
+
+    def _resolve_confluent_cloud_cluster_id(
+        self, cluster_metadata: ClusterMetadata
+    ) -> Optional[str]:
+        """The Confluent Cloud logical cluster id for this connection, if it has one.
+
+        Read from the cluster metadata the run already fetched (KIP-78), so no
+        extra call and no extra credential. `cluster_id` is a generic Kafka
+        field, though: open-source brokers and MSK fill it with their own opaque
+        identifiers, and one of those spliced into a confluent.cloud URL yields a
+        link that renders perfectly and 404s. Both the endpoint and the id's
+        shape therefore have to check out before it is used.
+        """
+        # Nothing derived is ever used when an explicit base is set, so resolving
+        # here would only produce a warning about links that were emitted anyway.
+        if self.source_config.external_url_base:
+            return None
+
+        environment_id = self.source_config.confluent_cloud_environment_id
+        if not environment_id:
+            return None
+
+        if not is_confluent_cloud_bootstrap(self.source_config.connection.bootstrap):
+            self.report.warning(
+                title="No Confluent Cloud links emitted",
+                message="confluent_cloud_environment_id is set, but the bootstrap servers are not Confluent Cloud endpoints. Use external_url_base to link topics to another console.",
+                context=self.source_config.connection.bootstrap,
+            )
+            return None
+
+        cluster_id = cluster_metadata.cluster_id
+        if not cluster_id or not CONFLUENT_CLOUD_CLUSTER_ID_PATTERN.match(cluster_id):
+            self.report.warning(
+                title="No Confluent Cloud links emitted",
+                message="confluent_cloud_environment_id is set, but the cluster reported an id that is not a Confluent Cloud cluster id. Use external_url_base to link topics explicitly.",
+                context=str(cluster_id),
+            )
+            return None
+
+        return cluster_id
+
+    def _get_topic_external_url(self, topic: str) -> Optional[str]:
+        # An explicit base always wins: it is the only way to point at a console
+        # served from another address, so a deliberate setting must not be
+        # overridden by anything derived.
+        if self.source_config.external_url_base:
+            base_url = self.source_config.external_url_base.rstrip("/")
+            return f"{base_url}/{topic}"
+
+        if self._confluent_cloud_cluster_id is None:
+            return None
+
+        # No /overview or query string: the console redirects a bare topic path to
+        # whichever tab it currently defaults to, and naming one freezes that
+        # choice here.
+        return (
+            f"{CONFLUENT_CLOUD_CONSOLE_URL}"
+            f"/environments/{self.source_config.confluent_cloud_environment_id}"
+            f"/clusters/{self._confluent_cloud_cluster_id}"
+            f"/topics/{topic}"
+        )
 
     def build_custom_properties(
         self,
