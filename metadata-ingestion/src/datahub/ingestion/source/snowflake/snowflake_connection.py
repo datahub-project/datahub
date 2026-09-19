@@ -314,6 +314,10 @@ class SnowflakeConnectionConfig(ConfigModel):
         options_connect_args: Dict = self.get_connect_args()
         options_connect_args.update(self.options.get("connect_args", {}))
         self.options["connect_args"] = options_connect_args
+        # Validate connections before reuse and recycle them periodically to
+        # prevent stale JWT/session failures during long-running ingestion.
+        self.options.setdefault("pool_pre_ping", True)
+        self.options.setdefault("pool_recycle", 1800)
         return self.options
 
     def get_oauth_connection(self) -> NativeSnowflakeConnection:
