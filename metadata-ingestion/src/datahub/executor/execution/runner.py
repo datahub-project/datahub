@@ -486,31 +486,49 @@ class SubprocessRunner:
                     await self._process.wait()
 
 
-def _stable_name_for_latest(
+def _node_local_stable_name(
     venv_config: VenvConfig, expanded_pip_reqs: list[str]
 ) -> Optional[str]:
-    """A cache name for `latest`, which get_stable_venv_name() refuses.
+    """A cache name for the versions get_stable_venv_name() refuses.
 
-    It refuses because `latest` is a moving target and a cached venv could be
-    stale indefinitely. That reasoning holds for a cache that outlives the
-    process; this one is node-local and dies with the pod, so the staleness
-    window is the pod's lifetime.
+    It refuses `latest` because a moving target could be stale indefinitely,
+    and that holds for a cache outliving the process. This one is node-local
+    and dies with the pod, so the staleness window is the pod's lifetime.
 
-    Only `latest`. Dev-build wheel URLs stay ephemeral: they set UV_NO_CACHE=1
-    on purpose so executor pods do not over-consume storage, and caching the
-    venv would reintroduce exactly that.
+    Dev-build wheel URLs are included, for the opposite reason: a Pages
+    deployment address names exactly one immutable build, so it is a content
+    address in a way `latest` is not. They were excluded over storage -- every
+    wheel tested leaves an entry behind -- which is what evict_to_budget and
+    the age sweep exist to reclaim, and an untouched dev build is the first
+    thing either reclaims. The same host also serves branch aliases that move,
+    which is the same exposure `latest` already carries and is bounded the
+    same way.
+
+    Only the VENV becomes reusable. The PACKAGE cache stays bypassed for dev
+    builds (UV_NO_CACHE=1 in setup_venv) and must: every dev wheel ships as the
+    same name and version, so a cache keyed on those would hand one commit's
+    build to another. Different cache, different key, different argument.
     """
-    if venv_config.version != VENV_VERSION_LATEST or venv_config.main_plugin is None:
+    version = venv_config.version
+    if venv_config.main_plugin is None:
+        return None
+    is_dev_build = version.startswith(("http://", "https://"))
+    if version != VENV_VERSION_LATEST and not is_dev_build:
         return None
     suffix = hashlib.sha256()
-    suffix.update(VENV_VERSION_LATEST.encode("utf-8"))
+    # The version STRING, not the URL the install resolves to: _pages_wheel_url
+    # appends a cache-busting timestamp, so hashing the resolved URL would make
+    # every run a miss and quietly restore the behaviour this removes.
+    suffix.update(version.encode("utf-8"))
     # The list the caller already expanded, never a fresh resolve_pip_requirements():
     # get_stable_venv_name() documents that the hash and the install must see one
     # os.environ snapshot, and re-expanding here would let a template that changed
     # between the two reads name the entry after requirements nobody installs.
     suffix.update(str(expanded_pip_reqs).encode("utf-8"))
     suffix.update(str(venv_config.extra_pip_plugins).encode("utf-8"))
-    return f"{venv_config.main_plugin}-latest-{suffix.digest().hex()[:16]}"
+    # "latest" keeps its existing shape so entries built before this survive.
+    tag = "dev" if is_dev_build else VENV_VERSION_LATEST
+    return f"{venv_config.main_plugin}-{tag}-{suffix.digest().hex()[:16]}"
 
 
 def _extra_env_vars_cache_suffix(extra_env_vars: dict) -> str:
@@ -543,24 +561,32 @@ def _name_dynamic_venv(
 ) -> tuple[str, bool]:
     """Pick the venv's name and whether it is cacheable.
 
-    Versions that are "moving targets" get random names, everything else gets
-    a stable one. `latest` is deliberately included in the stable set now: it
-    was excluded because a cached entry could be stale forever, and a
-    node-local cache that dies with the pod cannot be. `latest` is also the
-    default for every recipe, so excluding it would leave the cache almost
-    never hit -- and sharing one entry makes a probe and the ingestion run it
-    predicts install the same version, which resolving twice does not.
+    A pinned version always gets a stable name. Two more join it while the
+    cache is on, both because this cache is node-local and dies with the pod:
 
-    The kill switch is consulted BEFORE _stable_name_for_latest, not after:
-    with the cache disabled, `latest` must fall back to today's ephemeral
-    random name exactly, not keep a stable cache-shaped name that just
-    happens to live under tmp_dir. A pinned version keeps its stable name
-    either way -- that's today's behaviour too.
+      - `latest`, a moving target, whose staleness is therefore bounded by the
+        pod's life. It is also the default for every recipe, so excluding it
+        would leave the cache almost never hit -- and sharing one entry makes
+        a probe and the ingestion run it predicts install the same version,
+        which resolving twice does not.
+      - A dev-build wheel URL, which unlike `latest` names one immutable
+        build. Excluded until now over storage, which evict_to_budget and the
+        age sweep answer. It is the only version a probe can run before the
+        `recipe probe` command ships, so leaving it uncacheable made every
+        probe re-download its wheel -- about 4.4s of a 7-9s probe, every time.
+
+    Everything else still gets a random, per-run name.
+
+    The kill switch is consulted BEFORE _node_local_stable_name, not after:
+    with the cache disabled, both must fall back to today's ephemeral random
+    name exactly, not keep a stable cache-shaped name that just happens to
+    live under tmp_dir. A pinned version keeps its stable name either way --
+    that's today's behaviour too.
     """
     cache_enabled = get_venv_cache_enabled()
     stable_name = venv_config.get_stable_venv_name(expanded_pip_reqs=expanded_pip_reqs)
     if stable_name is None and cache_enabled:
-        stable_name = _stable_name_for_latest(venv_config, expanded_pip_reqs)
+        stable_name = _node_local_stable_name(venv_config, expanded_pip_reqs)
     cacheable = stable_name is not None and cache_enabled
     if cacheable and venv_config.extra_env_vars:
         # An empty dict -- the overwhelmingly common case -- must leave the
