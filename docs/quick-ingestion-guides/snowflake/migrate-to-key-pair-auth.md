@@ -15,14 +15,17 @@ Changing the authentication mode does **not** reset your ingestion cursor, linea
 
 ## Why key-pair auth
 
-| Auth mode                                               | Headless / scheduled?                   | MFA / IdP dependency                                | Recommended?                                                    |
-| ------------------------------------------------------- | --------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
-| **Key-pair** (`KEY_PAIR_AUTHENTICATOR`)                 | ✅ Yes                                  | None                                                | ✅ **Recommended** for service accounts and scheduled ingestion |
-| OAuth (`OAUTH_AUTHENTICATOR`)                           | ✅ Yes (with token refresh)             | Requires an IdP (e.g. Okta) and token-refresh setup | Viable when you already run an IdP-backed OAuth flow            |
-| External browser SSO (`EXTERNAL_BROWSER_AUTHENTICATOR`) | ❌ No — requires an interactive browser | Requires SSO                                        | Manual testing only; **not** for scheduled ingestion            |
-| Username + password (`DEFAULT_AUTHENTICATOR`)           | ✅ Yes                                  | None                                                | ❌ **Deprecated** by Snowflake — migrate off this               |
+| Auth mode                                                            | Headless / scheduled?                   | MFA / IdP dependency                                | Recommended?                                                                   |
+| -------------------------------------------------------------------- | --------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **Key-pair** (`KEY_PAIR_AUTHENTICATOR`)                              | ✅ Yes                                  | None                                                | ✅ **Recommended** for service accounts and scheduled ingestion                |
+| **Workload identity federation** (`WORKLOAD_IDENTITY_AUTHENTICATOR`) | ✅ Yes                                  | None, uses the cloud workload's own identity        | ✅ Recommended when ingestion runs on AWS, Azure or GCP, with no key to rotate |
+| OAuth (`OAUTH_AUTHENTICATOR`)                                        | ✅ Yes (with token refresh)             | Requires an IdP (e.g. Okta) and token-refresh setup | Viable when you already run an IdP-backed OAuth flow                           |
+| External browser SSO (`EXTERNAL_BROWSER_AUTHENTICATOR`)              | ❌ No — requires an interactive browser | Requires SSO                                        | Manual testing only; **not** for scheduled ingestion                           |
+| Username + password (`DEFAULT_AUTHENTICATOR`)                        | ✅ Yes                                  | None                                                | ❌ **Deprecated** by Snowflake — migrate off this                              |
 
 Key-pair auth needs no MFA, no IdP, and no interactive browser, which makes it the best fit for ingestion that runs on a schedule.
+
+If your ingestion already runs on AWS, Azure or GCP, workload identity federation removes the key as well; see the [Snowflake connector guide](https://docs.datahub.com/docs/generated/ingestion/sources/snowflake#authentication) for the setup.
 
 ## What you will need
 
