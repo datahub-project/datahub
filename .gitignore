@@ -93,6 +93,7 @@ ci-decisions.json
 datahub-frontend/public/**
 
 .remote*
+**/.yarn/install-state.gz
 # Ignore runtime generated authenticatior/authorizer jar files
 metadata-service/plugin/src/test/resources/sample-plugins/**
 

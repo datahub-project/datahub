@@ -147,6 +147,9 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install_args: node yarn
       # Key must stay byte-identical with the yarn restore keys in lint-jobs.yml and
       # the yarn cache key in build-and-test.yml frontend-build.
       - name: Check for existing cache entry
@@ -188,6 +191,9 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install_args: node yarn
       # Key must stay byte-identical with the yarn restore key in lint-jobs.yml
       # playwright-e2e-lint and the cache keys in resusable-playwright-tests.yml.
       - name: Check for existing cache entry
@@ -201,11 +207,11 @@ jobs:
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
+          node-version: "22.23.2"
       - name: Populate yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         working-directory: e2e-test/ui/playwright
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
       - name: Save yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -223,6 +229,9 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install_args: node yarn
       # Key must stay byte-identical with the yarn restore key in lint-jobs.yml
       # docs-website-lint and the save key at the bottom of this job.
       - name: Check for existing cache entry

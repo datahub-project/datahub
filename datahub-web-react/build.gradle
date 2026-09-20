@@ -43,11 +43,9 @@ node {
   Wrappers around Yarn Tasks.
  */
 task yarnInstall(type: YarnTask) {
-  def integrityFile = file('node_modules/.yarn-integrity')
-  def packageManifest = layout.buildDirectory.file('yarn-installed-packages.txt')
-  def argsList = ['install', '--check-files', '--network-timeout', '300000']
+  def argsList = ['install']
   if (System.getenv("CI") == "true") {
-    argsList += ['--frozen-lockfile']
+    argsList += ['--immutable']
   }
   args.set(argsList)
   
@@ -58,25 +56,10 @@ task yarnInstall(type: YarnTask) {
   inputs.files(
     file('yarn.lock'),
     file('package.json'),
+    rootProject.file('.yarnrc.yml'),
+    rootProject.file('mise.toml'),
   )
-  // Snapshot Yarn's marker plus a precomputed package inventory. Checking the listed
-  // package roots catches incomplete installs without walking node_modules on every run.
-  outputs.files(integrityFile, packageManifest)
-  outputs.upToDateWhen {
-    def manifestFile = packageManifest.get().asFile
-    manifestFile.isFile() && manifestFile.readLines().every { relativePath ->
-      file(relativePath).isFile()
-    }
-  }
-
-  doLast {
-    def installedPackages = fileTree('node_modules') {
-      include '**/package.json'
-    }.files.collect { relativePath(it) }.sort()
-    def manifestFile = packageManifest.get().asFile
-    manifestFile.parentFile.mkdirs()
-    manifestFile.text = installedPackages.join('\n') + '\n'
-  }
+  outputs.file('node_modules/.yarn-state.yml')
 }
 
 task yarnGenerateCacheable(type: YarnTask, dependsOn: yarnInstall) {
@@ -364,7 +347,7 @@ tasks.register('docusaurusMarkdownLint', Exec) {
 }
 
 clean {
-  delete 'node_modules/.yarn-integrity'
+  delete 'node_modules/.yarn-state.yml'
   delete 'dist'
   delete 'tmp'
   delete 'just'

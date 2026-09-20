@@ -101,9 +101,9 @@ task generateJsonSchema(type: Exec, dependsOn: [':metadata-ingestion:docGen']) {
 task yarnInstall(type: YarnTask) {
   logger.info('CI = "{}"', System.env.CI)
   if (System.env.CI != null && System.env.CI == "true") {
-    args = ['install', '--frozen-lockfile', '--network-timeout', '300000']
+    args = ['install', '--immutable']
   } else {
-    args = ['install', '--network-timeout', '300000']
+    args = ['install']
   }
 
   // The node_modules directory can contain built artifacts, so
@@ -113,8 +113,10 @@ task yarnInstall(type: YarnTask) {
   inputs.files(
     file('yarn.lock'),
     file('package.json'),
+    rootProject.file('.yarnrc.yml'),
+    rootProject.file('mise.toml'),
   )
-  outputs.dir('node_modules')
+  outputs.file('node_modules/.yarn-state.yml')
 }
 
 task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,

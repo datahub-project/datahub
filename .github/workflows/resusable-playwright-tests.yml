@@ -85,6 +85,9 @@ jobs:
 
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install_args: node yarn
 
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
@@ -103,7 +106,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
+          node-version: "22.23.2"
 
       # Path 1: Pull images from depot cache (docker-unified non fork trigger)
       - name: Set up Depot CLI
@@ -205,7 +208,7 @@ jobs:
       - name: Install Playwright dependencies
         working-directory: e2e-test/ui/playwright
         run: |
-          yarn install --frozen-lockfile
+          yarn install --immutable
           npx playwright install --with-deps chromium
 
       - name: Compute this shard's spec files
