@@ -122,6 +122,9 @@ check "playwright tests" "" 'CHANGED_FILES=["e2e-test/ui/playwright/tests/a.spec
 check "compose templates only" "" 'CHANGED_FILES=["docker/profiles/docker-compose.gms.yml"]'
 check "quickstart version map" "" 'CHANGED_FILES=["docker/quickstart/quickstart_version_mapping.yaml"]'
 check "datahub-agent-context" "" 'CHANGED_FILES=["datahub-agent-context/tests/unit/a.py"]'
+check "product-update json" "" 'CHANGED_FILES=["metadata-service/configuration/src/main/resources/product-update.json"]'
+check "product-update saas json" "" 'CHANGED_FILES=["metadata-service/configuration/src/main/resources/product-update-saas.json"]'
+check "productUpdateCiGate" "" 'CHANGED_FILES=["metadata-service/configuration/src/productUpdateCiGate/java/com/linkedin/metadata/config/productupdate/ProductUpdateReleaseSyncTest.java"]'
 
 echo "ingestion only rebuilds actions"
 check "metadata-ingestion" ":datahub-actions" 'CHANGED_FILES=["metadata-ingestion/src/datahub/emitter/rest_emitter.py"]'

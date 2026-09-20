@@ -147,6 +147,15 @@ export class LineageBasePage extends BasePage {
     return this.page.getByTestId(`lineage-node-${nodeUrn}`);
   }
 
+  /**
+   * Bounding-box header and wrapper can share lineage-node-${urn}; prefer the first match
+   * for visibility assertions on Semantic Model / Data Product graphs.
+   */
+  getPrimaryNode(nodeUrn: string): Locator {
+    // eslint-disable-next-line playwright/no-nth-methods -- box header + wrapper share the same testid
+    return this.getNode(nodeUrn).first();
+  }
+
   /** Get the ReactFlow canvas node element for a given entity URN. */
   getReactFlowNode(urn: string): Locator {
     return this.page.getByTestId(`rf__node-${urn}`);
@@ -186,6 +195,14 @@ export class LineageBasePage extends BasePage {
   /** The downstream segment of a column edge routed through a displayed operation node: `operation -> column`. */
   getOperationToColumnEdge(operationUrn: string, nodeUrn: string, colName: string): Locator {
     return this.page.getByTestId(`rf__edge-${operationUrn}::${operationUrn}-${nodeUrn}::${colName}`);
+  }
+
+  /**
+   * Column edge from a column to an entity that reads it as a whole, having no columns of its own
+   * (e.g. a metric). The entity side of the edge id has an empty field.
+   */
+  getColumnToEntityEdge(nodeUrn: string, colName: string, entityUrn: string): Locator {
+    return this.page.getByTestId(`rf__edge-${nodeUrn}::${colName}-${entityUrn}::`);
   }
 
   /** Assert a rendered edge is drawn with the lineage arrowhead marker (i.e. it's a real arrow). */
@@ -257,6 +274,27 @@ export class LineageBasePage extends BasePage {
       VIEWPORT_SETTLE_MS,
       { polling: 200, timeout: 15000 },
     );
+  }
+
+  // ── Node interactions ───────────────────────────────────────────────────────
+
+  /** The card of a node: its title area, which node hover and selection are driven from. */
+  getNodeCard(nodeUrn: string): Locator {
+    return this.getNode(nodeUrn).getByTestId(`unexpanded-lineage-card-${nodeUrn}`);
+  }
+
+  async hoverNode(nodeUrn: string): Promise<void> {
+    await this.getNodeCard(nodeUrn).hover();
+  }
+
+  /** Select a node on the graph, which also opens it in the lineage sidebar. */
+  async selectNode(nodeUrn: string): Promise<void> {
+    await this.getNodeCard(nodeUrn).click();
+  }
+
+  /** Whether the node as a whole is part of the highlighted column lineage, e.g. a metric reading a column. */
+  async checkNodeHighlighted(nodeUrn: string, highlighted: boolean): Promise<void> {
+    await expect(this.getPrimaryNode(nodeUrn)).toHaveAttribute('data-lineage-highlighted', String(highlighted));
   }
 
   // ── Column interactions ─────────────────────────────────────────────────────
@@ -350,6 +388,16 @@ export class LineageBasePage extends BasePage {
 
   async openManageLineageMenu(nodeUrn: string): Promise<void> {
     await this.page.getByTestId(`manage-lineage-menu-${nodeUrn}`).click();
+  }
+
+  async expectEditUpstreamLineageDisabled(): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD puts aria-disabled on the parent menu item
+    await expect(this.editUpstreamLineageButton.locator('xpath=ancestor::*[@aria-disabled="true"]')).toBeVisible();
+  }
+
+  async expectEditDownstreamLineageEnabled(): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD puts aria-disabled on the parent menu item
+    await expect(this.editDownstreamLineageButton.locator('xpath=ancestor::*[@aria-disabled="true"]')).toHaveCount(0);
   }
 
   async clickLineageEditMenuButton(): Promise<void> {

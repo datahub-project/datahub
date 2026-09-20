@@ -51,6 +51,7 @@ dependencies {
   implementation externalDependency.micrometerObserve
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
+  implementation externalDependency.awsMskIamAuth
 
   // AWS SDK for S3 file serving
   implementation platform(externalDependency.awsSdk2Bom)

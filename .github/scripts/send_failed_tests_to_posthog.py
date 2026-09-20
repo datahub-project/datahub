@@ -26,6 +26,7 @@ class FailedTest:
     name: str
     test_type: str
     error_message: Optional[str] = None
+    custom_properties: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -34,6 +35,21 @@ class PostHogConfig:
     api_key: str
     host: str
     timeout: int = 10
+
+
+def _testcase_custom_properties(testcase: ET.Element) -> Optional[Dict[str, Any]]:
+    """Collect ``<properties>/<property>`` from a JUnit testcase."""
+    properties: Dict[str, Any] = {}
+    for prop in testcase.findall("properties/property"):
+        name = prop.get("name")
+        if not name:
+            continue
+        value = prop.get("value", "")
+        try:
+            properties[name] = json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            properties[name] = value
+    return properties or None
 
 
 def _detect_junit_subtype(xml_file: Path) -> str:
@@ -113,7 +129,8 @@ def parse_playwright_failures(xml_file: Path) -> List[FailedTest]:
                 failed_tests.append(FailedTest(
                     name=test_identifier,
                     test_type='playwright',
-                    error_message=error_msg[:200] if error_msg else None
+                    error_message=error_msg[:200] if error_msg else None,
+                    custom_properties=_testcase_custom_properties(testcase),
                 ))
 
     except ET.ParseError as e:
@@ -165,7 +182,8 @@ def parse_pytest_failures(xml_file: Path) -> List[FailedTest]:
                 failed_tests.append(FailedTest(
                     name=test_identifier,
                     test_type='pytest',
-                    error_message=error_msg[:200] if error_msg else None
+                    error_message=error_msg[:200] if error_msg else None,
+                    custom_properties=_testcase_custom_properties(testcase),
                 ))
 
     except ET.ParseError as e:
@@ -212,7 +230,8 @@ def parse_java_failures(xml_file: Path) -> List[FailedTest]:
                 failed_tests.append(FailedTest(
                     name=test_identifier,
                     test_type='java',
-                    error_message=error_msg[:200] if error_msg else None
+                    error_message=error_msg[:200] if error_msg else None,
+                    custom_properties=_testcase_custom_properties(testcase),
                 ))
 
     except ET.ParseError as e:
@@ -288,6 +307,8 @@ def send_posthog_event(
             "test_type": test.test_type,
             **metadata
         }
+        if test.custom_properties:
+            properties["custom_properties"] = test.custom_properties
 
         # Build event payload
         payload = {

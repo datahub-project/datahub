@@ -25,6 +25,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
@@ -72,11 +73,16 @@ import org.opensearch.search.sort.SortOrder;
 @Accessors(chain = true)
 public class ESBrowseDAO {
 
-  private final SearchClientShim<?> client;
   @Nonnull private final ElasticSearchConfiguration searchConfiguration;
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
+
+  @Nonnull
+  private SearchClientShim<?> searchClient(
+      @Nonnull OperationContext opContext, @Nullable String... indices) {
+    return SearchClients.forEntityIndices(opContext, searchConfiguration, indices);
+  }
 
   private static final String BROWSE_PATH = "browsePaths";
   private static final String BROWSE_PATH_DEPTH = "browsePaths.length";
@@ -147,11 +153,12 @@ public class ESBrowseDAO {
               "esGroupSearch",
               () -> {
                 try {
-                  return client.search(
-                      finalOpContext,
-                      constructGroupsSearchRequest(
-                          finalOpContext, entityName, indexName, path, requestMap),
-                      RequestOptions.DEFAULT);
+                  return searchClient(finalOpContext, indexName)
+                      .search(
+                          finalOpContext,
+                          constructGroupsSearchRequest(
+                              finalOpContext, entityName, indexName, path, requestMap),
+                          RequestOptions.DEFAULT);
                 } catch (IOException e) {
                   throw new RuntimeException(e);
                 }
@@ -174,17 +181,18 @@ public class ESBrowseDAO {
               "esEntitiesSearch",
               () -> {
                 try {
-                  return client.search(
-                      finalOpContext,
-                      constructEntitiesSearchRequest(
+                  return searchClient(finalOpContext, indexName)
+                      .search(
                           finalOpContext,
-                          entityName,
-                          indexName,
-                          path,
-                          requestMap,
-                          entityFrom,
-                          entitySize),
-                      RequestOptions.DEFAULT);
+                          constructEntitiesSearchRequest(
+                              finalOpContext,
+                              entityName,
+                              indexName,
+                              path,
+                              requestMap,
+                              entityFrom,
+                              entitySize),
+                          RequestOptions.DEFAULT);
                 } catch (IOException e) {
                   throw new RuntimeException(e);
                 }
@@ -448,7 +456,10 @@ public class ESBrowseDAO {
     final SearchHit[] searchHits;
     try {
       searchHits =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT).getHits().getHits();
+          searchClient(opContext, indexName)
+              .search(opContext, searchRequest, RequestOptions.DEFAULT)
+              .getHits()
+              .getHits();
     } catch (Exception e) {
       log.error("Get paths from urn query failed: " + e.getMessage());
       throw new ESQueryException("Get paths from urn query failed: ", e);
@@ -480,17 +491,23 @@ public class ESBrowseDAO {
           opContext.withSearchFlags(
               flags -> applyDefaultSearchFlags(flags, path, DEFAULT_BROWSE_SEARCH_FLAGS));
       count = ConfigUtils.applyLimit(searchServiceConfig, count);
+      final String indexName = entityIndexName(finalOpContext, entityName);
 
       final SearchResponse groupsResponse =
           opContext.withSpan(
               "esGroupSearch",
               () -> {
                 try {
-                  return client.search(
-                      finalOpContext,
-                      constructGroupsSearchRequestV2(
-                          finalOpContext, entityName, path, filter, input.isEmpty() ? "*" : input),
-                      RequestOptions.DEFAULT);
+                  return searchClient(finalOpContext, indexName)
+                      .search(
+                          finalOpContext,
+                          constructGroupsSearchRequestV2(
+                              finalOpContext,
+                              entityName,
+                              path,
+                              filter,
+                              input.isEmpty() ? "*" : input),
+                          RequestOptions.DEFAULT);
                 } catch (IOException e) {
                   throw new RuntimeException(e);
                 }
@@ -530,17 +547,23 @@ public class ESBrowseDAO {
           opContext.withSearchFlags(
               flags -> applyDefaultSearchFlags(flags, path, DEFAULT_BROWSE_SEARCH_FLAGS));
       count = ConfigUtils.applyLimit(searchServiceConfig, count);
+      final String[] indexNames = entityIndexNames(finalOpContext, entities);
 
       final SearchResponse groupsResponse =
           opContext.withSpan(
               "esGroupSearch",
               () -> {
                 try {
-                  return client.search(
-                      finalOpContext,
-                      constructGroupsSearchRequestBrowseAcrossEntities(
-                          finalOpContext, entities, path, filter, input.isEmpty() ? "*" : input),
-                      RequestOptions.DEFAULT);
+                  return searchClient(finalOpContext, indexNames)
+                      .search(
+                          finalOpContext,
+                          constructGroupsSearchRequestBrowseAcrossEntities(
+                              finalOpContext,
+                              entities,
+                              path,
+                              filter,
+                              input.isEmpty() ? "*" : input),
+                          RequestOptions.DEFAULT);
                 } catch (IOException e) {
                   throw new RuntimeException(e);
                 }
