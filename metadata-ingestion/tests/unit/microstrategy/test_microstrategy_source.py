@@ -1,8 +1,13 @@
-from typing import Any, Dict, Iterator, List
+import builtins
+import json
+import logging
+import sys
+from typing import Any, Dict, Iterator, List, Tuple
 from unittest import mock
 
 import pytest
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
@@ -16,6 +21,8 @@ from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     MicroStrategyObject,
     ModelTablesResponse,
+    PredefinedFolder,
+    PredefinedFolderResolution,
     Project,
     ReportDefinition,
     SqlView,
@@ -23,6 +30,12 @@ from datahub.ingestion.source.microstrategy.models import (
 from datahub.ingestion.source.microstrategy.source import (
     MicroStrategySource,
     _LazyProjectLineage,
+)
+from datahub.metadata.schema_classes import (
+    ContainerClass,
+    ContainerPropertiesClass,
+    DatasetPropertiesClass,
+    SchemaMetadataClass,
 )
 
 
@@ -402,7 +415,10 @@ def test_get_metric_model_failure_warns_and_degrades() -> None:
 
     assert source._get_metric_model("project-1", "metric-x") == {}
     assert source.report.metric_expression_api_failures == 1
-    assert "metric-x" in source.report.failed_metric_model_ids
+    assert any(
+        sample.startswith("metric-x")
+        for sample in source.report.failed_metric_model_ids
+    )
     # Surfaced once so operators notice cross-project / access-limited metrics.
     assert len(source.report.warnings) == 1
 
@@ -429,6 +445,11 @@ def test_per_dashboard_error_boundary_continues_with_next_dashboard() -> None:
     class FakeClient:
         def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
             return iter(dashboards)
+
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            return []
 
         def get_dossier_definition(
             self, project_id: str, dossier_id: str
@@ -466,6 +487,11 @@ class _ReportSearchClient:
     def __init__(self) -> None:
         self.search_calls = 0
         self.object_info_calls: List[str] = []
+
+    def get_predefined_folders(
+        self, project_id: str, folder_types: List[int]
+    ) -> List[PredefinedFolder]:
+        return []
 
     def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
         self.search_calls += 1
@@ -823,6 +849,89 @@ def test_resolve_visualization_bindings_memoizes_modeling_failure() -> None:
     assert len(source.report.infos) == 1
 
 
+def test_predefined_folder_labels_resolves_shared_reports() -> None:
+    source = _source()
+
+    class FakeClient:
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            assert folder_types == [1, 7, 39]
+            return [
+                PredefinedFolder.model_validate(
+                    {"id": "project-root-id", "name": "Analytics", "folderType": 39}
+                ),
+                PredefinedFolder.model_validate(
+                    {
+                        "id": "public-objects-id",
+                        "name": "Public Objects",
+                        "folderType": 1,
+                    }
+                ),
+                PredefinedFolder.model_validate(
+                    {"id": "reports-folder-id", "name": "Reports", "folderType": 7}
+                ),
+            ]
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    resolution = source._predefined_folders("project-1")
+    assert resolution.labels == {"REPORTS-FOLDER-ID": "Shared Reports"}
+    assert resolution.hidden_ids == {"PROJECT-ROOT-ID", "PUBLIC-OBJECTS-ID"}
+
+
+def test_predefined_folder_labels_disabled_by_config_skips_client_call() -> None:
+    source = _source({"use_predefined_folder_names": False})
+
+    class FakeClient:
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            raise AssertionError("should not be called when the flag is disabled")
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._predefined_folders("project-1") == PredefinedFolderResolution.empty()
+
+
+def test_predefined_folder_labels_memoizes_api_failure() -> None:
+    source = _source()
+
+    class FakeClient:
+        calls = 0
+
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            self.calls += 1
+            raise MicroStrategyAPIError("not supported on this version")
+
+    fake_client = FakeClient()
+    source.client = fake_client  # type: ignore[assignment]
+
+    assert source._predefined_folders("project-1").labels == {}
+    assert source._predefined_folders("project-1").labels == {}
+
+    # The project-scoped failure is remembered; no re-attempts per lookup.
+    assert fake_client.calls == 1
+    assert len(source.report.warnings) == 1
+
+
+def test_predefined_folder_labels_degrades_on_unexpected_client_error() -> None:
+    # A client that doesn't implement the method (e.g. an older FakeClient in
+    # another test, or any non-MicroStrategyAPIError failure) must never take
+    # down dashboard/report processing -- this lookup is purely additive.
+    source = _source()
+
+    class FakeClient:
+        pass
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._predefined_folders("project-1") == PredefinedFolderResolution.empty()
+    assert len(source.report.warnings) == 1
+
+
 def test_lazy_project_lineage_resolves_once_and_caches_failures() -> None:
     source = _source({"extract_model_lineage": True})
 
@@ -995,3 +1104,1204 @@ def _assert_semantic_model_called_only_when_enabled(enabled: bool) -> None:
 def test_process_project_calls_semantic_model_only_when_enabled() -> None:
     _assert_semantic_model_called_only_when_enabled(True)
     _assert_semantic_model_called_only_when_enabled(False)
+
+
+@pytest.mark.parametrize("flag", [True, False])
+def test_extract_derived_metrics_flag_gates_attachment(flag: bool) -> None:
+    source = _source(
+        {
+            "extract_derived_metrics": flag,
+            "extract_warehouse_lineage": False,
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": False,
+            "extract_model_lineage": False,
+        }
+    )
+
+    class FakeClient:
+        def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+            return iter(
+                [MicroStrategyObject.model_validate({"id": "dash-1", "name": "Dash"})]
+            )
+
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            return []
+
+        def get_dossier_definition(
+            self, project_id: str, dossier_id: str
+        ) -> Dict[str, Any]:
+            return {"result": {"definition": {"datasets": [], "chapters": []}}}
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    with mock.patch.object(source.mapper, "attach_derived_metrics") as attach:
+        list(
+            source._process_project_dashboards(
+                "project-1",
+                _LazyProjectLineage(source, "project-1", []),
+            )
+        )
+    assert attach.called is flag
+
+
+class _DatasetLookupClient:
+    """Two dossiers sharing one dataset; counts object-info lookups."""
+
+    def __init__(self, fail: bool = False) -> None:
+        self.fail = fail
+        self.lookups: List[str] = []
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            [
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": dash_id,
+                        "name": f"Dash {dash_id}",
+                        "ancestors": [{"id": "f-1", "name": "Shared Reports"}],
+                    }
+                )
+                for dash_id in ("dash-1", "dash-2")
+            ]
+        )
+
+    def get_predefined_folders(
+        self, project_id: str, folder_types: List[int]
+    ) -> List[PredefinedFolder]:
+        return []
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        return {
+            "result": {
+                "definition": {
+                    "datasets": [{"id": "ds-shared", "name": "Retail Sales Yesterday"}],
+                    "chapters": [],
+                }
+            }
+        }
+
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> MicroStrategyObject:
+        self.lookups.append(object_id)
+        if self.fail:
+            raise MicroStrategyAPIError("boom")
+        return MicroStrategyObject.model_validate(
+            {
+                "id": object_id,
+                "name": "Retail Sales Yesterday",
+                "type": "3",
+                "subtype": "768",
+                "ancestors": [
+                    {"id": "f-1", "name": "Shared Reports"},
+                    {"id": "f-2", "name": "Salon Retail Sales"},
+                ],
+            }
+        )
+
+
+def _dataset_lookup_source() -> MicroStrategySource:
+    return _source(
+        {
+            "extract_warehouse_lineage": False,
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": False,
+            "extract_model_lineage": False,
+        }
+    )
+
+
+def _dataset_container_parents(workunits: List[Any]) -> Dict[str, str]:
+    parents: Dict[str, str] = {}
+    for workunit in workunits:
+        container = workunit.get_aspect_of_type(ContainerClass)
+        if container and workunit.get_urn().startswith("urn:li:dataset:"):
+            parents[workunit.get_urn()] = container.container
+    return parents
+
+
+def test_dataset_object_info_is_fetched_once_per_dataset_across_dossiers() -> None:
+    source = _dataset_lookup_source()
+    client = _DatasetLookupClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    # The same dataset under two dossiers is two entities but one lookup.
+    assert client.lookups == ["ds-shared"]
+    assert source.report.dataset_object_lookups == 1
+    own_folder = source.mapper.folder_key(
+        "project-1", "Shared Reports/Salon Retail Sales"
+    ).as_urn()
+    parents = _dataset_container_parents(workunits)
+    assert len(parents) == 2
+    assert set(parents.values()) == {own_folder}
+
+
+def test_dataset_object_lookup_failure_falls_back_to_dossier_folder() -> None:
+    source = _dataset_lookup_source()
+    client = _DatasetLookupClient(fail=True)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    # Failure is memoized (one attempt), counted, and degrades to the
+    # dossier's folder and URL rather than failing the dashboards.
+    assert client.lookups == ["ds-shared"]
+    assert source.report.dataset_object_lookup_failures == 1
+    dossier_folder = source.mapper.folder_key("project-1", "Shared Reports").as_urn()
+    parents = _dataset_container_parents(workunits)
+    assert len(parents) == 2
+    assert set(parents.values()) == {dossier_folder}
+    urls = set()
+    for workunit in workunits:
+        properties = workunit.get_aspect_of_type(DatasetPropertiesClass)
+        if properties is not None:
+            urls.add(properties.externalUrl)
+    assert urls == {
+        "https://mstr.example.com/MicroStrategyLibrary/app/project-1/dash-1",
+        "https://mstr.example.com/MicroStrategyLibrary/app/project-1/dash-2",
+    }
+
+
+class _ReportDerivedClient(_DatasetLookupClient):
+    """One dossier over a report-backed dataset whose grid shows a derived
+    metric; the report definition endpoints can be made to fail."""
+
+    def __init__(
+        self,
+        model_fails: bool = False,
+        v2_fails: bool = False,
+        subtype: str = "768",
+    ) -> None:
+        super().__init__()
+        self.model_fails = model_fails
+        self.v2_fails = v2_fails
+        self.subtype = subtype
+        self.model_calls: List[str] = []
+        self.v2_calls: List[str] = []
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter([MicroStrategyObject.model_validate({"id": "dash-1", "name": "D"})])
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        return {
+            "definition": {
+                "datasets": [
+                    {
+                        "id": "ds-shared",
+                        "name": "Retail Sales Yesterday",
+                        "availableObjects": {
+                            "metrics": [{"id": "M-NET", "name": "Net Sales Retail Amt"}]
+                        },
+                    }
+                ],
+                "chapters": [
+                    {
+                        "key": "ch",
+                        "pages": [
+                            {
+                                "key": "pg",
+                                "name": "YESTERDAY",
+                                "visualizations": [
+                                    {
+                                        "key": "viz",
+                                        "name": "Grid",
+                                        "runtimeDefinition": {
+                                            "definition": {
+                                                "grid": {
+                                                    "columnSets": [
+                                                        {
+                                                            "key": "cs",
+                                                            "name": "RETAIL",
+                                                            "columns": [
+                                                                {
+                                                                    "type": "templateMetrics",
+                                                                    "elements": [
+                                                                        {
+                                                                            "type": "metric",
+                                                                            "id": "M-NET",
+                                                                            "name": "Net Sales Retail Amt",
+                                                                        },
+                                                                        {
+                                                                            "type": "metric",
+                                                                            "id": "D-RTL",
+                                                                            "name": "RTL % PLN",
+                                                                            "derived": True,
+                                                                        },
+                                                                    ],
+                                                                }
+                                                            ],
+                                                        }
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        }
+
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> MicroStrategyObject:
+        self.lookups.append(object_id)
+        return MicroStrategyObject.model_validate(
+            {
+                "id": object_id,
+                "name": "Retail Sales Yesterday",
+                "type": "3",
+                "subtype": self.subtype,
+            }
+        )
+
+    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.model_calls.append(report_id)
+        if self.model_fails:
+            raise MicroStrategyAPIError("404")
+        return {
+            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "dataSource": {
+                "dataTemplate": {
+                    "units": [
+                        {
+                            "type": "metrics",
+                            "elements": [
+                                {
+                                    "id": "D-RTL",
+                                    "name": "RTL PLN",
+                                    "subType": "derived_metric",
+                                    "expression": {
+                                        "text": "([Net Sales Retail Amt]/[Plan])-1"
+                                    },
+                                }
+                            ],
+                        }
+                    ]
+                }
+            },
+        }
+
+    def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.v2_calls.append(report_id)
+        if self.v2_fails:
+            raise MicroStrategyAPIError("403")
+        return {
+            "definition": {
+                "availableObjects": {
+                    "metrics": [
+                        {
+                            "id": "M-NET",
+                            "name": "Net Sales Retail Amt",
+                            "type": "metric",
+                        },
+                        {
+                            "id": "D-RTL",
+                            "name": "RTL PLN",
+                            "type": "metric",
+                            "derived": True,
+                        },
+                    ]
+                }
+            }
+        }
+
+
+def _derived_field(workunits: List[Any], name: str) -> Any:
+    for workunit in workunits:
+        schema = workunit.get_aspect_of_type(SchemaMetadataClass)
+        if schema:
+            for schema_field in schema.fields:
+                if schema_field.fieldPath == name:
+                    return schema_field
+    return None
+
+
+def test_report_derived_metrics_come_from_model_report_definition() -> None:
+    source = _dataset_lookup_source()
+    client = _ReportDerivedClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.model_calls == ["ds-shared"]
+    assert client.v2_calls == []
+    assert source.report.report_derived_metrics_extracted == 1
+    assert source.report.report_definition_failures == 0
+    rtl = _derived_field(workunits, "RTL PLN")
+    assert rtl is not None
+    assert "([Net Sales Retail Amt]/[Plan])-1" in (rtl.description or "")
+    assert _derived_field(workunits, "RTL % PLN") is None
+
+
+def test_report_derived_metrics_fall_back_to_v2_definition_names() -> None:
+    source = _dataset_lookup_source()
+    client = _ReportDerivedClient(model_fails=True)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.model_calls == ["ds-shared"]
+    assert client.v2_calls == ["ds-shared"]
+    assert source.report.report_definition_failures == 0
+    rtl = _derived_field(workunits, "RTL PLN")
+    assert rtl is not None
+    # The v2 definition named it but exposed no formula, and the field says
+    # which endpoint answered so the gap is diagnosable from the field.
+    assert "v2 definition supplies names only" in (rtl.description or "")
+    assert source.report.report_model_definition_failures == 1
+    assert source.report.report_model_definitions_empty == 0
+    assert source.report.report_definitions_without_expressions == 0
+    samples = list(source.report.report_model_definition_failure_samples)
+    assert len(samples) == 1 and samples[0].startswith("ds-shared: ")
+    assert [w.title for w in source.report.warnings] == [_MODEL_UNAVAILABLE_TITLE]
+
+
+_MODEL_UNAVAILABLE_TITLE = (
+    "Modeling report definition unavailable; derived metric formulas omitted"
+)
+_DERIVED_DEBUG_PREFIX = "[mstr-derived-debug]"
+
+
+class _TwoReportClient(_ReportDerivedClient):
+    """Two dossiers over two different report-backed datasets in one project;
+    the Modeling endpoint fails with an HTTP status for both."""
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            [
+                MicroStrategyObject.model_validate({"id": "dash-1", "name": "D1"}),
+                MicroStrategyObject.model_validate({"id": "dash-2", "name": "D2"}),
+            ]
+        )
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        definition = super().get_dossier_definition(project_id, dossier_id)
+        definition["definition"]["datasets"][0]["id"] = f"ds-{dossier_id}"
+        return definition
+
+    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.model_calls.append(report_id)
+        raise MicroStrategyAPIError(
+            "MicroStrategy API request failed: GET /api/model/reports/x: 403",
+            status_code=403,
+            url="https://mstr.example.com/api/model/reports/x",
+        )
+
+
+def test_model_definition_failure_is_counted_per_report_and_warned_once() -> None:
+    source = _dataset_lookup_source()
+    client = _TwoReportClient()
+    source.client = client  # type: ignore[assignment]
+
+    list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.model_calls == ["ds-dash-1", "ds-dash-2"]
+    assert client.v2_calls == ["ds-dash-1", "ds-dash-2"]
+    assert source.report.report_model_definition_failures == 2
+    samples = list(source.report.report_model_definition_failure_samples)
+    assert [s.split(":")[0] for s in samples] == ["ds-dash-1", "ds-dash-2"]
+    # The HTTP status the client recorded is what tells 403 (privilege) from
+    # 404 (server without the Modeling service) apart in the report.
+    assert all("HTTP 403" in s for s in samples)
+    warnings = [
+        w for w in source.report.warnings if w.title == _MODEL_UNAVAILABLE_TITLE
+    ]
+    assert len(warnings) == 1
+    assert "first_report_id=ds-dash-1" in (warnings[0].context or [""])[0]
+
+
+class _ModelWithoutExpressionClient(_ReportDerivedClient):
+    """The Modeling endpoint answers and flags the derived metric, but its
+    formula sits under a key the walker does not read."""
+
+    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.model_calls.append(report_id)
+        return {
+            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "dataSource": {
+                "dataTemplate": {
+                    "units": [
+                        {
+                            "type": "metrics",
+                            "elements": [
+                                {
+                                    "id": "D-RTL",
+                                    "name": "RTL PLN",
+                                    "subType": "derived_metric",
+                                    "derived": True,
+                                    "definition": {"formulaText": "[A]/[B]-1"},
+                                }
+                            ],
+                        }
+                    ]
+                }
+            },
+        }
+
+
+def test_model_definition_without_expressions_counts_and_logs_payload_shape(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    source = _dataset_lookup_source()
+    client = _ModelWithoutExpressionClient()
+    source.client = client  # type: ignore[assignment]
+
+    with caplog.at_level(logging.DEBUG, logger=MicroStrategySource.__module__):
+        workunits = list(
+            source._process_project_dashboards(
+                "project-1", _LazyProjectLineage(source, "project-1", [])
+            )
+        )
+
+    assert client.model_calls == ["ds-shared"]
+    assert client.v2_calls == []
+    assert source.report.report_definitions_without_expressions == 1
+    assert source.report.report_model_definition_failures == 0
+    rtl = _derived_field(workunits, "RTL PLN")
+    assert rtl is not None
+    assert "Formula not present in the Modeling API report definition" in (
+        rtl.description or ""
+    )
+    debug_lines = [
+        record.getMessage()
+        for record in caplog.records
+        if record.getMessage().startswith(_DERIVED_DEBUG_PREFIX)
+    ]
+    assert len(debug_lines) == 2
+    assert "payload skeleton" in debug_lines[0]
+    assert '"formulaText":"str"' in debug_lines[0]
+    assert "first derived-flagged node" in debug_lines[1]
+    assert '"parent_keys":["elements","type"]' in debug_lines[1]
+    # Structure only: no object names, ids or formula text reach the log.
+    for line in debug_lines:
+        assert "RTL PLN" not in line
+        assert "D-RTL" not in line
+        assert "[A]/[B]-1" not in line
+
+
+class _ModelEmptyClient(_ReportDerivedClient):
+    """The Modeling endpoint answers with a report definition in which the
+    walker recognises no derived metric at all (the live-run shape), so the
+    v2 definition ends up supplying the names."""
+
+    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.model_calls.append(report_id)
+        return {
+            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "sourceType": "normal",
+            "dataSource": {
+                "dataTemplate": {
+                    "units": [
+                        {
+                            "type": "attribute",
+                            "id": "A-REGION",
+                            "name": "Region Number",
+                            "forms": [{"id": "F1", "name": "NUMBER"}],
+                        }
+                    ]
+                }
+            },
+        }
+
+
+def test_model_definition_empty_counts_and_logs_payload_shape(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    source = _dataset_lookup_source()
+    client = _ModelEmptyClient()
+    source.client = client  # type: ignore[assignment]
+
+    with caplog.at_level(logging.DEBUG, logger=MicroStrategySource.__module__):
+        workunits = list(
+            source._process_project_dashboards(
+                "project-1", _LazyProjectLineage(source, "project-1", [])
+            )
+        )
+
+    # Modeling answered (no failure), found nothing (counted), v2 supplied names.
+    assert client.model_calls == ["ds-shared"]
+    assert client.v2_calls == ["ds-shared"]
+    assert source.report.report_model_definition_failures == 0
+    assert source.report.report_model_definitions_empty == 1
+    assert source.report.report_definitions_without_expressions == 0
+    assert source.report.warnings == []
+    rtl = _derived_field(workunits, "RTL PLN")
+    assert rtl is not None
+    assert "v2 definition supplies names only" in (rtl.description or "")
+    debug_lines = [
+        record.getMessage()
+        for record in caplog.records
+        if record.getMessage().startswith(_DERIVED_DEBUG_PREFIX)
+    ]
+    assert len(debug_lines) == 2
+    assert "returned no derived metric definitions" in debug_lines[0]
+    assert '"units":{"$item":{"forms":' in debug_lines[0]
+    assert "v2 report definition" in debug_lines[1]
+    for line in debug_lines:
+        assert "Region Number" not in line
+        assert "A-REGION" not in line
+
+
+class _ModelEmbeddedClient(_ReportDerivedClient):
+    """The live Modeling report definition shape: grid column elements with
+    the plain "metric" subtype, report-level derived metrics marked
+    isEmbedded, no expression anywhere; the metric model endpoint can then
+    answer (or refuse) for the embedded metric's id."""
+
+    def __init__(self, metric_model_fails: bool = False) -> None:
+        super().__init__()
+        self.metric_model_fails = metric_model_fails
+        self.metric_model_calls: List[str] = []
+
+    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.model_calls.append(report_id)
+        return {
+            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "sourceType": "normal",
+            "dataSource": {
+                "dataTemplate": {
+                    "units": [
+                        {
+                            "id": "A-REGION",
+                            "name": "Region Number",
+                            "type": "attribute",
+                        },
+                        {
+                            "type": "metrics",
+                            "elements": [
+                                {
+                                    "id": "M-NET",
+                                    "name": "Net Sales Retail Amt",
+                                    "subType": "metric",
+                                    "evaluationOrder": 0,
+                                },
+                                {
+                                    "id": "D-RTL",
+                                    "name": "New Metric",
+                                    "subType": "metric",
+                                    "evaluationOrder": 1,
+                                },
+                            ],
+                        },
+                    ]
+                }
+            },
+            "grid": {
+                "viewTemplate": {
+                    "columns": {
+                        "units": [
+                            {
+                                "type": "metrics",
+                                "elements": [
+                                    {
+                                        "id": "M-NET",
+                                        "name": "Net Sales Retail Amt",
+                                        "subType": "metric",
+                                        "isEmbedded": False,
+                                        "alias": "Net Sales Retail Amt",
+                                    },
+                                    {
+                                        "id": "D-RTL",
+                                        "name": "New Metric",
+                                        "subType": "metric",
+                                        "isEmbedded": True,
+                                        "alias": "RTL PLN",
+                                    },
+                                ],
+                            }
+                        ],
+                        "hiddenMetrics": [],
+                    }
+                }
+            },
+        }
+
+    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        self.metric_model_calls.append(metric_id)
+        if self.metric_model_fails:
+            raise MicroStrategyAPIError("404 Not Found", status_code=404, url="x")
+        return {
+            "information": {"objectId": metric_id, "name": "New Metric"},
+            "expression": {
+                "text": "([Net Sales Retail Amt]/[Salon Merch OPR Net Sales Retail Amt])-1",
+                "tokens": [
+                    {
+                        "type": "object_reference",
+                        "value": "Net Sales Retail Amt",
+                        "target": {
+                            "objectId": "M-NET",
+                            "name": "Net Sales Retail Amt",
+                            "type": "metric",
+                        },
+                    },
+                ],
+            },
+        }
+
+
+def _embedded_metric_source() -> MicroStrategySource:
+    return _source(
+        {
+            "extract_warehouse_lineage": False,
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": True,
+            "extract_model_lineage": False,
+        }
+    )
+
+
+def test_embedded_report_metric_formula_comes_from_metric_model() -> None:
+    source = _embedded_metric_source()
+    client = _ModelEmbeddedClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    # The Modeling definition named the embedded metric, so v2 was not needed,
+    # and only the embedded (formula-less) metric went to the model endpoint.
+    assert client.model_calls == ["ds-shared"]
+    assert client.v2_calls == []
+    # M-NET is the dataset's catalog metric, enriched as before; the embedded
+    # metric is looked up exactly once on top of that.
+    assert client.metric_model_calls == ["M-NET", "D-RTL"]
+    assert source.report.report_model_definitions_empty == 0
+    assert source.report.report_derived_metric_models_resolved == 1
+    assert source.report.metric_expression_api_failures == 0
+    rtl = _derived_field(workunits, "RTL PLN")
+    assert rtl is not None
+    assert "([Net Sales Retail Amt]/[Salon Merch OPR Net Sales Retail Amt])-1" in (
+        rtl.description or ""
+    )
+    props = json.loads(rtl.jsonProps or "{}")
+    assert props["microstrategyDerivedMetricSource"] == "report"
+    assert "microstrategyMetricExpressionText" in props
+    # Displayed under the grid alias, with the stored object name kept.
+    assert props["microstrategyObjectName"] == "New Metric"
+
+
+def test_embedded_report_metric_without_model_keeps_name_and_counts_failure() -> None:
+    source = _embedded_metric_source()
+    client = _ModelEmbeddedClient(metric_model_fails=True)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.metric_model_calls == ["M-NET", "D-RTL"]
+    assert source.report.report_derived_metric_models_resolved == 0
+    assert source.report.metric_expression_api_failures == 2
+    assert any(
+        sample.startswith("D-RTL (HTTP 404)")
+        for sample in source.report.failed_metric_model_ids
+    )
+    rtl = _derived_field(workunits, "RTL PLN")
+    assert rtl is not None
+    assert "Formula not present in the Modeling API report definition" in (
+        rtl.description or ""
+    )
+
+
+def test_report_derived_metrics_keep_grid_provenance_when_definitions_fail() -> None:
+    source = _dataset_lookup_source()
+    client = _ReportDerivedClient(model_fails=True, v2_fails=True)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert source.report.report_definition_failures == 1
+    assert source.report.report_derived_metrics_extracted == 0
+    grid_only = _derived_field(workunits, "RTL % PLN")
+    assert grid_only is not None
+    assert "visualization 'Grid'" in (grid_only.description or "")
+
+
+def test_report_derived_metrics_skip_cube_datasets() -> None:
+    source = _dataset_lookup_source()
+    client = _ReportDerivedClient(subtype="776")
+    source.client = client  # type: ignore[assignment]
+
+    list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.model_calls == []
+    assert client.v2_calls == []
+
+
+_SQL_PARSER_MODULE = "datahub.sql_parsing.sqlglot_lineage"
+_SQL_AGGREGATOR_MODULE = "datahub.sql_parsing.sql_parsing_aggregator"
+_ALL_FAILED_TITLE = "Every MicroStrategy SQL view failed to parse"
+
+
+def _warehouse_dashboard() -> DashboardDefinition:
+    return _dashboard(
+        {"id": "s", "name": "W", "database": {"type": "snow_flake", "name": "DB"}}
+    )
+
+
+def test_missing_sqlparse_fails_source_construction_with_named_extra(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Simulate the environment that emitted zero lineage in production: the
+    # wheel installed without the extra, so the parser's aggregator module
+    # (usage_common -> sql_formatter -> sqlparse) cannot be imported. The run
+    # must fail up front, naming the extra, rather than degrade to per-view
+    # parse warnings.
+    real_import = builtins.__import__
+
+    def import_without_sqlparse(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == _SQL_AGGREGATOR_MODULE:
+            raise ModuleNotFoundError("No module named 'sqlparse'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_without_sqlparse)
+
+    with pytest.raises(ConfigurationError) as raised:
+        _source({"extract_warehouse_lineage": True})
+    assert "acryl-datahub[microstrategy]" in str(raised.value)
+    assert "sqlparse" in str(raised.value)
+
+    with pytest.raises(ConfigurationError):
+        _source(
+            {"extract_warehouse_lineage": False, "extract_report_sql_lineage": True}
+        )
+    # Without SQL-view lineage enabled the parser is not needed at all.
+    _source({"extract_warehouse_lineage": False})
+
+
+def test_import_error_during_parse_is_not_a_parse_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _source()
+
+    def missing_module(**kwargs: Any) -> Any:
+        raise ModuleNotFoundError("No module named 'sqlparse'")
+
+    monkeypatch.setattr(
+        sys.modules[_SQL_PARSER_MODULE],
+        "create_lineage_from_sql_statements",
+        missing_module,
+    )
+
+    with pytest.raises(ConfigurationError):
+        source._attach_dataset_warehouse_upstreams(
+            [{"id": "ds-1", "sqlStatement": "select 1 from t"}],
+            _warehouse_dashboard(),
+            None,
+        )
+    assert source.report.sql_parse_failure_count == 0
+    assert list(source.report.sql_parse_failures) == []
+
+
+def test_configuration_error_escapes_the_dashboard_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Per-dashboard boundaries swallow API errors to keep going; an
+    # environmental error must not be reduced to a "Failed to Process
+    # Dashboard" warning.
+    source = _source({"extract_warehouse_lineage": False})
+
+    def boom(*args: Any, **kwargs: Any) -> Any:
+        raise ConfigurationError("parser missing")
+
+    monkeypatch.setattr(source, "_process_dashboard_object", boom)
+    source.client = _DatasetLookupClient()  # type: ignore[assignment]
+
+    with pytest.raises(ConfigurationError):
+        list(
+            source._process_project_dashboards(
+                "project-1", _LazyProjectLineage(source, "project-1", [])
+            )
+        )
+
+
+def _fail_parses(monkeypatch: pytest.MonkeyPatch, fail_first_n: int) -> None:
+    calls = {"count": 0}
+    real = sys.modules[_SQL_PARSER_MODULE].create_lineage_from_sql_statements
+
+    def flaky(**kwargs: Any) -> Any:
+        calls["count"] += 1
+        if calls["count"] <= fail_first_n:
+            raise ValueError("boom")
+        return real(**kwargs)
+
+    monkeypatch.setattr(
+        sys.modules[_SQL_PARSER_MODULE], "create_lineage_from_sql_statements", flaky
+    )
+
+
+def test_every_sql_view_failing_raises_one_loud_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _source()
+    _fail_parses(monkeypatch, fail_first_n=2)
+    source._attach_dataset_warehouse_upstreams(
+        [
+            {"id": "ds-1", "sqlStatement": "select a from DB.S.T"},
+            {"id": "ds-1", "sqlStatement": "select b from DB.S.U"},
+        ],
+        _warehouse_dashboard(),
+        None,
+    )
+    assert source.report.sql_views_parsed == 2
+    assert source.report.sql_parse_failure_count == 2
+
+    source._warn_if_every_sql_view_failed()
+
+    loud = [
+        entry for entry in source.report.warnings if entry.title == _ALL_FAILED_TITLE
+    ]
+    assert len(loud) == 1
+    assert "All 2 SQL views" in loud[0].message
+    assert any(
+        "first_failure=platform=snowflake, error=ValueError: boom" in ctx
+        for ctx in (loud[0].context or [])
+    )
+
+
+def test_all_failed_warning_is_silent_when_any_sql_view_parses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _source()
+    _fail_parses(monkeypatch, fail_first_n=1)
+    source._attach_dataset_warehouse_upstreams(
+        [
+            {"id": "ds-1", "sqlStatement": "select a from DB.S.T"},
+            {"id": "ds-1", "sqlStatement": "select b from DB.S.U"},
+        ],
+        _warehouse_dashboard(),
+        None,
+    )
+    assert source.report.sql_views_parsed == 2
+    assert source.report.sql_parse_failure_count == 1
+
+    source._warn_if_every_sql_view_failed()
+
+    assert not any(entry.title == _ALL_FAILED_TITLE for entry in source.report.warnings)
+
+
+_PERSONAL_ANCESTORS = [
+    {"id": "project-root-id", "name": "Sales Analytics"},
+    {"id": "profiles-id", "name": "Profiles"},
+    {"id": "user-id", "name": "jdoe"},
+    {"id": "my-reports-id", "name": "My Reports"},
+]
+_SHARED_ANCESTORS = [
+    {"id": "project-root-id", "name": "Sales Analytics"},
+    {"id": "public-objects-id", "name": "Public Objects"},
+    {"id": "reports-folder-id", "name": "Reports"},
+]
+_PERSONAL_ROOT_TITLE = "Personal folder root not resolved"
+
+
+def _personal_folder_source(extra_config: dict | None = None) -> MicroStrategySource:
+    config = {
+        "extract_warehouse_lineage": False,
+        "extract_visualization_details": False,
+        "extract_dashboard_dependencies": False,
+        "extract_metric_expressions": False,
+        "extract_model_lineage": False,
+        "extract_derived_metrics": False,
+    }
+    config.update(extra_config or {})
+    return _source(config)
+
+
+class _PersonalFolderClient:
+    """A personal copy of a dossier beside the shared original. The shared
+    dossier embeds a dataset that is itself filed under a personal folder."""
+
+    def __init__(
+        self, resolve_by_id: bool = True, personal_call_fails: bool = False
+    ) -> None:
+        self.resolve_by_id = resolve_by_id
+        self.personal_call_fails = personal_call_fails
+        self.predefined_calls: List[List[int]] = []
+        self.definition_calls: List[str] = []
+        self.object_info_calls: List[Tuple[str, int]] = []
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            [
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "dash-personal",
+                        "name": "Copy of Sales",
+                        "ancestors": _PERSONAL_ANCESTORS,
+                    }
+                ),
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "dash-shared",
+                        "name": "Sales",
+                        "ancestors": _SHARED_ANCESTORS,
+                    }
+                ),
+            ]
+        )
+
+    def get_predefined_folders(
+        self, project_id: str, folder_types: List[int]
+    ) -> List[PredefinedFolder]:
+        self.predefined_calls.append(list(folder_types))
+        if folder_types == [19, 20]:
+            if self.personal_call_fails:
+                raise MicroStrategyAPIError("forbidden", status_code=403)
+            if not self.resolve_by_id:
+                return []
+            return [
+                PredefinedFolder.model_validate(
+                    {"id": "user-id", "name": "jdoe", "folderType": 19}
+                ),
+                PredefinedFolder.model_validate(
+                    {"id": "my-reports-id", "name": "My Reports", "folderType": 20}
+                ),
+            ]
+        return [
+            PredefinedFolder.model_validate(
+                {"id": "project-root-id", "name": "Sales Analytics", "folderType": 39}
+            ),
+            PredefinedFolder.model_validate(
+                {"id": "public-objects-id", "name": "Public Objects", "folderType": 1}
+            ),
+            PredefinedFolder.model_validate(
+                {"id": "reports-folder-id", "name": "Reports", "folderType": 7}
+            ),
+        ]
+
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> MicroStrategyObject:
+        self.object_info_calls.append((object_id, object_type))
+        if object_type == 8:
+            # The principal's own profile folder: its parent is Profiles.
+            return MicroStrategyObject.model_validate(
+                {
+                    "id": object_id,
+                    "name": "jdoe",
+                    "type": "8",
+                    "ancestors": _PERSONAL_ANCESTORS[:2],
+                }
+            )
+        return MicroStrategyObject.model_validate(
+            {
+                "id": object_id,
+                "name": "Personal Dataset",
+                "type": "3",
+                "subtype": "768",
+                "ancestors": _PERSONAL_ANCESTORS,
+            }
+        )
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        self.definition_calls.append(dossier_id)
+        return {
+            "result": {
+                "definition": {
+                    "datasets": [{"id": "ds-personal", "name": "Personal Dataset"}],
+                    "chapters": [],
+                }
+            }
+        }
+
+
+def _container_names(workunits: List[Any]) -> set:
+    names = set()
+    for workunit in workunits:
+        properties = workunit.get_aspect_of_type(ContainerPropertiesClass)
+        if properties is not None:
+            names.add(properties.name)
+    return names
+
+
+def _run_dashboards(source: MicroStrategySource) -> List[Any]:
+    return list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+
+def test_personal_folder_objects_skipped_by_resolved_profiles_root_id() -> None:
+    source = _personal_folder_source()
+    client = _PersonalFolderClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_dashboards(source)
+
+    # Resolution: one extra predefined call plus the profile folder's object
+    # info; the Profiles root is that folder's parent.
+    assert [19, 20] in client.predefined_calls
+    assert ("user-id", 8) in client.object_info_calls
+    assert source._personal_folders("project-1").root_ids == {
+        "PROFILES-ID",
+        "USER-ID",
+        "MY-REPORTS-ID",
+    }
+    assert source.report.personal_folder_roots_resolved == 1
+    # The personal copy is dropped before its definition is fetched.
+    assert client.definition_calls == ["dash-shared"]
+    assert source.report.personal_folder_objects_skipped == 1
+    assert list(source.report.personal_folder_objects_skipped_samples) == [
+        "Copy of Sales"
+    ]
+    urns = {workunit.get_urn() for workunit in workunits}
+    assert source.mapper.dashboard_urn("project-1", "dash-shared") in urns
+    assert source.mapper.dashboard_urn("project-1", "dash-personal") not in urns
+    # No container under the Profiles tree, even for the personally filed
+    # dataset the shared dossier embeds; that dataset is kept and parented
+    # under the dossier's own folder instead.
+    assert _container_names(workunits) == {"Shared Reports"}
+    parents = _dataset_container_parents(workunits)
+    assert set(parents.values()) == {
+        source.mapper.folder_key("project-1", "Shared Reports").as_urn()
+    }
+
+
+def test_personal_folder_objects_skipped_by_name_when_root_unresolved() -> None:
+    source = _personal_folder_source()
+    client = _PersonalFolderClient(resolve_by_id=False)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_dashboards(source)
+
+    assert source._personal_folders("project-1").by_name
+    assert source.report.personal_folder_roots_resolved == 0
+    assert ("user-id", 8) not in client.object_info_calls
+    assert client.definition_calls == ["dash-shared"]
+    assert source.report.personal_folder_objects_skipped == 1
+    assert _container_names(workunits) == {"Shared Reports"}
+
+
+def test_personal_folder_resolution_failure_falls_back_to_names_once() -> None:
+    source = _personal_folder_source()
+    client = _PersonalFolderClient(personal_call_fails=True)
+    source.client = client  # type: ignore[assignment]
+
+    _run_dashboards(source)
+
+    assert client.predefined_calls.count([19, 20]) == 1
+    assert source.report.personal_folder_objects_skipped == 1
+    infos = [i for i in source.report.infos if i.title == _PERSONAL_ROOT_TITLE]
+    assert len(infos) == 1
+
+
+def test_include_personal_folders_keeps_everything_and_skips_resolution() -> None:
+    source = _personal_folder_source({"include_personal_folders": True})
+    client = _PersonalFolderClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_dashboards(source)
+
+    assert [19, 20] not in client.predefined_calls
+    assert client.definition_calls == ["dash-personal", "dash-shared"]
+    assert source.report.personal_folder_objects_skipped == 0
+    urns = {workunit.get_urn() for workunit in workunits}
+    assert source.mapper.dashboard_urn("project-1", "dash-personal") in urns
+    assert {"Profiles", "jdoe", "My Reports", "Shared Reports"} <= _container_names(
+        workunits
+    )
+
+
+class _PersonalReportClient(_ReportSearchClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.definition_calls: List[str] = []
+
+    def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            [
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "REPORT-PERSONAL",
+                        "name": "My Copy",
+                        "type": "3",
+                        "ancestors": _PERSONAL_ANCESTORS,
+                    }
+                ),
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "REPORT-SHARED",
+                        "name": "Shared",
+                        "type": "3",
+                        "ancestors": _SHARED_ANCESTORS,
+                    }
+                ),
+            ]
+        )
+
+    def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.definition_calls.append(report_id)
+        return {}
+
+
+def test_personal_folder_reports_skipped_before_definition_fetch() -> None:
+    source = _report_scope_source(
+        {"extract_independent_reports": True, "extract_report_definitions": True}
+    )
+    client = _PersonalReportClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_reports(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    # _ReportSearchClient resolves no predefined folders: name fallback.
+    assert client.definition_calls == ["REPORT-SHARED"]
+    assert source.report.personal_folder_objects_skipped == 1
+    urns = {workunit.get_urn() for workunit in workunits}
+    assert source.mapper.report_urn("project-1", "REPORT-SHARED") in urns
+    assert source.mapper.report_urn("project-1", "REPORT-PERSONAL") not in urns

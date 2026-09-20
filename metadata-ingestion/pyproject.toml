@@ -689,6 +689,7 @@ metabase = [
 microstrategy = [
     "requests<3.0.0",
     "sqlglot[c]==30.12.0",
+    "sqlparse>=0.6.0,<1.0.0",
 ]
 
 mlflow = [
