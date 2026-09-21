@@ -5,7 +5,6 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +18,6 @@ public class BackfillDataProcessInstances implements NonBlockingSystemUpgrade {
       OperationContext opContext,
       EntityService<?> entityService,
       ElasticSearchService elasticSearchService,
-      SearchClientShim<?> restHighLevelClient,
       boolean enabled,
       boolean reprocessEnabled,
       Integer batchSize,
@@ -33,7 +31,6 @@ public class BackfillDataProcessInstances implements NonBlockingSystemUpgrade {
                   opContext,
                   entityService,
                   elasticSearchService,
-                  restHighLevelClient,
                   reprocessEnabled,
                   batchSize,
                   batchDelayMs,

@@ -50,7 +50,7 @@ buildscript {
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.4'
-  ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
+  ext.elasticsearchVersion = '2.19.4' // OpenSearch 2.x REST high-level client (type library)
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
   // CVE-2026-5795 (JASPIAuthenticator ThreadLocal): fixed in 12.0.34+
   // CVE-2026-10050 (Digest Auth bypass via ISO-8859-1 encoding): fixed in 12.1.10+

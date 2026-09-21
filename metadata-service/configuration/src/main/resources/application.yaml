@@ -739,24 +739,123 @@ peConsumer:
     platformEventEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_PE_EMPTY_POLL_SLEEP_MS:5000}
 
 elasticsearch:
-  host: ${ELASTICSEARCH_HOST:localhost}
-  port: ${ELASTICSEARCH_PORT:9200}
+  # Process-wide RestClient tuning, shared by every cluster connection. The MAE consumer merges
+  # maeConsumer.elasticsearch.* over these.
   threadCount: ${ELASTICSEARCH_THREAD_COUNT:2}
   connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:5000}
   socketTimeout: ${ELASTICSEARCH_SOCKET_TIMEOUT:30000}
-  username: ${ELASTICSEARCH_USERNAME:#{null}}
-  password: ${ELASTICSEARCH_PASSWORD:#{null}}
+
+  # Legacy connection inputs. These are bind-time inputs only: when
+  # clusters.primary.uri is blank it is synthesized from them, so existing deployments that ship
+  # ELASTICSEARCH_HOST keep working untouched. If ELASTICSEARCH_URI is also set it wins and these
+  # are ignored with a warning. Read effective values from clusters.primary.uri.
+  host: ${ELASTICSEARCH_HOST:}
+  port: ${ELASTICSEARCH_PORT:}
+  useSSL: ${ELASTICSEARCH_USE_SSL:}
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:}
-  useSSL: ${ELASTICSEARCH_USE_SSL:false}
-  opensearchUseAwsIamAuth: ${OPENSEARCH_USE_AWS_IAM_AUTH:false}
-  region: ${AWS_REGION:#{null}}
-  idHashAlgo: ${ELASTIC_ID_HASH_ALGO:MD5}
-  dataNodeCount: ${ELASTICSEARCH_DATA_NODE_COUNT:1}
+
+  # Named search clusters. `primary` is required; `secondary` is optional and stays unused unless
+  # a componentCluster entry routes something to it.
+  #
+  # A cluster owns what identifies or authenticates a connection — endpoint, credentials, TLS,
+  # engine shim — plus its own sizing. Operational tuning (bulkProcessor, bulkDelete, buildIndices,
+  # and the non-sizing index keys) lives at elasticsearch.* and is inherited by every cluster; the
+  # optional per-cluster blocks below are sparse overlays for when one cluster must differ.
+  #
+  # Nothing is inherited between clusters. A blank uri means "not configured", never "same as
+  # primary".
+  clusters:
+    primary:
+      # scheme://host:port[/pathPrefix] — supersedes host/port/useSSL/pathPrefix above.
+      # Blank by default so the legacy vars can synthesize it.
+      uri: ${ELASTICSEARCH_URI:}
+      username: ${ELASTICSEARCH_USERNAME:}
+      password: ${ELASTICSEARCH_PASSWORD:}
+      opensearchUseAwsIamAuth: ${OPENSEARCH_USE_AWS_IAM_AUTH:false}
+      region: ${AWS_REGION:}
+      dataNodeCount: ${ELASTICSEARCH_DATA_NODE_COUNT:1}
+      index:
+        # Unset shard count falls back to this cluster's own dataNodeCount.
+        numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:}
+        numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
+        # Blank inherits elasticsearch.index.prefix (INDEX_PREFIX).
+        prefix: ${ELASTICSEARCH_CLUSTERS_PRIMARY_INDEX_PREFIX:}
+      # Multi-client shim configuration
+      shim:
+        # Enable the search client shim (false = use legacy RestHighLevelClient)
+        enabled: ${ELASTICSEARCH_SHIM_ENABLED:false}
+        # Engine type: AUTO_DETECT, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2, OPENSEARCH_3
+        engineType: ${ELASTICSEARCH_SHIM_ENGINE_TYPE:AUTO_DETECT}
+        # Whether to auto-detect the engine type by connecting to the cluster
+        autoDetectEngine: ${ELASTICSEARCH_SHIM_AUTO_DETECT:true}
+      sslContext: # Required if the uri scheme is https and the cert is not already trusted
+        protocol: ${ELASTICSEARCH_SSL_PROTOCOL:}
+        secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:}
+        trustStoreFile: ${ELASTICSEARCH_SSL_TRUSTSTORE_FILE:}
+        trustStoreType: ${ELASTICSEARCH_SSL_TRUSTSTORE_TYPE:}
+        trustStorePassword: ${ELASTICSEARCH_SSL_TRUSTSTORE_PASSWORD:}
+        keyStoreFile: ${ELASTICSEARCH_SSL_KEYSTORE_FILE:}
+        keyStoreType: ${ELASTICSEARCH_SSL_KEYSTORE_TYPE:}
+        keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:}
+        keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:}
+    # Optional second cluster. Its engine is resolved independently — an unset shim block
+    # auto-detects rather than copying primary's engineType, since primary may be pinned to an
+    # older version.
+    secondary:
+      uri: ${ELASTICSEARCH_CLUSTERS_SECONDARY_URI:}
+      username: ${ELASTICSEARCH_CLUSTERS_SECONDARY_USERNAME:}
+      password: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PASSWORD:}
+      opensearchUseAwsIamAuth: ${ELASTICSEARCH_CLUSTERS_SECONDARY_OPENSEARCH_USE_AWS_IAM_AUTH:false}
+      region: ${ELASTICSEARCH_CLUSTERS_SECONDARY_REGION:}
+      dataNodeCount: ${ELASTICSEARCH_CLUSTERS_SECONDARY_DATA_NODE_COUNT:}
+      threadCount: ${ELASTICSEARCH_CLUSTERS_SECONDARY_THREAD_COUNT:}
+      index:
+        numShards: ${ELASTICSEARCH_CLUSTERS_SECONDARY_NUM_SHARDS:}
+        numReplicas: ${ELASTICSEARCH_CLUSTERS_SECONDARY_NUM_REPLICAS:}
+        # Blank inherits elasticsearch.index.prefix (INDEX_PREFIX).
+        prefix: ${ELASTICSEARCH_CLUSTERS_SECONDARY_INDEX_PREFIX:}
+        # Overlay the V3 mapping/analyzer files when this cluster's engine needs different ones.
+        analyzerConfig: ${ELASTICSEARCH_CLUSTERS_SECONDARY_ANALYZER_CONFIG:}
+        mappingConfig: ${ELASTICSEARCH_CLUSTERS_SECONDARY_MAPPING_CONFIG:}
+      shim:
+        enabled: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_ENABLED:}
+        engineType: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_ENGINE_TYPE:AUTO_DETECT}
+        autoDetectEngine: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_AUTO_DETECT:true}
+      sslContext:
+        protocol: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_PROTOCOL:}
+        secureRandomImplementation: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_SECURE_RANDOM_IMPL:}
+        trustStoreFile: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_TRUSTSTORE_FILE:}
+        trustStoreType: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_TRUSTSTORE_TYPE:}
+        trustStorePassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_TRUSTSTORE_PASSWORD:}
+        keyStoreFile: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_FILE:}
+        keyStoreType: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_TYPE:}
+        keyStorePassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_PASSWORD:}
+        keyPassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEY_PASSWORD:}
+
+  # Which cluster hosts each subsystem; values are cluster names from `clusters` above. Startup
+  # fails if a component names a cluster with a blank uri. searchV2 and searchV3 are separately
+  # routable, so a dual-write migration can target one cluster or two.
+  componentCluster:
+    searchV2: ${ELASTICSEARCH_COMPONENT_CLUSTER_SEARCH_V2:primary}
+    searchV3: ${ELASTICSEARCH_COMPONENT_CLUSTER_SEARCH_V3:primary}
+    semantic: ${ELASTICSEARCH_COMPONENT_CLUSTER_SEMANTIC:primary}
+    graph: ${ELASTICSEARCH_COMPONENT_CLUSTER_GRAPH:primary}
+    timeseries: ${ELASTICSEARCH_COMPONENT_CLUSTER_TIMESERIES:primary}
+    systemMetadata: ${ELASTICSEARCH_COMPONENT_CLUSTER_SYSTEM_METADATA:primary}
+    usage: ${ELASTICSEARCH_COMPONENT_CLUSTER_USAGE:primary}
+
   entityIndex:
     v2:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED:true}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V2_CLEANUP:true}
       coalesceBatchUpdates: ${ELASTICSEARCH_ENTITY_INDEX_V2_COALESCE_BATCH_UPDATES:false}
+      # Document id hashing is V2-only: Search V3 always hashes and has no equivalent knob.
+      # Graph, timeseries and system-metadata documents still read the same ELASTIC_ID_HASH_ALGO.
+      idHashAlgo: ${ELASTIC_ID_HASH_ALGO:MD5}
+      docIds:
+        schemaField:
+          hashIdEnabled: ${ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED:false}
+      mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:}
     v3:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
@@ -901,24 +1000,8 @@ elasticsearch:
           location: ${VERTEX_AI_LOCATION:us-east1}
           model: ${VERTEX_AI_EMBEDDING_MODEL:gemini-embedding-001}
           outputDimensionality: ${VERTEX_AI_EMBEDDING_OUTPUT_DIMENSIONALITY:768}
-  # Multi-client shim configuration
-  shim:
-    # Enable the search client shim (false = use legacy RestHighLevelClient)
-    enabled: ${ELASTICSEARCH_SHIM_ENABLED:false}
-    # Engine type: AUTO_DETECT, ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2, OPENSEARCH_3
-    engineType: ${ELASTICSEARCH_SHIM_ENGINE_TYPE:AUTO_DETECT}
-    # Whether to auto-detect the engine type by connecting to the cluster
-    autoDetectEngine: ${ELASTICSEARCH_SHIM_AUTO_DETECT:true}
-  sslContext: # Required if useSSL is true
-    protocol: ${ELASTICSEARCH_SSL_PROTOCOL:#{null}}
-    secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:#{null}}
-    trustStoreFile: ${ELASTICSEARCH_SSL_TRUSTSTORE_FILE:#{null}}
-    trustStoreType: ${ELASTICSEARCH_SSL_TRUSTSTORE_TYPE:#{null}}
-    trustStorePassword: ${ELASTICSEARCH_SSL_TRUSTSTORE_PASSWORD:#{null}}
-    keyStoreFile: ${ELASTICSEARCH_SSL_KEYSTORE_FILE:#{null}}
-    keyStoreType: ${ELASTICSEARCH_SSL_KEYSTORE_TYPE:#{null}}
-    keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:#{null}}
-    keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:#{null}}
+  # Shared operational defaults below. Every cluster inherits these; clusters.<name> may overlay
+  # individual fields. Overlays are never resolved between clusters.
   bulkDelete:
     batchSize: ${ES_BULK_DELETE_BATCH_SIZE:5000}
     slices: ${ES_BULK_DELETE_SLICES:auto}
@@ -945,24 +1028,21 @@ elasticsearch:
     # Distinct from elasticsearch.buildIndices.slowOperationTimeoutSeconds (system-update / ESIndexBuilder jobs).
     slowByQueryOperationTimeoutSeconds: ${ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS:180}
   index:
+    # IndexConvention naming prefix (e.g. `prod` -> prod_datasetindex_v2). This is not the HTTP
+    # path prefix — that is part of each cluster's uri.
     prefix: ${INDEX_PREFIX:}
-    numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:${elasticsearch.dataNodeCount}}
-    numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
+    # numShards / numReplicas are per-cluster sizing; see clusters.<name>.index.
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
     refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3} # increase to 30 if expected indexing rates to be greater than 100/s
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     maxValueLength: ${SEARCH_DOCUMENT_MAX_VALUE_LENGTH:4096} # i.e. customProperty values
-    mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:}
     enableMappingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX:false}
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:0} # <= 0 - no timeout
     settingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES:#{null}}
     minSearchFilterLength: ${ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH:3}
     entitySettingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES:#{null}}
-    docIds:
-      schemaField:
-        hashIdEnabled: ${ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED:false}
   buildIndices:
     allowDocCountMismatch: ${ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH:false} # when cloneIndices is also enabled
     cloneIndices: ${ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES:true}
@@ -1016,7 +1096,7 @@ elasticsearch:
     catchUpFlushBytesThreshold: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_BYTES_THRESHOLD:134217728} # metadata-column char proxy for early flush (128 MiB); 0 disables
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
-    pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
+    pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or Elasticsearch >= 8. Regardless of this flag's value, PIT will be created for sliced scrolls.
     # Defines the behavior of quoted searches, do they apply weights or exclude results
     exactMatch:
       exclusive: ${ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE:false} # if false will only apply weights, if true will exclude non-exact
@@ -1050,7 +1130,7 @@ elasticsearch:
       impact:
         maxHops: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS:1000} # the maximum hops to traverse for impact analysis
         maxRelations: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS:40000} # maximum number of relationships; use -1 or 0 for unlimited (only bound by time limit)
-        slices: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES:${elasticsearch.dataNodeCount}} # number of slices for parallel search operations
+        slices: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES:${elasticsearch.clusters.primary.dataNodeCount}} # number of slices for parallel search operations; graph on another cluster should follow that cluster's count
         keepAlive: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE:55s} # Point-in-Time keepAlive duration for impact analysis queries
         partialResults: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_PARTIAL_RESULTS:false} # if true, return partial results when maxRelations is reached; if false (default), throw an error
         searchQueryTimeReservation: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SEARCH_QUERY_TIME_RESERVATION:0.2} # fraction (0.0-1.0) of total timeout to reserve for second query phase when partialResults is enabled. Default: 0.2 (20%)
@@ -1932,6 +2012,12 @@ graphQL:
     # Set > 0 only if you want an ArrayBlockingQueue of that capacity.
     queueSize: ${GRAPHQL_CONCURRENCY_QUEUE_SIZE:0}
     keepAlive: ${GRAPHQL_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
+  documentCache:
+    # Shared cache of parsed/validated GraphQL documents, reused across the rate-limit parse
+    # path and query execution so a given query text is parsed at most once per process.
+    enabled: ${GRAPHQL_DOCUMENT_CACHE_ENABLED:true}
+    # Maximum cache weight in bytes, approximated as 5x the cached queries' UTF-8 byte length.
+    maximumWeightBytes: ${GRAPHQL_DOCUMENT_CACHE_MAX_BYTES:26214400}
   query:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
@@ -1941,6 +2027,9 @@ graphQL:
     # Relationship resolution cap per request (cycle/unbounded protection)
     maxVisitedUrns: ${GRAPHQL_QUERY_MAX_VISITED_URNS:20000}
     slowQueryThresholdMs: ${GRAPHQL_QUERY_SLOW_QUERY_THRESHOLD_MS:1000}
+    # Stream the JSON response to the socket instead of buffering it as one String (bounds GMS heap
+    # on large fan-out responses). Opt-in kill switch; default off preserves the buffered behavior.
+    streamResponse: ${GRAPHQL_QUERY_STREAM_RESPONSE:false}
   metrics:
     # Master switch for all GraphQL metrics collection via Micrometer
     # When false, no GraphQL metrics are collected (request-level or field-level)
