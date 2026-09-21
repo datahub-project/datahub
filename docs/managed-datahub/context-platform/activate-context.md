@@ -12,7 +12,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 :::caution Public Beta
-The Context Platform is currently in Public Beta. Features, UI, and configuration options are subject to change.
+DataHub Context is currently in Public Beta. Features, UI, and configuration options are subject to change.
 :::
 
 Context Activation delivers trusted context to any agent your team is already using. Once a Data Expert has [published context documents](review-context-proposals.md), agents retrieve them through the DataHub MCP server and use them to ground their answers.
