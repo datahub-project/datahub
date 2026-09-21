@@ -67,10 +67,9 @@ ENV_ENTITY_TYPES = {"dataset"}
 # *Info aspect (chartInfo, dashboardInfo, dataFlowInfo, dataJobInputOutput,
 # dataProductProperties) that the entity-agnostic patch builder cannot union. An
 # additive merge would keep the target's copy and strand the source's lineage
-# before the source is deleted, so these keep the historical full overwrite under
-# every conflict strategy until per-entity patch builders union those aspects
-# (ING-3504). Other non-dataset types (schemaField, glossaryTerm, container, …)
-# only carry union-able or safely-copyable aspects and take the additive path.
+# before the source is deleted, so these keep the full overwrite under every
+# conflict strategy. Other non-dataset types (schemaField, glossaryTerm,
+# container, …) only carry union-able or safely-copyable aspects.
 NON_ADDITIVE_MERGE_ENTITY_TYPES = frozenset(
     {"chart", "dashboard", "dataFlow", "dataJob", "dataProduct"}
 )
@@ -858,9 +857,11 @@ def merge_entity(
 ) -> MergeResult:
     """Merge all aspects from source entity into existing target.
 
-    Datasets run the full Patch pipeline; other entity types get an additive union
-    of the union-able aspects plus conflict-aware handling of the rest. An explicit
-    OVERWRITE still fully replaces the target.
+    Datasets run the full Patch pipeline. Non-datasets whose lineage lives in a
+    non-unionable *Info aspect (NON_ADDITIVE_MERGE_ENTITY_TYPES) are fully
+    overwritten; the rest get an additive union of the union-able aspects plus
+    conflict-aware handling of the remainder. An explicit OVERWRITE always fully
+    replaces the target.
 
     When ``rewrite_urn`` is provided (batch migration), it is used instead of a
     single-pair rewriter so that cross-pair references are rewritten correctly.
@@ -871,11 +872,9 @@ def merge_entity(
     if on_conflict == ConflictStrategy.PRESERVE:
         return MergeResult(merged=0, skipped=1, skipped_aspects=["*"])
 
-    # Non-datasets have no per-entity Patch builder. Types whose lineage lives in a
-    # non-unionable *Info aspect keep the historical full overwrite (see
-    # NON_ADDITIVE_MERGE_ENTITY_TYPES) so a migrated source's lineage reaches the
-    # target rather than being stranded; the rest union the union-able aspects and
-    # copy the remainder conflict-aware, never clobbering curated target metadata.
+    # NON_ADDITIVE_MERGE_ENTITY_TYPES (and any explicit OVERWRITE) fully overwrite
+    # the target; other non-datasets union the union-able aspects and copy the
+    # remainder conflict-aware.
     entity_type = guess_entity_type(dst_urn)
     if entity_type != "dataset":
         if (

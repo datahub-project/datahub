@@ -578,7 +578,7 @@ class TestMergeEntityNonDataset:
         mock_clone: MagicMock,
     ) -> None:
         # chart lineage lives in chartInfo, which the entity-agnostic builder can't
-        # union, so PATCH keeps the pre-PR full overwrite rather than the additive path.
+        # union, so PATCH fully overwrites rather than taking the additive path.
         aspect = GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:pii")])
         mock_clone.return_value = iter(
             [MetadataChangeProposalWrapper(entityUrn=self.CHART_DST, aspect=aspect)]
