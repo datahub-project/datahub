@@ -1,4 +1,4 @@
-import { PageTitle, Switch } from '@components';
+import { PageTitle, Pill, Switch } from '@components';
 import { message } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -65,6 +65,9 @@ const SettingText = styled.div`
     font-size: 16px;
     color: ${(props) => props.theme.colors.text};
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 `;
 
 const DescriptionText = styled.div`
@@ -102,7 +105,10 @@ export const Preferences = () => {
                     <StyledCard>
                         <UserSettingRow>
                             <TextContainer>
-                                <SettingText>{t('darkMode.title')}</SettingText>
+                                <SettingText>
+                                    {t('darkMode.title')}
+                                    <Pill label={t('darkMode.beta')} size="xs" color="primary" clickable={false} />
+                                </SettingText>
                                 <DescriptionText>{t('darkMode.description')}</DescriptionText>
                             </TextContainer>
                             <DarkModeSwitch />

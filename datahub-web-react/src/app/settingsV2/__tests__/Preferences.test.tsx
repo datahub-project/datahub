@@ -47,6 +47,7 @@ describe('Preferences', () => {
 
         const darkModeToggle = screen.getByRole('checkbox', { name: 'Dark mode' });
         expect(darkModeToggle).not.toBeChecked();
+        expect(screen.getByText('Beta')).toBeInTheDocument();
 
         fireEvent.click(darkModeToggle);
 

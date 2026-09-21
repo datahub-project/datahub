@@ -1,10 +1,12 @@
 package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.METRIC_UPSTREAMS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.UPSTREAM_METRICS_ASPECT_NAME;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.Edge;
+import com.linkedin.common.UpstreamMetrics;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -60,6 +62,23 @@ public class MetricUpstreamsValidator extends AspectPayloadValidator {
             : aspectRetriever.getLatestAspectObjects(
                 operationContext, urns, Set.of(METRIC_UPSTREAMS_ASPECT_NAME));
 
+    Set<Urn> datasetUrns = new HashSet<>();
+    mcpItems.forEach(
+        item -> {
+          Aspect currentAspect =
+              currentAspects
+                  .getOrDefault(item.getUrn(), Map.of())
+                  .get(METRIC_UPSTREAMS_ASPECT_NAME);
+          MetricUpstreams proposed = resolveProposedUpstreams(item, aspectRetriever, currentAspect);
+          datasetUrns.addAll(datasetUpstreamUrns(proposed));
+        });
+
+    Map<Urn, Map<String, Aspect>> datasetAspects =
+        datasetUrns.isEmpty()
+            ? Map.of()
+            : aspectRetriever.getLatestAspectObjects(
+                operationContext, datasetUrns, Set.of(UPSTREAM_METRICS_ASPECT_NAME));
+
     mcpItems.forEach(
         item -> {
           Aspect currentAspect =
@@ -68,6 +87,7 @@ public class MetricUpstreamsValidator extends AspectPayloadValidator {
                   .get(METRIC_UPSTREAMS_ASPECT_NAME);
           MetricUpstreams proposed = resolveProposedUpstreams(item, aspectRetriever, currentAspect);
           validateMetricUpstreams(item, proposed, exceptions);
+          validateNoDatasetMetricTwoCycle(item, proposed, datasetAspects, exceptions);
         });
     return exceptions.streamAllExceptions();
   }
@@ -113,14 +133,7 @@ public class MetricUpstreamsValidator extends AspectPayloadValidator {
       return;
     }
 
-    Set<Urn> datasetUrns = new HashSet<>();
-    if (upstreams.hasDatasetUpstreams() && upstreams.getDatasetUpstreams() != null) {
-      for (Edge datasetEdge : upstreams.getDatasetUpstreams()) {
-        if (datasetEdge.getDestinationUrn() != null) {
-          datasetUrns.add(datasetEdge.getDestinationUrn());
-        }
-      }
-    }
+    Set<Urn> datasetUrns = datasetUpstreamUrns(upstreams);
 
     for (Edge fieldEdge : upstreams.getFieldUpstreams()) {
       Urn fieldUrn = fieldEdge.getDestinationUrn();
@@ -148,6 +161,55 @@ public class MetricUpstreamsValidator extends AspectPayloadValidator {
                 String.format(
                     "schemaField %s parent dataset %s is not in metricUpstreams.datasetUpstreams",
                     fieldUrn, parentDataset)));
+      }
+    }
+  }
+
+  private static Set<Urn> datasetUpstreamUrns(@Nullable MetricUpstreams upstreams) {
+    Set<Urn> datasetUrns = new HashSet<>();
+    if (upstreams == null
+        || !upstreams.hasDatasetUpstreams()
+        || upstreams.getDatasetUpstreams() == null) {
+      return datasetUrns;
+    }
+    for (Edge datasetEdge : upstreams.getDatasetUpstreams()) {
+      if (datasetEdge.getDestinationUrn() != null) {
+        datasetUrns.add(datasetEdge.getDestinationUrn());
+      }
+    }
+    return datasetUrns;
+  }
+
+  private void validateNoDatasetMetricTwoCycle(
+      BatchItem item,
+      @Nullable MetricUpstreams proposed,
+      Map<Urn, Map<String, Aspect>> datasetAspects,
+      ValidationExceptionCollection exceptions) {
+    Urn metricUrn = item.getUrn();
+    for (Urn datasetUrn : datasetUpstreamUrns(proposed)) {
+      Aspect upstreamMetricsAspect =
+          datasetAspects.getOrDefault(datasetUrn, Map.of()).get(UPSTREAM_METRICS_ASPECT_NAME);
+      if (upstreamMetricsAspect == null) {
+        continue;
+      }
+      UpstreamMetrics upstreamMetrics =
+          RecordUtils.toRecordTemplate(UpstreamMetrics.class, upstreamMetricsAspect.data());
+      if (!upstreamMetrics.hasMetrics() || upstreamMetrics.getMetrics() == null) {
+        continue;
+      }
+      boolean cycles =
+          upstreamMetrics.getMetrics().stream()
+              .anyMatch(
+                  edge ->
+                      edge.getDestinationUrn() != null
+                          && edge.getDestinationUrn().equals(metricUrn));
+      if (cycles) {
+        exceptions.addException(
+            AspectValidationException.forItem(
+                item,
+                String.format(
+                    "Metric %s cannot list Dataset %s in metricUpstreams.datasetUpstreams because that Dataset already consumes the Metric via upstreamMetrics",
+                    metricUrn, datasetUrn)));
       }
     }
   }

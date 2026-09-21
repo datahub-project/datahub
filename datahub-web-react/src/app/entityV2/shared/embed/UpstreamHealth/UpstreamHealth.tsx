@@ -68,7 +68,7 @@ export default function UpstreamHealth() {
 
     const generateQueryVariables = ({ degree, start }) => {
         return {
-            skip: !lineageEnabled,
+            skip: !lineageEnabled || !urn,
             variables: {
                 input: {
                     searchFlags: {

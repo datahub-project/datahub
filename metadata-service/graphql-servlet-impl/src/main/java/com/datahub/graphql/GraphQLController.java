@@ -227,7 +227,8 @@ public class GraphQLController {
         GraphqlDocumentAnalyzer.analyze(
             operationName,
             query,
-            name -> graphqlUsageClassificationRegistry.resolveByOperationName(name).isPresent());
+            name -> graphqlUsageClassificationRegistry.resolveByOperationName(name).isPresent(),
+            _engine::getCachedDocument);
 
     /*
      * Extract "variables" map
