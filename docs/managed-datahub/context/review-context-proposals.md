@@ -24,15 +24,15 @@ This guide walks you through:
 3. Reviewing individual context documents
 4. Making your review decision
 
-### Prerequisites
+## Prerequisites
 
 In order to review context proposals, an Admin must have added you to the **Editor** role, or granted you the `MANAGE_DOCUMENTS, MANAGE_DOCUMENT_PROPOSALS, and MANAGE_EVALS` privileges. See [Who Needs What Access](overview.md#who-needs-what-access).
 
-## **Step 1: Create Metadata Eval Questions**
+## Step 1: Create Metadata Eval Questions
 
 Eval questions let you assess the quality of generated context before it reaches reviewers. Each question has a pass/fail criterion that runs automatically against generated documents.
 
-#### **_Manage eval questions_**
+### Manage eval questions
 
 - Navigate to Context > Evals
 - Toggle to run all evals daily, Run All Evals once manually, or run individual evals once manually
@@ -44,7 +44,7 @@ Evaluations are executed on PUBLISHED context documents and UNPUBLISHED context 
 
 :::
 
-#### **_Create an eval question_**
+### Create an eval question
 
 1. Click Create Question
 2. Select the eval type
@@ -67,7 +67,7 @@ Evaluations are executed on PUBLISHED context documents and UNPUBLISHED context 
 10. Optionally run the question in Ask DataHub to test.
 11. Create evaluations for each quality dimension you want to validate.
 
-### Step 2: Access Your Proposals
+## Step 2: Access Your Proposals
 
 Navigate to **Task Center** > **Requests** in the DataHub sidebar.
 
@@ -75,7 +75,7 @@ You will see a list of context proposals assigned for your review as a domain ow
 
 Click a proposal to open it and review its documents.
 
-### Step 3: Review Individual Context Documents
+## Step 3: Review Individual Context Documents
 
 Each proposal contains one or more context documents. For each document, you can take the following actions:
 
@@ -93,19 +93,19 @@ Each proposal contains one or more context documents. For each document, you can
 Run evals **before** you start editing. Seeing where the generated context already passes and where it fails tells you which documents actually need your attention, and which are ready to publish as-is.
 :::
 
-### Step 4: Make Your Review Decision
+## Step 4: Make Your Review Decision
 
 After reviewing the documents in a proposal, you have three options at the proposal level:
 
-#### Apply Changes
+### Apply Changes
 
 Select **Apply Changes** to approve the context document changes and set the publish state you configured during review. This finalizes the proposal and makes published documents available to AI agents.
 
-#### Reject
+### Reject
 
 Select **Reject** to decline the proposed changes. The context documents are not updated, and the proposal is marked as completed (rejected). Use this when the generated context does not meet your quality bar and is not worth editing.
 
-#### Cancel
+### Cancel
 
 Select **Cancel** to exit the proposal view and return to the Task Center without taking any action. The proposal remains open for future review.
 
@@ -135,7 +135,7 @@ Hover over the pass/fail result and click **View details** for the explanation. 
 
 Admins can view all generated documents at **Context** > **Documents**. Published documents are also available in the Document Library.
 
-### Related Features
+## Related Features
 
 - [Context Documents](https://docs.datahub.com/docs/features/feature-guides/context/context-documents)
 - [Ask DataHub](https://docs.datahub.com/docs/features/feature-guides/ask-datahub)

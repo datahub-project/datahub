@@ -45,7 +45,7 @@ Before rolling out broadly, confirm that published context is actually changing 
 - Run your [metadata eval questions](review-context-proposals.md#step-1-create-metadata-eval-questions) against the published set and confirm they pass.
 - Start with a small set of high-confidence documents in one domain before publishing broadly.
 
-### Related Features
+## Related Features
 
 - [MCP Server](https://docs.datahub.com/docs/features/feature-guides/mcp)
 - [Ask DataHub](https://docs.datahub.com/docs/features/feature-guides/ask-datahub)

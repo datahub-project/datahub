@@ -1,7 +1,6 @@
 ---
 title: Configure Context Generation
 description: "Configure which domains have context generated, define metadata eval questions, and control when generated context becomes visible to AI agents."
-
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -24,13 +23,13 @@ This guide walks you through:
 2. Creating a context generation source
 3. Creating metadata eval questions
 
-### Prerequisites
+## Prerequisites
 
 In order to configure context generation, you must have the `MANAGE_DOCUMENTS`, `MANAGE_ALL_DOCUMENT_PROPOSALS`, and `MANAGE_AGENTS` privileges — granted by default with the Admin role.
 
 You must also have completed the setup described in [Prerequisites](overview.md#prerequisites), including pinning CLI version 1.6.0.9 and configuring source connectors with query ingestion enabled.
 
-### Step 1: Open the Context Generation Settings
+## Step 1: Open the Context Generation Settings
 
 From the DataHub sidebar, head to **Settings** > **Context**.
 
@@ -41,7 +40,7 @@ You will see a list of context generation jobs with their status, last run, and 
 - **Edit or Delete** — modify or remove a context generation source from the menu icon
 - **Run History** — view the last run's schedule, duration, and status. Select a run for more detail, and work with the Context Curator agent to resolve run issues.
 
-### Step 2: Create a Context Generation Source
+## Step 2: Create a Context Generation Source
 
 Click **Create** to configure a context generation job. You can either complete the context generation form on the left, or work with the **Context Curator** agent to configure the job conversationally.
 
@@ -65,7 +64,7 @@ We recommend creating metadata evals before enabling auto-publish, so that evals
 
 Context Intelligence derives semantic meaning from your query history. If your ingestion recipes are not emitting query history, context generation has little to work from. Use the recipes on this page as a reference when configuring your sources.
 
-## What Gets Emitted
+### What Gets Emitted
 
 Two distinct things are emitted when you ingest query history:
 
@@ -78,7 +77,7 @@ Every platform reads query history for the `start_time` to `end_time` window, so
 All recipes below must run on CLI version **1.6.0.9** or later. See [Prerequisites](overview.md#prerequisites).
 :::
 
-## Snowflake
+### Snowflake
 
 ```yaml
 source:
@@ -102,7 +101,7 @@ Grant `IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE` and use Snowflake Enterprise E
 Account usage views also lag real time by roughly 45 minutes to 3 hours, so the most recent queries may not show up in a run.
 :::
 
-## Databricks
+### Databricks
 
 ```yaml
 source:
@@ -125,7 +124,7 @@ With a Databricks warehouse set, the service principal needs `CAN_USE` on it, pl
 The system tables path keeps about 365 days of history; the REST API fallback only goes back about 30 days.
 :::
 
-## BigQuery
+### BigQuery
 
 ```yaml
 source:
@@ -151,7 +150,7 @@ source:
 On BigQuery, `include_operational_stats` is nested under `usage` rather than set at the top level.
 :::
 
-## Redshift
+### Redshift
 
 ```yaml
 source:
@@ -186,7 +185,7 @@ After generation completes, unpublished context documents are surfaced as **prop
 
 As an Admin, you can also view generated documents directly at **Context** > **Documents**.
 
-### Related Features
+## Related Features
 
 - [Domains](https://docs.datahub.com/docs/domains)
 - [Metadata Ingestion](https://docs.datahub.com/docs/metadata-ingestion)
