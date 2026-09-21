@@ -136,7 +136,8 @@ runs:
           playwright-test:
             - "e2e-test/ui/playwright/**"
           embedding-ai:
-            - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/LocalEmbeddingProvider.java"
+            - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/Local*"
+            - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/Classical*"
             - "metadata-io/src/main/java/com/linkedin/metadata/search/semantic/**"
             - "metadata-io/src/main/java/com/linkedin/metadata/search/SemanticSearchService.java"
             - "metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/indexbuilder/**"
@@ -152,7 +153,11 @@ runs:
             - "docker/build.gradle"
             - "docker/datahub-actions/Dockerfile"
             - "metadata-ingestion/src/datahub/ingestion/source/unstructured/chunking_*.py"
+            - "metadata-ingestion/src/datahub/ingestion/source/unstructured/embedding_providers/classical.py"
+            - "metadata-ingestion/src/datahub/ingestion/source/unstructured/embedding_providers/factory.py"
+            - "metadata-ingestion/src/datahub/ingestion/source/unstructured/embedding_providers/base.py"
             - "smoke-test/tests/semantic/test_local_embedding_provider.py"
+            - "smoke-test/tests/semantic/test_classical_embedding_provider.py"
             - "smoke-test/tests/semantic/test_semantic_search.py"
             - ".github/workflows/docker-unified.yml"
             # The semantic/document tests are sensitive to what gets installed --

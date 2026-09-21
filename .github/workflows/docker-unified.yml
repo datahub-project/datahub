@@ -1052,17 +1052,22 @@ jobs:
           path: ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
 
-  # Runs the full quickstart-ai stack (DataHub + Ollama) and validates that the
-  # local embedding provider works end-to-end. Reuses the images built once by
-  # base_build (depot pull, or a local bake on fork PRs) instead of rebuilding
-  # them in a standalone workflow — the quickstart-ai compose profile uses the
-  # same images as quickstart-consumers, plus an Ollama sidecar that needs no
-  # image build.
+  # Runs the quickstart stack and validates that semantic search works
+  # end-to-end with an in-process or locally served embedding provider, one
+  # matrix leg each:
+  #   local     — DataHub + Ollama, the `local` provider over the OpenAI-compatible API
+  #   classical — DataHub only, the deterministic hashing provider (no model, no endpoint)
+  # Reuses the images built once by base_build (depot pull, or a local bake on
+  # fork PRs) instead of rebuilding them in a standalone workflow.
   ai_smoke_test:
-    name: AI Smoke Test (Local Embeddings)
+    name: AI Smoke Test (${{ matrix.provider }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
     needs: [setup, base_build]
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [local, classical]
     # See pytest_tests for why the status-check function is required (downstream
     # of the optionally-skipped base_build on fork PRs). On a PR this is gated to
     # embedding / semantic-search path changes so ordinary PRs skip it; every
@@ -1146,7 +1151,8 @@ jobs:
       # DATAHUB_LOCAL_COMMON_ENV (read as an env_file by docker-compose.gms.yml).
       # GMS reaches Ollama over the Docker bridge network; the CI runner reaches
       # it via the mapped port at localhost:11434.
-      - name: Write GMS AI env file
+      - name: Write GMS AI env file (local)
+        if: matrix.provider == 'local'
         run: |
           printf '%s\n' \
             "EMBEDDING_PROVIDER_TYPE=local" \
@@ -1156,13 +1162,32 @@ jobs:
             "LOCAL_EMBEDDING_MODEL=${LOCAL_EMBEDDING_MODEL}" \
             > /tmp/ai-gms.env
 
+      # The classical provider is lexical hashing, not semantic search; GMS refuses
+      # it without the explicit opt-in. system-update reads the same env file,
+      # which is what adds the hash_v1_2048 field to the semantic index before
+      # GMS starts.
+      - name: Write GMS AI env file (classical)
+        if: matrix.provider == 'classical'
+        run: |
+          printf '%s\n' \
+            "EMBEDDING_PROVIDER_TYPE=classical" \
+            "CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true" \
+            "ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true" \
+            "SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true" \
+            > /tmp/ai-gms.env
+
       # Activates two profiles simultaneously:
       #   quickstart-consumers — core DataHub services (GMS, ES, MySQL, Kafka, …)
       #   quickstart-ai        — Ollama server + one-shot model-pull + warmup
-      - name: Start DataHub with Ollama (quickstart-consumers + quickstart-ai)
+      # Only the local leg needs the Ollama server; classical embeds in-process.
+      - name: Start DataHub (quickstart-consumers, plus quickstart-ai Ollama on the local leg)
         run: |
           SIGNING_KEY=$(openssl rand -base64 32)
           SIGNING_SALT=$(openssl rand -base64 32)
+          AI_PROFILE=()
+          if [ "${{ matrix.provider }}" = "local" ]; then
+            AI_PROFILE=(--profile quickstart-ai)
+          fi
 
           DATAHUB_VERSION=${{ needs.setup.outputs.tag }} \
           DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${SIGNING_KEY} \
@@ -1183,7 +1208,7 @@ jobs:
             -p datahub \
             --project-directory docker/profiles \
             --profile quickstart-consumers \
-            --profile quickstart-ai \
+            "${AI_PROFILE[@]}" \
             up -d --quiet-pull
 
       # Wait for GMS to be reachable before tuning OpenSearch.
@@ -1217,6 +1242,7 @@ jobs:
       # network. We also probe from the CI runner (via the mapped port) to
       # confirm the model is hot before handing off to the smoke tests.
       - name: Wait for Ollama model readiness
+        if: matrix.provider == 'local'
         run: |
           MODEL="${LOCAL_EMBEDDING_MODEL}"
           echo "Waiting for Ollama model '${MODEL}' to respond at localhost:11434..."
@@ -1252,7 +1278,8 @@ jobs:
       - name: Install smoke test dependencies
         run: ./gradlew :smoke-test:installDev
 
-      - name: Run AI embedding smoke tests
+      - name: Run AI embedding smoke tests (local)
+        if: matrix.provider == 'local'
         working-directory: smoke-test
         run: |
           source venv/bin/activate
@@ -1267,11 +1294,25 @@ jobs:
           LOCAL_EMBEDDING_MODEL: ${{ env.LOCAL_EMBEDDING_MODEL }}
           EMBEDDING_WAIT_SECONDS: "30"
 
+      - name: Run AI embedding smoke tests (classical)
+        if: matrix.provider == 'classical'
+        working-directory: smoke-test
+        run: |
+          source venv/bin/activate
+          pytest tests/semantic/test_classical_embedding_provider.py \
+            -v \
+            --junit-xml=junit.smoke-ai.xml \
+            --timeout=120
+        env:
+          DATAHUB_GMS_URL: "http://localhost:8080"
+          CLASSICAL_EMBEDDING_PROVIDER_TESTS: "true"
+          EMBEDDING_WAIT_SECONDS: "30"
+
       - name: Report test results
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
         with:
-          artifact-name: Test Results (smoke tests) ai-smoke
+          artifact-name: Test Results (smoke tests) ai-smoke-${{ matrix.provider }}
           test-results-paths: |
             **/junit.smoke-ai.xml
           junit-file-globs: |
@@ -1280,7 +1321,7 @@ jobs:
       - name: Collect Docker logs on failure
         if: failure()
         env:
-          TARGET_DIR: docker_logs/${{ github.job }}
+          TARGET_DIR: docker_logs/${{ github.job }}-${{ matrix.provider }}
           COMPOSE_PROJECT_NAME: datahub
         run: |
           docker ps -a
@@ -1290,8 +1331,8 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: docker-logs-ai-${{ github.run_id }}
-          path: docker_logs/${{ github.job }}/
+          name: docker-logs-ai-${{ matrix.provider }}-${{ github.run_id }}
+          path: docker_logs/${{ github.job }}-${{ matrix.provider }}/
           retention-days: 5
 
   playwright_test:
