@@ -11,7 +11,7 @@ from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.client import DataHubGraph
 
 # DataHub imports.
-from datahub.metadata.schema_classes import GenericPayloadClass
+from datahub.metadata.schema_classes import GenericPayloadClass, MetadataChangeLogClass
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import (
     ENTITY_CHANGE_EVENT_V1_TYPE,
@@ -52,9 +52,68 @@ def build_entity_change_event(payload: GenericPayloadClass) -> EntityChangeEvent
         raise ValueError("Failed to parse into EntityChangeEvent") from e
 
 
+_AVRO_PRIMITIVE_TYPES = frozenset(
+    {"null", "boolean", "int", "long", "float", "double", "string", "bytes"}
+)
+
+
+def _unwrap_avro_json(obj: object) -> object:
+    """Recursively unwrap Avro JSON union encoding to Pegasus-style plain values.
+
+    Avro JSON encodes union fields as ``{"typeName": value}`` (e.g.
+    ``{"string": "hello"}``).  Pegasus/Rest.li expects the bare value.
+    This also converts ``bytes``-typed fields (encoded as plain strings in
+    Avro JSON) to bytes so ``from_obj`` can handle ``GenericAspect.value``.
+    """
+    if isinstance(obj, dict):
+        if len(obj) == 1:
+            key = next(iter(obj))
+            if key == "null":
+                return None
+            if key in _AVRO_PRIMITIVE_TYPES:
+                return _unwrap_avro_json(obj[key])
+            # Qualified record name (e.g. "com.linkedin.pegasus2avro.mxe.GenericAspect")
+            if "." in key:
+                return _unwrap_avro_json(obj[key])
+            # map type wraps values under "map"
+            if key == "map":
+                inner = obj[key]
+                if isinstance(inner, dict):
+                    return {k: _unwrap_avro_json(v) for k, v in inner.items()}
+                return inner
+        return {k: _unwrap_avro_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_unwrap_avro_json(item) for item in obj]
+    return obj
+
+
+def _fix_avro_bytes(obj: object) -> object:
+    """Convert Avro ``bytes`` fields from str to ``bytes``.
+
+    The Avro JSON encoder writes ``bytes`` as plain strings, but the Python
+    SDK's ``from_obj`` expects ``bytes``.  Heuristic: a ``value`` key next to a
+    ``contentType`` key is a GenericAspect.
+    """
+    if isinstance(obj, dict):
+        result = {}
+        for k, v in obj.items():
+            if k == "value" and isinstance(v, str) and "contentType" in obj:
+                result[k] = v.encode("utf-8")
+            else:
+                result[k] = _fix_avro_bytes(v)
+        return result
+    if isinstance(obj, list):
+        return [_fix_avro_bytes(item) for item in obj]
+    return obj
+
+
 def build_metadata_change_log_event(msg: ExternalEvent) -> MetadataChangeLogEvent:
     try:
-        return cast(MetadataChangeLogEvent, MetadataChangeLogEvent.from_json(msg.value))
+        raw = json.loads(msg.value)
+        unwrapped = _unwrap_avro_json(raw)
+        fixed = _fix_avro_bytes(unwrapped)
+        mcl = MetadataChangeLogClass.from_obj(fixed, True)
+        return MetadataChangeLogEvent.from_class(mcl)
     except Exception as e:
         raise ValueError("Failed to parse into MetadataChangeLogEvent") from e
 
@@ -213,7 +272,7 @@ class DataHubEventSource(EventSource):
                 for topic in self.topics_list:
                     consumer = self.topic_consumers[topic]
                     events_response = consumer.poll_events(
-                        topic=topic, poll_timeout_seconds=2
+                        topic=topic, poll_timeout_seconds=1
                     )
                     total_events += len(events_response.events)
 
@@ -223,6 +282,7 @@ class DataHubEventSource(EventSource):
 
                 # Handle Idle Timeout
                 if total_events == 0:
+                    time.sleep(0.1)
                     if last_idle_response_timestamp == 0:
                         last_idle_response_timestamp = (
                             self._get_current_timestamp_seconds()
@@ -267,14 +327,16 @@ class DataHubEventSource(EventSource):
 
     @staticmethod
     def handle_pe(msg: ExternalEvent) -> Iterable[EventEnvelope]:
-        value: dict = json.loads(msg.value)
+        raw: dict = json.loads(msg.value)
+        value = cast(dict, _fix_avro_bytes(_unwrap_avro_json(raw)))
         payload: GenericPayloadClass = GenericPayloadClass.from_obj(
             post_json_transform(value["payload"])
         )
-        if ENTITY_CHANGE_EVENT_NAME == value["name"]:
+        name = value.get("name", raw.get("name", ""))
+        if ENTITY_CHANGE_EVENT_NAME == name:
             ece = build_entity_change_event(payload)
             yield EventEnvelope(ENTITY_CHANGE_EVENT_V1_TYPE, ece, {})
-        elif RELATIONSHIP_CHANGE_EVENT_NAME == value["name"]:
+        elif RELATIONSHIP_CHANGE_EVENT_NAME == name:
             rce = RelationshipChangeEvent.from_json(payload.get("value"))
             yield EventEnvelope(RELATIONSHIP_CHANGE_EVENT_V1_TYPE, rce, {})
 
