@@ -42,18 +42,16 @@ export default function LineageEdges({
     const { t } = useTranslation('lineage');
     const { nodes, edges, adjacencyList } = useContext(LineageNodesContext);
 
-    const children = adjacencyList[direction].get(parentUrn) || new Set();
     const allowedTypes = useMemo(() => new Set(validEntityTypes), [validEntityTypes]);
-    const writableChildren = useMemo(
-        () =>
-            new Set(
-                Array.from(children).filter((childUrn) => {
-                    const childType = nodes.get(childUrn)?.type;
-                    return !!childType && allowedTypes.has(childType);
-                }),
-            ),
-        [children, allowedTypes, nodes],
-    );
+    const writableChildren = useMemo(() => {
+        const children = adjacencyList[direction].get(parentUrn) ?? new Set<string>();
+        return new Set(
+            Array.from(children).filter((childUrn) => {
+                const childType = nodes.get(childUrn)?.type;
+                return !!childType && allowedTypes.has(childType);
+            }),
+        );
+    }, [adjacencyList, direction, parentUrn, allowedTypes, nodes]);
     const urnsToRemove = useMemo(
         () => new Set(entitiesToRemove.map((entityToRemove) => entityToRemove.urn)),
         [entitiesToRemove],
