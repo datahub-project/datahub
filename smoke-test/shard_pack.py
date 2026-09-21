@@ -1,9 +1,12 @@
-"""Loadscope-aware packing of smoke-test modules into CI batches.
+"""Loadscope-aware packing of smoke-test items into CI batches.
 
-Phase 1 runs under pytest-xdist ``--dist=loadscope``, so a file stays on one
-worker. Phase 2 then runs mutators serially on that same batch. Predicted wall
-clock is therefore ``max(N worker loads) + serial_sum``, not
-``sum(parallel) / N + serial``.
+Phase 1 runs under pytest-xdist ``--dist=loadscope``: a class stays on one
+worker, and loose functions stay together by module. Phase 2 then runs
+mutators serially on that same batch. Predicted wall clock is therefore
+``max(N worker loads) + serial_sum``, not ``sum(parallel) / N + serial``.
+
+Each ``ModuleShard.path`` is a loadscope key (``file.py::Class`` or
+``file.py``), not necessarily a whole file.
 
 Weight lookup maps pytest nodeids onto the JUnit ``classname::name`` keys in
 pytest_test_weights.json so class-based tests do not pack at the default.
@@ -116,6 +119,11 @@ def pack_modules(
         plan.module_paths
         for plan in pack_module_plans(modules, batch_count, xdist_workers)
     ]
+
+
+def loadscope_key(nodeid: str) -> str:
+    """Return the xdist loadscope id: drop the last ``::`` segment of *nodeid*."""
+    return nodeid.replace("\\", "/").rsplit("::", 1)[0]
 
 
 def nodeid_to_weight_keys(nodeid: str) -> list[str]:

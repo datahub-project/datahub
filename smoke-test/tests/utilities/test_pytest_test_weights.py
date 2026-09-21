@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from shard_pack import lookup_test_weight, nodeid_to_weight_keys
+from shard_pack import loadscope_key, lookup_test_weight, nodeid_to_weight_keys
 from tests.utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM_INTERNAL)
@@ -61,3 +61,20 @@ def test_missing_id_uses_default() -> None:
     )
     assert used_default is True
     assert weight == pytest.approx(DEFAULT)
+
+
+@pytest.mark.parametrize(
+    "nodeid, expected",
+    [
+        (
+            CLASS_NODEID,
+            "tests/authorization/test_domain_scoped_create_entity_auth.py"
+            "::TestDomainScopedCreateEntityAuth",
+        ),
+        ("tests/foo.py::test_it", "tests/foo.py"),
+        ("tests/foo.py::test_it[param]", "tests/foo.py"),
+        ("tests/foo.py::TestCls::test_it", "tests/foo.py::TestCls"),
+    ],
+)
+def test_loadscope_key_drops_last_segment(nodeid: str, expected: str) -> None:
+    assert loadscope_key(nodeid) == expected
