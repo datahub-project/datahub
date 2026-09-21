@@ -36,7 +36,10 @@ interface Props {
 }
 
 export default function SummaryCreatedBySection({ owner }: Props) {
-    const { t } = useTranslation('entity.shared.profile');
+    // This section shows ownership.owners[0], which is not the entity's creator — DataHub records no
+    // human creator for ingested assets, and owners[0] is arbitrary (insertion order). Label it "Owner"
+    // rather than the misleading "Created By".
+    const { t } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistryV2();
 
     let ownerName;
@@ -54,7 +57,7 @@ export default function SummaryCreatedBySection({ owner }: Props) {
         <>
             {!!ownerName && (
                 <SectionContainer>
-                    <StyledTitle>{t('summary.createdByTitle')}</StyledTitle>
+                    <StyledTitle>{t('owner')}</StyledTitle>
                     <Details>
                         <Avatar name={ownerName} imageUrl={ownerPictureLink} type={avatarType} />
                         {ownerName}
