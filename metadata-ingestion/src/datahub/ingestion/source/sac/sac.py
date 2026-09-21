@@ -192,7 +192,27 @@ class SACSourceConfig(
 
     folder_pattern: AllowDenyPattern = Field(
         AllowDenyPattern.allow_all(),
-        description="Patterns for selecting folders that are to be included",
+        description=(
+            "Patterns for selecting folders that are to be included. Matched against the "
+            "browse path whose built-in root folder has already been canonicalized (e.g. "
+            "`Public/...`), not SAC's raw localized `ancestorPath`; write rules against "
+            "the canonical `public_root_folder_name` value rather than a language-specific "
+            "root such as `Öffentlich`."
+        ),
+    )
+
+    public_root_folder_name: Optional[str] = Field(
+        default="Public",
+        description=(
+            "Canonical display name for SAC's built-in public root folder. SAC returns "
+            "this root in each resource's `ancestorPath` localized to the resource's "
+            "language (e.g. 'Public' in English, 'Öffentlich' in German), which would "
+            "otherwise split the same physical root into one browse-path tree per "
+            "language. The connector only ingests public content (`isPublic eq 1`), so "
+            "the first `ancestorPath` segment is always this root and is rewritten to "
+            "this value. User-created sub-folders keep their given name. Set to null to "
+            "disable rewriting and keep the raw localized name."
+        ),
     )
 
     connection_mapping: Dict[str, ConnectionMappingConfig] = Field(
@@ -770,7 +790,10 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             ancestor_path_raw = entity.get("ancestorPath")
             if ancestor_path_raw:
                 try:
-                    ancestors = json.loads(ancestor_path_raw)
+                    ancestors = _canonicalize_ancestor_folders(
+                        json.loads(ancestor_path_raw),
+                        self.config.public_root_folder_name,
+                    )
                     ancestor_path = "/".join(
                         ancestor.replace("/", "%2F") for ancestor in ancestors
                     )
@@ -1190,6 +1213,21 @@ def _add_sap_sac_custom_auth_header(
 ) -> Tuple[str, Dict[str, str], Any]:
     headers["x-sap-sac-custom-auth"] = "true"
     return url, headers, body
+
+
+def _canonicalize_ancestor_folders(
+    ancestors: List[str], public_root_folder_name: Optional[str]
+) -> List[str]:
+    # The connector only ingests public content (`isPublic eq 1`), so the first
+    # `ancestorPath` segment is always SAC's built-in public root, returned under a
+    # display name localized to the resource's language. Rewriting it to a single
+    # canonical label keeps the same physical root from fanning out into one
+    # browse-path tree per tenant language. User-created sub-folders are not localized,
+    # so only the first segment is touched.
+    if not ancestors or not public_root_folder_name:
+        return ancestors
+
+    return [public_root_folder_name, *ancestors[1:]]
 
 
 def _parse_sac_datetime(value: str) -> datetime:
