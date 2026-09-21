@@ -48,10 +48,11 @@ public class ESSearchDAOIncidentStatsTest {
   @BeforeMethod
   public void setUp() {
     mockClient = Mockito.mock(SearchClientShim.class);
-    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(), mockClient);
     esSearchDAO =
         new ESSearchDAO(
-            mockClient,
             false,
             TEST_OS_SEARCH_CONFIG,
             null,

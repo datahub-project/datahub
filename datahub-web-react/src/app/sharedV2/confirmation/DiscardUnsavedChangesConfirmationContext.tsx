@@ -12,6 +12,13 @@ interface Props {
     confirmModalContent?: React.ReactNode;
     confirmButtonText?: string;
     closeButtonText?: string;
+    /**
+     * By default the primary (filled) button keeps the user on the page and the secondary button
+     * discards. Set this to put the destructive action on the primary button instead, rendered in
+     * red, with the secondary button keeping the user on the page. Dismissing the dialog (ESC,
+     * backdrop, X) always keeps the user on the page regardless of this setting.
+     */
+    isDiscardPrimary?: boolean;
 }
 
 interface ConfirmationArgs {
@@ -40,6 +47,7 @@ export function DiscardUnsavedChangesConfirmationProvider({
     confirmModalContent,
     confirmButtonText,
     closeButtonText,
+    isDiscardPrimary = false,
 }: React.PropsWithChildren<Props>) {
     const { t } = useTranslation('shared.confirmation');
     const { t: tc } = useTranslation('common.actions');
@@ -84,6 +92,13 @@ export function DiscardUnsavedChangesConfirmationProvider({
         [isDirty, isRedirectConfirmed, enableRedirectHandling],
     );
 
+    const stayOnPage = useCallback(() => {
+        setIsConfirmationShown(false);
+        setIsRedirectConfirmed(false); // restore redirect handling
+    }, []);
+
+    const dismissRedirectConfirmation = useCallback(() => setIsRedirectConfirmationShown(false), []);
+
     const onRedirectConfirm = useCallback(() => {
         setIsRedirectConfirmationShown(false);
         setIsRedirectConfirmed(true);
@@ -104,14 +119,14 @@ export function DiscardUnsavedChangesConfirmationProvider({
                 modalTitle={confirmationModalTitle ?? t('unsavedChanges.title')}
                 modalText={confirmModalContent ?? t('unsavedChanges.text')}
                 closeButtonColor="gray"
-                handleConfirm={() => {
-                    setIsConfirmationShown(false);
-                    setIsRedirectConfirmed(false); // restore redirect handling
-                }}
+                handleConfirm={isDiscardPrimary ? () => onConfirmHandler?.() : stayOnPage}
                 confirmButtonText={confirmButtonText ?? tc('continue')}
-                handleClose={() => onConfirmHandler?.()}
+                handleClose={isDiscardPrimary ? stayOnPage : () => onConfirmHandler?.()}
                 closeButtonText={closeButtonText ?? tc('exit')}
-                closeOnPrimaryAction
+                isDeleteModal={isDiscardPrimary}
+                // onCancel maps to the primary handler when set, so leave it off in discard-primary
+                // mode to keep ESC/backdrop on the non-destructive path.
+                closeOnPrimaryAction={!isDiscardPrimary}
             />
 
             {enableRedirectHandling && (
@@ -123,11 +138,12 @@ export function DiscardUnsavedChangesConfirmationProvider({
                         modalTitle={confirmationModalTitle ?? t('unsavedChanges.title')}
                         modalText={confirmModalContent ?? t('unsavedChanges.text')}
                         closeButtonColor="gray"
-                        handleConfirm={() => setIsRedirectConfirmationShown(false)}
+                        handleConfirm={isDiscardPrimary ? onRedirectConfirm : dismissRedirectConfirmation}
                         confirmButtonText={confirmButtonText ?? tc('continue')}
-                        handleClose={onRedirectConfirm}
+                        handleClose={isDiscardPrimary ? dismissRedirectConfirmation : onRedirectConfirm}
                         closeButtonText={closeButtonText ?? tc('exit')}
-                        closeOnPrimaryAction
+                        isDeleteModal={isDiscardPrimary}
+                        closeOnPrimaryAction={!isDiscardPrimary}
                     />
                 </>
             )}

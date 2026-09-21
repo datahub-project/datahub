@@ -7,6 +7,7 @@ from datahub.emitter.mce_builder import (
     make_assertion_source,
     make_assertion_urn,
     make_data_platform_urn,
+    make_data_product_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
     make_tag_urn,
@@ -83,7 +84,11 @@ from datahub.metadata.schema_classes import (
     AssertionTypeClass,
     AuditStampClass,
     CustomAssertionInfoClass,
+    DataContractPropertiesClass,
+    DataContractStateClass,
+    DataContractStatusClass,
     DataPlatformInstanceClass,
+    DataQualityContractClass,
     DatasetPropertiesClass,
     EdgeClass,
     FieldAssertionInfoClass,
@@ -97,6 +102,7 @@ from datahub.metadata.schema_classes import (
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     LogicalParentClass,
+    MetadataChangeProposalClass,
     NullTypeClass,
     OtherSchemaClass,
     OwnerClass,
@@ -104,16 +110,20 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     RowCountTotalClass,
     SchemaAssertionInfoClass,
+    SchemaContractClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaFieldSpecClass,
     SchemaMetadataClass,
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
+    StatusClass,
     TagAssociationClass,
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
 )
+from datahub.metadata.urns import DataProductUrn
+from datahub.specific.dataproduct import DataProductPatchBuilder
 
 
 @dataclass
@@ -1016,6 +1026,19 @@ def _rule_external_url(rule: ODCSQualityRule) -> Optional[str]:
     return None
 
 
+def _rule_display_description(ctx: _RuleContext) -> str:
+    # An assertion's `description` is what the UI shows as its name (assertion
+    # list, dataset Contract tab, etc.). ODCS rules frequently omit a
+    # description, which would otherwise surface as blank / "No description
+    # found", so synthesise a concise label from whatever the rule carries.
+    explicit = _description_to_str(ctx.rule.description)
+    if explicit:
+        return explicit
+    rule = ctx.rule
+    subject = rule.name or rule.effective_metric or rule.type or "quality rule"
+    return f"{subject} on `{ctx.column}`" if ctx.column else subject
+
+
 def _assertion_info_template(
     ctx: _RuleContext, assertion_type: str
 ) -> AssertionInfoClass:
@@ -1023,7 +1046,7 @@ def _assertion_info_template(
     return AssertionInfoClass(
         type=assertion_type,
         source=make_assertion_source(),
-        description=_description_to_str(ctx.rule.description),
+        description=_rule_display_description(ctx),
         customProperties=_custom_props_for_rule(ctx),
         externalUrl=_rule_external_url(ctx.rule),
     )
@@ -1437,3 +1460,89 @@ def odcs_to_schema_assertion_mcps(
         MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=info),
         assertion_platform_instance_mcp(assertion_urn),
     ]
+
+
+def odcs_data_contract_urn(entity_urn: str) -> str:
+    # Stable per target dataset and identical to the convention the DataContract
+    # SDK uses, so a hand-authored contract and the ODCS-derived one collapse to
+    # the same urn instead of racing as duplicates. Because the urn is keyed on
+    # the entity, the logical and physical contracts are distinct entities.
+    return f"urn:li:dataContract:{datahub_guid({'entity': entity_urn})}"
+
+
+def odcs_to_data_contract_mcps(
+    contract: ODCSContract,
+    entity_urn: str,
+    schema_assertion_urn: Optional[str],
+    data_quality_assertion_urns: List[str],
+) -> Tuple[Optional[str], List[MetadataChangeProposalWrapper]]:
+    """Emit a native DataHub `dataContract` on `entity_urn`.
+
+    Both the logical `odcs` dataset (where the assertions actually live — the
+    self-consistent home) and the bound physical dataset (where consumers browse)
+    use this: the contract just references the schema and data-quality assertion
+    urns, never duplicating assertion entities. State mirrors ODCS `status`
+    (`active` -> ACTIVE, otherwise PENDING). Returns (None, []) when the entry
+    produced no assertions worth pinning a contract to.
+    """
+    schema_contracts = (
+        [SchemaContractClass(assertion=schema_assertion_urn)]
+        if schema_assertion_urn
+        else None
+    )
+    dq_contracts = [
+        DataQualityContractClass(assertion=urn) for urn in data_quality_assertion_urns
+    ]
+    if schema_contracts is None and not dq_contracts:
+        return None, []
+
+    contract_urn = odcs_data_contract_urn(entity_urn)
+    state = (
+        DataContractStateClass.ACTIVE
+        if (contract.status or "").strip().lower() == "active"
+        else DataContractStateClass.PENDING
+    )
+    mcps = list(
+        MetadataChangeProposalWrapper.construct_many(
+            entityUrn=contract_urn,
+            aspects=[
+                DataContractPropertiesClass(
+                    entity=entity_urn,
+                    schema=schema_contracts,
+                    dataQuality=dq_contracts or None,
+                ),
+                StatusClass(removed=False),
+                DataContractStatusClass(state=state),
+            ],
+        )
+    )
+    return contract_urn, mcps
+
+
+def odcs_to_data_product_urn(data_product: str) -> str:
+    """The DataProduct urn a contract's `dataProduct` value names, read as an id.
+
+    Raises `InvalidUrnError` when the value cannot form a urn — e.g. commas and
+    parens are structural in urns, so `Sales, Orders (EU)` only resolves by name.
+    """
+    urn = make_data_product_urn(data_product.strip())
+    DataProductUrn.from_string(urn)
+    return urn
+
+
+def odcs_to_data_product_output_port_mcps(
+    data_product_urn: str, asset_urns: List[str], name: Optional[str] = None
+) -> List[MetadataChangeProposalClass]:
+    """Add `asset_urns` to a DataProduct as output ports, as an additive patch.
+
+    A patch, not a `DataProductProperties` write, because ODCS contributes to a
+    product it does not own and must not clear assets added by hand or another
+    source. `name` is set only for a product this run creates, so it never
+    overwrites a display name curated in DataHub.
+    """
+    patcher = DataProductPatchBuilder(data_product_urn)
+    if name is not None:
+        patcher.set_name(name)
+    for asset_urn in asset_urns:
+        patcher.add_asset(asset_urn, output_port=True)
+    return patcher.build()

@@ -235,6 +235,7 @@
     "secret.notFound": "Ingen hemmeligheter funnet",
     "selectTemplate.noResults": "Fant ikke datakilde med navnet \"{{searchFilter}}\".",
     "selectTemplate.searchPlaceholder": "Søk i datakilder...",
+    "snowflake.passwordAuthDeprecation.message": "Snowflake faser ut brukernavn + passord-autentisering (DEFAULT_AUTHENTICATOR) som en del av Strong Authentication-utrullingen. Passordautentisering vil slutte å fungere på en kontospesifikk ikrafttredelsesdato i Fase 3 (Aug-Okt 2026). Bytt denne oppskriften til nøkkelpar-autentisering (KEY_PAIR_AUTHENTICATOR) før din kontos ikrafttredelsesdato. Se <anchor>migreringsveiledning</anchor>.",
     "steps.titles.createSchedule": "Synkroniseringsplan",
     "steps.titles.defineRecipe": "Konfigurer tilkobling",
     "steps.titles.nameSource": "Fullfør",

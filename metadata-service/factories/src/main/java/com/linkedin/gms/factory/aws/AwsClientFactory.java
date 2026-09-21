@@ -5,7 +5,6 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubMskIamClientCallbackHandler;
 import com.linkedin.gms.factory.kafka.KafkaMskIamAuth;
 import com.linkedin.metadata.config.ObjectStorageConfiguration;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
@@ -324,13 +323,13 @@ public class AwsClientFactory {
         && !bedrock.getAwsRegion().trim().isEmpty();
   }
 
-  /** True when OpenSearch requests are signed with AWS IAM. */
+  /** True when any configured search cluster signs OpenSearch requests with AWS IAM. */
   boolean isOpenSearchIamAuthConfigured() {
     if (configurationProvider == null || configurationProvider.getElasticSearch() == null) {
       return false;
     }
-    ElasticSearchConfiguration esConfig = configurationProvider.getElasticSearch();
-    return esConfig.isOpensearchUseAwsIamAuth();
+    return configurationProvider.getElasticSearch().resolvedClusters().values().stream()
+        .anyMatch(cluster -> cluster.isConfigured() && cluster.isOpensearchUseAwsIamAuth());
   }
 
   /** True when object storage is configured to assume an IAM role. */
