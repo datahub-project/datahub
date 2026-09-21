@@ -1,4 +1,5 @@
 import json
+import re
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List
@@ -174,6 +175,41 @@ def test_query_odata_entities_follows_pagination(requests_mock):
     source = SACSource(config, PipelineContext(run_id="sac-pagination-test"))
 
     results = list(source._query_odata_entities("Resources", select="resourceId"))
+
+    assert [entity["resourceId"] for entity in results] == ["A", "B"]
+
+
+def test_query_odata_entities_follows_relative_v4_next_link(requests_mock):
+    # The File Repository service is OData v4, and CAP tenants can return a *relative*
+    # @odata.nextLink. The pager must resolve it against the request URL rather than
+    # handing a relative path to session.get, which would fail and silently truncate
+    # folder-type enrichment after the first page.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+
+    page_1 = {
+        "value": [{"resourceId": "A"}],
+        "@odata.nextLink": "Resources?$skiptoken=PAGE2",
+    }
+    page_2 = {"value": [{"resourceId": "B"}]}
+
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/filerepository/Resources",
+        [{"json": page_1}, {"json": page_2}],
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+    )
+    source = SACSource(
+        config, PipelineContext(run_id="sac-v4-relative-pagination-test")
+    )
+
+    results = list(
+        source._query_odata_entities("filerepository/Resources", select="resourceId")
+    )
 
     assert [entity["resourceId"] for entity in results] == ["A", "B"]
 
@@ -946,3 +982,250 @@ def match_model_metadata(request, context):
     }
 
     return json
+
+
+def _private_content_resource(
+    resource_id: str, ancestor_path: List[str], is_public: bool = True
+) -> Dict[str, Any]:
+    return {
+        "name": f"Story {resource_id}",
+        "description": None,
+        "resourceId": resource_id,
+        "resourceType": "STORY",
+        "resourceSubtype": "",
+        "storyId": f"STORY:t.4:{resource_id}",
+        "createdTime": "/Date(1667544309783)/",
+        "createdBy": "JOHN_DOE",
+        "modifiedBy": "JOHN_DOE",
+        "modifiedTime": "/Date(1673067981272)/",
+        "isMobile": 0,
+        "isPublic": 1 if is_public else 0,
+        "openURL": f"/sap/fpa/ui/tenants/3c44c/bo/story/{resource_id}",
+        "ancestorPath": json.dumps(ancestor_path),
+    }
+
+
+def test_canonical_root_folder_name_maps_folder_types(requests_mock):
+    source = _make_source(requests_mock, "sac-canonical-root-test")
+
+    # Public-only ingestion: the isPublic gate guarantees a public root regardless of the
+    # (unfetched) folderType, so the public name always applies.
+    assert source._canonical_root_folder_name(None, False) == "Public"
+    assert source._canonical_root_folder_name("PRIVATE", False) == "Public"
+
+    source.config.ingest_private_content = True
+    assert source._canonical_root_folder_name("PUBLIC", False) == "Public"
+    assert source._canonical_root_folder_name("PRIVATE", False) == "My Files"
+    # Team folders / samples are left to their localized name.
+    assert source._canonical_root_folder_name("TEAM", False) is None
+    # A missing folderType (a File Repository join miss) still canonicalizes public
+    # content from the row's own isPublic flag, and otherwise leaves the localized name.
+    assert source._canonical_root_folder_name(None, True) == "Public"
+    assert source._canonical_root_folder_name(None, False) is None
+
+
+@pytest.mark.integration
+def test_get_resources_ingests_private_content_with_canonical_roots(requests_mock):
+    # With private ingestion enabled the isPublic gate is dropped, applyManagePrivilege is
+    # forwarded to both endpoints, and each resource's folderType (from the File Repository
+    # API) decides which canonical root name replaces the localized first ancestor segment.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataimport/models", json={"models": []}
+    )
+
+    captured: Dict[str, Any] = {}
+
+    def resources_matcher(request, context):
+        params = query_params(request)
+        captured["filter"] = params["$filter"][0]
+        captured["resources_manage"] = params.get("applyManagePrivilege", [None])[0]
+        return {
+            "d": {
+                "results": [
+                    _private_content_resource("PUB1", ["Öffentlich", "Sales"]),
+                    _private_content_resource(
+                        "PRIV1", ["Meine Dateien", "Drafts"], is_public=False
+                    ),
+                ]
+            }
+        }
+
+    requests_mock.get(f"{MOCK_TENANT_URL}/api/v1/Resources", json=resources_matcher)
+
+    def filerepo_matcher(request, context):
+        params = query_params(request)
+        captured["filerepo_manage"] = params.get("applyManagePrivilege", [None])[0]
+        # The File Repository service is OData v4: results live under "value", not the
+        # v2 "d"/"results" envelope the classic Resources service uses.
+        return {
+            "value": [
+                {"resourceId": "PUB1", "folderType": "PUBLIC"},
+                {"resourceId": "PRIV1", "folderType": "PRIVATE"},
+            ]
+        }
+
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/filerepository/Resources", json=filerepo_matcher
+    )
+
+    def resource_models_matcher(request, context):
+        params = query_params(request)
+        captured["models_manage"] = params.get("applyManagePrivilege", [None])[0]
+        return {"d": {"results": []}}
+
+    requests_mock.get(
+        re.compile(r".+/Resources\('[^']+'\)/resourceModels"),
+        json=resource_models_matcher,
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+        ingest_private_content=True,
+        apply_manage_privilege=True,
+    )
+    source = SACSource(config, PipelineContext(run_id="sac-private-content-test"))
+
+    resources = {r.resource_id: r for r in source.get_resources()}
+
+    assert "isPublic" not in captured["filter"]
+    assert captured["resources_manage"] == "true"
+    assert captured["filerepo_manage"] == "true"
+    # applyManagePrivilege must reach the per-resource model expansion too, otherwise a
+    # privately-visible story cannot expand its models.
+    assert captured["models_manage"] == "true"
+    assert resources["PUB1"].ancestor_path == "Public/Sales"
+    assert resources["PRIV1"].ancestor_path == "My Files/Drafts"
+
+
+@pytest.mark.integration
+def test_get_resources_canonicalizes_public_root_on_folder_type_join_miss(
+    requests_mock,
+):
+    # A public story missing from the File Repository join (permission skew between Story
+    # Listing and File Repository, paging truncation, or a null folderType) must still get
+    # its canonical public root from the row's own isPublic flag, so folder_pattern rules
+    # written for `Public/...` keep matching it instead of a localized `Öffentlich/...`.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataimport/models", json={"models": []}
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/Resources",
+        json=lambda request, context: {
+            "d": {
+                "results": [
+                    _private_content_resource("PUB1", ["Öffentlich", "Sales"]),
+                ]
+            }
+        },
+    )
+    # File Repository returns no row for PUB1 (the join misses).
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/filerepository/Resources",
+        json={"value": []},
+    )
+    requests_mock.get(
+        re.compile(r".+/Resources\('[^']+'\)/resourceModels"),
+        json={"d": {"results": []}},
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+        ingest_private_content=True,
+    )
+    source = SACSource(config, PipelineContext(run_id="sac-public-join-miss-test"))
+
+    resources = {r.resource_id: r for r in source.get_resources()}
+
+    assert resources["PUB1"].ancestor_path == "Public/Sales"
+
+
+@pytest.mark.integration
+def test_get_resources_keeps_localized_root_when_folder_types_unavailable(
+    requests_mock,
+):
+    # If the File Repository API is unreachable, folderType is unknown, so a non-public root
+    # keeps its raw localized name rather than aborting ingestion or being mislabeled public.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataimport/models", json={"models": []}
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/Resources",
+        json=lambda request, context: {
+            "d": {
+                "results": [
+                    _private_content_resource(
+                        "PRIV1", ["Meine Dateien", "Drafts"], is_public=False
+                    ),
+                ]
+            }
+        },
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/filerepository/Resources", status_code=500
+    )
+    requests_mock.get(
+        re.compile(r".+/Resources\('[^']+'\)/resourceModels"),
+        json={"d": {"results": []}},
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+        ingest_private_content=True,
+    )
+    source = SACSource(config, PipelineContext(run_id="sac-folder-type-degrade-test"))
+
+    resources = list(source.get_resources())
+
+    assert len(resources) == 1
+    assert resources[0].ancestor_path == "Meine Dateien/Drafts"
+    assert source.report.warnings
+
+
+@pytest.mark.integration
+def test_get_resources_degrades_when_model_expansion_fails(requests_mock):
+    # A story that lists fine but whose model expansion fails (e.g. a private story
+    # surfaced only via applyManagePrivilege that the client cannot expand) must not abort
+    # the whole run: the resource is still emitted, just without its models, and a warning
+    # is recorded.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataimport/models", json={"models": []}
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/Resources",
+        json=lambda request, context: {
+            "d": {"results": [_private_content_resource("PUB1", ["Public", "Sales"])]}
+        },
+    )
+    requests_mock.get(
+        re.compile(r".+/Resources\('[^']+'\)/resourceModels"),
+        status_code=500,
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+    )
+    source = SACSource(
+        config, PipelineContext(run_id="sac-model-expansion-degrade-test")
+    )
+
+    resources = list(source.get_resources())
+
+    assert len(resources) == 1
+    assert resources[0].resource_models == set()
+    assert source.report.warnings
