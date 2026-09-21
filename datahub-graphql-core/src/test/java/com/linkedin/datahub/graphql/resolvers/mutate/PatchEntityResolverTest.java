@@ -3,6 +3,8 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
@@ -143,6 +145,51 @@ public class PatchEntityResolverTest {
     assertEquals(result.getUrn(), "urn:li:glossaryTerm:test-term");
     assertFalse(result.getSuccess());
     assertNotNull(result.getError());
+  }
+
+  /**
+   * The resource type used for authorization must come from the URN. A client claiming a different
+   * entityType must be rejected even when the authorizer would allow the write.
+   */
+  @Test
+  public void testPatchDeniedWhenClientEntityTypeDisagreesWithUrn() throws Exception {
+    PatchEntityInput input = new PatchEntityInput();
+    input.setUrn("urn:li:glossaryTerm:test-term");
+    input.setEntityType("dataset");
+    input.setAspectName("glossaryTermInfo");
+    input.setPatch(
+        List.of(createPatchOperation(PatchOperationType.REPLACE, "/name", "\"Updated Name\"")));
+    when(_environment.getArgument("input")).thenReturn(input);
+    allowAll();
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertFalse(result.getSuccess());
+    assertNotNull(result.getError());
+    assertTrue(result.getError().contains("unauthorized"));
+    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+  }
+
+  @Test
+  public void testPatchDeniedWhenUrnIsUnparseable() throws Exception {
+    PatchEntityInput input = new PatchEntityInput();
+    input.setUrn("not-a-urn");
+    input.setAspectName("glossaryTermInfo");
+    input.setPatch(
+        List.of(createPatchOperation(PatchOperationType.REPLACE, "/name", "\"Updated Name\"")));
+    when(_environment.getArgument("input")).thenReturn(input);
+    allowAll();
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertFalse(result.getSuccess());
+    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+  }
+
+  private void allowAll() {
+    AuthorizationResult allow = mock(AuthorizationResult.class);
+    when(allow.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
+    when(_operationContext.authorize(any(), any(), any())).thenReturn(allow);
   }
 
   private PatchOperationInput createPatchOperation(

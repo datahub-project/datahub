@@ -489,7 +489,13 @@ public class AuthorizationUtils {
   }
 
   /**
-   * Checks authorization for patch operations
+   * Checks authorization for patch operations.
+   *
+   * <p>The resource type used for policy matching is always taken from the URN, which is what the
+   * patch is applied to, never from the client-supplied {@code entityType}. Otherwise a grant
+   * scoped to one entity type could be matched against a URN of a different type by claiming the
+   * wrong type. A URN that cannot be parsed, or a client type that disagrees with the URN, is
+   * rejected.
    *
    * @param input Patch entity input
    * @param context Query context
@@ -505,14 +511,24 @@ public class AuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
 
-    // Use entity type from URN if not provided in input
-    String entityType = input.getEntityType();
-    if (entityType == null && input.getUrn() != null) {
+    String entityType = null;
+    if (input.getUrn() != null) {
       try {
         entityType = UrnUtils.getUrn(input.getUrn()).getEntityType();
       } catch (Exception e) {
         log.warn("Failed to extract entity type from URN: {}", input.getUrn(), e);
       }
+    }
+    if (entityType == null) {
+      return false;
+    }
+    if (input.getEntityType() != null && !entityType.equals(input.getEntityType())) {
+      log.warn(
+          "Rejecting patch: entityType {} does not match URN entity type {} for {}",
+          input.getEntityType(),
+          entityType,
+          input.getUrn());
+      return false;
     }
 
     return isAuthorized(context, entityType, input.getUrn(), orPrivilegeGroups);
