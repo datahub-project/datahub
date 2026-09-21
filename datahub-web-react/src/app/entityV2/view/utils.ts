@@ -64,12 +64,14 @@ export const convertStateToUpdateInput = (state: ViewBuilderState) => {
 
     const filterObj: any = {};
 
-    if (orFilters !== undefined) {
-        // New format: send orFilters and json for nested conditions
-        filterObj.orFilters = orFilters;
+    if (logicalPredicate) {
+        // New format: send json and orFilters for nested conditions
+        if (orFilters !== undefined) {
+            filterObj.orFilters = orFilters;
+        }
         filterObj.json = json;
     } else {
-        // Legacy format: send operator and filters
+        // Legacy format: send operator and filters for simple views
         filterObj.operator = state?.definition?.filter?.operator;
         filterObj.filters = state?.definition?.filter?.filters?.map((filter) => ({
             field: filter.field,

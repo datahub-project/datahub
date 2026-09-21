@@ -140,7 +140,11 @@ describe('View Utils - JSON Conversion Functions', () => {
         });
 
         it('should preserve old format fields', () => {
-            const result = convertStateToUpdateInput(mockState);
+            // When logicalPredicate exists, we send NEW format only (orFilters + json), not legacy format
+            const stateWithoutLogicalPredicate = JSON.parse(JSON.stringify(mockState));
+            delete stateWithoutLogicalPredicate.definition.logicalPredicate;
+
+            const result = convertStateToUpdateInput(stateWithoutLogicalPredicate);
 
             expect(result.definition.filter.operator).toBe(LogicalOperator.And);
             expect(result.definition.filter.filters).toBeTruthy();

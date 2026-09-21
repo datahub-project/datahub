@@ -11,10 +11,12 @@ import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataHubViewDefinition;
 import com.linkedin.datahub.graphql.generated.DataHubViewFilter;
 import com.linkedin.datahub.graphql.generated.FacetFilter;
+import com.linkedin.datahub.graphql.generated.LogicalOperator;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -69,10 +71,13 @@ public class CreateViewResolver implements DataFetcher<CompletableFuture<DataHub
   private DataHubView createView(@Nonnull final Urn urn, @Nonnull final CreateViewInput input) {
     final DataHubViewFilter.Builder filterBuilder = new DataHubViewFilter.Builder();
 
-    // Set deprecated fields for backward compatibility
+    // Set operator and filters
     if (input.getDefinition().getFilter().getOperator() != null) {
       filterBuilder.setOperator(input.getDefinition().getFilter().getOperator());
+    } else {
+      filterBuilder.setOperator(LogicalOperator.AND);
     }
+
     if (input.getDefinition().getFilter().getFilters() != null) {
       filterBuilder.setFilters(
           input.getDefinition().getFilter().getFilters().stream()
@@ -84,6 +89,8 @@ public class CreateViewResolver implements DataFetcher<CompletableFuture<DataHub
                           filterInput.getValues(),
                           filterInput.getNegated()))
               .collect(Collectors.toList()));
+    } else {
+      filterBuilder.setFilters(Collections.emptyList());
     }
 
     // Set json for preserving logical predicate
