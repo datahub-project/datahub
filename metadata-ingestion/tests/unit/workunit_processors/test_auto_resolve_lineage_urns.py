@@ -1095,16 +1095,17 @@ def test_workunit_level_counters_track_lineage_and_modified():
 
 
 def test_module_import_does_not_pull_sqlglot():
-    # Importing this module (e.g. via the workunit_processors package) must not drag
-    # in sqlglot, or connectors that don't declare it would break. The invariant rests
-    # on deferred imports + `from __future__ import annotations`; assert it in a fresh
-    # interpreter, since this test session may already have sqlglot loaded.
+    # The resolver chain must not drag in sqlglot, or connectors that don't declare it
+    # would break. Assert in a fresh interpreter, since this test session may already
+    # have sqlglot loaded.
     code = (
         "import sys; "
         "import datahub.ingestion.workunit_processors.auto_resolve_lineage_urns; "
         "assert 'sqlglot' not in sys.modules, 'sqlglot imported at module load'; "
         "import datahub.sql_parsing.schema_resolver; "
-        "assert 'sqlglot' not in sys.modules, 'schema_resolver pulled in sqlglot'"
+        "assert 'sqlglot' not in sys.modules, 'schema_resolver pulled in sqlglot'; "
+        "import datahub.sql_parsing.schema_resolver_provider; "
+        "assert 'sqlglot' not in sys.modules, 'schema_resolver_provider pulled in sqlglot'"
     )
     result = subprocess.run(
         [sys.executable, "-c", code], capture_output=True, text=True
