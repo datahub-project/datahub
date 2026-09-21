@@ -3,6 +3,7 @@ pytest_plugins = ["tests.utilities.agent_reporter"]
 import json
 import logging
 import os
+import statistics
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -10,6 +11,7 @@ from typing import Dict, List, Optional, Set, Tuple
 import pytest
 import requests
 from _pytest.nodes import Item
+from _pytest.skipping import evaluate_skip_marks
 
 from datahub.ingestion.graph.client import (
     DatahubClientConfig,
@@ -363,7 +365,24 @@ def load_pytest_test_weights() -> Dict[str, float]:
         return {}
 
 
-def get_pytest_test_weight(item: Item, test_weights: Dict[str, float]) -> float:
+# Collection-time skip/skipif tests never run, so they must not take the median
+# default (or a historical duration) and inflate a batch.
+SKIPPED_TEST_WEIGHT_SECONDS = 0.01
+
+
+def _item_will_be_skipped(item: Item) -> bool:
+    try:
+        return evaluate_skip_marks(item) is not None
+    except Exception:
+        return item.get_closest_marker("skip") is not None
+
+
+def get_pytest_test_weight(
+    item: Item, test_weights: Dict[str, float], default_weight: float
+) -> float:
+    if _item_will_be_skipped(item):
+        return SKIPPED_TEST_WEIGHT_SECONDS
+
     nodeid = item.nodeid
     test_id = nodeid.replace("/", ".").replace(".py::", "::")
     weight = test_weights.get(test_id)
@@ -377,7 +396,31 @@ def get_pytest_test_weight(item: Item, test_weights: Dict[str, float]) -> float:
         if weight is not None:
             return weight
 
-    return 1.0
+    return default_weight
+
+
+def load_persisted_default_weight() -> Optional[float]:
+    """Load the fallback weight generated alongside the pytest weights."""
+    meta_file = Path(__file__).parent / "pytest_test_weights_meta.json"
+    if not meta_file.exists():
+        return None
+    try:
+        with open(meta_file) as f:
+            value = float(json.load(f)["defaultTestWeightSeconds"])
+        return value if value > 0 else None
+    except Exception as e:
+        logger.warning(f"Failed to read {meta_file.name}: {e}")
+        return None
+
+
+def compute_default_test_weight(test_weights: Dict[str, float]) -> float:
+    """Return the weight assigned to tests absent from the weights file."""
+    persisted = load_persisted_default_weight()
+    if persisted is not None:
+        return persisted
+    if not test_weights:
+        return 1.0
+    return statistics.median(test_weights.values())
 
 
 def aggregate_module_weights(
@@ -398,6 +441,7 @@ def aggregate_module_weights(
     Returns:
         List of (module_path, items_in_module, parallel_seconds, serial_seconds)
     """
+    default_weight = compute_default_test_weight(test_weights)
 
     # Group items by module (file path)
     modules: Dict[str, List[Item]] = defaultdict(list)
@@ -412,7 +456,7 @@ def aggregate_module_weights(
         parallel_seconds = 0.0
         serial_seconds = 0.0
         for item in module_items:
-            weight = get_pytest_test_weight(item, test_weights)
+            weight = get_pytest_test_weight(item, test_weights, default_weight)
             if _is_global_policy_mutator(item):
                 serial_seconds += weight
             else:
