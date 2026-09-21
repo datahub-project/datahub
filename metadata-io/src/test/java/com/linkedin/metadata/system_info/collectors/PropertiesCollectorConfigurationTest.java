@@ -839,6 +839,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.concurrency.scaleWithProcessors",
           "graphQL.concurrency.separateThreadPool",
           "graphQL.concurrency.stackSize",
+          "graphQL.documentCache.enabled",
+          "graphQL.documentCache.maximumWeightBytes",
           "graphQL.metrics.enabled",
           "graphQL.metrics.fieldLevelEnabled",
           "graphQL.metrics.fieldLevelOperations",
