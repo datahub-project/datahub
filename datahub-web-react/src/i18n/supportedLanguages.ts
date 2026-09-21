@@ -13,6 +13,7 @@ export const SUPPORTED_LANGUAGES = [
     'fi',
     'ja',
     'zh-CN',
+    'zh-TW',
     'ru',
 ] as const;
 

@@ -21,4 +21,25 @@ public class EntityIndexVersionConfiguration {
    * cutover). Ignored when V3 is disabled.
    */
   private boolean keywordReadEnabled;
+
+  /** V2 only: coalesce multiple updates to the same (urn, aspect) within a batch. */
+  private boolean coalesceBatchUpdates;
+
+  /**
+   * V2 only. Search V3 always hashes document ids, so it intentionally has no equivalent setting —
+   * do not add one here for v3.
+   */
+  private String idHashAlgo;
+
+  /** V2 only: schema field document id strategy. */
+  private DocIdsConfiguration docIds;
+
+  /** V2 only: analyzer tokenizer override for the legacy settings builder. */
+  private String mainTokenizer;
+
+  public boolean isSchemaFieldDocIdHashEnabled() {
+    return docIds != null
+        && docIds.getSchemaField() != null
+        && docIds.getSchemaField().isHashIdEnabled();
+  }
 }

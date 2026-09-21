@@ -220,7 +220,6 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   public void testTransformIndexIntoEntityNameSingle() {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getSearchClient(),
             false,
             getElasticSearchConfiguration(),
             null,
@@ -317,7 +316,6 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   public void testTransformIndexIntoEntityNameNested() {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getSearchClient(),
             false,
             getElasticSearchConfiguration(),
             null,
