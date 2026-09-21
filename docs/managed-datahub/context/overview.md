@@ -1,8 +1,6 @@
 ---
 title: DataHub Context Overview
 description: "DataHub Context delivers trusted, human-validated context to AI agents, increasing their accuracy and reliability in production."
-visible-if:
-  showContextHub: true
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
