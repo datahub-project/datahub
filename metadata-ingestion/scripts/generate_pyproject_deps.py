@@ -25,7 +25,7 @@ SCRIPT_DIR = Path(__file__).parent
 METADATA_INGESTION_DIR = SCRIPT_DIR.parent
 
 # Extras that create circular dependencies with uv lock
-CIRCULAR_EXTRAS = {"airflow", "great-expectations"}
+CIRCULAR_EXTRAS = {"airflow", "great-expectations", "profiling-ge"}
 
 
 def load_setup_py_variables() -> Dict:
@@ -273,7 +273,12 @@ def generate_pyproject_toml() -> str:
     output_lines.append("")
 
     # Plugin extras — each plugin's deps are fully inlined (no self-references)
-    output_lines.append("# airflow and great-expectations excluded (circular deps).")
+    output_lines.append(
+        "# airflow, great-expectations, and profiling-ge excluded from generated extras."
+    )
+    output_lines.append(
+        "# airflow / great-expectations: circular plugin packages. profiling-ge: GE pins urllib3<1.27."
+    )
     output_lines.append(
         "# Install acryl-datahub-airflow-plugin / acryl-datahub-gx-plugin directly."
     )

@@ -1,6 +1,8 @@
+import atexit
 import logging
 import os
 import pathlib
+import threading
 from typing import List, Optional
 
 import pytest
@@ -19,6 +21,23 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 # Reduce retries on GMS, because this causes tests to hang while sleeping
 # between retries.
 os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
+
+
+@atexit.register
+def _report_threads_alive_at_exit() -> None:
+    # A non-daemon thread from a native client library that is still running when the
+    # interpreter finalizes can segfault the process long after the test session
+    # reported success (see the intermittent exit-139 CI failures). faulthandler shows
+    # the faulting thread; this names the threads that outlived the session.
+    lingering = [t for t in threading.enumerate() if t is not threading.main_thread()]
+    if lingering:
+        print(
+            f"[atexit] {len(lingering)} non-main thread(s) alive at interpreter shutdown:",
+            flush=True,
+        )
+        for thread in lingering:
+            print(f"[atexit]   {thread.name} daemon={thread.daemon}", flush=True)
+
 
 # We need our imports to go below the os.environ updates, since mere act
 # of importing some datahub modules will load env variables.
@@ -121,3 +140,12 @@ def pytest_collection_modifyitems(
             # Mark everything as an integration test.
             if not is_already_integration:
                 item.add_marker(pytest.mark.integration)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    # MiniRacer.__del__ segfaults if V8 is finalized while other native threads
+    # (e.g. librdkafka) are still running. Close the process-wide bridge now,
+    # while the interpreter is still fully alive. See _clear_bridge().
+    from datahub.ingestion.source.powerbi.m_query._bridge import _clear_bridge
+
+    _clear_bridge()

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
@@ -14,6 +14,7 @@ from datahub.emitter.kafka_emitter import (
     MCE_KEY,
     MCP_KEY,
     KafkaEmitterConfig,
+    KafkaOnDelivery,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.closeable import Closeable
@@ -114,14 +115,14 @@ class DatahubPgQueueEmitter(Closeable, Emitter):
             raise RuntimeError("Avro serialization returned None")
         return topic_name, key, serialized
 
-    def emit(
+    def emit(  # type: ignore[override]
         self,
         item: Union[
             MetadataChangeEvent,
             MetadataChangeProposal,
             MetadataChangeProposalWrapper,
         ],
-        callback: Optional[Callable[[Exception, str], None]] = None,
+        callback: Optional[KafkaOnDelivery] = None,
     ) -> None:
         cb = callback or _error_reporting_callback
         try:
@@ -144,7 +145,7 @@ class DatahubPgQueueEmitter(Closeable, Emitter):
                 headers=(),
                 payload_compression=int(mode),
             )
-            cb(None, "pgQueue enqueue succeeded")  # type: ignore[arg-type]
+            cb(None, "pgQueue enqueue succeeded")
         except Exception as e:
             cb(e, "pgQueue enqueue failed")
 
@@ -157,7 +158,7 @@ class DatahubPgQueueEmitter(Closeable, Emitter):
                 MetadataChangeProposalWrapper,
             ]
         ],
-        callback: Optional[Callable[[Exception, str], None]] = None,
+        callback: Optional[KafkaOnDelivery] = None,
     ) -> None:
         """Serialize many records and enqueue them in a single PostgreSQL transaction."""
         cb = callback or _error_reporting_callback
@@ -198,7 +199,7 @@ class DatahubPgQueueEmitter(Closeable, Emitter):
                 default_content_type_mime=td.default_content_type_mime,
             )
             for _ in items:
-                cb(None, "pgQueue enqueue succeeded")  # type: ignore[arg-type]
+                cb(None, "pgQueue enqueue succeeded")
         except Exception as e:
             cb(e, "pgQueue enqueue failed")
 
@@ -229,6 +230,6 @@ def kafka_emitter_config_from_pg_queue(
     }
 
 
-def _error_reporting_callback(err: Optional[Exception], msg: str) -> None:
+def _error_reporting_callback(err: Any, msg: Any) -> None:
     if err:
         logger.error("Failed to emit to pgQueue: %s %s", err, msg)

@@ -391,185 +391,8 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                     "  - IAM instance profile (if on EC2)\n" + "=" * 80
                 )
 
-    def _patch_notion_client_for_is_locked(self) -> None:
-        """Monkeypatch unstructured-ingest's Page class to support is_locked field.
-
-        TEMPORARY FIX: The Notion API now returns is_locked field in page responses,
-        but the Page class in unstructured-ingest 0.7.2 (which wraps notion-client 2.7.0)
-        doesn't support it. This causes Page.__init__() to fail with "unexpected keyword argument 'is_locked'".
-
-        This monkeypatch wraps the Page.__init__ to ignore is_locked until we upgrade.
-
-        Fixed upstream in notion-client: https://github.com/ramnes/notion-sdk-py/pull/286
-        Remove this once unstructured-ingest upgrades to notion-client >= 2.8.0
-        """
-        try:
-            from unstructured_ingest.processes.connectors.notion.types.page import (
-                Page,
-            )
-
-            original_init = Page.__init__
-
-            def patched_init(self, **kwargs):
-                # Remove is_locked if present (Notion API 2025 addition)
-                kwargs.pop("is_locked", None)
-                original_init(self, **kwargs)
-
-            Page.__init__ = patched_init
-            logger.info(
-                "Applied monkeypatch to unstructured-ingest Page class for is_locked field support"
-            )
-        except ImportError:
-            # unstructured-ingest not installed (shouldn't happen in notion source, but be defensive)
-            logger.warning(
-                "unstructured-ingest Page class not found - skipping is_locked monkeypatch. "
-                "This may cause issues if Notion API returns is_locked field."
-            )
-        except Exception as e:
-            # Don't fail ingestion if monkeypatch fails
-            logger.warning(
-                f"Failed to apply is_locked monkeypatch: {e}. "
-                "May encounter issues with is_locked field."
-            )
-
     @staticmethod
-    def _monkeypatch_database_property_description():
-        """Monkeypatch unstructured-ingest database property classes to support 'description' field.
-
-        The Notion API now returns a 'description' field for all database properties, but
-        unstructured-ingest 0.7.2 doesn't support it. This causes errors like:
-        "Date.__init__() got an unexpected keyword argument 'description'"
-
-        This patches all database property classes to filter out the description field.
-        """
-        try:
-            # Import database property classes directly
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.checkbox import (
-                Checkbox,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.created_by import (
-                CreatedBy,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.created_time import (
-                CreatedTime,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.date import (
-                Date,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.email import (
-                Email,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.files import (
-                Files,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.formula import (
-                Formula,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.last_edited_by import (
-                LastEditedBy,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.last_edited_time import (
-                LastEditedTime,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.multiselect import (
-                MultiSelect,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.number import (
-                Number,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.people import (
-                People,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.phone_number import (
-                PhoneNumber,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.relation import (
-                Relation,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.rich_text import (
-                RichText,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.rollup import (
-                Rollup,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.select import (
-                Select,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.status import (
-                Status,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.title import (
-                Title,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.unique_id import (
-                UniqueID,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.url import (
-                URL,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties.verification import (
-                Verification,
-            )
-
-            # List of all property classes that need patching
-            property_classes = [
-                Checkbox,
-                CreatedBy,
-                CreatedTime,
-                Date,
-                Email,
-                Files,
-                Formula,
-                LastEditedBy,
-                LastEditedTime,
-                MultiSelect,
-                Number,
-                People,
-                PhoneNumber,
-                Relation,
-                RichText,
-                Rollup,
-                Select,
-                Status,
-                Title,
-                UniqueID,
-                URL,
-                Verification,
-            ]
-
-            # Patch each class
-            def make_patched_from_dict(original_method: Any) -> Any:
-                """Factory to create patched from_dict method with proper closure."""
-
-                def patched_from_dict(cls: Type[Any], data: dict) -> Any:
-                    # Remove description field if present
-                    data_copy = data.copy()
-                    data_copy.pop("description", None)
-                    return original_method(data_copy)
-
-                # Make it a classmethod for monkey-patching
-                return classmethod(patched_from_dict)  # type: ignore[arg-type]
-
-            for prop_class in property_classes:
-                original_from_dict = prop_class.from_dict
-                prop_class.from_dict = make_patched_from_dict(original_from_dict)
-
-            logger.info(
-                f"Applied monkeypatch to {len(property_classes)} database property classes for description field support"
-            )
-        except ImportError as e:
-            logger.warning(
-                f"unstructured-ingest database property classes not found - skipping description monkeypatch: {e}. "
-                "This may cause issues if Notion API returns description field."
-            )
-        except Exception as e:
-            logger.warning(
-                f"Failed to apply description monkeypatch: {e}. "
-                "May encounter issues with description field."
-            )
-
-    @staticmethod
-    def _monkeypatch_database_title_extraction():
+    def _monkeypatch_database_title_extraction() -> None:
         """Monkeypatch unstructured-ingest to include database title in HTML output.
 
         The extract_database_html function retrieves the database object but doesn't
@@ -637,200 +460,197 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     @staticmethod
-    def _monkeypatch_databases_endpoint_query():
-        """Monkeypatch unstructured-ingest DatabasesEndpoint to fix super().query() AttributeError.
+    def _monkeypatch_icon_dispatcher_unknown_types() -> None:
+        """Gracefully degrade unknown Notion icon types to None instead of raising.
 
-        TEMPORARY FIX: In some environments (particularly with older notion-client versions),
-        calling super().query() in DatabasesEndpoint.iterate_query() fails with:
-        AttributeError: 'super' object has no attribute 'query'
+        unstructured-ingest 1.4.28's ``Icon.from_dict`` handles ``emoji``,
+        ``external``, and ``file``. Notion also emits a built-in named icon
+        (``{"type": "icon", "icon": {"name": "...", "color": "..."}}``) that
+        still raises ``ValueError`` and aborts page discovery.
 
-        This happens because unstructured-ingest[notion]==0.7.2 doesn't pin a specific
-        notion-client version, so different environments can get incompatible versions.
-
-        This patches iterate_query to call the parent's request method directly instead
-        of relying on super().query(), which may not exist in all notion-client versions.
+        This is a value-discriminator failure, not a kwargs-filter failure, so
+        it isn't covered by ``_monkeypatch_notion_types_filter_unknown_fields``.
+        Unknown types become ``None``; Callout text is preserved
+        (``Callout.get_html`` already handles ``icon is None``).
         """
         try:
-            from typing import Any, Generator, List
-
-            from unstructured_ingest.processes.connectors.notion.client import (
-                DatabasesEndpoint,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.database_properties import (
-                map_cells,
-            )
-            from unstructured_ingest.processes.connectors.notion.types.page import (
-                Page,
+            from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+                Icon,
             )
 
-            def patched_iterate_query(
-                self: Any, database_id: str, **kwargs: Any
-            ) -> Generator[List[Page], None, None]:
-                """Patched version that avoids super().query() call."""
+            warned: Set[Optional[str]] = set()
+            original_from_dict = Icon.from_dict.__func__
+
+            def patched_from_dict(cls: Type[Any], data: Optional[dict]) -> Any:
+                # Callout.from_dict passes data.pop("icon"), which may be None.
+                if data is None:
+                    return None
                 try:
-                    # Import pick from notion_client to build request body
-                    from notion_client.api_endpoints import pick
-                except ImportError:
-                    # Fallback if pick is not available - just use kwargs directly
-                    def pick(base: Dict[Any, Any], *keys: str) -> Dict[Any, Any]:
-                        return {k: v for k, v in base.items() if k in keys}
+                    return original_from_dict(cls, data)
+                except ValueError:
+                    t = data.get("type")
+                    if t not in warned:
+                        warned.add(t)
+                        logger.warning(
+                            f"Notion API returned unknown icon type '{t}' — "
+                            f"substituting None. Icon visualization on affected "
+                            f"blocks will be lost; page text content is preserved."
+                        )
+                    return None
 
-                next_cursor = None
-                while True:
-                    # Build request body (what super().query() would do)
-                    body = pick(kwargs, "filter", "sorts", "start_cursor", "page_size")
-                    if next_cursor:
-                        body["start_cursor"] = next_cursor
-
-                    # Call parent.request directly instead of super().query()
-                    # This is what DatabasesEndpoint.query() does in the parent class
-                    response: dict = self.parent.request(
-                        path=f"databases/{database_id}/query",
-                        method="POST",
-                        body=body,
-                        auth=kwargs.get("auth"),
-                    )
-
-                    pages = [
-                        Page.from_dict(data=p) for p in response.pop("results", [])
-                    ]
-                    for p in pages:
-                        p.properties = map_cells(p.properties)
-                    yield pages
-
-                    next_cursor = response.get("next_cursor")
-                    if not response.get("has_more") or not next_cursor:
-                        return
-
-            DatabasesEndpoint.iterate_query = patched_iterate_query
-            logger.info(
-                "Applied monkeypatch to unstructured-ingest DatabasesEndpoint for super().query() compatibility"
-            )
+            Icon.from_dict = classmethod(patched_from_dict)
+            logger.info("Applied monkeypatch to Icon dispatcher for unknown icon types")
         except ImportError as e:
-            logger.warning(
-                f"unstructured-ingest DatabasesEndpoint not found - skipping query monkeypatch: {e}."
-            )
+            logger.warning(f"Icon dispatcher not found - skipping monkeypatch: {e}")
         except Exception as e:
-            logger.warning(
-                f"Failed to apply DatabasesEndpoint query monkeypatch: {e}. "
-                "May encounter 'super' object has no attribute 'query' errors."
-            )
-
-    def _monkeypatch_syncblock_from_dict(self) -> None:
-        """Monkeypatch unstructured-ingest to handle synced blocks correctly.
-
-        ROOT CAUSE: unstructured-ingest v0.7.2 has TWO bugs with synced blocks:
-
-        1. SyncBlock.from_dict() dispatcher logic is backwards:
-           - Checks `if "synced_from" in data:` which is ALWAYS True
-           - Should check if synced_from VALUE is not null
-
-        2. Notion API structure mismatch:
-           - Original blocks (synced_from=null): May not have children in initial fetch
-           - Reference blocks (synced_from={block_id}): Point to original, no children
-
-        Notion API format:
-        - Original synced block: {"synced_from": null, "children": [...]}
-        - Reference synced block: {"synced_from": {"block_id": "..."}}
-
-        WORKAROUND: Patch SyncBlock.from_dict() dispatcher to:
-        1. Check if synced_from VALUE is not null (reference block)
-        2. Handle missing children gracefully for original blocks
-
-        LIMITATION: If children are not fetched for original blocks, content will
-        be missing. Full support requires fetching children separately via Notion API.
-        """
-        try:
-            from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
-                DuplicateSyncedBlock,
-                OriginalSyncedBlock,
-                SyncBlock,
-            )
-
-            # Capture report in closure for use in monkeypatch
-            report = self.report
-
-            # Track if synced blocks are encountered for reporting
-            synced_blocks_encountered = False
-
-            def patched_sync_block_from_dict(cls: Type[Any], data: dict) -> Any:
-                nonlocal synced_blocks_encountered
-
-                # Check if synced_from VALUE is not null (reference block)
-                synced_from_value = data.get("synced_from")
-
-                if synced_from_value is not None:
-                    # Reference block pointing to original synced block
-                    # Pass the synced_from object (contains block_id)
-                    return DuplicateSyncedBlock.from_dict(synced_from_value)
-
-                # synced_from is null - this is an original synced block
-                # Children may not be present in initial listing (fetched separately)
-                children = data.get("children", [])
-
-                if not children and not synced_blocks_encountered:
-                    logger.warning(
-                        "Encountered synced blocks during ingestion. "
-                        "Synced block content will be skipped due to unstructured-ingest v0.7.2 limitation. "
-                        "Pages will be ingested but synced block content will be missing."
-                    )
-                    report.report_warning(
-                        title="Synced Blocks Limitation",
-                        message="Pages with synced blocks were encountered during ingestion. "
-                        "The pages were ingested successfully, but synced block content is missing. "
-                        "This is a known limitation of the current connector version due to unstructured-ingest v0.7.2 compatibility.",
-                    )
-                    synced_blocks_encountered = True
-
-                return OriginalSyncedBlock(synced_from=None, children=children)
-
-            SyncBlock.from_dict = classmethod(patched_sync_block_from_dict)
-            logger.info(
-                "Applied monkeypatch to SyncBlock for synced blocks compatibility (original + reference)"
-            )
-
-        except ImportError as e:
-            logger.warning(f"SyncBlock class not found - skipping monkeypatch: {e}")
-        except Exception as e:
-            logger.warning(f"Failed to apply SyncBlock monkeypatch: {e}")
+            logger.warning(f"Failed to apply Icon dispatcher monkeypatch: {e}")
 
     @staticmethod
-    def _monkeypatch_numbered_list_item_new_fields():
-        """Monkeypatch NumberedListItem to support new Notion API fields.
+    def _monkeypatch_notion_types_filter_unknown_fields() -> None:
+        """Filter unknown kwargs on every FromJSONMixin dataclass in notion types.
 
-        TEMPORARY FIX: Notion API now returns:
-        - list_start_index: Starting number (e.g., start at 2)
-        - list_format: Format style ('numbers', 'letters', 'roman')
+        Notion's API regularly adds new fields across blocks, pages, databases,
+        and properties. unstructured-ingest 1.4.28 models some former drift
+        (for example Paragraph/Heading ``icon``) but still uses dataclasses
+        with ``cls(**data)`` for many types, so an unmodeled field raises
+        ``TypeError: __init__() got an unexpected keyword argument`` and
+        aborts ingestion (observed: Page ``is_archived``). 1.4.28 already
+        filters extra keys on Page.from_dict, but other types still use
+        ``cls(**data)``.
 
-        These fields aren't supported in unstructured-ingest 0.7.2.
+        FromJSONMixin is the common ancestor of every type in
+        unstructured_ingest.processes.connectors.notion.types (blocks via
+        BlockBase, pages directly, db properties via DBPropertyBase, db cells
+        via DBCellBase). Walking its subclasses after importing all submodules
+        catches the whole surface. Each __init__ is wrapped to drop unknown
+        kwargs and log a one-shot warning per (class, field). New API
+        additions degrade to "minor metadata not captured" instead of a hard
+        failure.
         """
         try:
-            from unstructured_ingest.processes.connectors.notion.types.blocks import (
-                NumberedListItem,
+            import dataclasses
+            import importlib
+            import pkgutil
+
+            from unstructured_ingest.processes.connectors.notion.interfaces import (
+                FromJSONMixin,
+            )
+            from unstructured_ingest.processes.connectors.notion.types import (
+                __name__ as types_name,
+                __path__ as types_path,
             )
 
-            original_from_dict = NumberedListItem.from_dict.__func__
+            # Eagerly import every notion type submodule so FromJSONMixin
+            # subclasses are registered before we walk them.
+            for module_info in pkgutil.walk_packages(
+                types_path, prefix=f"{types_name}."
+            ):
+                try:
+                    importlib.import_module(module_info.name)
+                except Exception as e:
+                    logger.debug(
+                        f"Skipped notion type submodule {module_info.name}: {e}"
+                    )
 
-            def patched_from_dict(cls: Type[Any], data: dict) -> Any:
-                data_copy = data.copy()
-                # Filter new fields that may appear in the numbered_list_item dict contents.
-                # Note: Block.from_dict extracts data["numbered_list_item"] and passes it here,
-                # so 'data' is the contents of numbered_list_item, not the full block structure.
-                data_copy.pop("list_start_index", None)
-                data_copy.pop("list_format", None)
-                return original_from_dict(cls, data_copy)
+            warned: Set[tuple] = set()
+            patched_count = 0
 
-            NumberedListItem.from_dict = classmethod(patched_from_dict)
+            stack: List[type] = [FromJSONMixin]
+            seen: Set[type] = set()
+            while stack:
+                parent = stack.pop()
+                for cls in parent.__subclasses__():
+                    if cls in seen:
+                        continue
+                    seen.add(cls)
+                    stack.append(cls)
+                    if not dataclasses.is_dataclass(cls):
+                        continue
+                    if getattr(cls.__init__, "_datahub_filters_unknown", False):
+                        continue
+
+                    valid_fields = {f.name for f in dataclasses.fields(cls)}
+                    original_init = cls.__init__
+                    cls_name = cls.__name__
+
+                    def make_wrapped(orig: Any, valid: Set[str], name: str) -> Any:
+                        def wrapped_init(self: Any, *args: Any, **kwargs: Any) -> None:
+                            unknown = [k for k in kwargs if k not in valid]
+                            for k in unknown:
+                                key = (name, k)
+                                if key not in warned:
+                                    warned.add(key)
+                                    logger.warning(
+                                        f"Notion API returned unknown field '{k}' on "
+                                        f"{name} — filtering. Content for this field "
+                                        f"will be dropped; consider upgrading "
+                                        f"unstructured-ingest or extending the connector."
+                                    )
+                                kwargs.pop(k)
+                            orig(self, *args, **kwargs)
+
+                        wrapped_init._datahub_filters_unknown = True  # type: ignore[attr-defined]
+                        return wrapped_init
+
+                    cls.__init__ = make_wrapped(  # type: ignore[method-assign]
+                        original_init, valid_fields, cls_name
+                    )
+                    patched_count += 1
+
             logger.info(
-                "Applied monkeypatch to NumberedListItem for new Notion API fields"
+                f"Applied generic unknown-field filter to {patched_count} Notion type classes"
             )
-
         except ImportError as e:
             logger.warning(
-                f"NumberedListItem class not found - skipping monkeypatch: {e}"
+                f"Notion types not found - skipping generic field filter: {e}"
             )
         except Exception as e:
-            logger.warning(f"Failed to apply NumberedListItem monkeypatch: {e}")
+            logger.warning(f"Failed to apply generic notion-type field filter: {e}")
+
+    def _warn_on_empty_original_synced_blocks(self) -> None:
+        """Warn when 1.4.28 parses an original synced block with no children.
+
+        ``SyncBlock.from_dict`` only sees the inner ``synced_block`` payload
+        (``synced_from`` / ``children``), so wrap ``Block.from_dict`` instead:
+        that is the production entry point and has the Notion block id.
+        """
+        try:
+            from unstructured_ingest.processes.connectors.notion.types.block import (
+                Block,
+            )
+            from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
+                OriginalSyncedBlock,
+            )
+        except ImportError as e:
+            logger.warning(
+                f"Notion Block class not found - skipping empty-children warning: {e}"
+            )
+            return
+
+        existing = Block.from_dict
+        existing_fn = getattr(existing, "__func__", existing)
+        holder: Dict[str, Any]
+        if getattr(existing_fn, "_datahub_empty_synced_warn", False):
+            holder = existing_fn._datahub_report_holder
+            holder["report"] = self.report
+            return
+
+        original_from_dict = existing
+        holder = {"report": self.report}
+
+        def wrapped_from_dict(_cls: Type[Any], data: dict) -> Any:
+            result = original_from_dict(data)
+            inner = getattr(result, "block", None)
+            if isinstance(inner, OriginalSyncedBlock) and not inner.children:
+                holder["report"].report_synced_block_skipped(str(result.id))
+            return result
+
+        wrapped_from_dict._datahub_empty_synced_warn = True  # type: ignore[attr-defined]
+        wrapped_from_dict._datahub_report_holder = holder  # type: ignore[attr-defined]
+        Block.from_dict = classmethod(wrapped_from_dict)  # type: ignore[method-assign]
+        logger.info(
+            "Wrapped Block.from_dict to report original synced blocks with empty children"
+        )
 
     def _initialize_state_tracking(self) -> None:
         """Initialize state tracking for content-based change detection.
@@ -1359,14 +1179,13 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         """Run the Unstructured.io Notion pipeline and return output directory."""
         logger.info("Running Unstructured.io Notion pipeline...")
 
-        # Apply monkeypatches for Notion API compatibility
-        # Do this here (not in __init__) because modules are only imported when unstructured-ingest loads
-        self._patch_notion_client_for_is_locked()
-        self._monkeypatch_database_property_description()
+        # Apply monkeypatches for Notion API drift that unstructured-ingest 1.4.28
+        # still does not handle. 0.7.2-only patches that replaced SyncBlock.from_dict
+        # and iterate_query were removed because 1.4.28 already implements those.
         self._monkeypatch_database_title_extraction()
-        self._monkeypatch_databases_endpoint_query()
-        self._monkeypatch_syncblock_from_dict()
-        self._monkeypatch_numbered_list_item_new_fields()
+        self._monkeypatch_icon_dispatcher_unknown_types()
+        self._monkeypatch_notion_types_filter_unknown_fields()
+        self._warn_on_empty_original_synced_blocks()
 
         # Auto-discover pages if none provided
         page_ids = self.config.page_ids

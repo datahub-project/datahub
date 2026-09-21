@@ -8,12 +8,13 @@ jaraco.context>=6.1.0,<7
 # CVE-2026-45409: DoS via idna.encode() on crafted inputs (bypass of CVE-2024-3651 fix).
 # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
 idna>=3.15,<4.0.0
-# urllib3: CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 fixed in >=2.6.3.
-# Not pinned here: acryl-great-expectations (via acryl-datahub[snowflake]) requires urllib3<1.27.
+# urllib3: CVE-2025-50181 (2.5.0); CVE-2025-66418, CVE-2025-66471 (2.6.0); CVE-2026-21441 (2.6.3);
+# CVE-2026-44431 (2.7.0).
+urllib3>=2.7.0,<3.0.0
 # PyJWT: GHSA-xgmm-8j9v-c9wx (JWK-as-HMAC confusion); fixed in >=2.13.0
 PyJWT>=2.13.0
-# pyOpenSSL: CVE-2026-27459
-pyopenssl>=26.0.0
+# pyOpenSSL: CVE-2026-27459; 26.4.0+ required with cryptography>=49
+pyopenssl>=26.4.0
 # pyasn1: CVE-2026-30922, CVE-2026-59885, CVE-2026-59886; fixed in 0.6.4
 pyasn1>=0.6.4
 # protobuf (6.x): CVE-2026-0994
@@ -27,8 +28,8 @@ aiohttp>=3.13.4
 pillow>=12.1.1
 # CVE-2025-47273: PackageIndex path traversal; fixed in 78.1.1. Cap <82 for pkg_resources.
 setuptools>=80.10.1,<82.0.0
-# CVE-2026-69249: exponential path-building DoS on duplicate self-signed intermediates.
-cryptography>=49.0.0,<51.0.0
+# CVE-2026-69247; CVE-2026-69249 path-building DoS covered by 49+.
+cryptography>=50.0.0,<51.0.0
 # GHSA-6v7p-g79w-8964: Unpacker reuse after error can SEGV / DoS; fixed in 1.2.1.
 msgpack>=1.2.1
 # JWE RSA1_5 padding oracle (CVE); fixed in 1.6.9
@@ -60,8 +61,8 @@ langsmith>=0.6.3
 # CVE-2026-44243 (path traversal), CVE-2026-44244 (config injection) fixed in 3.1.49;
 # GHSA-mv93-w799-cj2w fixed in 3.1.50.
 # GHSA-2f96-g7mh-g2hx, GHSA-956x-8gvw-wg5v, GHSA-v396-v7q4-x2qj fixed in 3.1.51;
-# GHSA-rwj8-pgh3-r573 fixed in 3.1.52. Cap major until reviewed.
-gitpython>=3.1.52,<4.0.0
+# GHSA-rwj8-pgh3-r573 fixed in 3.1.52. Floor 3.1.58 matches acryl-datahub setup.py.
+gitpython>=3.1.58,<4.0.0
 # CVE-2026-41066: lxml 6.0.x default entity resolution; fixed in 6.1.0. Major cap until reviewed.
 # (unstructured / HTML parsing; bundled venvs such as datahub-documents-bundled.)
 lxml>=6.1.0,<7.0.0

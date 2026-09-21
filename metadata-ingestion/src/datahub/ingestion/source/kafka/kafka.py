@@ -558,7 +558,17 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     def close(self) -> None:
         if self.consumer:
-            self.consumer.close()
+            try:
+                self.consumer.close()
+            except Exception:
+                logger.warning("Failed to close Kafka consumer", exc_info=True)
+        if hasattr(self, "admin_client") and self.admin_client:
+            try:
+                self.admin_client.poll(0)
+            except Exception:
+                logger.warning(
+                    "Failed to poll Kafka admin client on close", exc_info=True
+                )
         super().close()
 
     def fetch_extra_topic_details(self, topics: List[str]) -> Dict[str, dict]:
