@@ -227,6 +227,60 @@
     }
 },
 {
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:53980714ec945778b7630c5caa0685e1",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractProperties",
+    "aspect": {
+        "json": {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553c.tbl,PROD)",
+            "schema": [
+                {
+                    "assertion": "urn:li:assertion:610bb2b4c8ce38fbdf4853564ad2832e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-columns-with-partition",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:53980714ec945778b7630c5caa0685e1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-columns-with-partition",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:53980714ec945778b7630c5caa0685e1",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractStatus",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "state": "ACTIVE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-columns-with-partition",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:610bb2b4c8ce38fbdf4853564ad2832e",
     "changeType": "UPSERT",

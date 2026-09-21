@@ -76,6 +76,7 @@
     "levelFilter.indirectTooltip": "Показать косвенно связанные ассеты данных",
     "manageLineage.changeToHome": "Сделать домашним",
     "manageLineage.dashboardNoDownstream": "У дашбордов нет нижестоящего lineage",
+    "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",
     "manageLineage.downstreamDisabled": "Сделайте этот объект домашним, чтобы редактировать нижестоящие связи.",
     "manageLineage.editDownstream": "Изменить нижестоящие",
     "manageLineage.editUpstream": "Изменить вышестоящие",
