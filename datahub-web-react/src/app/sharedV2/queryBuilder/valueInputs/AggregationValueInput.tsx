@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useAggregateAcrossEntitiesLazyQuery } from '@graphql/search.generated';
 
@@ -24,6 +25,7 @@ export default function AggregationValueInput({
     onChangeSelectedValues,
 }: Props) {
     const { t } = useTranslation('shared.query-builder');
+    const entityRegistry = useEntityRegistry();
     const [searchQuery, setSearchQuery] = useState('');
 
     const [fetchAggregations, { data, loading }] = useAggregateAcrossEntitiesLazyQuery({
@@ -49,7 +51,11 @@ export default function AggregationValueInput({
     const options: SelectOption[] = useMemo(() => {
         const aggOptions = aggregations.map((agg) => ({
             value: agg.value,
-            label: capitalizeFirstLetterOnly(agg.value) || agg.value,
+            // Entity-backed facets (platform, platformInstance, …) aggregate on URNs; resolve those
+            // to the entity's display name so the dropdown isn't a list of raw URNs.
+            label: agg.entity
+                ? entityRegistry.getDisplayName(agg.entity.type, agg.entity)
+                : capitalizeFirstLetterOnly(agg.value) || agg.value,
         }));
 
         const selectedSet = new Set(selectedValues);
@@ -73,7 +79,7 @@ export default function AggregationValueInput({
             const bSelected = selectedSet.has(b.value) ? 0 : 1;
             return aSelected - bSelected;
         });
-    }, [aggregations, selectedValues, searchQuery]);
+    }, [aggregations, selectedValues, searchQuery, entityRegistry]);
 
     const onSearch = useCallback((text: string) => {
         setSearchQuery(text);
