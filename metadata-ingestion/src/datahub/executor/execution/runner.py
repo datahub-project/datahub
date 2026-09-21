@@ -647,8 +647,9 @@ class _CacheEntry:
     # the cache turned out to be unusable or busy -- in which case venv_loc has
     # already been rebuilt under tmp_dir, matching the ephemeral layout exactly.
     cacheable: bool
-    # True when `lock` is held SHARED on an already-complete venv: the caller
-    # returns it as-is and builds nothing.
+    # True when the venv is already complete: the caller returns it as-is and
+    # builds nothing. Usually paired with a SHARED `lock`, but not always --
+    # a downgrade that loses its hold leaves a usable entry and no lock.
     ready: bool
 
 
@@ -698,8 +699,11 @@ async def _acquire_cache_entry(
         if lock.acquire(exclusive=True, blocking=False):
             if is_venv_complete(venv_loc):
                 touch_last_used(venv_loc)
-                lock.downgrade_to_shared()
-                return _CacheEntry(venv_loc, lock, True, True)
+                # A failed downgrade has already surrendered the hold, so the
+                # entry is usable but no longer guarded. Report no lock rather
+                # than one that guards nothing.
+                held = lock if lock.downgrade_to_shared() else None
+                return _CacheEntry(venv_loc, held, True, True)
             # Eviction runs here and nowhere else: on the build path only, so
             # a cache HIT never pays for an os.walk of every file of every
             # entry, and after we hold this entry, so eviction cannot select
@@ -820,6 +824,35 @@ async def _install_extra_requirements(
                 extra_req_file,
                 exc_info=True,
             )
+
+
+def _publish_cache_entry(
+    venv_reference: "VenvReference", venv_loc: pathlib.Path
+) -> None:
+    """Make a freshly built entry reusable, and keep holding it for this run.
+
+    No-op for an uncached venv, which has no lock and nothing to publish.
+    """
+    if venv_reference.lock is None:
+        return
+
+    # LAST, so a build killed before this point leaves an entry that fails
+    # is_venv_complete() and is rebuilt rather than reused empty.
+    try:
+        mark_venv_complete(venv_loc)
+    except OSError:
+        # The cache is an optimisation: a full or read-only cache filesystem
+        # must not fail a build that otherwise succeeded. An unmarked venv just
+        # looks incomplete and gets rebuilt next time -- the same degradation
+        # touch_last_used already accepts.
+        logger.debug("Could not mark venv complete at %s", venv_loc, exc_info=True)
+    touch_last_used(venv_loc)
+
+    if not venv_reference.lock.downgrade_to_shared():
+        # The hold is gone either way; carrying the object would only let
+        # finalize_task_output release a lock nobody has, and would report the
+        # entry as protected when eviction is free to take it.
+        venv_reference.lock = None
 
 
 # I had to change this from the base file because we needed to introduce
@@ -1019,22 +1052,7 @@ async def setup_venv(
                 runner, venv_loc, expanded_pip_reqs, venv_env
             )
 
-        if venv_reference.lock is not None:
-            # LAST, so a build killed before this point leaves an entry that fails
-            # is_venv_complete() and is rebuilt rather than reused empty.
-            try:
-                mark_venv_complete(venv_loc)
-            except OSError:
-                # The cache is an optimisation: a full or read-only cache
-                # filesystem must not fail a build that otherwise succeeded.
-                # An unmarked venv just looks incomplete and gets rebuilt
-                # next time -- the same degradation touch_last_used already
-                # accepts.
-                logger.debug(
-                    "Could not mark venv complete at %s", venv_loc, exc_info=True
-                )
-            touch_last_used(venv_loc)
-            venv_reference.lock.downgrade_to_shared()
+        _publish_cache_entry(venv_reference, venv_loc)
 
         return venv_reference
     except BaseException:

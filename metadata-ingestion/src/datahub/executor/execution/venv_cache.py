@@ -91,18 +91,47 @@ class EntryLock:
         self._fd = fd
         return True
 
-    def downgrade_to_shared(self) -> None:
+    def downgrade_to_shared(self) -> bool:
         """Convert an exclusive hold to shared on the same fd.
 
         Used by the build path: build under exclusive, then hold shared for the
         task's life so eviction stays out without shutting other runs out.
+
+        Returns whether the entry is still protected afterwards. False means
+        this lock now guards nothing and the caller must stop claiming it does.
+
+        Non-blocking, because the conversion can genuinely wait. flock has no
+        atomic downgrade: the kernel removes the existing lock and only then
+        looks for conflicts, so the entry is briefly unlocked and a competitor
+        EXCLUSIVE can be granted in that window. A blocking request would then
+        sit on somebody else's build or rmtree -- on the event loop thread,
+        since flock is a plain syscall -- which is exactly what
+        _acquire_cache_entry forbids.
+
+        That same non-atomicity is why failure has to be reported rather than
+        logged. The exclusive hold is already gone by the time the conversion
+        fails, so a caller that carried on would hold an fd protecting nothing
+        while eviction was free to delete the venv its task is executing from.
         """
         if self._fd is None:
-            return
+            return False
         try:
-            fcntl.flock(self._fd, fcntl.LOCK_SH)
+            fcntl.flock(self._fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            return True
         except OSError:
-            logger.debug("venv cache: could not downgrade %s", self._lock_path)
+            # Deliberately not retried. A competitor holds this entry
+            # EXCLUSIVE -- a reader would not have conflicted -- so it is a
+            # peer build or an eviction, and neither clears fast enough to spin
+            # on. Sleeping is not an option either: this is a sync method on
+            # the event loop thread.
+            logger.warning(
+                "venv cache: lost the hold on %s while downgrading it to "
+                "shared; this run continues against an entry eviction is free "
+                "to reclaim.",
+                self._lock_path,
+            )
+            self.release()
+            return False
 
     def release(self) -> None:
         fd, self._fd = self._fd, None

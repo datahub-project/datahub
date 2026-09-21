@@ -5,9 +5,11 @@ writer. A shared volume would need a different mechanism -- flock on NFS/EFS is
 unreliable -- which is why the spec rules shared storage out of scope.
 """
 
+import fcntl
 import os
 import pathlib
 import shutil
+from unittest import mock
 
 import pytest
 
@@ -65,6 +67,58 @@ def test_downgrade_lets_an_evictor_be_refused_but_a_reader_in(
         assert not EntryLock(lock_path).acquire(exclusive=True, blocking=False)
     finally:
         builder.release()
+
+
+def test_a_lost_downgrade_reports_failure_instead_of_a_phantom_hold(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """flock has no atomic downgrade, so a failed conversion holds nothing.
+
+    The kernel removes the existing lock before it looks for conflicts, so by
+    the time LOCK_SH is refused the exclusive hold is already gone. Reporting
+    success there would hand the caller an fd guarding nothing while eviction
+    was free to delete the venv its task runs from. The race needs a
+    competitor holding EXCLUSIVE while we hold it too, which cannot be staged
+    in-process, so the refusal itself is injected.
+    """
+    lock = EntryLock(tmp_path / "entry.lock")
+    assert lock.acquire(exclusive=True)
+
+    def refuse_shared(fd: int, operation: int) -> None:
+        if operation & fcntl.LOCK_SH:
+            raise BlockingIOError("would block")
+
+    monkeypatch.setattr(fcntl, "flock", refuse_shared)
+
+    assert not lock.downgrade_to_shared()
+    assert not lock.held, (
+        "a lock that lost its hold must stop claiming to have one, or "
+        "_keep_lock_if_child_may_be_alive and finalize_task_output both act "
+        "on a lock nobody holds"
+    )
+
+
+def test_a_downgrade_never_blocks(tmp_path: pathlib.Path) -> None:
+    """_acquire_cache_entry calls this and forbids every blocking acquire.
+
+    flock is a plain syscall, so one blocking request freezes the OS thread
+    and with it the whole event loop -- no in-loop timeout can rescue it.
+    """
+    lock = EntryLock(tmp_path / "entry.lock")
+    assert lock.acquire(exclusive=True)
+
+    modes: list[int] = []
+    real_flock = fcntl.flock
+
+    def record(fd: int, operation: int) -> None:
+        modes.append(operation)
+        real_flock(fd, operation)
+
+    with mock.patch.object(fcntl, "flock", record):
+        assert lock.downgrade_to_shared()
+
+    assert modes == [fcntl.LOCK_SH | fcntl.LOCK_NB]
+    lock.release()
 
 
 def test_release_is_idempotent(tmp_path: pathlib.Path) -> None:

@@ -23,6 +23,7 @@ from datahub.executor.execution.runner import (
     SubprocessRunner,
     VenvConfig,
     VenvReference,
+    _acquire_cache_entry,
     _bundled_constraints_path,
     _expand_pip_req,
     _validate_wheel_url,
@@ -2084,6 +2085,64 @@ class TestVenvCacheInSetupVenv:
         )
 
         ref.lock.release()
+
+    async def test_a_build_that_loses_its_downgrade_returns_no_lock(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The build path must not hand back a lock it no longer holds.
+
+        flock's downgrade is not atomic, so losing the conversion means the
+        exclusive hold is already gone. A VenvReference still carrying the
+        EntryLock would have finalize_task_output release a lock nobody has,
+        and -- worse -- would report the entry as protected when eviction is
+        free to take it.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setattr(
+            EntryLock, "downgrade_to_shared", lambda self: (self.release(), False)[1]
+        )
+
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+
+        assert ref.lock is None
+        assert ref.venv_loc.exists(), (
+            "losing the lock must not cost the venv: it is built and complete, "
+            "just no longer guarded"
+        )
+
+    async def test_a_peer_finished_entry_that_loses_its_downgrade_returns_no_lock(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The other downgrade site: EXCLUSIVE won, but a peer already built it.
+
+        Reached when the shared acquire loses the race and the exclusive one
+        wins, so it needs both staged. Same rule as the build path -- a lost
+        downgrade must be reported as no lock at all.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+        assert ref.lock is not None
+        ref.lock.release()
+
+        real_acquire = EntryLock.acquire
+
+        def refuse_shared(
+            self: EntryLock, *, exclusive: bool, blocking: bool = True
+        ) -> bool:
+            return exclusive and real_acquire(self, exclusive=True, blocking=blocking)
+
+        monkeypatch.setattr(EntryLock, "acquire", refuse_shared)
+        monkeypatch.setattr(
+            EntryLock, "downgrade_to_shared", lambda self: (self.release(), False)[1]
+        )
+
+        entry = await _acquire_cache_entry(
+            ref.venv_loc.name.removeprefix("venv-"), tmp_path / "exec-2", True
+        )
+
+        assert entry.ready, "the peer's venv is complete and must still be reused"
+        assert entry.lock is None
 
     async def test_a_cache_hit_advances_the_last_used_marker(
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
