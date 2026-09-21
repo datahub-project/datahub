@@ -6,10 +6,10 @@ export const generateColor = new ColorHash({
     saturation: 0.9,
 });
 
-export const StyledTag = styled(Tag)<{ $color: any; $colorHash?: string; fontSize?: number; highlightTag?: boolean }>`
+export const StyledTag = styled(Tag)<{ $color: any; $colorHash?: string; fontSize?: number; $highlightTag?: boolean }>`
     &&& {
         ${(props) =>
-            props.highlightTag &&
+            props.$highlightTag &&
             `
                 background: ${props.theme.colors.bgSurfaceBrand};
                 border: 1px solid ${props.theme.colors.borderBrand};

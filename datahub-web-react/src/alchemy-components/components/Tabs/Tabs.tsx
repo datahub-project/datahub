@@ -209,7 +209,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
                 left: 0;
                 right: 0;
                 height: 1px;
-                background-color: ${theme.colors.bgSelectedSubtle};
+                background-color: ${theme.colors.border};
             }
         `}
 
@@ -235,7 +235,7 @@ const TabViewWrapper = styled.div<{ $disabled?: boolean; $width?: string; $maxWi
     display: flex;
     align-items: center;
     gap: 4px;
-    ${(props) => props.$disabled && `color: ${props.theme.colors.textDisabled};`}
+    ${({ $disabled, theme }) => $disabled && `color: ${theme.colors.textDisabled};`}
     ${({ $width }) => $width && `width: ${$width};`}
     ${({ $maxWidth }) => $maxWidth && `max-width: ${$maxWidth};`}
     ${({ $minWidth }) => $minWidth && `min-width: ${$minWidth};`}

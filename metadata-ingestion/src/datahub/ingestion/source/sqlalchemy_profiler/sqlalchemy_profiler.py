@@ -1,4 +1,4 @@
-"""Custom SQLAlchemy-based profiler to replace Great Expectations."""
+"""Custom SQLAlchemy-based profiler for DataHub metadata ingestion."""
 
 import collections
 import concurrent.futures
@@ -7,9 +7,7 @@ import json
 import logging
 import re
 import threading
-import traceback
 from datetime import datetime
-from decimal import Decimal
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -26,7 +24,6 @@ from typing import (
 import sqlalchemy as sa
 import sqlalchemy.sql.compiler
 import sqlalchemy.types as sa_types
-from dateutil import parser as date_parser
 from sqlalchemy.engine import Connection, Engine
 
 from datahub.emitter import mce_builder
@@ -40,9 +37,16 @@ from datahub.ingestion.source.profiling.common import (
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
-from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    PlatformAdapter,
+    ProfilingConnection,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    IS_SQLALCHEMY_1_4,
+    SQLAlchemyQueryCombiner,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner_runner import (
     FutureResult,
@@ -73,10 +77,6 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import TagUrn
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sqlalchemy_query_combiner import (
-    IS_SQLALCHEMY_1_4,
-    SQLAlchemyQueryCombiner,
-)
 
 
 def _get_columns_to_ignore_sampling(
@@ -89,13 +89,12 @@ def _get_columns_to_ignore_sampling(
     Get columns to ignore sampling based on tags.
 
     Uses the DataHub Graph API (which uses GraphQL under the hood) to fetch
-    dataset and column-level tags, matching the implementation in the
-    Great Expectations profiler.
+    dataset and column-level tags.
 
     Error handling: Any errors from datahub_graph.get_tags() or get_aspect()
-    will be caught by the upstream caller in generate_profile(), matching the
-    behavior of the GE profiler. This allows profiling to fail gracefully or
-    continue based on the catch_exceptions config setting.
+    will be caught by the upstream caller in generate_profile(). This allows
+    profiling to fail gracefully or continue based on the catch_exceptions
+    config setting.
 
     Args:
         dataset_name: Name of the dataset (table) to check
@@ -162,76 +161,6 @@ def _get_columns_to_ignore_sampling(
     return False, list(columns_to_ignore)
 
 
-def _is_single_row_query_method(query: Any) -> bool:
-    """
-    Determine if a query method returns a single row.
-
-    This is used by SQLAlchemyQueryCombiner to optimize query batching.
-    For the custom profiler, we assume all our stat methods return single rows
-    except for histogram and value frequencies which return multiple rows.
-
-    Why this is still needed despite FutureResult making batching explicit:
-    FutureResult marks methods as batchable at the API level, but the query combiner
-    intercepts at the SQLAlchemy connection level and needs runtime checking for safety.
-
-    NOTE: Code duplication with ge_data_profiler.py
-    This function is duplicated from the GE profiler implementation. We maintain
-    separate implementations because:
-    1. The GE profiler has additional complexity (filename checks, GE-specific methods)
-       that doesn't apply to our direct SQLAlchemy implementation
-    2. The GE profiler will eventually be removed entirely, at which point this
-       duplication will be resolved naturally
-
-    FUTURE: Query tagging approach (not implemented yet)
-    A cleaner approach would be to use SQLAlchemy 1.4's execution_options() to
-    tag queries directly:
-        query.execution_options(datahub_single_row=True)
-
-    We're not implementing this yet because:
-    1. SQLAlchemyQueryCombiner currently requires a callable (is_single_row_query_method)
-       that inspects the call stack
-    2. Migrating to query tagging would require modifying ~20 query generation sites
-       in stats_calculator.py
-    3. We'd need to update query_combiner.py to check execution_options first, then
-       fall back to the callable for GE profiler compatibility
-    4. Once GE profiler is removed, we can migrate both the query combiner and this
-       profiler to use query tagging exclusively
-
-    For now, traceback inspection is battle-tested (used by GE profiler in production)
-    and the performance overhead (~1-5 microseconds) is negligible in the profiling context.
-    """
-    # Methods that return single rows (scalar results)
-    SINGLE_ROW_QUERY_METHODS = {
-        "get_row_count",
-        "get_column_min",
-        "get_column_max",
-        "get_column_mean",
-        "get_column_stdev",
-        "get_column_unique_count",
-        "get_column_non_null_count",
-        "get_column_median",
-    }
-
-    # Methods that return multiple rows
-    MULTI_ROW_QUERY_METHODS = {
-        "get_column_histogram",
-        "get_column_value_frequencies",
-        "get_column_distinct_value_frequencies",
-        "get_column_quantiles",  # May return multiple values but as a single row array
-    }
-
-    # Check the call stack to see which method is calling
-    stack = traceback.extract_stack()
-    for frame in reversed(stack):
-        if frame.name in MULTI_ROW_QUERY_METHODS:
-            return False
-        if frame.name in SINGLE_ROW_QUERY_METHODS:
-            return True
-
-    # Default: assume single row for optimization
-    return True
-
-
 if TYPE_CHECKING:
     from datahub.ingestion.source.profiling.common import ProfilerRequest
 
@@ -242,191 +171,64 @@ ATHENA = "athena"
 TRINO = "trino"
 
 
-def _format_datetime_value(value: Any) -> str:
-    """
-    Format datetime value as string, matching GE profiler behavior.
+def format_profile_value(
+    value: Any,
+    col_type: ProfilerDataType,
+    *,
+    as_stat: bool = False,
+) -> Optional[str]:
+    """Format a profiling value as a consistent string.
 
-    GE uses ISO format with 'T' separator for datetime values.
-    Examples:
-    - datetime(2000, 1, 1, 10, 30, 0) -> "2000-01-01T10:30:00"
-    - date(2000, 1, 1) -> "2000-01-01"
-    - timestamp with timezone -> "2000-01-01T10:30:00+00:00"
-
-    Uses Python's datetime parsing instead of regex for better format handling.
-
-    NOTE: Much of the complexity here is arbitrary decisions to maintain exact
-    compatibility with GE profiler output formats. Once GE profiler is removed,
-    these formatting functions could be significantly simplified.
+    Args:
+        value: Raw value from the database.
+        col_type: The column's profiler data type.
+        as_stat: If True, always format numeric values as float
+                 (for mean, median, stdev, quantiles).
+                 If False, format follows the column type
+                 (for min, max, histogram boundaries).
     """
     if value is None:
-        return ""
+        return None
 
-    # Check if it's a datetime-like object (datetime, date, time)
-    if hasattr(value, "isoformat"):
-        # Use isoformat() which produces ISO 8601 format with 'T' separator
-        return value.isoformat()
+    if col_type == ProfilerDataType.DATETIME:
+        return _format_as_datetime(value)
 
-    # For string values, try to parse as datetime
-    if isinstance(value, str):
-        # Check if it's a date-only string (YYYY-MM-DD) - preserve as-is
-        if len(value) == 10 and value.count("-") == 2:
-            try:
-                # Validate it's a valid date format
-                datetime.strptime(value, "%Y-%m-%d")
-                return value  # Return date-only string as-is
-            except ValueError:
-                pass  # Not a valid date, continue to parsing
+    if col_type in (
+        ProfilerDataType.INT,
+        ProfilerDataType.FLOAT,
+        ProfilerDataType.NUMERIC,
+    ):
+        if as_stat or col_type in (ProfilerDataType.FLOAT, ProfilerDataType.NUMERIC):
+            return _format_as_float(value)
+        else:
+            # INT column, data value (min/max/histogram)
+            return str(int(value))
 
-        # Try parsing with dateutil (handles many formats automatically)
-        try:
-            parsed_dt = date_parser.parse(value)
-            return parsed_dt.isoformat()
-        except (ValueError, TypeError, AttributeError):
-            # Fallback: try Python's fromisoformat for common ISO-like formats
-            try:
-                # Handle space separator by replacing with T
-                iso_str = value.replace(" ", "T", 1)
-                parsed = datetime.fromisoformat(iso_str)
-                return parsed.isoformat()
-            except (ValueError, AttributeError):
-                # Final fallback: simple space-to-T replacement for common formats
-                if " " in value and len(value) >= 10:
-                    # Replace first space with T (handles "YYYY-MM-DD HH:MM:SS")
-                    return value.replace(" ", "T", 1)
-                # For date-only values (YYYY-MM-DD), return as-is
-                return value
-
-    # For other types, convert to string
     return str(value)
 
 
-def _format_mean_value(value: Any) -> str:
-    """
-    Format mean value as string, matching GE profiler behavior.
-
-    Mean values from AVG are always float/DECIMAL, so they should be formatted
-    as floats. If it's a whole number, format as "100000.0" not "100000" to
-    match GE's behavior.
-
-    Examples:
-    - Decimal('100000') -> "100000.0"
-    - Decimal('100000.5') -> "100000.5"
-    - 100000.0 -> "100000.0"
-    - 100000 -> "100000.0"
-
-    NOTE: Much of the complexity here is arbitrary decisions to maintain exact
-    compatibility with GE profiler output formats. Once GE profiler is removed,
-    these formatting functions could be significantly simplified.
-    """
-    if value is None:
-        return ""
-
-    # Convert to float to ensure proper formatting
-    if isinstance(value, (Decimal, int, float)):
-        float_val = float(value)
-    else:
-        # For other types, try to convert to float
-        try:
-            float_val = float(value)
-        except (ValueError, TypeError):
-            return str(value)
-
-    # Format as float string, preserving precision
-    # If it's a whole number, ensure it shows as "100000.0"
+def _format_as_float(value: Any) -> str:
+    float_val = float(value)
     if float_val.is_integer():
         return f"{float_val:.1f}"
-    else:
-        return str(float_val)
+    return str(float_val)
 
 
-def _format_median_value(value: Any, platform: str, col_type: ProfilerDataType) -> str:
-    """
-    Format median value as string, matching GE profiler behavior.
-
-    GE profiler uses str() directly on the median value, preserving whatever
-    the database returns. This means:
-    - If database returns float 1.0, format as "1.0"
-    - If database returns int 1, format as "1"
-    - If database returns float 39.0, format as "39.0"
-    - Preserves database-native type formatting exactly as GE does
-
-    Examples:
-    - Redshift MEDIAN returns 1.0 -> "1.0" (preserves float format)
-    - Redshift MEDIAN returns 1 -> "1" (preserves int format)
-    - Redshift MEDIAN returns 39.0 -> "39.0" (preserves float format)
-    - PostgreSQL MEDIAN returns 1 -> "1"
-
-    NOTE: Much of the complexity here is arbitrary decisions to maintain exact
-    compatibility with GE profiler output formats. Once GE profiler is removed,
-    these formatting functions could be significantly simplified.
-    """
-    if value is None:
-        return ""
-
-    # GE uses str() directly, so we do the same to preserve database-native format
-    # This matches GE's behavior: str(self.dataset.get_column_median(column))
-    return str(value)
-
-
-def _format_numeric_value(value: Any, col_type: ProfilerDataType) -> str:
-    """
-    Format numeric value as string, matching GE profiler behavior.
-
-    GE profiler uses str() directly on the value. For INT columns, if BigQuery
-    returns integer values as floats (e.g., 0.0, 200000.0), we format them as
-    integers. For FLOAT columns, we preserve the float format (e.g., "0.0").
-
-    Examples:
-    - INT column with value 0.0 -> "0" (not "0.0")
-    - INT column with value 200000.0 -> "200000" (not "200000.0")
-    - FLOAT column with value 0.0 -> "0.0" (preserve float format)
-    - FLOAT column with value 3.14 -> "3.14"
-    - FLOAT column with Decimal(0) -> "0.0" (format as float)
-
-    NOTE: Much of the complexity here is arbitrary decisions to maintain exact
-    compatibility with GE profiler output formats. Once GE profiler is removed,
-    these formatting functions could be significantly simplified.
-    """
-    if value is None:
-        return ""
-
-    # Handle Decimal types (common in BigQuery for NUMERIC columns)
-    if isinstance(value, Decimal):
-        # For FLOAT columns, format Decimal integers as "0.0" to match GE
-        if col_type == ProfilerDataType.FLOAT:
-            # Check if it's an integer value
-            if value == value.to_integral_value():
-                # Format as float: "0.0" instead of "0"
-                return f"{float(value):.1f}"
-            # For non-integer decimals, use string representation
-            return str(value)
-        elif col_type == ProfilerDataType.INT:
-            # For INT columns, format as integer
-            return str(int(value))
-
-    # Convert to string first to see what we're working with
-    str_value = str(value)
-
-    if isinstance(value, (int, float)):
-        # For INT columns, format integer-like floats as integers
-        if col_type == ProfilerDataType.INT:
-            # Check if it's a float that's actually an integer
-            if isinstance(value, float) and value.is_integer():
-                return str(int(value))
-            # If it's already an integer, just convert to string
-            return str(int(value))
-        elif col_type == ProfilerDataType.FLOAT:
-            # For FLOAT columns, preserve the float format (GE keeps "0.0" as "0.0")
-            # Just use str() directly to preserve the database's native format
-            return str_value
-
-    # For other types, convert to string
-    return str_value
+def _format_as_datetime(value: Any) -> str:
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    # Some DBAPI drivers return strings instead of datetime objects.
+    # Parse and re-emit to guarantee ISO 8601 output.
+    s = str(value)
+    try:
+        return datetime.fromisoformat(s).isoformat()
+    except (ValueError, TypeError):
+        return s
 
 
 @dataclasses.dataclass(init=False)
 class SQLAlchemyProfiler:
-    """Custom SQLAlchemy-based profiler replacing Great Expectations."""
+    """Custom SQLAlchemy-based profiler for DataHub metadata ingestion."""
 
     report: SQLSourceReport
     config: ProfilingConfig
@@ -659,13 +461,11 @@ class SQLAlchemyProfiler:
                 col_name,
                 limit=self.config.field_sample_values_limit,
             )
-            # Convert to strings (GE does: str(v) for v in partial_unexpected_list)
             sample_list = [str(value) for value in sample_values if value is not None]
-            # Only set sampleValues if there are actual values (match GE behavior)
             if sample_list:
                 column_profile.sampleValues = sample_list
-            # For null-only columns (rows exist but all null), set empty list to match GE behavior
-            # But don't set it for empty tables (row_count == 0) - GE doesn't set it in that case
+            # For null-only columns (rows exist but all null), set empty list.
+            # Don't set it for empty tables (row_count == 0).
             elif (
                 non_null_count is not None
                 and non_null_count == 0
@@ -694,7 +494,6 @@ class SQLAlchemyProfiler:
         cardinality: Optional["Cardinality"],
         numeric_stats_futures: Dict[str, Dict[str, "FutureResult"]],
         pretty_name: str,
-        platform: str,
     ) -> None:
         """
         Process numeric column statistics (int/float).
@@ -710,25 +509,16 @@ class SQLAlchemyProfiler:
             cardinality: Column cardinality
             numeric_stats_futures: Dictionary of scheduled futures for numeric stats
             pretty_name: Pretty name for error reporting
-            platform: Platform name for formatting
         """
         # Extract batched numeric stats results
         if col_name in numeric_stats_futures:
             futures = numeric_stats_futures[col_name]
 
-            # Match GE behavior: catch exceptions and log debug messages
-            # GE always sets these fields, even when None (for null-only columns)
-            # We need to set them even when non_null_count == 0 to match GE behavior
-
             # Process all numeric stats with unified error handling
             if "min" in futures:
                 try:
                     min_val = futures["min"].result()
-                    column_profile.min = (
-                        _format_numeric_value(min_val, col_type)
-                        if min_val is not None
-                        else None
-                    )
+                    column_profile.min = format_profile_value(min_val, col_type)
                 except Exception as e:
                     self.report.warning(
                         title="Profiling: Unable to Calculate Min",
@@ -740,11 +530,7 @@ class SQLAlchemyProfiler:
             if "max" in futures:
                 try:
                     max_val = futures["max"].result()
-                    column_profile.max = (
-                        _format_numeric_value(max_val, col_type)
-                        if max_val is not None
-                        else None
-                    )
+                    column_profile.max = format_profile_value(max_val, col_type)
                 except Exception as e:
                     self.report.warning(
                         title="Profiling: Unable to Calculate Max",
@@ -756,8 +542,8 @@ class SQLAlchemyProfiler:
             if "mean" in futures:
                 try:
                     mean_val = futures["mean"].result()
-                    column_profile.mean = (
-                        _format_mean_value(mean_val) if mean_val is not None else None
+                    column_profile.mean = format_profile_value(
+                        mean_val, col_type, as_stat=True
                     )
                 except Exception as e:
                     self.report.warning(
@@ -770,8 +556,8 @@ class SQLAlchemyProfiler:
             if "stdev" in futures:
                 try:
                     stdev_val = futures["stdev"].result()
-                    column_profile.stdev = (
-                        str(stdev_val) if stdev_val is not None else None
+                    column_profile.stdev = format_profile_value(
+                        stdev_val, col_type, as_stat=True
                     )
                 except Exception as e:
                     self.report.warning(
@@ -784,10 +570,8 @@ class SQLAlchemyProfiler:
             if "median" in futures:
                 try:
                     median_val = futures["median"].result()
-                    column_profile.median = (
-                        _format_median_value(median_val, platform, col_type)
-                        if median_val is not None
-                        else None
+                    column_profile.median = format_profile_value(
+                        median_val, col_type, as_stat=True
                     )
                 except Exception as e:
                     self.report.warning(
@@ -818,16 +602,20 @@ class SQLAlchemyProfiler:
                     # Adapters that don't support quantiles (e.g. MySQL has no
                     # PERCENTILE_CONT) return [None, None, ...], which would
                     # otherwise leak through as `"quantiles": []` in the JSON
-                    # output. GE omits the field entirely in that case.
-                    quantiles_list = [
-                        QuantileClass(quantile=str(q), value=str(v))
-                        for q, v in zip(
-                            [0.05, 0.25, 0.5, 0.75, 0.95],
-                            quantiles,
-                            strict=False,
+                    # output.
+                    quantiles_list = []
+                    for q, v in zip(
+                        [0.05, 0.25, 0.5, 0.75, 0.95],
+                        quantiles,
+                        strict=False,
+                    ):
+                        if v is None:
+                            continue
+                        formatted = format_profile_value(v, col_type, as_stat=True)
+                        assert formatted is not None
+                        quantiles_list.append(
+                            QuantileClass(quantile=str(q), value=formatted)
                         )
-                        if v is not None
-                    ]
                     if quantiles_list:
                         column_profile.quantiles = quantiles_list
                 except Exception as e:
@@ -860,10 +648,14 @@ class SQLAlchemyProfiler:
                         # Convert to HistogramClass format
                         # boundaries: bucket boundaries (k+1 values for k buckets)
                         # heights: counts per bucket (k values)
-                        boundaries = [str(start) for start, _, _ in histogram]
+                        # Boundaries are interpolated floats (min + i * bucket_size),
+                        # so always format as float regardless of column type.
+                        boundaries = [
+                            _format_as_float(start) for start, _, _ in histogram
+                        ]
                         # Add the last bucket end as final boundary
                         if histogram:
-                            boundaries.append(str(histogram[-1][1]))
+                            boundaries.append(_format_as_float(histogram[-1][1]))
                         heights = [float(count) for _, _, count in histogram]
                         column_profile.histogram = HistogramClass(
                             boundaries=boundaries, heights=heights
@@ -962,13 +754,12 @@ class SQLAlchemyProfiler:
         if col_name in numeric_stats_futures:
             futures = numeric_stats_futures[col_name]
 
-            # Match GE behavior: catch exceptions and log debug messages
             if "min" in futures:
                 try:
                     min_val = futures["min"].result()
-                    if min_val is not None:
-                        # Format datetime values to match GE's ISO format
-                        column_profile.min = _format_datetime_value(min_val)
+                    column_profile.min = format_profile_value(
+                        min_val, ProfilerDataType.DATETIME
+                    )
                 except Exception as e:
                     self.report.warning(
                         title="Profiling: Unable to Calculate Min",
@@ -980,9 +771,9 @@ class SQLAlchemyProfiler:
             if "max" in futures:
                 try:
                     max_val = futures["max"].result()
-                    if max_val is not None:
-                        # Format datetime values to match GE's ISO format
-                        column_profile.max = _format_datetime_value(max_val)
+                    column_profile.max = format_profile_value(
+                        max_val, ProfilerDataType.DATETIME
+                    )
                 except Exception as e:
                     self.report.warning(
                         title="Profiling: Unable to Calculate Max",
@@ -1070,8 +861,9 @@ class SQLAlchemyProfiler:
             SQLAlchemyQueryCombiner(
                 enabled=self.config.query_combiner_enabled,
                 catch_exceptions=self.config.catch_exceptions,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
+                flatten_enabled=self.config.query_combiner_flatten_enabled,
+                max_distinct_per_statement=self.config.max_distinct_per_statement,
             ).activate() as query_combiner,
         ):
             # Submit the profiling requests to the thread pool executor.
@@ -1143,7 +935,6 @@ class SQLAlchemyProfiler:
     def _profile_row_count(
         self,
         runner: QueryCombinerRunner,
-        query_combiner: SQLAlchemyQueryCombiner,
         sql_table: sa.Table,
         profile: DatasetProfileClass,
         context: ProfilingContext,
@@ -1166,14 +957,12 @@ class SQLAlchemyProfiler:
             f"Getting row count for {pretty_name}: use_estimation={use_estimation}"
         )
 
-        # Schedule row count query (returns FutureResult)
-        row_count_future = runner.get_row_count(
-            sql_table, use_estimation=use_estimation
-        )
-
-        # Flush Stage 1: Execute row count query
+        # Stage 1: row count. Executes on exit from the batch block.
         logger.debug(f"profiling {pretty_name}: flushing stage 1 (row count)")
-        query_combiner.flush()
+        with runner.batch() as batch:
+            row_count_future = batch.get_row_count(
+                sql_table, use_estimation=use_estimation
+            )
 
         # Extract row count result with exception handling
         try:
@@ -1311,15 +1100,11 @@ class SQLAlchemyProfiler:
 
         Field profiles are created for ALL columns in the table,
         but stats will only be calculated for columns in columns_to_profile_set.
-        This matches GE profiler behavior.
-
         Returns:
             List of empty DatasetFieldProfileClass objects
         """
         field_profiles = []
-        # Only create fieldProfiles if there are columns to profile (like GE does)
         if columns_to_profile_set:
-            # Create fieldProfiles for all columns (like GE does)
             for col_name in all_columns:
                 field_profile = DatasetFieldProfileClass(fieldPath=col_name)
                 field_profiles.append(field_profile)
@@ -1328,7 +1113,6 @@ class SQLAlchemyProfiler:
     def _schedule_cardinality_queries(
         self,
         runner: QueryCombinerRunner,
-        query_combiner: SQLAlchemyQueryCombiner,
         sql_table: sa.Table,
         columns_to_profile_set: set,
         pretty_name: str,
@@ -1343,29 +1127,29 @@ class SQLAlchemyProfiler:
             Dict mapping column name to dict of FutureResults
         """
         cardinality_futures = {}
-        for column in sql_table.columns:
-            col_name = column.name
+        with runner.batch() as batch:
+            for column in sql_table.columns:
+                col_name = column.name
 
-            if col_name not in columns_to_profile_set:
-                continue
+                if col_name not in columns_to_profile_set:
+                    continue
 
-            # Schedule non-null count (returns FutureResult)
-            cardinality_futures[col_name] = {
-                "non_null": runner.get_column_non_null_count(sql_table, col_name)
-            }
+                # Schedule non-null count (returns FutureResult)
+                cardinality_futures[col_name] = {
+                    "non_null": batch.get_column_non_null_count(sql_table, col_name)
+                }
 
-            # Schedule unique count if needed (returns FutureResult)
-            if self.config.include_field_distinct_count:
-                cardinality_futures[col_name]["unique"] = (
-                    runner.get_column_unique_count(sql_table, col_name)
-                )
+                # Schedule unique count if needed (returns FutureResult)
+                if self.config.include_field_distinct_count:
+                    cardinality_futures[col_name]["unique"] = (
+                        batch.get_column_unique_count(sql_table, col_name)
+                    )
 
-        # Flush Stage 2: Execute ALL cardinality queries in ONE batch
+        # Stage 2 executed every cardinality query in ONE batch on block exit.
         logger.debug(
-            f"profiling {pretty_name}: flushing stage 2 "
+            f"profiling {pretty_name}: flushed stage 2 "
             f"({len(cardinality_futures)} columns - cardinality)"
         )
-        query_combiner.flush()
 
         return cardinality_futures
 
@@ -1493,7 +1277,6 @@ class SQLAlchemyProfiler:
     def _schedule_numeric_queries(
         self,
         runner: QueryCombinerRunner,
-        query_combiner: SQLAlchemyQueryCombiner,
         sql_table: sa.Table,
         columns_with_types: Dict[
             str,
@@ -1518,64 +1301,64 @@ class SQLAlchemyProfiler:
             Dict mapping column name to dict of FutureResults
         """
         numeric_stats_futures: Dict[str, Dict[str, FutureResult[Any]]] = {}
-        for col_name, (
-            _column_profile,
-            col_type,
-            _cardinality,
-            _non_null_count,
-        ) in columns_with_types.items():
-            # Only calculate stats if not ignoring sampling for this column
-            if ignore_table_sampling or col_name in columns_list_to_ignore_sampling:
-                continue
+        with runner.batch() as batch:
+            for col_name, (
+                _column_profile,
+                col_type,
+                _cardinality,
+                _non_null_count,
+            ) in columns_with_types.items():
+                # Only calculate stats if not ignoring sampling for this column
+                if ignore_table_sampling or col_name in columns_list_to_ignore_sampling:
+                    continue
 
-            # Schedule numeric stats for numeric columns (INT, FLOAT, NUMERIC)
-            # This matches GE profiler which computes stats for all three types
-            if col_type in (
-                ProfilerDataType.INT,
-                ProfilerDataType.FLOAT,
-                ProfilerDataType.NUMERIC,
-            ):
-                numeric_stats_futures[col_name] = {}
-                if self.config.include_field_min_value:
-                    numeric_stats_futures[col_name]["min"] = runner.get_column_min(
-                        sql_table, col_name
-                    )
-                if self.config.include_field_max_value:
-                    numeric_stats_futures[col_name]["max"] = runner.get_column_max(
-                        sql_table, col_name
-                    )
-                if self.config.include_field_mean_value:
-                    numeric_stats_futures[col_name]["mean"] = runner.get_column_mean(
-                        sql_table, col_name
-                    )
-                if self.config.include_field_stddev_value:
-                    numeric_stats_futures[col_name]["stdev"] = runner.get_column_stdev(
-                        sql_table, col_name
-                    )
-                if self.config.include_field_median_value:
-                    numeric_stats_futures[col_name]["median"] = (
-                        runner.get_column_median(sql_table, col_name)
-                    )
+                # Schedule numeric stats for numeric columns (INT, FLOAT, NUMERIC)
+                # All three numeric types get the same statistics
+                if col_type in (
+                    ProfilerDataType.INT,
+                    ProfilerDataType.FLOAT,
+                    ProfilerDataType.NUMERIC,
+                ):
+                    numeric_stats_futures[col_name] = {}
+                    if self.config.include_field_min_value:
+                        numeric_stats_futures[col_name]["min"] = batch.get_column_min(
+                            sql_table, col_name
+                        )
+                    if self.config.include_field_max_value:
+                        numeric_stats_futures[col_name]["max"] = batch.get_column_max(
+                            sql_table, col_name
+                        )
+                    if self.config.include_field_mean_value:
+                        numeric_stats_futures[col_name]["mean"] = batch.get_column_mean(
+                            sql_table, col_name
+                        )
+                    if self.config.include_field_stddev_value:
+                        numeric_stats_futures[col_name]["stdev"] = (
+                            batch.get_column_stdev(sql_table, col_name)
+                        )
+                    if self.config.include_field_median_value:
+                        numeric_stats_futures[col_name]["median"] = (
+                            batch.get_column_median(sql_table, col_name)
+                        )
 
-            # Schedule min/max for datetime columns
-            elif col_type == ProfilerDataType.DATETIME:
-                numeric_stats_futures[col_name] = {}
-                if self.config.include_field_min_value:
-                    numeric_stats_futures[col_name]["min"] = runner.get_column_min(
-                        sql_table, col_name
-                    )
-                if self.config.include_field_max_value:
-                    numeric_stats_futures[col_name]["max"] = runner.get_column_max(
-                        sql_table, col_name
-                    )
+                # Schedule min/max for datetime columns
+                elif col_type == ProfilerDataType.DATETIME:
+                    numeric_stats_futures[col_name] = {}
+                    if self.config.include_field_min_value:
+                        numeric_stats_futures[col_name]["min"] = batch.get_column_min(
+                            sql_table, col_name
+                        )
+                    if self.config.include_field_max_value:
+                        numeric_stats_futures[col_name]["max"] = batch.get_column_max(
+                            sql_table, col_name
+                        )
 
-        # Flush Stage 3: Execute ALL numeric stats queries in ONE batch
+        # Stage 3 executed every numeric stats query in ONE batch on block exit.
         if numeric_stats_futures:
             logger.debug(
-                f"profiling {pretty_name}: flushing stage 3 "
+                f"profiling {pretty_name}: flushed stage 3 "
                 f"({len(numeric_stats_futures)} columns - numeric stats)"
             )
-            query_combiner.flush()
 
         return numeric_stats_futures
 
@@ -1597,7 +1380,6 @@ class SQLAlchemyProfiler:
         columns_list_to_ignore_sampling: List[str],
         row_count: Optional[int],
         pretty_name: str,
-        platform: str,
     ) -> None:
         """
         Stage 3b: Extract numeric stats and process column stats.
@@ -1628,7 +1410,7 @@ class SQLAlchemyProfiler:
                 )
 
             # Process column stats by type
-            # INT, FLOAT, and NUMERIC all get the same numeric statistics (matches GE profiler)
+            # INT, FLOAT, and NUMERIC all get the same numeric statistics
             if col_type in (
                 ProfilerDataType.INT,
                 ProfilerDataType.FLOAT,
@@ -1643,7 +1425,6 @@ class SQLAlchemyProfiler:
                     cardinality=cardinality,
                     numeric_stats_futures=numeric_stats_futures,
                     pretty_name=pretty_name,
-                    platform=platform,
                 )
             elif col_type == ProfilerDataType.STRING:
                 self._process_string_column_stats(
@@ -1779,6 +1560,9 @@ class SQLAlchemyProfiler:
                                 raise
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table
+                    # Takes the real Connection: setup does DDL and reflection
+                    # (autoload_with), and runs on the main greenlet where the
+                    # query combiner never applies.
                     try:
                         context = adapter.setup_profiling(context, conn)
                     except Exception as e:
@@ -1803,8 +1587,10 @@ class SQLAlchemyProfiler:
                     sql_table = context.sql_table
 
                     # Initialize query combiner runner with adapter
+                    # Statistic queries go through the facade so each one
+                    # declares its row shape for the query combiner.
                     runner = QueryCombinerRunner(
-                        conn=conn,
+                        conn=ProfilingConnection(conn),
                         platform=platform,
                         adapter=adapter,
                         query_combiner=query_combiner,
@@ -1825,8 +1611,7 @@ class SQLAlchemyProfiler:
                             ),
                         )
                     elif custom_sql or context.is_sampled:
-                        # GE profiler uses custom_sql for sampling; SQLAlchemy
-                        # adapter sets context.is_sampled via temp table
+                        # custom_sql or adapter-driven sampling via temp table
                         profile.partitionSpec = PartitionSpecClass(
                             type=PartitionTypeClass.QUERY, partition="SAMPLE"
                         )
@@ -1869,7 +1654,6 @@ class SQLAlchemyProfiler:
                     # ----------------------------------------------------------------
                     row_count = self._profile_row_count(
                         runner=runner,
-                        query_combiner=query_combiner,
                         sql_table=sql_table,
                         profile=profile,
                         context=context,
@@ -1886,9 +1670,8 @@ class SQLAlchemyProfiler:
                     # MySQL, pg_class.reltuples on Postgres). Both can return 0 for small or
                     # recently-modified tables that actually have data — never analyzed yet, or
                     # stats not refreshed. Treating that 0 as "skip column profiling" would
-                    # silently drop fieldProfiles for non-empty tables. GE never had this
-                    # early-return, so it always proceeded to column-level queries regardless
-                    # of the estimate.
+                    # silently drop fieldProfiles for non-empty tables, so we still
+                    # proceed to column-level queries when using estimation.
                     use_estimation = (
                         self.config.profile_table_row_count_estimate_only
                         and adapter.supports_row_count_estimation()
@@ -1940,7 +1723,6 @@ class SQLAlchemyProfiler:
                     # ----------------------------------------------------------------
                     cardinality_futures = self._schedule_cardinality_queries(
                         runner=runner,
-                        query_combiner=query_combiner,
                         sql_table=sql_table,
                         columns_to_profile_set=columns_to_profile_set,
                         pretty_name=pretty_name,
@@ -1961,7 +1743,6 @@ class SQLAlchemyProfiler:
                     # ----------------------------------------------------------------
                     numeric_stats_futures = self._schedule_numeric_queries(
                         runner=runner,
-                        query_combiner=query_combiner,
                         sql_table=sql_table,
                         columns_with_types=columns_with_types,
                         ignore_table_sampling=ignore_table_sampling,
@@ -1978,7 +1759,6 @@ class SQLAlchemyProfiler:
                         columns_list_to_ignore_sampling=columns_list_to_ignore_sampling,
                         row_count=row_count,
                         pretty_name=pretty_name,
-                        platform=platform,
                     )
 
                     profile.fieldProfiles = self._to_emitted_field_paths(

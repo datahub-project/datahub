@@ -105,6 +105,7 @@ def _delete_document(auth_session, urn: str):
     execute_graphql(auth_session, delete_mutation, {"urn": urn}, no_sync_wait=True)
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 def test_search_documents_filters_hidden_context_documents(auth_session):
     """

@@ -5,9 +5,9 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -49,21 +49,17 @@ public class PlatformEntityCounts {
   private static final String PLATFORM_AGG_NAME = "by_platform";
   private static final String ACTIVE_AGG_NAME = "active";
   private static final String SOFT_DELETED_AGG_NAME = "soft_deleted";
-  private static final String ENTITY_TYPE_FIELD = "_entityType";
   private static final int MAX_PLATFORM_BUCKETS = 500;
   private static final String DATA_PLATFORM_INSTANCE_ASPECT = "dataPlatformInstance";
 
-  private final SearchClientShim<?> searchClient;
   private final EntityRegistry entityRegistry;
   private final EntityIndexConfiguration entityIndexConfiguration;
   private final int maxEntityTypes;
 
   public PlatformEntityCounts(
-      @Nonnull SearchClientShim<?> searchClient,
       @Nonnull EntityRegistry entityRegistry,
       @Nullable EntityIndexConfiguration entityIndexConfiguration,
       int maxEntityTypes) {
-    this.searchClient = Objects.requireNonNull(searchClient, "searchClient");
     this.entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry");
     this.entityIndexConfiguration = entityIndexConfiguration;
     this.maxEntityTypes = maxEntityTypes;
@@ -105,22 +101,22 @@ public class PlatformEntityCounts {
   @Nonnull
   private List<PlatformEntityCountEntry> countEntityTypeByPlatform(
       @Nonnull OperationContext opContext, @Nonnull String entityType) throws IOException {
-    EntitySpec spec = entityRegistry.getEntitySpec(entityType);
-    IndexConvention convention = opContext.getSearchContext().getIndexConvention();
-    boolean useV3 = !v2Enabled() && v3Enabled();
+    boolean useV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     String indexName =
-        useV3
-            ? convention.getEntityIndexNameV3(opContext, spec.getSearchGroup())
-            : convention.getEntityIndexName(opContext, entityType);
+        EntitySearchIndexResolver.indexName(opContext, entityType, entityIndexConfiguration);
     String aggField =
         useV3
             ? PLATFORM_FIELD
             : ESUtils.toKeywordField(
                 opContext, PLATFORM_FIELD, false, opContext.getAspectRetriever());
-    QueryBuilder query =
-        useV3
-            ? QueryBuilders.termQuery(ENTITY_TYPE_FIELD, entityType)
-            : QueryBuilders.matchAllQuery();
+    QueryBuilder query = QueryBuilders.matchAllQuery();
+    if (useV3) {
+      QueryBuilder entityTypeQuery =
+          EntitySearchIndexResolver.entityTypeQuery(List.of(entityType), entityIndexConfiguration);
+      if (entityTypeQuery != null) {
+        query = entityTypeQuery;
+      }
+    }
 
     SearchSourceBuilder source =
         new SearchSourceBuilder()
@@ -145,7 +141,9 @@ public class PlatformEntityCounts {
     SearchRequest request = new SearchRequest(indexName).source(source);
     SearchResponse response;
     try {
-      response = searchClient.search(opContext, request, RequestOptions.DEFAULT);
+      response =
+          SearchClients.forEntityIndices(opContext, request)
+              .search(opContext, request, RequestOptions.DEFAULT);
     } catch (OpenSearchStatusException e) {
       if (e.status() == RestStatus.NOT_FOUND) {
         log.debug("Entity index {} not found; returning empty platform counts", indexName);

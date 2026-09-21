@@ -198,6 +198,21 @@ def test_records_to_envelopes_unexpected_type_yields_nothing(
     assert "Unexpected pgQueue payload type" in caplog.text
 
 
+def test_events_skips_error_sleep_after_close() -> None:
+    source = _make_source()
+    mock_consumer = MagicMock()
+
+    def fail_and_close(*_args: object, **_kwargs: object) -> list[object]:
+        source.close()
+        raise RuntimeError("connection closed")
+
+    mock_consumer.poll_route_keys.side_effect = fail_and_close
+    source._consumer = mock_consumer
+
+    assert list(source.events()) == []
+    mock_consumer.wait_after_error.assert_not_called()
+
+
 def test_close_sets_running_false_and_closes_consumer() -> None:
     source = _make_source()
     mock_consumer = MagicMock()

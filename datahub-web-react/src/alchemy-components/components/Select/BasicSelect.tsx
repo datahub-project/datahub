@@ -30,7 +30,7 @@ import { SelectOption, SelectProps } from '@components/components/Select/types';
 import { getFooterButtonSize } from '@components/components/Select/utils';
 
 // Updated main component
-export const selectDefaults: SelectProps = {
+const selectDefaults: SelectProps = {
     options: [],
     label: '',
     size: 'md',
@@ -63,6 +63,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     showSelectAll = selectDefaults.showSelectAll,
     selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
+    updateLabel,
     icon,
     renderCustomOptionText,
     selectLabelProps,
@@ -285,6 +286,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                 onCancel={handleCancelClick}
                                 onUpdate={handleUpdateClick}
                                 size={getFooterButtonSize(size)}
+                                updateLabel={updateLabel}
                             />
                         </DropdownContainer>
                     )}
@@ -327,5 +329,3 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         </Container>
     );
 };
-
-export default BasicSelect;
