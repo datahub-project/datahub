@@ -1,4 +1,5 @@
 import logging
+import re
 from copy import deepcopy
 from dataclasses import dataclass, field as dataclass_field
 from datetime import timedelta
@@ -280,6 +281,18 @@ class LookMLSourceConfig(
     def validate_remote_dependency_domain_pattern(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
+        # AllowDenyPattern compiles patterns lazily, so a malformed regex would
+        # pass config load and only crash later inside check_remote_dependency_url,
+        # which has no handler. Compile here (allow and deny both, since a bad deny
+        # crashes at use too) so a typo is a load-time error, not a failed run.
+        for pattern in [*v.allow, *v.deny]:
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                raise ValueError(
+                    f"remote_dependency_domain_pattern entry '{pattern}' is not a "
+                    f"valid regular expression: {e}"
+                ) from e
         # AllowDenyPattern matches from the start of the string, so an unanchored
         # allow entry like "github.com" also permits "github.com.evil.example". On
         # this security-relevant field that is a bypass, so require anchoring.

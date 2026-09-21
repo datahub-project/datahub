@@ -276,7 +276,6 @@ _ALLOWED_GIT_SCHEMES = frozenset({"https", "ssh"})
 _SAFE_HOST_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789.:-_")
 _BLOCKED_GIT_HOSTNAMES = frozenset(
     {
-        "localhost",
         "localhost.localdomain",
         "metadata",
         "metadata.google.internal",
@@ -423,6 +422,10 @@ def _is_blocked_ip(ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> b
 
 def _is_blocked_git_host(hostname: str) -> bool:
     normalized = _normalize_hostname(hostname)
+    # RFC 6761 6.3 reserves the entire .localhost TLD for loopback, so block it by
+    # name rather than trusting our resolver to agree with git's on *.localhost.
+    if normalized == "localhost" or normalized.endswith(".localhost"):
+        return True
     if normalized in _BLOCKED_GIT_HOSTNAMES:
         return True
     ip = _parse_ip(normalized)
@@ -432,14 +435,22 @@ def _is_blocked_git_host(hostname: str) -> bool:
 
 
 def _resolves_to_blocked_ip(hostname: str) -> bool:
-    """Reject DNS names that resolve to a blocked IP (DNS-rebinding SSRF)."""
+    """Reject a DNS name that resolves to a blocked IP right now.
+
+    This is not DNS-rebinding protection: git re-resolves the host at clone time,
+    so a host that returns a public IP here and a blocked IP at clone is still
+    cloned. Closing that needs IP pinning or executor egress limits, not a
+    pre-flight check.
+    """
     if _parse_ip(hostname) is not None:
         return False  # IP literal, handled by _is_blocked_git_host
     try:
         infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
-    except OSError as e:
+    except (OSError, ValueError) as e:
         # Fail open: an unresolvable host cannot be cloned anyway, and split-horizon
-        # DNS on the executor is legitimate. Log so a skipped check stays visible.
+        # DNS on the executor is legitimate. getaddrinfo IDNA-encodes a str host, so a
+        # bad label (empty or >63 chars) raises UnicodeError (a ValueError, not an
+        # OSError); catch it here or it aborts the run. Log so a skip stays visible.
         logger.debug(f"DNS check skipped for {hostname}: {e}")
         return False
     for info in infos:
@@ -457,6 +468,12 @@ def check_remote_dependency_url(
     allowed_pattern: Optional[AllowDenyPattern] = None,
 ) -> RemoteDependencyUrlCheck:
     """Validate a manifest.lkml remote_dependency URL before git clone."""
+    if not isinstance(url, str):
+        # lkml parses `url: { ... }` / `url: [ ... ]` to a dict/list and
+        # LookerRemoteDependency does not enforce str, so guard before .strip().
+        return RemoteDependencyUrlCheck(
+            allowed=False, reason="remote_dependency URL is not a string"
+        )
     stripped = url.strip()
     if not stripped:
         return RemoteDependencyUrlCheck(

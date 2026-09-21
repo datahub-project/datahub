@@ -270,118 +270,115 @@ remote_dependency: shared {
 
 
 # ---- Bypass cases raised by review ----
-
-
-def test_trailing_dot_localhost_rejected() -> None:
-    result = check_remote_dependency_url("https://localhost./repo.git")
-    assert not result.allowed
-
-
-def test_decimal_ip_rejected() -> None:
-    # 2130706433 == 127.0.0.1; curl/git accept this decimal form.
-    result = check_remote_dependency_url("https://2130706433/repo.git")
-    assert not result.allowed
-
-
-def test_hex_ip_rejected() -> None:
-    result = check_remote_dependency_url("https://0x7f000001/repo.git")
-    assert not result.allowed
-
-
-def test_ipv4_mapped_ipv6_rejected() -> None:
-    result = check_remote_dependency_url("https://[::ffff:127.0.0.1]/repo.git")
-    assert not result.allowed
-
-
-def test_ipv4_mapped_alicloud_metadata_rejected() -> None:
-    # Mapped form has none of is_loopback/is_link_local/is_unspecified.
-    result = check_remote_dependency_url("https://[::ffff:100.100.100.200]/repo.git")
-    assert not result.allowed
-
-
-def test_ipv4_mapped_aws_metadata_rejected() -> None:
-    result = check_remote_dependency_url("https://[::ffff:169.254.169.254]/repo.git")
-    assert not result.allowed
-
-
-def test_ipv6_zone_id_link_local_rejected() -> None:
-    # A scoped IPv6 host (git@[fe80::1%eth0]:...) is rejected because "%" is not
-    # an allowed host character; a zone id is never a real clone target.
-    result = check_remote_dependency_url("git@[fe80::1%eth0]:org/repo.git")
-    assert not result.allowed
-
-
-def test_octal_ip_rejected() -> None:
-    # 017700000001 (octal) == 2130706433 == 127.0.0.1.
-    result = check_remote_dependency_url("https://017700000001/repo.git")
-    assert not result.allowed
-
-
-def test_octal_dotted_ip_rejected() -> None:
-    # 0177.0.0.1 (per-octet octal) == 127.0.0.1.
-    result = check_remote_dependency_url("https://0177.0.0.1/repo.git")
-    assert not result.allowed
-
-
-def test_hex_dotted_ip_rejected() -> None:
-    # Per-octet hex: 0x7f.0.0.1 == 127.0.0.1.
-    result = check_remote_dependency_url("https://0x7f.0.0.1/repo.git")
-    assert not result.allowed
-
-
-def test_percent_encoded_metadata_ip_rejected() -> None:
-    # git/libcurl percent-decode the host before connecting, so %2e must not
-    # hide the target: 169%2e254%2e169%2e254 decodes to the metadata IP.
-    result = check_remote_dependency_url("https://169%2e254%2e169%2e254/repo.git")
-    assert not result.allowed
-
-
-def test_percent_encoded_loopback_rejected() -> None:
-    result = check_remote_dependency_url("https://127%2e0%2e0%2e1/repo.git")
-    assert not result.allowed
-
-
-def test_percent_encoded_metadata_host_rejected() -> None:
-    result = check_remote_dependency_url("https://metadata%2egoogle%2einternal/x.git")
-    assert not result.allowed
-
-
-def test_double_percent_encoded_ipv6_zone_rejected() -> None:
-    # %2565 decodes once (libcurl) to %65, an IPv6 zone on ::1, so git dials ::1.
-    # A twice-decoding validator would see ::1e and allow it; reject the "%".
-    result = check_remote_dependency_url("https://[::1%2565]/r.git")
-    assert not result.allowed
-
-
-def test_scp_ipv6_zone_percent_rejected() -> None:
-    # ssh gets the literal zone and resolves ::1; the validator must reject "%".
-    result = check_remote_dependency_url("git@[::1%2f]:x/repo.git")
-    assert not result.allowed
-
-
-def test_null_byte_in_host_rejected_without_crash() -> None:
-    # A percent-encoded null must be rejected, not decoded into a byte that
-    # aborts the run.
-    result = check_remote_dependency_url("https://127.0.0.1%00github.com/r.git")
-    assert not result.allowed
-
-
-def test_non_ascii_host_rejected() -> None:
-    # libcurl NFKC-normalizes non-ASCII hosts, so a homoglyph could map to a
-    # blocked host the validator never sees. Reject non-ASCII (use punycode).
-    result = check_remote_dependency_url("https://münchen.example.com/r.git")
-    assert not result.allowed
-
-
-def test_bare_metadata_hostname_rejected() -> None:
-    # On GCP the search domain resolves bare "metadata" to 169.254.169.254.
-    result = check_remote_dependency_url("https://metadata/repo.git")
-    assert not result.allowed
-
-
-def test_backslash_in_authority_rejected() -> None:
-    result = check_remote_dependency_url("https://127.0.0.1\\@github.com/r.git")
-    assert not result.allowed
+#
+# Each case is a host obfuscation that reaches a different (blocked) target than
+# a naive validator would see. The `why` note explains that divergence and is
+# the most valuable part of each case, so it travels with the URL as the failure
+# message instead of a per-function comment.
+@pytest.mark.parametrize(
+    ("url", "why"),
+    [
+        (
+            "https://localhost./repo.git",
+            "trailing dot: 'localhost.' normalizes to localhost",
+        ),
+        (
+            "https://2130706433/repo.git",
+            "decimal 2130706433 == 127.0.0.1; curl/git accept this form",
+        ),
+        ("https://0x7f000001/repo.git", "hex 0x7f000001 == 127.0.0.1"),
+        (
+            "https://[::ffff:127.0.0.1]/repo.git",
+            "IPv4-mapped IPv6 form of loopback",
+        ),
+        (
+            "https://[::ffff:100.100.100.200]/repo.git",
+            "mapped AliCloud metadata; the mapped form has none of "
+            "is_loopback/is_link_local/is_unspecified",
+        ),
+        (
+            "https://[::ffff:169.254.169.254]/repo.git",
+            "IPv4-mapped IPv6 form of the AWS metadata IP",
+        ),
+        (
+            "git@[fe80::1%eth0]:org/repo.git",
+            "scoped IPv6 host: '%' is not an allowed host char, and a zone id is "
+            "never a real clone target",
+        ),
+        (
+            "https://017700000001/repo.git",
+            "octal 017700000001 == 2130706433 == 127.0.0.1",
+        ),
+        (
+            "https://0177.0.0.1/repo.git",
+            "per-octet octal 0177.0.0.1 == 127.0.0.1",
+        ),
+        ("https://0x7f.0.0.1/repo.git", "per-octet hex 0x7f.0.0.1 == 127.0.0.1"),
+        (
+            "https://169%2e254%2e169%2e254/repo.git",
+            "git/libcurl percent-decode the host, so %2e must not hide the metadata IP",
+        ),
+        (
+            "https://127%2e0%2e0%2e1/repo.git",
+            "percent-encoded dots decode to loopback",
+        ),
+        (
+            "https://metadata%2egoogle%2einternal/x.git",
+            "percent-encoded dots decode to the GCP metadata host",
+        ),
+        (
+            "https://[::1%2565]/r.git",
+            "%2565 decodes once to %65, an IPv6 zone on ::1; a twice-decoding "
+            "validator would see ::1e and allow it, so reject '%'",
+        ),
+        (
+            "git@[::1%2f]:x/repo.git",
+            "ssh gets the literal zone and resolves ::1; reject '%'",
+        ),
+        (
+            "https://127.0.0.1%00github.com/r.git",
+            "percent-encoded null must be rejected, not decoded into a byte that "
+            "aborts the run",
+        ),
+        (
+            "https://münchen.example.com/r.git",
+            "libcurl NFKC-normalizes non-ASCII; a homoglyph could map to a blocked "
+            "host we never see, so reject non-ASCII",
+        ),
+        (
+            "https://metadata/repo.git",
+            "GCP search domain resolves bare 'metadata' to 169.254.169.254",
+        ),
+        (
+            "https://127.0.0.1\\@github.com/r.git",
+            "backslash in authority: parsers disagree on the host, so reject",
+        ),
+    ],
+    ids=[
+        "trailing_dot_localhost",
+        "decimal_ip",
+        "hex_ip",
+        "ipv4_mapped_loopback",
+        "ipv4_mapped_alicloud_metadata",
+        "ipv4_mapped_aws_metadata",
+        "ipv6_zone_id_link_local",
+        "octal_ip",
+        "octal_dotted_ip",
+        "hex_dotted_ip",
+        "percent_encoded_metadata_ip",
+        "percent_encoded_loopback",
+        "percent_encoded_metadata_host",
+        "double_percent_encoded_ipv6_zone",
+        "scp_ipv6_zone_percent",
+        "null_byte_in_host",
+        "non_ascii_host",
+        "bare_metadata_hostname",
+        "backslash_in_authority",
+    ],
+)
+def test_obfuscated_blocked_host_rejected(url: str, why: str) -> None:
+    result = check_remote_dependency_url(url)
+    assert not result.allowed, why
 
 
 def test_dns_rebinding_to_loopback_rejected(
@@ -400,8 +397,41 @@ def test_dns_rebinding_to_loopback_rejected(
     assert "resolves to a blocked IP" in result.reason
 
 
+def test_localhost_tld_rejected_even_when_dns_down(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # RFC 6761 reserves the whole .localhost TLD for loopback. Block it by name
+    # so the guarantee does not rest on git's resolver agreeing with ours: with
+    # DNS down, the resolve-based check below cannot catch foo.localhost.
+    import socket as _socket
+
+    def fail_getaddrinfo(*args, **kwargs):
+        raise OSError("simulated DNS failure")
+
+    monkeypatch.setattr(_socket, "getaddrinfo", fail_getaddrinfo)
+    result = check_remote_dependency_url("https://foo.localhost/repo.git")
+    assert not result.allowed
+
+
 def test_malformed_url_does_not_raise() -> None:
     result = check_remote_dependency_url("https://[::1/repo.git")
+    assert not result.allowed
+
+
+def test_empty_label_host_does_not_crash() -> None:
+    # getaddrinfo IDNA-encodes str hosts and raises UnicodeError (a ValueError,
+    # not an OSError) for an empty or over-long DNS label. The DNS check must
+    # swallow it so a manifest typo like "a..b" skips the dependency instead of
+    # aborting the whole run before any metadata is emitted.
+    result = check_remote_dependency_url("https://a..b/shared.git")
+    assert result.allowed
+
+
+def test_non_string_url_does_not_crash() -> None:
+    # lkml parses `url: { ... }` / `url: [ ... ]` to a dict/list, and
+    # LookerRemoteDependency does not enforce str, so a committer can drive a
+    # non-str url here. It must be rejected, not crash the run on url.strip().
+    result = check_remote_dependency_url({"foo": "bar"})  # type: ignore[arg-type]
     assert not result.allowed
 
 
@@ -447,7 +477,7 @@ remote_dependency: leak {
     assert "*****" in joined  # sanitized userinfo marker
 
 
-# ---- Bypasses reproduced during the ING-2573 takeover (red before the fix) ----
+# ---- Bypasses reproduced during review (red before the fix) ----
 
 
 @pytest.mark.parametrize(
