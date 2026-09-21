@@ -8,6 +8,7 @@ from avrogen.dict_wrapper import DictWrapper
 
 import datahub.cli.migration_utils as migration_utils
 from datahub.cli.migration_utils import (
+    MergeResult,
     get_migratable_aspect_names,
     merge_additive_aspects,
     merge_entity,
@@ -564,24 +565,24 @@ class TestMigrationReportErrorTracking:
 
 
 class TestMergeEntityNonDataset:
-    """merge_entity for non-datasets: additive union under PATCH/PROMPT, literal overwrite under OVERWRITE."""
+    """merge_entity for non-datasets: builder-backed types (chart/dashboard/dataFlow/
+    dataJob/dataProduct) overwrite under every strategy; other types union under
+    PATCH/PROMPT and overwrite under OVERWRITE."""
 
     CHART_SRC = "urn:li:chart:(powerbi,old_inst.my_chart)"
     CHART_DST = "urn:li:chart:(powerbi,new_inst.my_chart)"
 
     @patch("datahub.cli.migration_utils.clone_aspect")
-    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
-    def test_chart_patch_unions_additive_not_overwrite(
+    def test_chart_patch_falls_back_to_overwrite(
         self,
-        mock_get_aspects: MagicMock,
         mock_clone: MagicMock,
     ) -> None:
-        """PATCH unions additive aspects via the Patch API — no clone/overwrite."""
-        mock_get_aspects.return_value = {
-            "globalTags": GlobalTagsClass(
-                tags=[TagAssociationClass(tag="urn:li:tag:pii")]
-            )
-        }
+        # chart lineage lives in chartInfo, which the entity-agnostic builder can't
+        # union, so PATCH keeps the pre-PR full overwrite rather than the additive path.
+        aspect = GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:pii")])
+        mock_clone.return_value = iter(
+            [MetadataChangeProposalWrapper(entityUrn=self.CHART_DST, aspect=aspect)]
+        )
         graph = MagicMock()
 
         result = merge_entity(
@@ -592,10 +593,10 @@ class TestMergeEntityNonDataset:
             dry_run=False,
         )
 
-        mock_clone.assert_not_called()
+        mock_clone.assert_called_once()
+        graph.emit.assert_not_called()  # overwrite emits full aspects, not Patch MCPs
+        assert result.merged == 1
         assert "globalTags" in result.merged_aspects
-        # The union is emitted as a PATCH MCP via graph.emit.
-        assert graph.emit.called
 
     @patch("datahub.cli.migration_utils.clone_aspect")
     def test_overwrite_rewrites_urns_in_cloned_aspects(
@@ -630,18 +631,21 @@ class TestMergeEntityNonDataset:
         assert aspect.owners[0].owner == self.CHART_DST
 
     @patch("datahub.cli.migration_utils.clone_aspect")
-    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
-    def test_dataflow_patch_keeps_conflicting_target_aspect(
+    def test_dataflow_patch_falls_back_to_overwrite(
         self,
-        mock_get_aspects: MagicMock,
         mock_clone: MagicMock,
     ) -> None:
-        """PATCH keeps the target's value for a conflicting non-additive aspect."""
+        # dataFlow lineage lives in dataFlowInfo (non-unionable), so PATCH overwrites
+        # the target with the source rather than keeping the conflicting target value.
         actor = "urn:li:corpuser:datahub"
-        mock_get_aspects.side_effect = [
-            {"deprecation": DeprecationClass(deprecated=True, note="src", actor=actor)},
-            {"deprecation": DeprecationClass(deprecated=True, note="dst", actor=actor)},
-        ]
+        aspect = DeprecationClass(deprecated=True, note="src", actor=actor)
+        mock_clone.return_value = iter(
+            [
+                MetadataChangeProposalWrapper(
+                    entityUrn="urn:li:dataFlow:(airflow,new.dag,PROD)", aspect=aspect
+                )
+            ]
+        )
         graph = MagicMock()
 
         result = merge_entity(
@@ -652,10 +656,39 @@ class TestMergeEntityNonDataset:
             dry_run=False,
         )
 
-        mock_clone.assert_not_called()
-        # PATCH keeps the target on conflict — nothing merged, one skip recorded.
-        assert "deprecation" in result.skipped_aspects
-        assert result.merged == 0
+        mock_clone.assert_called_once()
+        # Overwrite applies the source and never skips on conflict.
+        assert result.merged == 1
+        assert result.skipped == 0
+        assert "deprecation" in result.merged_aspects
+
+    def test_builder_backed_types_never_take_generic_path(self) -> None:
+        # Regression guard for the i2i default (patch): chart/dashboard/dataFlow/
+        # dataJob/dataProduct must overwrite so a migrated source's lineage reaches
+        # the target instead of being stranded by an additive keep-target merge.
+        assert (
+            frozenset({"chart", "dashboard", "dataFlow", "dataJob", "dataProduct"})
+            == migration_utils.NON_ADDITIVE_MERGE_ENTITY_TYPES
+        )
+        for entity_type in migration_utils.NON_ADDITIVE_MERGE_ENTITY_TYPES:
+            with (
+                patch(
+                    "datahub.cli.migration_utils._overwrite_entity"
+                ) as mock_overwrite,
+                patch(
+                    "datahub.cli.migration_utils._merge_generic_entity"
+                ) as mock_generic,
+            ):
+                mock_overwrite.return_value = MergeResult(merged=0, skipped=0)
+                merge_entity(
+                    f"urn:li:{entity_type}:(powerbi,old.x)",
+                    f"urn:li:{entity_type}:(powerbi,new.x)",
+                    ConflictStrategy.PATCH,
+                    MagicMock(),
+                    dry_run=True,
+                )
+                mock_overwrite.assert_called_once()
+                mock_generic.assert_not_called()
 
     @patch("datahub.cli.migration_utils.clone_aspect")
     def test_overwrite_excludes_status_aspect(
@@ -919,6 +952,8 @@ class TestMergeGenericEntity:
         for entity_type in ENTITY_TYPE_TO_ASPECT_NAMES:
             if entity_type == "dataset":
                 continue  # dataset runs the full pipeline, not the generic path
+            if entity_type in migration_utils.NON_ADDITIVE_MERGE_ENTITY_TYPES:
+                continue  # these overwrite wholesale, never touching the generic path
             for aspect in get_migratable_aspect_names(entity_type):
                 unioned_here = aspect in unioned
                 reseated_here = aspect in reseated

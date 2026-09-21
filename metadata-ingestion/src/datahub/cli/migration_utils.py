@@ -63,6 +63,18 @@ ALL_ENTITY_TYPES = ["dataset", "chart", "dashboard", "dataFlow", "dataJob"]
 # Charts, dashboards, dataflows, and datajobs don't have env/origin fields.
 ENV_ENTITY_TYPES = {"dataset"}
 
+# Non-dataset types whose lineage and description live in a single non-additive
+# *Info aspect (chartInfo, dashboardInfo, dataFlowInfo, dataJobInputOutput,
+# dataProductProperties) that the entity-agnostic patch builder cannot union. An
+# additive merge would keep the target's copy and strand the source's lineage
+# before the source is deleted, so these keep the historical full overwrite under
+# every conflict strategy until per-entity patch builders union those aspects
+# (ING-3504). Other non-dataset types (schemaField, glossaryTerm, container, …)
+# only carry union-able or safely-copyable aspects and take the additive path.
+NON_ADDITIVE_MERGE_ENTITY_TYPES = frozenset(
+    {"chart", "dashboard", "dataFlow", "dataJob", "dataProduct"}
+)
+
 
 # structuredProperties unions by (propertyUrn, attribution.source) so a target's
 # existing assignments survive the merge, like ownership/tags/terms already do.
@@ -859,12 +871,17 @@ def merge_entity(
     if on_conflict == ConflictStrategy.PRESERVE:
         return MergeResult(merged=0, skipped=1, skipped_aspects=["*"])
 
-    # No per-entity Patch builder for non-datasets, but the union-able aspects patch
-    # through entity-agnostic templates — merge those additively and keep the rest
-    # conflict-aware so we never clobber curated target metadata. OVERWRITE is literal.
+    # Non-datasets have no per-entity Patch builder. Types whose lineage lives in a
+    # non-unionable *Info aspect keep the historical full overwrite (see
+    # NON_ADDITIVE_MERGE_ENTITY_TYPES) so a migrated source's lineage reaches the
+    # target rather than being stranded; the rest union the union-able aspects and
+    # copy the remainder conflict-aware, never clobbering curated target metadata.
     entity_type = guess_entity_type(dst_urn)
     if entity_type != "dataset":
-        if on_conflict == ConflictStrategy.OVERWRITE:
+        if (
+            on_conflict == ConflictStrategy.OVERWRITE
+            or entity_type in NON_ADDITIVE_MERGE_ENTITY_TYPES
+        ):
             return _overwrite_entity(src_urn, dst_urn, graph, dry_run, rewrite_urn)
         return _merge_generic_entity(
             src_urn, dst_urn, on_conflict, graph, dry_run, rewrite_urn
