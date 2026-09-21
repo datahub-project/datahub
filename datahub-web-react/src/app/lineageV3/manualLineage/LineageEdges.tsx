@@ -6,7 +6,7 @@ import styled from 'styled-components/macro';
 import { LineageNodesContext, getEdgeId, setDifference } from '@app/lineageV3/common';
 import EntityEdge from '@app/lineageV3/manualLineage/EntityEdge';
 
-import { CorpUser, Entity, LineageDirection } from '@types';
+import { CorpUser, Entity, EntityType, LineageDirection } from '@types';
 
 const LineageEdgesWrapper = styled.div`
     padding: 0 20px 10px 20px;
@@ -25,21 +25,40 @@ const EmptyWrapper = styled.div`
 interface Props {
     parentUrn: string;
     direction: LineageDirection;
+    validEntityTypes: EntityType[];
     entitiesToAdd: Entity[];
     entitiesToRemove: Entity[];
     onRemoveEntity: (entity: Entity) => void;
 }
 
-export default function LineageEdges({ parentUrn, direction, entitiesToAdd, entitiesToRemove, onRemoveEntity }: Props) {
+export default function LineageEdges({
+    parentUrn,
+    direction,
+    validEntityTypes,
+    entitiesToAdd,
+    entitiesToRemove,
+    onRemoveEntity,
+}: Props) {
     const { t } = useTranslation('lineage');
     const { nodes, edges, adjacencyList } = useContext(LineageNodesContext);
 
     const children = adjacencyList[direction].get(parentUrn) || new Set();
+    const allowedTypes = useMemo(() => new Set(validEntityTypes), [validEntityTypes]);
+    const writableChildren = useMemo(
+        () =>
+            new Set(
+                Array.from(children).filter((childUrn) => {
+                    const childType = nodes.get(childUrn)?.type;
+                    return !!childType && allowedTypes.has(childType);
+                }),
+            ),
+        [children, allowedTypes, nodes],
+    );
     const urnsToRemove = useMemo(
         () => new Set(entitiesToRemove.map((entityToRemove) => entityToRemove.urn)),
         [entitiesToRemove],
     );
-    const filteredChildren = setDifference(children, urnsToRemove);
+    const filteredChildren = setDifference(writableChildren, urnsToRemove);
 
     return (
         <LineageEdgesWrapper>

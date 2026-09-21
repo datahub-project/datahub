@@ -412,6 +412,14 @@ export class LineageBasePage extends BasePage {
     await this.editDownstreamLineageButton.click();
   }
 
+  async expectCurrentLineageContains(name: string): Promise<void> {
+    await expect(this.page.getByTestId('lineage-entity-item').getByText(name)).toBeVisible();
+  }
+
+  async expectCurrentLineageNotContains(name: string): Promise<void> {
+    await expect(this.page.getByTestId('lineage-entity-item').getByText(name)).toHaveCount(0);
+  }
+
   // ── Lineage tab / entity page ─────────────────────────────────────────────
 
   async clickLineageTab(): Promise<void> {

@@ -1,4 +1,4 @@
-import { getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
+import { filterManualLineageUrns, getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -65,5 +65,25 @@ describe('getValidEntityTypes', () => {
             const result = getValidEntityTypes(LineageDirection.Upstream);
             expect(result).toStrictEqual([]);
         });
+    });
+});
+
+describe('filterManualLineageUrns', () => {
+    const chartUrn = 'urn:li:chart:(looker,orders_chart)';
+    const dashboardUrn = 'urn:li:dashboard:(looker,orders_dashboard)';
+    const metricUrn = 'urn:li:metric:(urn:li:dataPlatform:snowflake,analytics,double_revenue)';
+
+    it('omits a Metric neighbor when Metric is not persistable in this direction', () => {
+        const result = filterManualLineageUrns([chartUrn, metricUrn, dashboardUrn], [
+            EntityType.Dataset,
+            EntityType.Chart,
+            EntityType.Dashboard,
+        ]);
+        expect(result).toStrictEqual([chartUrn, dashboardUrn]);
+    });
+
+    it('keeps a Metric neighbor when Metric is a valid upstream of the home entity', () => {
+        const result = filterManualLineageUrns([chartUrn, metricUrn], [EntityType.Chart, EntityType.Metric]);
+        expect(result).toStrictEqual([chartUrn, metricUrn]);
     });
 });
