@@ -1,8 +1,7 @@
 ---
 title: Configure Context Generation
 description: "Configure which domains have context generated, define metadata eval questions, and control when generated context becomes visible to AI agents."
-visible-if:
-  showContextHub: true
+
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
