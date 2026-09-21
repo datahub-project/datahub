@@ -1,8 +1,18 @@
-import functools
-from typing import Any, Optional, Tuple
+# sqlglot is imported lazily: `_TableName` is a plain (database, db_schema, table)
+# holder, but schema_resolver.py imports it, so a module-level sqlglot import here makes
+# every SchemaResolver consumer require the `sql-parser` extra. Only the two methods that
+# build sqlglot objects actually need it. Do not annotate a *field* below with a
+# sqlglot type: pydantic resolves field annotations at class build, and under
+# PEP 563 it could not resolve a TYPE_CHECKING-only name.
+from __future__ import annotations
 
-import sqlglot
+import functools
+from typing import TYPE_CHECKING, Any, Optional, Tuple
+
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    import sqlglot
 
 
 class _ParserBaseModel(
@@ -62,6 +72,8 @@ class _TableName(_FrozenModel):
         return self.identity == other.identity
 
     def as_sqlglot_table(self) -> sqlglot.exp.Table:
+        import sqlglot
+
         return sqlglot.exp.Table(
             catalog=(
                 sqlglot.exp.Identifier(this=self.database) if self.database else None
@@ -93,6 +105,8 @@ class _TableName(_FrozenModel):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "_TableName":
+        import sqlglot
+
         # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
         # In this case, table.this is a SemanticView expression, and we need to
         # extract the actual table from within it.
