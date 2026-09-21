@@ -1106,7 +1106,9 @@ def test_unstructured_ingest_syncblock_handles_null_synced_from():
     assert duplicate.block_id == "abc"
 
 
-def test_empty_original_synced_block_is_reported(notion_source, config, pipeline_context):
+def test_empty_original_synced_block_is_reported(
+    notion_source, config, pipeline_context
+):
     """Report empty original synced blocks using the outer Block id, once per wrap."""
     pytest.importorskip("unstructured_ingest")
     from unstructured_ingest.processes.connectors.notion.types.block import Block
