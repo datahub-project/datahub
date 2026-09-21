@@ -3,6 +3,7 @@ pytest_plugins = ["tests.utilities.agent_reporter"]
 import json
 import logging
 import os
+import statistics
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -10,6 +11,7 @@ from typing import Dict, List, Optional, Set, Tuple
 import pytest
 import requests
 from _pytest.nodes import Item
+from _pytest.skipping import evaluate_skip_marks
 
 from datahub.ingestion.graph.client import (
     DatahubClientConfig,
@@ -328,11 +330,27 @@ def load_pytest_test_weights() -> Dict[str, float]:
         return {}
 
 
+# Collection-time skip/skipif tests never run, so they must not take the median
+# default (or a historical duration) and inflate a batch.
+SKIPPED_TEST_WEIGHT_SECONDS = 0.01
+
+
+def _item_will_be_skipped(item: Item) -> bool:
+    try:
+        return evaluate_skip_marks(item) is not None
+    except Exception:
+        return item.get_closest_marker("skip") is not None
+
+
 def get_pytest_test_weight(
-    item: Item, test_weights: Dict[str, float]
+    item: Item, test_weights: Dict[str, float], default_weight: float
 ) -> tuple[float, bool]:
     """Return (seconds, used_default). used_default is True when the nodeid
-    was missing from pytest_test_weights.json."""
+    was missing from pytest_test_weights.json. Collection-time skips use a
+    tiny weight and do not count as missing."""
+    if _item_will_be_skipped(item):
+        return SKIPPED_TEST_WEIGHT_SECONDS, False
+
     nodeid = item.nodeid
     test_id = nodeid.replace("/", ".").replace(".py::", "::")
     weight = test_weights.get(test_id)
@@ -346,7 +364,31 @@ def get_pytest_test_weight(
         if weight is not None:
             return weight, False
 
-    return DEFAULT_TEST_WEIGHT, True
+    return default_weight, True
+
+
+def load_persisted_default_weight() -> Optional[float]:
+    """Load the fallback weight generated alongside the pytest weights."""
+    meta_file = Path(__file__).parent / "pytest_test_weights_meta.json"
+    if not meta_file.exists():
+        return None
+    try:
+        with open(meta_file) as f:
+            value = float(json.load(f)["defaultTestWeightSeconds"])
+        return value if value > 0 else None
+    except Exception as e:
+        logger.warning(f"Failed to read {meta_file.name}: {e}")
+        return None
+
+
+def compute_default_test_weight(test_weights: Dict[str, float]) -> float:
+    """Return the weight assigned to tests absent from the weights file."""
+    persisted = load_persisted_default_weight()
+    if persisted is not None:
+        return persisted
+    if not test_weights:
+        return DEFAULT_TEST_WEIGHT
+    return statistics.median(test_weights.values())
 
 
 def aggregate_module_weights(
@@ -367,6 +409,7 @@ def aggregate_module_weights(
     Returns:
         List of (module_path, items_in_module, parallel_seconds, serial_seconds)
     """
+    default_weight = compute_default_test_weight(test_weights)
 
     # Group items by module (file path)
     modules: Dict[str, List[Item]] = defaultdict(list)
@@ -382,7 +425,9 @@ def aggregate_module_weights(
         parallel_seconds = 0.0
         serial_seconds = 0.0
         for item in module_items:
-            weight, used_default = get_pytest_test_weight(item, test_weights)
+            weight, used_default = get_pytest_test_weight(
+                item, test_weights, default_weight
+            )
             if used_default:
                 missing_weight_ids.append(item.nodeid)
             if _is_global_policy_mutator(item):
@@ -398,7 +443,7 @@ def aggregate_module_weights(
         logger.info(
             "No recorded duration for %s test(s); packing with %.1fs each. Sample: %s",
             len(missing_weight_ids),
-            DEFAULT_TEST_WEIGHT,
+            default_weight,
             ", ".join(missing_weight_ids[:5]),
         )
 
