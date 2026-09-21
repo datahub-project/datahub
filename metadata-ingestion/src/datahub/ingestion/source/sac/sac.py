@@ -97,6 +97,14 @@ _SAC_JSON_DATE_PATTERN = re.compile(r"^/Date\((?P<ms>-?\d+)(?P<offset>[+-]\d+)?\
 _DWC_SYSTEM_TYPE = "DWC"
 _DATASPHERE_PLATFORM = "sap-datasphere"
 
+# SAC models are discovered through the stories that consume them, so SAC exposes no
+# folder for a model on that path (and most are private/embedded models created by a
+# data import, which have no standalone folder at all). Without an explicit browse path,
+# GMS derives one by splitting the dotted dataset name (`t.4.<hash>:<hash>`) into a
+# meaningless `t` > `4` tree. Group all models under a single canonical root instead,
+# mirroring SAC's own built-in "Models" folder.
+_MODEL_BROWSE_ROOT = "Models"
+
 
 class ConnectionMappingConfig(EnvConfigMixin):
     platform: Optional[str] = Field(
@@ -519,6 +527,20 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         yield mcp.as_workunit()
+
+        # Emit an explicit browse path so models do not fall back to the dotted-name
+        # default (a `t` > `4` tree derived from the SAC namespace).
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=BrowsePathsClass(paths=[f"/{self.platform}/{_MODEL_BROWSE_ROOT}"]),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=BrowsePathsV2Class(
+                path=[BrowsePathEntryClass(id=_MODEL_BROWSE_ROOT)]
+            ),
+        ).as_workunit()
 
         if model.is_import and self.config.ingest_import_data_model_schema_metadata:
             primary_fields: List[str] = []
