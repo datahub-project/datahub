@@ -1,0 +1,12 @@
+{
+    "viewDefinitionTab.detailsHeading": "詳細資料",
+    "viewDefinitionTab.formatCompiled": "已編譯",
+    "viewDefinitionTab.formatFormatted": "已格式化",
+    "viewDefinitionTab.formatRaw": "原始",
+    "viewDefinitionTab.formatSource": "來源",
+    "viewDefinitionTab.languageLabel": "語言",
+    "viewDefinitionTab.logicHeading": "邏輯",
+    "viewDefinitionTab.materializedFalse": "否",
+    "viewDefinitionTab.materializedLabel": "已具體化",
+    "viewDefinitionTab.materializedTrue": "是"
+}

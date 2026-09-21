@@ -100,6 +100,10 @@ from datahub.ingestion.source.sap_datasphere.csn_parser import (
 )
 from datahub.ingestion.source.sap_datasphere.edmx_parser import EdmxParser
 from datahub.ingestion.source.sap_datasphere.flows import parse_flow
+from datahub.ingestion.source.sap_datasphere.formula import (
+    extract_calculated_column_formulas,
+    make_description_with_formula,
+)
 from datahub.ingestion.source.sap_datasphere.graph_resolver import (
     ExternalUrnGraphResolver,
 )
@@ -1276,12 +1280,22 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[List[SchemaFieldClass]]:
         # Prefer the relational EDMX schema; fall back to the CSN elements map for
         # analytic models, which expose no relational metadata URL for EDMX.
+        fields: Optional[List[SchemaFieldClass]]
         if parse_result is not None and parse_result.fields:
             self.report.assets_schema_fetched += 1
-            return self._decorate_fields(parse_result)
-        if csn_def is not None:
-            return self._schema_fields_from_csn(space_name, asset_name, csn_def)
-        return None
+            fields = self._decorate_fields(parse_result)
+        elif csn_def is not None:
+            fields = self._schema_fields_from_csn(space_name, asset_name, csn_def)
+        else:
+            return None
+        # Formulas live in the CSN even when the schema came from EDMX, so decorate
+        # on both paths. The field list is already column_pattern-filtered here.
+        # Skip SQL-editor views: their body is raw SQL, not a CQN tree to render.
+        if fields and csn_def is not None and not csn_def.get(CSN_KEY_SQL_EDITOR_QUERY):
+            self._apply_calculated_column_formulas(
+                space_name, asset_name, csn_def, fields
+            )
+        return fields
 
     def _fetch_asset_csn(
         self, space_name: str, asset: JsonDict, asset_name: str
@@ -2035,6 +2049,48 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return None
         self.report.assets_schema_from_csn += 1
         return filtered
+
+    def _apply_calculated_column_formulas(
+        self,
+        space_name: str,
+        asset_name: str,
+        csn_def: JsonDict,
+        fields: List[SchemaFieldClass],
+    ) -> None:
+        # The renderer is defensively guarded, so an escaping exception is a
+        # renderer bug, not malformed CSN — warn (with traceback), don't swallow.
+        try:
+            formulas = extract_calculated_column_formulas(csn_def)
+        except Exception as e:
+            self.report.assets_formula_extraction_failed.append(
+                f"{space_name}.{asset_name}"
+            )
+            self.report.warning(
+                title="Failed to extract calculated-column formulas",
+                message=(
+                    "Column descriptions for this asset will omit calculation "
+                    "formulas; the rest of its metadata is unaffected"
+                ),
+                context=f"{space_name}.{asset_name}",
+                exc=e,
+            )
+            return
+        if not formulas:
+            return
+        field_by_path = {f.fieldPath: f for f in fields}
+        for column_name, formula in formulas.items():
+            field = field_by_path.get(column_name)
+            if field is None:
+                # Usually column_pattern dropped it; a systemic count flags a
+                # UNION name-alignment regression.
+                self.report.formula_columns_unmatched.append(
+                    f"{space_name}.{asset_name}.{column_name}"
+                )
+                continue
+            field.description = make_description_with_formula(
+                field.description, formula
+            )
+            self.report.calculated_column_formulas_emitted += 1
 
     def _decorate_fields(self, result: EdmxParseResult) -> List[SchemaFieldClass]:
         decorated: List[SchemaFieldClass] = []

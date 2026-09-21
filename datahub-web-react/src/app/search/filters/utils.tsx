@@ -31,9 +31,26 @@ import {
     Domain,
     Entity,
     EntityType,
+    FacetFilterInput,
+    FacetMetadata,
     GlossaryTerm,
     StructuredPropertyEntity,
 } from '@types';
+
+// either adds or removes selectedFilterValues to/from activeFilters for a given filterField
+export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
+    let newFilters = activeFilters;
+    if (activeFilters.find((activeFilter) => activeFilter.field === filterField)) {
+        newFilters = activeFilters
+            .map((f) => (f.field === filterField ? { ...f, values: selectedFilterValues } : f))
+            .filter((f) => !(f.values?.length === 0));
+    } else {
+        newFilters = [...activeFilters, { field: filterField, values: selectedFilterValues }].filter(
+            (f) => !(f.values?.length === 0),
+        );
+    }
+    return newFilters;
+}
 
 export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[], filterValue: string) {
     const parentFilterValues = filterValue.includes(FILTER_DELIMITER)
@@ -46,6 +63,14 @@ export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[]
 
 export function isAnyOptionSelected(selectedFilterOptions: FilterOptionType[], filterValues?: string[]) {
     return selectedFilterOptions.some((option) => filterValues?.some((filterValue) => filterValue === option.value));
+}
+
+export function getFilterEntity(filterField: string, filterValue: string, availableFilters: FacetMetadata[] | null) {
+    return (
+        availableFilters
+            ?.find((facet) => facet.field === filterField)
+            ?.aggregations.find((agg) => agg.value === filterValue)?.entity || null
+    );
 }
 
 export const PlatformIcon = styled.img<{ size?: number }>`

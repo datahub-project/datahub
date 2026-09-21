@@ -28,6 +28,7 @@ import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
@@ -87,7 +88,6 @@ import org.opensearch.search.sort.SortOrder;
 @Accessors(chain = true)
 public class ESSearchDAO {
 
-  private final SearchClientShim<?> client;
   private final boolean pointInTimeCreationEnabled;
   @Nonnull private final ElasticSearchConfiguration searchConfiguration;
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
@@ -97,14 +97,12 @@ public class ESSearchDAO {
   @Nonnull private final EntityDocumentIdHasher entityDocumentIdHasher;
 
   public ESSearchDAO(
-      SearchClientShim<?> client,
       boolean pointInTimeCreationEnabled,
       @Nonnull ElasticSearchConfiguration searchConfiguration,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull SearchServiceConfiguration searchServiceConfig) {
     this(
-        client,
         pointInTimeCreationEnabled,
         searchConfiguration,
         customSearchConfiguration,
@@ -115,7 +113,6 @@ public class ESSearchDAO {
   }
 
   public ESSearchDAO(
-      SearchClientShim<?> client,
       boolean pointInTimeCreationEnabled,
       @Nonnull ElasticSearchConfiguration searchConfiguration,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
@@ -123,7 +120,6 @@ public class ESSearchDAO {
       boolean testLoggingEnabled,
       @Nonnull SearchServiceConfiguration searchServiceConfig) {
     this(
-        client,
         pointInTimeCreationEnabled,
         searchConfiguration,
         customSearchConfiguration,
@@ -131,6 +127,18 @@ public class ESSearchDAO {
         testLoggingEnabled,
         searchServiceConfig,
         new Sha256UrnEntityDocumentIdHasher());
+  }
+
+  @Nonnull
+  private SearchClientShim<?> searchClient(
+      @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest) {
+    return SearchClients.forEntityIndices(opContext, searchRequest, searchConfiguration);
+  }
+
+  @Nonnull
+  private SearchClientShim<?> searchClient(
+      @Nonnull OperationContext opContext, @Nullable String... indices) {
+    return SearchClients.forEntityIndices(opContext, searchConfiguration, indices);
   }
 
   public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {
@@ -155,7 +163,9 @@ public class ESSearchDAO {
         "docCount",
         () -> {
           try {
-            return client.count(opContext, countRequest, RequestOptions.DEFAULT).getCount();
+            return searchClient(opContext, entityIndexName(opContext, entityName))
+                .count(opContext, countRequest, RequestOptions.DEFAULT)
+                .getCount();
           } catch (IOException e) {
             log.error("Count query failed:" + e.getMessage());
             throw new ESQueryException("Count query failed:", e);
@@ -182,7 +192,9 @@ public class ESSearchDAO {
           SearchResponse searchResponse = null;
           try {
             log.debug("Executing request {}: {}", id, searchRequest);
-            searchResponse = client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+            searchResponse =
+                searchClient(opContext, searchRequest)
+                    .search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
                 opContext,
@@ -309,7 +321,8 @@ public class ESSearchDAO {
         () -> {
           try {
             final SearchResponse searchResponse =
-                client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+                searchClient(opContext, searchRequest)
+                    .search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
                 opContext,
@@ -486,7 +499,8 @@ public class ESSearchDAO {
       Pair<SearchRequest, AutocompleteRequestHandler> searchRequestAndBuilder =
           buildAutocompleteRequest(opContext, entityName, query, field, requestParams, limit);
       SearchResponse searchResponse =
-          client.search(opContext, searchRequestAndBuilder.getLeft(), RequestOptions.DEFAULT);
+          searchClient(opContext, searchRequestAndBuilder.getLeft())
+              .search(opContext, searchRequestAndBuilder.getLeft(), RequestOptions.DEFAULT);
       return searchRequestAndBuilder.getRight().extractResult(opContext, searchResponse, query);
     } catch (Exception e) {
       log.error("Auto complete query failed:" + e.getMessage());
@@ -549,7 +563,8 @@ public class ESSearchDAO {
             final SearchRequest searchRequest =
                 buildAggregateByValue(opContext, entityNames, field, requestParams, limit);
             final SearchResponse searchResponse =
-                client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+                searchClient(opContext, searchRequest)
+                    .search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results, validated against document model as well
             return AggregationQueryBuilder.extractAggregationsFromResponse(searchResponse, field);
           } catch (Exception e) {
@@ -643,7 +658,8 @@ public class ESSearchDAO {
               final SearchRequest searchRequest =
                   buildActiveIncidentStatsRequest(opContext, new HashSet<>(batch));
               final SearchResponse searchResponse =
-                  client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+                  searchClient(opContext, searchRequest)
+                      .search(opContext, searchRequest, RequestOptions.DEFAULT);
               result.putAll(extractIncidentStats(searchResponse));
             }
             return result;
@@ -812,17 +828,12 @@ public class ESSearchDAO {
             opContext, postFilters, indexConvention, rewriteEntityTypeToIndex());
 
     boolean hasSliceOptions = opContext.getSearchContext().getSearchFlags().hasSliceOptions();
-    if (hasSliceOptions && isSliceDisabled()) {
-      throw new IllegalStateException(
-          "Slice options are not supported with the current ES implementation: "
-              + client.getEngineType()
-              + ". Please disable slice options in the search flags.");
-    }
 
     boolean usePIT = (pointInTimeCreationEnabled || hasSliceOptions) && keepAlive != null;
     String pitId =
         usePIT
-            ? ESUtils.computePointInTime(opContext, scrollId, keepAlive, client, indexArray)
+            ? ESUtils.computePointInTime(
+                opContext, scrollId, keepAlive, searchClient(opContext, indexArray), indexArray)
             : null;
     Object[] sort = scrollId != null ? SearchAfterWrapper.fromScrollId(scrollId).getSort() : null;
 
@@ -867,15 +878,16 @@ public class ESSearchDAO {
                         .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, json);
                 SearchSourceBuilder searchSourceBuilder = SearchSourceBuilder.fromXContent(parser);
 
-                SearchRequest searchRequest =
-                    new SearchRequest(
-                        opContext
-                            .getSearchContext()
-                            .getIndexConvention()
-                            .getIndexName(opContext, indexName));
+                String resolvedIndex =
+                    opContext
+                        .getSearchContext()
+                        .getIndexConvention()
+                        .getIndexName(opContext, indexName);
+                SearchRequest searchRequest = new SearchRequest(resolvedIndex);
                 searchRequest.source(searchSourceBuilder);
 
-                return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+                return SearchClients.forIndex(opContext, searchConfiguration, resolvedIndex)
+                    .search(opContext, searchRequest, RequestOptions.DEFAULT);
               } catch (IOException e) {
                 throw new RuntimeException(e);
               }
@@ -915,16 +927,13 @@ public class ESSearchDAO {
 
                 return Map.entry(
                     entry.getKey(),
-                    client.search(opContext, searchRequest, RequestOptions.DEFAULT));
+                    searchClient(opContext, searchRequest)
+                        .search(opContext, searchRequest, RequestOptions.DEFAULT));
               } catch (IOException e) {
                 throw new RuntimeException(e);
               }
             })
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
-
-  private boolean isSliceDisabled() {
-    return SearchClientShim.SearchEngineType.ELASTICSEARCH_7.equals(client.getEngineType());
   }
 
   public ExplainResponse explain(
@@ -959,7 +968,8 @@ public class ESSearchDAO {
         .id(documentIdForExplain(opContext, documentId))
         .index(entityIndexName(opContext, entityName));
     try {
-      return client.explain(opContext, explainRequest, RequestOptions.DEFAULT);
+      return searchClient(opContext, explainRequest.index())
+          .explain(opContext, explainRequest, RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Failed to explain query.", e);
       throw new IllegalStateException("Failed to explain query:", e);

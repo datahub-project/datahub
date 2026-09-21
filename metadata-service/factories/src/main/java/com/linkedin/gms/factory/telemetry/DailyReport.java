@@ -16,8 +16,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
@@ -48,7 +48,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 @Slf4j
 public class DailyReport {
   private final OperationContext systemOperationContext;
-  private final SearchClientShim<?> _elasticClient;
   private final ConfigurationProvider _configurationProvider;
   private final EntityService<?> _entityService;
   private final GitVersion _gitVersion;
@@ -98,12 +97,10 @@ public class DailyReport {
 
   public DailyReport(
       @Nonnull OperationContext systemOperationContext,
-      SearchClientShim<?> elasticClient,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
       GitVersion gitVersion) {
     this.systemOperationContext = systemOperationContext;
-    this._elasticClient = elasticClient;
     this._configurationProvider = configurationProvider;
     this._entityService = entityService;
     this._gitVersion = gitVersion;
@@ -138,7 +135,6 @@ public class DailyReport {
   public void dailyReport() {
     AnalyticsService analyticsService =
         new AnalyticsService(
-            _elasticClient,
             systemOperationContext.getSearchContext().getIndexConvention(),
             systemOperationContext.getEntityRegistry(),
             entityIndexConfiguration());
@@ -235,7 +231,8 @@ public class DailyReport {
       // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
       // per-event context available
       SearchResponse searchResponse =
-          _elasticClient.search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
+          SearchClients.forEntityIndices(systemOperationContext, searchRequest)
+              .search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
       return (int) searchResponse.getHits().getTotalHits().value;
     } catch (Exception e) {
       log.warn("Failed to count users for telemetry: {}", e.getMessage());
@@ -262,7 +259,8 @@ public class DailyReport {
       // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
       // per-event context available
       SearchResponse searchResponse =
-          _elasticClient.search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
+          SearchClients.forEntityIndices(systemOperationContext, searchRequest)
+              .search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
       return (int) searchResponse.getHits().getTotalHits().value;
     } catch (Exception e) {
       log.warn("Failed to count service accounts for telemetry: {}", e.getMessage());

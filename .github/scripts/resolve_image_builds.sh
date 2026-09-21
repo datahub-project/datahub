@@ -98,6 +98,11 @@ PATH_RULES=(
   "datahub-frontend/|${EVERYTHING}"
   "metadata-models/|${EVERYTHING}"
   "datahub-graphql-core/|${EVERYTHING}"
+  # Toast copy and its lint-only cigate are not baked into images on PRs; master
+  # still full-builds because EVENT_NAME != pull_request.
+  "metadata-service/configuration/src/main/resources/product-update.json|"
+  "metadata-service/configuration/src/main/resources/product-update-saas.json|"
+  "metadata-service/configuration/src/productUpdateCiGate/|"
   "metadata-service/|${EVERYTHING}"
   "entity-registry/|${EVERYTHING}"
   "li-utils/|${EVERYTHING}"

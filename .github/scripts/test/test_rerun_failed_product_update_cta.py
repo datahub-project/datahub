@@ -26,15 +26,56 @@ def test_rerun_failed_open_prs_reruns_matching_heads() -> None:
                     "databaseId": 11,
                     "headSha": "abc123",
                     "conclusion": "failure",
+                    "ctaJobId": 99,
                 },
                 {
                     "databaseId": 22,
                     "headSha": "closedsha",
                     "conclusion": "failure",
+                    "ctaJobId": 100,
                 },
             ],
         ),
         patch.object(rerun, "rerun") as rerun_run,
     ):
         assert rerun.rerun_failed_open_prs() == 0
-    rerun_run.assert_called_once_with(11)
+    rerun_run.assert_called_once_with(99)
+
+
+def test_cta_failed_job_id_ignores_other_lint_jobs() -> None:
+    with patch.object(
+        rerun,
+        "gh_json",
+        return_value={
+            "jobs": [
+                {
+                    "name": "python-lint",
+                    "conclusion": "failure",
+                    "databaseId": 1,
+                },
+                {
+                    "name": "product_update_release_sync",
+                    "conclusion": "success",
+                    "databaseId": 2,
+                },
+            ]
+        },
+    ):
+        assert rerun.cta_failed_job_id(11) is None
+
+
+def test_cta_failed_job_id_returns_sync_job() -> None:
+    with patch.object(
+        rerun,
+        "gh_json",
+        return_value={
+            "jobs": [
+                {
+                    "name": "product_update_release_sync",
+                    "conclusion": "failure",
+                    "databaseId": 7,
+                }
+            ]
+        },
+    ):
+        assert rerun.cta_failed_job_id(11) == 7

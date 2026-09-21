@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
@@ -23,6 +24,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -579,7 +581,8 @@ public class IncrementalReindexCatchUpStepTest {
     // Graph index is a "global" index — catch-up should emit MCLs for ALL entities (urnLike = "%")
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     String graphIndexName =
-        indexConvention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
+        indexConvention.getIndexName(
+            opContext, SearchComponent.GRAPH, ElasticSearchGraphService.INDEX_NAME);
 
     Map<String, String> phase1State =
         IncrementalReindexState.setPhase1State(
@@ -817,6 +820,7 @@ public class IncrementalReindexCatchUpStepTest {
     when(config.targetSettings()).thenReturn(Map.of("index", Map.of("number_of_shards", 1)));
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(config));
     when(indexedService.getIndexBuilder()).thenReturn(indexBuilder);
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(indexBuilder);
     when(indexBuilder.submitFilteredReindex(any(), any(), any(), any(QueryBuilder.class), anyInt()))
         .thenThrow(new RuntimeException("index_not_found_exception: no such index"));
 
@@ -870,6 +874,7 @@ public class IncrementalReindexCatchUpStepTest {
     when(config.targetSettings()).thenReturn(Map.of("index", Map.of("number_of_shards", 1)));
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(config));
     when(indexedService.getIndexBuilder()).thenReturn(indexBuilder);
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(indexBuilder);
     doReturn("task-1")
         .when(indexBuilder)
         .submitFilteredReindex(any(), any(), any(), any(QueryBuilder.class), anyInt());
