@@ -4,6 +4,9 @@ Phase 1 runs under pytest-xdist ``--dist=loadscope``, so a file stays on one
 worker. Phase 2 then runs mutators serially on that same batch. Predicted wall
 clock is therefore ``max(N worker loads) + serial_sum``, not
 ``sum(parallel) / N + serial``.
+
+Weight lookup maps pytest nodeids onto the JUnit ``classname::name`` keys in
+pytest_test_weights.json so class-based tests do not pack at the default.
 """
 
 from __future__ import annotations
@@ -113,3 +116,34 @@ def pack_modules(
         plan.module_paths
         for plan in pack_module_plans(modules, batch_count, xdist_workers)
     ]
+
+
+def nodeid_to_weight_keys(nodeid: str) -> list[str]:
+    """Return candidate weight keys for a pytest nodeid, first match wins.
+
+    generate_test_weights.py stores JUnit ``{classname}::{name}``. Class tests
+    therefore look like ``tests.foo.BarTest::test_it``, while function tests
+    look like ``tests.foo::test_it``. The nodeid uses ``::`` before the class
+    name, so both spellings (and a class-stripped fallback) are tried.
+    """
+    posix = nodeid.replace("\\", "/")
+    dotted = posix.replace("/", ".")
+    keys = [
+        dotted.replace(".py::", "::"),
+        dotted.replace(".py::", "."),
+    ]
+    parts = posix.split("::")
+    if len(parts) > 2:
+        module = parts[0].replace("/", ".").removesuffix(".py")
+        keys.append(f"{module}::{parts[-1]}")
+    return list(dict.fromkeys(keys))
+
+
+def lookup_test_weight(
+    nodeid: str, test_weights: dict[str, float], default_weight: float
+) -> tuple[float, bool]:
+    """Return (seconds, used_default) for *nodeid* against *test_weights*."""
+    for test_id in nodeid_to_weight_keys(nodeid):
+        if test_id in test_weights:
+            return test_weights[test_id], False
+    return default_weight, True

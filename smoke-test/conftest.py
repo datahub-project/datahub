@@ -18,7 +18,7 @@ from datahub.ingestion.graph.client import (
     DataHubGraph,
     get_default_graph,
 )
-from shard_pack import ModuleShard, pack_module_plans
+from shard_pack import ModuleShard, lookup_test_weight, pack_module_plans
 from tests.test_result_msg import send_message
 from tests.utilities import env_vars
 from tests.utilities.domains import (
@@ -351,20 +351,7 @@ def get_pytest_test_weight(
     if _item_will_be_skipped(item):
         return SKIPPED_TEST_WEIGHT_SECONDS, False
 
-    nodeid = item.nodeid
-    test_id = nodeid.replace("/", ".").replace(".py::", "::")
-    weight = test_weights.get(test_id)
-    if weight is not None:
-        return weight, False
-
-    nodeid_parts = nodeid.split("::")
-    if len(nodeid_parts) > 2:
-        module_id = nodeid_parts[0].replace("/", ".").removesuffix(".py")
-        weight = test_weights.get(f"{module_id}::{nodeid_parts[-1]}")
-        if weight is not None:
-            return weight, False
-
-    return default_weight, True
+    return lookup_test_weight(item.nodeid, test_weights, default_weight)
 
 
 def load_persisted_default_weight() -> Optional[float]:
