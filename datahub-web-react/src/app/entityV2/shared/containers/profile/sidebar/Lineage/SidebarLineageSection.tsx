@@ -4,13 +4,14 @@ import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React, { useContext } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { matchPath, useHistory, useLocation } from 'react-router-dom';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import SidebarLineageLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageLoadingSection';
 import { useSearchSummaryLineage } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection.hooks';
 import {
+    LineageDirectionSummary,
     getDirectDownstreamSummary,
     getDirectUpstreamSummary,
     getRelatedEntitySummary,
@@ -19,8 +20,8 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import { TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
+import { formatNumber } from '@app/shared/formatNumber';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { PageRoutes } from '@conf/Global';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
 import CompactContext from '@src/app/shared/CompactContext';
 
@@ -77,20 +78,17 @@ const SidebarLineageSection = ({ contexType }: Props) => {
     const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
-    const location = useLocation();
     const isCompact = useContext(CompactContext);
     const startTimeMillis = useGetDefaultLineageStartTimeMillis();
 
     const separateSiblings = useIsSeparateSiblingsMode();
     const onCombinedSiblingPage = !separateSiblings && (entityData?.siblingsSearch?.total || 0) > 0;
-    const isSearchSummary =
-        contexType === TabContextType.SEARCH_SIDEBAR ||
-        matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
+    const isSearchSummary = contexType === TabContextType.SEARCH_SIDEBAR;
     const {
-        typeBreakdownData,
-        hasTypeBreakdown,
         directUpstreamCount: searchUpstreamCount,
         directDownstreamCount: searchDownstreamCount,
+        upstreamTypeSummary,
+        downstreamTypeSummary,
         loading: searchLoading,
     } = useSearchSummaryLineage({
         enabled: isSearchSummary,
@@ -106,17 +104,16 @@ const SidebarLineageSection = ({ contexType }: Props) => {
         skip: isSearchSummary || onCombinedSiblingPage,
     });
 
-    const directUpstreamSummary = hasTypeBreakdown
-        ? typeBreakdownData?.upstreams && getDirectUpstreamSummary(typeBreakdownData.upstreams as any)
+    const directUpstreamSummary = isSearchSummary
+        ? upstreamTypeSummary
         : profileData?.upstreams && getDirectUpstreamSummary(profileData.upstreams as any);
-    const directDownstreamSummary = hasTypeBreakdown
-        ? typeBreakdownData?.downstreams && getDirectDownstreamSummary(typeBreakdownData.downstreams as any)
+    const directDownstreamSummary = isSearchSummary
+        ? downstreamTypeSummary
         : profileData?.downstreams && getDirectDownstreamSummary(profileData.downstreams as any);
 
     const directUpstreamCount = isSearchSummary ? searchUpstreamCount : directUpstreamSummary?.total || 0;
     const directDownstreamCount = isSearchSummary ? searchDownstreamCount : directDownstreamSummary?.total || 0;
     const loading = isSearchSummary ? searchLoading : profileLoading;
-    const showTypeSummary = !isSearchSummary || hasTypeBreakdown;
 
     const hasLineage = directUpstreamCount > 0 || directDownstreamCount > 0;
 
@@ -124,14 +121,21 @@ const SidebarLineageSection = ({ contexType }: Props) => {
         return null;
     }
 
-    const genericAssetSummary = (count: number) => (
-        <>
-            {t('entityCount.asset', {
-                count,
-                formattedCount: String(count),
-            })}
-        </>
+    const renderSummary = (i18nKey: string, count: number, summary?: LineageDirectionSummary | null) => (
+        <Trans
+            t={t}
+            i18nKey={i18nKey}
+            components={{
+                summary: summary ? (
+                    (getRelatedEntitySummary(summary, entityRegistry) as React.ReactElement)
+                ) : (
+                    <>{t('entityCount.asset', { count, formattedCount: formatNumber(count) })}</>
+                ),
+            }}
+        />
     );
+    const upstreamSummary = renderSummary('sidebar.lineage.dependsOn', directUpstreamCount, directUpstreamSummary);
+    const downstreamSummary = renderSummary('sidebar.lineage.usedBy', directDownstreamCount, directDownstreamSummary);
 
     return (
         <SidebarSection
@@ -151,28 +155,7 @@ const SidebarLineageSection = ({ contexType }: Props) => {
                                     <DirectionText>{t('sidebar.lineage.upstreamLabel')}</DirectionText>
                                 </DirectionHeader>
                             </Tooltip>
-                            <SummaryText>
-                                {showTypeSummary && directUpstreamSummary ? (
-                                    <Trans
-                                        t={t}
-                                        i18nKey="sidebar.lineage.dependsOn"
-                                        components={{
-                                            summary: getRelatedEntitySummary(
-                                                directUpstreamSummary as any,
-                                                entityRegistry,
-                                            ) as React.ReactElement,
-                                        }}
-                                    />
-                                ) : (
-                                    <Trans
-                                        t={t}
-                                        i18nKey="sidebar.lineage.dependsOn"
-                                        components={{
-                                            summary: genericAssetSummary(directUpstreamCount),
-                                        }}
-                                    />
-                                )}
-                            </SummaryText>
+                            <SummaryText>{upstreamSummary}</SummaryText>
                         </Section>
                     )}
                     {!loading && directDownstreamCount > 0 && (
@@ -185,28 +168,7 @@ const SidebarLineageSection = ({ contexType }: Props) => {
                                     <DirectionText>{t('sidebar.lineage.downstreamLabel')}</DirectionText>
                                 </DirectionHeader>
                             </Tooltip>
-                            <SummaryText>
-                                {showTypeSummary && directDownstreamSummary ? (
-                                    <Trans
-                                        t={t}
-                                        i18nKey="sidebar.lineage.usedBy"
-                                        components={{
-                                            summary: getRelatedEntitySummary(
-                                                directDownstreamSummary as any,
-                                                entityRegistry,
-                                            ) as React.ReactElement,
-                                        }}
-                                    />
-                                ) : (
-                                    <Trans
-                                        t={t}
-                                        i18nKey="sidebar.lineage.usedBy"
-                                        components={{
-                                            summary: genericAssetSummary(directDownstreamCount),
-                                        }}
-                                    />
-                                )}
-                            </SummaryText>
+                            <SummaryText>{downstreamSummary}</SummaryText>
                         </Section>
                     )}
                 </>

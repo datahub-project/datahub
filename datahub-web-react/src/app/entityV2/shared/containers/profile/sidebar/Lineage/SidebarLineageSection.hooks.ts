@@ -1,31 +1,28 @@
-import { useApolloClient } from '@apollo/client';
-import { useContext, useMemo } from 'react';
+import { useContext } from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import {
+    LineageDirectionSummary,
+    getDirectDownstreamSummary,
+    getDirectUpstreamSummary,
+} from '@app/entityV2/shared/containers/profile/sidebar/Lineage/utils';
 import EntitySidebarContext, { SearchResultLineageCounts } from '@app/sharedV2/EntitySidebarContext';
 
 import {
-    GetSearchAcrossLineageCountsDocument,
     GetSearchAcrossLineageCountsQuery,
     useGetLineageCountsQuery,
     useGetSearchAcrossLineageCountsQuery,
 } from '@graphql/lineage.generated';
+import { SearchAcrossLineageResults } from '@types';
 
 type LineageCount = NonNullable<SearchResultLineageCounts['upstream']>;
+type CachedTypeResults = GetSearchAcrossLineageCountsQuery['upstreams'];
 
+// The relationship query reports every edge, including ones the graph hides.
 const getVisibleCount = (count?: LineageCount | null): number => (count?.total || 0) - (count?.filtered || 0);
 
 function hasLineageCounts(entity?: SearchResultLineageCounts | null): entity is SearchResultLineageCounts {
     return entity?.upstream != null || entity?.downstream != null;
-}
-
-function hasPositiveTypeFacets(results?: GetSearchAcrossLineageCountsQuery['upstreams'] | null): boolean {
-    const typeFacet = results?.facets?.find((facet) => facet.field === '_entityType' || facet.field === 'entity');
-    return (typeFacet?.aggregations ?? []).some((aggregation) => (aggregation.count || 0) > 0);
-}
-
-function hasUsableTypeBreakdown(data?: GetSearchAcrossLineageCountsQuery | null): boolean {
-    return hasPositiveTypeFacets(data?.upstreams) || hasPositiveTypeFacets(data?.downstreams);
 }
 
 function isLineageForUrn(
@@ -35,19 +32,22 @@ function isLineageForUrn(
     return hasLineageCounts(counts) && (!counts.urn || counts.urn === urn);
 }
 
-function readCachedSearchAcrossLineageCounts(
-    client: ReturnType<typeof useApolloClient>,
-    urn: string,
-    startTimeMillis?: number | null,
-): GetSearchAcrossLineageCountsQuery | null {
-    try {
-        return client.readQuery<GetSearchAcrossLineageCountsQuery>({
-            query: GetSearchAcrossLineageCountsDocument,
-            variables: { urn, startTimeMillis },
-        });
-    } catch {
-        return null;
+/**
+ * The cached breakdown is only used to name the neighbors, never to count them: it comes from a
+ * different query with different filtering, and it may be left over from an older profile visit.
+ * Naming a set we did not count is how "2 datasets" ends up next to a count of 3, so the summary
+ * is dropped unless its total matches the count we are about to render.
+ */
+function getMatchingTypeSummary(
+    results: CachedTypeResults | null | undefined,
+    count: number,
+    toSummary: (results: SearchAcrossLineageResults) => LineageDirectionSummary,
+): LineageDirectionSummary | undefined {
+    if (!results || count <= 0 || (results.total || 0) !== count) {
+        return undefined;
     }
+    const summary = toSummary(results as SearchAcrossLineageResults);
+    return summary.types.length > 0 ? summary : undefined;
 }
 
 type SearchSummaryLineageArgs = {
@@ -67,51 +67,46 @@ export function useSearchSummaryLineage({
     startTimeMillis,
     skip,
 }: SearchSummaryLineageArgs) {
-    const client = useApolloClient();
     const { searchResultLineage } = useContext(EntitySidebarContext);
-
-    const { data: cachedTypeQueryData } = useGetSearchAcrossLineageCountsQuery({
-        variables: { urn, startTimeMillis },
-        fetchPolicy: 'cache-only',
-        errorPolicy: 'ignore',
-        skip: !enabled || skip,
-    });
-
-    const typeBreakdownData = useMemo(() => {
-        if (!enabled || skip) {
-            return null;
-        }
-        return cachedTypeQueryData ?? readCachedSearchAcrossLineageCounts(client, urn, startTimeMillis);
-    }, [cachedTypeQueryData, client, enabled, skip, startTimeMillis, urn]);
-
-    const hasTypeBreakdown = hasUsableTypeBreakdown(typeBreakdownData);
+    const active = enabled && !skip;
 
     let cachedCounts: SearchResultLineageCounts | undefined;
-    if (isLineageForUrn(searchResultLineage, urn)) {
+    if (active && isLineageForUrn(searchResultLineage, urn)) {
         cachedCounts = searchResultLineage;
-    } else if (entityData?.urn === urn && (entityData?.upstream || entityData?.downstream)) {
+    } else if (active && entityData?.urn === urn && (entityData.upstream || entityData.downstream)) {
         cachedCounts = { urn, upstream: entityData.upstream, downstream: entityData.downstream };
     }
 
-    const { data: networkCounts, loading: networkLoading } = useGetLineageCountsQuery({
+    const { data: networkCounts, loading } = useGetLineageCountsQuery({
         variables: { urn, separateSiblings, startTimeMillis },
         fetchPolicy: 'cache-first',
-        skip: !enabled || skip || hasTypeBreakdown || hasLineageCounts(cachedCounts),
+        skip: !active || hasLineageCounts(cachedCounts),
     });
 
-    const countsEntity = (networkCounts?.entity as SearchResultLineageCounts | null | undefined) ?? cachedCounts;
-    const directUpstreamCount = hasTypeBreakdown
-        ? typeBreakdownData?.upstreams?.total || 0
-        : getVisibleCount(countsEntity?.upstream);
-    const directDownstreamCount = hasTypeBreakdown
-        ? typeBreakdownData?.downstreams?.total || 0
-        : getVisibleCount(countsEntity?.downstream);
+    const { data: cachedTypeData } = useGetSearchAcrossLineageCountsQuery({
+        variables: { urn, startTimeMillis },
+        fetchPolicy: 'cache-only',
+        errorPolicy: 'ignore',
+        skip: !active,
+    });
+
+    const counts = (networkCounts?.entity as SearchResultLineageCounts | null | undefined) ?? cachedCounts;
+    const directUpstreamCount = getVisibleCount(counts?.upstream);
+    const directDownstreamCount = getVisibleCount(counts?.downstream);
 
     return {
-        typeBreakdownData,
-        hasTypeBreakdown,
         directUpstreamCount,
         directDownstreamCount,
-        loading: !hasTypeBreakdown && !hasLineageCounts(cachedCounts) && networkLoading,
+        upstreamTypeSummary: getMatchingTypeSummary(
+            cachedTypeData?.upstreams,
+            directUpstreamCount,
+            getDirectUpstreamSummary,
+        ),
+        downstreamTypeSummary: getMatchingTypeSummary(
+            cachedTypeData?.downstreams,
+            directDownstreamCount,
+            getDirectDownstreamSummary,
+        ),
+        loading: !hasLineageCounts(cachedCounts) && loading,
     };
 }

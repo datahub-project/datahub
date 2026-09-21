@@ -18,7 +18,7 @@ type LineageDirectionTypeSummary = {
     isEntityType: boolean; // If false, this represents a sub-type.
 };
 
-type LineageDirectionSummary = {
+export type LineageDirectionSummary = {
     total: number;
     types: LineageDirectionTypeSummary[];
 };
