@@ -723,7 +723,7 @@ module.exports = {
       label: "Context and AI",
       items: [
         {
-          label: "Context Platform",
+          label: "Context",
           type: "category",
           link: {
             type: "doc",
@@ -738,7 +738,7 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Review Context Proposals",
+              label: "Validate Context",
               type: "doc",
               id: "docs/managed-datahub/context-platform/review-context-proposals",
               className: "saasOnly",
