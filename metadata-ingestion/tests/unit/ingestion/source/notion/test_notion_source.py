@@ -1106,6 +1106,29 @@ def test_unstructured_ingest_syncblock_handles_null_synced_from():
     assert duplicate.block_id == "abc"
 
 
+def test_empty_original_synced_block_is_reported(notion_source):
+    """1.4.28 may omit children on original synced blocks; surface that in the report."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
+        DuplicateSyncedBlock,
+        OriginalSyncedBlock,
+        SyncBlock,
+    )
+
+    notion_source._warn_on_empty_original_synced_blocks()
+
+    original = SyncBlock.from_dict({"id": "block-empty", "synced_from": None})
+    assert isinstance(original, OriginalSyncedBlock)
+    assert notion_source.report.num_synced_blocks_skipped == 1
+    assert "block-empty" in list(notion_source.report.synced_blocks_skipped)
+
+    duplicate = SyncBlock.from_dict(
+        {"synced_from": {"type": "block_id", "block_id": "abc"}}
+    )
+    assert isinstance(duplicate, DuplicateSyncedBlock)
+    assert notion_source.report.num_synced_blocks_skipped == 1
+
+
 def _document_entity_test_setup(notion_source, side_effect):
     """Wire a mocked document builder + chunking source whose inline processing raises
     side_effect, with the stateful gate enabled so _update_document_state WOULD be

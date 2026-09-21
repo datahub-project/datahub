@@ -613,6 +613,42 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         except Exception as e:
             logger.warning(f"Failed to apply generic notion-type field filter: {e}")
 
+    def _warn_on_empty_original_synced_blocks(self) -> None:
+        """Warn when 1.4.28 parses an original synced block with no children.
+
+        Do not replace ``SyncBlock.from_dict``: 1.4.28 already dispatches
+        ``synced_from is None`` to ``OriginalSyncedBlock``. Wrapping keeps that
+        fix and restores the operator warning the 0.7.2 monkeypatch used to emit
+        when Notion omitted children on the original block.
+        """
+        try:
+            from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
+                OriginalSyncedBlock,
+                SyncBlock,
+            )
+        except ImportError as e:
+            logger.warning(
+                f"SyncBlock class not found - skipping empty-children warning: {e}"
+            )
+            return
+
+        report = self.report
+        original_from_dict = SyncBlock.from_dict
+
+        def wrapped_from_dict(_cls: Type[Any], data: dict) -> Any:
+            result = original_from_dict(data)
+            if isinstance(result, OriginalSyncedBlock) and not getattr(
+                result, "children", None
+            ):
+                block_id = data.get("id") or "unknown"
+                report.report_synced_block_skipped(str(block_id))
+            return result
+
+        SyncBlock.from_dict = classmethod(wrapped_from_dict)  # type: ignore[method-assign]
+        logger.info(
+            "Wrapped SyncBlock.from_dict to report original synced blocks with empty children"
+        )
+
     def _initialize_state_tracking(self) -> None:
         """Initialize state tracking for content-based change detection.
 
@@ -1146,13 +1182,12 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         logger.info("Running Unstructured.io Notion pipeline...")
 
         # Apply monkeypatches for Notion API drift that unstructured-ingest 1.4.28
-        # still does not handle. 0.7.2-only patches (SyncBlock, iterate_query,
-        # property description, is_locked, numbered-list extra fields) were removed
-        # because 1.4.28 already implements those, and the old replacements would
-        # override upstream fixes.
+        # still does not handle. 0.7.2-only patches that replaced SyncBlock.from_dict
+        # and iterate_query were removed because 1.4.28 already implements those.
         self._monkeypatch_database_title_extraction()
         self._monkeypatch_icon_dispatcher_unknown_types()
         self._monkeypatch_notion_types_filter_unknown_fields()
+        self._warn_on_empty_original_synced_blocks()
 
         # Auto-discover pages if none provided
         page_ids = self.config.page_ids
