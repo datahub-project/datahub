@@ -121,9 +121,10 @@ def test_kafka_oauth_callback(
     with open(config_file) as fp:
         recipe = yaml.safe_load(fp)
 
-    pipeline = Pipeline.create(recipe)
-
-    pipeline.run()
+    # confluent-kafka 2.13+ invokes oauth_cb in Consumer/AdminClient
+    # constructors, before the post-construct poll() logs. The test
+    # broker does not advertise OAUTHBEARER, so skip pipeline.run().
+    Pipeline.create(recipe)
 
     # Initialize flags to track oauth events
     checks = {

@@ -224,15 +224,16 @@ class KafkaEventSource(EventSource):
                 continue
 
             self._observe_message(msg)
-            if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
+            error = msg.error()
+            if error:
+                if error.code() == KafkaError._PARTITION_EOF:
                     # End of partition event
                     logger.debug(
-                        "%% %s [%d] reached end at offset %d\n"
+                        "%% %s [%s] reached end at offset %s\n"
                         % (msg.topic(), msg.partition(), msg.offset())
                     )
-                elif msg.error():
-                    raise KafkaException(msg.error())
+                else:
+                    raise KafkaException(error)
             else:
                 if "mcl" in topic_routes and msg.topic() == topic_routes["mcl"]:
                     yield from self.handle_mcl(msg)
