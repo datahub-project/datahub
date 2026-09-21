@@ -9,6 +9,7 @@ import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
 import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
 import { SearchResultList } from '@app/searchV2/SearchResultList';
+import { SearchEntityWithLineage, getSearchResultLineage } from '@app/searchV2/SearchResults.utils';
 import SearchResultsLoadingSection from '@app/searchV2/SearchResultsLoadingSection';
 import BrowseSidebar from '@app/searchV2/sidebar';
 import { BrowseProvider } from '@app/searchV2/sidebar/BrowseContext';
@@ -18,27 +19,11 @@ import { useIsBrowseV2, useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVe
 import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-import { SearchResultLineageCounts } from '@app/sharedV2/EntitySidebarContext';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { SearchCfg } from '@src/conf';
 
 import { Entity, FacetFilterInput, MatchedField, SearchSuggestion } from '@types';
-
-type SearchEntityWithLineage = Entity & {
-    upstream?: SearchResultLineageCounts['upstream'];
-    downstream?: SearchResultLineageCounts['downstream'];
-};
-
-function getSearchResultLineage(entity?: SearchEntityWithLineage | null): SearchResultLineageCounts | null {
-    if (!entity) {
-        return null;
-    }
-    return {
-        upstream: entity.upstream,
-        downstream: entity.downstream,
-    };
-}
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;

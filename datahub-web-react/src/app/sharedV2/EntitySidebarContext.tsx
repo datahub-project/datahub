@@ -7,6 +7,7 @@ export interface FineGrainedOperation {
 }
 
 export type SearchResultLineageCounts = {
+    urn?: string;
     upstream?: { filtered?: number | null; total?: number | null } | null;
     downstream?: { filtered?: number | null; total?: number | null } | null;
 };

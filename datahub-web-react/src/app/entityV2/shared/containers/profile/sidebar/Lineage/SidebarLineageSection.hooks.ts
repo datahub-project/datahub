@@ -19,6 +19,22 @@ function hasLineageCounts(entity?: SearchResultLineageCounts | null): entity is 
     return entity?.upstream != null || entity?.downstream != null;
 }
 
+function hasPositiveTypeFacets(results?: GetSearchAcrossLineageCountsQuery['upstreams'] | null): boolean {
+    const typeFacet = results?.facets?.find((facet) => facet.field === '_entityType' || facet.field === 'entity');
+    return (typeFacet?.aggregations ?? []).some((aggregation) => (aggregation.count || 0) > 0);
+}
+
+function hasUsableTypeBreakdown(data?: GetSearchAcrossLineageCountsQuery | null): boolean {
+    return hasPositiveTypeFacets(data?.upstreams) || hasPositiveTypeFacets(data?.downstreams);
+}
+
+function isLineageForUrn(
+    counts: SearchResultLineageCounts | null | undefined,
+    urn: string,
+): counts is SearchResultLineageCounts {
+    return hasLineageCounts(counts) && (!counts.urn || counts.urn === urn);
+}
+
 function readCachedSearchAcrossLineageCounts(
     client: ReturnType<typeof useApolloClient>,
     urn: string,
@@ -68,13 +84,13 @@ export function useSearchSummaryLineage({
         return cachedTypeQueryData ?? readCachedSearchAcrossLineageCounts(client, urn, startTimeMillis);
     }, [cachedTypeQueryData, client, enabled, skip, startTimeMillis, urn]);
 
-    const hasTypeBreakdown = !!(typeBreakdownData?.upstreams || typeBreakdownData?.downstreams);
+    const hasTypeBreakdown = hasUsableTypeBreakdown(typeBreakdownData);
 
     let cachedCounts: SearchResultLineageCounts | undefined;
-    if (hasLineageCounts(searchResultLineage)) {
+    if (isLineageForUrn(searchResultLineage, urn)) {
         cachedCounts = searchResultLineage;
-    } else if (entityData?.upstream || entityData?.downstream) {
-        cachedCounts = { upstream: entityData.upstream, downstream: entityData.downstream };
+    } else if (entityData?.urn === urn && (entityData?.upstream || entityData?.downstream)) {
+        cachedCounts = { urn, upstream: entityData.upstream, downstream: entityData.downstream };
     }
 
     const { data: networkCounts, loading: networkLoading } = useGetLineageCountsQuery({

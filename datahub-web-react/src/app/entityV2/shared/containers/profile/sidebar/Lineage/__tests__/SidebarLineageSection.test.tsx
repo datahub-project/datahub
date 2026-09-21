@@ -49,35 +49,54 @@ function renderSection({
     operations,
     searchResultLineage,
     writeTypeBreakdown,
+    writeEmptyTypeBreakdown,
 }: {
     contextType: TabContextType;
     operations: string[];
     searchResultLineage?: SearchResultLineageCounts | null;
     writeTypeBreakdown?: boolean;
+    writeEmptyTypeBreakdown?: boolean;
 }) {
     const cache = new InMemoryCache({
         possibleTypes: possibleTypesResult.possibleTypes,
     });
-    if (writeTypeBreakdown) {
+    if (writeTypeBreakdown || writeEmptyTypeBreakdown) {
         cache.writeQuery({
             query: GetSearchAcrossLineageCountsDocument,
             variables: { urn: URN, startTimeMillis: null },
-            data: {
-                upstreams: {
-                    __typename: 'SearchAcrossLineageResults',
-                    start: 0,
-                    count: 2,
-                    total: 2,
-                    facets: typeFacets('DATASET', 2),
-                },
-                downstreams: {
-                    __typename: 'SearchAcrossLineageResults',
-                    start: 0,
-                    count: 1,
-                    total: 1,
-                    facets: typeFacets('CHART', 1),
-                },
-            },
+            data: writeEmptyTypeBreakdown
+                ? {
+                      upstreams: {
+                          __typename: 'SearchAcrossLineageResults',
+                          start: 0,
+                          count: 0,
+                          total: 0,
+                          facets: [],
+                      },
+                      downstreams: {
+                          __typename: 'SearchAcrossLineageResults',
+                          start: 0,
+                          count: 0,
+                          total: 0,
+                          facets: [],
+                      },
+                  }
+                : {
+                      upstreams: {
+                          __typename: 'SearchAcrossLineageResults',
+                          start: 0,
+                          count: 2,
+                          total: 2,
+                          facets: typeFacets('DATASET', 2),
+                      },
+                      downstreams: {
+                          __typename: 'SearchAcrossLineageResults',
+                          start: 0,
+                          count: 1,
+                          total: 1,
+                          facets: typeFacets('CHART', 1),
+                      },
+                  },
         });
     }
     const link = new ApolloLink(
@@ -175,6 +194,7 @@ describe('SidebarLineageSection', () => {
             contextType: TabContextType.SEARCH_SIDEBAR,
             operations,
             searchResultLineage: {
+                urn: URN,
                 upstream: { filtered: 0, total: 1 },
                 downstream: { filtered: 0, total: 3 },
             },
@@ -196,6 +216,39 @@ describe('SidebarLineageSection', () => {
         expect(await screen.findByText(textContent('Depends on 2 datasets'))).toBeInTheDocument();
         expect(screen.getByText(textContent('Used by 1 chart'))).toBeInTheDocument();
         expect(operations.filter((operation) => operation.toLowerCase().includes('lineage'))).toEqual([]);
+    });
+
+    it('ignores empty cached type breakdowns and still loads counts', async () => {
+        const operations: string[] = [];
+        renderSection({
+            contextType: TabContextType.SEARCH_SIDEBAR,
+            operations,
+            writeEmptyTypeBreakdown: true,
+        });
+
+        expect(await screen.findByText(textContent('Depends on 2 assets'))).toBeInTheDocument();
+        expect(screen.getByText(textContent('Used by 4 assets'))).toBeInTheDocument();
+        expect(operations.filter((operation) => operation.toLowerCase().includes('lineage'))).toEqual([
+            'getLineageCounts',
+        ]);
+    });
+
+    it('ignores search-result lineage that belongs to a different urn', async () => {
+        const operations: string[] = [];
+        renderSection({
+            contextType: TabContextType.SEARCH_SIDEBAR,
+            operations,
+            searchResultLineage: {
+                urn: 'urn:li:dataset:(urn:li:dataPlatform:snowflake,other.schema.table,PROD)',
+                upstream: { filtered: 0, total: 9 },
+                downstream: { filtered: 0, total: 9 },
+            },
+        });
+
+        expect(await screen.findByText(textContent('Depends on 2 assets'))).toBeInTheDocument();
+        expect(operations.filter((operation) => operation.toLowerCase().includes('lineage'))).toEqual([
+            'getLineageCounts',
+        ]);
     });
 
     it('keeps the detailed lineage query outside search summary', async () => {
