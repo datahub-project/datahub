@@ -123,19 +123,23 @@ def test_kafka_oauth_callback(mock_kafka_service, test_resources_dir, tmp_path):
         # confluent-kafka 2.13+ invokes oauth_cb in Consumer/AdminClient
         # constructors, before the post-construct poll() logs. The test
         # broker does not advertise OAUTHBEARER, so skip pipeline.run().
-        Pipeline.create(recipe)
-
-        log = log_file.read_text()
-        assert "Initiating polling for kafka consumer" in log, (
-            "Consumer polling was not initiated"
-        )
-        assert "Initiating polling for kafka admin client" in log, (
-            "Admin polling was not initiated"
-        )
-        callback_count = log.count(oauth.MESSAGE)
-        assert callback_count >= 2, (
-            f"Expected oauth_cb for consumer and admin clients, found {callback_count}"
-        )
+        # Close the source so librdkafka threads do not outlive the session
+        # (exit 134/139 at interpreter shutdown).
+        pipeline = Pipeline.create(recipe)
+        try:
+            log = log_file.read_text()
+            assert "Initiating polling for kafka consumer" in log, (
+                "Consumer polling was not initiated"
+            )
+            assert "Initiating polling for kafka admin client" in log, (
+                "Admin polling was not initiated"
+            )
+            callback_count = log.count(oauth.MESSAGE)
+            assert callback_count >= 2, (
+                f"Expected oauth_cb for consumer and admin clients, found {callback_count}"
+            )
+        finally:
+            pipeline.inner_exit_stack.close()
     finally:
         root_logger.removeHandler(file_handler)
         root_logger.setLevel(previous_level)
