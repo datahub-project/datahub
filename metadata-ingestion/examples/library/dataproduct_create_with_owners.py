@@ -14,14 +14,9 @@ Examples of ``ownership_type`` values:
 - "urn:li:ownershipType:producer" (custom URN)
 """
 
-import logging
-
 from datahub.emitter.mce_builder import make_dataset_urn, make_user_urn
 from datahub.emitter.mcp_builder import DataProductKey, gen_data_product
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
 
@@ -70,6 +65,6 @@ for wu in gen_data_product(
     # gen_data_product yields MetadataWorkUnit, extract the metadata for emission
     rest_emitter.emit(wu.metadata)  # type: ignore[arg-type]
 
-log.info(f"Created Data Product: {data_product_key.as_urn()}")
-log.info(f"  - With {len(owners)} owners (BUSINESS_OWNER)")
-log.info(f"  - With {len(assets)} assets")
+print(f"Created Data Product: {data_product_key.as_urn()}")
+print(f"  - With {len(owners)} owners (BUSINESS_OWNER)")
+print(f"  - With {len(assets)} assets")

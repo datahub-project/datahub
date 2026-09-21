@@ -12,6 +12,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.FieldResolver;
@@ -79,8 +80,32 @@ public class DomainWriteAuthorizationUtilsTest {
   }
 
   @Test
-  public void testShouldUseProposedDomains_existingEntityWithDomains() {
-    assertFalse(DomainWriteAuthorizationUtils.shouldUseProposedDomainsForMatch(true, true, true));
+  public void testExistingDomainsOnlyDropsMissingDomains() {
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.entityExists(any(), eq(Set.of(DOMAIN_X, DOMAIN_Y))))
+        .thenReturn(Map.of(DOMAIN_X, false, DOMAIN_Y, true));
+    Domains before = new Domains().setDomains(new UrnArray(DOMAIN_X, DOMAIN_Y));
+
+    Domains pruned =
+        DomainWriteAuthorizationUtils.existingDomainsOnly(
+            OperationFingerprint.EMPTY, retriever, before);
+
+    assertTrue(DomainWriteAuthorizationUtils.hasDomainMembership(pruned));
+    assertEquals(pruned.getDomains().size(), 1);
+    assertEquals(pruned.getDomains().get(0), DOMAIN_Y);
+  }
+
+  @Test
+  public void testExistingDomainsOnlyAllMissingYieldsEmptyMembership() {
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.entityExists(any(), eq(Set.of(DOMAIN_X)))).thenReturn(Map.of(DOMAIN_X, false));
+    Domains before = new Domains().setDomains(new UrnArray(DOMAIN_X));
+
+    Domains pruned =
+        DomainWriteAuthorizationUtils.existingDomainsOnly(
+            OperationFingerprint.EMPTY, retriever, before);
+
+    assertFalse(DomainWriteAuthorizationUtils.hasDomainMembership(pruned));
   }
 
   @Test
@@ -112,10 +137,14 @@ public class DomainWriteAuthorizationUtilsTest {
   }
 
   @Test
-  public void testResolveApiOperation_patchAlwaysUpdate() {
+  public void testResolveApiOperation_patchMissingEntityUsesCreate() {
     assertEquals(
         DomainWriteAuthorizationUtils.resolveApiOperation(ChangeType.PATCH, false),
-        ApiOperation.UPDATE);
+        ApiOperation.CREATE);
+  }
+
+  @Test
+  public void testResolveApiOperation_patchExistingUsesUpdate() {
     assertEquals(
         DomainWriteAuthorizationUtils.resolveApiOperation(ChangeType.PATCH, true),
         ApiOperation.UPDATE);
@@ -136,6 +165,52 @@ public class DomainWriteAuthorizationUtilsTest {
     Domains before = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
     assertFalse(
         DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(session, DATASET_URN, before, null));
+  }
+
+  @Test
+  public void testLookupDomainsAspectPrivileges_updateIncludesEditDomain() {
+    Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges =
+        DomainWriteAuthorizationUtils.lookupDomainsAspectPrivileges(ApiOperation.UPDATE, "dataset");
+    assertTrue(containsPrivilege(privileges, PoliciesConfig.EDIT_ENTITY_PRIVILEGE));
+    assertTrue(containsPrivilege(privileges, PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE));
+  }
+
+  @Test
+  public void testLookupDomainsAspectPrivileges_createOmitsEditDomain() {
+    Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges =
+        DomainWriteAuthorizationUtils.lookupDomainsAspectPrivileges(ApiOperation.CREATE, "dataset");
+    assertFalse(containsPrivilege(privileges, PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE));
+    assertTrue(containsPrivilege(privileges, PoliciesConfig.EDIT_ENTITY_PRIVILEGE));
+  }
+
+  @Test
+  public void testIsAuthorizedEntityWrite_updateAllowsEditDomainAlone() {
+    AuthorizationSession session =
+        sessionAllowing(PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE.getType());
+    Domains proposed = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATASET_URN, ApiOperation.UPDATE, true, proposed));
+  }
+
+  @Test
+  public void testIsAuthorizedEntityWrite_createRejectsEditDomainAlone() {
+    AuthorizationSession session =
+        sessionAllowing(PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE.getType());
+    Domains proposed = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATASET_URN, ApiOperation.CREATE, true, proposed));
+  }
+
+  @Test
+  public void testIsAuthorizedDomainsEdit_clearAllowedWithEditDomain() {
+    AuthorizationSession session =
+        sessionAllowing(PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE.getType());
+    Domains before = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATASET_URN, before, new Domains().setDomains(new UrnArray())));
   }
 
   @Test
@@ -374,6 +449,27 @@ public class DomainWriteAuthorizationUtilsTest {
         return new AspectTemplateEngine(aspectTemplateMap);
       }
     };
+  }
+
+  private static boolean containsPrivilege(
+      Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges,
+      PoliciesConfig.Privilege privilege) {
+    return privileges.stream().anyMatch(conjunct -> conjunct.contains(privilege));
+  }
+
+  private static AuthorizationSession sessionAllowing(String privilegeType) {
+    AuthorizationSession session = mock(AuthorizationSession.class);
+    when(session.authorize(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              String privilege = invocation.getArgument(0);
+              boolean allowed = privilegeType.equals(privilege);
+              return new AuthorizationResult(
+                  null,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  null);
+            });
+    return session;
   }
 
   @Nonnull

@@ -9,6 +9,7 @@
     "empty.title": "Tom ordlista",
     "list.error": "Kunde inte läsa in ordlistan! Ett oväntat fel uppstod.",
     "list.loading": "Läser in ordlistan...",
+    "page.contactAdmin": "Kontakta din DataHub-administratör för att konfigurera ordlistan.",
     "page.createGlossary": "Skapa ordlista",
     "page.subtitle": "Klassificera dina datatillgångar och kolumner med hjälp av dataordböcker",
     "page.title": "Ordlista",

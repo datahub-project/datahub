@@ -381,7 +381,7 @@ class _ExternalSchemaKey:
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following metadata from Databricks Unity Catalog:

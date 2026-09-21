@@ -7,7 +7,7 @@ from conftest import _ingest_cleanup_data_impl
 from tests.utilities.domains import Domain
 from tests.utils import delete_entity, execute_graphql
 
-pytestmark = pytest.mark.domain(Domain.OBSERVE)
+pytestmark = [pytest.mark.domain(Domain.OBSERVE), pytest.mark.p0]
 
 
 @pytest.fixture(scope="module", autouse=True)

@@ -2,7 +2,9 @@
 
 import logging
 import sqlite3
-from typing import Any, List
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,12 +16,15 @@ from datahub.ingestion.source.ge_profiling_config import (
     ProfilingIsolationLevel,
 )
 from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
+from datahub.ingestion.source.sql.postgres.source import BOX, CITEXT, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
+    format_profile_value,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
 from datahub.metadata.schema_classes import DatasetFieldProfileClass
+from datahub.utilities.stats_collections import float_top_k_dict
 
 
 @pytest.fixture
@@ -76,6 +81,10 @@ def mock_report():
     report = MagicMock(spec=SQLSourceReport)
     report.report_dropped = MagicMock()
     report.warning = MagicMock()
+    report.info = MagicMock()
+    # Dataclass fields with default_factory are not class attributes, so a spec'd mock
+    # does not expose them; wire the real TopKDict so the profiler's finally block can write.
+    report.profiling_time_taken_per_table_secs = float_top_k_dict()
     return report
 
 
@@ -126,6 +135,25 @@ class TestSQLAlchemyProfiler:
         # NullType stringifies to "NULL"; this is how Databricks VARIANT columns
         # (reflected as NullType) get skipped for profiling instead of erroring.
         assert profiler._should_ignore_column(sa.types.NullType(), "payload")
+
+    def test_should_ignore_column_postgres_no_equality_types(
+        self, sqlite_engine, profiler_config, mock_report
+    ):
+        """Postgres geometric/xml columns have no equality operator, so
+        COUNT(DISTINCT col) errors; they must be excluded from field profiling.
+        """
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=profiler_config,
+            platform="postgres",
+            env="TEST",
+        )
+        assert profiler._should_ignore_column(BOX(), "bbox")
+        assert profiler._should_ignore_column(XML(), "doc")
+        # Types with btree operator classes profile fine and must not be skipped.
+        assert not profiler._should_ignore_column(LTREE(), "tree_path")
+        assert not profiler._should_ignore_column(CITEXT(), "ci")
 
     def test_generate_profiles_empty_list(self, profiler):
         """Test generate_profiles with empty request list."""
@@ -495,7 +523,6 @@ class TestSQLAlchemyProfiler:
             cardinality=Cardinality.MANY,
             numeric_stats_futures=numeric_stats_futures,
             pretty_name="test.table",
-            platform="sqlite",
         )
 
         # Verify warning was logged
@@ -532,7 +559,6 @@ class TestSQLAlchemyProfiler:
                     "cardinality": Cardinality.MANY,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
-                    "platform": "sqlite",
                 },
                 "expected_title": "Profiling: Unable to Calculate Histogram",
                 "expected_context": "test.table.value_col",
@@ -548,7 +574,6 @@ class TestSQLAlchemyProfiler:
                     "cardinality": Cardinality.MANY,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
-                    "platform": "sqlite",
                 },
                 "expected_title": "Profiling: Unable to Calculate Quantiles",
                 "expected_context": "test.table.value_col",
@@ -1292,3 +1317,179 @@ class TestIgnoreSamplingColumnNames:
             == []
         )
         adapter.field_path_for.assert_not_called()
+
+
+class TestQueryCombinerWiring:
+    """The flatten knobs are useless if the config never reaches the combiner."""
+
+    def _combiner_kwargs(
+        self, sqlite_engine: Any, mock_report: Any, config: ProfilingConfig
+    ) -> Dict[str, Any]:
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler"
+            ".SQLAlchemyQueryCombiner"
+        ) as combiner_cls:
+            list(profiler.generate_profiles(requests=[], max_workers=1))
+        return dict(combiner_cls.call_args.kwargs)
+
+    def test_flatten_knobs_reach_the_combiner(
+        self, sqlite_engine: Any, mock_report: Any
+    ) -> None:
+        config = ProfilingConfig(
+            enabled=True,
+            query_combiner_flatten_enabled=True,
+            max_distinct_per_statement=3,
+        )
+        kwargs = self._combiner_kwargs(sqlite_engine, mock_report, config)
+
+        assert kwargs["flatten_enabled"] is True
+        assert kwargs["max_distinct_per_statement"] == 3
+
+    def test_defaults_leave_flattening_off(
+        self, sqlite_engine: Any, mock_report: Any
+    ) -> None:
+        kwargs = self._combiner_kwargs(
+            sqlite_engine, mock_report, ProfilingConfig(enabled=True)
+        )
+
+        assert kwargs["flatten_enabled"] is False
+
+
+class TestFormatProfileValue:
+    """Tests for the unified format_profile_value function."""
+
+    # -- None handling --
+
+    @pytest.mark.parametrize(
+        "col_type",
+        [
+            ProfilerDataType.INT,
+            ProfilerDataType.FLOAT,
+            ProfilerDataType.NUMERIC,
+            ProfilerDataType.DATETIME,
+            ProfilerDataType.STRING,
+        ],
+    )
+    def test_none_returns_none(self, col_type: ProfilerDataType) -> None:
+        assert format_profile_value(None, col_type) is None
+        assert format_profile_value(None, col_type, as_stat=True) is None
+
+    # -- INT data values (min/max/histogram) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (100, "100"),
+            (0, "0"),
+            (float(100.0), "100"),
+            (Decimal("100"), "100"),
+        ],
+    )
+    def test_int_data_value(self, value: Any, expected: str) -> None:
+        assert format_profile_value(value, ProfilerDataType.INT) == expected
+
+    # -- INT stat values (mean/median/stdev/quantiles) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (100, "100.0"),
+            (0, "0.0"),
+            (float(100.0), "100.0"),
+            (Decimal("100"), "100.0"),
+            (3.14, "3.14"),
+            (Decimal("3.14"), "3.14"),
+        ],
+    )
+    def test_int_stat_value(self, value: Any, expected: str) -> None:
+        assert (
+            format_profile_value(value, ProfilerDataType.INT, as_stat=True) == expected
+        )
+
+    # -- FLOAT data values --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (1, "1.0"),
+            (1.0, "1.0"),
+            (3.14, "3.14"),
+            (Decimal("42"), "42.0"),
+            (Decimal("3.14"), "3.14"),
+        ],
+    )
+    def test_float_data_value(self, value: Any, expected: str) -> None:
+        assert format_profile_value(value, ProfilerDataType.FLOAT) == expected
+
+    # -- FLOAT stat values (same as data values for FLOAT) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (1, "1.0"),
+            (3.14, "3.14"),
+            (Decimal("42"), "42.0"),
+        ],
+    )
+    def test_float_stat_value(self, value: Any, expected: str) -> None:
+        assert (
+            format_profile_value(value, ProfilerDataType.FLOAT, as_stat=True)
+            == expected
+        )
+
+    # -- NUMERIC data values (same rules as FLOAT) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (100, "100.0"),
+            (Decimal("100"), "100.0"),
+            (Decimal("3.14"), "3.14"),
+        ],
+    )
+    def test_numeric_data_value(self, value: Any, expected: str) -> None:
+        assert format_profile_value(value, ProfilerDataType.NUMERIC) == expected
+
+    # -- DATETIME values --
+
+    def test_datetime_object(self) -> None:
+        dt = datetime(2024, 1, 1, 12, 0, 0)
+        assert (
+            format_profile_value(dt, ProfilerDataType.DATETIME) == "2024-01-01T12:00:00"
+        )
+
+    def test_date_object(self) -> None:
+        d = date(2024, 1, 1)
+        assert format_profile_value(d, ProfilerDataType.DATETIME) == "2024-01-01"
+
+    def test_datetime_string_with_space(self) -> None:
+        assert (
+            format_profile_value("2024-01-01 12:00:00", ProfilerDataType.DATETIME)
+            == "2024-01-01T12:00:00"
+        )
+
+    def test_date_string(self) -> None:
+        assert (
+            format_profile_value("2024-01-01", ProfilerDataType.DATETIME)
+            == "2024-01-01T00:00:00"
+        )
+
+    def test_datetime_unparseable_string_returned_as_is(self) -> None:
+        # Non-ISO strings that fromisoformat can't parse are returned unchanged
+        assert (
+            format_profile_value("2024/01/02 10:30", ProfilerDataType.DATETIME)
+            == "2024/01/02 10:30"
+        )
+
+    # -- STRING type --
+
+    def test_string_type(self) -> None:
+        assert format_profile_value("hello", ProfilerDataType.STRING) == "hello"
+        assert format_profile_value(42, ProfilerDataType.STRING) == "42"

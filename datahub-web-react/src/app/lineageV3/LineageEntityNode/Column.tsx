@@ -103,7 +103,11 @@ const ColumnLinkWrapper = styled(Link)`
 `;
 
 const ColumnText = styled(Typography.Text)`
-    color: inherit;
+    // Outranks the global '.ant-typography' color, which otherwise keeps a disabled column's
+    // label at full strength instead of letting it inherit the wrapper's disabled color
+    &&& {
+        color: inherit;
+    }
 `;
 
 const StyledLoadingIndicator = styled(LoadingOutlined)`
@@ -165,7 +169,6 @@ export default function Column({
     const turnOnDisabledTooltipOnHover = useCallback(() => setShowDisabledTooltipOnHover(true), []);
 
     const { initiateRequest, cancelRequest, loading } = useFetchColumnCounts(
-        parentUrn,
         schemaFieldUrn,
         lineageAsset,
         turnOnDisabledTooltipOnHover,
@@ -208,10 +211,11 @@ export default function Column({
 
     const handleMouseLeave = useCallback(() => {
         if (!selectedColumn) {
+            setHoveredColumn(null);
             setShowDisabledTooltipOnHover(false);
             cancelRequest();
         }
-    }, [selectedColumn, cancelRequest]);
+    }, [selectedColumn, setHoveredColumn, cancelRequest]);
 
     // TODO: Add hover text if overflowed
     const contents = (
@@ -221,6 +225,8 @@ export default function Column({
                 fromSelect={!!selectedColumn}
                 selected={selected}
                 disabled={showAsDisabled}
+                // eslint-disable-next-line i18next/no-literal-string
+                data-highlighted={highlighted ? 'true' : 'false'}
                 onClick={(e) => {
                     if (!showAsDisabled) {
                         onClickPreventSelect(e);

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.dashboard;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContextWithOperationContext;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -99,6 +100,24 @@ public class DashboardUsageStatsResolverTest {
     assertEquals((int) result.getMetrics().get(0).getViewsCount(), 7);
     Mockito.verify(tsService, Mockito.atLeastOnce())
         .getAspectValues(any(), any(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testDeniedReturnsEmptyWithoutTimeseriesWork() throws Exception {
+    TimeseriesAspectService tsService = Mockito.mock(TimeseriesAspectService.class);
+    QueryContext denyCtx = getMockDenyContextWithOperationContext();
+    Harness h = harnessWithTimeseriesLoader(denyCtx, Collections.singletonList(tsDoc(42)));
+
+    DashboardUsageQueryResult result =
+        drive(new DashboardUsageStatsResolver(tsService, true, true), h);
+
+    assertNotNull(result);
+    assertTrue(result.getMetrics() == null || result.getMetrics().isEmpty());
+    assertTrue(result.getBuckets() == null || result.getBuckets().isEmpty());
+    Mockito.verify(tsService, Mockito.never())
+        .getAspectValues(any(), any(), any(), any(), any(), any(), any(), any());
+    Mockito.verify(tsService, Mockito.never())
+        .getAggregatedStats(any(), any(), any(), any(), any(), any());
   }
 
   @Test

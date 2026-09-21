@@ -157,7 +157,7 @@ export function IngestionSourceCreatePage() {
         <DiscardUnsavedChangesConfirmationProvider
             enableRedirectHandling={!isSubmitting}
             confirmationModalTitle={t('multiStep.builder.discard.title')}
-            confirmationModalContent={
+            confirmModalContent={
                 <Text color="gray" colorLevel={1700}>
                     {t('multiStep.builder.discard.description')}
                 </Text>

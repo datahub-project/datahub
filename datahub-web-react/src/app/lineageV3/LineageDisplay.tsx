@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { useReactFlow } from 'reactflow';
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useOnSelectionChange, useReactFlow } from 'reactflow';
 
 import { LINEAGE_ANNOTATION_NODE_NAME } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import useAddAnnotationNodes from '@app/lineageV3/LineageAnnotationNode/useAddAnnotationNodes';
@@ -8,13 +8,20 @@ import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/Linea
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 import LineageSidebar from '@app/lineageV3/LineageSidebar';
 import LineageVisualization from '@app/lineageV3/LineageVisualization';
-import { ColumnRef, LineageDisplayContext, LineageNodesContext, setDefault } from '@app/lineageV3/common';
+import {
+    ColumnRef,
+    LineageDisplayContext,
+    LineageEntity,
+    LineageNodesContext,
+    setDefault,
+} from '@app/lineageV3/common';
 import useBulkBoundingBoxMemberships from '@app/lineageV3/queries/useBulkBoundingBoxMemberships';
 import useBulkEntityLineage from '@app/lineageV3/queries/useBulkEntityLineage';
 import useColumnHighlighting from '@app/lineageV3/useColumnHighlighting';
 import { getNodePriority } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import useComputeGraph from '@app/lineageV3/useComputeGraph/useComputeGraph';
 import useNodeHighlighting from '@app/lineageV3/useNodeHighlighting';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 
 type Props = {
     refetchCenterNode?: () => void;
@@ -32,6 +39,7 @@ export default function LineageDisplay({
     const [selectedColumn, setSelectedColumn] = useState<ColumnRef | null>(null);
     const [hoveredColumn, setHoveredColumn] = useState<ColumnRef | null>(null);
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+    const [selectedNode, setSelectedNode] = useSelectedNode();
     const [displayedMenuNode, setDisplayedMenuNode] = useState<string | null>(null);
 
     const {
@@ -68,9 +76,14 @@ export default function LineageDisplay({
     useBulkBoundingBoxMemberships();
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, displayedAdjacencyList);
-    const { cllHighlightedNodes, highlightedColumns, shownRelatedColumns } = useColumnHighlighting(
-        selectedColumn,
-        hoveredColumn,
+    const {
+        columnHighlightSource,
+        columnHighlightedEdges,
+        cllHighlightedNodes,
+        highlightedColumns,
+        shownRelatedColumns,
+    } = useColumnHighlighting(
+        { selectedColumn, hoveredColumn, selectedNode: selectedNode?.urn ?? null, hoveredNode },
         fineGrainedLineage.indirect,
         shownUrns,
         nodeIdsByUrn,
@@ -134,10 +147,14 @@ export default function LineageDisplay({
                 lineageFilters,
                 displayedMenuNode,
                 setDisplayedMenuNode,
+                selectedNode,
+                setSelectedNode,
                 selectedColumn,
                 setSelectedColumn,
                 hoveredColumn,
                 setHoveredColumn,
+                columnHighlightSource,
+                columnHighlightedEdges,
                 highlightedNodes,
                 cllHighlightedNodes,
                 highlightedColumns,
@@ -153,6 +170,28 @@ export default function LineageDisplay({
             <LineageSidebar />
         </LineageDisplayContext.Provider>
     );
+}
+
+/**
+ * The entity whose node is selected on the graph: shown in the lineage sidebar, and the source of
+ * column highlights for an entity that takes part in column lineage as a whole, e.g. a metric.
+ */
+function useSelectedNode(): [LineageEntity | null, (v: LineageEntity | null) => void] {
+    // Entity Profile sidebar, not lineage sidebar
+    const { setSidebarClosed } = useContext(EntitySidebarContext);
+    const [selectedNode, setSelectedNode] = useState<LineageEntity | null>(null);
+
+    useOnSelectionChange({
+        onChange: useCallback(
+            ({ nodes }) => {
+                if (nodes.length) setSidebarClosed(true);
+                setSelectedNode(nodes.length ? nodes[nodes.length - 1].data : null);
+            },
+            [setSidebarClosed],
+        ),
+    });
+
+    return [selectedNode, setSelectedNode];
 }
 
 function useFitView(loaded: boolean) {

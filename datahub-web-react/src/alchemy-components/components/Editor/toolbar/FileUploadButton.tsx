@@ -10,7 +10,7 @@ import { CommandButton } from '@components/components/Editor/toolbar/CommandButt
 import { FileUploadContent } from '@components/components/Editor/toolbar/FileUploadContent';
 
 const DropdownContainer = styled.div`
-    box-shadow: ${({ theme }) => theme.colors.shadowMd};
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     display: flex;
     flex-direction: column;
     padding: 8px;

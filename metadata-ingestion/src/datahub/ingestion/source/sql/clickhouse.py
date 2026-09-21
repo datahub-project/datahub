@@ -516,7 +516,7 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
@@ -795,11 +795,11 @@ ORDER BY event_time ASC
                 session_id=row.get("query_id"),
                 timestamp=event_time,
                 user=CorpUserUrn(user) if user else None,
-                # Don't pass current_database as default_db. ClickHouse uses 2-level
-                # naming (database.table), but sqlglot expects 3-level (database.schema.table).
-                # Passing current_database causes sqlglot to prepend it to already-qualified
-                # names, creating incorrect URNs like "default.analytics_marts.table".
+                # ClickHouse is 2-level: the database goes in the schema slot (as in
+                # TwoTierSQLAlchemySource.get_db_schema); default_db would fill the
+                # unused catalog slot, over-qualifying to "default.my_db.table".
                 default_db=None,
+                default_schema=row.get("current_database") or None,
                 query_hash=str(row.get("normalized_query_hash", "")),
             )
         except Exception as e:

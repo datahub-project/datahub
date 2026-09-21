@@ -37,7 +37,7 @@ const BaseStyledTable = styled(Table)<StyledTableProps>`
         > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
             [colspan]
         )::before {
-        border: 1px solid ${(props) => props.theme.colors.bgHover};
+        border: 1px solid ${(props) => props.theme.colors.border};
     }
     && {
         .ant-table-tbody > tr > td {

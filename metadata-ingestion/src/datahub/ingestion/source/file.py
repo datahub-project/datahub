@@ -192,7 +192,7 @@ class FileSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("Metadata File")
 @config_class(FileSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
     """

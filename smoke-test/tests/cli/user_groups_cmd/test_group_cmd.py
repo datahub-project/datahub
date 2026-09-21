@@ -14,7 +14,7 @@ from tests.utils import delete_urns, run_datahub_cmd, sync_elastic
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.INGESTION, Domain.PLATFORM)
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 
 def datahub_upsert_group(auth_session: Any, group: CorpGroup) -> None:
@@ -88,6 +88,7 @@ def get_group_membership(graph_client: DataHubGraph, user_urn: str) -> List[str]
     return [entity.urn for entity in entities]
 
 
+@pytest.mark.p0
 def test_group_upsert(auth_session: Any, graph_client: DataHubGraph) -> None:
     num_groups: int = 10
     for i, datahub_group in enumerate(gen_datahub_groups(num_groups)):

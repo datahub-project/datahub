@@ -55,6 +55,17 @@ When `extract_metric_expressions: true`, the connector fetches accessible metric
 
 When `extract_model_lineage: true`, the connector probes modeling table APIs needed for logical table and physical source warehouse lineage. Missing privileges are reported as warnings and counters; the connector continues with dashboard, dataset, metric, and source warehouse metadata.
 
+#### Semantic Model
+
+Set `emit_semantic_model_entities: true` to additionally emit each project's schema as a first-class `semanticModel` entity, separate from the dashboard/report datasets described above. Attributes and Facts are project-wide MicroStrategy schema objects reusable across every report and cube in a project, so the project — not any one report — is the unit of a semantic model:
+
+- One `semanticModel` entity per project.
+- One logical dataset (subtype `Semantic Model Dataset`) per MicroStrategy logical table, with attributes emitted as `Dimension`-annotated fields and facts as `Measure`-annotated fields. Each logical dataset carries coarse upstream lineage to its physical warehouse table when a warehouse context is resolved for the project.
+- One `metric` entity per project metric (Base, Derived/Compound, and Consolidated), with lineage resolved from the metric's own expression: a Base metric's `metricUpstreams` point at the logical dataset(s) backing the facts/attributes it reads; a Derived/Compound metric's `metricRelationships.derivedFrom` points at the `metric` entities it is computed from; a Consolidated metric resolves its consolidation's attribute references (one extra API call per distinct consolidation, cached across metrics that share one) and sets `metricUpstreams` from those.
+- Relationships between logical datasets, derived from MicroStrategy's attribute hierarchy API: an attribute shared across more than one logical table triggers a lookup of that attribute's parent/child relationships, and a `semanticModelRelationship` is emitted when the two ends resolve to different tables (a hierarchy encoded entirely within one lookup table's columns has nothing to join, so no relationship is emitted for that case).
+
+This is additive: it does not change the dashboard/report/dataset emission described elsewhere on this page, and is disabled by default. It requires `extract_model_lineage` access to the MicroStrategy modeling APIs (the same access `extract_model_lineage` already needs) and a DataHub server that registers `semanticModel`/`metric` (Cloud >= 2.1.0, or OSS with `METRICS_ENABLED=true`).
+
 #### Metric and Attribute Tags
 
 MicroStrategy metrics and attributes are emitted as schema fields on the dashboard dataset/cube. The connector attaches canonical DataHub tags to the fields:

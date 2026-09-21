@@ -14,6 +14,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
+    ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
@@ -283,19 +284,11 @@ class BigQueryAdapter(PlatformAdapter):
         """
         Sample a large table (or partition) into a cached temp table.
 
-        Mirrors the GE profiler (update_dataset_batch_use_sampling): run
-        `SELECT * FROM <target> TABLESAMPLE SYSTEM (pc PERCENT)` and reuse
-        BigQuery's cached-results table as the profiling target. Because
+        Runs `SELECT * FROM <target> TABLESAMPLE SYSTEM (pc PERCENT)` and
+        reuses BigQuery's cached-results table as the profiling target. Because
         TABLESAMPLE must be applied to a table (not a subquery), a partitioned
         table is sampled via the partition temp table materialized in step 1,
         not by wrapping the partition SQL.
-
-        Note on custom_sql: for BigQuery, `custom_sql` (the partition filter
-        built in bigquery_v2/profiler.py) feeds BOTH the GE and SQLAlchemy
-        engines — unlike Snowflake, where #18253 gated custom_sql to the GE
-        path. Once the GE profiler is removed, partition selection should be
-        pushed down into this adapter (see the deprecation note on
-        ProfilingContext.custom_sql).
 
         Args:
             context: Current profiling context
@@ -398,7 +391,7 @@ class BigQueryAdapter(PlatformAdapter):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         """
@@ -428,7 +421,9 @@ class BigQueryAdapter(PlatformAdapter):
             for q, idx in zip(quantiles, indices, strict=False)
         ]
         query = sa.select(selects).select_from(table)
-        result = conn.execute(query).fetchone()
+        # Single-row, but on the main greenlet, so not batchable regardless --
+        # see ProfilingConnection.execute_rows.
+        result = conn.execute_rows(query).fetchone()
         if result is None:
             return [None] * len(quantiles)
         return [float(v) if v is not None else None for v in result]

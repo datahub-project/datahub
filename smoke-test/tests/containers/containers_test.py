@@ -90,6 +90,7 @@ def ingest_cleanup_data(auth_session, graph_client, tmp_path_factory):
         delete_urns_from_file(graph_client, data_file)
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 # The query below reads platform, subTypes, editableProperties and related
 # entities in one shot, and each aspect is indexed independently -- a single
