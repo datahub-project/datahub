@@ -5277,6 +5277,11 @@ type Tag implements Entity {
   deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
+  The soft-deletion status of the Tag
+  """
+  status: Status @aspectMapping(aspects: ["status"])
+
+  """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult

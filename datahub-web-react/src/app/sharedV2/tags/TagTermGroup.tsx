@@ -190,7 +190,10 @@ export default function TagTermGroup({
             entitySubresource,
             managed: false,
         })),
-    ];
+        // Soft-deleting a term/tag sets Status.removed on the entity but doesn't detach the
+        // associations already stored on assets, and the read path doesn't drop them — so filter
+        // stale edges to removed entities out here.
+    ].filter((item) => !item.term.term.status?.removed);
     const dedupedTerms = dedupeByUrn(
         orderedTerms,
         (item) => item.term.term.urn,
@@ -211,7 +214,7 @@ export default function TagTermGroup({
             managed: false,
         })),
         ...(editableTags?.tags ?? []).map((tag) => ({ tag, canRemove, entitySubresource, managed: false })),
-    ];
+    ].filter((item) => !item.tag.tag.status?.removed);
     const dedupedTags = dedupeByUrn(
         orderedTags,
         (item) => item.tag.tag.urn,
