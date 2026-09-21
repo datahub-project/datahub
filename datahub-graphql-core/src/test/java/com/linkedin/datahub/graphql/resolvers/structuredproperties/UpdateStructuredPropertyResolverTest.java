@@ -9,6 +9,7 @@ import static org.testng.Assert.*;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AllowedValueInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertySettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateStructuredPropertyInput;
@@ -24,6 +25,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertySettings;
 import graphql.schema.DataFetchingEnvironment;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.ArgumentCaptor;
@@ -39,6 +41,7 @@ public class UpdateStructuredPropertyResolverTest {
           "New Display Name",
           "new description",
           true,
+          null,
           null,
           null,
           null,
@@ -106,6 +109,76 @@ public class UpdateStructuredPropertyResolverTest {
   }
 
   @Test
+  public void testReplaceAllowedValuesPreservesInputOrder() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true);
+    UpdateStructuredPropertyResolver resolver =
+        new UpdateStructuredPropertyResolver(mockEntityClient);
+    AllowedValueInput first = new AllowedValueInput();
+    first.setStringValue("Gold");
+    AllowedValueInput second = new AllowedValueInput();
+    second.setStringValue("Silver");
+    UpdateStructuredPropertyInput input =
+        new UpdateStructuredPropertyInput(
+            TEST_STRUCTURED_PROPERTY_URN,
+            null,
+            null,
+            null,
+            null,
+            null,
+            List.of(first, second),
+            null,
+            null,
+            null,
+            null);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpCaptor = ArgumentCaptor.forClass(List.class);
+    Mockito.verify(mockEntityClient)
+        .batchIngestProposals(any(), mcpCaptor.capture(), Mockito.eq(false));
+    String patchJson =
+        mcpCaptor.getValue().get(0).getAspect().getValue().asString(StandardCharsets.UTF_8);
+    assertTrue(patchJson.contains("\"op\":\"replace\""));
+    assertTrue(patchJson.indexOf("Gold") < patchJson.indexOf("Silver"));
+  }
+
+  @Test
+  public void testRejectsBothAllowedValueUpdateModes() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true);
+    UpdateStructuredPropertyResolver resolver =
+        new UpdateStructuredPropertyResolver(mockEntityClient);
+    AllowedValueInput value = new AllowedValueInput();
+    value.setStringValue("Gold");
+    UpdateStructuredPropertyInput input =
+        new UpdateStructuredPropertyInput(
+            TEST_STRUCTURED_PROPERTY_URN,
+            null,
+            null,
+            null,
+            null,
+            List.of(value),
+            List.of(value),
+            null,
+            null,
+            null,
+            null);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockEntityClient, Mockito.never())
+        .batchIngestProposals(any(), Mockito.anyList(), Mockito.eq(false));
+  }
+
+  @Test
   public void testGetInvalidSettingsInput() throws Exception {
     EntityClient mockEntityClient = initMockEntityClient(true);
     UpdateStructuredPropertyResolver resolver =
@@ -122,6 +195,7 @@ public class UpdateStructuredPropertyResolverTest {
             "New Display Name",
             "new description",
             true,
+            null,
             null,
             null,
             null,
@@ -163,6 +237,7 @@ public class UpdateStructuredPropertyResolverTest {
             null,
             null,
             null,
+            null,
             settingsInput);
 
     // Execute resolver
@@ -197,6 +272,7 @@ public class UpdateStructuredPropertyResolverTest {
             "New Display Name",
             "new description",
             true,
+            null,
             null,
             null,
             null,
@@ -247,6 +323,7 @@ public class UpdateStructuredPropertyResolverTest {
             "New Display Name",
             "new description",
             true,
+            null,
             null,
             null,
             null,

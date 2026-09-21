@@ -3328,7 +3328,7 @@ public class PolicyEngineTest {
     resourceFilter.setFilter(filter);
     dataHubPolicyInfo.setResources(resourceFilter);
 
-    // Build resource with double value 42.0 (as stored from database)
+    // Build resource with double value 42.0 (as stored from database, with DOUBLE: prefix)
     ResolvedEntitySpec resourceSpec =
         buildEntityResolversWithStructuredProperties(
             "dataset",
@@ -3338,7 +3338,8 @@ public class PolicyEngineTest {
             Collections.emptySet(),
             Collections.emptySet(),
             Collections.emptySet(),
-            ImmutableMap.of("urn:li:structuredProperty:priority_score", ImmutableSet.of("42.0")));
+            ImmutableMap.of(
+                "urn:li:structuredProperty:priority_score", ImmutableSet.of("DOUBLE:42.0")));
 
     PolicyEngine.PolicyEvaluationResult result =
         _policyEngine.evaluatePolicy(
@@ -3390,7 +3391,7 @@ public class PolicyEngineTest {
     resourceFilter.setFilter(filter);
     dataHubPolicyInfo.setResources(resourceFilter);
 
-    // Resource has 42.0, which numerically equals 42
+    // Resource has 42.0, which numerically equals 42 (with DOUBLE: prefix)
     ResolvedEntitySpec resourceSpec =
         buildEntityResolversWithStructuredProperties(
             "dataset",
@@ -3400,7 +3401,8 @@ public class PolicyEngineTest {
             Collections.emptySet(),
             Collections.emptySet(),
             Collections.emptySet(),
-            ImmutableMap.of("urn:li:structuredProperty:priority_score", ImmutableSet.of("42.0")));
+            ImmutableMap.of(
+                "urn:li:structuredProperty:priority_score", ImmutableSet.of("DOUBLE:42.0")));
 
     PolicyEngine.PolicyEvaluationResult result =
         _policyEngine.evaluatePolicy(
@@ -3413,6 +3415,70 @@ public class PolicyEngineTest {
 
     // Should NOT match: 42.0 numerically equals 42, so NOT_EQUALS should be false
     assertFalse(result.isGranted(), "42.0 should match 42 numerically, so NOT_EQUALS should fail");
+  }
+
+  @Test
+  public void testEvaluatePolicyStructuredPropertyStringNumericLikeNotMatch() throws Exception {
+    // Test: STRING properties with numeric-like values should NOT match via numeric comparison
+    // This verifies the P1 bug fix: "001" should NOT match "1" for STRING properties
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("String Property Numeric-Like Policy");
+    dataHubPolicyInfo.setDescription("Policy with STRING property containing numeric-like values");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setAllUsers(true);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    // Create policy with criterion value "1"
+    final PolicyMatchCriterion criterion = new PolicyMatchCriterion();
+    criterion.setField("STRUCTURED_PROPERTY");
+    criterion.setCondition(PolicyMatchCondition.EQUALS);
+    final StructuredPropertyCriterionValue propValue = new StructuredPropertyCriterionValue();
+    propValue.setPropertyUrn(Urn.createFromString("urn:li:structuredProperty:version_code"));
+    propValue.setValues(new StringArray("1"));
+    final StructuredPropertyCriterionValueArray propValues =
+        new StructuredPropertyCriterionValueArray();
+    propValues.add(propValue);
+    criterion.setStructuredPropertyValues(propValues);
+
+    final PolicyMatchFilter filter = new PolicyMatchFilter();
+    filter.setCriteria(new PolicyMatchCriterionArray(criterion));
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setFilter(filter);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    // Resource has string value "001" (not a double, so no DOUBLE: prefix)
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolversWithStructuredProperties(
+            "dataset",
+            RESOURCE_URN,
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            Collections.emptySet(),
+            ImmutableMap.of("urn:li:structuredProperty:version_code", ImmutableSet.of("001")));
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+
+    // Should NOT match: "001" (STRING) should NOT match "1" (criterion)
+    // STRING properties use exact string comparison only, no numeric fallback
+    assertFalse(result.isGranted(), "STRING property \"001\" should NOT match criterion \"1\"");
   }
 
   public static ResolvedEntitySpec buildEntityResolversWithStructuredProperties(

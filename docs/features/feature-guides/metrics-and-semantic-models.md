@@ -18,7 +18,7 @@ Metrics & Semantic Models is currently in **Beta**. The underlying entity model 
 DataHub Metrics is a **catalog for metric definitions**, transforming how your team documents, discovers, and governs business measurements:
 
 - **Single source of truth for definitions** — End the "which revenue number is right?" debate by cataloging each metric once, with its owner, description, calculation, and dimensional context.
-- **Lineage from KPI to source column** — Trace every metric through its Semantic Model and logical datasets down to the physical tables and columns that feed it.
+- **Lineage from KPI to source and consumers** — Trace every metric through the logical datasets it reads down to the physical tables and columns that feed it, and out to the Charts, Dashboards, and Datasets that consume it.
 - **AI-ready context** — Attach synonyms, natural-language instructions, and example questions to every metric so agents and Ask DataHub can resolve natural language questions against cataloged definitions instead of guessing.
 - **Governed like everything else** — Metrics and Semantic Models are full DataHub entities: owners, domains, tags, glossary terms, structured properties, and documentation all attach to them the same way they attach to Datasets.
 - **Portable, tool-agnostic model** — The model is designed to accept metrics from any semantic layer (Snowflake Semantic Views today; dbt Semantic Layer, Databricks metric views, and BI-tool metrics on the roadmap), so investing in the catalog is not a bet on one tool.
@@ -43,7 +43,7 @@ Each Semantic Model page includes:
 - **Related Metrics** — every metric backed by this model.
 - **Definition** — the source-platform DDL / YAML (e.g. the Snowflake `CREATE SEMANTIC VIEW` statement) preserved verbatim for round-tripping and debugging.
 - **AI Context** — synonyms, natural-language instructions, few-shot examples for LLM-assisted exploration.
-- **Lineage** — flow from the model down through its logical datasets to the physical source tables.
+- **Lineage** — a bounding box around the model's member datasets and metrics. Hops go through those members (and their physical / BI neighbors), not through the Semantic Model itself.
 
 ### Metric
 
@@ -60,7 +60,7 @@ Each Metric page includes:
 - **Derived From / Related Metrics** — parent metrics and semantic peers (e.g. `revenue_per_customer` derived from `total_revenue` and `customer_count`).
 - **AI Context** — synonyms (`revenue`, `topline`, `gross`), instructions, sample questions.
 - **Governance** — name, description, owners, domain, tags, structured properties, and glossary terms.
-- **Lineage** — Metric → Semantic Model → Logical Dataset → Physical Dataset chain.
+- **Lineage** — upstream to the logical and physical datasets the metric reads; downstream to Charts, Dashboards, and Datasets that consume it. The Semantic Model is a bounding box around its members, not a hop in the chain.
 
 ### Semantic Model Datasets
 
@@ -182,7 +182,11 @@ Metrics and Semantic Models appear in **global Search** and the **search-bar aut
 
 ### Lineage
 
-The canonical lineage chain — `Metric → Semantic Model → Logical Dataset → Physical Dataset` — is visible on every metric's Lineage tab. Future releases will introduce robust impact analysis works both ways: clicking a physical column shows every downstream metric that reads from it, and clicking a metric shows every upstream field it depends on.
+A Metric's Lineage tab shows the datasets it reads (and their physical sources) on the **upstream** side, and the Charts, Dashboards, and Datasets that consume it on the **downstream** side. Derived metrics appear as Metric-to-Metric hops.
+
+The Semantic Model is a **bounding box** around its member datasets and metrics — it groups them visually, but it is not itself a hop in the lineage graph. Opening a Semantic Model's Lineage tab draws those members inside the box; expanding a member reveals its physical and BI neighbors.
+
+Impact Analysis works in both directions at the entity level. Column-level impact analysis (a physical column to every downstream metric field) is still on the roadmap.
 
 ## Governance
 

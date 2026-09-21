@@ -80,8 +80,32 @@ public class DomainWriteAuthorizationUtilsTest {
   }
 
   @Test
-  public void testShouldUseProposedDomains_existingEntityWithDomains() {
-    assertFalse(DomainWriteAuthorizationUtils.shouldUseProposedDomainsForMatch(true, true, true));
+  public void testExistingDomainsOnlyDropsMissingDomains() {
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.entityExists(any(), eq(Set.of(DOMAIN_X, DOMAIN_Y))))
+        .thenReturn(Map.of(DOMAIN_X, false, DOMAIN_Y, true));
+    Domains before = new Domains().setDomains(new UrnArray(DOMAIN_X, DOMAIN_Y));
+
+    Domains pruned =
+        DomainWriteAuthorizationUtils.existingDomainsOnly(
+            OperationFingerprint.EMPTY, retriever, before);
+
+    assertTrue(DomainWriteAuthorizationUtils.hasDomainMembership(pruned));
+    assertEquals(pruned.getDomains().size(), 1);
+    assertEquals(pruned.getDomains().get(0), DOMAIN_Y);
+  }
+
+  @Test
+  public void testExistingDomainsOnlyAllMissingYieldsEmptyMembership() {
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.entityExists(any(), eq(Set.of(DOMAIN_X)))).thenReturn(Map.of(DOMAIN_X, false));
+    Domains before = new Domains().setDomains(new UrnArray(DOMAIN_X));
+
+    Domains pruned =
+        DomainWriteAuthorizationUtils.existingDomainsOnly(
+            OperationFingerprint.EMPTY, retriever, before);
+
+    assertFalse(DomainWriteAuthorizationUtils.hasDomainMembership(pruned));
   }
 
   @Test

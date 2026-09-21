@@ -27,7 +27,7 @@ export * from './components/GraphCard';
 export * from './components/Heading';
 export * from './components/Icon';
 export * from './components/Input';
-export * from './components/MultiSelectInput';
+export * from './components/MultiValueInput';
 export * from './components/LineChart';
 export * from './components/Link';
 export * from './components/LoadedImage';
