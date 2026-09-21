@@ -266,11 +266,48 @@ class ODCSSourceConfig(
             )
         return self
 
+    @model_validator(mode="after")
+    def physical_data_contract_requires_logical_parent(self) -> "ODCSSourceConfig":
+        # emit_logical_parent is the master switch for writing any aspect onto
+        # physical datasets; without it the physical contract has nowhere to go
+        # and the opt-in would silently do nothing. Fail loud instead.
+        if self.emit_physical_data_contract and not self.emit_logical_parent:
+            raise ValueError(
+                "emit_physical_data_contract requires emit_logical_parent: the "
+                "physical contract is written onto the bound physical dataset, and "
+                "emit_logical_parent is the master switch for writing any aspect "
+                "onto physical datasets. Enable emit_logical_parent or disable "
+                "emit_physical_data_contract."
+            )
+        return self
+
     emit_logical_parent: bool = Field(
         default=True,
         description="Whether to emit a `logicalParent` link from each resolved physical dataset to "
         "its logical ODCS dataset (the `PhysicalInstanceOf` relationship). Disable to keep ODCS "
         "from writing any aspect onto physical datasets.",
+    )
+    emit_data_contract: bool = Field(
+        default=True,
+        description="Whether to emit a native DataHub `dataContract` entity for each schema entry, "
+        "on the logical `odcs` dataset. This is the self-consistent home: the assertions target "
+        "the logical dataset, so `contract.entity == assertion.entity` and results resolve "
+        "directly; it renders under the LOGICAL_MODELS_ENABLED flag. The contract references the "
+        "schema and data-quality Assertion URNs (no assertions are duplicated). State mirrors the "
+        "ODCS `status` (`active` -> ACTIVE, otherwise PENDING). Requires at least one of "
+        "`emit_assertions` / `emit_schema_assertion` to have produced an assertion for the entry.",
+    )
+    emit_physical_data_contract: bool = Field(
+        default=False,
+        description="Whether to ALSO emit the native `dataContract` onto the bound physical "
+        "dataset (in addition to the logical one), so it surfaces on the table consumers browse. "
+        "Off by default because the contract URN is keyed on the target entity and matches the "
+        "hand-authored SDK convention exactly: enabling this makes ODCS the owner of that "
+        "dataset's contract and overwrites any hand-authored contract on it. It is always emitted "
+        "non-primary (never stale-removed, so it cannot soft-delete a hand-authored contract) and "
+        "requires `emit_logical_parent` (the master switch for writing onto physical datasets). "
+        "Note: the referenced assertions target the logical dataset, so the contract may render "
+        "with limited detail on the physical table until assertions can target it directly.",
     )
     physical_urn_overrides: Dict[str, Dict[str, str]] = Field(
         default_factory=dict,
