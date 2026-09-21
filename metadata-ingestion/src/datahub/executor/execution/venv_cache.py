@@ -13,6 +13,8 @@ import shutil
 from typing import List, Optional, Tuple
 
 from datahub.executor.execution.venv_utils import (
+    COMPLETE_MARKER,
+    ENTRY_PREFIX,
     is_venv_complete,
     last_used_at,
 )
@@ -202,7 +204,16 @@ def evict_to_budget(cache_root: pathlib.Path, max_bytes: int) -> int:
     than exceeding the budget.
     """
     try:
-        entries = [p for p in cache_root.iterdir() if p.is_dir()]
+        # Only directories this cache created. DATAHUB_VENV_CACHE_PATH is an
+        # operator knob returned verbatim by get_venv_cache_path, so the root
+        # may be a directory that already holds other things -- a volume mount,
+        # or /tmp. Without this filter the first build to cross the budget
+        # rmtree's whatever it finds there.
+        entries = [
+            p
+            for p in cache_root.iterdir()
+            if p.is_dir() and p.name.startswith(ENTRY_PREFIX)
+        ]
     except OSError:
         return 0
 
@@ -222,6 +233,16 @@ def evict_to_budget(cache_root: pathlib.Path, max_bytes: int) -> int:
             logger.debug("venv cache: %s is in use, not evicting", venv)
             continue
         try:
+            # Invalidate before removing. rmtree raises on the FIRST failure,
+            # having already deleted an arbitrary prefix of the tree, and
+            # traversal order is not defined -- so site-packages can be gone
+            # while bin/python and the completion marker survive.
+            # is_venv_complete accepts that husk, nothing on the hit path
+            # re-validates, and every later run for that key "reuses" a venv
+            # with no packages and dies with ModuleNotFoundError. Dropping the
+            # marker first makes a partial removal self-invalidating: the next
+            # claimant discards and rebuilds it instead.
+            (venv / COMPLETE_MARKER).unlink(missing_ok=True)
             shutil.rmtree(venv)
             freed += size
             logger.info("venv cache: evicted %s (%d bytes)", venv, size)

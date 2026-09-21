@@ -7,6 +7,9 @@ unreliable -- which is why the spec rules shared storage out of scope.
 
 import os
 import pathlib
+import shutil
+
+import pytest
 
 from datahub.executor.execution import venv_utils
 from datahub.executor.execution.venv_cache import EntryLock, evict_to_budget
@@ -186,3 +189,56 @@ def test_an_entry_with_no_last_used_marker_is_evicted_first(
 
     assert not legacy.exists()
     assert recent.exists()
+
+
+def test_eviction_leaves_directories_it_does_not_own(tmp_path: pathlib.Path) -> None:
+    """The cache root is not necessarily ours alone.
+
+    get_venv_cache_path returns DATAHUB_VENV_CACHE_PATH verbatim, and the docs
+    advertise it as an operator knob, so the root can be an existing directory
+    -- a volume mount, or /tmp. Eviction rmtree's what it selects, so it must
+    select only entries this cache created.
+    """
+    ours = _entry(tmp_path, "ours", 4000, age_s=10_000)
+    theirs = tmp_path / "important-operator-data"
+    theirs.mkdir()
+    (theirs / "keep.txt").write_text("not ours")
+    loose = tmp_path / "notes.txt"
+    loose.write_text("not ours either")
+
+    evict_to_budget(tmp_path, max_bytes=100)
+
+    assert not ours.exists(), "our own over-budget entry should have gone"
+    assert (theirs / "keep.txt").read_text() == "not ours", (
+        "eviction deleted a directory the cache did not create"
+    )
+    assert loose.exists()
+
+
+def test_a_partly_removed_entry_is_not_left_looking_complete(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """rmtree raises on the FIRST failure, after deleting an arbitrary prefix.
+
+    Traversal order is undefined, so site-packages can be gone while
+    bin/python and the completion marker survive. is_venv_complete accepts
+    that husk and nothing on the hit path re-validates, so every later run for
+    that key reuses a venv with no packages and dies with ModuleNotFoundError
+    -- permanently. Removing the marker before rmtree makes a partial removal
+    self-invalidating.
+    """
+    entry = _entry(tmp_path, "doomed", 4000, age_s=10_000)
+    assert venv_utils.is_venv_complete(entry)
+
+    def half_delete(path, *args, **kwargs):
+        # Delete something, then fail -- exactly what a mid-tree EACCES does.
+        (pathlib.Path(path) / "payload").unlink()
+        raise OSError(13, "Permission denied")
+
+    monkeypatch.setattr(shutil, "rmtree", half_delete)
+    evict_to_budget(tmp_path, max_bytes=100)
+
+    assert entry.exists(), "the test needs a survivor to be meaningful"
+    assert not venv_utils.is_venv_complete(entry), (
+        "a partly-removed entry still reads as complete and will be reused"
+    )

@@ -19,6 +19,12 @@ VENV_VERSION_LATEST = "latest"
 VENV_VERSION_BUNDLED = "bundled"
 VENV_VERSION_NATIVE = "native"
 
+# Every directory the venv cache owns is named with this prefix. Eviction
+# filters on it, so it must not drift from venv_location -- the cache root can
+# be pointed at a shared directory via DATAHUB_VENV_CACHE_PATH, and anything
+# there without this prefix belongs to somebody else.
+ENTRY_PREFIX = "venv-"
+
 
 def is_bundled_version(version: str) -> bool:
     """Check if the version is a bundled version."""
@@ -51,7 +57,7 @@ def get_venv_path(venv_name: str, tmp_dir: str) -> str:
     """Get venv path based on venv name and temporary directory."""
     if venv_name.endswith("-bundled"):
         return f"/opt/datahub/venvs/{venv_name}"
-    return f"{tmp_dir}/venv-{venv_name}"
+    return f"{tmp_dir}/{ENTRY_PREFIX}{venv_name}"
 
 
 def should_use_bundled_venv_by_name(venv_name: str) -> bool:
@@ -71,8 +77,8 @@ def venv_location(venv_name: str, tmp_dir: str, *, cacheable: bool) -> str:
     if should_use_bundled_venv_by_name(venv_name):
         return get_venv_path(venv_name, tmp_dir)
     if cacheable:
-        return f"{get_venv_cache_path(tmp_dir)}/venv-{venv_name}"
-    return f"{tmp_dir}/venv-{venv_name}"
+        return f"{get_venv_cache_path(tmp_dir)}/{ENTRY_PREFIX}{venv_name}"
+    return f"{tmp_dir}/{ENTRY_PREFIX}{venv_name}"
 
 
 # Written as the LAST step of a successful build, and required before reuse.
