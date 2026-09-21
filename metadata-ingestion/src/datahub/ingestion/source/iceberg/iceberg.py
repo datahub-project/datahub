@@ -24,6 +24,8 @@ from pyiceberg.types import (
     DoubleType,
     FixedType,
     FloatType,
+    GeographyType,
+    GeometryType,
     IntegerType,
     ListType,
     LongType,
@@ -909,4 +911,21 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
         return {
             "type": "string",
             "native_data_type": str(unknown_type),
+        }
+
+    def visit_geometry(self, geometry_type: GeometryType) -> Dict[str, Any]:
+        # Iceberg V3 geospatial type, stored as WKB. There is no Avro equivalent, so it is treated
+        # as an opaque string; native_data_type preserves the type along with its CRS.
+        return {
+            "type": "string",
+            "native_data_type": str(geometry_type),
+        }
+
+    def visit_geography(self, geography_type: GeographyType) -> Dict[str, Any]:
+        # Iceberg V3 geospatial type, stored as WKB. There is no Avro equivalent, so it is treated
+        # as an opaque string; native_data_type preserves the type along with its CRS and
+        # edge interpolation algorithm.
+        return {
+            "type": "string",
+            "native_data_type": str(geography_type),
         }
