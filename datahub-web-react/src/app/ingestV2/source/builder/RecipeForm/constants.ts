@@ -462,8 +462,6 @@ import {
     TOKEN,
     UNITY_CATALOG_ALLOW,
     UNITY_CATALOG_DENY,
-    UNITY_METASTORE_ID_ALLOW,
-    UNITY_METASTORE_ID_DENY,
     UNITY_TABLE_ALLOW,
     UNITY_TABLE_DENY,
     WORKSPACE_URL,
@@ -836,8 +834,6 @@ export const RECIPE_FIELDS: RecipeFields = {
     [DATABRICKS]: {
         fields: [WORKSPACE_URL, TOKEN],
         filterFields: [
-            UNITY_METASTORE_ID_ALLOW,
-            UNITY_METASTORE_ID_DENY,
             UNITY_CATALOG_ALLOW,
             UNITY_CATALOG_DENY,
             SCHEMA_ALLOW,
@@ -846,7 +842,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             UNITY_TABLE_DENY,
         ],
         advancedFields: [INCLUDE_TABLE_LINEAGE, INCLUDE_COLUMN_LINEAGE, STATEFUL_INGESTION_ENABLED],
-        filterSectionTooltip: 'Include or exclude specific Metastores, Catalogs, Schemas, and Tables from ingestion.',
+        filterSectionTooltip: 'Include or exclude specific Catalogs, Schemas, and Tables from ingestion.',
     },
     [DBT_CLOUD]: {
         fields: [

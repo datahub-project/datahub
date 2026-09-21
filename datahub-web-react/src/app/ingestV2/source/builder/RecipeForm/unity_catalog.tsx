@@ -61,44 +61,6 @@ export const INCLUDE_COLUMN_LINEAGE: RecipeField = {
     rules: null,
 };
 
-const metastoreIdAllowFieldPath = 'source.config.metastore_id_pattern.allow';
-export const UNITY_METASTORE_ID_ALLOW: FilterRecipeField = {
-    name: 'metastore_id_pattern.allow',
-    label: 'Allow Patterns',
-    helper: 'Include specific Metastores',
-    tooltip:
-        'Only include specific Metastores by providing the id of a Metastore, or a Regular Expression (REGEX) to include specific Metastores. If not provided, all Metastores will be included.',
-    placeholder: '11111-2222-33333-44-555555',
-    type: FieldType.LIST,
-    rule: FilterRule.INCLUDE,
-    buttonLabel: 'Add pattern',
-    fieldPath: metastoreIdAllowFieldPath,
-    rules: null,
-    section: 'Metastores',
-    filteringResource: 'Metastore',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, metastoreIdAllowFieldPath),
-};
-
-const metastoreIdDenyFieldPath = 'source.config.metastore_id_pattern.deny';
-export const UNITY_METASTORE_ID_DENY: FilterRecipeField = {
-    name: 'metastore_id_pattern.deny',
-    label: 'Deny Patterns',
-    helper: 'Exclude specific Metastores',
-    tooltip:
-        'Exclude specific Metastores by providing the id of a Metastores, or a Regular Expression (REGEX). If not provided, all Metastores will be included. Deny patterns always take precedence over Allow patterns.',
-    placeholder: '11111-2222-33333-44-555555',
-    type: FieldType.LIST,
-    rule: FilterRule.EXCLUDE,
-    buttonLabel: 'Add pattern',
-    fieldPath: metastoreIdDenyFieldPath,
-    rules: null,
-    section: 'Metastores',
-    filteringResource: 'Metastore',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, metastoreIdDenyFieldPath),
-};
-
 const catalogAllowFieldPath = 'source.config.catalog_pattern.allow';
 export const UNITY_CATALOG_ALLOW: FilterRecipeField = {
     name: 'catalog_pattern.allow',
