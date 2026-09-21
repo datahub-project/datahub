@@ -727,26 +727,26 @@ module.exports = {
           type: "category",
           link: {
             type: "doc",
-            id: "docs/managed-datahub/context-platform/overview",
+            id: "docs/managed-datahub/context/overview",
           },
           className: "saasOnly",
           items: [
             {
               label: "Configure Context Generation",
               type: "doc",
-              id: "docs/managed-datahub/context-platform/configure-context-generation",
+              id: "docs/managed-datahub/context/configure-context-generation",
               className: "saasOnly",
             },
             {
               label: "Validate Context",
               type: "doc",
-              id: "docs/managed-datahub/context-platform/review-context-proposals",
+              id: "docs/managed-datahub/context/review-context-proposals",
               className: "saasOnly",
             },
             {
               label: "Activate Context",
               type: "doc",
-              id: "docs/managed-datahub/context-platform/activate-context",
+              id: "docs/managed-datahub/context/activate-context",
               className: "saasOnly",
             },
           ],
