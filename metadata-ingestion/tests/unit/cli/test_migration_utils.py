@@ -1,5 +1,6 @@
 """Tests for datahub.cli.migration_utils — relationship-to-aspect mapping and URN rewriting."""
 
+import logging
 from typing import Callable, Dict
 from unittest.mock import MagicMock, patch
 
@@ -156,6 +157,41 @@ class TestShouldOverwriteNonAdditive:
             self.SRC_URN,
             self.DST_URN,
             ConflictStrategy.PATCH,
+        )
+
+    @patch("datahub.cli.migration_utils.click.prompt")
+    def test_prompt_strategy_follows_user_choice(self, mock_prompt: MagicMock) -> None:
+        """PROMPT resolves the conflict interactively: 's' takes source, 't' keeps
+        target. This is the only path that reaches click.prompt."""
+        src = self._make_props("source desc")
+        dst = self._make_props("target desc")
+        args = (
+            "datasetProperties",
+            src,
+            dst,
+            self.SRC_URN,
+            self.DST_URN,
+            ConflictStrategy.PROMPT,
+        )
+
+        mock_prompt.return_value = "s"
+        assert should_overwrite_non_additive(*args)
+
+        mock_prompt.return_value = "t"
+        assert not should_overwrite_non_additive(*args)
+
+    @patch("datahub.cli.migration_utils.click.prompt")
+    def test_prompt_strategy_scalar_follows_user_choice(
+        self, mock_prompt: MagicMock
+    ) -> None:
+        args = ("description", "source", "target", self.SRC_URN, self.DST_URN)
+
+        mock_prompt.return_value = "s"
+        assert migration_utils.should_overwrite_scalar(*args, ConflictStrategy.PROMPT)
+
+        mock_prompt.return_value = "t"
+        assert not migration_utils.should_overwrite_scalar(
+            *args, ConflictStrategy.PROMPT
         )
 
 
@@ -336,7 +372,7 @@ class TestMergeMixedAspects:
             description="", customProperties={"env": "prod"}
         )
         mock_get_aspects.return_value = {"datasetProperties": dst_props}
-        merged, skipped = merge_mixed_aspects(
+        result = merge_mixed_aspects(
             {"datasetProperties": src_props},
             self.DST_URN,
             self.SRC_URN,
@@ -344,8 +380,8 @@ class TestMergeMixedAspects:
             ConflictStrategy.PATCH,
             True,
         )
-        assert merged > 0
-        assert skipped == 0
+        assert result.merged > 0
+        assert result.skipped == 0
 
     @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
     def test_skips_conflicting_custom_property_in_patch_mode(
@@ -360,7 +396,7 @@ class TestMergeMixedAspects:
             description="", customProperties={"team": "beta"}
         )
         mock_get_aspects.return_value = {"datasetProperties": dst_props}
-        merged, skipped = merge_mixed_aspects(
+        result = merge_mixed_aspects(
             {"datasetProperties": src_props},
             self.DST_URN,
             self.SRC_URN,
@@ -368,7 +404,7 @@ class TestMergeMixedAspects:
             ConflictStrategy.PATCH,
             True,
         )
-        assert skipped == 1
+        assert result.skipped == 1
 
     @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
     def test_overwrites_conflicting_custom_property_in_overwrite_mode(
@@ -383,7 +419,7 @@ class TestMergeMixedAspects:
             description="", customProperties={"team": "beta"}
         )
         mock_get_aspects.return_value = {"datasetProperties": dst_props}
-        merged, skipped = merge_mixed_aspects(
+        result = merge_mixed_aspects(
             {"datasetProperties": src_props},
             self.DST_URN,
             self.SRC_URN,
@@ -391,8 +427,8 @@ class TestMergeMixedAspects:
             ConflictStrategy.OVERWRITE,
             True,
         )
-        assert skipped == 0
-        assert merged > 0
+        assert result.skipped == 0
+        assert result.merged > 0
 
     @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
     def test_skips_description_conflict_in_patch_mode(
@@ -403,7 +439,7 @@ class TestMergeMixedAspects:
         src_props = DatasetPropertiesClass(description="source desc")
         dst_props = DatasetPropertiesClass(description="target desc")
         mock_get_aspects.return_value = {"datasetProperties": dst_props}
-        merged, skipped = merge_mixed_aspects(
+        result = merge_mixed_aspects(
             {"datasetProperties": src_props},
             self.DST_URN,
             self.SRC_URN,
@@ -411,7 +447,7 @@ class TestMergeMixedAspects:
             ConflictStrategy.PATCH,
             True,
         )
-        assert skipped == 1
+        assert result.skipped == 1
 
     @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
     def test_adds_description_when_target_has_none(
@@ -422,7 +458,7 @@ class TestMergeMixedAspects:
         src_props = DatasetPropertiesClass(description="source desc")
         dst_props = DatasetPropertiesClass(description="")
         mock_get_aspects.return_value = {"datasetProperties": dst_props}
-        merged, skipped = merge_mixed_aspects(
+        result = merge_mixed_aspects(
             {"datasetProperties": src_props},
             self.DST_URN,
             self.SRC_URN,
@@ -430,8 +466,8 @@ class TestMergeMixedAspects:
             ConflictStrategy.PATCH,
             True,
         )
-        assert skipped == 0
-        assert merged > 0
+        assert result.skipped == 0
+        assert result.merged > 0
 
 
 # --- URN builder tests for all entity types ---
@@ -942,12 +978,6 @@ class TestMergeGenericEntity:
     def test_generic_buckets_are_disjoint_and_registry_is_populated(self) -> None:
         """The three explicit generic buckets never overlap (a double bucket would
         double-write), and the registry actually models the aspects we classify.
-
-        The previous version of this guard compared each aspect against the buckets
-        and the complement of those same buckets, so the "exactly one bucket" sum was
-        always 1 by construction — it would pass against an empty or garbage registry.
-        This asserts concrete, load-bearing classifications instead, so a registry that
-        lost these aspects, or a bucket that lost a member, fails here.
         """
         unioned = migration_utils._GENERIC_UNIONABLE_ASPECTS
         reseated = migration_utils.ALWAYS_OVERWRITE_ASPECTS
@@ -1115,7 +1145,9 @@ class TestMergeGenericEntity:
         assert props_aspect in result.merged_aspects
         assert graph.emit_mcp.called
 
-    def test_apply_union_patches_isolates_a_bad_item(self) -> None:
+    def test_apply_union_patches_isolates_a_bad_item(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """One item that fails to add must not void the entity's other additive
         items (owners, good tags, terms) — matching the batch's per-item isolation.
         """
@@ -1146,15 +1178,38 @@ class TestMergeGenericEntity:
             ),
         }
 
-        migration_utils._apply_union_patches(
-            builder, src, "urn:li:schemaField:(urn:li:dataset:x,y)"
-        )
+        with caplog.at_level(logging.WARNING):
+            migration_utils._apply_union_patches(
+                builder, src, "urn:li:schemaField:(urn:li:dataset:x,y)"
+            )
 
         # The bad tag raised but owners, terms, and the good tag were still attempted.
         builder.add_owner.assert_called_once()
         builder.add_term.assert_called_once()
         added_tags = {c.args[0].tag for c in builder.add_tag.call_args_list}
         assert added_tags == {"urn:li:tag:bad", "urn:li:tag:good"}
+        # A skipped item is warned, never silent.
+        assert any("Skipping a tag" in r.message for r in caplog.records)
+
+    def test_apply_union_patches_raises_when_all_items_fail(self) -> None:
+        """Every item of an aspect failing signals a systemic bug (e.g. a schema
+        mismatch in the mixin), not bad data — abort so the caller doesn't delete the
+        source and report success with the aspect silently gone.
+        """
+        builder = MagicMock()
+        builder.add_tag.side_effect = ValueError("mixin schema mismatch")
+        src: Dict[str, DictWrapper] = {
+            "globalTags": GlobalTagsClass(
+                tags=[
+                    TagAssociationClass(tag="urn:li:tag:a"),
+                    TagAssociationClass(tag="urn:li:tag:b"),
+                ]
+            ),
+        }
+        with pytest.raises(RuntimeError, match="All 2 tag"):
+            migration_utils._apply_union_patches(
+                builder, src, "urn:li:schemaField:(urn:li:dataset:x,y)"
+            )
 
     def test_additive_patch_builder_rejects_non_generic_patch(self) -> None:
         """A patch without arrayPrimaryKeys would be silently dropped by GMS on a
