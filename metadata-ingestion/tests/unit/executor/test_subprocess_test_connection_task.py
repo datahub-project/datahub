@@ -11,6 +11,7 @@ import yaml
 
 from datahub.executor.context.execution_context import ExecutionContext
 from datahub.executor.context.executor_context import ExecutorContext
+from datahub.executor.execution.sub_process_task_common import SubProcessTaskUtil
 from datahub.executor.execution.sub_process_test_connection_task import (
     SubProcessTestConnectionTask,
     SubProcessTestConnectionTaskConfig,
@@ -430,3 +431,46 @@ async def test_a_popen_failure_releases_the_venv_cache_lock(
         await task.execute(sample_args, exec_ctx)
 
     venv_ref.lock.release.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_a_successful_run_forwards_the_venv_ref_to_finalize(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """finalize_task_output is the only thing that releases the lock here.
+
+    It is what releases venv_ref.lock, and the keyword in the finally block is
+    the only place the reference reaches it. Drop it and every test connection
+    leaves its cached entry held SHARED for the life of the pod, so eviction --
+    which needs a non-blocking exclusive -- can never reclaim any of them.
+    Nothing else on this path observes the forwarding.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "venv-demo-data"
+
+    finished_process = Mock()
+    finished_process.poll.return_value = 0
+    finished_process.stdin = Mock()
+
+    mock_finalize = Mock()
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            return_value=finished_process,
+        ),
+        patch.object(SubProcessTaskUtil, "finalize_task_output", new=mock_finalize),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    assert mock_finalize.call_args.kwargs["venv_ref"] is venv_ref

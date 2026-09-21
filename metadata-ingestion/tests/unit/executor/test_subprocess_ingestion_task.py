@@ -746,6 +746,84 @@ class TestSubProcessIngestionTaskExecution:
 
             assert mock_completion.call_args.kwargs.get("cancelled") is False
 
+    async def test_an_unconfirmed_child_keeps_its_venv_cache_lock(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        sample_args: dict[str, str],
+        mock_execution_context: Mock,
+    ) -> None:
+        """A returncode of None means the child was never reaped.
+
+        _monitor_subprocess SIGKILLs and re-raises on cancellation without
+        waiting, and SIGKILL against a process wedged in an uninterruptible
+        syscall is not delivered until that syscall returns. Releasing the lock
+        then marks the entry evictable while the interpreter inside it is still
+        running, so a later build's eviction can rmtree a live venv. The lock is
+        detached instead: the entry leaks until restart, which costs disk rather
+        than a wrong answer.
+        """
+        mock_process = AsyncMock()
+        mock_process.returncode = None
+        venv_ref = Mock()
+        mock_completion = Mock()
+
+        with (
+            patch.multiple(
+                ingestion_task,
+                _setup_directories=Mock(
+                    return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
+                ),
+                _prepare_subprocess_environment=Mock(return_value={}),
+                _create_subprocess=AsyncMock(return_value=(mock_process, venv_ref)),
+                _monitor_subprocess=AsyncMock(),
+                _handle_subprocess_completion=mock_completion,
+            ),
+            patch(
+                _RESOLVE_RECIPE, return_value=({"source": {"type": "demo-data"}}, {})
+            ),
+            patch(_GET_PLUGIN, return_value="demo-data"),
+            patch("builtins.open", mock_open()),
+        ):
+            await ingestion_task.execute(sample_args, mock_execution_context)
+
+        assert mock_completion.call_args.kwargs["venv_ref"].lock is None
+
+    async def test_a_confirmed_exit_still_releases_the_venv_cache_lock(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        sample_args: dict[str, str],
+        mock_execution_context: Mock,
+    ) -> None:
+        # The other half of the branch: once the child has been reaped, holding
+        # the lock buys nothing and leaks the entry, so it must survive to
+        # finalize_task_output, which is what releases it.
+        mock_process = AsyncMock()
+        mock_process.returncode = 0
+        venv_ref = Mock()
+        lock = venv_ref.lock
+        mock_completion = Mock()
+
+        with (
+            patch.multiple(
+                ingestion_task,
+                _setup_directories=Mock(
+                    return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
+                ),
+                _prepare_subprocess_environment=Mock(return_value={}),
+                _create_subprocess=AsyncMock(return_value=(mock_process, venv_ref)),
+                _monitor_subprocess=AsyncMock(),
+                _handle_subprocess_completion=mock_completion,
+            ),
+            patch(
+                _RESOLVE_RECIPE, return_value=({"source": {"type": "demo-data"}}, {})
+            ),
+            patch(_GET_PLUGIN, return_value="demo-data"),
+            patch("builtins.open", mock_open()),
+        ):
+            await ingestion_task.execute(sample_args, mock_execution_context)
+
+        assert mock_completion.call_args.kwargs["venv_ref"].lock is lock
+
 
 class TestSubProcessIngestionTaskCompletion:
     def test_handle_subprocess_completion_success(
