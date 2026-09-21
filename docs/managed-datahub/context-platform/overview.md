@@ -1,18 +1,18 @@
 ---
-title: Context Platform Overview
-description: "DataHub Context Platform delivers trusted, human-validated context to AI agents, increasing their accuracy and reliability in production."
+title: Context Overview
+description: "DataHub Context delivers trusted, human-validated context to AI agents, increasing their accuracy and reliability in production."
 visible-if:
   showContextHub: true
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About the DataHub Context Platform
+# About DataHub Context
 
 <FeatureAvailability saasOnly />
 
 :::caution Public Beta
-The Context Platform is currently in Public Beta. Features, UI, and configuration options are subject to change.
+DataHub Context is currently in Public Beta. Features, UI, and configuration options are subject to change.
 :::
 
 **DataHub Cloud is an enterprise context platform that provides trusted context to agents**, dramatically increasing their accuracy, reliability, and efficiency in production.
@@ -30,7 +30,7 @@ AI agents fail on real data not because they cannot write SQL, but because they 
 
 ## How the Workflow Fits Together
 
-The Context Platform is a human-in-the-loop pipeline with three distinct roles:
+DataHub Context is a human-in-the-loop pipeline with three distinct roles:
 
 1. **An Admin configures context generation** — selecting the domains to scope, defining metadata eval questions that assess quality, and controlling when generated context becomes visible to agents. See [Configure Context Generation](configure-context-generation.md).
 2. **A Data Expert or SME validates generated context** — checks accuracy using evaluations, editing business questions and anchor patterns, and deciding what gets published. See [Review Context Proposals](review-context-proposals.md).
