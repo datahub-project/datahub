@@ -27,8 +27,9 @@ dayjs.extend(weekday);
 
 // dayjs ships English built in; other locales are registered by a side-effecting import. Splitting
 // them into dynamic imports keeps non-English locale data out of the main chunk — each is fetched
-// only when that language is selected. Keep keys in sync with `LOCALE_MAP` in `app/i18n/constants`.
-const DAYJS_LOCALE_LOADERS: Record<string, () => Promise<unknown>> = {
+// only when that language is selected. Keys are the `dayjs` codes in `LOCALE_MAP`
+// (`app/i18n/constants`) and must stay in sync with it; enforced by `__tests__/dayjs.test.ts`.
+export const DAYJS_LOCALE_LOADERS: Record<string, () => Promise<unknown>> = {
     de: () => import('dayjs/locale/de'),
     es: () => import('dayjs/locale/es'),
     fr: () => import('dayjs/locale/fr'),
@@ -40,6 +41,8 @@ const DAYJS_LOCALE_LOADERS: Record<string, () => Promise<unknown>> = {
     fi: () => import('dayjs/locale/fi'),
     ja: () => import('dayjs/locale/ja'),
     'zh-cn': () => import('dayjs/locale/zh-cn'),
+    'zh-tw': () => import('dayjs/locale/zh-tw'),
+    ru: () => import('dayjs/locale/ru'),
 };
 
 /**

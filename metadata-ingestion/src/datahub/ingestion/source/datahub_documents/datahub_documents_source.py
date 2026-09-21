@@ -50,6 +50,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.unstructured.chunking_config import (
+    DEFAULT_MAX_CHUNKS_PER_DOCUMENT,
     DataHubConnectionConfig,
     DocumentChunkingSourceConfig,
 )
@@ -95,6 +96,9 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     embedding_failures: list[str] = field(default_factory=list)
     processing_errors: list[str] = []
     num_documents_limit_reached: bool = False
+    # Documents whose semanticContent was truncated/dropped to fit the size floor
+    num_documents_truncated_oversized: int = 0
+    num_documents_dropped_oversized: int = 0
 
     def report_document_fetched(self) -> None:
         self.num_documents_fetched += 1
@@ -141,6 +145,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     Supports batch mode (GraphQL) and event-driven mode (Kafka MCL) with incremental processing.
     Automatically fetches embedding configuration from server to ensure alignment.
+
+    Embedding generation is gated on the server's semanticSearchConfig, not on Search V3.
+    When both semantic search and V3 are enabled, GMS dual-writes embeddings onto
+    documentindex_v3; this source still only emits SemanticContent via MCP.
     """
 
     def __init__(self, ctx: PipelineContext, config: DataHubDocumentsSourceConfig):
@@ -518,12 +526,21 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # semanticText aspect, so fetch it.
             raw_contents = aspect_dict.get("contents")
             if raw_contents is None:
-                # Partial aspect with no contents: skip silently (mirroring batch mode)
-                # rather than stamping a skip marker from content we could not read.
-                logger.debug(
-                    f"documentInfo event for {entity_urn} has null contents, skipping"
-                )
-                return
+                # Partial event payload with no contents: fall back to fetching the full
+                # aspect (mirroring the semanticText branch) so a document whose only
+                # event was partial is not silently dropped until some later event.
+                info_dict = self._fetch_document_info_dict(entity_urn)
+                raw_contents = info_dict.get("contents") if info_dict else None
+                if info_dict is None or raw_contents is None:
+                    # Genuinely unreadable body: skip without stamping a skip marker from
+                    # content we could not read.
+                    logger.debug(
+                        f"documentInfo event for {entity_urn} has null contents and no "
+                        f"readable fallback, skipping"
+                    )
+                    return
+                # Downstream source-type filtering reads from the documentInfo shape.
+                aspect_dict = info_dict
             contents = dict(raw_contents)
             contents["semanticText"] = self._fetch_semantic_text(entity_urn)
 
@@ -1371,7 +1388,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # Chunking/embedding is enabled when embedding provider is configured
         embedding_enabled = self.config.embedding.provider is not None
 
-        return {
+        fingerprint: Dict[str, Any] = {
             # Chunking affects chunk boundaries and structure
             "chunking_enabled": embedding_enabled,
             "chunking_strategy": self.config.chunking.strategy
@@ -1397,6 +1414,18 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # Partitioning affects how text is extracted
             "partition_strategy": self.config.partition_strategy,
         }
+        # Only fingerprint the chunk cap when non-default, so upgrading to a build that
+        # adds the knob does not re-hash (and re-embed) every already-processed document;
+        # a tuned cap changes emitted output and must re-hash.
+        if (
+            embedding_enabled
+            and self.config.chunking.max_chunks_per_document
+            != DEFAULT_MAX_CHUNKS_PER_DOCUMENT
+        ):
+            fingerprint["chunking_max_chunks_per_document"] = (
+                self.config.chunking.max_chunks_per_document
+            )
+        return fingerprint
 
     @staticmethod
     def _resolve_embed_text(contents: Dict[str, Any]) -> str:
@@ -1658,6 +1687,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         )
         self.report.processing_errors = list(
             self.chunking_source.report.processing_errors
+        )
+        self.report.num_documents_truncated_oversized = (
+            self.chunking_source.report.num_documents_truncated_oversized
+        )
+        self.report.num_documents_dropped_oversized = (
+            self.chunking_source.report.num_documents_dropped_oversized
         )
         return self.report
 

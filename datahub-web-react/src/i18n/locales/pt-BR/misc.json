@@ -22,6 +22,7 @@
     "applications.noCreatePermissionTooltip": "Você não tem permissão para criar aplicações",
     "applications.pageSubtitle": "Criar e editar aplicações",
     "applications.pageTitle": "Gerenciar Aplicações",
+    "applications.searchMinCharsHint": "Digite pelo menos {{minLength}} caracteres para pesquisar",
     "applications.searchPlaceholder": "Pesquisar aplicações...",
     "authorization.unauthorizedSubtitle": "Desculpe, você não tem autorização para acessar esta página.",
     "authorization.unauthorizedTitle": "Não Autorizado",

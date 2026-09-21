@@ -875,7 +875,7 @@
                     "urn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769"
                 },
                 {
-                    "id": "nightly_copy_orders",
+                    "id": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)",
                     "urn": "urn:li:dataFlow:(informatica,idmc_test.mttask-1,PROD)"
                 }
             ]
@@ -1146,7 +1146,7 @@
                     "urn": "urn:li:container:3f44664cb09d494b2d5a4605df28d769"
                 },
                 {
-                    "id": "nightly_enrich_customers",
+                    "id": "urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD)",
                     "urn": "urn:li:dataFlow:(informatica,idmc_test.mttask-2,PROD)"
                 }
             ]
@@ -1407,7 +1407,7 @@
                     "urn": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2"
                 },
                 {
-                    "id": "idmc_test.daily_refresh",
+                    "id": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)",
                     "urn": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)"
                 }
             ]

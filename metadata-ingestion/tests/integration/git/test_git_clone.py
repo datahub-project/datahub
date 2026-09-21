@@ -64,7 +64,6 @@ def test_base_url_guessing() -> None:
     )
     assert config.repo_ssh_locator == "https://gitea.com/gitea/tea.git"
 
-    # Deprecated: base_url.
     with pytest.warns(ConfigurationWarning, match="base_url is deprecated"):
         config = GitInfo.model_validate(
             dict(
@@ -192,7 +191,7 @@ def test_git_clone_public(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.skipif(
-    LOOKML_TEST_SSH_KEY is None,
+    not LOOKML_TEST_SSH_KEY,
     reason="DATAHUB_LOOKML_GIT_TEST_SSH_KEY env variable is not configured",
 )
 def test_git_clone_private(tmp_path: pathlib.Path) -> None:

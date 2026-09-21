@@ -235,6 +235,7 @@
     "secret.notFound": "No se han encontrado Secrets",
     "selectTemplate.noResults": "No se ha encontrado ningún origen de datos con el nombre \"{{searchFilter}}\".",
     "selectTemplate.searchPlaceholder": "Buscar orígenes de datos...",
+    "snowflake.passwordAuthDeprecation.message": "Snowflake está dejando de usar la autenticación con nombre de usuario y contraseña (DEFAULT_AUTHENTICATOR) como parte del despliegue de Strong Authentication. La autenticación con contraseña dejará de funcionar en una fecha de aplicación específica de la cuenta durante la Fase 3 (Ago-Oct 2026). Cambia esta receta a autenticación con par de claves (KEY_PAIR_AUTHENTICATOR) antes de la fecha de aplicación de tu cuenta. Consulta la <anchor>guía de migración</anchor>.",
     "steps.titles.createSchedule": "Programación de sincronización",
     "steps.titles.defineRecipe": "Configurar conexión",
     "steps.titles.nameSource": "Finalizar",

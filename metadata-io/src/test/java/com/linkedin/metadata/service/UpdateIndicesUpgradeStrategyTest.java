@@ -27,6 +27,7 @@ import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultStore;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -269,6 +270,119 @@ public class UpdateIndicesUpgradeStrategyTest {
 
     verify(elasticSearchService)
         .deleteDocumentByIndexName(eq(operationContext), eq(nextIndex), anyString());
+  }
+
+  @Test
+  public void testProcessBatchV3BackingIndexUsesHashedDocumentId() throws Exception {
+    String oldIndex =
+        ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v3", "1.2.3-4", 1000L);
+    Map<String, String> targets = Map.of("dataset", oldIndex);
+    UpdateIndicesUpgradeStrategy strategy =
+        new UpdateIndicesUpgradeStrategy(
+            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
+
+    ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
+    searchDoc.put("urn", testUrn.toString());
+
+    when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
+        .thenReturn(Optional.of(searchDoc));
+
+    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
+    events.put(testUrn, List.of(mockEvent));
+
+    strategy.processBatch(operationContext, events, false);
+
+    org.mockito.ArgumentCaptor<String> docIdCaptor =
+        org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq(oldIndex), eq(searchDoc.toString()), docIdCaptor.capture());
+    assertEquals(
+        docIdCaptor.getValue(),
+        org.apache.commons.codec.digest.DigestUtils.sha256Hex(testUrn.toString()));
+    assertFalse(docIdCaptor.getValue().contains("urn:li:"));
+  }
+
+  @Test
+  public void testProcessBatchV2BackingIndexKeepsUrlEncodedDocumentId() throws Exception {
+    String nextIndex = "datasetindex_v2_next_123";
+    Map<String, String> targets = Map.of("dataset", nextIndex);
+    UpdateIndicesUpgradeStrategy strategy =
+        new UpdateIndicesUpgradeStrategy(
+            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
+
+    ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
+    searchDoc.put("urn", testUrn.toString());
+
+    when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
+        .thenReturn(Optional.of(searchDoc));
+
+    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
+    events.put(testUrn, List.of(mockEvent));
+
+    strategy.processBatch(operationContext, events, false);
+
+    org.mockito.ArgumentCaptor<String> docIdCaptor =
+        org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq(nextIndex), eq(searchDoc.toString()), docIdCaptor.capture());
+    assertEquals(
+        docIdCaptor.getValue(),
+        operationContext.getSearchContext().getIndexConvention().getEntityDocumentId(testUrn));
+    assertTrue(docIdCaptor.getValue().contains("urn"));
+  }
+
+  @Test
+  public void testIsV3BackingIndexClassifiesVersionTokenNotSubstring() {
+    assertTrue(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v3"));
+    assertTrue(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v3_1683649932260"));
+    assertTrue(
+        UpdateIndicesUpgradeStrategy.isV3BackingIndex(
+            ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v3", "1.2.3-4", 1000L)));
+    assertTrue(
+        UpdateIndicesUpgradeStrategy.isV3BackingIndex(
+            ESIndexBuilder.getIncrementalNextIndexName(
+                "datasetindex_v3", "0.13.1-0", 1679000000000L)));
+    assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v2"));
+    assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v2_next_123"));
+    assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("index_v3_datasetindex_v2"));
+    assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("index_v3"));
+    assertFalse(
+        UpdateIndicesUpgradeStrategy.isV3BackingIndex("fooindex_v3_datasetindex_v2_1683649932260"));
+    assertFalse(
+        UpdateIndicesUpgradeStrategy.isV3BackingIndex(
+            ESIndexBuilder.getIncrementalNextIndexName(
+                "fooindex_v3_datasetindex_v2", "1.2.3-4", 1000L)));
+  }
+
+  @Test
+  public void testProcessBatchPrefixContainingIndexV3KeepsUrlEncodedDocumentId() throws Exception {
+    String nextIndex = "index_v3_datasetindex_v2";
+    Map<String, String> targets = Map.of("dataset", nextIndex);
+    UpdateIndicesUpgradeStrategy strategy =
+        new UpdateIndicesUpgradeStrategy(
+            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
+
+    ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
+    searchDoc.put("urn", testUrn.toString());
+
+    when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
+        .thenReturn(Optional.of(searchDoc));
+
+    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
+    events.put(testUrn, List.of(mockEvent));
+
+    strategy.processBatch(operationContext, events, false);
+
+    org.mockito.ArgumentCaptor<String> docIdCaptor =
+        org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq(nextIndex), eq(searchDoc.toString()), docIdCaptor.capture());
+    assertEquals(
+        docIdCaptor.getValue(),
+        operationContext.getSearchContext().getIndexConvention().getEntityDocumentId(testUrn));
   }
 
   @Test

@@ -22,7 +22,8 @@ import lombok.extern.slf4j.Slf4j;
  * resource if unavailable. Returns null only if both remote and fallback fail, or if the feature is
  * disabled.
  *
- * <p>Supports an optional {@code refreshCache} argument to clear the cache before fetching.
+ * <p>Supports optional {@code refreshCache} to clear the cache before fetching, and optional {@code
+ * locale} to overlay translated copy from the JSON {@code i18n} map.
  *
  * <p>Decorates the CTA link with the instance's client ID.
  */
@@ -47,6 +48,7 @@ public class ProductUpdateResolver implements DataFetcher<CompletableFuture<Prod
     final QueryContext context = environment.getContext();
     final Boolean refreshCache = environment.getArgument("refreshCache");
     final boolean shouldRefresh = refreshCache != null && refreshCache;
+    final String locale = environment.getArgument("locale");
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -76,7 +78,7 @@ public class ProductUpdateResolver implements DataFetcher<CompletableFuture<Prod
 
             ProductUpdate productUpdate =
                 ProductUpdateParser.parseProductUpdate(
-                    _productUpdateService.getLatestProductUpdate(), clientId);
+                    _productUpdateService.getLatestProductUpdate(), clientId, locale);
 
             if (productUpdate != null) {
               log.debug(

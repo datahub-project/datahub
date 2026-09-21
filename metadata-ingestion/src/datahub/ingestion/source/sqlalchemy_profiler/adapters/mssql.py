@@ -32,9 +32,6 @@ class MSSQLAdapter(PlatformAdapter):
     which works for MSSQL (where it prevents integer truncation) and all other
     dialects (where it preserves precision).
 
-    Mirrors GE's MSSQL handling in great_expectations.dataset.sqlalchemy_dataset:
-      - `get_column_stdev` (MSSQL branch uses `sa.func.stdev`).
-      - `_get_column_quantiles_mssql` (PERCENTILE_DISC ... WITHIN GROUP OVER ()).
     """
 
     # =========================================================================
@@ -72,8 +69,9 @@ class MSSQLAdapter(PlatformAdapter):
         the base adapter: single value → None, multiple-equal rows → 0.0,
         all-null → adapter-specific `get_stdev_null_value()` hook.
         """
-        query = sa.select([sa.func.stdev(sa.column(column))]).select_from(table)
-        result = conn.execute_single_row(query).scalar()
+        result = conn.execute_aggregate(
+            table, sa.func.stdev(sa.column(column))
+        ).scalar()
         if result is None:
             non_null_count = self.get_column_non_null_count(table, column, conn)
             if non_null_count == 1:
@@ -95,7 +93,7 @@ class MSSQLAdapter(PlatformAdapter):
 
         MSSQL requires an explicit (empty) `OVER ()` window for `PERCENTILE_DISC`,
         and since the windowed form returns one row per input row, we use
-        `SELECT DISTINCT` to dedupe. This mirrors GE's `_get_column_quantiles_mssql`.
+        `SELECT DISTINCT` to dedupe.
         """
         if quantiles is None:
             quantiles = DEFAULT_QUANTILES
