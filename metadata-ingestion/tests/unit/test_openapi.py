@@ -5357,6 +5357,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         result = self.source._extract_schema_from_openapi_spec(
             "/items", "items", sw_dict
         )
-        self.assertIsNotNone(result)
+        assert result is not None
         self.assertEqual(self.source.schema_extraction_stats.from_openapi_spec, 1)
         self.assertTrue(len(result.fields) > 0)
