@@ -118,9 +118,7 @@ azure-storage-file-datalake==12.23.0 ; python_full_version >= '3.11' and python_
 babel==2.18.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via python-liquid
 backoff==2.2.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
-    # via
-    #   unstructured
-    #   unstructured-ingest
+    # via unstructured-ingest
 backports-tarfile==1.2.0 ; python_full_version == '3.11.*' and platform_machine != 'ppc64le' and platform_machine != 's390x'
     # via jaraco-context
 beautifulsoup4==4.14.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -133,6 +131,8 @@ bigtree==1.3.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via feast
 blinker==1.9.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via flask
+blis==1.3.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via thinc
 boto3==1.42.61 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
@@ -175,6 +175,11 @@ cachetools==5.5.2 ; python_full_version >= '3.11' and python_full_version < '3.1
     #   pyiceberg
 cassandra-driver==3.30.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
+catalogue==2.0.10 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via
+    #   spacy
+    #   srsly
+    #   thinc
 cattrs==26.1.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via looker-sdk
 certifi==2026.2.25 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -187,6 +192,7 @@ certifi==2026.2.25 ; python_full_version >= '3.11' and python_full_version < '3.
     #   requests
     #   sentry-sdk
     #   snowflake-connector-python
+    #   unstructured-ingest
 cffi==2.0.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   azure-datalake-store
@@ -215,6 +221,7 @@ click==8.3.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   pyiceberg
     #   python-oxmsg
     #   redash-toolbelt
+    #   spacy
     #   tableschema
     #   unstructured-ingest
     #   uvicorn
@@ -226,6 +233,8 @@ clickhouse-driver==0.2.10 ; python_full_version >= '3.11' and python_full_versio
     # via clickhouse-sqlalchemy
 clickhouse-sqlalchemy==0.2.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
+cloudpathlib==0.25.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via weasel
 cloudpickle==3.1.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   dask
@@ -240,8 +249,14 @@ colorama==0.4.6 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   tqdm
     #   typer
     #   uvicorn
+    #   wasabi
 coloredlogs==15.0.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via onnxruntime
+confection==1.3.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via
+    #   spacy
+    #   thinc
+    #   weasel
 confluent-kafka==2.12.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 coverage==7.13.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -273,6 +288,11 @@ cryptography==50.0.0 ; python_full_version >= '3.11' and python_full_version < '
     #   snowflake-connector-python
     #   types-pyopenssl
     #   unstructured-client
+cymem==2.0.13 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via
+    #   preshed
+    #   spacy
+    #   thinc
 dask==2024.6.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
@@ -289,10 +309,7 @@ databricks-sdk==0.97.0 ; python_full_version >= '3.11' and python_full_version <
 databricks-sql-connector==2.9.6 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 dataclasses-json==0.6.7 ; python_full_version >= '3.11' and python_full_version < '3.14'
-    # via
-    #   pycarlo
-    #   unstructured
-    #   unstructured-ingest
+    # via pycarlo
 dataflows-tabulator==1.54.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via tableschema
 datasketches==5.2.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -363,6 +380,7 @@ filelock==3.25.0 ; python_full_version >= '3.11' and python_full_version < '3.14
     #   acryl-datahub
     #   huggingface-hub
     #   snowflake-connector-python
+    #   unstructured
 filetype==1.2.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via unstructured
 flask==3.1.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -563,6 +581,7 @@ httpx==0.28.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   notion-client
     #   unstructured-client
     #   unstructured-ingest
+    #   weasel
 huggingface-hub==1.16.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via tokenizers
 humanfriendly==10.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -598,6 +617,8 @@ importlib-metadata==8.7.1 ; python_full_version >= '3.11' and python_full_versio
     #   opentelemetry-api
 iniconfig==2.3.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via pytest
+installer==0.7.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via unstructured
 isodate==0.6.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   azure-mgmt-datafactory
@@ -626,6 +647,7 @@ jinja2==3.1.6 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   flask
     #   memray
     #   moto
+    #   spacy
 jmespath==1.1.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   aiobotocore
@@ -675,6 +697,8 @@ linkify-it-py==2.1.0 ; python_full_version >= '3.11' and python_full_version < '
     # via markdown-it-py
 lkml==1.3.7 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
+llvmlite==0.49.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via numba
 locket==1.0.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via partd
 loguru==0.7.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -750,6 +774,11 @@ multidict==6.7.1 ; python_full_version >= '3.11' and python_full_version < '3.14
     #   aiobotocore
     #   aiohttp
     #   yarl
+murmurhash==1.0.15 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via
+    #   preshed
+    #   spacy
+    #   thinc
 mypy==2.1.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
@@ -783,25 +812,30 @@ nest-asyncio==1.6.0 ; python_full_version >= '3.11' and python_full_version < '3
 networkx==3.6.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 nh3==0.3.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
-    # via readme-renderer
-nltk==3.10.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
-    #   acryl-datahub
+    #   readme-renderer
     #   unstructured
+nltk==3.10.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via acryl-datahub
 notion-client==3.0.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via unstructured-ingest
+numba==0.67.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via unstructured
 numpy==1.26.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
+    #   blis
     #   dask
     #   databricks-sql-connector
     #   datasketches
     #   db-dtypes
     #   feast
+    #   numba
     #   onnxruntime
     #   pandas
+    #   spacy
+    #   thinc
     #   unstructured
-    #   unstructured-ingest
 oauthlib==3.3.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   atlassian-python-api
@@ -865,10 +899,13 @@ packaging==24.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   redshift-connector
     #   requirements-parser
     #   snowflake-connector-python
+    #   spacy
     #   sqlalchemy-bigquery
     #   sqlalchemy-redshift
     #   tableauserverclient
+    #   thinc
     #   twine
+    #   weasel
 pandas==2.1.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
@@ -877,7 +914,6 @@ pandas==2.1.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   databricks-sql-connector
     #   db-dtypes
     #   feast
-    #   unstructured-ingest
 parse==1.21.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 partd==1.4.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -910,6 +946,10 @@ pluggy==1.6.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   pytest-cov
 ply==3.11 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via jsonpath-ng
+preshed==3.0.13 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via
+    #   spacy
+    #   thinc
 progressbar2==4.5.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 prometheus-client==0.24.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -1008,8 +1048,11 @@ pydantic==2.11.10 ; python_full_version >= '3.11' and python_full_version < '3.1
     #   mixpanel
     #   mlflow-skinny
     #   pyiceberg
+    #   spacy
+    #   thinc
     #   unstructured-client
     #   unstructured-ingest
+    #   weasel
 pydantic-core==2.33.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via pydantic
 pydash==8.0.6 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -1182,7 +1225,9 @@ referencing==0.37.0 ; python_full_version >= '3.11' and python_full_version < '3
     #   jsonschema
     #   jsonschema-specifications
 regex==2026.2.28 ; python_full_version >= '3.11' and python_full_version < '3.14'
-    # via nltk
+    # via
+    #   nltk
+    #   unstructured
 requests==2.32.5 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
@@ -1223,6 +1268,7 @@ requests==2.32.5 ; python_full_version >= '3.11' and python_full_version < '3.14
     #   responses
     #   simple-salesforce
     #   snowflake-connector-python
+    #   spacy
     #   tableauserverclient
     #   tableschema
     #   thoughtspot-rest-api
@@ -1299,6 +1345,8 @@ setuptools==84.0.0 ; python_full_version >= '3.11' and python_full_version < '3.
     #   dlt
     #   grpcio-tools
     #   redshift-connector
+    #   spacy
+    #   thinc
 sgqlc==16.5 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via pycarlo
 shellingham==1.5.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -1326,7 +1374,9 @@ six==1.17.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
 slack-sdk==3.18.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 smart-open==7.5.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   weasel
 smmap==5.0.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via gitdb
 sniffio==1.3.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -1344,6 +1394,12 @@ sortedcontainers==2.4.0 ; python_full_version >= '3.11' and python_full_version 
     #   snowflake-connector-python
 soupsieve==2.8.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via beautifulsoup4
+spacy==3.8.16 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via unstructured
+spacy-legacy==3.0.12 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via spacy
+spacy-loggers==1.0.5 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via spacy
 sqlalchemy==1.4.44 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
@@ -1390,6 +1446,11 @@ sqlparse==0.6.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   mlflow-skinny
+srsly==2.5.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via
+    #   spacy
+    #   thinc
+    #   weasel
 sspilib==0.5.0 ; python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'win32'
     # via pyspnego
 starlette==1.7.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -1424,6 +1485,8 @@ teradatasqlalchemy==20.0.0.2 ; python_full_version >= '3.11' and python_full_ver
     # via acryl-datahub
 textual==8.0.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via memray
+thinc==8.3.13 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via spacy
 thoughtspot-rest-api==2.0.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 thrift==0.16.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -1459,6 +1522,7 @@ tqdm==4.67.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   huggingface-hub
     #   nltk
     #   pinecone-client
+    #   spacy
     #   unstructured
     #   unstructured-ingest
 trino==0.336.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -1468,7 +1532,10 @@ twine==6.2.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
 typeguard==4.5.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via feast
 typer==0.27.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
-    # via huggingface-hub
+    # via
+    #   huggingface-hub
+    #   spacy
+    #   weasel
 types-awscrt==0.31.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via botocore-stubs
 types-cachetools==6.2.0.20251022 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -1598,11 +1665,11 @@ unicodecsv==0.14.1 ; python_full_version >= '3.11' and python_full_version < '3.
     # via
     #   dataflows-tabulator
     #   tableschema
-unstructured==0.18.24 ; python_full_version >= '3.11' and python_full_version < '3.14'
+unstructured==0.24.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 unstructured-client==0.42.10 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via unstructured
-unstructured-ingest==0.7.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
+unstructured-ingest==1.4.28 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 urllib3==2.8.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
@@ -1632,10 +1699,17 @@ vertica-python==1.4.0 ; python_full_version >= '3.11' and python_full_version < 
     # via vertica-sqlalchemy-dialect
 vertica-sqlalchemy-dialect==0.0.8.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
+wasabi==1.1.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via
+    #   spacy
+    #   thinc
+    #   weasel
 watchfiles==1.1.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via uvicorn
 wcmatch==10.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
+weasel==1.0.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via spacy
 webencodings==0.5.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via html5lib
 websocket-client==1.9.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
