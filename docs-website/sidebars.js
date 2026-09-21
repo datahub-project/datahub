@@ -749,12 +749,6 @@ module.exports = {
               id: "docs/managed-datahub/context-platform/activate-context",
               className: "saasOnly",
             },
-            {
-              label: "Metadata Ingestion Recipes",
-              type: "doc",
-              id: "docs/managed-datahub/context-platform/metadata-ingestion-recipes",
-              className: "saasOnly",
-            },
           ],
         },
       ],

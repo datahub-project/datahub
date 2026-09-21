@@ -55,4 +55,4 @@ Before rolling out broadly, confirm that published context is actually changing 
 
 ## Next Steps
 
-If your generated context is missing query history or business meaning, review the reference [Metadata Ingestion Recipes](metadata-ingestion-recipes.md) to confirm your sources are emitting the query entities and usage statistics that context generation depends on.
+If your generated context is missing query history or business meaning, review the reference [Metadata Ingestion Recipes](configure-context-generation.md#reference-metadata-ingestion-recipes) to confirm your sources are emitting the query entities and usage statistics that context generation depends on.

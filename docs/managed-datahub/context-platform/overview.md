@@ -59,7 +59,7 @@ An Admin must assign users to the [Editor role](https://docs.datahub.com/docs/au
 
 Configure [data source connectors](https://docs.datahub.com/docs/metadata-ingestion) with **query ingestion enabled**. Supported sources in Private Beta: **Snowflake, Databricks, BigQuery, and Redshift**.
 
-Verify your recipes against the reference [Metadata Ingestion Recipes](metadata-ingestion-recipes.md).
+Verify your recipes against the reference [Metadata Ingestion Recipes](configure-context-generation.md#reference-metadata-ingestion-recipes).
 
 ### 4. Configure BI and transformation connectors
 
