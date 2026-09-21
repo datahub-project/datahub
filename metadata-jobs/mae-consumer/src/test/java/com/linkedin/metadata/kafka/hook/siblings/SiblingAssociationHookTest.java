@@ -356,6 +356,69 @@ public class SiblingAssociationHookTest {
   }
 
   @Test
+  public void testInvokeWhenThereIsAPairWithBigqueryDownstreamNodeHavingEmptySiblingsAspect()
+      throws Exception {
+    when(_mockEntityClient.exists(any(OperationContext.class), Mockito.any())).thenReturn(true);
+
+    // an empty siblings aspect on the downstream node should not block association, since it
+    // represents no actual sibling relationship
+    Siblings emptySiblingsAspect = new Siblings().setSiblings(new UrnArray());
+    EnvelopedAspectMap siblingsResponseMap = new EnvelopedAspectMap();
+    siblingsResponseMap.put(
+        SIBLINGS_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(emptySiblingsAspect.data())));
+    EntityResponse siblingsResponse = new EntityResponse();
+    siblingsResponse.setAspects(siblingsResponseMap);
+
+    when(_mockEntityClient.getV2(
+            any(OperationContext.class),
+            eq(
+                Urn.createFromString(
+                    "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)")),
+            eq(ImmutableSet.of(SIBLINGS_ASPECT_NAME))))
+        .thenReturn(siblingsResponse);
+
+    MetadataChangeLog event =
+        createEvent(DATASET_ENTITY_NAME, UPSTREAM_LINEAGE_ASPECT_NAME, ChangeType.UPSERT);
+    final UpstreamLineage upstreamLineage = new UpstreamLineage();
+    final UpstreamArray upstreamArray = new UpstreamArray();
+    Upstream upstream =
+        createUpstream(
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)",
+            DatasetLineageType.TRANSFORMED);
+
+    upstreamArray.add(upstream);
+    upstreamLineage.setUpstreams(upstreamArray);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
+    event.setEntityUrn(
+        Urn.createFromString(
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
+    _siblingAssociationHook.invoke(opContext, event);
+
+    final Siblings dbtSiblingsAspect =
+        new Siblings()
+            .setSiblings(
+                new UrnArray(
+                    ImmutableList.of(
+                        Urn.createFromString(
+                            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"))))
+            .setPrimary(true);
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(
+        Urn.createFromString(
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"));
+    proposal.setEntityType(DATASET_ENTITY_NAME);
+    proposal.setAspectName(SIBLINGS_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(dbtSiblingsAspect));
+    proposal.setChangeType(ChangeType.UPSERT);
+
+    Mockito.verify(_mockEntityClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true));
+  }
+
+  @Test
   public void testInvokeWhenThereIsAKeyBeingReingested() throws Exception {
     when(_mockEntityClient.exists(any(OperationContext.class), Mockito.any())).thenReturn(true);
 
