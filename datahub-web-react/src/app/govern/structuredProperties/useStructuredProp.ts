@@ -1,132 +1,117 @@
-import { FormInstance } from 'antd';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { StructuredProp, getEntityTypeUrn, valueTypes } from '@app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { EntityType, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
-interface Props {
+const SETTINGS_DEFAULT = {
+    isHidden: false,
+    showInSearchFilters: false,
+    showAsAssetBadge: false,
+    showInAssetSummary: false,
+    hideInAssetSummaryWhenEmpty: false,
+    showInColumnsTable: false,
+};
+
+type Props = {
     selectedProperty?: StructuredPropertyEntity;
-    form: FormInstance;
     setFormValues: React.Dispatch<React.SetStateAction<StructuredProp | undefined>>;
     setCardinality: React.Dispatch<React.SetStateAction<PropertyCardinality>>;
     setSelectedValueType: React.Dispatch<React.SetStateAction<string>>;
-}
+};
 
 export default function useStructuredProp({
     selectedProperty,
-    form,
     setFormValues,
     setCardinality,
     setSelectedValueType,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    const getEntitiesListOptions = (entitiesList: EntityType[]) => {
-        const listOptions: { label: string; value: string }[] = [];
-        entitiesList.forEach((type) => {
-            const entity = {
+    const getEntitiesListOptions = useCallback(
+        (entitiesList: EntityType[]) =>
+            entitiesList.map((type) => ({
                 label: entityRegistry.getEntityName(type) || '',
                 value: getEntityTypeUrn(entityRegistry, type),
-            };
-            listOptions.push(entity);
-        });
-        return listOptions;
-    };
+            })),
+        [entityRegistry],
+    );
 
-    const updateFormValues = (field, values) => {
-        if (field.includes('typeQualifier')) {
-            setFormValues((prev) => ({
-                ...prev,
-                typeQualifier: {
-                    allowedTypes: values,
-                },
-            }));
-        } else
-            setFormValues((prev) => ({
-                ...prev,
-                [field]: values,
-            }));
-    };
+    const handleSelectChange = useCallback(
+        (field: string | string[], values: string[]) => {
+            setFormValues((prev) =>
+                field.includes('typeQualifier')
+                    ? { ...prev, typeQualifier: { allowedTypes: values } }
+                    : { ...prev, [String(field)]: values },
+            );
+        },
+        [setFormValues],
+    );
 
-    const handleSelectChange = (field, values) => {
-        form.setFieldValue(field, values);
-        updateFormValues(field, values);
-    };
+    // Edits to an existing property can only widen its scope, so already-saved selections are kept
+    // even if the user deselects them in the dropdown.
+    const handleSelectUpdateChange = useCallback(
+        (field: string | string[], values: string[]) => {
+            let initialValues: string[] = [];
 
-    const handleSelectUpdateChange = (field, values) => {
-        const entity = selectedProperty;
-        let initialValues: string[] = [];
+            if (field === 'entityTypes')
+                initialValues = selectedProperty?.definition?.entityTypes?.map((type) => type.urn) || [];
 
-        if (field === 'entityTypes') initialValues = entity?.definition?.entityTypes?.map((type) => type.urn) || [];
+            if (field === 'allowedPlatforms')
+                initialValues = selectedProperty?.definition?.allowedPlatforms?.map((platform) => platform.urn) || [];
 
-        if (field === 'allowedPlatforms')
-            initialValues = entity?.definition?.allowedPlatforms?.map((platform) => platform.urn) || [];
+            if (field.includes('typeQualifier'))
+                initialValues =
+                    selectedProperty?.definition?.typeQualifier?.allowedTypes?.map((type) => type.urn) || [];
 
-        if (field.includes('typeQualifier'))
-            initialValues = entity?.definition?.typeQualifier?.allowedTypes?.map((type) => type.urn) || [];
-
-        const updatedValues = [...initialValues, ...values.filter((value) => !initialValues.includes(value))];
-
-        form.setFieldValue(field, updatedValues);
-        updateFormValues(field, updatedValues);
-    };
+            handleSelectChange(field, [...initialValues, ...values.filter((value) => !initialValues.includes(value))]);
+        },
+        [handleSelectChange, selectedProperty],
+    );
 
     // Handle change in the property type dropdown
-    const handleTypeUpdate = (value: string) => {
-        const typeOption = valueTypes.find((type) => type.value === value);
-        setSelectedValueType(value);
-        handleSelectChange('valueType', value);
-        setFormValues((prev) => ({
-            ...prev,
-            valueType: value,
-        }));
+    const handleTypeUpdate = useCallback(
+        (value: string) => {
+            const typeOption = valueTypes.find((type) => type.value === value);
+            setSelectedValueType(value);
+            setFormValues((prev) => ({ ...prev, valueType: value }));
+            setCardinality(
+                typeOption?.cardinality === PropertyCardinality.Multiple
+                    ? PropertyCardinality.Multiple
+                    : PropertyCardinality.Single,
+            );
+        },
+        [setCardinality, setFormValues, setSelectedValueType],
+    );
 
-        const isList = typeOption?.cardinality === PropertyCardinality.Multiple;
-        if (isList) setCardinality(PropertyCardinality.Multiple);
-        else setCardinality(PropertyCardinality.Single);
-    };
+    const handleDisplaySettingChange = useCallback(
+        (settingField: string, value: boolean) => {
+            setFormValues((prev) => {
+                // Hiding the property turns off every other display surface.
+                if (settingField === 'isHidden' && value) {
+                    return { ...prev, settings: { ...SETTINGS_DEFAULT, isHidden: true } };
+                }
 
-    const settingsDefault = {
-        isHidden: false,
-        showInSearchFilters: false,
-        showAsAssetBadge: false,
-        showInAssetSummary: false,
-        hideInAssetSummaryWhenEmpty: false,
-        showInColumnsTable: false,
-    };
+                // Automatically disable `hideInAssetSummaryWhenEmpty` on disabling of `showInAssetSummary`
+                if (settingField === 'showInAssetSummary' && !value) {
+                    return {
+                        ...prev,
+                        settings: {
+                            ...(prev?.settings || SETTINGS_DEFAULT),
+                            showInAssetSummary: false,
+                            hideInAssetSummaryWhenEmpty: false,
+                        },
+                    };
+                }
 
-    const handleDisplaySettingChange = (settingField: string, value: boolean) => {
-        if (settingField === 'isHidden' && value) {
-            Object.keys(settingsDefault).forEach((settingKey) => form.setFieldValue(['settings', settingKey], false));
-            setFormValues((prev) => ({
-                ...prev,
-                settings: {
-                    ...settingsDefault,
-                    [settingField]: value,
-                },
-            }));
-        } else if (settingField === 'showInAssetSummary' && !value) {
-            // Automatically disable `hideInAssetSummaryWhenEmpty` on disabling of `showInAssetSummary`
-            setFormValues((prev) => ({
-                ...prev,
-                settings: {
-                    ...(prev?.settings || settingsDefault),
-                    showInAssetSummary: false,
-                    hideInAssetSummaryWhenEmpty: false,
-                },
-            }));
-        } else {
-            setFormValues((prev) => ({
-                ...prev,
-                settings: {
-                    ...(prev?.settings || settingsDefault),
-                    [settingField]: value,
-                },
-            }));
-        }
-        form.setFieldValue(['settings', settingField], value);
-    };
+                return {
+                    ...prev,
+                    settings: { ...(prev?.settings || SETTINGS_DEFAULT), [settingField]: value },
+                };
+            });
+        },
+        [setFormValues],
+    );
 
     const disabledEntityTypeValues = useMemo(() => {
         return selectedProperty?.definition?.entityTypes?.map((type) => type.urn);
@@ -151,3 +136,5 @@ export default function useStructuredProp({
         handleDisplaySettingChange,
     };
 }
+
+export type StructuredPropActions = ReturnType<typeof useStructuredProp>;

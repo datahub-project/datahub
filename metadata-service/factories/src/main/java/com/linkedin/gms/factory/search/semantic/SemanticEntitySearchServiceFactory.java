@@ -1,13 +1,14 @@
 package com.linkedin.gms.factory.search.semantic;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,9 +22,7 @@ public class SemanticEntitySearchServiceFactory {
 
   private static final String DEFAULT_MODEL_EMBEDDING_KEY = "text_embedding_3_large";
 
-  @Autowired
-  @Qualifier("searchClientShim")
-  private SearchClientShim<?> searchClient;
+  @Autowired private SearchClusterRegistry searchClusterRegistry;
 
   @Autowired
   @Qualifier("embeddingProvider")
@@ -40,7 +39,10 @@ public class SemanticEntitySearchServiceFactory {
     log.info("Creating SemanticEntitySearchService with modelEmbeddingKey={}", modelEmbeddingKey);
 
     return new SemanticEntitySearchService(
-        searchClient, embeddingProvider, mappingsBuilder, modelEmbeddingKey);
+        searchClusterRegistry.clientFor(SearchComponent.SEMANTIC),
+        embeddingProvider,
+        mappingsBuilder,
+        modelEmbeddingKey);
   }
 
   /**
