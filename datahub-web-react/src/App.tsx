@@ -75,6 +75,9 @@ const client = new ApolloClient({
         typePolicies: {
             Query: {
                 fields: {
+                    latestProductUpdate: {
+                        keyArgs: ['locale'],
+                    },
                     dataset: {
                         merge: (oldObj, newObj) => {
                             return { ...oldObj, ...newObj };
@@ -86,6 +89,10 @@ const client = new ApolloClient({
                         },
                     },
                 },
+            },
+            // ProductUpdate.id is a release version, not a unique cache identity across locales.
+            ProductUpdate: {
+                keyFields: false,
             },
         },
         // need to define possibleTypes to allow us to use Apollo cache with union types
@@ -109,7 +116,11 @@ export const InnerApp: React.VFC = () => {
         <HelmetProvider>
             <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
                 <GlobalStyles />
-                <ToastRenderer />
+                {/* ToastRenderer translates its own labels and sits above the router's boundary,
+                    so it needs one of its own while the locale bundle loads. */}
+                <Suspense fallback={null}>
+                    <ToastRenderer />
+                </Suspense>
                 <FilesUploadingDownloadingLatencyTracker />
 
                 <Helmet>

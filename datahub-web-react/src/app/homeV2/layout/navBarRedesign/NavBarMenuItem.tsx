@@ -4,7 +4,7 @@ import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { NavBarMenuBaseItem } from '@app/homeV2/layout/navBarRedesign/types';
-import { Badge, Text } from '@src/alchemy-components';
+import { Badge, Pill, Text } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 
 const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
@@ -87,7 +87,7 @@ const Icon = styled.div<{ $isSelected?: boolean; $size?: number }>`
     && svg {
         ${(props) =>
             props.$isSelected
-                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.textBrand};`
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconSelected};`
                 : `color: ${props.theme.colors.icon};`}
         width: ${(props) => props.$size ?? 20}px;
         height: ${(props) => props.$size ?? 20}px;
@@ -116,7 +116,7 @@ const PillDot = styled.div<{ $isSelected?: boolean }>`
     height: 10px;
     background: ${(props) => props.theme.colors.buttonFillBrand};
     border-radius: 6px;
-    border: 2px solid ${(props) => props.theme.colors.bgSurfaceNewNav};
+    border: 2px solid ${(props) => props.theme.colors.borderWhite};
     top: 6px;
     left: 22px;
 `;
@@ -153,14 +153,25 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
                     </Icon>
                 ) : null}
                 {isCollapsed ? (
-                    <>{item?.badge?.show && <PillDot />}</>
+                    <>{item?.badge?.show && item?.badge?.showDot !== false && <PillDot $isSelected={isSelected} />}</>
                 ) : (
-                    <ItemTitleContentWrapper>
-                        <StyledText size="md" type="div" weight="semiBold" $isSelected={isSelected}>
-                            {item.title}
-                        </StyledText>
-                        {item?.badge?.show && <Badge count={item.badge.count} clickable={false} color="primary" />}
-                    </ItemTitleContentWrapper>
+                    <>
+                        {/* Show blue dot alongside label when expanded (only if showDot is enabled) */}
+                        {item?.badge?.show && item.badge.label && item?.badge?.showDot && (
+                            <PillDot $isSelected={isSelected} />
+                        )}
+                        <ItemTitleContentWrapper>
+                            <StyledText size="md" type="div" weight="semiBold" $isSelected={isSelected}>
+                                {item.title}
+                            </StyledText>
+                            {item?.badge?.show &&
+                                (item.badge.label ? (
+                                    <Pill size="sm" color="blue" label={item.badge.label} clickable={false} />
+                                ) : (
+                                    <Badge count={item.badge.count || 0} clickable={false} color="primary" />
+                                ))}
+                        </ItemTitleContentWrapper>
+                    </>
                 )}
             </StyledMenuItem>
         </Tooltip>

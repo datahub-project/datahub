@@ -32,6 +32,8 @@ import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
@@ -146,7 +148,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .bulkDelete(TEST_ES_SEARCH_CONFIG.getBulkDelete())
             .bulkProcessor(TEST_ES_SEARCH_CONFIG.getBulkProcessor())
             .buildIndices(TEST_ES_SEARCH_CONFIG.getBuildIndices())
-            .idHashAlgo(TEST_ES_SEARCH_CONFIG.getIdHashAlgo())
+            // idHashAlgo now travels with entityIndex.v2, preserved above
             .index(TEST_ES_SEARCH_CONFIG.getIndex())
             .scroll(TEST_ES_SEARCH_CONFIG.getScroll())
             .build();
@@ -693,6 +695,32 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     BoolQueryBuilder mustHaveV1 = (BoolQueryBuilder) shouldQuery.filter().get(1);
     assertEquals(((ExistsQueryBuilder) mustHaveV1.must().get(0)).fieldName(), "browsePaths");
+  }
+
+  @Test
+  public void testV3FilterQueryAlwaysScopesRequestedEntityTypes() {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+
+    BoolQueryBuilder query =
+        SearchRequestHandler.getFilterQuery(
+            operationContext,
+            List.of("dataset"),
+            null,
+            new HashMap<>(),
+            QueryFilterRewriteChain.EMPTY,
+            entityIndex);
+
+    assertTrue(
+        query.filter().stream()
+            .filter(TermsQueryBuilder.class::isInstance)
+            .map(TermsQueryBuilder.class::cast)
+            .anyMatch(
+                terms ->
+                    terms.fieldName().equals("_entityType") && terms.values().contains("dataset")));
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
