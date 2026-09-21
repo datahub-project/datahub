@@ -792,9 +792,25 @@ public class ESIndexBuilder {
     if (indexState.isPureMappingsAddition()
         || indexState.isPureStructuredPropertyAddition()
         || indexState.isInPlaceMappingParameterUpdate()) {
+      Map<String, Object> mappingsToPut = indexState.targetMappings();
+      if (indexState.cannotApplyKnnVectorMappingInPlace()) {
+        log.error(
+            "Index: {} - Skipping knn_vector mapping update because index.knn is false and"
+                + " settings reindex is disabled. OpenSearch cannot add knn_vector while"
+                + " index.knn is false (the setting is final on k-NN 2.19+). Set"
+                + " ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true and rerun system-update,"
+                + " or recreate the index (for example documentindex_v3).",
+            indexState.name());
+        mappingsToPut = ReindexConfig.mappingsWithoutKnnVectorFields(mappingsToPut);
+        if (!ReindexConfig.mappingHasProperties(mappingsToPut)) {
+          log.info(
+              "Index: {} - No remaining mappings to apply in place after omitting knn_vector.",
+              indexState.name());
+          return;
+        }
+      }
       log.info("Updating index {} mappings in place.", indexState.name());
-      PutMappingRequest request =
-          new PutMappingRequest(indexState.name()).source(indexState.targetMappings());
+      PutMappingRequest request = new PutMappingRequest(indexState.name()).source(mappingsToPut);
       searchClient.putIndexMapping(opContext, request, requestOptionsLong);
       log.info("Updated index {} with new mappings", indexState.name());
     } else {

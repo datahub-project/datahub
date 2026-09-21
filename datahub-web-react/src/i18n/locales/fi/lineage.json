@@ -74,6 +74,7 @@
     "levelFilter.indirectTooltip": "Näytä epäsuorasti liittyvät kohteet",
     "manageLineage.changeToHome": "Vaihda kotikohteeksi",
     "manageLineage.dashboardNoDownstream": "Dashboard-kohteilla ei ole alavirran Lineage-tietoja",
+    "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",
     "manageLineage.downstreamDisabled": "Tee tästä kohteesta kotikohteesi tehdäksesi alavirran muokkauksia.",
     "manageLineage.editDownstream": "Muokkaa alavirtaa",
     "manageLineage.editUpstream": "Muokkaa ylävirtaa",

@@ -1048,10 +1048,14 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             Dictionary of config values that affect processing output.
         """
+        from datahub.ingestion.source.unstructured.chunking_config import (
+            DEFAULT_MAX_CHUNKS_PER_DOCUMENT,
+        )
+
         # Chunking/embedding is enabled when embedding provider is configured
         embedding_enabled = self.config.embedding.provider is not None
 
-        return {
+        fingerprint: Dict[str, Any] = {
             # Chunking affects chunk boundaries and structure
             "chunking_enabled": embedding_enabled,
             "chunking_strategy": self.config.chunking.strategy
@@ -1076,6 +1080,18 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             # Hierarchy affects parent relationships
             "hierarchy_enabled": self.config.hierarchy.enabled,
         }
+        # Only fingerprint the chunk cap when non-default, so upgrading to a build that
+        # adds the knob does not re-hash (and re-embed) every already-processed document;
+        # a tuned cap changes emitted output and must re-hash.
+        if (
+            embedding_enabled
+            and self.config.chunking.max_chunks_per_document
+            != DEFAULT_MAX_CHUNKS_PER_DOCUMENT
+        ):
+            fingerprint["chunking_max_chunks_per_document"] = (
+                self.config.chunking.max_chunks_per_document
+            )
+        return fingerprint
 
     def _calculate_document_hash(self, text: str, page_id: str) -> str:
         """Calculate hash of document content AND processing configuration.
@@ -2256,6 +2272,12 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.embedding_failures.append(failure)
             self.report.num_documents_limit_reached = (
                 chunking_report.num_documents_limit_reached
+            )
+            self.report.num_documents_truncated_oversized = (
+                chunking_report.num_documents_truncated_oversized
+            )
+            self.report.num_documents_dropped_oversized = (
+                chunking_report.num_documents_dropped_oversized
             )
 
         # Log prominent warning if all embeddings failed

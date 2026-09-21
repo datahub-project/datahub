@@ -246,6 +246,57 @@ export function parseColumnRef(columnRef: ColumnRef): [Urn, string] {
     return [urn, field];
 }
 
+/**
+ * Field of a column ref that stands for an entity as a whole, for entities that read columns
+ * without having columns of their own, e.g. a metric reading a dataset column. Column lineage
+ * edges to such a ref attach to the entity's node rather than to a column.
+ */
+export const ENTITY_LEVEL_FIELD = '';
+
+export function createEntityRef(urn: Urn): ColumnRef {
+    return createColumnRef(urn, ENTITY_LEVEL_FIELD);
+}
+
+export function isEntityRef(columnRef: ColumnRef): boolean {
+    return parseColumnRef(columnRef)[1] === ENTITY_LEVEL_FIELD;
+}
+
+/**
+ * Whether the entity behaves as a single column within column lineage, e.g. a metric. Lineage
+ * between two such entities is modelled entity-to-entity rather than as fine-grained lineage, so
+ * column highlighting has to walk it through the entity-level adjacency list.
+ */
+export function isColumnLikeEntity(urn: Urn, nodes: NodeContext['nodes']): boolean {
+    return nodes.get(urn)?.type === EntityType.Metric;
+}
+
+/** Entity edges the current column highlight covers, mapped to the stroke to draw them with. */
+export type ColumnHighlightedEdges = Map<EdgeId, string>;
+
+/** What column lineage is highlighted from: a column or entity ref, and whether it is selected rather than hovered. */
+export interface ColumnHighlightSource {
+    ref: ColumnRef;
+    isSelected: boolean;
+}
+
+/**
+ * Picks the ref that drives column lineage highlights. A selected column always wins, so selecting
+ * or hovering an entity while a column is selected changes nothing; a selected entity then takes
+ * precedence over hovers, as a selected column does.
+ */
+export function resolveColumnHighlightSource(
+    selectedColumn: ColumnRef | null,
+    hoveredColumn: ColumnRef | null,
+    selectedEntityRef: ColumnRef | null,
+    hoveredEntityRef: ColumnRef | null,
+): ColumnHighlightSource | null {
+    if (selectedColumn) return { ref: selectedColumn, isSelected: true };
+    if (selectedEntityRef) return { ref: selectedEntityRef, isSelected: true };
+    if (hoveredColumn) return { ref: hoveredColumn, isSelected: false };
+    if (hoveredEntityRef) return { ref: hoveredEntityRef, isSelected: false };
+    return null;
+}
+
 export function createFineGrainedOperationRef(
     queryUrn: Urn,
     upstreams: Maybe<SchemaFieldRef[]>,
@@ -459,9 +510,16 @@ interface DisplayContext {
     setDisplayedMenuNode: Dispatch<SetStateAction<Urn | null>>;
     hoveredColumn: ColumnRef | null;
     setHoveredColumn: Dispatch<SetStateAction<ColumnRef | null>>;
+    /** The node selected on the graph, shown in the lineage sidebar. */
+    selectedNode: LineageEntity | null;
+    setSelectedNode: (v: LineageEntity | null) => void;
     selectedColumn: ColumnRef | null;
     setSelectedColumn: Dispatch<SetStateAction<ColumnRef | null>>;
     // Outputs
+    /** Resolved from the hovered / selected column and node; null when nothing highlights column lineage. */
+    columnHighlightSource: ColumnHighlightSource | null;
+    /** Entity edges covered by the column highlight, e.g. between two metrics; see `isColumnLikeEntity`. */
+    columnHighlightedEdges: ColumnHighlightedEdges;
     highlightedNodes: Set<Urn>; // TODO: Remove? Not currently used
     cllHighlightedNodes: Map<Urn, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
@@ -481,8 +539,12 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
     setDisplayedMenuNode: () => {},
     hoveredColumn: null,
     setHoveredColumn: () => {},
+    selectedNode: null,
+    setSelectedNode: () => {},
     selectedColumn: null,
     setSelectedColumn: () => {},
+    columnHighlightSource: null,
+    columnHighlightedEdges: new Map(),
     highlightedNodes: new Set(),
     cllHighlightedNodes: new Map(),
     highlightedColumns: new Map(),

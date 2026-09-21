@@ -40,6 +40,8 @@ import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValida
 import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.TagPrivilegeConstraintsValidator;
+import com.linkedin.metadata.aspect.validation.UpstreamMetricsAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.UpstreamMetricsValidator;
 import com.linkedin.metadata.aspect.validation.UrlValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
@@ -48,6 +50,7 @@ import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffect;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
+import com.linkedin.metadata.domains.sideeffects.DomainReferenceDetachSideEffect;
 import com.linkedin.metadata.entity.AspectSizePayloadValidator;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
@@ -298,6 +301,36 @@ public class SpringStandardPluginConfiguration {
         DataProductAssetsSideEffect.class.getName(),
         maxFanoutPerCommit);
     return new DataProductAssetsSideEffect()
+        .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
+        .setConfig(config);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.domainReferenceDetach.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public MCPSideEffect domainReferenceDetachSideEffect(
+      @Value("${metadataChangeProposal.sideEffects.domainReferenceDetach.maxFanoutPerCommit:500}")
+          final int maxFanoutPerCommit) {
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(DomainReferenceDetachSideEffect.class.getName())
+            .supportedOperations(List.of("DELETE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DOMAIN_ENTITY_NAME)
+                        .aspectName(Constants.DOMAIN_KEY_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    log.info(
+        "Initialized {} with maxFanoutPerCommit={}",
+        DomainReferenceDetachSideEffect.class.getName(),
+        maxFanoutPerCommit);
+    return new DomainReferenceDetachSideEffect()
         .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
         .setConfig(config);
   }
@@ -1114,6 +1147,57 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(SCHEMA_FIELD_ENTITY_NAME)
                             .aspectName(LOGICAL_PARENT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator upstreamMetricsAuthorizationValidator() {
+    return new UpstreamMetricsAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(UpstreamMetricsAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CHART_ENTITY_NAME)
+                            .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DASHBOARD_ENTITY_NAME)
+                            .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATASET_ENTITY_NAME)
+                            .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator upstreamMetricsValidator() {
+    return new UpstreamMetricsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(UpstreamMetricsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CHART_ENTITY_NAME)
+                            .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DASHBOARD_ENTITY_NAME)
+                            .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATASET_ENTITY_NAME)
+                            .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
                             .build()))
                 .build());
   }

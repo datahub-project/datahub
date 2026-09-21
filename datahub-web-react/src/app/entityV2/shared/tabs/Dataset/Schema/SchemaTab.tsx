@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Empty } from 'antd';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -15,7 +16,9 @@ import { isLogicalModel } from '@app/entityV2/shared/logicalModels/logicalModels
 import CompactSchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/CompactSchemaTable';
 import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
+import MetadataErrorBanner from '@app/entityV2/shared/tabs/Dataset/Schema/components/MetadataErrorBanner';
 import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
+import { toMetadataStatus } from '@app/entityV2/shared/tabs/Dataset/Schema/metadataStatus';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import useSchemaVersioning from '@app/entityV2/shared/tabs/Dataset/Schema/useSchemaVersioning';
 import { SchemaFilterType, filterSchemaRows } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
@@ -40,9 +43,19 @@ const NoSchema = styled(Empty)`
     padding-top: 60px;
 `;
 
+// height: 100% on purpose. The tab pane does not give this container a definite flex
+// height, so `flex: 1; min-height: 0` collapsed it to the header's 45px with a 0px body:
+// rows stayed in the DOM but were never visible, and every row click timed out.
 const SchemaTableContainer = styled.div`
-    overflow: auto;
+    position: relative;
     height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+`;
+
+const SchemaScrollArea = styled.div`
+    height: 100%;
+    overflow: auto;
 `;
 
 const LoadingWrapper = styled.div`
@@ -61,14 +74,31 @@ const DEFAULT_SCHEMA_FILTER_TYPES = [
 ];
 
 export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderType; properties?: any }) => {
+    const { t } = useTranslation('entity.profile.schema');
     const entityRegistry = useEntityRegistry();
     const { urn, entityType, entityData } = useEntityData();
     const { logicalModelsEnabled } = useAppConfig().config.featureFlags;
     const { platformPrivileges } = useUserContext();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     // Dynamically load the schema + editable schema information.
-    const { entityWithSchema, loading, refetch } = useGetEntityWithSchema();
-    let schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
+    const {
+        entityWithSchema,
+        structuralSchemaMetadata,
+        loading,
+        fullMetadataLoading,
+        fullMetadataError,
+        structuralSchemaError,
+        refetch,
+        // Compact mode has no skeleton cells for the description column, so it keeps the
+        // full-metadata loading contract; the full tab renders structural rows first.
+    } = useGetEntityWithSchema(undefined, undefined, renderType !== TabRenderType.COMPACT);
+    // Use full metadata (tags/terms/descriptions) when the full query has resolved.
+    // Fall back to structural schema so the table renders immediately on first load.
+    let schemaMetadata: any = entityWithSchema?.schemaMetadata || structuralSchemaMetadata || undefined;
+    // Phase 2 can return metadata together with GraphQL errors (one nested resolver failing).
+    // That is a partial success: the merged metadata is shown and the banner offers a retry;
+    // cells only fall back to "unavailable" when no full metadata arrived at all.
+    const fullMetadataMissing = !!fullMetadataError && !entityWithSchema?.schemaMetadata;
     let editableSchemaMetadata: any = entityWithSchema?.editableSchemaMetadata || undefined;
     const separateSiblings = useIsSeparateSiblingsMode();
     const siblingUrn = entityData?.siblingsSearch?.searchResults?.[0]?.entity?.urn;
@@ -87,7 +117,9 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
     );
     const [openTimelineDrawer, setOpenTimelineDrawer] = useState<boolean>(false);
     const [highlightedMatchIndex, setHighlightedMatchIndex] = useState<number | null>(null);
-    const [wasSearchReset, setWasSearchReset] = useState(false);
+    // Counter-based key for SchemaHeader force-remount: increment on each reset so
+    // repeated resets each trigger a remount (a boolean latch would only work once).
+    const [searchResetCount, setSearchResetCount] = useState(0);
 
     useUpdateSchemaFilterQueryString(filterText, expandedDrawerFieldPath, schemaFilterTypes);
 
@@ -195,16 +227,31 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
         return groupByFieldPath(filteredRows, { showKeySchema });
     }, [showKeySchema, filteredRows]);
 
+    // Keep a ref to the current matches.length so the wasSearchReset effect below
+    // reads the latest value rather than a stale closure captured when loading/
+    // fullMetadataLoading last changed. The effect intentionally does not re-run on
+    // every matches change (only on loading transitions), so a ref is the right tool.
+    const matchesLengthRef = useRef(matches.length);
+    matchesLengthRef.current = matches.length;
+
     // hack to reset default value of SchemaHeader filter when there are no matches so the old query doesn't lie around
     // Gabe did this. I apologize to anyone reading.
+    // Wait for both queries to complete before clearing: the structural query has no
+    // tag or description data, so a tag-based filter returns 0 matches until the full
+    // metadata query resolves. Clearing too early would silently discard a valid filter.
+    // Likewise when Phase 2 failed: the rows have no metadata to match against, so zero
+    // matches says nothing about the filter -- keep it for the retry.
+    // And only once some schema has actually arrived: before the first phase settles there is
+    // nothing to match against, and a URL-derived filter must survive that.
+    const hasSchema = !!schemaMetadata;
     useEffect(() => {
-        if (!loading && matches.length === 0) {
+        if (!loading && !fullMetadataLoading && !fullMetadataError && hasSchema && matchesLengthRef.current === 0) {
             setFilterText('');
             setSchemaFilterTypes(DEFAULT_SCHEMA_FILTER_TYPES);
-            setWasSearchReset(true);
+            setSearchResetCount((c) => c + 1);
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
-    }, [loading]);
+    }, [loading, fullMetadataLoading, fullMetadataError, hasSchema]);
 
     if (renderType === TabRenderType.COMPACT) {
         if (loading && !schemaMetadata) {
@@ -214,6 +261,12 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
             // Provided here as well as below: the compact table renders the same field drawer, whose
             // actions reach the schema refetch through the context rather than through props.
             <SchemaContext.Provider value={{ refetch }}>
+                {structuralSchemaError && !schemaMetadata && (
+                    <MetadataErrorBanner message={t('schemaTab.structuralLoadError')} onRetry={refetch} />
+                )}
+                {fullMetadataError && !fullMetadataLoading && (
+                    <MetadataErrorBanner message={t('schemaTab.fullMetadataLoadError')} onRetry={refetch} />
+                )}
                 <CompactSchemaTable
                     rows={rows}
                     schemaMetadata={schemaMetadata}
@@ -244,8 +297,9 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                 />
             )}
             <SchemaHeader
-                // see above hook
-                key={wasSearchReset ? 'key1' : 'key2'}
+                // Increment-based key: each filter reset remounts SchemaHeader so stale
+                // URL search params are cleared. A boolean toggle only works once.
+                key={searchResetCount}
                 filterText={filterText}
                 setFilterText={setFilterText}
                 showRaw={showRaw}
@@ -277,34 +331,55 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                     <LoadingOutlined />
                 </LoadingWrapper>
             ) : (
-                <SchemaTableContainer>
-                    {/* eslint-disable-next-line no-nested-ternary */}
-                    {showRaw ? (
-                        <SchemaRawView
-                            schemaDiff={{ current: schemaMetadata }}
-                            editMode={editMode}
-                            showKeySchema={showKeySchema}
-                        />
-                    ) : rows && rows.length > 0 ? (
-                        <SchemaEditableContext.Provider value={editMode}>
-                            <SchemaTable
-                                schemaMetadata={schemaMetadata}
-                                rows={rows}
-                                editableSchemaMetadata={editableSchemaMetadata}
-                                usageStats={usageStats}
-                                expandedRowsFromFilter={expandedRowsFromFilter}
-                                filterText={filterText}
-                                expandedDrawerFieldPath={expandedDrawerFieldPath}
-                                setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
-                                openTimelineDrawer={openTimelineDrawer}
-                                setOpenTimelineDrawer={setOpenTimelineDrawer}
-                                refetch={refetch}
-                            />
-                        </SchemaEditableContext.Provider>
-                    ) : (
-                        <NoSchema />
+                <>
+                    {structuralSchemaError && !schemaMetadata && !showRaw && (
+                        <MetadataErrorBanner message={t('schemaTab.structuralLoadError')} onRetry={refetch} />
                     )}
-                </SchemaTableContainer>
+                    {fullMetadataError && !fullMetadataLoading && !showRaw && (
+                        <MetadataErrorBanner message={t('schemaTab.fullMetadataLoadError')} onRetry={refetch} />
+                    )}
+                    <SchemaTableContainer>
+                        {/* eslint-disable-next-line no-nested-ternary */}
+                        {showRaw ? (
+                            <SchemaScrollArea>
+                                <SchemaRawView
+                                    schemaDiff={{ current: schemaMetadata }}
+                                    editMode={editMode}
+                                    showKeySchema={showKeySchema}
+                                />
+                            </SchemaScrollArea>
+                        ) : rows && rows.length > 0 ? (
+                            <SchemaEditableContext.Provider value={editMode}>
+                                <SchemaTable
+                                    schemaMetadata={schemaMetadata}
+                                    rows={rows}
+                                    editableSchemaMetadata={editableSchemaMetadata}
+                                    usageStats={usageStats}
+                                    expandedRowsFromFilter={expandedRowsFromFilter}
+                                    filterText={filterText}
+                                    expandedDrawerFieldPath={expandedDrawerFieldPath}
+                                    setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
+                                    openTimelineDrawer={openTimelineDrawer}
+                                    setOpenTimelineDrawer={setOpenTimelineDrawer}
+                                    refetch={refetch}
+                                    metadataStatus={toMetadataStatus(fullMetadataLoading, fullMetadataMissing)}
+                                />
+                            </SchemaEditableContext.Provider>
+                        ) : (
+                            <SchemaScrollArea>
+                                {/* A metadata filter (tags, terms, docs) cannot match structural rows, so
+                                    an empty result while Phase 2 is still loading is "not yet", not "none". */}
+                                {fullMetadataLoading ? (
+                                    <LoadingWrapper>
+                                        <LoadingOutlined />
+                                    </LoadingWrapper>
+                                ) : (
+                                    <NoSchema />
+                                )}
+                            </SchemaScrollArea>
+                        )}
+                    </SchemaTableContainer>
+                </>
             )}
         </SchemaContext.Provider>
     );
