@@ -883,6 +883,17 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
                 dict.fromkeys(existing_required + new_required)
             )
 
+        # enum under allOf is the intersection of the members' allowed values, not
+        # first-wins: allOf[{enum:[1,2,3]},{enum:[2,3,4]}] permits only [2,3].
+        # Membership test (not a set) so unhashable enum values don't raise.
+        new_enum = resolved_allof.get("enum")
+        if isinstance(new_enum, list):
+            existing_enum = merged_schema.get("enum")
+            if isinstance(existing_enum, list):
+                merged_schema["enum"] = [v for v in existing_enum if v in new_enum]
+            else:
+                merged_schema["enum"] = list(new_enum)
+
         # First-wins for keywords that cannot be meaningfully intersected under allOf.
         for key in _ALLOF_FIRST_WINS_KEYWORDS:
             if key in resolved_allof and key not in merged_schema:
@@ -965,7 +976,6 @@ _ALLOF_FIRST_WINS_KEYWORDS = (
     "format",
     "description",
     "title",
-    "enum",
     "default",
     "example",
     "discriminator",
@@ -1377,12 +1387,10 @@ def _promote_pattern_properties_to_additional(
         promoted_schema["additionalProperties"] = {
             "anyOf": [_shallow_schema_copy(s) for s in pattern_schemas]
         }
-    # JsonSchemaTranslator only reaches its "map" branch when type == "object"
-    # (see _get_type_from_schema); a typeless patternProperties map -- valid
-    # and common in JSON Schema -- would otherwise still resolve to zero
-    # fields despite the additionalProperties promotion above. Only fill in
-    # a missing type; an explicit conflicting type is left alone as already
-    # malformed input.
+    # JsonSchemaTranslator now also maps typeless additionalProperties schemas
+    # (see _get_type_from_schema), so this only normalizes the promoted map to an
+    # explicit object shape. Only fill in a missing type; an explicit conflicting
+    # type is left alone as already malformed input.
     if "type" not in promoted_schema:
         promoted_schema["type"] = "object"
     return promoted_schema
@@ -1467,16 +1475,16 @@ def _normalize_map_schemas(schema: object) -> object:
 
     if "items" in schema:
         items_value = schema["items"]
-        if items_value is True:
+        if not isinstance(items_value, dict):
+            # true, false, None (a hand-written "items:" with no value), or a
+            # scalar all collapse to an empty schema rather than being dropped.
+            # Unlike properties/patternProperties, a *missing* "items" is not
+            # equivalent to a dropped one: JSON Schema treats absent "items" as
+            # "true" and get_schema_metadata then defaults arrays to a string
+            # element type -- so dropping "items: false" would silently mistype
+            # the array (and diverge from the inline vs $ref'd forms). An empty
+            # schema keeps the element untyped without inventing a string type.
             new_schema["items"] = {}
-            changed = True
-        elif not isinstance(items_value, dict):
-            # false, None (e.g. a hand-written "items:" with no value), or a
-            # scalar can't be represented as an "items" schema -- drop it
-            # rather than let it reach get_schema_metadata (see
-            # _normalize_map_schemas_mapping for the same handling on
-            # properties/patternProperties).
-            del new_schema["items"]
             changed = True
         else:
             normalized_items = _normalize_map_schemas(items_value)

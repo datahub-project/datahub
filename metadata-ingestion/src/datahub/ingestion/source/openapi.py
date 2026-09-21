@@ -302,8 +302,15 @@ class OpenApiConfig(ConfigModel):
                 coerced[endpoint] = examples
                 continue
             coerced[endpoint] = [
-                # bool is a subclass of int, so it is covered without listing bool.
-                str(item) if isinstance(item, (str, int, float)) else item
+                # bool must be handled before int (it is a subclass): the docs
+                # promise "bool via int", so True/False become "1"/"0" rather
+                # than str(True) == "True", which most APIs reject for a boolean
+                # path param.
+                str(int(item))
+                if isinstance(item, bool)
+                else str(item)
+                if isinstance(item, (str, int, float))
+                else item
                 for item in examples
             ]
         return coerced
@@ -1115,6 +1122,7 @@ class APISource(Source, ABC):
         # yielding anything, so an exception propagating past this point
         # would discard dataset metadata that had already succeeded, not
         # just the schema.
+        extraction_failed = False
         try:
             # Always try OpenAPI spec extraction first
             schema_metadata = self._extract_schema_from_openapi_spec(
@@ -1143,6 +1151,7 @@ class APISource(Source, ABC):
                     )
         except Exception as e:
             schema_metadata = None
+            extraction_failed = True
             self.report.warning(
                 title="Schema Extraction Failed",
                 message="Unexpected error while extracting schema for endpoint; dataset metadata was still emitted",
@@ -1162,6 +1171,12 @@ class APISource(Source, ABC):
         else:
             # Log when no schema could be extracted
             self.schema_extraction_stats.no_schema_found += 1
+
+            # A raised extraction already emitted "Schema Extraction Failed"
+            # above; re-reporting "No Schema Extracted" for the same endpoint
+            # would be a second, contradictory entry for one failure.
+            if extraction_failed:
+                return
 
             # Check if we could have made an API call but didn't due to missing credentials
             method = endpoint_dets.get("method", "").lower()

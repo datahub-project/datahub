@@ -1922,6 +1922,33 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         )
         self.assertTrue(any(".id" in f.fieldPath for f in metadata.fields))
 
+    def test_resolve_schema_references_items_false_not_dropped_to_string_array(self):
+        # Regression: `items: false` used to be dropped entirely during
+        # normalization. A *missing* `items` is not equivalent -- JSON Schema
+        # treats it as `true`, and json_schema_util then defaults an array to a
+        # string element type. Dropping `items: false` therefore silently
+        # mistyped the array as an array of strings (and diverged between the
+        # inline and $ref'd forms). It now normalizes to an empty schema {}.
+        schema = {"type": "array", "items": False}
+
+        resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
+
+        self.assertEqual(resolved.get("items"), {})
+
+    def test_merge_allof_enum_intersects_across_members(self):
+        # enum under allOf is the intersection of the members' allowed values,
+        # not first-wins: only values allowed by every member remain.
+        schema = {
+            "allOf": [
+                {"type": "integer", "enum": [1, 2, 3]},
+                {"type": "integer", "enum": [2, 3, 4]},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
+
+        self.assertEqual(resolved.get("enum"), [2, 3])
+
     def test_resolve_schema_references_pattern_properties_inside_allof(self):
         sw_dict = _ITEM_ID_ONLY_SW
         schema = {
@@ -2938,6 +2965,17 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             forced_examples={"/pet/{petId}": [1]},
         )
         self.assertEqual(config.forced_examples["/pet/{petId}"], ["1"])
+
+    def test_forced_examples_coerce_bool_via_int(self):
+        # The docs promise "bool via int": True/False must become "1"/"0", not
+        # str(True) == "True", which most APIs reject for a boolean path param.
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            forced_examples={"/pet/{available}": [True, False]},
+        )
+        self.assertEqual(config.forced_examples["/pet/{available}"], ["1", "0"])
 
     def test_forced_examples_reject_null_path_params(self):
         with self.assertRaises(ValidationError):
@@ -4916,11 +4954,14 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         )
         self.assertEqual(resolved["items"], {})
 
-    def test_normalize_bare_boolean_items_false_is_dropped(self):
+    def test_normalize_bare_boolean_items_false_becomes_empty_schema(self):
+        # `items: false` normalizes to an empty schema {}, not dropped: a
+        # missing `items` is treated as `true` by JSON Schema and would then
+        # default the array to a string element type, silently mistyping it.
         resolved = resolve_schema_references(
             {"type": "array", "items": False}, _EMPTY_OPENAPI_SW
         )
-        self.assertNotIn("items", resolved)
+        self.assertEqual(resolved.get("items"), {})
 
     def test_normalize_bare_boolean_oneof_member_survives_schema_metadata(self):
         # Regression: a bare boolean member of oneOf/anyOf/allOf is the same
@@ -4974,11 +5015,14 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             swallow_exceptions=False,
         )
 
-    def test_normalize_none_items_value_is_dropped(self):
+    def test_normalize_none_items_value_becomes_empty_schema(self):
+        # A non-dict `items` (here None, e.g. a hand-written "items:" with no
+        # value) normalizes to an empty schema {} rather than being dropped --
+        # dropping would let the array default to a string element type.
         resolved = resolve_schema_references(
             {"type": "array", "items": None}, _EMPTY_OPENAPI_SW
         )
-        self.assertNotIn("items", resolved)
+        self.assertEqual(resolved.get("items"), {})
 
     def test_merge_allof_root_required_cleaned_even_with_boolean_member(self):
         # Regression: the required-sanitization ran only inside the dict-only
@@ -5264,7 +5308,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
     def test_extract_schema_from_openapi_spec_zero_fields_not_counted_as_success(self):
         # A schema that resolves without error but yields zero fields (e.g. an
-        # untyped additionalProperties-only map) must not be counted as a
+        # object with no declared properties) must not be counted as a
         # successful extraction or silently reported as one.
         endpoint_spec = {
             "get": {
@@ -5272,7 +5316,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                     "200": {
                         "content": {
                             "application/json": {
-                                "schema": {"additionalProperties": {"type": "string"}}
+                                "schema": {"type": "object", "properties": {}}
                             }
                         }
                     }
@@ -5291,3 +5335,28 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 for f in self.source.report.warnings
             )
         )
+
+    def test_extract_schema_from_openapi_spec_typeless_map_extracts(self):
+        # Regression: a typeless additionalProperties-only map (valid JSON
+        # Schema / OpenAPI 3.1) used to yield zero fields and be reported as
+        # empty; it now extracts as a map with its value type.
+        endpoint_spec = {
+            "get": {
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {"additionalProperties": {"type": "string"}}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        sw_dict = {"openapi": "3.0.0", "paths": {"/items": endpoint_spec}}
+        result = self.source._extract_schema_from_openapi_spec(
+            "/items", "items", sw_dict
+        )
+        self.assertIsNotNone(result)
+        self.assertEqual(self.source.schema_extraction_stats.from_openapi_spec, 1)
+        self.assertTrue(len(result.fields) > 0)

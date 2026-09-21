@@ -170,6 +170,65 @@ def test_json_schema_nullable_object_with_named_properties_keeps_object_type():
     assert fields[0].nullable
 
 
+def test_json_schema_typeless_map_field_still_resolves_as_map():
+    # Regression: a typeless map (a schema-valued `additionalProperties` with no
+    # declared `type`) is valid JSON Schema / OpenAPI 3.1. Map detection used to
+    # run only inside the `type` branch, so such a field resolved to an empty
+    # object and dropped its value type instead of producing a MapTypeClass.
+    schema = {
+        "type": "object",
+        "title": "R",
+        "namespace": "some.namespace",
+        "properties": {
+            "a_typeless_map_of_longs_field": {
+                "additionalProperties": {"type": "integer"},
+            }
+        },
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths = [
+        {
+            "path": "[version=2.0].[type=R].[type=map].[type=integer].a_typeless_map_of_longs_field",
+            "type": MapTypeClass,
+        }
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+
+
+def test_json_schema_string_type_object_with_named_properties_keeps_object_type():
+    # Regression: the plain `type: "object"` branch used to classify any schema
+    # with a dict `additionalProperties` as a map even when named `properties`
+    # were present -- diverging from the list-form (`type: [object, null]`)
+    # branch and silently dropping the named fields. Both branches now require
+    # no named `properties` before treating the schema as a map.
+    schema = {
+        "type": "object",
+        "title": "R",
+        "namespace": "some.namespace",
+        "properties": {
+            "an_object_with_named_and_catchall_fields": {
+                "type": "object",
+                "properties": {"known_field": {"type": "string"}},
+                "additionalProperties": {"type": "integer"},
+            }
+        },
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths = [
+        {
+            "path": "[version=2.0].[type=R].[type=object].an_object_with_named_and_catchall_fields",
+            "type": RecordTypeClass,
+        },
+        {
+            "path": "[version=2.0].[type=R].[type=object].an_object_with_named_and_catchall_fields.[type=string].known_field",
+            "type": StringTypeClass,
+        },
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+
+
 def test_json_schema_to_record_with_two_fields():
     schema = {
         "type": "object",
