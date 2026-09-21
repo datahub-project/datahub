@@ -14,4 +14,13 @@ public interface V3MappingContributor {
 
   @Nonnull
   Map<String, Object> extraRootProperties();
+
+  /**
+   * Extra root properties for a specific V3 index key (entity-named search group, e.g. {@code
+   * document} vs {@code dataset}). Default delegates to {@link #extraRootProperties()}.
+   */
+  @Nonnull
+  default Map<String, Object> extraRootProperties(@Nonnull String indexKey) {
+    return extraRootProperties();
+  }
 }

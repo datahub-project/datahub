@@ -248,7 +248,7 @@
     name: kafka-connect
     displayName: Kafka Connect
     type: OTHERS
-    logoUrl: "assets/platforms/kafkalogo.png"
+    logoUrl: "assets/platforms/kafkaconnectlogo.svg"
 - entityUrn: urn:li:dataPlatform:kinesis
   entityType: dataPlatform
   aspectName: dataPlatformInfo
