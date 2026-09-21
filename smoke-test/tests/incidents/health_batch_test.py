@@ -101,6 +101,7 @@ def _set_soft_deleted(auth_session, urn: str, deleted: bool) -> None:
     wait_for_writes_to_sync()
 
 
+@pytest.mark.p0
 def test_incident_health_survives_soft_deleted_asset(auth_session):
     """A soft-deleted asset still resolves the same incident health.
 

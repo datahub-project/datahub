@@ -5,6 +5,7 @@ import { ClockClockwise } from '@phosphor-icons/react/dist/csr/ClockClockwise';
 import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 import { Spinner } from '@phosphor-icons/react/dist/csr/Spinner';
 import { X } from '@phosphor-icons/react/dist/csr/X';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import i18next from 'i18next';
 import { DefaultTheme } from 'styled-components';
 import YAML from 'yamljs';
@@ -30,10 +31,33 @@ export const yamlToJson = (yaml: string): string => {
     const jsonStr = JSON.stringify(obj);
     return jsonStr;
 };
+export const removeEmptyArrays = (obj) => {
+    if (Array.isArray(obj)) {
+        // Filter out empty arrays
+        return obj.filter((item) => !(Array.isArray(item) && item.length === 0));
+    }
+    if (typeof obj === 'object' && obj !== null) {
+        // Recursively remove empty arrays from object properties
+        const cleanedObj = Object.fromEntries(
+            Object.entries(obj).map(([key, value]) => [key, removeEmptyArrays(value)]),
+        );
+        if (cleanedObj.conditions) {
+            const propertiesToDelete = Object.keys(cleanedObj.conditions);
+            if (propertiesToDelete.some((prop) => cleanedObj.conditions[prop]?.length === 0)) {
+                delete cleanedObj.conditions;
+            }
+        }
+        // Filter out undefined properties but leave nulls
+        return Object.fromEntries(Object.entries(cleanedObj).filter(([_, v]) => v !== undefined));
+    }
+    // Return non-array, non-object values as it is
+    return obj;
+};
 
 export const jsonToYaml = (json: string): string => {
     const obj = JSON.parse(json);
-    const yamlStr = YAML.stringify(obj, 6);
+    const result = removeEmptyArrays(obj);
+    const yamlStr = YAML.stringify(result, 6);
     return yamlStr;
 };
 
@@ -130,6 +154,10 @@ export const getExecutionRequestStatusDisplayColor = (theme: DefaultTheme, statu
         (status === ABORTED && theme.colors.iconError) ||
         theme.colors.icon
     );
+};
+
+export const checkIsExecutionRequestRunning = (executionRequestResult?: Maybe<ExecutionRequestResult>): boolean => {
+    return !executionRequestResult || executionRequestResult.status === RUNNING;
 };
 
 export const validateURL = (fieldName: string) => {
@@ -249,10 +277,10 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
         return null;
     }
 
-    // 3. Transform into the typed model that we have.
+    // 2. Transform into the typed model that we have.
     const structuredReport = transformToStructuredReport(structuredReportObject);
 
-    // 4. Return JSON report
+    // 3. Return JSON report
     return structuredReport;
 };
 

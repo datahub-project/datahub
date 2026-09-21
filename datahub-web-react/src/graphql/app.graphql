@@ -3,21 +3,6 @@ query appConfig {
         appVersion
         policiesConfig {
             enabled
-            platformPrivileges {
-                type
-                displayName
-                description
-            }
-            resourcePrivileges {
-                resourceType
-                resourceTypeDisplayName
-                entityType
-                privileges {
-                    type
-                    displayName
-                    description
-                }
-            }
         }
         analyticsConfig {
             enabled
@@ -127,6 +112,7 @@ query appConfig {
             hideLineageInSearchCards
             dataProductLineageEnabled
             glossaryBasedPoliciesEnabled
+            structuredPropertiesInPoliciesEnabled
             multipleDataProductsPerAsset
             showTestsInHealthIcon
             i18nEnabled
@@ -136,6 +122,28 @@ query appConfig {
         chromeExtensionConfig {
             enabled
             lineageEnabled
+        }
+    }
+}
+
+query getPolicyPrivileges {
+    appConfig {
+        policiesConfig {
+            platformPrivileges {
+                type
+                displayName
+                description
+            }
+            resourcePrivileges {
+                resourceType
+                resourceTypeDisplayName
+                entityType
+                privileges {
+                    type
+                    displayName
+                    description
+                }
+            }
         }
     }
 }
@@ -196,10 +204,11 @@ mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
     updateApplicationsSettings(input: $input)
 }
 
-query getLatestProductUpdate {
-    latestProductUpdate {
+query getLatestProductUpdate($locale: String) {
+    latestProductUpdate(locale: $locale) {
         enabled
         id
+        releaseMonth
         title
         header
         requiredVersion

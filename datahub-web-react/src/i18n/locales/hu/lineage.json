@@ -74,6 +74,7 @@
     "levelFilter.indirectTooltip": "Közvetetten kapcsolódó adateszközök megjelenítése",
     "manageLineage.changeToHome": "Beállítás kezdőként",
     "manageLineage.dashboardNoDownstream": "Az irányítópult-entitásoknak nincs céloldali Lineage-ük",
+    "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",
     "manageLineage.downstreamDisabled": "A céloldali szerkesztéshez állítsa ezt az entitást kezdővé.",
     "manageLineage.editDownstream": "Céloldali szerkesztése",
     "manageLineage.editUpstream": "Forrásoldali szerkesztése",

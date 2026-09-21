@@ -20,6 +20,7 @@ from datahub.executor.execution.runner import (
     SubprocessRunner,
     VenvConfig,
     VenvReference,
+    referenced_env_values,
 )
 from datahub.executor.execution.sub_process_ingestion_task import (
     SubProcessIngestionTask,
@@ -30,6 +31,7 @@ from datahub.executor.execution.sub_process_task_common import SubProcessTaskUti
 from datahub.executor.execution.task import TaskError
 from datahub.executor.report.execution_report import ExecutionReport
 from datahub.executor.request.execution_request import ExecutionRequest
+from datahub.masking.constants import MASKING_ERROR_MESSAGE
 from datahub.masking.secret_registry import SecretRegistry
 
 _RESOLVE_RECIPE = (
@@ -53,9 +55,8 @@ _SETUP_VENV = "datahub.executor.execution.sub_process_ingestion_task.setup_venv"
 
 @pytest.fixture(autouse=True)
 def reset_secret_registry() -> Iterator[None]:
-    # SecretRegistry is a process-wide singleton and _handle_subprocess_completion
-    # both reads it (to mask the structured report) and clears it via
-    # shutdown_secret_masking(). Reset around every test so these tests neither
+    # SecretRegistry is a process-wide singleton that the publish choke points read
+    # to mask what they publish. Reset around every test so these tests neither
     # inherit nor leak registered secrets under --random-order.
     SecretRegistry.reset_instance()
     yield
@@ -874,11 +875,6 @@ class TestSubProcessIngestionTaskCompletion:
             patch("builtins.open", side_effect=OSError(errno.EIO, "I/O error")),
             # set_logs fails.
             patch(_FORMAT_LOG_LINES, side_effect=RuntimeError("format boom")),
-            # Secret-masking shutdown fails.
-            patch(
-                "datahub.executor.execution.sub_process_ingestion_task.shutdown_secret_masking",
-                side_effect=Exception("masking boom"),
-            ),
             # _remove_directory is internally guarded; stub it out.
             patch(_REMOVE_DIRECTORY),
         ):
@@ -1603,3 +1599,97 @@ class TestMonitorSubprocessCancellation:
         ]
         proc.terminate.assert_not_called()
         proc.kill.assert_not_called()
+
+
+class TestPublishChokePoints:
+    """Everything published from the task passes through fail-closed masking."""
+
+    @staticmethod
+    def _run_completion(
+        ingestion_task: SubProcessIngestionTask,
+        mock_execution_context: Mock,
+        shared_logs: LogHolder,
+    ) -> None:
+        with (
+            patch("os.path.exists", return_value=True),
+            patch(
+                "builtins.open",
+                mock_open(read_data='{"sink": "user:db-secret-value-1@host"}'),
+            ),
+            patch(_REMOVE_DIRECTORY),
+        ):
+            process = Mock()
+            process.returncode = 0
+            ingestion_task._handle_subprocess_completion(
+                process,
+                mock_execution_context,
+                "/tmp/report.json",
+                "/tmp/artifacts",
+                {},
+                "/tmp/exec",
+                shared_logs,
+            )
+
+    def test_structured_report_is_masked(
+        self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
+    ) -> None:
+        SecretRegistry.get_instance().register_secret("DB_PASS", "db-secret-value-1")
+        self._run_completion(ingestion_task, mock_execution_context, LogHolder())
+        report = mock_execution_context.get_report()
+        published = report.set_structured_report.call_args.args[0]
+        assert "db-secret-value-1" not in published
+        assert "***REDACTED:DB_PASS***" in published
+
+    def test_final_logs_are_masked_whole_buffer(
+        self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
+    ) -> None:
+        key = "first-line-of-multiline-key\nsecond-line-of-multiline-key"
+        SecretRegistry.get_instance().register_secret("MULTI_KEY", key)
+        shared_logs = LogHolder()
+        shared_logs.append(f"connecting with {key} now\n")
+        self._run_completion(ingestion_task, mock_execution_context, shared_logs)
+        report = mock_execution_context.get_report()
+        published = report.set_logs.call_args.args[0]
+        assert "first-line-of-multiline-key" not in published
+        assert "second-line-of-multiline-key" not in published
+
+    def test_report_masking_failure_withholds_report(
+        self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
+    ) -> None:
+        registry = SecretRegistry.get_instance()
+        registry.register_secret("DB_PASS", "db-secret-value-1")
+        with patch.object(
+            registry, "get_pattern_and_replacements", side_effect=KeyError("boom")
+        ):
+            self._run_completion(ingestion_task, mock_execution_context, LogHolder())
+        report = mock_execution_context.get_report()
+        published = report.set_structured_report.call_args.args[0]
+        assert published == MASKING_ERROR_MESSAGE
+
+    def test_pip_referenced_env_secrets_are_masked_in_published_logs(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        mock_execution_context: Mock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Pins the singleton wiring: what setup_venv registers is what the
+        publish choke points redact."""
+        monkeypatch.setenv("PIP_INDEX_TOKEN", "pip-token-value-1")
+        SecretRegistry.get_instance().register_secrets_batch(
+            referenced_env_values(["pkg @ https://u:${PIP_INDEX_TOKEN}@x/simple"])
+        )
+        shared_logs = LogHolder()
+        shared_logs.append("subprocess echoed pip-token-value-1\n")
+        self._run_completion(ingestion_task, mock_execution_context, shared_logs)
+        report = mock_execution_context.get_report()
+        published = report.set_logs.call_args.args[0]
+        assert "pip-token-value-1" not in published
+        assert "***REDACTED:PIP_INDEX_TOKEN***" in published
+
+    def test_completion_does_not_unregister_other_runs_secrets(
+        self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
+    ) -> None:
+        registry = SecretRegistry.get_instance()
+        registry.register_secret("SIBLING_SECRET", "sibling-secret-value")
+        self._run_completion(ingestion_task, mock_execution_context, LogHolder())
+        assert registry.has_secret("SIBLING_SECRET")

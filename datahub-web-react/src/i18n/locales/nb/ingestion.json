@@ -17,6 +17,7 @@
     "executions.cancelError": "Kunne ikke avbryte kjøringen!: \n {{errorMessage}}",
     "executions.cancelSuccess": "Forespørsel om avbrytelse ble sendt inn!",
     "executions.cliExecution": "CLI-kjøring",
+    "executions.cliExecutionBy": "CLI-kjøring av <user></user>",
     "executions.colDuration": "Varighet",
     "executions.colExecutedBy": "Utført av",
     "executions.colStartedAt": "Startet",

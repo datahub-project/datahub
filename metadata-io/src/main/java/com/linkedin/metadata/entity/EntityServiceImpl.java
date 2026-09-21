@@ -2455,7 +2455,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       aspectsBatch.getItems().stream()
                           .filter(item -> !item.getAspectSpec().isTimeseries())
                           .collect(Collectors.toList()))
-                  .build(opContext);
+                  // Items here are a strict subset of aspectsBatch, which should have
+                  // already been validated during the original AspectBatch construction
+                  .buildWithoutValidation();
 
           List<? extends MCPItem> unsupported =
               nonTimeseries.getMCPItems().stream()

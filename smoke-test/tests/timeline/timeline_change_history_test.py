@@ -541,6 +541,7 @@ class TestDatasetTimeline:
             min_events=2,
         )
 
+    @pytest.mark.p0
     def test_dataset_domain_changes(
         self, graph_client, auth_session, timeline_urns: TimelineUrns
     ):
@@ -649,6 +650,7 @@ class TestDatasetTimeline:
             min_events=2,
         )
 
+    @pytest.mark.p0
     def test_dataset_documentation_changes(
         self, graph_client, auth_session, timeline_urns: TimelineUrns
     ):
@@ -857,6 +859,7 @@ class TestGlossaryTermTimeline:
             min_events=2,
         )
 
+    @pytest.mark.p0
     def test_glossary_term_structured_property_changes(
         self, graph_client, auth_session, timeline_urns: TimelineUrns
     ):

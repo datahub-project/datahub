@@ -69,6 +69,7 @@ const Subtitle = styled.div`
     text-align: center;
     font: 400 13px Mulish;
     line-height: 21px;
+    opacity: 0.6;
     margin-bottom: 28px;
 `;
 
@@ -268,6 +269,7 @@ export const IntroduceYourselfMainContent = () => {
     const defaultDataPlatforms = useGetDataPlatforms();
     const [updateCorpUserMutation, { loading }] = useUpdateCorpUserPropertiesMutation();
     const [updateUserViewSettingMutation] = useUpdateCorpUserViewsSettingsMutation();
+
     const history = useHistory();
     const authenticatedUser = useUserContext();
     const currentUserUrn = authenticatedUser?.user?.urn || '';
@@ -488,6 +490,7 @@ export const IntroduceYourselfMainContent = () => {
                         size="large"
                         style={selectStyles}
                         onChange={(value) => setSelectedPlatforms(value)}
+                        data-testid="introduce-data-source-select"
                         options={platforms.map((platform) => {
                             const { urn } = platform.platform;
                             const isChecked = !!selectedPlatforms.includes(urn);
@@ -496,10 +499,12 @@ export const IntroduceYourselfMainContent = () => {
                                 EntityType.DataPlatform,
                                 platform.platform,
                             );
+                            const platformNameForTestId =
+                                platform.platform.name?.toLowerCase().replace(/\s+/g, '-') || '';
                             return {
                                 value: platform.platform.urn,
                                 label: (
-                                    <SelectOption>
+                                    <SelectOption data-testid={`platform-option-${platformNameForTestId}`}>
                                         <Tooltip title={displayName} placement="left" mouseEnterDelay={0.5}>
                                             <PsuedoCheckBox checked={isChecked}>
                                                 {isChecked && <CheckIcon />}

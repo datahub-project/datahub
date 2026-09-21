@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,7 +34,7 @@ public final class GraphqlDocumentAnalyzer {
   @Nonnull
   public static GraphqlDocumentMetadata analyze(
       @Nullable String httpOperationName, @Nullable String queryDocument) {
-    return analyze(httpOperationName, queryDocument, null);
+    return analyze(httpOperationName, queryDocument, null, null);
   }
 
   /**
@@ -45,12 +46,29 @@ public final class GraphqlDocumentAnalyzer {
       @Nullable String httpOperationName,
       @Nullable String queryDocument,
       @Nullable Predicate<String> skipParseWhenNamed) {
+    return analyze(httpOperationName, queryDocument, skipParseWhenNamed, null);
+  }
+
+  /**
+   * @param skipParseWhenNamed when HTTP operation name is set and this predicate is true, skip AST
+   *     parse (tier-2 fast path for known named operations).
+   * @param cachedDocumentLookup optional read-only lookup into the query engine's already
+   *     parsed-and-validated document cache, reused here to avoid parsing twice. This class never
+   *     writes to that cache -- only a full schema validation (during execution) may populate it.
+   */
+  @Nonnull
+  public static GraphqlDocumentMetadata analyze(
+      @Nullable String httpOperationName,
+      @Nullable String queryDocument,
+      @Nullable Predicate<String> skipParseWhenNamed,
+      @Nullable Function<String, Document> cachedDocumentLookup) {
     if (StringUtils.hasText(httpOperationName)) {
       if (skipParseWhenNamed != null && skipParseWhenNamed.test(httpOperationName)) {
         return GraphqlDocumentMetadata.unparsed(
             httpOperationName, httpOperationName, queryDocument);
       }
-      List<GraphqlOperationMetadata> operations = parseOperations(queryDocument);
+      List<GraphqlOperationMetadata> operations =
+          parseOperations(queryDocument, cachedDocumentLookup);
       if (operations.isEmpty()) {
         return GraphqlDocumentMetadata.unparsed(
             httpOperationName, httpOperationName, queryDocument);
@@ -63,7 +81,8 @@ public final class GraphqlDocumentAnalyzer {
       return GraphqlDocumentMetadata.anonymous(null, queryDocument);
     }
 
-    List<GraphqlOperationMetadata> operations = parseOperations(queryDocument);
+    List<GraphqlOperationMetadata> operations =
+        parseOperations(queryDocument, cachedDocumentLookup);
     if (operations.isEmpty()) {
       return GraphqlDocumentMetadata.anonymous(null, queryDocument);
     }
@@ -94,37 +113,53 @@ public final class GraphqlDocumentAnalyzer {
   }
 
   @Nonnull
-  private static List<GraphqlOperationMetadata> parseOperations(@Nullable String queryDocument) {
+  private static List<GraphqlOperationMetadata> parseOperations(
+      @Nullable String queryDocument, @Nullable Function<String, Document> cachedDocumentLookup) {
     if (!StringUtils.hasText(queryDocument)) {
       return List.of();
     }
 
-    try {
-      Document document = PARSER.parseDocument(queryDocument);
-      Map<String, FragmentDefinition> fragments = fragmentDefinitions(document);
-      List<OperationDefinition> operationDefinitions =
-          document.getDefinitions().stream()
-              .filter(def -> def instanceof OperationDefinition)
-              .map(def -> (OperationDefinition) def)
-              .toList();
-
-      if (operationDefinitions.isEmpty()) {
-        return List.of();
-      }
-
-      List<GraphqlOperationMetadata> operations = new ArrayList<>();
-      for (OperationDefinition operationDefinition : operationDefinitions) {
-        OperationDefinition.Operation kind = operationDefinition.getOperation();
-        if (kind == null) {
-          kind = OperationDefinition.Operation.QUERY;
-        }
-        List<String> rootFields = topLevelFieldList(operationDefinition, fragments);
-        operations.add(
-            new GraphqlOperationMetadata(operationDefinition.getName(), kind, rootFields));
-      }
-      return List.copyOf(operations);
-    } catch (InvalidSyntaxException e) {
+    Document document = parseDocument(queryDocument, cachedDocumentLookup);
+    if (document == null) {
       return List.of();
+    }
+
+    Map<String, FragmentDefinition> fragments = fragmentDefinitions(document);
+    List<OperationDefinition> operationDefinitions =
+        document.getDefinitions().stream()
+            .filter(def -> def instanceof OperationDefinition)
+            .map(def -> (OperationDefinition) def)
+            .toList();
+
+    if (operationDefinitions.isEmpty()) {
+      return List.of();
+    }
+
+    List<GraphqlOperationMetadata> operations = new ArrayList<>();
+    for (OperationDefinition operationDefinition : operationDefinitions) {
+      OperationDefinition.Operation kind = operationDefinition.getOperation();
+      if (kind == null) {
+        kind = OperationDefinition.Operation.QUERY;
+      }
+      List<String> rootFields = topLevelFieldList(operationDefinition, fragments);
+      operations.add(new GraphqlOperationMetadata(operationDefinition.getName(), kind, rootFields));
+    }
+    return List.copyOf(operations);
+  }
+
+  @Nullable
+  private static Document parseDocument(
+      @Nonnull String queryDocument, @Nullable Function<String, Document> cachedDocumentLookup) {
+    if (cachedDocumentLookup != null) {
+      Document cached = cachedDocumentLookup.apply(queryDocument);
+      if (cached != null) {
+        return cached;
+      }
+    }
+    try {
+      return PARSER.parseDocument(queryDocument);
+    } catch (InvalidSyntaxException e) {
+      return null;
     }
   }
 
