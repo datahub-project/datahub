@@ -45,6 +45,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final SettingsService _settingsService;
   private final boolean _isS3Enabled;
   private final SemanticSearchConfiguration _semanticSearchConfiguration;
+  private final boolean _entityIndexV3Enabled;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -66,7 +67,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final ChromeExtensionConfiguration chromeExtensionConfiguration,
       final SettingsService settingsService,
       final boolean isS3Enabled,
-      final SemanticSearchConfiguration semanticSearchConfiguration) {
+      final SemanticSearchConfiguration semanticSearchConfiguration,
+      final boolean entityIndexV3Enabled) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -87,6 +89,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _settingsService = settingsService;
     _isS3Enabled = isS3Enabled;
     _semanticSearchConfiguration = semanticSearchConfiguration;
+    _entityIndexV3Enabled = entityIndexV3Enabled;
   }
 
   @Override
@@ -296,6 +299,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setDataProductLineageEnabled(_featureFlags.isDataProductLineageEnabled())
             .setMultipleDataProductsPerAsset(_featureFlags.isMultipleDataProductsPerAsset())
             .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
+            .setStructuredPropertiesInPoliciesEnabled(
+                _featureFlags.isStructuredPropertiesInPoliciesEnabled())
             .setShowTestsInHealthIcon(_featureFlags.isShowTestsInHealthIcon())
             .setI18nEnabled(_featureFlags.isI18nEnabled())
             .setBrowserTracingEnabled(_featureFlags.isBrowserTracingEnabled())
@@ -365,6 +370,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
       appConfig.setSemanticSearchConfig(semanticSearchConfig);
     }
+
+    final EntityIndexV3Config entityIndexV3Config = new EntityIndexV3Config();
+    entityIndexV3Config.setEnabled(_entityIndexV3Enabled);
+    appConfig.setEntityIndexV3(entityIndexV3Config);
 
     return CompletableFuture.completedFuture(appConfig);
   }

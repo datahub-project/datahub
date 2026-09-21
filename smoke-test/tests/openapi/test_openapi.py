@@ -17,7 +17,7 @@ from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [pytest.mark.domain(Domain.PLATFORM), pytest.mark.p0]
 
 _ROOT_FIXTURE_GLOBS = [
     "tests/openapi/v1/*.json",

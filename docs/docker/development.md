@@ -29,7 +29,11 @@ acryldata/datahub-upgrade                       debug              322377a7a21d 
 At this point it is possible to view the DataHub UI at `http://localhost:9002` as you normally would with quickstart.
 
 Like `quickstartDebug`, there are a few other tasks that bring up a different set of containers, for example
-`quickstartDebugConsumers` will also bring up mce-consumer and mae-consumer.
+`quickstartDebugConsumers` will also bring up mce-consumer and mae-consumer, `quickstartPgDebug` uses Postgres,
+and `quickstartOS3Debug` uses OpenSearch 3.x with debug bind-mounts. For CI or image-based
+OpenSearch 3.x, use `./gradlew quickstartOS3` (`quickstart-opensearch3` profile). To pin OpenSearch
+2.x, use `./gradlew quickstartOS2` or `quickstartOS2Debug`. Unversioned `quickstart` /
+`quickstartDebug` still default to OpenSearch 2.x.
 
 ## Reloading
 

@@ -4102,7 +4102,7 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "Enabled by default (only for Import Data Models)",
+          "description": "Enabled by default for Import Data Models; acquired Data Models are opt-in via ingest_acquired_data_model_schema_metadata",
           "subtype_modifier": null,
           "supported": true
         },

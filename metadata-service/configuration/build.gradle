@@ -4,6 +4,7 @@ plugins {
 
 apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
+apply from: 'generate-config-key-constants.gradle'
 
 sourceSets {
     productUpdateCiGate
@@ -57,6 +58,7 @@ def productUpdateInputs = files(
     file("${projectDir}/src/main/resources/product-update-saas.json"),
     file("${rootProject.projectDir}/docs/how/updating-datahub.md"),
     fileTree("${rootProject.projectDir}/docs/managed-datahub/release-notes") { include '*.md' },
+    file("${rootProject.projectDir}/datahub-web-react/src/i18n/locales"),
 )
 def productUpdateStamp = layout.buildDirectory.file("product-update-release-sync-check.stamp")
 
@@ -65,7 +67,6 @@ tasks.register('productUpdateReleaseSyncCheck', Test) {
     group = 'verification'
     testClassesDirs = sourceSets.productUpdateCiGate.output.classesDirs
     classpath = sourceSets.productUpdateCiGate.runtimeClasspath
-    include '**/productupdate/ProductUpdateReleaseSyncTest.class'
     inputs.files productUpdateInputs
     outputs.file(productUpdateStamp)
     systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath

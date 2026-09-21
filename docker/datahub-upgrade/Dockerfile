@@ -25,7 +25,11 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
 COPY docker/snippets/wait_for_deps.sh /usr/local/lib/datahub/wait_for_deps.sh
 
 FROM base AS prod-install
-COPY datahub-upgrade/build/libs/datahub-upgrade.jar /datahub/datahub-upgrade/bin/
+# UPGRADE_JAR selects the boot archive: datahub-upgrade.jar (default, slim) or
+# datahub-upgrade-onnx.jar (datahub-upgrade-onnx variant, bundling ONNX/DJL). Destination filename
+# stays datahub-upgrade.jar so start.sh is unchanged.
+ARG UPGRADE_JAR=datahub-upgrade.jar
+COPY datahub-upgrade/build/libs/${UPGRADE_JAR} /datahub/datahub-upgrade/bin/datahub-upgrade.jar
 COPY docker/datahub-upgrade/start.sh /datahub/datahub-upgrade/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-upgrade/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-upgrade/scripts/start.sh

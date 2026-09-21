@@ -35,6 +35,22 @@ Before you submit your Pull Request (PR), consider the following guidelines:
 - If there are any breaking changes, potential downtime, deprecations, or big features, please add an update in [Updating DataHub under Next](how/updating-datahub.md).
 - That's it! Thank you for your contribution!
 
+### Product-update CTA merge check
+
+The Cloud/Core "What's New" toast CTA is a live URL republished from
+`product-update.json` / `product-update-saas.json`. GitHub Actions job
+`product_update_cta_live` GET-probes those links on every PR targeting `master`
+(and `releases/**` / `hotfixes/**`). It is not part of Gradle, so the rest of CI
+can go green while a blog post is still unpublished.
+
+**Repo admins:** add `product_update_cta_live` as a **required status check** on
+`master` (classic branch protection or a ruleset). Until that is set, the job
+is advisory and will not block merge. Do not require
+`rerun_failed_product_update_cta`.
+
+After the URL returns 2xx, re-run that one job (or wait up to 15 minutes for the
+scheduled retry in `product-update CTA rerun`). Do not rerun the full CI suite.
+
 ### PR Title Format
 
 ```

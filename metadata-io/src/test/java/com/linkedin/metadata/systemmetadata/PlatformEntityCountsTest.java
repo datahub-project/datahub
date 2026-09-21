@@ -13,9 +13,11 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -27,7 +29,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.MatchAllQueryBuilder;
-import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.filter.Filter;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -48,10 +50,12 @@ public class PlatformEntityCountsTest {
     entityRegistry = mock(EntityRegistry.class);
     datasetSpec = mock(EntitySpec.class);
     when(datasetSpec.hasAspect("dataPlatformInstance")).thenReturn(true);
-    when(datasetSpec.getSearchGroup()).thenReturn("primary");
+    when(datasetSpec.getSearchGroup()).thenReturn(null);
     when(entityRegistry.getEntitySpec("dataset")).thenReturn(datasetSpec);
     when(entityRegistry.getEntitySpecs()).thenReturn(Map.of("dataset", datasetSpec));
-    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(), searchClient);
   }
 
   @Test
@@ -106,7 +110,7 @@ public class PlatformEntityCountsTest {
   }
 
   @Test
-  public void v3QueriesSearchGroupIndexAndPlatformField() throws Exception {
+  public void v3QueriesEntityNamedIndexWhenSearchGroupUnset() throws Exception {
     SearchResponse response = responseWithSnowflakeBucket(4, 0);
     when(searchClient.search(any(), any(), any())).thenReturn(response);
 
@@ -117,13 +121,30 @@ public class PlatformEntityCountsTest {
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getEntityIndexNameV3(opContext, "primary");
+            .getEntityIndexNameV3(opContext, "dataset");
     assertEquals(request.indices()[0], expectedIndex);
-    assertTrue(request.source().query() instanceof TermQueryBuilder);
-    TermQueryBuilder term = (TermQueryBuilder) request.source().query();
-    assertEquals(term.fieldName(), "_entityType");
-    assertEquals(term.value(), "dataset");
+    assertTrue(request.source().query() instanceof TermsQueryBuilder);
+    TermsQueryBuilder terms = (TermsQueryBuilder) request.source().query();
+    assertEquals(terms.fieldName(), "_entityType");
+    assertTrue(terms.values().contains("dataset"));
     assertEquals(platformAggField(request), "platform");
+  }
+
+  @Test
+  public void v3ReadsUseTheV3ClientWhenAccessIsSet() throws Exception {
+    SearchClientShim<?> v2 = mock(SearchClientShim.class);
+    SearchClientShim<?> v3 = mock(SearchClientShim.class);
+    SearchResponse response = responseWithSnowflakeBucket(4, 0);
+    when(v3.search(any(), any(), any())).thenReturn(response);
+    SearchClusterAccess access = component -> component == SearchComponent.SEARCH_V3 ? v3 : v2;
+    OperationContext splitContext =
+        TestOperationContexts.withSearchClusterAccess(opContext, access);
+
+    v3Counts().getCountsByPlatform(splitContext, List.of("dataset"));
+
+    verify(v3).search(eq(splitContext), any(), any());
+    verify(v2, never()).search(any(), any(), any());
+    verify(searchClient, never()).search(any(), any(), any());
   }
 
   @Test
@@ -141,14 +162,30 @@ public class PlatformEntityCountsTest {
   }
 
   @Test
+  public void keywordReadEnabledUsesV3ClientWhenBothEnabled() throws Exception {
+    SearchClientShim<?> v2 = mock(SearchClientShim.class);
+    SearchClientShim<?> v3 = mock(SearchClientShim.class);
+    SearchResponse response = responseWithSnowflakeBucket(4, 0);
+    when(v3.search(any(), any(), any())).thenReturn(response);
+    SearchClusterAccess access = component -> component == SearchComponent.SEARCH_V3 ? v3 : v2;
+    OperationContext splitContext =
+        TestOperationContexts.withSearchClusterAccess(opContext, access);
+
+    bothEnabledKeywordReadCounts().getCountsByPlatform(splitContext, List.of("dataset"));
+
+    verify(v3).search(eq(splitContext), any(), any());
+    verify(v2, never()).search(any(), any(), any());
+    verify(searchClient, never()).search(any(), any(), any());
+  }
+
+  @Test
   public void neitherIndexEnabledReturnsEmptyWithoutSearch() throws Exception {
     EntityIndexConfiguration config =
         EntityIndexConfiguration.builder()
             .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
             .v3(EntityIndexVersionConfiguration.builder().enabled(false).build())
             .build();
-    PlatformEntityCounts counts =
-        new PlatformEntityCounts(searchClient, entityRegistry, config, 50);
+    PlatformEntityCounts counts = new PlatformEntityCounts(entityRegistry, config, 50);
 
     PlatformEntityCountResult result = counts.getCountsByPlatform(opContext, List.of("dataset"));
 
@@ -238,15 +275,29 @@ public class PlatformEntityCountsTest {
   }
 
   private PlatformEntityCounts v2Counts() {
-    return new PlatformEntityCounts(searchClient, entityRegistry, indexConfig(true, false), 50);
+    return new PlatformEntityCounts(entityRegistry, indexConfig(true, false), 50);
   }
 
   private PlatformEntityCounts v3Counts() {
-    return new PlatformEntityCounts(searchClient, entityRegistry, indexConfig(false, true), 50);
+    return new PlatformEntityCounts(entityRegistry, indexConfig(false, true), 50);
   }
 
   private PlatformEntityCounts bothEnabledCounts() {
-    return new PlatformEntityCounts(searchClient, entityRegistry, indexConfig(true, true), 50);
+    return new PlatformEntityCounts(entityRegistry, indexConfig(true, true), 50);
+  }
+
+  private PlatformEntityCounts bothEnabledKeywordReadCounts() {
+    return new PlatformEntityCounts(
+        entityRegistry,
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .v3(
+                EntityIndexVersionConfiguration.builder()
+                    .enabled(true)
+                    .keywordReadEnabled(true)
+                    .build())
+            .build(),
+        50);
   }
 
   private static EntityIndexConfiguration indexConfig(boolean v2, boolean v3) {

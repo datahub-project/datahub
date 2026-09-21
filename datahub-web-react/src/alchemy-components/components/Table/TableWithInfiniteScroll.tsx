@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
 import { useInfiniteScroll } from '@components/components/InfiniteScrollList/useInfiniteScroll';
+import { TableProps } from '@components/components/Table/types';
 
 const ScrollObserver = styled.div`
     width: 100%;
@@ -13,8 +14,11 @@ const LoaderContainer = styled.td`
     padding: 10px;
 `;
 
-interface TableWithInfiniteScrollProps<T> {
-    columns: any[];
+type TableWithInfiniteScrollProps<T> = Omit<
+    TableProps<T>,
+    'columns' | 'data' | 'isLoading' | 'isScrollable' | 'renderScrollObserver'
+> & {
+    columns: TableProps<T>['columns'];
     fetchData: (start: number, count: number) => Promise<T[]>;
     pageSize?: number;
     totalItemCount?: number;
@@ -23,7 +27,7 @@ interface TableWithInfiniteScrollProps<T> {
     itemToUpdate?: { updatedItem: T; shouldUpdate: (item: T) => boolean };
     resetTrigger?: string | number | boolean;
     emptyState?: React.ReactNode;
-}
+};
 
 export function TableWithInfiniteScroll<T>({
     columns,

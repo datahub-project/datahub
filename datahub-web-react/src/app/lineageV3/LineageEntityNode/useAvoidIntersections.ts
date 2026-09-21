@@ -24,8 +24,9 @@ import { EntityType } from '@types';
 const MIN_SEPARATION = 10;
 
 /**
- * The urn of the entity whose column is hovered, which must be left where it is: pushing it out
- * from under the cursor ends the hover, which moves it back, which starts the hover again.
+ * The urn of the entity whose column (or which itself) is hovered, which must be left where it is:
+ * pushing it out from under the cursor ends the hover, which moves it back, which starts the hover
+ * again.
  *
  * Selecting a column pins the highlight regardless of where the pointer is, so there is no hover to
  * disturb and nodes can move freely -- hence `undefined` while a column is selected.
@@ -34,17 +35,18 @@ const MIN_SEPARATION = 10;
  * effect runs for its own reasons, which is exactly when a hover has resized some node.
  */
 function useHoveredColumnPin() {
-    const { selectedColumn, hoveredColumn } = useContext(LineageDisplayContext);
-    const urn = !selectedColumn && hoveredColumn ? parseColumnRef(hoveredColumn)[0] : undefined;
+    const { columnHighlightSource } = useContext(LineageDisplayContext);
+    const isSelected = !!columnHighlightSource?.isSelected;
+    const urn = columnHighlightSource && !isSelected ? parseColumnRef(columnHighlightSource.ref)[0] : undefined;
     const ref = useRef(urn);
     ref.current = urn;
     // Returned so effects can depend on selection: on select the pin lifts and the layout settles
-    return { pinnedUrn: ref, selectedColumn };
+    return { pinnedUrn: ref, isSelected };
 }
 
 export default function useAvoidIntersections(id: string, expandHeight: number, rootType: EntityType, skip = false) {
     const { getNode, getNodes, setNodes } = useReactFlow();
-    const { pinnedUrn, selectedColumn } = useHoveredColumnPin();
+    const { pinnedUrn, isSelected } = useHoveredColumnPin();
 
     useEffect(() => {
         if (skip) return undefined;
@@ -58,7 +60,7 @@ export default function useAvoidIntersections(id: string, expandHeight: number, 
             getNodes,
             setNodes,
         });
-    }, [id, expandHeight, rootType, getNode, getNodes, setNodes, skip, selectedColumn, pinnedUrn]);
+    }, [id, expandHeight, rootType, getNode, getNodes, setNodes, skip, isSelected, pinnedUrn]);
 }
 
 // Required because NodeBuilder cannot properly place Lineage Filter nodes
@@ -66,7 +68,7 @@ export default function useAvoidIntersections(id: string, expandHeight: number, 
 export function useAvoidIntersectionsOften(id: string, expandHeight: number, rootType: EntityType, skip = false) {
     const { getNode, getNodes, setNodes } = useReactFlow();
     const { nodeVersion, displayVersion } = useContext(LineageNodesContext);
-    const { pinnedUrn, selectedColumn } = useHoveredColumnPin();
+    const { pinnedUrn, isSelected } = useHoveredColumnPin();
 
     const displayVersionNumber = displayVersion[0];
     useEffect(() => {
@@ -97,7 +99,7 @@ export function useAvoidIntersectionsOften(id: string, expandHeight: number, roo
         nodeVersion,
         displayVersionNumber,
         skip,
-        selectedColumn,
+        isSelected,
         pinnedUrn,
     ]);
 }

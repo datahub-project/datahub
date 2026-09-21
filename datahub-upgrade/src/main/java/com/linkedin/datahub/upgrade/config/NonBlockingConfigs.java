@@ -41,7 +41,6 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -110,7 +109,6 @@ public class NonBlockingConfigs {
       final OperationContext opContext,
       EntityService<?> entityService,
       ElasticSearchService elasticSearchService,
-      SearchClientShim<?> restHighLevelClient,
       @Value("${systemUpdate.processInstanceHasRunEvents.enabled}") final boolean enabled,
       @Value("${systemUpdate.processInstanceHasRunEvents.reprocess.enabled}")
           boolean reprocessEnabled,
@@ -122,7 +120,6 @@ public class NonBlockingConfigs {
         opContext,
         entityService,
         elasticSearchService,
-        restHighLevelClient,
         enabled,
         reprocessEnabled,
         batchSize,
@@ -252,7 +249,8 @@ public class NonBlockingConfigs {
           final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
       final EntityService<?> entityService,
       // ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED
-      @Value("${elasticsearch.index.docIds.schemaField.hashIdEnabled}") final boolean hashEnabled,
+      @Value("${elasticsearch.entityIndex.v2.docIds.schemaField.hashIdEnabled}")
+          final boolean hashEnabled,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_ENABLED
       @Value("${systemUpdate.schemaFieldsDocIds.enabled}") final boolean enabled,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_BATCH_SIZE
