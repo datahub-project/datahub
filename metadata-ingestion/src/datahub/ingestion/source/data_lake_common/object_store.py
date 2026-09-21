@@ -396,6 +396,23 @@ def get_object_key(uri: str) -> str:
     raise ValueError(f"Unsupported URI format: {uri}")
 
 
+def _is_folder_dataset(table_data: Any) -> bool:
+    """True when the dataset is a folder/partitioned table rather than a single object.
+
+    A folder table has ``table_path`` (the folder) differ from ``full_path``
+    (a sample object inside it); a single object has them equal.
+    """
+    full_path = getattr(table_data, "full_path", None)
+    return full_path is not None and full_path != table_data.table_path
+
+
+def _append_folder_slash(key: str, table_data: Any) -> str:
+    """Append a trailing "/" to a folder dataset's key so console links resolve."""
+    if not key or key.endswith("/"):
+        return key
+    return f"{key}/" if _is_folder_dataset(table_data) else key
+
+
 class ObjectStoreSourceAdapter:
     """
     Adapter for customizing object store source implementations.
@@ -474,7 +491,11 @@ class ObjectStoreSourceAdapter:
         # Use the provided region or default to us-east-1
         aws_region = region or "us-east-1"
 
-        return f"https://{aws_region}.console.aws.amazon.com/s3/buckets/{bucket_name}?prefix={key}"
+        key = _append_folder_slash(key, table_data)
+
+        # The region-agnostic console host requires the region query param to locate
+        # the bucket; without it the console shows a blank page.
+        return f"https://s3.console.aws.amazon.com/s3/buckets/{bucket_name}?region={aws_region}&prefix={key}"
 
     @staticmethod
     def get_gcs_external_url(table_data: Any) -> Optional[str]:
@@ -494,7 +515,12 @@ class ObjectStoreSourceAdapter:
         bucket_name = get_object_store_bucket_name(table_data.table_path)
         key = get_object_key(table_data.table_path)
 
-        # Return the basic GCS console URL
+        if not _is_folder_dataset(table_data):
+            # Single object: link to the object details page (documented form).
+            return f"https://console.cloud.google.com/storage/browser/_details/{bucket_name}/{key}"
+
+        # Folder: the console browses a prefix, which needs a trailing slash.
+        key = _append_folder_slash(key, table_data)
         return f"https://console.cloud.google.com/storage/browser/{bucket_name}/{key}"
 
     @staticmethod

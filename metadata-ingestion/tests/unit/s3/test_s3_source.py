@@ -580,8 +580,10 @@ def test_s3_region_in_external_url():
     # Get the external URL
     external_url = source.get_external_url(table_data)
 
-    # Verify that the correct region is used (not default us-east-1)
-    assert "https://eu-west-1.console.aws.amazon.com" in external_url
+    # Verify that the correct region is used (not default us-east-1). The console
+    # host is region-agnostic; the region is carried in the query param.
+    assert external_url.startswith("https://s3.console.aws.amazon.com")
+    assert "region=eu-west-1" in external_url
     assert "production-bucket" in external_url
     assert "folder" in external_url
 
