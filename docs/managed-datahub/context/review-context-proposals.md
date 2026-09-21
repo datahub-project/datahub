@@ -1,8 +1,6 @@
 ---
 title: Validate Context Proposals
 description: "Review, validate, and publish AI-generated context documents as a Data Expert or Subject Matter Expert."
-visible-if:
-  showContextHub: true
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
