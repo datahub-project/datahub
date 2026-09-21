@@ -776,17 +776,23 @@ async def _install_extra_requirements(
     contained step with its own invariant to state.
     """
     extra_req_file = venv_loc / "extra-requirements.txt"
-    # 0600 before the contents are written rather than after, so there is no
-    # window at the ambient umask -- the cache directory itself is
-    # umask-default and may be group- or world-readable. chmod as well as
-    # touch(mode=...), because mode only applies when touch CREATES the file
-    # and a discarded incomplete venv can leave a stale one behind.
-    extra_req_file.touch(mode=0o600, exist_ok=True)
-    extra_req_file.chmod(0o600)
-    extra_req_file.write_text("\n".join(expanded_pip_reqs))
-    runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
-    runner._logs.append_masked("\n".join(expanded_pip_reqs))
+    # The try opens BEFORE the file is created, not before the install. Once
+    # the path is chosen, every later step can fail with the token already on
+    # disk: write_text can hit a full or read-only filesystem, and the log
+    # appends after it can raise too. Opening the try at the install instead
+    # left those failures leaking the credential into the node-local cache,
+    # which nothing cleans up because it deliberately outlives the task.
     try:
+        # 0600 before the contents are written rather than after, so there is
+        # no window at the ambient umask -- the cache directory itself is
+        # umask-default and may be group- or world-readable. chmod as well as
+        # touch(mode=...), because mode only applies when touch CREATES the
+        # file and a discarded incomplete venv can leave a stale one behind.
+        extra_req_file.touch(mode=0o600, exist_ok=True)
+        extra_req_file.chmod(0o600)
+        extra_req_file.write_text("\n".join(expanded_pip_reqs))
+        runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
+        runner._logs.append_masked("\n".join(expanded_pip_reqs))
         await runner.execute(
             [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
             env=venv_env,

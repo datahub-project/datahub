@@ -2172,3 +2172,58 @@ async def test_a_failed_install_does_not_leave_the_token_file_behind(
     assert not req_paths[0].exists(), (
         f"{req_paths[0]} survived a failed install still holding the token"
     )
+
+
+async def test_a_failure_after_the_token_is_written_does_not_leave_it_behind(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The window between writing the file and starting the install.
+
+    The sibling test above covers a failing install. This covers the steps
+    before it: the token is on disk from write_text onwards, and the log
+    appends that follow can raise too. With the try opening at the install
+    instead of at the file, those failures left the credential in the
+    node-local cache, which nothing cleans up because it outlives the task by
+    design.
+
+    The log append is used as the trigger because it is a real step between
+    the two, not a contrived one.
+    """
+    monkeypatch.setenv("PIP_INDEX_TOKEN", "index-token-value-3")
+    # Keep the cache under tmp_path: a cacheable venv otherwise lands in a
+    # root beside it, where the search below would not find the file.
+    monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+    runner = SubprocessRunner(LogHolder())
+    written: list[pathlib.Path] = []
+
+    async def mock_execute(command, env=None, cwd=None):
+        if "venv" in command:
+            venv_path = Path(command[-1])
+            venv_path.mkdir(parents=True, exist_ok=True)
+            (venv_path / "bin").mkdir(exist_ok=True)
+            (venv_path / "bin" / "python").touch()
+
+    def exploding_append_masked(text: str) -> None:
+        # By now write_text has run, so the token is already on disk.
+        written.extend(tmp_path.rglob("extra-requirements.txt"))
+        raise OSError("log sink unavailable")
+
+    with patch.object(runner, "execute", AsyncMock(side_effect=mock_execute)):
+        with patch.object(runner._logs, "append_masked", exploding_append_masked):
+            with pytest.raises(OSError):
+                await setup_venv(
+                    VenvConfig(
+                        version="0.12.1.5",
+                        main_plugin="snowflake",
+                        extra_pip_requirements=[
+                            "pkg @ https://u:${PIP_INDEX_TOKEN}@x/simple"
+                        ],
+                    ),
+                    runner,
+                    tmp_path,
+                )
+
+    assert written, "the requirements file was never written, so nothing was proven"
+    assert not written[0].exists(), (
+        f"{written[0]} survived a failure before the install, still holding the token"
+    )
