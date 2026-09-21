@@ -995,6 +995,150 @@ def test_data_product_read_error_does_not_seed_even_with_verify_off(
     assert src.report.data_products_unresolved == 1
 
 
+def test_data_product_full_urn_value_creates_product_named_by_id(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A full-urn `dataProduct` value creates a product named after the urn's id,
+    not the entire `urn:li:dataProduct:...` string."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(
+        _DATA_PRODUCT_BODY.replace(
+            "dataProduct: orders_product",
+            "dataProduct: 'urn:li:dataProduct:orders'",
+        ),
+        encoding="utf-8",
+    )
+    src = _make_source(
+        tmp_path,
+        graph=_graph_with_products({}),
+        path=str(contract_file),
+        emit_data_product_association=True,
+        verify_data_product_exists=False,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _product_name_set(workunits, "urn:li:dataProduct:orders") == "orders"
+    assert src.report.data_products_created == 1
+    assert src.report.data_products_unresolved == 0
+
+
+def test_created_data_product_workunits_are_non_primary(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A created product's Status and membership patch must be non-primary, so
+    stale-removal never soft-deletes a product ODCS does not own."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        graph=_graph_with_products({}),
+        path=str(contract_file),
+        emit_data_product_association=True,
+        verify_data_product_exists=False,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    product = "urn:li:dataProduct:orders_product"
+    status_wus = [
+        wu
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), StatusClass)
+        and _mcp(wu).entityUrn == product
+    ]
+    assert len(status_wus) == 1
+    assert status_wus[0].is_primary_source is False
+    # The membership patch is likewise non-primary (also enforced in
+    # _data_product_ops, which asserts is_primary_source is False).
+    assert _output_ports(workunits, product) == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t,PROD)"
+    ]
+
+
+def test_existing_product_resolved_by_id_is_not_renamed(
+    tmp_path: pathlib.Path,
+) -> None:
+    """When the id-derived product already exists under a different display name,
+    ODCS attaches the output port without rewriting that curated name."""
+    product = "urn:li:dataProduct:orders_product"
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        graph=_graph_with_products({product: "Curated Orders Name"}),
+        path=str(contract_file),
+        emit_data_product_association=True,
+        verify_data_product_exists=False,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _output_ports(workunits, product) == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t,PROD)"
+    ]
+    assert src.report.data_products_resolved_by_id == 1
+    assert src.report.data_products_created == 0
+    # No /name op and no Status write: the curated product is left untouched.
+    assert _product_name_set(workunits, product) is None
+    assert _data_products_marked_not_removed(workunits) == []
+
+
+def test_data_product_name_match_is_case_insensitive_across_contracts(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The same product named with different casing across contracts folds into a
+    single product (IEQUAL match), so both governed tables become its ports."""
+    product = "urn:li:dataProduct:abc-123"
+    base = _DATA_PRODUCT_BODY.replace(
+        "dataProduct: orders_product", "dataProduct: 'Orders (EU)'"
+    )
+    (tmp_path / "a.odcs.yaml").write_text(base, encoding="utf-8")
+    (tmp_path / "b.odcs.yaml").write_text(
+        base.replace("id: test-contract-1", "id: test-contract-2")
+        .replace("name: t\n", "name: t2\n")
+        .replace("physicalName: t", "physicalName: t2")
+        .replace("dataProduct: 'Orders (EU)'", "dataProduct: 'orders (eu)'"),
+        encoding="utf-8",
+    )
+    src = _make_source(
+        tmp_path,
+        graph=_graph_with_products({product: "Orders (EU)"}),
+        path=str(tmp_path),
+        emit_data_product_association=True,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert list(_data_product_ops(workunits)) == [product]
+    assert sorted(_output_ports(workunits, product)) == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t2,PROD)",
+    ]
+    assert src.report.data_products_resolved_by_name == 2
+
+
+def test_data_product_non_id_value_without_graph_is_skipped(
+    tmp_path: pathlib.Path,
+) -> None:
+    """With no graph (file sink) and a value that cannot be a urn id, there is no
+    way to resolve by name, so the association is reported and skipped."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(
+        _DATA_PRODUCT_BODY.replace(
+            "dataProduct: orders_product", "dataProduct: 'Orders, Retail (EU)'"
+        ),
+        encoding="utf-8",
+    )
+    src = _make_source(
+        tmp_path, path=str(contract_file), emit_data_product_association=True
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _data_product_ops(workunits) == {}
+    assert src.report.data_products_unresolved == 1
+    assert any(
+        "not found in DataHub" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
 def test_multiple_files_emit_all_logical_datasets(
     tmp_path: pathlib.Path,
 ) -> None:
