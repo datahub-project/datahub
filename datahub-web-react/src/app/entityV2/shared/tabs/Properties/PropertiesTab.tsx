@@ -94,7 +94,12 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
             title: tc('value'),
             ellipsis: true,
             render: (propertyRow: PropertyRow) => (
-                <ValuesColumn propertyRow={propertyRow} filterText={filterText} renderType={renderType} />
+                <ValuesColumn
+                    propertyRow={propertyRow}
+                    filterText={filterText}
+                    renderType={renderType}
+                    scopeKey={fieldPath ? `${entityData?.urn}:${fieldPath}` : (entityData?.urn ?? '')}
+                />
             ),
         },
     ];

@@ -4,7 +4,6 @@ import styled from 'styled-components';
 import StructuredPropertyValueList from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValueList';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { TabRenderType } from '@app/entityV2/shared/types';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
 import { StdDataType } from '@types';
 
@@ -15,6 +14,8 @@ interface Props {
     propertyRow: PropertyRow;
     filterText?: string;
     renderType: TabRenderType;
+    /** Whose values these are (entity, or entity + schema field), so list state resets per asset. */
+    scopeKey: string;
 }
 
 const ValuesContainerFlex = styled.div<{ renderType: TabRenderType }>`
@@ -32,9 +33,8 @@ const ValueContainer = styled.div`
     max-width: 100%;
 `;
 
-export default function ValuesColumn({ propertyRow, filterText, renderType }: Props) {
+export default function ValuesColumn({ propertyRow, filterText, renderType, scopeKey }: Props) {
     const { values } = propertyRow;
-    const { urn: entityUrn } = useEntityData();
     const isRichText = propertyRow.dataType?.info?.type === StdDataType.RichText;
 
     return (
@@ -42,7 +42,7 @@ export default function ValuesColumn({ propertyRow, filterText, renderType }: Pr
             <ValuesContainerFlex renderType={renderType}>
                 {values ? (
                     <StructuredPropertyValueList
-                        key={`${entityUrn}:${propertyRow.qualifiedName}`}
+                        key={`${scopeKey}:${propertyRow.qualifiedName}`}
                         propertyRow={propertyRow}
                         isRichText={isRichText}
                         filterText={filterText}

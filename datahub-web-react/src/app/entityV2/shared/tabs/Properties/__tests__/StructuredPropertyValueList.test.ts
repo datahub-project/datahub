@@ -63,11 +63,18 @@ describe('StructuredPropertyValueList helpers', () => {
             ]);
         });
 
+        it('keeps the full list when the page-level search matched the property name, not a value', () => {
+            expect(selectVisibleValues(many, '', 'Valid Values', registry)).toHaveLength(300);
+        });
+
         it('applies the list filter and the page-level search together', () => {
             expect(selectVisibleValues(many, '_25', 'choice_259', registry).map((v) => v.value)).toEqual([
                 'choice_259',
             ]);
-            expect(selectVisibleValues(many, 'choice_001', 'choice_259', registry)).toHaveLength(0);
+            // The list's own filter always wins; the page-level search only narrows when it still matches.
+            expect(selectVisibleValues(many, 'choice_001', 'choice_259', registry).map((v) => v.value)).toEqual([
+                'choice_001',
+            ]);
         });
     });
 });

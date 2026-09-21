@@ -48,9 +48,10 @@ export function valueMatches(value: ValueColumnData, query: string, entityRegist
 
 /**
  * The values that survive both filters: the list's own filter box and the page-level search
- * (`filterText`, the Properties tab's "Search in properties"). The page-level search decides which
- * property rows are shown by matching any value, so it has to narrow the list too, or a hit past
- * the first page would show a row with no visible match.
+ * (`filterText`, the Properties tab's "Search in properties"). The page-level search shows a
+ * property row when the text matches its name OR any of its values. When it matched a value, the
+ * list narrows to the matching values so a hit past the first page is visible; when it matched only
+ * the name, no value matches and the full list is kept, so the row is not left empty.
  */
 export function selectVisibleValues(
     values: ValueColumnData[],
@@ -58,11 +59,10 @@ export function selectVisibleValues(
     filterText: string | undefined,
     entityRegistry: EntityRegistry,
 ): ValueColumnData[] {
-    return values.filter(
-        (value) =>
-            valueMatches(value, query, entityRegistry) &&
-            (!filterText || valueMatches(value, filterText, entityRegistry)),
-    );
+    const byOwnFilter = values.filter((value) => valueMatches(value, query, entityRegistry));
+    if (!filterText?.trim()) return byOwnFilter;
+    const byPageSearch = byOwnFilter.filter((value) => valueMatches(value, filterText, entityRegistry));
+    return byPageSearch.length > 0 ? byPageSearch : byOwnFilter;
 }
 
 /**
