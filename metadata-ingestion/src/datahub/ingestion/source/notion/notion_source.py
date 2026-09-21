@@ -616,37 +616,46 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
     def _warn_on_empty_original_synced_blocks(self) -> None:
         """Warn when 1.4.28 parses an original synced block with no children.
 
-        Do not replace ``SyncBlock.from_dict``: 1.4.28 already dispatches
-        ``synced_from is None`` to ``OriginalSyncedBlock``. Wrapping keeps that
-        fix and restores the operator warning the 0.7.2 monkeypatch used to emit
-        when Notion omitted children on the original block.
+        ``SyncBlock.from_dict`` only sees the inner ``synced_block`` payload
+        (``synced_from`` / ``children``), so wrap ``Block.from_dict`` instead:
+        that is the production entry point and has the Notion block id.
         """
         try:
+            from unstructured_ingest.processes.connectors.notion.types.block import (
+                Block,
+            )
             from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
                 OriginalSyncedBlock,
-                SyncBlock,
             )
         except ImportError as e:
             logger.warning(
-                f"SyncBlock class not found - skipping empty-children warning: {e}"
+                f"Notion Block class not found - skipping empty-children warning: {e}"
             )
             return
 
-        report = self.report
-        original_from_dict = SyncBlock.from_dict
+        existing = Block.from_dict
+        existing_fn = getattr(existing, "__func__", existing)
+        holder: Dict[str, Any]
+        if getattr(existing_fn, "_datahub_empty_synced_warn", False):
+            holder = existing_fn._datahub_report_holder
+            holder["report"] = self.report
+            return
+
+        original_from_dict = existing
+        holder = {"report": self.report}
 
         def wrapped_from_dict(_cls: Type[Any], data: dict) -> Any:
             result = original_from_dict(data)
-            if isinstance(result, OriginalSyncedBlock) and not getattr(
-                result, "children", None
-            ):
-                block_id = data.get("id") or "unknown"
-                report.report_synced_block_skipped(str(block_id))
+            inner = getattr(result, "block", None)
+            if isinstance(inner, OriginalSyncedBlock) and not inner.children:
+                holder["report"].report_synced_block_skipped(str(result.id))
             return result
 
-        SyncBlock.from_dict = classmethod(wrapped_from_dict)  # type: ignore[method-assign]
+        wrapped_from_dict._datahub_empty_synced_warn = True  # type: ignore[attr-defined]
+        wrapped_from_dict._datahub_report_holder = holder  # type: ignore[attr-defined]
+        Block.from_dict = classmethod(wrapped_from_dict)  # type: ignore[method-assign]
         logger.info(
-            "Wrapped SyncBlock.from_dict to report original synced blocks with empty children"
+            "Wrapped Block.from_dict to report original synced blocks with empty children"
         )
 
     def _initialize_state_tracking(self) -> None:

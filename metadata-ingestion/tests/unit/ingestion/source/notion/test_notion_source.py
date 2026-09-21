@@ -1106,26 +1106,51 @@ def test_unstructured_ingest_syncblock_handles_null_synced_from():
     assert duplicate.block_id == "abc"
 
 
-def test_empty_original_synced_block_is_reported(notion_source):
-    """1.4.28 may omit children on original synced blocks; surface that in the report."""
+def test_empty_original_synced_block_is_reported(notion_source, config, pipeline_context):
+    """Report empty original synced blocks using the outer Block id, once per wrap."""
     pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.block import Block
     from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
         DuplicateSyncedBlock,
         OriginalSyncedBlock,
-        SyncBlock,
     )
 
+    def block_payload(block_id: str, synced_block: dict) -> dict:
+        return {
+            "id": block_id,
+            "type": "synced_block",
+            "created_time": "2024-01-01T00:00:00.000Z",
+            "last_edited_time": "2024-01-01T00:00:00.000Z",
+            "created_by": {"id": "user-1"},
+            "last_edited_by": {"id": "user-1"},
+            "archived": False,
+            "in_trash": False,
+            "has_children": True,
+            "parent": {"type": "page_id", "page_id": "page-1"},
+            "synced_block": synced_block,
+        }
+
+    notion_source._warn_on_empty_original_synced_blocks()
     notion_source._warn_on_empty_original_synced_blocks()
 
-    original = SyncBlock.from_dict({"id": "block-empty", "synced_from": None})
-    assert isinstance(original, OriginalSyncedBlock)
+    empty = Block.from_dict(block_payload("block-empty", {"synced_from": None}))
+    assert isinstance(empty.block, OriginalSyncedBlock)
     assert notion_source.report.num_synced_blocks_skipped == 1
     assert "block-empty" in list(notion_source.report.synced_blocks_skipped)
 
-    duplicate = SyncBlock.from_dict(
-        {"synced_from": {"type": "block_id", "block_id": "abc"}}
+    duplicate = Block.from_dict(
+        block_payload(
+            "block-dup",
+            {"synced_from": {"type": "block_id", "block_id": "abc"}},
+        )
     )
-    assert isinstance(duplicate, DuplicateSyncedBlock)
+    assert isinstance(duplicate.block, DuplicateSyncedBlock)
+    assert notion_source.report.num_synced_blocks_skipped == 1
+
+    other_source = NotionSource(config=config, ctx=pipeline_context)
+    other_source._warn_on_empty_original_synced_blocks()
+    Block.from_dict(block_payload("block-other", {"synced_from": None}))
+    assert other_source.report.num_synced_blocks_skipped == 1
     assert notion_source.report.num_synced_blocks_skipped == 1
 
 
