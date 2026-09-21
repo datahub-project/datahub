@@ -255,7 +255,7 @@ async def test_repeat_venv_setup(tmp_path: pathlib.Path) -> None:
     A pinned version + main_plugin is cacheable, so this now goes through the
     node-local cache rather than the plain tmp_dir existence check. The first
     call's exclusive lock must be released before the second call reuses the
-    same entry, or the second call's acquire (blocking=True by default) would
+    same entry, or the second call's acquire would
     hang forever waiting on a lock this test's own first call still holds.
     """
     logs = LogHolder(echo_to_stdout_prefix="venv-setup-1: ")
@@ -1941,7 +1941,8 @@ class TestVenvCacheInSetupVenv:
         ever gets a chance to release the lock; the except block has to do it
         itself. Regression: without that release, a second attempt at the
         SAME entry in the SAME process (a later task in a long-lived pod)
-        blocks forever on EntryLock.acquire()'s default blocking=True.
+        would spin through its retry budget and fall back to a per-run
+        venv on every later task, for the life of the pod.
 
         The second attempt runs in a real OS thread with its own event loop,
         matching production (default_executor.py gives each task its own
@@ -2072,13 +2073,13 @@ class TestVenvCacheInSetupVenv:
         lock_path = ref.venv_loc.parent / f"{ref.venv_loc.name}.lock"
 
         other_shared = EntryLock(lock_path)
-        assert other_shared.acquire(exclusive=False, blocking=False), (
+        assert other_shared.acquire(exclusive=False), (
             "a downgraded-to-shared lock must allow another shared holder"
         )
         other_shared.release()
 
         other_exclusive = EntryLock(lock_path)
-        assert not other_exclusive.acquire(exclusive=True, blocking=False), (
+        assert not other_exclusive.acquire(exclusive=True), (
             "an exclusive lock must still be refused while the build's "
             "shared hold is outstanding -- downgrade_to_shared must not "
             "have released it outright"
@@ -2127,10 +2128,8 @@ class TestVenvCacheInSetupVenv:
 
         real_acquire = EntryLock.acquire
 
-        def refuse_shared(
-            self: EntryLock, *, exclusive: bool, blocking: bool = True
-        ) -> bool:
-            return exclusive and real_acquire(self, exclusive=True, blocking=blocking)
+        def refuse_shared(self: EntryLock, *, exclusive: bool) -> bool:
+            return exclusive and real_acquire(self, exclusive=True)
 
         monkeypatch.setattr(EntryLock, "acquire", refuse_shared)
         monkeypatch.setattr(

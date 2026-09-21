@@ -6,6 +6,7 @@ unreliable -- which is why the spec rules shared storage out of scope.
 """
 
 import fcntl
+import logging
 import os
 import pathlib
 import shutil
@@ -13,7 +14,7 @@ from unittest import mock
 
 import pytest
 
-from datahub.executor.execution import venv_utils
+from datahub.executor.execution import venv_cache, venv_utils
 from datahub.executor.execution.venv_cache import EntryLock, evict_to_budget
 
 
@@ -28,11 +29,11 @@ def test_two_locks_on_one_entry_do_not_both_get_it_exclusively(
 
     assert first.acquire(exclusive=True)
     try:
-        assert not second.acquire(exclusive=True, blocking=False)
+        assert not second.acquire(exclusive=True)
     finally:
         first.release()
 
-    assert second.acquire(exclusive=True, blocking=False)
+    assert second.acquire(exclusive=True)
     second.release()
 
 
@@ -47,7 +48,7 @@ def test_a_shared_holder_blocks_an_exclusive_taker(
 
     assert user.acquire(exclusive=False)
     try:
-        assert not evictor.acquire(exclusive=True, blocking=False)
+        assert not evictor.acquire(exclusive=True)
     finally:
         user.release()
 
@@ -63,8 +64,8 @@ def test_downgrade_lets_an_evictor_be_refused_but_a_reader_in(
 
     builder.downgrade_to_shared()
     try:
-        assert EntryLock(lock_path).acquire(exclusive=False, blocking=False)
-        assert not EntryLock(lock_path).acquire(exclusive=True, blocking=False)
+        assert EntryLock(lock_path).acquire(exclusive=False)
+        assert not EntryLock(lock_path).acquire(exclusive=True)
     finally:
         builder.release()
 
@@ -296,3 +297,69 @@ def test_a_partly_removed_entry_is_not_left_looking_complete(
     assert not venv_utils.is_venv_complete(entry), (
         "a partly-removed entry still reads as complete and will be reused"
     )
+
+
+def test_an_unmeasurable_entry_is_reported_not_silently_counted_as_zero(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failed measurement disables the budget, invisibly.
+
+    Sizes come from directory reads that skip what they cannot read. If those
+    fail, every entry measures 0, the total lands under budget, and eviction
+    answers "nothing to do" for the life of the pod while the cache grows
+    without bound. The under-count is the direction that fills a disk, so it
+    has to be audible.
+    """
+    root = tmp_path / "cache"
+    root.mkdir()
+    _entry(root, "a", 4096, age_s=1)
+
+    def unreadable(path: str) -> object:
+        raise OSError("permission denied")
+
+    monkeypatch.setattr(os, "scandir", unreadable)
+
+    with caplog.at_level(logging.WARNING):
+        evict_to_budget(root, 1)
+
+    assert any("could not fully measure" in r.message for r in caplog.records)
+
+
+def test_a_partial_measurement_is_never_remembered(tmp_path: pathlib.Path) -> None:
+    """The size hint is permanent for a COMPLETE entry, so caching a partial
+    reading would make one bad measurement stick for the entry's whole life."""
+    root = tmp_path / "cache"
+    root.mkdir()
+    venv = _entry(root, "a", 4096, age_s=1)
+
+    with mock.patch.object(
+        venv_cache, "_measure_entry", return_value=venv_cache._Measurement(7, False)
+    ):
+        assert venv_cache._entry_size(venv).total == 7
+
+    assert not (venv / venv_cache.SIZE_MARKER).exists()
+
+
+def test_the_budget_cannot_exceed_the_filesystem_holding_it(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The 20 GB default is larger than the whole disk on a small node.
+
+    Left unclamped it means eviction never triggers before the volume fills,
+    so the cache becomes the thing that breaks the node it was meant to speed
+    up. Two entries and a 1 TB budget: nothing would be evicted, but a 10 KB
+    filesystem allows only 5 KB of cache, so the LRU entry goes.
+    """
+    root = tmp_path / "cache"
+    root.mkdir()
+    old = _entry(root, "old", 4096, age_s=10_000)
+    new = _entry(root, "new", 4096, age_s=1)
+
+    monkeypatch.setattr(os, "statvfs", lambda _p: mock.Mock(f_blocks=10, f_frsize=1024))
+    venv_cache._warn_budget_clamped_once.cache_clear()
+
+    assert evict_to_budget(root, 1024**4) > 0
+    assert not old.exists()
+    assert new.exists()

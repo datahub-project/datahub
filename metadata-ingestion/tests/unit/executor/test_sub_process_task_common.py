@@ -1060,7 +1060,7 @@ def test_finalize_releases_the_venv_cache_lock(tmp_path: Path) -> None:
     )
 
     assert not lock.held
-    assert EntryLock(tmp_path / "entry.lock").acquire(exclusive=True, blocking=False), (
+    assert EntryLock(tmp_path / "entry.lock").acquire(exclusive=True), (
         "the entry is still locked, so eviction can never reclaim it"
     )
 

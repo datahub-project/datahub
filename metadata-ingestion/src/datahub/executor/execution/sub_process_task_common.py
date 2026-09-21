@@ -768,32 +768,6 @@ class SubProcessRecipeTaskArgs(PermissiveConfigModel):
             return {} if v == "" else json.loads(v)
         return v
 
-    def get_venv_name(self, plugin: str) -> str:
-        """Generate venv name, consistent with VenvConfig.get_stable_venv_name().
-
-        Delegates to VenvConfig so that env-var templates in extra_pip_requirements
-        are expanded before hashing — matching what setup_venv() actually installs.
-        """
-        from datahub.executor.execution.runner import VenvConfig
-
-        config = VenvConfig(
-            version=self.version,
-            main_plugin=plugin,
-            extra_pip_requirements=self.extra_pip_requirements,
-            extra_pip_plugins=self.extra_pip_plugins,
-        )
-        expanded = config.resolve_pip_requirements()
-        name = config.get_stable_venv_name(expanded_pip_reqs=expanded)
-        if name is not None:
-            return name
-        # Fallback for ephemeral/bundled/native versions that have no stable name.
-        return venv_utils.get_venv_name(
-            plugin=plugin,
-            version=self.version,
-            extra_pip_requirements=self.extra_pip_requirements,
-            extra_pip_plugins=self.extra_pip_plugins,
-        )
-
     def should_use_bundled_venv(self) -> bool:
         """Check if this configuration should use a Bundled (pre-packaged) venv."""
         return venv_utils.should_use_bundled_venv(self.version)

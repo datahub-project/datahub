@@ -6,11 +6,12 @@ effect lives here.
 """
 
 import fcntl
+import functools
 import logging
 import os
 import pathlib
 import shutil
-from typing import List, Optional, Tuple
+from typing import List, NamedTuple, Optional, Tuple
 
 from datahub.executor.execution.venv_utils import (
     COMPLETE_MARKER,
@@ -50,7 +51,7 @@ class EntryLock:
     def unusable(self) -> bool:
         """Whether the last failed acquire() failed for a reason retrying cannot fix.
 
-        False after a merely CONTENDED non-blocking acquire -- someone else
+        False after a merely CONTENDED acquire -- someone else
         holds the entry, and waiting can still win it. True when the lock file
         could not be opened at all (an unwritable or read-only cache root) or
         the filesystem does not support flock: retrying those only wastes the
@@ -58,10 +59,16 @@ class EntryLock:
         """
         return self._unusable
 
-    def acquire(self, *, exclusive: bool, blocking: bool = True) -> bool:
-        mode = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
-        if not blocking:
-            mode |= fcntl.LOCK_NB
+    def acquire(self, *, exclusive: bool) -> bool:
+        """Take the lock, or report that it is not available right now.
+
+        Always non-blocking, and there is deliberately no way to ask for
+        otherwise. flock is a plain syscall, so a blocking acquire freezes the
+        OS thread and with it the whole event loop the task runs on -- no
+        in-loop timeout could even fire to rescue it. Waiting is the caller's
+        job, as `await asyncio.sleep` between attempts.
+        """
+        mode = (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB
         self._unusable = False
         try:
             # The cache root does not exist on a fresh pod, and a first run
@@ -147,7 +154,14 @@ class EntryLock:
             pass
 
 
-def _measure_entry(venv: pathlib.Path) -> int:
+class _Measurement(NamedTuple):
+    """An entry's size, and whether every file in it was actually counted."""
+
+    total: int
+    complete: bool
+
+
+def _measure_entry(venv: pathlib.Path) -> _Measurement:
     """Sum the entry's apparent file sizes, with one directory read per level.
 
     os.scandir carries the stat from the directory read, so this costs one
@@ -155,8 +169,14 @@ def _measure_entry(venv: pathlib.Path) -> int:
     difference: the os.walk plus lstat version this replaces took 0.97s over
     four entries where this takes 0.15s, for a byte-identical answer, because
     a venv is tens of thousands of small files.
+
+    Individual read failures are skipped rather than raised -- a directory
+    that vanishes under a concurrent eviction is normal -- but they are
+    COUNTED, because a size that silently omits most of an entry is what
+    disables the budget entirely. See evict_to_budget.
     """
     total = 0
+    complete = True
     stack = [str(venv)]
     while stack:
         try:
@@ -168,13 +188,13 @@ def _measure_entry(venv: pathlib.Path) -> int:
                         else:
                             total += entry.stat(follow_symlinks=False).st_size
                     except OSError:
-                        continue
+                        complete = False
         except OSError:
-            continue
-    return total
+            complete = False
+    return _Measurement(total, complete)
 
 
-def _entry_size(venv: pathlib.Path) -> int:
+def _entry_size(venv: pathlib.Path) -> "_Measurement":
     """Nominal size of one entry, measured once and remembered.
 
     NOT the bytes deleting it would reclaim. DataHub defaults uv to
@@ -207,18 +227,72 @@ def _entry_size(venv: pathlib.Path) -> int:
     complete = is_venv_complete(venv)
     if complete:
         try:
-            return int(hint.read_text())
+            return _Measurement(int(hint.read_text()), True)
         except (OSError, ValueError):
             pass
-    total = _measure_entry(venv)
-    if complete:
+    measured = _measure_entry(venv)
+    # Only a measurement that saw every file is worth remembering. Caching a
+    # partial one would make the under-count permanent for that entry.
+    if complete and measured.complete:
         try:
-            hint.write_text(str(total))
+            hint.write_text(str(measured.total))
         except OSError:
             # A read-only or full filesystem costs a re-measure next time, and
             # nothing else. Never fail eviction over a cache of a cache.
             logger.debug("venv cache: could not record size for %s", venv)
-    return total
+    return measured
+
+
+# Ceiling on the cache as a share of the filesystem holding it. The configured
+# budget is what an operator wants; this is what the disk can actually give.
+# Half, because the same volume carries the per-execution directories and uv's
+# package cache, and the cache must not be the reason a build runs out of room.
+_MAX_SHARE_OF_FILESYSTEM = 0.5
+
+
+@functools.lru_cache(maxsize=None)
+def _warn_budget_clamped_once(cache_root: str, configured: int, allowed: int) -> None:
+    """Once per root, not per build -- eviction runs on every build path."""
+    logger.warning(
+        "venv cache: the configured budget of %d bytes exceeds %.0f%% of the "
+        "filesystem at %s; enforcing %d bytes instead. Set "
+        "DATAHUB_VENV_CACHE_MAX_GB to a value this node can hold.",
+        configured,
+        _MAX_SHARE_OF_FILESYSTEM * 100,
+        cache_root,
+        allowed,
+    )
+
+
+def _budget_for_filesystem(cache_root: pathlib.Path, max_bytes: int) -> int:
+    """Lower the budget to something the underlying filesystem can actually hold.
+
+    The 20 GB default is reasonable on a build host and larger than the whole
+    disk on a small node, where it means eviction never triggers before the
+    volume fills -- the cache becomes the thing that breaks the node it was
+    meant to speed up. Sizing against the real filesystem makes the default
+    safe everywhere instead of correct only where it was chosen.
+
+    Deliberately measured against TOTAL capacity rather than free space: free
+    space moves with every other tenant of the volume, so a budget derived
+    from it would swing between builds and make eviction behaviour
+    irreproducible.
+    """
+    try:
+        stat = os.statvfs(cache_root)
+    except (OSError, AttributeError):
+        # AttributeError: no statvfs on this platform. Either way the
+        # configured value stands -- a budget we cannot check is better than
+        # no budget.
+        return max_bytes
+
+    capacity = stat.f_blocks * stat.f_frsize
+    allowed = int(capacity * _MAX_SHARE_OF_FILESYSTEM)
+    if capacity <= 0 or max_bytes <= allowed:
+        return max_bytes
+
+    _warn_budget_clamped_once(str(cache_root), max_bytes, allowed)
+    return allowed
 
 
 def evict_to_budget(cache_root: pathlib.Path, max_bytes: int) -> int:
@@ -246,10 +320,36 @@ def evict_to_budget(cache_root: pathlib.Path, max_bytes: int) -> int:
     except OSError:
         return 0
 
-    sized: List[Tuple[float, int, pathlib.Path]] = [
-        (last_used_at(p), _entry_size(p), p) for p in entries
-    ]
+    max_bytes = _budget_for_filesystem(cache_root, max_bytes)
+
+    sized: List[Tuple[float, int, pathlib.Path]] = []
+    unmeasured: List[pathlib.Path] = []
+    for p in entries:
+        measured = _entry_size(p)
+        sized.append((last_used_at(p), measured.total, p))
+        if not measured.complete:
+            unmeasured.append(p)
+
     total = sum(size for _, size, _ in sized)
+
+    if unmeasured:
+        # An under-count is the direction that lets the disk fill, and it is
+        # invisible: the budget check just keeps answering "we fit". In the
+        # worst case every read fails, every entry measures 0, and eviction
+        # reports nothing to do for the life of the pod while the cache grows
+        # without bound. Say so, rather than let the budget quietly stop
+        # existing. Eviction still proceeds -- the entries that DID measure
+        # are real bytes worth reclaiming.
+        logger.warning(
+            "venv cache: could not fully measure %d of %d entries (%s); the "
+            "%d-byte budget is being enforced against an under-count and the "
+            "cache may exceed it.",
+            len(unmeasured),
+            len(entries),
+            ", ".join(p.name for p in unmeasured[:3]),
+            max_bytes,
+        )
+
     if total <= max_bytes:
         return 0
 
@@ -258,7 +358,7 @@ def evict_to_budget(cache_root: pathlib.Path, max_bytes: int) -> int:
         if total - freed <= max_bytes:
             break
         lock = EntryLock(venv.parent / f"{venv.name}.lock")
-        if not lock.acquire(exclusive=True, blocking=False):
+        if not lock.acquire(exclusive=True):
             logger.debug("venv cache: %s is in use, not evicting", venv)
             continue
         try:
@@ -273,6 +373,13 @@ def evict_to_budget(cache_root: pathlib.Path, max_bytes: int) -> int:
             # claimant discards and rebuilds it instead.
             (venv / COMPLETE_MARKER).unlink(missing_ok=True)
             shutil.rmtree(venv)
+            # The .lock file beside it is deliberately left behind. Unlinking
+            # it would break mutual exclusion rather than tidy up: a peer
+            # already holding it holds an fd on that inode, so the next two
+            # claimants would create a NEW inode and flock a different file
+            # from the peer -- two processes each believing they hold the
+            # entry. The files are empty and bounded by the number of distinct
+            # cache keys, so the inodes are the cheaper side of that trade.
             freed += size
             logger.info("venv cache: evicted %s (%d bytes)", venv, size)
         except OSError:

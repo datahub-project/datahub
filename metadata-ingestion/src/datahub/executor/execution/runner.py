@@ -544,15 +544,19 @@ def _extra_env_vars_cache_suffix(extra_env_vars: dict) -> str:
     extra_env_vars is user-supplied per recipe (package index URLs, private-
     index credentials) and IS merged into the environment the venv is built
     and installed under (`venv_env`/`install_env` in setup_venv), but
-    get_stable_venv_name() does not hash it. That's fine for that function's
-    existing contract -- it's pre-existing and other callers
-    (SubProcessRecipeTaskArgs.get_venv_name) depend on it -- but it means two
-    recipes differing only in extra_env_vars would otherwise share one
-    node-local cache entry and one of them would silently get a venv built
-    against the other's index. Before the cache was pod-global (this task),
-    that collision was impossible: the name lived under the per-execution
-    tmp_dir. Hashing here, rather than the value itself, is safe even though
-    these can be secrets -- this is a short truncated digest, not the value.
+    get_stable_venv_name() does not hash it. Two recipes differing only in
+    extra_env_vars would therefore share one node-local cache entry, and one
+    of them would silently get a venv built against the other's index. Before
+    the cache was pod-global, that collision was impossible: the name lived
+    under the per-execution tmp_dir.
+
+    Hashing here rather than using the value is safe even though these can be
+    secrets -- this is a truncated digest, not the value. 16 hex characters,
+    not 8: the whole job of this suffix is to keep two different package
+    indexes apart, so a collision reintroduces exactly the bug it exists to
+    prevent, and 32 bits is a birthday collision at a few tens of thousands
+    of distinct environments. Widening it costs nothing but directory-name
+    length.
     """
     digest = hashlib.sha256()
     for key, value in sorted(extra_env_vars.items()):
@@ -560,7 +564,7 @@ def _extra_env_vars_cache_suffix(extra_env_vars: dict) -> str:
         digest.update(b"=")
         digest.update(str(value).encode("utf-8"))
         digest.update(b"\n")
-    return digest.hexdigest()[:8]
+    return digest.hexdigest()[:16]
 
 
 def _name_dynamic_venv(
@@ -686,7 +690,7 @@ async def _acquire_cache_entry(
 
     lock = EntryLock(venv_loc.parent / f"{venv_loc.name}.lock")
     for attempt in range(_CACHE_LOCK_ATTEMPTS):
-        if lock.acquire(exclusive=False, blocking=False):
+        if lock.acquire(exclusive=False):
             if is_venv_complete(venv_loc):
                 touch_last_used(venv_loc)
                 return _CacheEntry(venv_loc, lock, True, True)
@@ -696,7 +700,7 @@ async def _acquire_cache_entry(
         elif lock.unusable:
             break
 
-        if lock.acquire(exclusive=True, blocking=False):
+        if lock.acquire(exclusive=True):
             if is_venv_complete(venv_loc):
                 touch_last_used(venv_loc)
                 # A failed downgrade has already surrendered the hold, so the
@@ -705,8 +709,8 @@ async def _acquire_cache_entry(
                 held = lock if lock.downgrade_to_shared() else None
                 return _CacheEntry(venv_loc, held, True, True)
             # Eviction runs here and nowhere else: on the build path only, so
-            # a cache HIT never pays for an os.walk of every file of every
-            # entry, and after we hold this entry, so eviction cannot select
+            # a cache HIT never pays for a full measurement of every file of
+            # every entry, and after we hold this entry, so eviction cannot select
             # the directory we are about to write into (it skips anything it
             # cannot take exclusively).
             evict_to_budget(venv_loc.parent, get_venv_cache_max_bytes())
