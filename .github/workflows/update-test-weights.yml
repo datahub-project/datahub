@@ -37,6 +37,26 @@ jobs:
           # changes and not the dispatch branch's local commits.
           ref: ${{ github.event.repository.default_branch }}
 
+      # workflow_dispatch uses the YAML from the triggering SHA, but the
+      # checkout above is default_branch. Overlay the scripts that YAML
+      # invokes so a dispatch from a branch that changed compare/generate
+      # does not run new flags against master's older CLI.
+      - name: Use workflow scripts from triggering SHA
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          DEFAULT_SHA=$(git rev-parse HEAD)
+          if [ "$DEFAULT_SHA" = "${{ github.sha }}" ]; then
+            echo "Triggered from default branch; scripts already match."
+            exit 0
+          fi
+          git fetch --depth=1 origin "${{ github.sha }}"
+          git checkout "${{ github.sha }}" -- \
+            .github/scripts/compare_test_weights.py \
+            .github/scripts/generate_test_weights.py \
+            .github/scripts/download_test_artifacts.sh
+          echo "Overlaid workflow scripts from ${{ github.sha }}"
+          git diff --stat -- .github/scripts/
+
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
