@@ -1139,6 +1139,54 @@ def test_data_product_non_id_value_without_graph_is_skipped(
     )
 
 
+def test_data_product_emit_failure_is_isolated_per_product(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failure emitting one product's ports must not lose a sibling product's
+    ports or abort the run — the loop isolates each product."""
+    good = "urn:li:dataProduct:sales_product"
+    bad = "urn:li:dataProduct:orders_product"
+    real = odcs_source.odcs_to_data_product_output_port_mcps
+
+    def flaky(
+        product_urn: str, asset_urns: List[str], name: Optional[str] = None
+    ) -> Any:
+        if product_urn == bad:
+            raise RuntimeError("boom")
+        return real(product_urn, asset_urns, name=name)
+
+    monkeypatch.setattr(odcs_source, "odcs_to_data_product_output_port_mcps", flaky)
+
+    (tmp_path / "a.odcs.yaml").write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
+    (tmp_path / "b.odcs.yaml").write_text(
+        _DATA_PRODUCT_BODY.replace("id: test-contract-1", "id: test-contract-2")
+        .replace("name: t\n", "name: t2\n")
+        .replace("physicalName: t", "physicalName: t2")
+        .replace("dataProduct: orders_product", "dataProduct: sales_product"),
+        encoding="utf-8",
+    )
+    src = _make_source(
+        tmp_path,
+        graph=_graph_with_products({bad: "Orders", good: "Sales"}),
+        path=str(tmp_path),
+        emit_data_product_association=True,
+    )
+    # Both products resolve by id, so this must not raise despite `bad` failing.
+    workunits = list(src.get_workunits_internal())
+
+    ops = _data_product_ops(workunits)
+    assert list(ops) == [good]
+    assert _output_ports(workunits, good) == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t2,PROD)"
+    ]
+    assert src.report.data_product_output_ports_emitted == 1
+    assert any(
+        "Failed to emit Data Product output ports" in str(getattr(w, "title", ""))
+        and any(bad in c for c in getattr(w, "context", []))
+        for w in src.report.warnings
+    )
+
+
 def test_multiple_files_emit_all_logical_datasets(
     tmp_path: pathlib.Path,
 ) -> None:
