@@ -3,6 +3,7 @@ pytest_plugins = ["tests.utilities.agent_reporter"]
 import json
 import logging
 import os
+import statistics
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -10,13 +11,14 @@ from typing import Dict, List, Optional, Set, Tuple
 import pytest
 import requests
 from _pytest.nodes import Item
+from _pytest.skipping import evaluate_skip_marks
 
 from datahub.ingestion.graph.client import (
     DatahubClientConfig,
     DataHubGraph,
     get_default_graph,
 )
-from shard_pack import ModuleShard, pack_module_plans
+from shard_pack import ModuleShard, loadscope_key, lookup_test_weight, pack_module_plans
 from tests.test_result_msg import send_message
 from tests.utilities import env_vars
 from tests.utilities.domains import (
@@ -328,36 +330,63 @@ def load_pytest_test_weights() -> Dict[str, float]:
         return {}
 
 
+# Collection-time skip/skipif tests never run, so they must not take the median
+# default (or a historical duration) and inflate a batch.
+SKIPPED_TEST_WEIGHT_SECONDS = 0.01
+
+
+def _item_will_be_skipped(item: Item) -> bool:
+    try:
+        return evaluate_skip_marks(item) is not None
+    except Exception:
+        return item.get_closest_marker("skip") is not None
+
+
 def get_pytest_test_weight(
-    item: Item, test_weights: Dict[str, float]
+    item: Item, test_weights: Dict[str, float], default_weight: float
 ) -> tuple[float, bool]:
     """Return (seconds, used_default). used_default is True when the nodeid
-    was missing from pytest_test_weights.json."""
-    nodeid = item.nodeid
-    test_id = nodeid.replace("/", ".").replace(".py::", "::")
-    weight = test_weights.get(test_id)
-    if weight is not None:
-        return weight, False
+    was missing from pytest_test_weights.json. Collection-time skips use a
+    tiny weight and do not count as missing."""
+    if _item_will_be_skipped(item):
+        return SKIPPED_TEST_WEIGHT_SECONDS, False
 
-    nodeid_parts = nodeid.split("::")
-    if len(nodeid_parts) > 2:
-        module_id = nodeid_parts[0].replace("/", ".").removesuffix(".py")
-        weight = test_weights.get(f"{module_id}::{nodeid_parts[-1]}")
-        if weight is not None:
-            return weight, False
+    return lookup_test_weight(item.nodeid, test_weights, default_weight)
 
-    return DEFAULT_TEST_WEIGHT, True
+
+def load_persisted_default_weight() -> Optional[float]:
+    """Load the fallback weight generated alongside the pytest weights."""
+    meta_file = Path(__file__).parent / "pytest_test_weights_meta.json"
+    if not meta_file.exists():
+        return None
+    try:
+        with open(meta_file) as f:
+            value = float(json.load(f)["defaultTestWeightSeconds"])
+        return value if value > 0 else None
+    except Exception as e:
+        logger.warning(f"Failed to read {meta_file.name}: {e}")
+        return None
+
+
+def compute_default_test_weight(test_weights: Dict[str, float]) -> float:
+    """Return the weight assigned to tests absent from the weights file."""
+    persisted = load_persisted_default_weight()
+    if persisted is not None:
+        return persisted
+    if not test_weights:
+        return DEFAULT_TEST_WEIGHT
+    return statistics.median(test_weights.values())
 
 
 def aggregate_module_weights(
     items: List[Item], test_weights: Dict[str, float]
 ) -> List[Tuple[str, List[Item], float, float]]:
     """
-    Group test items by module, splitting each module's weight by execution phase.
+    Group test items by xdist loadscope, splitting each scope's weight by phase.
 
     smoke.sh runs each batch as two pytest invocations: non-mutator tests under
     xdist ``--dist=loadscope``, then policy mutators serially. Those two buckets
-    are accumulated separately so packing can treat a file's parallel time as
+    are accumulated separately so packing can treat a scope's parallel time as
     one worker's load and add serial time after phase 1.
 
     Args:
@@ -365,24 +394,24 @@ def aggregate_module_weights(
         test_weights: Dictionary mapping test IDs to durations
 
     Returns:
-        List of (module_path, items_in_module, parallel_seconds, serial_seconds)
+        List of (loadscope_key, items_in_scope, parallel_seconds, serial_seconds)
     """
+    default_weight = compute_default_test_weight(test_weights)
 
-    # Group items by module (file path)
-    modules: Dict[str, List[Item]] = defaultdict(list)
+    scopes: Dict[str, List[Item]] = defaultdict(list)
     for item in items:
-        # Get the module path from the item's fspath
-        module_path = str(item.fspath)
-        modules[module_path].append(item)
+        scopes[loadscope_key(item.nodeid)].append(item)
 
     # Each item's weight is looked up exactly once, here.
-    module_data = []
+    scope_data = []
     missing_weight_ids: List[str] = []
-    for module_path, module_items in modules.items():
+    for scope_key, scope_items in scopes.items():
         parallel_seconds = 0.0
         serial_seconds = 0.0
-        for item in module_items:
-            weight, used_default = get_pytest_test_weight(item, test_weights)
+        for item in scope_items:
+            weight, used_default = get_pytest_test_weight(
+                item, test_weights, default_weight
+            )
             if used_default:
                 missing_weight_ids.append(item.nodeid)
             if _is_global_policy_mutator(item):
@@ -390,19 +419,17 @@ def aggregate_module_weights(
             else:
                 parallel_seconds += weight
 
-        module_data.append(
-            (module_path, module_items, parallel_seconds, serial_seconds)
-        )
+        scope_data.append((scope_key, scope_items, parallel_seconds, serial_seconds))
 
     if missing_weight_ids:
         logger.info(
             "No recorded duration for %s test(s); packing with %.1fs each. Sample: %s",
             len(missing_weight_ids),
-            DEFAULT_TEST_WEIGHT,
+            default_weight,
             ", ".join(missing_weight_ids[:5]),
         )
 
-    return module_data
+    return scope_data
 
 
 def _is_global_policy_mutator(item: Item) -> bool:
@@ -505,18 +532,16 @@ def pytest_collection_modifyitems(
     # Load test weights
     test_weights = load_pytest_test_weights()
 
-    # Group items by module and aggregate weights
-    module_data = aggregate_module_weights(items, test_weights)
-
-    module_map: Dict[str, List[Item]] = {}
+    scope_data = aggregate_module_weights(items, test_weights)
+    items_by_scope: Dict[str, List[Item]] = {}
     shards: List[ModuleShard] = []
-    for path, module_items, parallel_seconds, serial_seconds in module_data:
-        module_map[path] = module_items
-        shards.append(ModuleShard(path, parallel_seconds, serial_seconds))
+    for scope_key, scope_items, parallel_seconds, serial_seconds in scope_data:
+        items_by_scope[scope_key] = scope_items
+        shards.append(ModuleShard(scope_key, parallel_seconds, serial_seconds))
     xdist_workers = env_vars.get_pytest_xdist_workers()
 
     logger.info(
-        "Batching %s tests from %s modules across %s batches (xdist_workers=%s)",
+        "Batching %s tests from %s scopes across %s batches (xdist_workers=%s)",
         len(items),
         len(shards),
         batch_count,
@@ -525,10 +550,12 @@ def pytest_collection_modifyitems(
 
     batch_plans = pack_module_plans(shards, batch_count, xdist_workers)
     for i, plan in enumerate(batch_plans):
-        test_count = sum(len(module_map[path]) for path in plan.module_paths)
+        test_count = sum(
+            len(items_by_scope[scope_key]) for scope_key in plan.module_paths
+        )
         logger.info(
             "Batch %s: predicted_wall=%.1fs phase1_makespan=%.1fs serial=%.1fs "
-            "modules=%s tests=%s",
+            "scopes=%s tests=%s",
             i,
             plan.predicted_wall,
             plan.phase1_makespan,
@@ -537,16 +564,16 @@ def pytest_collection_modifyitems(
             test_count,
         )
 
-    selected_modules = batch_plans[batch_number].module_paths
+    selected_scopes = batch_plans[batch_number].module_paths
     selected_items = []
-    for module_path in selected_modules:
-        selected_items.extend(module_map[module_path])
+    for scope_key in selected_scopes:
+        selected_items.extend(items_by_scope[scope_key])
 
     logger.info(
-        "Batch %s: Running %s tests from %s modules",
+        "Batch %s: Running %s tests from %s scopes",
         batch_number,
         len(selected_items),
-        len(selected_modules),
+        len(selected_scopes),
     )
 
     # Replace items with the filtered list, then apply smoke.sh phase filter
