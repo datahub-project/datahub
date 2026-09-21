@@ -2,8 +2,8 @@ name: Update Test Weights
 
 on:
   schedule:
-    # Run every Sunday at 2am UTC
-    - cron: "0 2 * * 0"
+    # Run every Monday at 9:00 AM IST (03:30 UTC)
+    - cron: "30 3 * * 1"
 
   workflow_dispatch:
     inputs:
@@ -233,6 +233,7 @@ jobs:
 
           # Add and commit changes for all suites
           git add smoke-test/pytest_test_weights.json
+          git add smoke-test/pytest_test_weights_meta.json
           git add metadata-ingestion/tests/integration_test_weights.json
           git add .github/backend_test_weights.json
           git add e2e-test/ui/playwright/playwright_test_weights.json
