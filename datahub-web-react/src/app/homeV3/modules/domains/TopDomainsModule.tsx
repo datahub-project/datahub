@@ -9,18 +9,21 @@ import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
+import { MODULE_LIST_MAX_ITEMS } from '@app/homeV3/modules/constants';
 import useGetDomainUtils from '@app/homeV3/modules/domains/useDomainModuleUtils';
 
 import { DataHubPageModuleType } from '@types';
-
-const MAX_DOMAINS = 25;
 
 const TopDomainsModule = (props: ModuleProps) => {
     const { t } = useTranslation('modules');
     const { user } = useUserContext();
     const { isReloading } = useModuleContext();
 
-    const { domains, loading } = useGetDomains(user, isReloading ? 'cache-and-network' : 'cache-first', MAX_DOMAINS);
+    const { domains, loading } = useGetDomains(
+        user,
+        isReloading ? 'cache-and-network' : 'cache-first',
+        MODULE_LIST_MAX_ITEMS,
+    );
 
     const { renderDomainCounts, navigateToDomains } = useGetDomainUtils({ domains });
 
