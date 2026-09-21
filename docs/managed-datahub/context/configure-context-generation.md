@@ -175,7 +175,7 @@ Redshift system tables keep at most about seven days of query history, often clo
 Each database needs its own recipe, and the ingestion user needs `SYSLOG ACCESS UNRESTRICTED` to read other users' query text.
 :::
 
-## Enriching Context with dbt and Looker
+### Enriching Context with dbt and Looker
 
 Query history tells the system how your data is used; dbt and Looker tell it what the data means. Configure the **dbt** and **Looker** connectors for the datasets in any domain scoped for context generation. When context generation detects associated dbt models or downstream Looker charts and dashboards, it incorporates that business context to improve the quality of the generated semantic anchors.
 
