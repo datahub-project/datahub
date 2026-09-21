@@ -10,6 +10,7 @@ import { ViewSelectPopoverContent } from '@app/entityV2/view/select/ViewSelectPo
 import { renderSelectedView } from '@app/entityV2/view/select/renderSelectedView';
 import { renderViewOptionGroup } from '@app/entityV2/view/select/renderViewOptionGroup';
 import '@app/entityV2/view/select/style.css';
+import { convertViewToBuilderState } from '@app/entityV2/view/utils';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const ViewSelectContainer = styled.div`
@@ -216,8 +217,12 @@ export const ViewSelect = () => {
                 </Popover>
                 {viewBuilderDisplayState.visible && (
                     <ViewBuilder
-                        urn={viewBuilderDisplayState.view?.urn || undefined}
-                        initialState={viewBuilderDisplayState.view}
+                        urn={viewBuilderDisplayState.view?.urn}
+                        initialState={
+                            viewBuilderDisplayState.view
+                                ? convertViewToBuilderState(viewBuilderDisplayState.view)
+                                : undefined
+                        }
                         mode={viewBuilderDisplayState.mode}
                         onSubmit={onCloseViewBuilder}
                         onCancel={onCloseViewBuilder}

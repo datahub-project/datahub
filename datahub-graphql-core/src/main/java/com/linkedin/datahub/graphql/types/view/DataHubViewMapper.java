@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.LogicalOperator;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.datahub.graphql.types.form.FilterConverter;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -63,7 +64,7 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
   private DataHubViewDefinition mapViewDefinition(
       @Nonnull final com.linkedin.view.DataHubViewDefinition definition) {
     final DataHubViewDefinition result = new DataHubViewDefinition();
-    result.setFilter(mapFilter(definition.getFilter()));
+    result.setFilter(mapFilter(definition.getFilter(), definition.getJson()));
     result.setEntityTypes(
         definition.getEntityTypes().stream()
             .map(EntityTypeMapper::getType)
@@ -73,7 +74,8 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
 
   @Nullable
   private DataHubViewFilter mapFilter(
-      @Nonnull final com.linkedin.metadata.query.filter.Filter filter) {
+      @Nonnull final com.linkedin.metadata.query.filter.Filter filter,
+      @Nullable final String json) {
     // This assumes that people DO NOT emit Views on their own, since we expect that the Filter
     // structure is within
     // a finite set of possibilities.
@@ -90,6 +92,20 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
       // Then we are looking at an OR with a group of sub conditions.
       result.setFilters(mapOrFilters(filter.getOr()));
     }
+
+    // Set json if available - this is the primary field for preserving logical predicate
+    if (json != null) {
+      result.setJson(json);
+    } else if (filter != null) {
+      try {
+        // Convert Filter to JSON predicate if not already stored
+        String generatedJson = FilterConverter.convertFilterToJsonPredicate(filter);
+        result.setJson(generatedJson);
+      } catch (Exception e) {
+        log.warn("Failed to convert view filter to json predicate", e);
+      }
+    }
+
     return result;
   }
 

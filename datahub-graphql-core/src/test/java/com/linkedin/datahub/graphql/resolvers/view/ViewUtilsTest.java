@@ -126,7 +126,9 @@ public class ViewUtilsTest {
                         "test2",
                         ImmutableList.of("value3", "value4"),
                         true,
-                        FilterOperator.CONTAIN))));
+                        FilterOperator.CONTAIN)),
+                null, // orFilters - using old format
+                null)); // json
 
     DataHubViewDefinition expectedResult =
         new DataHubViewDefinition()

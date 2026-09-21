@@ -9,7 +9,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '@app/entityV2/view/cacheUtils';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE, convertViewToBuilderState } from '@app/entityV2/view/utils';
 import { Menu, notification } from '@src/alchemy-components';
 import { MenuItemType } from '@src/alchemy-components/components/Menu/types';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
@@ -308,7 +308,7 @@ export const ViewDropdownMenu = ({
                 <ViewBuilder
                     mode={viewBuilderState.mode}
                     urn={view.urn}
-                    initialState={view}
+                    initialState={convertViewToBuilderState(view)}
                     onSubmit={onViewBuilderClose}
                     onCancel={onViewBuilderClose}
                 />

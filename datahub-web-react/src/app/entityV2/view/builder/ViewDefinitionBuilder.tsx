@@ -57,7 +57,13 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     // pinned assets opens on Select Assets, and switching tabs serializes this state —
     // leaving it null there would clear the saved filters on a mere tab click. URN
     // filters are excluded because they belong to the Select Assets tab, not this one.
+    // If logicalPredicate exists in state, use it (has full nested structure); otherwise
+    // reconstruct from filters.
     const [dynamicFilter, setDynamicFilter] = useState<LogicalPredicate | null>(() => {
+        const { logicalPredicate } = state.definition || {};
+        if (logicalPredicate) {
+            return logicalPredicate;
+        }
         const seedFilters = existingFilters.filter((filter) => filter.field !== URN_FILTER_NAME);
         return seedFilters.length > 0 ? filtersToLogicalPredicate(existingOperator, seedFilters) : null;
     });
@@ -71,8 +77,14 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     // than recomputed — recomputing it is what silently cleared an ingested view's
     // scope on save.
     const toDefinition = useCallback(
-        (operator: LogicalOperator, filters: ViewFilter[]) =>
-            buildViewDefinition(operator, filters, stateRef.current.definition?.entityTypes ?? []),
+        (operator: LogicalOperator, filters: ViewFilter[], logicalPredicate?: LogicalPredicate | null) => {
+            const definition = buildViewDefinition(operator, filters, stateRef.current.definition?.entityTypes ?? []);
+            // Store the logicalPredicate for save operations
+            if (logicalPredicate !== undefined) {
+                return { ...definition, logicalPredicate };
+            }
+            return definition;
+        },
         [],
     );
 
@@ -93,9 +105,9 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
             setDynamicFilter(newPredicate || null);
             if (newPredicate) {
                 const { operator, filters } = logicalPredicateToFilters(newPredicate);
-                updateState({ ...stateRef.current, definition: toDefinition(operator, filters) });
+                updateState({ ...stateRef.current, definition: toDefinition(operator, filters, newPredicate) });
             } else {
-                updateState({ ...stateRef.current, definition: toDefinition(LogicalOperator.And, []) });
+                updateState({ ...stateRef.current, definition: toDefinition(LogicalOperator.And, [], null) });
             }
         },
         [toDefinition, updateState],
@@ -109,7 +121,7 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
                 updateState({ ...stateRef.current, definition: toDefinition(LogicalOperator.Or, filters) });
             } else {
                 const { operator, filters } = logicalPredicateToFilters(dynamicFilter);
-                updateState({ ...stateRef.current, definition: toDefinition(operator, filters) });
+                updateState({ ...stateRef.current, definition: toDefinition(operator, filters, dynamicFilter) });
             }
         },
         [selectedUrns, dynamicFilter, toDefinition, updateState],
@@ -127,7 +139,6 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
                         filters={dynamicFilter ?? DEFAULT_DYNAMIC_FILTER}
                         onChangeFilters={handleDynamicFilterChange}
                         properties={properties}
-                        hideAddGroup
                     />
                 </ScrollableFiltersWrapper>
             ),

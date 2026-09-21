@@ -1,3 +1,5 @@
+import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
+
 import { DataHubViewFilter, DataHubViewType, EntityType, LogicalOperator } from '@types';
 
 /**
@@ -48,5 +50,17 @@ export interface ViewBuilderState {
          * The Filter for the View.
          */
         filter?: DataHubViewFilter;
+
+        /**
+         * The nested logical predicate for the Build Filters tab.
+         * This stores the full nested AND/OR/NOT structure for editing.
+         */
+        logicalPredicate?: LogicalPredicate | null;
+
+        /**
+         * JSON string representation of the logical predicate for API storage.
+         * Used for preserving arbitrary nesting when saving/fetching views.
+         */
+        json?: string | null;
     };
 }

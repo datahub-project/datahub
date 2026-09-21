@@ -15,16 +15,24 @@ export const isLogicalPredicate = (predicate: LogicalPredicate | PropertyPredica
 
 function mapOperator(operator: string): FilterOperator {
     const operatorMap: { [key: string]: FilterOperator } = {
-        contains: FilterOperator.Contain,
+        // Direct matches from OperatorId enum
         equals: FilterOperator.Equal,
         equal: FilterOperator.Equal,
-        exists: FilterOperator.Exists,
-        within: FilterOperator.DescendantsIncl,
-        descendantsincl: FilterOperator.DescendantsIncl,
-        greaterthan: FilterOperator.GreaterThan,
-        greaterthanorequalto: FilterOperator.GreaterThanOrEqualTo,
+        startswith: FilterOperator.StartWith,
+        containsstr: FilterOperator.Contain,
+        contains: FilterOperator.Contain,
+        containsany: FilterOperator.In,
         in: FilterOperator.In,
+        regexmatch: FilterOperator.Contain, // Regex match treated as contains
+        greaterthan: FilterOperator.GreaterThan,
         lessthan: FilterOperator.LessThan,
+        exists: FilterOperator.Exists,
+        istrue: FilterOperator.Exists,
+        isfalse: FilterOperator.Exists, // is_false mapped to Exists with negated: true (handled in caller)
+        within: FilterOperator.DescendantsIncl,
+        // Legacy/shorthand forms
+        descendantsincl: FilterOperator.DescendantsIncl,
+        greaterthanorequalto: FilterOperator.GreaterThanOrEqualTo,
         lessthanorequalto: FilterOperator.LessThanOrEqualTo,
     };
 
@@ -52,6 +60,8 @@ export function convertLogicalPredicateToOrFilters(
         if (!pred.property) return undefined;
 
         // it's a PropertyPredicate
+        // Special handling for is_false: it means NOT exists, so apply negation
+        const operatorIsNegated = isNegated || pred.operator === 'is_false' || pred.operator === 'isfalse';
         return [
             {
                 and: [
@@ -59,7 +69,7 @@ export function convertLogicalPredicateToOrFilters(
                         field: pred.property,
                         values: pred.values || [],
                         condition: pred.operator ? mapOperator(pred.operator) : undefined,
-                        ...(isNegated && { negated: true }),
+                        ...(operatorIsNegated && { negated: true }),
                     },
                 ],
             },

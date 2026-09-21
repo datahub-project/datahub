@@ -67,6 +67,30 @@ public class CreateViewResolver implements DataFetcher<CompletableFuture<DataHub
   }
 
   private DataHubView createView(@Nonnull final Urn urn, @Nonnull final CreateViewInput input) {
+    final DataHubViewFilter.Builder filterBuilder = new DataHubViewFilter.Builder();
+
+    // Set deprecated fields for backward compatibility
+    if (input.getDefinition().getFilter().getOperator() != null) {
+      filterBuilder.setOperator(input.getDefinition().getFilter().getOperator());
+    }
+    if (input.getDefinition().getFilter().getFilters() != null) {
+      filterBuilder.setFilters(
+          input.getDefinition().getFilter().getFilters().stream()
+              .map(
+                  filterInput ->
+                      new FacetFilter(
+                          filterInput.getField(),
+                          filterInput.getCondition(),
+                          filterInput.getValues(),
+                          filterInput.getNegated()))
+              .collect(Collectors.toList()));
+    }
+
+    // Set json for preserving logical predicate
+    if (input.getDefinition().getFilter().getJson() != null) {
+      filterBuilder.setJson(input.getDefinition().getFilter().getJson());
+    }
+
     return new DataHubView.Builder()
         .setUrn(urn.toString())
         .setType(com.linkedin.datahub.graphql.generated.EntityType.DATAHUB_VIEW)
@@ -75,18 +99,7 @@ public class CreateViewResolver implements DataFetcher<CompletableFuture<DataHub
         .setDescription(input.getDescription())
         .setDefinition(
             new DataHubViewDefinition(
-                input.getDefinition().getEntityTypes(),
-                new DataHubViewFilter(
-                    input.getDefinition().getFilter().getOperator(),
-                    input.getDefinition().getFilter().getFilters().stream()
-                        .map(
-                            filterInput ->
-                                new FacetFilter(
-                                    filterInput.getField(),
-                                    filterInput.getCondition(),
-                                    filterInput.getValues(),
-                                    filterInput.getNegated()))
-                        .collect(Collectors.toList()))))
+                input.getDefinition().getEntityTypes(), filterBuilder.build()))
         .build();
   }
 }

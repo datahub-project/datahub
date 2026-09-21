@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ViewBuilderForm } from '@app/entityV2/view/builder/ViewBuilderForm';
@@ -28,12 +28,18 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
     const { t: tc } = useTranslation('common.actions');
     const [viewBuilderState, setViewBuilderState] = useState<ViewBuilderState>(initialState || DEFAULT_BUILDER_STATE);
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+    const previousUrnRef = useRef<string | undefined>(urn);
 
     useEffect(() => {
-        setViewBuilderState(initialState || DEFAULT_BUILDER_STATE);
-    }, [initialState]);
+        if (urn !== previousUrnRef.current) {
+            setViewBuilderState(initialState || DEFAULT_BUILDER_STATE);
+            previousUrnRef.current = urn;
+        }
+    }, [urn, initialState]);
 
-    const hasFilters = (viewBuilderState?.definition?.filter?.filters?.length ?? 0) > 0;
+    const hasFilters =
+        (viewBuilderState?.definition?.filter?.filters?.length ?? 0) > 0 ||
+        !!viewBuilderState?.definition?.logicalPredicate;
     const canSave = viewBuilderState.name && viewBuilderState.viewType && hasFilters;
 
     const titleText = useMemo(() => {

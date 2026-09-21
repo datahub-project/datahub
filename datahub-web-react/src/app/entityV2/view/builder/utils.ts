@@ -198,6 +198,7 @@ export function buildViewDefinition(
     operator: LogicalOperator,
     filters: ViewFilter[],
     entityTypes: EntityType[],
+    logicalPredicate?: LogicalPredicate | null,
 ): ViewDefinition {
     return {
         entityTypes,
@@ -205,6 +206,7 @@ export function buildViewDefinition(
             operator,
             filters: filters as FacetFilter[],
         },
+        ...(logicalPredicate && { logicalPredicate }),
     };
 }
 
