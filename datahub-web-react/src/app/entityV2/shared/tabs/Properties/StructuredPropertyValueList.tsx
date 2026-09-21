@@ -47,8 +47,29 @@ export function valueMatches(value: ValueColumnData, query: string, entityRegist
 }
 
 /**
+ * The values that survive both filters: the list's own filter box and the page-level search
+ * (`filterText`, the Properties tab's "Search in properties"). The page-level search decides which
+ * property rows are shown by matching any value, so it has to narrow the list too, or a hit past
+ * the first page would show a row with no visible match.
+ */
+export function selectVisibleValues(
+    values: ValueColumnData[],
+    query: string,
+    filterText: string | undefined,
+    entityRegistry: EntityRegistry,
+): ValueColumnData[] {
+    return values.filter(
+        (value) =>
+            valueMatches(value, query, entityRegistry) &&
+            (!filterText || valueMatches(value, filterText, entityRegistry)),
+    );
+}
+
+/**
  * Renders a structured property's values a page at a time and hydrates only the entities that are
- * on screen. Whenever there is more than one page, a filter box appears above the list so a specific
+ * on screen. Filter and paging state live in this component, so parents key it by property AND
+ * entity: the same property appears on many entities and React would otherwise carry one entity's
+ * filter over to the next. Whenever there is more than one page, a filter box appears above the list so a specific
  * value can be found by typing instead of paging. A property can carry thousands of URN values;
  * rendering and hydrating all of them at once is what made entity pages with such properties take
  * tens of seconds to load.
@@ -68,8 +89,8 @@ export default function StructuredPropertyValueList({
     const [shownCount, setShownCount] = useState(maxValuesToShow);
 
     const filteredValues = useMemo(
-        () => values.filter((value) => valueMatches(value, query, entityRegistry)),
-        [values, query, entityRegistry],
+        () => selectVisibleValues(values, query, filterText, entityRegistry),
+        [values, query, filterText, entityRegistry],
     );
     const shownValues = useMemo(() => filteredValues.slice(0, shownCount), [filteredValues, shownCount]);
     const urnsToHydrate = useMemo(() => shownValues.map(valueUrn), [shownValues]);

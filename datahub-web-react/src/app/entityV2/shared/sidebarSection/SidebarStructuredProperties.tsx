@@ -108,6 +108,9 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     const allProperties = isSchemaSidebar
         ? properties?.fieldEntity?.structuredProperties
         : entityData?.structuredProperties;
+    // The entity (or schema field) whose values are shown; part of the value list's key so its
+    // filter and paging state reset when the user moves to another asset.
+    const scopeUrn = isSchemaSidebar ? properties?.fieldEntity?.urn : entityData?.urn;
 
     const selectedPropertyValues = selectedProperty
         ? getPropertyRowFromSearchResult(selectedProperty, allProperties)?.values
@@ -136,6 +139,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                 <>
                                     {values && propertyRow ? (
                                         <StructuredPropertyValueList
+                                            key={`${scopeUrn}:${property.entity.urn}`}
                                             propertyRow={propertyRow}
                                             isRichText={isRichText}
                                             renderValue={(_, node) => node}

@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import StructuredPropertyValueList from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValueList';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { TabRenderType } from '@app/entityV2/shared/types';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
 import { StdDataType } from '@types';
 
@@ -33,6 +34,7 @@ const ValueContainer = styled.div`
 
 export default function ValuesColumn({ propertyRow, filterText, renderType }: Props) {
     const { values } = propertyRow;
+    const { urn: entityUrn } = useEntityData();
     const isRichText = propertyRow.dataType?.info?.type === StdDataType.RichText;
 
     return (
@@ -40,6 +42,7 @@ export default function ValuesColumn({ propertyRow, filterText, renderType }: Pr
             <ValuesContainerFlex renderType={renderType}>
                 {values ? (
                     <StructuredPropertyValueList
+                        key={`${entityUrn}:${propertyRow.qualifiedName}`}
                         propertyRow={propertyRow}
                         isRichText={isRichText}
                         filterText={filterText}
