@@ -1,6 +1,6 @@
 """Tests for datahub.cli.migration_utils — relationship-to-aspect mapping and URN rewriting."""
 
-from typing import Dict
+from typing import Callable, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,13 +18,19 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     ENTITY_TYPE_TO_ASPECT_NAMES,
     AuditStampClass,
+    ChangeAuditStampsClass,
     ContainerClass,
     ContainerPropertiesClass,
+    CorpGroupInfoClass,
     DatasetPropertiesClass,
     DeprecationClass,
+    DomainPropertiesClass,
     GlobalTagsClass,
+    GlossaryNodeInfoClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
+    MLModelPropertiesClass,
+    NotebookInfoClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
@@ -34,6 +40,7 @@ from datahub.metadata.schema_classes import (
     StructuredPropertiesClass,
     StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
+    TagPropertiesClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -172,7 +179,7 @@ class TestMergeAdditiveAspects:
 
         result = merge_additive_aspects(src_aspects, self.DST_URN, graph, False)
 
-        assert result > 0
+        assert result == ["ownership"]
         assert any(
             name == "ownership" and "urn:li:corpuser:alice" in value
             for name, value in _emitted_patch_values(graph)
@@ -188,7 +195,7 @@ class TestMergeAdditiveAspects:
 
         result = merge_additive_aspects(src_aspects, self.DST_URN, graph, False)
 
-        assert result > 0
+        assert result == ["globalTags"]
         assert any(
             name == "globalTags" and "urn:li:tag:pii" in value
             for name, value in _emitted_patch_values(graph)
@@ -207,7 +214,7 @@ class TestMergeAdditiveAspects:
 
         result = merge_additive_aspects(src_aspects, self.DST_URN, graph, False)
 
-        assert result > 0
+        assert result == ["glossaryTerms"]
         assert any(
             name == "glossaryTerms" and "urn:li:glossaryTerm:Revenue" in value
             for name, value in _emitted_patch_values(graph)
@@ -227,7 +234,7 @@ class TestMergeAdditiveAspects:
 
         result = merge_additive_aspects(src_aspects, self.DST_URN, graph, False)
 
-        assert result > 0
+        assert result == ["upstreamLineage"]
         graph.emit_mcp.assert_not_called()
         assert any(
             name == "upstreamLineage" and "src.table" in value
@@ -248,7 +255,7 @@ class TestMergeAdditiveAspects:
 
         result = merge_additive_aspects(src_aspects, self.DST_URN, graph, False)
 
-        assert result == 1
+        assert result == ["upstreamLineage"]
         graph.emit.assert_not_called()
         graph.emit_mcp.assert_called_once()
         mcp = graph.emit_mcp.call_args.args[0]
@@ -265,7 +272,7 @@ class TestMergeAdditiveAspects:
 
         result = merge_additive_aspects(src_aspects, self.DST_URN, graph, False)
 
-        assert result == 0
+        assert result == []
         graph.get_aspect.assert_not_called()
         graph.emit.assert_not_called()
         graph.emit_mcp.assert_not_called()
@@ -284,7 +291,7 @@ class TestMergeAdditiveAspects:
 
         result = merge_additive_aspects(src_aspects, self.DST_URN, graph, True)
 
-        assert result == 1
+        assert result == ["upstreamLineage"]
         graph.emit.assert_not_called()
         graph.emit_mcp.assert_not_called()
 
@@ -294,7 +301,7 @@ class TestMergeAdditiveAspects:
 
         result = merge_additive_aspects({}, self.DST_URN, graph, True)
 
-        assert result == 0
+        assert result == []
 
     def test_dry_run_does_not_emit(self):
         """Dry-run additive merge builds patches but never calls graph.emit."""
@@ -793,7 +800,7 @@ class TestMergeGenericEntity:
             graph,
             dry_run=False,
         )
-        assert n == 1
+        assert n == ["structuredProperties"]
         emitted = _emitted_patch_values(graph)
         assert [name for name, _ in emitted] == ["structuredProperties"]
         assert "arrayPrimaryKeys" in emitted[0][1]
@@ -932,12 +939,15 @@ class TestMergeGenericEntity:
                 dry_run=True,
             )
 
-    def test_every_registry_aspect_lands_in_exactly_one_generic_bucket(self) -> None:
-        """Structural guard: no migratable aspect can silently fall through the
-        generic path. Every aspect is unioned, reseated, intentionally excluded, or
-        copied conflict-aware — and the three explicit buckets never overlap (a double
-        bucket would double-write). This is the invariant that would have caught the
-        upstreamLineage, containerProperties, and schemaMetadata drops.
+    def test_generic_buckets_are_disjoint_and_registry_is_populated(self) -> None:
+        """The three explicit generic buckets never overlap (a double bucket would
+        double-write), and the registry actually models the aspects we classify.
+
+        The previous version of this guard compared each aspect against the buckets
+        and the complement of those same buckets, so the "exactly one bucket" sum was
+        always 1 by construction — it would pass against an empty or garbage registry.
+        This asserts concrete, load-bearing classifications instead, so a registry that
+        lost these aspects, or a bucket that lost a member, fails here.
         """
         unioned = migration_utils._GENERIC_UNIONABLE_ASPECTS
         reseated = migration_utils.ALWAYS_OVERWRITE_ASPECTS
@@ -947,21 +957,36 @@ class TestMergeGenericEntity:
         assert unioned.isdisjoint(excluded)
         assert reseated.isdisjoint(excluded)
 
-        handled_elsewhere = unioned | reseated | excluded
-        for entity_type in ENTITY_TYPE_TO_ASPECT_NAMES:
-            if entity_type == "dataset":
-                continue  # dataset runs the full pipeline, not the generic path
-            if entity_type in migration_utils.NON_ADDITIVE_MERGE_ENTITY_TYPES:
-                continue  # these overwrite wholesale, never touching the generic path
-            for aspect in get_migratable_aspect_names(entity_type):
-                unioned_here = aspect in unioned
-                reseated_here = aspect in reseated
-                excluded_here = aspect in excluded
-                copied_here = aspect not in handled_elsewhere
-                # Exactly one of the four handlers claims each aspect.
-                assert (
-                    sum([unioned_here, reseated_here, excluded_here, copied_here]) == 1
-                ), f"{entity_type}.{aspect} is not handled by exactly one bucket"
+        # Sanity: the loop below is only meaningful if the registry is populated.
+        generic_types = [
+            t
+            for t in ENTITY_TYPE_TO_ASPECT_NAMES
+            if t != "dataset"
+            and t not in migration_utils.NON_ADDITIVE_MERGE_ENTITY_TYPES
+        ]
+        assert generic_types
+        all_generic_aspects = {
+            a for t in generic_types for a in get_migratable_aspect_names(t)
+        }
+        assert all_generic_aspects
+
+        # Concrete classifications the generic path relies on. If the registry drops
+        # one of these, or a refactor moves it out of its bucket, this fails.
+        assert {"ownership", "structuredProperties"} <= unioned
+        assert "containerProperties" in reseated
+        assert {"status", "container"} <= excluded
+
+        # Identity aspects for the entity types this PR flipped to additive-merge fall
+        # to the copied (conflict-aware) complement — not unioned, reseated, excluded.
+        handled = unioned | reseated | excluded
+        for props in (
+            "glossaryTermInfo",
+            "glossaryNodeInfo",
+            "domainProperties",
+            "tagProperties",
+        ):
+            assert props in all_generic_aspects, props
+            assert props not in handled, props
 
     @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
     def test_container_patch_reseats_container_properties(
@@ -990,6 +1015,171 @@ class TestMergeGenericEntity:
         assert "globalTags" in result.merged_aspects
         assert graph.emit_mcp.called  # full-aspect emit for containerProperties
         assert graph.emit.called  # patch emit for the tag union
+
+    # (src_urn, dst_urn, identity aspect, factory) for each entity type this PR
+    # flipped from full-overwrite to additive-merge on the generic path.
+    _SCOPE_CASES = [
+        (
+            "urn:li:domain:old",
+            "urn:li:domain:new",
+            "domainProperties",
+            lambda m: DomainPropertiesClass(name=m),
+        ),
+        (
+            "urn:li:tag:old",
+            "urn:li:tag:new",
+            "tagProperties",
+            lambda m: TagPropertiesClass(name=m),
+        ),
+        (
+            "urn:li:mlModel:(urn:li:dataPlatform:science,old,PROD)",
+            "urn:li:mlModel:(urn:li:dataPlatform:science,new,PROD)",
+            "mlModelProperties",
+            lambda m: MLModelPropertiesClass(description=m),
+        ),
+        (
+            "urn:li:corpGroup:old",
+            "urn:li:corpGroup:new",
+            "corpGroupInfo",
+            lambda m: CorpGroupInfoClass(
+                admins=[], members=[], groups=[], displayName=m
+            ),
+        ),
+        (
+            "urn:li:glossaryNode:old",
+            "urn:li:glossaryNode:new",
+            "glossaryNodeInfo",
+            lambda m: GlossaryNodeInfoClass(definition=m),
+        ),
+        (
+            "urn:li:notebook:(querybook,old)",
+            "urn:li:notebook:(querybook,new)",
+            "notebookInfo",
+            lambda m: NotebookInfoClass(
+                title=m, changeAuditStamps=ChangeAuditStampsClass()
+            ),
+        ),
+    ]
+
+    @pytest.mark.parametrize("src_urn,dst_urn,props_aspect,make_props", _SCOPE_CASES)
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_scope_expansion_keeps_conflicting_identity_and_unions_tags(
+        self,
+        mock_get_aspects: MagicMock,
+        src_urn: str,
+        dst_urn: str,
+        props_aspect: str,
+        make_props: Callable[[str], object],
+    ) -> None:
+        """The types this PR flipped to additive-merge must union union-able aspects
+        AND keep the target's own identity aspect on a PATCH conflict — the whole
+        point of not overwriting these wholesale is that curated target data survives.
+        """
+        src_map = {
+            "globalTags": GlobalTagsClass(
+                tags=[TagAssociationClass(tag="urn:li:tag:pii")]
+            ),
+            props_aspect: make_props("source"),
+        }
+        mock_get_aspects.side_effect = [src_map, {props_aspect: make_props("target")}]
+        graph = MagicMock()
+
+        result = merge_entity(
+            src_urn, dst_urn, ConflictStrategy.PATCH, graph, dry_run=False
+        )
+
+        assert "globalTags" in result.merged_aspects
+        assert props_aspect in result.skipped_aspects
+        assert props_aspect not in result.merged_aspects
+
+    @pytest.mark.parametrize("src_urn,dst_urn,props_aspect,make_props", _SCOPE_CASES)
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_scope_expansion_copies_identity_when_target_absent(
+        self,
+        mock_get_aspects: MagicMock,
+        src_urn: str,
+        dst_urn: str,
+        props_aspect: str,
+        make_props: Callable[[str], object],
+    ) -> None:
+        """When the target has no identity aspect yet, the source's is copied over
+        rather than silently dropped before the source is deleted.
+        """
+        mock_get_aspects.side_effect = [{props_aspect: make_props("source")}, {}]
+        graph = MagicMock()
+
+        result = merge_entity(
+            src_urn, dst_urn, ConflictStrategy.PATCH, graph, dry_run=False
+        )
+
+        assert props_aspect in result.merged_aspects
+        assert graph.emit_mcp.called
+
+    def test_apply_union_patches_isolates_a_bad_item(self) -> None:
+        """One item that fails to add must not void the entity's other additive
+        items (owners, good tags, terms) — matching the batch's per-item isolation.
+        """
+        builder = MagicMock()
+
+        def _add_tag(tag: TagAssociationClass) -> None:
+            if tag.tag == "urn:li:tag:bad":
+                raise ValueError("simulated bad tag")
+
+        builder.add_tag.side_effect = _add_tag
+        src: Dict[str, DictWrapper] = {
+            "ownership": OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner="urn:li:corpuser:a", type=OwnershipTypeClass.DATAOWNER
+                    )
+                ]
+            ),
+            "globalTags": GlobalTagsClass(
+                tags=[
+                    TagAssociationClass(tag="urn:li:tag:bad"),
+                    TagAssociationClass(tag="urn:li:tag:good"),
+                ]
+            ),
+            "glossaryTerms": GlossaryTermsClass(
+                terms=[GlossaryTermAssociationClass(urn="urn:li:glossaryTerm:x")],
+                auditStamp=AuditStampClass(time=0, actor="urn:li:corpuser:t"),
+            ),
+        }
+
+        migration_utils._apply_union_patches(
+            builder, src, "urn:li:schemaField:(urn:li:dataset:x,y)"
+        )
+
+        # The bad tag raised but owners, terms, and the good tag were still attempted.
+        builder.add_owner.assert_called_once()
+        builder.add_term.assert_called_once()
+        added_tags = {c.args[0].tag for c in builder.add_tag.call_args_list}
+        assert added_tags == {"urn:li:tag:bad", "urn:li:tag:good"}
+
+    def test_additive_patch_builder_rejects_non_generic_patch(self) -> None:
+        """A patch without arrayPrimaryKeys would be silently dropped by GMS on a
+        non-dataset entity, so the builder fails at merge time instead.
+        """
+        builder = migration_utils._AdditivePatchBuilder(
+            "urn:li:schemaField:(urn:li:dataset:x,y)"
+        )
+        builder._add_patch(
+            "globalTags", "add", ("tags", "urn:li:tag:x"), {"tag": "urn:li:tag:x"}
+        )
+        with pytest.raises(TypeError, match="non-generic patch"):
+            builder.build()
+
+    def test_overwrite_unknown_entity_type_raises(self) -> None:
+        """OVERWRITE on an unmodeled entity type must fail loudly, not write zero
+        aspects and delete the source (the _overwrite_entity guard)."""
+        with pytest.raises(ValueError, match="no migratable aspects"):
+            merge_entity(
+                "urn:li:madeUpEntity:old",
+                "urn:li:madeUpEntity:new",
+                ConflictStrategy.OVERWRITE,
+                MagicMock(),
+                dry_run=True,
+            )
 
 
 class TestMergeExcludesStatus:

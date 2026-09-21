@@ -215,7 +215,10 @@ def migrate_pair(
             if options.on_conflict == ConflictStrategy.OVERWRITE:
                 _emit_target_instance(graph, pair, options, report)
     else:
-        aspect_names = migration_utils.get_migratable_aspect_names(src_type)
+        # Guard the create path too: an entity type the CLI's registry doesn't
+        # model would otherwise clone zero aspects, delete the source, and report a
+        # clean success (see require_migratable_aspect_names).
+        aspect_names = migration_utils.require_migratable_aspect_names(src_type)
         for mcp in migration_utils.clone_aspect(
             src,
             aspect_names=aspect_names,

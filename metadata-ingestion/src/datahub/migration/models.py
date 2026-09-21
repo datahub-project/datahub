@@ -41,6 +41,14 @@ class MergeResult:
     merged_aspects: List[str] = dataclasses.field(default_factory=list)
     skipped_aspects: List[str] = dataclasses.field(default_factory=list)
 
+    def __add__(self, other: "MergeResult") -> "MergeResult":
+        return MergeResult(
+            merged=self.merged + other.merged,
+            skipped=self.skipped + other.skipped,
+            merged_aspects=[*self.merged_aspects, *other.merged_aspects],
+            skipped_aspects=[*self.skipped_aspects, *other.skipped_aspects],
+        )
+
 
 @dataclass
 class MigrationPair:
