@@ -8,7 +8,6 @@ from avrogen.dict_wrapper import DictWrapper
 
 import datahub.cli.migration_utils as migration_utils
 from datahub.cli.migration_utils import (
-    MergeResult,
     get_migratable_aspect_names,
     merge_additive_aspects,
     merge_entity,
@@ -38,7 +37,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.migration.models import ConflictStrategy, MigrationReport
+from datahub.migration.models import ConflictStrategy, MergeResult, MigrationReport
 from datahub.migration.transform import (
     make_i2i_chart_urn,
     make_i2i_dashboard_urn,
