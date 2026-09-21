@@ -74,11 +74,10 @@ describe('filterManualLineageUrns', () => {
     const metricUrn = 'urn:li:metric:(urn:li:dataPlatform:snowflake,analytics,double_revenue)';
 
     it('omits a Metric neighbor when Metric is not persistable in this direction', () => {
-        const result = filterManualLineageUrns([chartUrn, metricUrn, dashboardUrn], [
-            EntityType.Dataset,
-            EntityType.Chart,
-            EntityType.Dashboard,
-        ]);
+        const result = filterManualLineageUrns(
+            [chartUrn, metricUrn, dashboardUrn],
+            [EntityType.Dataset, EntityType.Chart, EntityType.Dashboard],
+        );
         expect(result).toStrictEqual([chartUrn, dashboardUrn]);
     });
 
