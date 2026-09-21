@@ -12,7 +12,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 :::caution Public Beta
-The Context Platform is currently in Public Beta. Features, UI, and configuration options are subject to change.
+DataHub Context is currently in Public Beta. Features, UI, and configuration options are subject to change.
 :::
 
 **Role: Admin (Platform Engineer)**
