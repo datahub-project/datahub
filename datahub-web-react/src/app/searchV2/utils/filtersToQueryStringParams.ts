@@ -5,6 +5,9 @@ import { FacetFilterInput, FilterOperator } from '@types';
 
 export const URL_PARAM_SEPARATOR = '___';
 
+/** Placeholder so EXISTS filters survive query-string serialization (empty arrays are dropped). */
+export const FILTER_URL_EXISTS_VALUE = 'true';
+
 // In the checkbox-based filter view, usually, selecting two facets ANDs them together.
 // E.g., if you select the checkbox for tagA and tagB, that means "has tagA AND tagB"
 // we need to special case `degree` filter since it is a OR grouping vs the others which are ANDS by default
@@ -20,12 +23,22 @@ function reduceFiltersToCombineDegreeFilters(acc: FacetFilterInput[], filter: Fa
 }
 
 // we need to reformat our list of filters into a dict
-function reduceFiltersIntoQueryStringDict(acc, filter, idx) {
+function reduceFiltersIntoQueryStringDict(acc, filter: FacetFilterInput, idx) {
+    const condition = filter.condition || FilterOperator.Equal;
+    const rawValues = filter.values || [];
+    let serializedValues = rawValues.map((value) => encodeComma(value));
+    // EXISTS has no real values — write a sentinel so query-string keeps the param.
+    if (!serializedValues.length && condition === FilterOperator.Exists) {
+        serializedValues = [FILTER_URL_EXISTS_VALUE];
+    }
+
+    if (!serializedValues.length) {
+        return acc;
+    }
+
     acc[
-        `${FILTER_URL_PREFIX}${filter.field}${URL_PARAM_SEPARATOR}${String(!!filter.negated)}${URL_PARAM_SEPARATOR}${
-            filter.condition || FilterOperator.Equal
-        }${URL_PARAM_SEPARATOR}${idx}`
-    ] = [...filter.values.map((value) => encodeComma(value))];
+        `${FILTER_URL_PREFIX}${filter.field}${URL_PARAM_SEPARATOR}${String(!!filter.negated)}${URL_PARAM_SEPARATOR}${condition}${URL_PARAM_SEPARATOR}${idx}`
+    ] = serializedValues;
     return acc;
 }
 

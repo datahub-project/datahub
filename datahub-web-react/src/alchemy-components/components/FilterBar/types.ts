@@ -5,6 +5,8 @@ export type FilterMatchMode = 'all' | 'any';
 export type FilterOperator = {
     value: string;
     label: string;
+    /** Shown on the chip when the rule has more than one value (e.g. "is any of"). */
+    pluralLabel?: string;
     requiresValue?: boolean;
 };
 
@@ -15,6 +17,8 @@ export type FilterValueOption = {
     count?: number;
     icon?: React.ReactNode;
     disabled?: boolean;
+    /** Nested child options (domains, glossary groups, entity subtypes, etc.). */
+    children?: FilterValueOption[];
 };
 
 export type FilterValueEditorProps = {
@@ -22,6 +26,13 @@ export type FilterValueEditorProps = {
     rule: FilterRule;
     onChange: (rule: FilterRule) => void;
     trigger: React.ReactElement;
+    /**
+     * Linear-style Add Filter: render the value picker inline (no nested popover).
+     * Multi-select drafts via onChange; single-select should call onCommit immediately.
+     */
+    compose?: {
+        onCommit: (rule: FilterRule) => void;
+    };
 };
 
 export type FilterField = {
@@ -64,8 +75,11 @@ export type FilterBarLabels = {
     addGroup: string;
     all: string;
     any: string;
+    back: string;
     chooseValue: string;
     clearAll: string;
+    collapse: string;
+    expand: string;
     noFilters: string;
     removeFilter: string;
     removeGroup: string;

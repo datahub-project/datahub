@@ -1,14 +1,19 @@
 import { Checkbox, Input, Loader } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 
 import {
+    AddFilterMenu,
     Chip,
     ChipSegment,
     Container,
+    ExpandToggle,
+    ExpandToggleSpacer,
     FieldName,
     FilterPopover,
     FiltersRow,
@@ -19,6 +24,8 @@ import {
     MatchButton,
     MatchControls,
     MenuState,
+    NestedOptionIndent,
+    OptionCheckboxSlot,
     OptionContent,
     OptionCount,
     OptionDescription,
@@ -26,7 +33,7 @@ import {
     OptionList,
     OptionRow,
     RemoveButton,
-    SectionLabel,
+    ValueFlyoutPanel,
     ValueIconStack,
     ValueIconStackItem,
 } from '@components/components/FilterBar/components';
@@ -45,8 +52,11 @@ const DEFAULT_LABELS: FilterBarLabels = {
     addGroup: 'Add group',
     all: 'all',
     any: 'any',
+    back: 'Back',
     chooseValue: 'Choose value',
     clearAll: 'Clear all',
+    collapse: 'Collapse',
+    expand: 'Expand',
     noFilters: 'No filters found',
     removeFilter: 'Remove filter',
     removeGroup: 'Remove group',
@@ -69,7 +79,8 @@ function getOperator(field: FilterField, value: string) {
 
 function getSelectedOptions(field: FilterField, values: string[]): FilterValueOption[] {
     const availableOptions = [...(field.values ?? []), ...(field.selectedOptions ?? [])];
-    return values.map((value) => availableOptions.find((option) => option.value === value) ?? { value, label: value });
+    const flattened = flattenFilterOptions(availableOptions);
+    return values.map((value) => flattened.find((option) => option.value === value) ?? { value, label: value });
 }
 
 function getValueLabel(selectedOptions: FilterValueOption[], placeholder: string): string {
@@ -79,64 +90,151 @@ function getValueLabel(selectedOptions: FilterValueOption[], placeholder: string
     return `${labels.slice(0, 2).join(', ')} +${labels.length - 2}`;
 }
 
+function flattenFilterOptions(options: FilterValueOption[]): FilterValueOption[] {
+    return options.flatMap((option) => [option, ...flattenFilterOptions(option.children ?? [])]);
+}
+
+function optionMatchesQuery(option: FilterValueOption, normalizedQuery: string): boolean {
+    if (
+        option.label.toLocaleLowerCase().includes(normalizedQuery) ||
+        option.description?.toLocaleLowerCase().includes(normalizedQuery)
+    ) {
+        return true;
+    }
+    return (option.children ?? []).some((child) => optionMatchesQuery(child, normalizedQuery));
+}
+
+function filterOptionsByQuery(options: FilterValueOption[], query: string): FilterValueOption[] {
+    if (!query) return options;
+    const normalizedQuery = query.toLocaleLowerCase();
+    return options
+        .map((option) => {
+            if (!optionMatchesQuery(option, normalizedQuery)) return null;
+            if (!option.children?.length) return option;
+            const children = filterOptionsByQuery(option.children, query);
+            // Keep parent when it matches or when any child matches.
+            if (
+                option.label.toLocaleLowerCase().includes(normalizedQuery) ||
+                option.description?.toLocaleLowerCase().includes(normalizedQuery)
+            ) {
+                return { ...option, children: option.children };
+            }
+            return { ...option, children };
+        })
+        .filter((option): option is FilterValueOption => option !== null);
+}
+
+function collectDescendantValues(option: FilterValueOption): string[] {
+    return (option.children ?? []).flatMap((child) =>
+        child.disabled ? collectDescendantValues(child) : [child.value, ...collectDescendantValues(child)],
+    );
+}
+
+function hasNestedOptions(options: FilterValueOption[]): boolean {
+    return options.some((option) => !!option.children?.length);
+}
+
 type ValueEditorProps = {
     rule: FilterRule;
     field: FilterField;
     labels: FilterBarLabels;
     trigger: React.ReactElement;
     onChange: (rule: FilterRule) => void;
+    compose?: {
+        onCommit: (rule: FilterRule) => void;
+    };
 };
 
-function BuiltInValueEditor({ rule, field, labels, trigger, onChange }: ValueEditorProps) {
+function BuiltInValueEditor({ rule, field, labels, trigger, onChange, compose }: ValueEditorProps) {
+    const isCompose = !!compose;
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState('');
+    const [draftValues, setDraftValues] = useState<string[]>(rule.values);
+    const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+
+    const activeValues = isCompose ? rule.values : draftValues;
+
     const options = useMemo(() => {
         const fieldValues = [
             ...(field.values ?? []),
             ...(field.selectedOptions ?? []).filter(
-                (selectedOption) => !field.values?.some((option) => option.value === selectedOption.value),
+                (selectedOption) =>
+                    !flattenFilterOptions(field.values ?? []).some((option) => option.value === selectedOption.value),
             ),
         ];
-        // Fields that search server side already return the matches for the query.
         if (field.onSearch || !query) return fieldValues;
-        const normalizedQuery = query.toLocaleLowerCase();
-        return fieldValues.filter(
-            (option) =>
-                option.label.toLocaleLowerCase().includes(normalizedQuery) ||
-                option.description?.toLocaleLowerCase().includes(normalizedQuery),
-        );
+        return filterOptionsByQuery(fieldValues, query);
     }, [field.onSearch, field.selectedOptions, field.values, query]);
-    const selectableOptions = options.filter((option) => !option.disabled);
-    const areAllVisibleSelected =
-        selectableOptions.length > 0 && selectableOptions.every((option) => rule.values.includes(option.value));
 
-    const close = () => {
+    const flatSelectable = useMemo(() => flattenFilterOptions(options).filter((option) => !option.disabled), [options]);
+    const showNestingColumn = useMemo(() => hasNestedOptions(options), [options]);
+    const areAllVisibleSelected =
+        flatSelectable.length > 0 && flatSelectable.every((option) => activeValues.includes(option.value));
+
+    const applyValues = (nextValues: string[]) => {
+        if (isCompose) {
+            onChange({ ...rule, values: nextValues });
+            return;
+        }
+        setDraftValues(nextValues);
+    };
+
+    const commitAndClose = () => {
+        const valuesChanged =
+            draftValues.length !== rule.values.length ||
+            draftValues.some((value) => !rule.values.includes(value)) ||
+            rule.values.some((value) => !draftValues.includes(value));
+        if (valuesChanged) {
+            onChange({ ...rule, values: draftValues });
+        }
         setIsOpen(false);
         setQuery('');
     };
 
-    const updateValues = (values: string[]) => onChange({ ...rule, values });
+    const open = () => {
+        setDraftValues(rule.values);
+        setIsOpen(true);
+    };
 
     const toggleValue = (option: FilterValueOption) => {
         if (option.disabled) return;
         if (field.selectionMode === 'single') {
-            updateValues([option.value]);
-            close();
+            const nextRule = { ...rule, values: [option.value] };
+            if (isCompose) {
+                onChange(nextRule);
+                compose.onCommit(nextRule);
+                return;
+            }
+            onChange(nextRule);
+            setDraftValues([option.value]);
+            setIsOpen(false);
+            setQuery('');
             return;
         }
-        updateValues(
-            rule.values.includes(option.value)
-                ? rule.values.filter((value) => value !== option.value)
-                : [...rule.values, option.value],
-        );
+
+        const descendantValues = collectDescendantValues(option);
+        const isSelected = activeValues.includes(option.value);
+        const nextValues = isSelected
+            ? activeValues.filter((value) => value !== option.value && !descendantValues.includes(value))
+            : [...activeValues.filter((value) => !descendantValues.includes(value)), option.value];
+        applyValues(nextValues);
     };
 
     const toggleAllVisible = () =>
-        updateValues(
+        applyValues(
             areAllVisibleSelected
-                ? rule.values.filter((value) => !selectableOptions.some((option) => option.value === value))
-                : Array.from(new Set([...rule.values, ...selectableOptions.map((option) => option.value)])),
+                ? activeValues.filter((value) => !flatSelectable.some((option) => option.value === value))
+                : Array.from(new Set([...activeValues, ...flatSelectable.map((option) => option.value)])),
         );
+
+    const toggleExpanded = (value: string) => {
+        setCollapsed((current) => {
+            const next = new Set(current);
+            if (next.has(value)) next.delete(value);
+            else next.add(value);
+            return next;
+        });
+    };
 
     const onScroll = (event: React.UIEvent<HTMLDivElement>) => {
         if (!field.hasMore || field.loading) return;
@@ -144,12 +242,76 @@ function BuiltInValueEditor({ rule, field, labels, trigger, onChange }: ValueEdi
         if (scrollHeight - scrollTop - clientHeight < LOAD_MORE_THRESHOLD_PX) field.onLoadMore?.();
     };
 
-    return (
-        <FilterPopover
-            isOpen={isOpen}
-            onClose={close}
-            trigger={React.cloneElement(trigger, { onClick: () => (isOpen ? close() : setIsOpen(true)) })}
-        >
+    const renderOption = (option: FilterValueOption, depth: number): React.ReactNode => {
+        const hasChildren = !!option.children?.length;
+        const isExpanded = hasChildren && !collapsed.has(option.value);
+        const childValues = collectDescendantValues(option);
+        const isChecked = activeValues.includes(option.value);
+        const isIntermediate =
+            !isChecked && childValues.some((value) => activeValues.includes(value)) && !option.disabled;
+
+        return (
+            <React.Fragment key={option.value}>
+                <OptionRow
+                    type="button"
+                    disabled={option.disabled && !hasChildren}
+                    onClick={() => {
+                        if (option.disabled && hasChildren) {
+                            toggleExpanded(option.value);
+                            return;
+                        }
+                        toggleValue(option);
+                    }}
+                >
+                    {showNestingColumn && depth > 0 && <NestedOptionIndent $depth={depth} />}
+                    {showNestingColumn &&
+                        (hasChildren ? (
+                            <ExpandToggle
+                                type="button"
+                                aria-label={isExpanded ? labels.collapse : labels.expand}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    toggleExpanded(option.value);
+                                }}
+                            >
+                                {isExpanded ? (
+                                    <CaretDown size={14} weight="bold" />
+                                ) : (
+                                    <CaretRight size={14} weight="bold" />
+                                )}
+                            </ExpandToggle>
+                        ) : (
+                            <ExpandToggleSpacer />
+                        ))}
+                    {!field.renderValueOption && option.icon}
+                    {field.renderValueOption ? (
+                        field.renderValueOption(option)
+                    ) : (
+                        <OptionContent>
+                            <OptionLabel>{option.label}</OptionLabel>
+                            {option.description && <OptionDescription>{option.description}</OptionDescription>}
+                        </OptionContent>
+                    )}
+                    {option.count !== undefined && <OptionCount>{option.count.toLocaleString()}</OptionCount>}
+                    <OptionCheckboxSlot>
+                        {field.selectionMode !== 'single' && !option.disabled && (
+                            <Checkbox
+                                isChecked={isChecked}
+                                isIntermediate={isIntermediate}
+                                onCheckboxChange={() => toggleValue(option)}
+                                size="sm"
+                            />
+                        )}
+                        {field.selectionMode === 'single' && isChecked && <Check size={16} />}
+                    </OptionCheckboxSlot>
+                </OptionRow>
+                {isExpanded && option.children?.map((child) => renderOption(child, depth + 1))}
+            </React.Fragment>
+        );
+    };
+
+    const panel = (
+        <>
             {field.searchable && (
                 <Input
                     value={query}
@@ -165,49 +327,24 @@ function BuiltInValueEditor({ rule, field, labels, trigger, onChange }: ValueEdi
                     }}
                 />
             )}
-            {field.showSelectAll && field.selectionMode !== 'single' && !!selectableOptions.length && (
-                <OptionRow type="button" onClick={toggleAllVisible}>
-                    <Checkbox
-                        isChecked={areAllVisibleSelected}
-                        isIntermediate={
-                            !areAllVisibleSelected &&
-                            selectableOptions.some((option) => rule.values.includes(option.value))
-                        }
-                        onCheckboxChange={toggleAllVisible}
-                        size="sm"
-                    />
-                    <OptionContent>{labels.selectAll}</OptionContent>
-                </OptionRow>
-            )}
             <OptionList onScroll={onScroll}>
-                {options.map((option) => (
-                    <OptionRow
-                        key={option.value}
-                        type="button"
-                        disabled={option.disabled}
-                        onClick={() => toggleValue(option)}
-                    >
-                        {field.selectionMode !== 'single' && (
+                {field.showSelectAll && field.selectionMode !== 'single' && !!flatSelectable.length && (
+                    <OptionRow type="button" onClick={toggleAllVisible}>
+                        <OptionContent>{labels.selectAll}</OptionContent>
+                        <OptionCheckboxSlot>
                             <Checkbox
-                                isChecked={rule.values.includes(option.value)}
-                                onCheckboxChange={() => toggleValue(option)}
-                                isDisabled={option.disabled}
+                                isChecked={areAllVisibleSelected}
+                                isIntermediate={
+                                    !areAllVisibleSelected &&
+                                    flatSelectable.some((option) => activeValues.includes(option.value))
+                                }
+                                onCheckboxChange={toggleAllVisible}
                                 size="sm"
                             />
-                        )}
-                        {!field.renderValueOption && option.icon}
-                        {field.renderValueOption ? (
-                            field.renderValueOption(option)
-                        ) : (
-                            <OptionContent>
-                                <OptionLabel>{option.label}</OptionLabel>
-                                {option.description && <OptionDescription>{option.description}</OptionDescription>}
-                            </OptionContent>
-                        )}
-                        {option.count !== undefined && <OptionCount>{option.count.toLocaleString()}</OptionCount>}
-                        {field.selectionMode === 'single' && rule.values.includes(option.value) && <Check size={16} />}
+                        </OptionCheckboxSlot>
                     </OptionRow>
-                ))}
+                )}
+                {options.map((option) => renderOption(option, 0))}
                 {field.loading && (
                     <MenuState>
                         <Loader size="sm" />
@@ -215,6 +352,18 @@ function BuiltInValueEditor({ rule, field, labels, trigger, onChange }: ValueEdi
                 )}
                 {!field.loading && !options.length && <MenuState>{labels.noFilters}</MenuState>}
             </OptionList>
+        </>
+    );
+
+    if (isCompose) return panel;
+
+    return (
+        <FilterPopover
+            isOpen={isOpen}
+            onClose={commitAndClose}
+            trigger={React.cloneElement(trigger, { onClick: () => (isOpen ? commitAndClose() : open()) })}
+        >
+            {panel}
         </FilterPopover>
     );
 }
@@ -228,6 +377,11 @@ type OperatorEditorProps = {
 function OperatorEditor({ rule, field, onChange }: OperatorEditorProps) {
     const [isOpen, setIsOpen] = useState(false);
     const operator = getOperator(field, rule.operator);
+    const displayLabel = rule.values.length > 1 && operator?.pluralLabel ? operator.pluralLabel : operator?.label;
+    // "is all of" only applies with 2+ values (same as legacy ALL_EQUALS).
+    const visibleOperators = field.operators.filter(
+        (option) => option.value !== 'is_all' || rule.values.length > 1 || rule.operator === 'is_all',
+    );
 
     return (
         <FilterPopover
@@ -236,28 +390,32 @@ function OperatorEditor({ rule, field, onChange }: OperatorEditorProps) {
             width={220}
             trigger={
                 <ChipSegment type="button" onClick={() => setIsOpen(!isOpen)}>
-                    {operator?.label}
+                    {displayLabel}
                 </ChipSegment>
             }
         >
             <OptionList>
-                {field.operators.map((option) => (
-                    <OptionRow
-                        key={option.value}
-                        type="button"
-                        onClick={() => {
-                            onChange({
-                                ...rule,
-                                operator: option.value,
-                                values: option.requiresValue === false ? [] : rule.values,
-                            });
-                            setIsOpen(false);
-                        }}
-                    >
-                        <OptionContent>{option.label}</OptionContent>
-                        {option.value === rule.operator && <Check size={16} />}
-                    </OptionRow>
-                ))}
+                {visibleOperators.map((option) => {
+                    const optionLabel =
+                        rule.values.length > 1 && option.pluralLabel ? option.pluralLabel : option.label;
+                    return (
+                        <OptionRow
+                            key={option.value}
+                            type="button"
+                            onClick={() => {
+                                onChange({
+                                    ...rule,
+                                    operator: option.value,
+                                    values: option.requiresValue === false ? [] : rule.values,
+                                });
+                                setIsOpen(false);
+                            }}
+                        >
+                            <OptionContent>{optionLabel}</OptionContent>
+                            {option.value === rule.operator && <Check size={16} />}
+                        </OptionRow>
+                    );
+                })}
             </OptionList>
         </FilterPopover>
     );
@@ -266,36 +424,217 @@ function OperatorEditor({ rule, field, onChange }: OperatorEditorProps) {
 type AddFilterPickerProps = {
     fields: FilterField[];
     labels: FilterBarLabels;
-    onSelect: (field: FilterField) => void;
+    /**
+     * Linear-style: apply values as soon as the user toggles them.
+     * Pass `ruleId` to update an in-progress chip; omit to create one.
+     * Returns the chip id while values remain, or undefined when removed / empty.
+     */
+    onUpsert: (input: {
+        field: FilterField;
+        values: string[];
+        operator?: string;
+        ruleId?: string | null;
+    }) => string | undefined;
 };
 
-function AddFilterPicker({ fields, labels, onSelect }: AddFilterPickerProps) {
+function fieldMatchesQuery(field: FilterField, normalizedQuery: string): boolean {
+    return (
+        field.label.toLocaleLowerCase().includes(normalizedQuery) ||
+        !!field.description?.toLocaleLowerCase().includes(normalizedQuery) ||
+        !!field.group?.toLocaleLowerCase().includes(normalizedQuery)
+    );
+}
+
+function AddFilterPicker({ fields, labels, onUpsert }: AddFilterPickerProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState('');
-    const groupedFields = useMemo(() => {
-        const normalizedQuery = query.trim().toLocaleLowerCase();
-        const matchingFields = normalizedQuery
-            ? fields.filter(
-                  (field) =>
-                      field.label.toLocaleLowerCase().includes(normalizedQuery) ||
-                      field.description?.toLocaleLowerCase().includes(normalizedQuery) ||
-                      field.group?.toLocaleLowerCase().includes(normalizedQuery),
-              )
-            : fields;
+    const [activeGroup, setActiveGroup] = useState<string | null>(null);
+    const [pendingField, setPendingField] = useState<FilterField | null>(null);
+    const [composeRule, setComposeRule] = useState<FilterRule | null>(null);
+    /** Chip created for the current hover-compose session (updated on each toggle). */
+    const [committedRuleId, setCommittedRuleId] = useState<string | null>(null);
+    const committedRuleIdRef = useRef<string | null>(null);
+    committedRuleIdRef.current = committedRuleId;
 
-        return Array.from(
-            matchingFields.reduce((groups, field) => {
-                const group = field.group ?? '';
-                groups.set(group, [...(groups.get(group) ?? []), field]);
-                return groups;
-            }, new Map<string, FilterField[]>()),
+    const { rootFields, groups } = useMemo(() => {
+        const nextRoot: FilterField[] = [];
+        const nextGroups = new Map<string, FilterField[]>();
+
+        // Preserve caller order (SORTED_FILTERS priority) — do not alphabetize.
+        fields.forEach((field) => {
+            if (!field.group) {
+                nextRoot.push(field);
+                return;
+            }
+            nextGroups.set(field.group, [...(nextGroups.get(field.group) ?? []), field]);
+        });
+
+        return { rootFields: nextRoot, groups: nextGroups };
+    }, [fields]);
+
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    const isSearching = !!normalizedQuery;
+
+    const visibleRootFields = isSearching
+        ? rootFields.filter((field) => fieldMatchesQuery(field, normalizedQuery))
+        : rootFields;
+
+    const visibleGroups = useMemo(() => {
+        const entries = Array.from(groups.entries()).sort(([left], [right]) =>
+            left.localeCompare(right, undefined, { sensitivity: 'base' }),
         );
-    }, [fields, query]);
+        if (!isSearching) return entries;
+        return entries
+            .map(
+                ([group, groupFields]) =>
+                    [group, groupFields.filter((field) => fieldMatchesQuery(field, normalizedQuery))] as const,
+            )
+            .filter(([, groupFields]) => groupFields.length > 0);
+    }, [groups, isSearching, normalizedQuery]);
+
+    const activeGroupFields = activeGroup
+        ? (groups.get(activeGroup) ?? []).filter((field) => !isSearching || fieldMatchesQuery(field, normalizedQuery))
+        : [];
+
+    const resetCompose = () => {
+        setPendingField(null);
+        setComposeRule(null);
+        committedRuleIdRef.current = null;
+        setCommittedRuleId(null);
+    };
 
     const close = () => {
+        // Values already applied on toggle — closing never drops committed chips.
         setIsOpen(false);
         setQuery('');
+        setActiveGroup(null);
+        resetCompose();
     };
+
+    /** Push compose values into the filter bar immediately (Linear-style). */
+    const syncComposeToBar = (field: FilterField, rule: FilterRule) => {
+        const activeRuleId = committedRuleIdRef.current;
+        if (!rule.values.length) {
+            if (activeRuleId) {
+                onUpsert({ field, values: [], ruleId: activeRuleId });
+                committedRuleIdRef.current = null;
+                setCommittedRuleId(null);
+            }
+            return;
+        }
+        // Wait for a full date range before creating a chip.
+        if (rule.operator === 'between' && rule.values.length < 2 && !activeRuleId) {
+            return;
+        }
+        const nextId = onUpsert({
+            field,
+            values: rule.values,
+            operator: rule.operator,
+            ruleId: activeRuleId,
+        });
+        committedRuleIdRef.current = nextId ?? null;
+        setCommittedRuleId(nextId ?? null);
+    };
+
+    /** Open the value flyout for a field (hover or click). Does not clear other chips. */
+    const previewCompose = (field: FilterField) => {
+        if (pendingField?.field === field.field && composeRule) return;
+        setPendingField(field);
+        committedRuleIdRef.current = null;
+        setCommittedRuleId(null);
+        setComposeRule({
+            id: 'compose',
+            field: field.field,
+            operator: field.defaultOperator,
+            values: [],
+        });
+    };
+
+    const onComposeRuleChange = (rule: FilterRule) => {
+        setComposeRule(rule);
+        if (!pendingField) return;
+        syncComposeToBar(pendingField, rule);
+    };
+
+    const commitCompose = (rule: FilterRule) => {
+        if (!pendingField) return;
+        setComposeRule(rule);
+        syncComposeToBar(pendingField, rule);
+    };
+
+    const onFieldActivate = (field: FilterField) => {
+        const operator = getOperator(field, field.defaultOperator);
+        if (operator?.requiresValue === false) {
+            onUpsert({ field, values: [], operator: field.defaultOperator });
+            close();
+            return;
+        }
+        previewCompose(field);
+    };
+
+    const previewGroup = (group: string) => {
+        setActiveGroup(group);
+        resetCompose();
+    };
+
+    const previewRootField = (field: FilterField) => {
+        setActiveGroup(null);
+        previewCompose(field);
+    };
+
+    const composeField = pendingField
+        ? (fields.find((candidate) => candidate.field === pendingField.field) ?? pendingField)
+        : null;
+    const composeInActiveGroup =
+        !!activeGroup && !!composeField && activeGroupFields.some((field) => field.field === composeField.field);
+    const showRootValueFlyout = !!composeField && !!composeRule && !activeGroup;
+    const showGroupValueFlyout = !!composeField && !!composeRule && composeInActiveGroup;
+    const showGroupFlyout = !!activeGroup && !isSearching;
+    const hasResults = visibleRootFields.length > 0 || visibleGroups.length > 0;
+
+    const composeTrigger = <span />;
+
+    const renderValueCompose = (field: FilterField) =>
+        field.renderValueEditor ? (
+            field.renderValueEditor({
+                field,
+                rule: composeRule!,
+                onChange: onComposeRuleChange,
+                trigger: composeTrigger,
+                compose: { onCommit: commitCompose },
+            })
+        ) : (
+            <BuiltInValueEditor
+                rule={composeRule!}
+                field={field}
+                labels={labels}
+                trigger={composeTrigger}
+                onChange={onComposeRuleChange}
+                compose={{ onCommit: commitCompose }}
+            />
+        );
+
+    const renderFieldRow = (
+        field: FilterField,
+        options?: { description?: string; onHover?: (field: FilterField) => void },
+    ) => (
+        <OptionRow
+            key={field.field}
+            type="button"
+            $active={pendingField?.field === field.field}
+            onMouseEnter={() => (options?.onHover ?? previewCompose)(field)}
+            onFocus={() => (options?.onHover ?? previewCompose)(field)}
+            onClick={() => onFieldActivate(field)}
+        >
+            <OptionContent>
+                <OptionLabel>{field.label}</OptionLabel>
+                {(options?.description || field.description) && (
+                    <OptionDescription>{options?.description || field.description}</OptionDescription>
+                )}
+            </OptionContent>
+            <CaretRight size={14} />
+        </OptionRow>
+    );
 
     return (
         <FilterPopover
@@ -308,36 +647,74 @@ function AddFilterPicker({ fields, labels, onSelect }: AddFilterPickerProps) {
                 </GhostTrigger>
             }
         >
-            <Input
-                value={query}
-                setValue={setQuery}
-                placeholder={labels.searchFilters}
-                icon={{ icon: MagnifyingGlass }}
-                onClear={() => setQuery('')}
-            />
-            <OptionList>
-                {groupedFields.map(([group, groupFields]) => (
-                    <React.Fragment key={group || 'ungrouped'}>
-                        {group && <SectionLabel>{group}</SectionLabel>}
-                        {groupFields.map((field) => (
-                            <OptionRow
-                                key={field.field}
-                                type="button"
-                                onClick={() => {
-                                    onSelect(field);
-                                    close();
-                                }}
-                            >
-                                <OptionContent>
-                                    <OptionLabel>{field.label}</OptionLabel>
-                                    {field.description && <OptionDescription>{field.description}</OptionDescription>}
-                                </OptionContent>
-                            </OptionRow>
-                        ))}
-                    </React.Fragment>
-                ))}
-                {!groupedFields.length && <MenuState>{labels.noFilters}</MenuState>}
-            </OptionList>
+            <AddFilterMenu>
+                <Input
+                    value={query}
+                    setValue={(value) => {
+                        setQuery(value);
+                        setActiveGroup(null);
+                        resetCompose();
+                    }}
+                    placeholder={labels.searchFilters}
+                    icon={{ icon: MagnifyingGlass }}
+                    onClear={() => {
+                        setQuery('');
+                        setActiveGroup(null);
+                        resetCompose();
+                    }}
+                />
+                <OptionList>
+                    {visibleRootFields.map((field) => renderFieldRow(field, { onHover: previewRootField }))}
+                    {isSearching
+                        ? visibleGroups.flatMap(([group, groupFields]) =>
+                              groupFields.map((field) =>
+                                  renderFieldRow(field, {
+                                      description: group,
+                                      onHover: previewRootField,
+                                  }),
+                              ),
+                          )
+                        : visibleGroups.map(([group]) => (
+                              <OptionRow
+                                  key={group}
+                                  type="button"
+                                  $active={activeGroup === group}
+                                  onMouseEnter={() => previewGroup(group)}
+                                  onFocus={() => previewGroup(group)}
+                                  onClick={() => previewGroup(group)}
+                              >
+                                  <OptionContent>
+                                      <OptionLabel>{group}</OptionLabel>
+                                  </OptionContent>
+                                  <CaretRight size={14} />
+                              </OptionRow>
+                          ))}
+                    {!hasResults && <MenuState>{labels.noFilters}</MenuState>}
+                </OptionList>
+                {showGroupFlyout && (
+                    /* eslint-disable-next-line i18next/no-literal-string -- ARIA role, not UI copy */
+                    <ValueFlyoutPanel role="dialog" aria-label={activeGroup ?? undefined}>
+                        <OptionList>
+                            {activeGroupFields.map((field) => renderFieldRow(field))}
+                            {!activeGroupFields.length && <MenuState>{labels.noFilters}</MenuState>}
+                        </OptionList>
+                        {showGroupValueFlyout && composeField && (
+                            /* eslint-disable-next-line i18next/no-literal-string -- ARIA role, not UI copy */
+                            <ValueFlyoutPanel role="dialog" aria-label={composeField.label}>
+                                <React.Fragment key={composeField.field}>
+                                    {renderValueCompose(composeField)}
+                                </React.Fragment>
+                            </ValueFlyoutPanel>
+                        )}
+                    </ValueFlyoutPanel>
+                )}
+                {showRootValueFlyout && composeField && (
+                    /* eslint-disable-next-line i18next/no-literal-string -- ARIA role, not UI copy */
+                    <ValueFlyoutPanel role="dialog" aria-label={composeField.label}>
+                        <React.Fragment key={composeField.field}>{renderValueCompose(composeField)}</React.Fragment>
+                    </ValueFlyoutPanel>
+                )}
+            </AddFilterMenu>
         </FilterPopover>
     );
 }
@@ -402,21 +779,54 @@ type GroupProps = {
 };
 
 function FilterGroupView({ group, fields, labels, depth, maxDepth, allowGroups, onChange, onRemove }: GroupProps) {
-    const usedFields = new Set(group.filters.map((filter) => filter.field));
-    const availableFields = fields.filter((field) => !usedFields.has(field.field));
-    const addFilter = (field: FilterField) =>
+    // Same field can be added more than once (e.g. Owner is X and Owner is not Y).
+    // Add Filter commits on each value toggle and updates the in-progress chip by id.
+    const upsertFilter = ({
+        field,
+        values,
+        operator,
+        ruleId,
+    }: {
+        field: FilterField;
+        values: string[];
+        operator?: string;
+        ruleId?: string | null;
+    }): string | undefined => {
+        if (!values.length) {
+            if (ruleId) {
+                onChange({
+                    ...group,
+                    filters: group.filters.filter((filter) => filter.id !== ruleId),
+                });
+            }
+            return undefined;
+        }
+
+        if (ruleId && group.filters.some((filter) => filter.id === ruleId)) {
+            onChange({
+                ...group,
+                filters: group.filters.map((filter) =>
+                    filter.id === ruleId ? { ...filter, values, operator: operator ?? filter.operator } : filter,
+                ),
+            });
+            return ruleId;
+        }
+
+        const id = ruleId || createId('filter');
         onChange({
             ...group,
             filters: [
                 ...group.filters,
                 {
-                    id: createId('filter'),
+                    id,
                     field: field.field,
-                    operator: field.defaultOperator,
-                    values: [],
+                    operator: operator ?? field.defaultOperator,
+                    values,
                 },
             ],
         });
+        return id;
+    };
 
     const updateMatch = (match: FilterMatchMode) => onChange({ ...group, match });
     const showConnector = group.filters.length + (group.groups?.length ?? 0) > 1;
@@ -469,9 +879,7 @@ function FilterGroupView({ group, fields, labels, depth, maxDepth, allowGroups, 
                     );
                 })}
 
-                {!!availableFields.length && (
-                    <AddFilterPicker fields={availableFields} labels={labels} onSelect={addFilter} />
-                )}
+                {!!fields.length && <AddFilterPicker fields={fields} labels={labels} onUpsert={upsertFilter} />}
             </FiltersRow>
 
             {group.groups?.map((childGroup, index) => (
@@ -497,34 +905,37 @@ function FilterGroupView({ group, fields, labels, depth, maxDepth, allowGroups, 
                 />
             ))}
 
-            <GroupActions>
-                {allowGroups && depth < maxDepth && (
-                    <GhostTrigger
-                        type="button"
-                        onClick={() =>
-                            onChange({
-                                ...group,
-                                groups: [
-                                    ...(group.groups ?? []),
-                                    {
-                                        id: createId('group'),
-                                        match: 'all',
-                                        filters: [],
-                                    },
-                                ],
-                            })
-                        }
-                    >
-                        <Plus size={14} />
-                        {labels.addGroup}
-                    </GhostTrigger>
-                )}
-                {depth === 0 && (!!group.filters.length || !!group.groups?.length) && (
-                    <GhostTrigger type="button" onClick={() => onChange({ ...group, filters: [], groups: [] })}>
-                        {labels.clearAll}
-                    </GhostTrigger>
-                )}
-            </GroupActions>
+            {((allowGroups && depth < maxDepth) ||
+                (depth === 0 && (!!group.filters.length || !!group.groups?.length))) && (
+                <GroupActions>
+                    {allowGroups && depth < maxDepth && (
+                        <GhostTrigger
+                            type="button"
+                            onClick={() =>
+                                onChange({
+                                    ...group,
+                                    groups: [
+                                        ...(group.groups ?? []),
+                                        {
+                                            id: createId('group'),
+                                            match: 'all',
+                                            filters: [],
+                                        },
+                                    ],
+                                })
+                            }
+                        >
+                            <Plus size={14} />
+                            {labels.addGroup}
+                        </GhostTrigger>
+                    )}
+                    {depth === 0 && (!!group.filters.length || !!group.groups?.length) && (
+                        <GhostTrigger type="button" onClick={() => onChange({ ...group, filters: [], groups: [] })}>
+                            {labels.clearAll}
+                        </GhostTrigger>
+                    )}
+                </GroupActions>
+            )}
         </GroupContainer>
     );
 }

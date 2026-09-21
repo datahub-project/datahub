@@ -1,6 +1,6 @@
 import { Loader } from '@components';
 import { Typography } from 'antd';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import { getFilterIconAndLabel } from '@app/searchV2/filters/utils';
@@ -72,11 +72,22 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
         iconSize,
     );
 
-    const { isOpen, isClosing, toggle } = useToggle({
+    const { isOpen, isClosing, toggle, toggleClose } = useToggle({
         initialValue: hasOnlyOnePlatform || isPlatformAndPathSelected,
         closeDelay: 250,
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'platform'),
     });
+
+    // Collapse when Clear all drops platform/browse filters — expanded rows use a brand
+    // background that reads as "still selected".
+    const wasPlatformFiltered = useRef(isPlatformSelected || hasBrowseFilter);
+    useEffect(() => {
+        const isPlatformFiltered = isPlatformSelected || hasBrowseFilter;
+        if (wasPlatformFiltered.current && !isPlatformFiltered && isOpen && !hasOnlyOnePlatform) {
+            toggleClose();
+        }
+        wasPlatformFiltered.current = isPlatformFiltered;
+    }, [hasBrowseFilter, hasOnlyOnePlatform, isOpen, isPlatformSelected, toggleClose]);
 
     const onClickTriangle = () => {
         if (count) toggle();
