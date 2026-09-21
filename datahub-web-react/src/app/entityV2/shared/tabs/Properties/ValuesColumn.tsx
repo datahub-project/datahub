@@ -1,17 +1,18 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
+import StructuredPropertyValueList from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValueList';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { TabRenderType } from '@app/entityV2/shared/types';
-import { Entity } from '@src/types.generated';
 
 import { StdDataType } from '@types';
+
+/** Table rows are wider than sidebar sections, so a cell shows more values before paging. */
+const MAX_VALUES_PER_TABLE_CELL = 100;
 
 interface Props {
     propertyRow: PropertyRow;
     filterText?: string;
-    hydratedEntityMap?: Record<string, Entity>;
     renderType: TabRenderType;
 }
 
@@ -30,7 +31,7 @@ const ValueContainer = styled.div`
     max-width: 100%;
 `;
 
-export default function ValuesColumn({ propertyRow, filterText, hydratedEntityMap, renderType }: Props) {
+export default function ValuesColumn({ propertyRow, filterText, renderType }: Props) {
     const { values } = propertyRow;
     const isRichText = propertyRow.dataType?.info?.type === StdDataType.RichText;
 
@@ -38,17 +39,13 @@ export default function ValuesColumn({ propertyRow, filterText, hydratedEntityMa
         <>
             <ValuesContainerFlex renderType={renderType}>
                 {values ? (
-                    values.map((v) => (
-                        <ValueContainer>
-                            <StructuredPropertyValue
-                                value={v}
-                                isRichText={isRichText}
-                                filterText={filterText}
-                                hydratedEntityMap={hydratedEntityMap}
-                                attribution={propertyRow.attribution}
-                            />
-                        </ValueContainer>
-                    ))
+                    <StructuredPropertyValueList
+                        propertyRow={propertyRow}
+                        isRichText={isRichText}
+                        filterText={filterText}
+                        maxValuesToShow={MAX_VALUES_PER_TABLE_CELL}
+                        renderValue={(value, node) => <ValueContainer key={`${value.value}`}>{node}</ValueContainer>}
+                    />
                 ) : (
                     <span />
                 )}
