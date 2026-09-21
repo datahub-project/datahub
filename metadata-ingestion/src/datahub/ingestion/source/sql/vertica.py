@@ -55,7 +55,7 @@ from datahub.utilities import config_clean
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.profiling.common import (
-        ProfilerRequest as GEProfilerRequest,
+        ProfilerRequest,
     )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -148,7 +148,7 @@ class VerticaSource(SQLAlchemySource):
 
         for inspector in self.get_inspectors():
             profiler = None
-            profile_requests: List["GEProfilerRequest"] = []
+            profile_requests: List["ProfilerRequest"] = []
             if sql_config.is_profiling_enabled():
                 profiler = self.get_profiler_instance(inspector)
 
@@ -548,7 +548,7 @@ class VerticaSource(SQLAlchemySource):
         inspector: VerticaInspector,
         schema: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable["GEProfilerRequest"]:
+    ) -> Iterable["ProfilerRequest"]:
         """Function is used for collecting profiling related information for every projections
             inside an schema.
 
@@ -559,7 +559,7 @@ class VerticaSource(SQLAlchemySource):
 
         """
         from datahub.ingestion.source.profiling.common import (
-            ProfilerRequest as GEProfilerRequest,
+            ProfilerRequest,
         )
 
         tables_seen: Set[str] = set()
@@ -608,7 +608,7 @@ class VerticaSource(SQLAlchemySource):
                 f"Preparing profiling request for {schema}, {projection}, {partition}"
             )
 
-            yield GEProfilerRequest(
+            yield ProfilerRequest(
                 pretty_name=dataset_name,
                 batch_kwargs=self.prepare_profiler_args(
                     inspector=inspector,
