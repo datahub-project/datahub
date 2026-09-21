@@ -146,6 +146,8 @@
     "metrics.homeEmptyTitle": "Ingen metrikker hentet inn ennå",
     "metrics.homeEmptyDescription": "Når metrikker og semantiske modeller er hentet inn fra dataplattformen din, vises de her.",
     "metrics.homeEmptyAction": "Hent inn metrikker",
+    "metrics.homeEmptyLearnMore": "Les mer",
+    "metrics.homeEmptyMigrationHint": "Henter du allerede inn Snowflake Semantic Views? <anchor>Se hvordan du migrerer dem</anchor> til den nye modellen.",
     "mfeframework.disabledError": "{{label}} er deaktivert.",
     "mfeframework.notAvailableError": "{{label}} er ikke tilgjengelig for øyeblikket",
     "tags.appliedToEntityCount_one": "{{count}} entitet",
