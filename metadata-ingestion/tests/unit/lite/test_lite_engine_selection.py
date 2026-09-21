@@ -10,7 +10,7 @@ from click.testing import CliRunner
 
 from datahub.cli import lite_cli
 from datahub.cli.lite_cli import DEFAULT_LITE_IMPL, lite
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.lite.lite_registry import lite_registry
 from datahub.lite.lite_util import LiteLocalConfig, get_datahub_lite
@@ -67,7 +67,11 @@ def test_import_writes_to_the_configured_instance(
     # sink's own defaults it would write a fresh sqlite file elsewhere, and
     # `lite ls` would report an empty store.
     configured = LiteLocalConfig(
-        type="duckdb", config={"file": str(tmp_path / "configured.duckdb")}
+        type="duckdb",
+        config={"file": str(tmp_path / "configured.duckdb")},
+        forward_to=DynamicTypedConfig(
+            type="datahub-rest", config={"server": "http://gms.invalid:8080"}
+        ),
     )
     monkeypatch.setattr(lite_cli, "get_lite_config", lambda: configured)
 
@@ -86,3 +90,6 @@ def test_import_writes_to_the_configured_instance(
     assert captured["sink"]["config"]["config"]["file"] == str(
         tmp_path / "configured.duckdb"
     )
+    # An import is a local restore; it must not replay the file to the remote
+    # sink just because the instance is configured to forward live writes.
+    assert not captured["sink"]["config"].get("forward_to")

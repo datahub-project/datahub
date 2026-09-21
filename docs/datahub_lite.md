@@ -421,7 +421,7 @@ You can provide a free form search query like: "customer" and DataHub Lite will 
 
 You can also query the metadata precisely using your storage engine's JSON functions and operators, for [SQLite](https://www.sqlite.org/json1.html) or [DuckDB](https://duckdb.org/docs/extensions/json.html).
 Writing these functions requires that you understand the DataHub metadata model and how the data is laid out in DataHub Lite.
-The `->` and `->>` operators used below work on both engines, so exact-flavor queries are portable (SQLite needs 3.38 or newer; on older builds use `json_extract(metadata, '$.path')`).
+The `->` and `->>` operators used below work on both engines, so exact-flavor queries are portable. They are the one place a SQLite version floor applies: `->>` arrived in SQLite 3.38, so on an older system library (Ubuntu 22.04 ships 3.37) write these queries with `json_extract(metadata, '$.path')` instead. Free-form search above has no such requirement.
 
 For example, to find all entities whose _datasetProperties_ aspect includes the _view_definition_ in its _customProperties_ sub-field, we can issue the following command:
 

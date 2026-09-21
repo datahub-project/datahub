@@ -114,6 +114,11 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
     ) -> None:
         pass
 
+    @classmethod
+    def _json_text(cls, column: str, path: str) -> str:
+        """SQL expression extracting `path` out of `column` as unquoted text."""
+        return f"{column} ->> '{path}'"
+
     def _init_db(self) -> None:
         self._execute(
             "CREATE TABLE IF NOT EXISTS metadata_aspect_v2 "
@@ -138,6 +143,10 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
 
     def destroy(self) -> None:
         fpath = pathlib.Path(self.location())
+        # Drop the connection first: Windows refuses to unlink a file SQLite
+        # still holds open, and an open connection can rewrite the journal
+        # sidecars after we remove them.
+        self._close_connection()
         fpath.unlink()
         # SQLite leaves "-wal"/"-shm"/"-journal" behind for some journal modes,
         # DuckDB a ".wal" after an unclean shutdown.
@@ -365,10 +374,11 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
         aspects = aspects or []
         if flavor == SearchFlavor.FREE_TEXT:
             # LOWER(..) LIKE stands in for ILIKE, which SQLite does not have.
+            name = self._json_text("metadata", "$.name")
             base_query = (
                 "SELECT DISTINCT urn, 'urn', NULL FROM metadata_aspect_v2 WHERE LOWER(urn) LIKE ? "
                 "UNION "
-                "SELECT urn, aspect_name, metadata FROM metadata_aspect_v2 WHERE LOWER(metadata ->> '$.name') LIKE ?"
+                f"SELECT urn, aspect_name, metadata FROM metadata_aspect_v2 WHERE LOWER({name}) LIKE ?"
             )
             like_pattern = f"%{query.lower()}%"
             for r in self._execute(base_query, [like_pattern, like_pattern]):

@@ -74,6 +74,14 @@ class SqliteLite(SqlBackedLite[SqliteLiteConfig]):
     def _close_connection(self) -> None:
         self.sqlite_client.close()
 
+    @classmethod
+    def _json_text(cls, column: str, path: str) -> str:
+        # The `->>` operator needs SQLite 3.38 (2022-02), which is newer than
+        # the system library on distros this engine exists to support --
+        # Ubuntu 22.04 ships 3.37. json_extract goes back to 3.9 and unquotes
+        # string values identically.
+        return f"json_extract({column}, '{path}')"
+
     def _create_unique_index(
         self, index_name: str, table_name: str, columns: List[str]
     ) -> None:

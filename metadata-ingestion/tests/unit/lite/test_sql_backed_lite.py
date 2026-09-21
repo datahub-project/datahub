@@ -19,6 +19,7 @@ from datahub.lite.lite_local import (
     SearchFlavor,
 )
 from datahub.lite.lite_util import get_datahub_lite
+from datahub.lite.sqlite_lite import SqliteLite
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     StatusClass,
@@ -200,8 +201,34 @@ def test_read_only_instance_reads_without_reindexing(
 def test_destroy_removes_the_database(
     engine: str, db_file: str, lite: DataHubLiteLocal
 ) -> None:
+    # Destroy while the instance is still open -- that is how `lite nuke`
+    # calls it.
     lite.destroy()
     assert list(pathlib.Path(db_file).parent.iterdir()) == []
+
+
+def test_destroy_cleans_up_wal_sidecars(db_file: str) -> None:
+    # WAL mode is where the "-wal"/"-shm" sidecars actually appear, and they
+    # only go away for good once the connection is closed.
+    wal_lite = _open("sqlite", db_file, options={"journal_mode": "WAL"})
+    wal_lite.write(
+        MetadataChangeProposalWrapper(
+            entityUrn=ORDERS_URN, aspect=StatusClass(removed=False)
+        )
+    )
+    assert any(p.name.endswith("-wal") for p in pathlib.Path(db_file).parent.iterdir())
+
+    wal_lite.destroy()
+    assert list(pathlib.Path(db_file).parent.iterdir()) == []
+
+
+def test_sqlite_free_text_search_avoids_the_json_arrow_operator() -> None:
+    # Free-text search is the default `lite search`, so it has to run on the
+    # system SQLite. `->>` needs 3.38 (2022-02) and Ubuntu 22.04 ships 3.37,
+    # so the shared query must go through json_extract on this engine. There
+    # is no way to exercise that against a modern library, hence the direct
+    # assertion on the expression.
+    assert "->>" not in SqliteLite._json_text("metadata", "$.name")
 
 
 def test_sqlite_refuses_a_duckdb_file(db_file: str) -> None:

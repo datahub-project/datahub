@@ -375,10 +375,16 @@ def import_cmd(ctx: click.Context, file: Optional[str]) -> None:
     # Import into the instance this CLI is pointed at. Left to its own defaults
     # the sink would write to the default engine and path instead, which after
     # the sqlite default landed means `lite import` and `lite ls` can disagree
-    # about both the file and the engine.
+    # about both the file and the engine. Only the engine and its config carry
+    # over -- `forward_to` is deliberately dropped, since an import is a local
+    # restore and forwarding would replay the whole file to the remote sink.
+    lite_config = get_lite_config()
     config_dict = {
         "source": {"type": "file", "config": {"path": file}},
-        "sink": {"type": "datahub-lite", "config": get_lite_config().model_dump()},
+        "sink": {
+            "type": "datahub-lite",
+            "config": {"type": lite_config.type, "config": lite_config.config},
+        },
     }
     Pipeline.create(config_dict).run()
 
