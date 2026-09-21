@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, Loader, borders, radius, spacing } from '@components';
 import { useDraggable } from '@dnd-kit/core';
 import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
@@ -52,7 +51,6 @@ const DragHandle = styled.div<{ $isDragging?: boolean; $isDisabled?: boolean }>`
 const Content = styled.div<{ $hasViewAll: boolean }>`
     margin: 0 0 8px 8px;
     overflow-y: auto;
-    padding-right: 5px;
     scrollbar-gutter: stable;
     height: ${({ $hasViewAll }) => ($hasViewAll ? '234px' : '246px')};
 `;

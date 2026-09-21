@@ -33,7 +33,7 @@ const SearchBarContainer = styled.div`
     justify-content: space-between;
     align-items: center;
     padding: 12px;
-    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const SEARCH_BAR_STYLE = {

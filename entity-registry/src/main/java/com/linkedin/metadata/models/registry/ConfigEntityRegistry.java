@@ -220,9 +220,9 @@ public class ConfigEntityRegistry implements EntityRegistry {
       EntitySpec entitySpec;
       Optional<DataSchema> entitySchema = dataSchemaFactory.getEntitySchema(entity.getName());
       String searchGroup =
-          entity.getSearchGroup() != null
-              ? entity.getSearchGroup()
-              : EntityAnnotation.DEFAULT_SEARCH_GROUP;
+          EntityAnnotation.isSearchGroupUnset(entity.getSearchGroup())
+              ? null
+              : entity.getSearchGroup();
       // YAML is the authoring source of truth; null means leave PDL default (false) / config false
       Boolean viewUnrestricted = entity.getViewUnrestricted();
 
