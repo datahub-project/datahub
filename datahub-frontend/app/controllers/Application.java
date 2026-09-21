@@ -57,6 +57,14 @@ public class Application extends Controller {
   private static final String REQUEST_SOURCE_HEADER = "X-DataHub-Request-Source";
   private static final String REQUEST_SOURCE_BROWSER = "BROWSER";
   private static final String REQUEST_SOURCE_SDK = "SDK";
+  // Stamped on every response from proxy() so access loggers in front of this service (API gateway,
+  // service mesh) can attribute a request to the token that made it. The value is the token's "jti"
+  // claim, a random UUID GMS assigns at issue time. It identifies the token but cannot be used to
+  // authenticate, and the caller already holds the token it was read from, so returning it exposes
+  // nothing new; edge proxies may still strip it after logging. The token is NOT verified here (see
+  // AuthUtils#extractTokenId), so on a rejected request the value is whatever the caller's token
+  // claimed.
+  private static final String TOKEN_ID_HEADER = "X-DH-JTI";
   private final HttpClient httpClient;
 
   private final Config config;
@@ -163,6 +171,7 @@ public class Application extends Controller {
   @Security.Authenticated(Authenticator.class)
   public CompletableFuture<Result> proxy(String path, Http.Request request) {
     final String authorizationHeaderValue = getAuthorizationHeaderValueToProxy(request);
+    final Optional<String> tokenId = AuthUtils.extractTokenId(authorizationHeaderValue);
     final String resolvedUri = mapPath(request.uri());
 
     final String metadataServiceHost =
@@ -206,7 +215,8 @@ public class Application extends Controller {
     } catch (IllegalArgumentException e) {
       // Malformed path/query (e.g. unencoded spaces) — return 400 rather than an unhandled 500.
       logger.warn("Rejecting proxy request with invalid URI: {}", request.uri());
-      return CompletableFuture.completedFuture(badRequest("Invalid request path or query string"));
+      return CompletableFuture.completedFuture(
+          withTokenIdHeader(badRequest("Invalid request path or query string"), tokenId));
     }
     HttpRequest.Builder httpRequestBuilder =
         HttpRequest.newBuilder().uri(targetUri).timeout(Duration.ofSeconds(120));
@@ -257,7 +267,8 @@ public class Application extends Controller {
         .sendAsync(httpRequestBuilder.build(), bodyHandler)
         .thenApply(
             apiResponse -> buildProxyResult(request, resolvedUri, start, apiResponse, useStreaming))
-        .exceptionally(this::handleProxyException);
+        .exceptionally(this::handleProxyException)
+        .thenApply(result -> withTokenIdHeader(result, tokenId));
   }
 
   private Result buildProxyResult(
@@ -312,6 +323,10 @@ public class Application extends Controller {
     } else {
       return internalServerError("Proxy error: " + cause.getMessage());
     }
+  }
+
+  private static Result withTokenIdHeader(Result result, Optional<String> tokenId) {
+    return tokenId.map(id -> result.withHeader(TOKEN_ID_HEADER, id)).orElse(result);
   }
 
   private HttpRequest.BodyPublisher buildBodyPublisher(Http.Request request) {
