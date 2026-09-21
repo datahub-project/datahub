@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from avrogen.dict_wrapper import DictWrapper
 
+import datahub.cli.migration_utils as migration_utils
 from datahub.cli.migration_utils import (
     get_migratable_aspect_names,
     merge_additive_aspects,
@@ -15,6 +16,7 @@ from datahub.cli.migration_utils import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
+    ENTITY_TYPE_TO_ASPECT_NAMES,
     AuditStampClass,
     ContainerClass,
     ContainerPropertiesClass,
@@ -23,9 +25,11 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
+    OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    SchemaMetadataClass,
     StatusClass,
     StructuredPropertiesClass,
     StructuredPropertyValueAssignmentClass,
@@ -727,18 +731,20 @@ class TestMergeGenericEntity:
             "glossaryTerms",
             "structuredProperties",
         }
-        emitted_aspects = {name for name, _ in _emitted_patch_values(graph)}
-        assert emitted_aspects == {
+        emitted = _emitted_patch_values(graph)
+        assert {name for name, _ in emitted} == {
             "globalTags",
             "glossaryTerms",
             "structuredProperties",
         }
+        # The union is load-bearing on arrayPrimaryKeys: GMS only unions (rather
+        # than clobbers) when the patch carries the {"arrayPrimaryKeys": ...,
+        # "patch": ...} envelope. A bare JSON-Patch array would still be a valid
+        # PATCH MCP and pass the name check above while clobbering in production.
+        for _name, body in emitted:
+            assert "arrayPrimaryKeys" in body
 
-    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
-    def test_structured_properties_union_for_dataset(
-        self,
-        mock_get_aspects: MagicMock,
-    ) -> None:
+    def test_structured_properties_union_for_dataset(self) -> None:
         """structuredProperties now unions on the dataset path too (not clobbered)."""
         src = StructuredPropertiesClass(
             properties=[
@@ -758,13 +764,18 @@ class TestMergeGenericEntity:
         assert n == 1
         emitted = _emitted_patch_values(graph)
         assert [name for name, _ in emitted] == ["structuredProperties"]
+        assert "arrayPrimaryKeys" in emitted[0][1]
 
     @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
     def test_upstream_lineage_copied_not_dropped(
         self,
         mock_get_aspects: MagicMock,
     ) -> None:
-        """upstreamLineage on a non-dataset entity is copied, not silently dropped."""
+        """upstreamLineage on a non-dataset carrier is copied, not silently dropped.
+
+        semanticModel is a real upstreamLineage carrier (dataset/semanticModel/aiAgent
+        are the only three), so guess_entity_type + the registry agree with the mock.
+        """
         upstream = UpstreamClass(
             dataset="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.up,PROD)",
             type="TRANSFORMED",
@@ -776,8 +787,8 @@ class TestMergeGenericEntity:
         graph = MagicMock()
 
         result = merge_entity(
-            "urn:li:mlModel:(urn:li:dataPlatform:science,old,PROD)",
-            "urn:li:mlModel:(urn:li:dataPlatform:science,new,PROD)",
+            "urn:li:semanticModel:(urn:li:dataPlatform:looker,old)",
+            "urn:li:semanticModel:(urn:li:dataPlatform:looker,new)",
             ConflictStrategy.PATCH,
             graph,
             dry_run=False,
@@ -785,6 +796,138 @@ class TestMergeGenericEntity:
 
         assert "upstreamLineage" in result.merged_aspects
         assert graph.emit_mcp.called
+
+    @staticmethod
+    def _schema_metadata(name: str) -> SchemaMetadataClass:
+        return SchemaMetadataClass(
+            schemaName=name,
+            platform="urn:li:dataPlatform:glossary",
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=[],
+        )
+
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_non_additive_aspect_on_non_dataset_is_copied_not_dropped(
+        self,
+        mock_get_aspects: MagicMock,
+    ) -> None:
+        """schemaMetadata (NON_ADDITIVE) on a glossaryTerm survives a PATCH merge.
+
+        This is the exact regression the complement refactor closes: it lives in
+        neither the union-able nor always-overwrite bucket, and the old code excluded
+        it from the default bucket, so it was silently dropped before the source got
+        deleted. glossaryTerm is the one registry entity that carries it off-dataset.
+        """
+        mock_get_aspects.side_effect = [
+            {"schemaMetadata": self._schema_metadata("src")},  # src fetch
+            {},  # dst has none yet -> copied
+        ]
+        graph = MagicMock()
+
+        result = merge_entity(
+            "urn:li:glossaryTerm:old",
+            "urn:li:glossaryTerm:new",
+            ConflictStrategy.PATCH,
+            graph,
+            dry_run=False,
+        )
+
+        assert "schemaMetadata" in result.merged_aspects
+        assert graph.emit_mcp.called
+
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_non_additive_conflict_keeps_target_under_patch(
+        self,
+        mock_get_aspects: MagicMock,
+    ) -> None:
+        """A conflicting NON_ADDITIVE aspect keeps the target under PATCH."""
+        mock_get_aspects.side_effect = [
+            {"schemaMetadata": self._schema_metadata("src")},  # src
+            {"schemaMetadata": self._schema_metadata("dst")},  # dst differs
+        ]
+        graph = MagicMock()
+
+        result = merge_entity(
+            "urn:li:glossaryTerm:old",
+            "urn:li:glossaryTerm:new",
+            ConflictStrategy.PATCH,
+            graph,
+            dry_run=False,
+        )
+
+        assert "schemaMetadata" in result.skipped_aspects
+        graph.emit_mcp.assert_not_called()
+
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_generic_merge_dry_run_emits_nothing(
+        self,
+        mock_get_aspects: MagicMock,
+    ) -> None:
+        """dry_run must not emit across any of the generic path's write points."""
+        mock_get_aspects.return_value = {
+            "containerProperties": ContainerPropertiesClass(name="db.sch"),
+            "globalTags": GlobalTagsClass(
+                tags=[TagAssociationClass(tag="urn:li:tag:pii")]
+            ),
+        }
+        graph = MagicMock()
+
+        merge_entity(
+            "urn:li:container:oldguid",
+            "urn:li:container:newguid",
+            ConflictStrategy.PATCH,
+            graph,
+            dry_run=True,
+        )
+
+        graph.emit.assert_not_called()
+        graph.emit_mcp.assert_not_called()
+
+    def test_unknown_entity_type_raises_rather_than_fetching_everything(self) -> None:
+        """An entity type the CLI can't model must fail loudly, not fetch+delete all.
+
+        get_aspects_for_entity treats an empty aspect list as 'no filter', so without
+        this guard the merge would copy every system aspect and then delete the source.
+        """
+        with pytest.raises(ValueError, match="no migratable aspects"):
+            merge_entity(
+                "urn:li:madeUpEntity:old",
+                "urn:li:madeUpEntity:new",
+                ConflictStrategy.PATCH,
+                MagicMock(),
+                dry_run=True,
+            )
+
+    def test_every_registry_aspect_lands_in_exactly_one_generic_bucket(self) -> None:
+        """Structural guard: no migratable aspect can silently fall through the
+        generic path. Every aspect is unioned, reseated, intentionally excluded, or
+        copied conflict-aware — and the three explicit buckets never overlap (a double
+        bucket would double-write). This is the invariant that would have caught the
+        upstreamLineage, containerProperties, and schemaMetadata drops.
+        """
+        unioned = migration_utils._GENERIC_UNIONABLE_ASPECTS
+        reseated = migration_utils.ALWAYS_OVERWRITE_ASPECTS
+        excluded = migration_utils.MERGE_EXCLUDED_ASPECTS
+
+        assert unioned.isdisjoint(reseated)
+        assert unioned.isdisjoint(excluded)
+        assert reseated.isdisjoint(excluded)
+
+        handled_elsewhere = unioned | reseated | excluded
+        for entity_type in ENTITY_TYPE_TO_ASPECT_NAMES:
+            if entity_type == "dataset":
+                continue  # dataset runs the full pipeline, not the generic path
+            for aspect in get_migratable_aspect_names(entity_type):
+                unioned_here = aspect in unioned
+                reseated_here = aspect in reseated
+                excluded_here = aspect in excluded
+                copied_here = aspect not in handled_elsewhere
+                # Exactly one of the four handlers claims each aspect.
+                assert (
+                    sum([unioned_here, reseated_here, excluded_here, copied_here]) == 1
+                ), f"{entity_type}.{aspect} is not handled by exactly one bucket"
 
     @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
     def test_container_patch_reseats_container_properties(

@@ -74,10 +74,10 @@ ADDITIVE_ASPECTS = {
     "upstreamLineage",
 }
 
-# The additive aspects that the entity-agnostic patch builder can actually union.
-# upstreamLineage is additive but only unionable through DatasetPatchBuilder's
-# lineage template, so on non-dataset entities it is copied conflict-aware rather
-# than unioned (see _merge_generic_entity) — otherwise it would be silently dropped.
+# The additive aspects the entity-agnostic patch builder can union. upstreamLineage
+# is additive but only unionable through DatasetPatchBuilder's dataset-only lineage
+# template, so on non-dataset entities it falls into the conflict-aware complement
+# in _merge_generic_entity rather than being unioned here.
 _GENERIC_UNIONABLE_ASPECTS = {
     "ownership",
     "globalTags",
@@ -345,10 +345,14 @@ class _AdditivePatchBuilder(
     HasStructuredPropertiesPatch,
     MetadataPatchProposal,
 ):
-    """Only the aspect mixins whose patch templates GMS registers per-aspect
-    regardless of entity type, so — unlike DatasetPatchBuilder, which also carries
-    dataset-only schema/lineage/customProperties surface — this is safe on any
-    entity: schemaField, chart, dashboard, etc."""
+    """Only the aspect mixins that set ``array_primary_keys`` on their patches.
+
+    GMS routes any patch carrying non-empty ``arrayPrimaryKeys`` through
+    ``applyGenericPatch``, which unions by those keys without needing a registered
+    per-aspect template — so this is safe on any entity type (schemaField, chart,
+    dashboard, ...), unlike DatasetPatchBuilder which also carries dataset-only
+    schema/lineage/customProperties surface. A fifth mixin is only valid here if it
+    likewise sets ``array_primary_keys``."""
 
 
 def _apply_union_patches(
@@ -660,16 +664,20 @@ def _merge_additive_aspects_generic(
     dst_urn: str,
     graph: DataHubGraph,
     dry_run: bool,
-) -> int:
-    # Non-dataset counterpart to merge_additive_aspects, minus upstreamLineage
-    # (no non-dataset entity carries it). Returns the number of MCPs emitted.
+) -> List[str]:
+    # Non-dataset counterpart to merge_additive_aspects: unions only the
+    # entity-agnostic aspects (no dataset-only lineage template). Returns the
+    # aspect names that actually produced a patch — an empty GlobalTagsClass(tags=[])
+    # yields no MCP, so it must not be reported as merged.
     patch_builder = _AdditivePatchBuilder(dst_urn)
     _apply_union_patches(patch_builder, src_aspects)
-    mcps = patch_builder.build()
-    for mcp in mcps:
+    emitted: List[str] = []
+    for mcp in patch_builder.build():
         if not dry_run:
             graph.emit(mcp)
-    return len(mcps)
+        if mcp.aspectName:
+            emitted.append(mcp.aspectName)
+    return emitted
 
 
 def _merge_generic_entity(
@@ -680,14 +688,26 @@ def _merge_generic_entity(
     dry_run: bool,
     rewrite_urn: Optional[Callable[[str], str]] = None,
 ) -> MergeResult:
-    # Additive union of the union-able aspects + conflict-aware handling of the
-    # rest, so an existing non-dataset target's curated metadata is never clobbered.
+    # Additive union of the union-able aspects + conflict-aware handling of
+    # everything else, so an existing non-dataset target's curated metadata is
+    # never clobbered.
     entity_type = guess_entity_type(dst_urn)
+    aspect_names = get_migratable_aspect_names(entity_type)
+    # An empty list means the CLI's codegen registry doesn't model this entity
+    # type. cli_utils.get_aspects_for_entity treats [] as "no filter" and would
+    # fetch *everything* — including the system aspects the exclusion lists exist
+    # to keep out — and then the source gets deleted. Fail loudly instead.
+    if not aspect_names:
+        raise ValueError(
+            f"Cannot merge onto '{dst_urn}': no migratable aspects are known for "
+            f"entity type '{entity_type}'. The CLI's entity registry is likely "
+            f"older than this entity type; upgrade acryl-datahub before migrating it."
+        )
     src_aspect_map = cli_utils.get_aspects_for_entity(
         graph._session,
         graph.config.server,
         src_urn,
-        aspects=get_migratable_aspect_names(entity_type),
+        aspects=aspect_names,
         typed=True,
     )
 
@@ -710,27 +730,11 @@ def _merge_generic_entity(
         if k in _GENERIC_UNIONABLE_ASPECTS and isinstance(v, DictWrapper)
     }
     if additive:
-        total_merged += _merge_additive_aspects_generic(
+        merged_names = _merge_additive_aspects_generic(
             additive, dst_urn, graph, dry_run
         )
-        all_merged_aspects.extend(additive.keys())
-
-    # Additive aspects with no entity-agnostic union template (upstreamLineage on
-    # semanticModel/aiAgent): copy conflict-aware so lineage is preserved, not
-    # silently dropped as it would be if left classified-but-unhandled.
-    merged, skipped, ld_merged, ld_skipped = _copy_aspects_conflict_aware(
-        ADDITIVE_ASPECTS - _GENERIC_UNIONABLE_ASPECTS,
-        src_aspect_map,
-        dst_urn,
-        src_urn,
-        graph,
-        on_conflict,
-        dry_run,
-    )
-    total_merged += merged
-    total_skipped += skipped
-    all_merged_aspects.extend(ld_merged)
-    all_skipped_aspects.extend(ld_skipped)
+        total_merged += len(merged_names)
+        all_merged_aspects.extend(merged_names)
 
     # _merge_default_aspects skips ALWAYS_OVERWRITE_ASPECTS, so a container reached
     # via urns-mapping would otherwise silently drop containerProperties (whose
@@ -744,13 +748,22 @@ def _merge_generic_entity(
             total_merged += 1
             all_merged_aspects.append(aspect_name)
 
-    merged, skipped, def_merged_names, def_skipped_names = _merge_default_aspects(
-        src_aspect_map, dst_urn, src_urn, graph, on_conflict, dry_run
+    # Everything not handled above is copied conflict-aware. Taking the complement
+    # (rather than enumerating buckets) means a NON_ADDITIVE/MIXED aspect that a
+    # non-dataset entity happens to carry — e.g. schemaMetadata on glossaryTerm, or
+    # upstreamLineage on a semanticModel — and any newly-modeled aspect can never
+    # silently fall through and be lost when the source is deleted.
+    handled_elsewhere = (
+        _GENERIC_UNIONABLE_ASPECTS | ALWAYS_OVERWRITE_ASPECTS | MERGE_EXCLUDED_ASPECTS
+    )
+    remaining = [name for name in src_aspect_map if name not in handled_elsewhere]
+    merged, skipped, r_merged, r_skipped = _copy_aspects_conflict_aware(
+        remaining, src_aspect_map, dst_urn, src_urn, graph, on_conflict, dry_run
     )
     total_merged += merged
     total_skipped += skipped
-    all_merged_aspects.extend(def_merged_names)
-    all_skipped_aspects.extend(def_skipped_names)
+    all_merged_aspects.extend(r_merged)
+    all_skipped_aspects.extend(r_skipped)
 
     return MergeResult(
         merged=total_merged,
