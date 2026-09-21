@@ -1,9 +1,9 @@
-# `from __future__ import annotations` is load-bearing: TYPE_CHECKING-only names
-# (SchemaInfo, SchemaResolver) appear in dataclass fields and signatures below, which
-# would otherwise be evaluated at class-body execution. This module is imported eagerly
-# on every source's get_workunit_processors() path, so the schema_resolver imports are
-# deferred to a single chokepoint in __init__, which runs only after should_enable()
-# confirms the feature is on and a graph exists.
+# `from __future__ import annotations` is load-bearing: SchemaInfo is TYPE_CHECKING-only
+# and appears in the _Resolution dataclass field and _schema_of's return annotation,
+# both of which would otherwise be evaluated at class-body execution. This module is
+# imported eagerly on every source's get_workunit_processors() path, so the
+# schema_resolver imports are deferred to a single chokepoint in __init__, which runs
+# only after should_enable() confirms the feature is on and a graph exists.
 from __future__ import annotations
 
 import logging
