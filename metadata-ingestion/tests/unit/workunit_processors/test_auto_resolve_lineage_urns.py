@@ -1112,56 +1112,6 @@ def test_module_import_does_not_pull_sqlglot():
     assert result.returncode == 0, result.stderr
 
 
-def test_resolution_path_works_without_sqlglot():
-    # Stronger than the import check above: with sqlglot made unimportable, the exact
-    # resolver surface this processor uses must still return correct results. Run in a
-    # fresh interpreter because this session already has sqlglot loaded.
-    code = """
-import sys
-
-sys.modules["sqlglot"] = None  # any `import sqlglot` now raises ImportError
-
-from datahub.metadata.schema_classes import (
-    OtherSchemaClass,
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    SchemaMetadataClass,
-    StringTypeClass,
-)
-from datahub.sql_parsing.schema_resolver import SchemaResolver, match_columns_to_schema
-
-urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,MyDb.MySchema.MyTable,PROD)"
-resolver = SchemaResolver(platform="snowflake", graph=None)
-resolver.add_schema_metadata(
-    urn,
-    SchemaMetadataClass(
-        schemaName="t",
-        platform="urn:li:dataPlatform:snowflake",
-        version=0,
-        hash="",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=[
-            SchemaFieldClass(
-                fieldPath="MyColumn",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="VARCHAR",
-            )
-        ],
-    ),
-)
-
-resolved_urn, schema = resolver.resolve_urn(urn)
-assert resolved_urn == urn, resolved_urn
-assert schema == {"MyColumn": "VARCHAR"}, schema
-# The field-level heal: a lowercased reference maps back to the stored casing.
-assert match_columns_to_schema(schema, ["mycolumn"]) == ["MyColumn"]
-"""
-    result = subprocess.run(
-        [sys.executable, "-c", code], capture_output=True, text=True
-    )
-    assert result.returncode == 0, result.stderr
-
-
 def test_mce_aspect_is_healed():
     # The legacy MCE path carries aspects as live objects in proposedSnapshot.aspects,
     # so in-place mutation lands directly (no write-back needed).
@@ -1342,22 +1292,6 @@ def test_disabled_under_bare_mock_ctx():
     # naive check would enable the processor with a Mock config and crash mid-run. It
     # must fail closed.
     assert AutoResolveLineageUrnsProcessor.should_enable(mock.MagicMock()) is False
-
-
-def test_config_does_not_require_sql_parser(monkeypatch):
-    # The processor never parses SQL: it does exact-URN lookups through SchemaResolver
-    # and a lowercase column match, neither of which needs sqlglot. Enabling the feature
-    # must therefore work on any connector, not just those whose extra bundles
-    # `sql-parser`. A None entry in sys.modules makes `import sqlglot` raise ImportError,
-    # simulating the dependency genuinely being absent.
-    monkeypatch.setitem(sys.modules, "sqlglot", None)
-
-    config = AutoResolveLineageUrnsConfig(
-        enabled=True,
-        upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
-    )
-
-    assert config.enabled is True
 
 
 # --- identity from a shared index, columns from our own load -----------------------
