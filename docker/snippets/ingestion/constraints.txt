@@ -8,8 +8,9 @@ jaraco.context>=6.1.0,<7
 # CVE-2026-45409: DoS via idna.encode() on crafted inputs (bypass of CVE-2024-3651 fix).
 # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
 idna>=3.15,<4.0.0
-# urllib3: CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 fixed in >=2.6.3.
-# Not pinned here: acryl-great-expectations (via acryl-datahub[snowflake]) requires urllib3<1.27.
+# urllib3: CVE-2025-50181 (2.5.0); CVE-2025-66418, CVE-2025-66471 (2.6.0); CVE-2026-21441 (2.6.3);
+# CVE-2026-44431 (2.7.0).
+urllib3>=2.7.0,<3.0.0
 # PyJWT: GHSA-xgmm-8j9v-c9wx (JWK-as-HMAC confusion); fixed in >=2.13.0
 PyJWT>=2.13.0
 # pyOpenSSL: CVE-2026-27459; 26.4.0+ required with cryptography>=49

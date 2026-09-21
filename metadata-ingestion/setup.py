@@ -43,6 +43,11 @@ base_requirements = {
     # docker/snippets/ingestion/constraints.txt only — avoid a lower bound here so
     # installs alongside Airflow constraints remain satisfiable.
     "setuptools<82.0.0",
+    # Floor at 2.5.0 — the highest the airflow-plugin CI
+    # tolerates (Airflow 3.0.x/3.1.x pin urllib3==2.5.0, 3.2.x pins 2.6.3). The stronger
+    # >=2.7.0 floor for the remaining CVEs is applied at lock time via pyproject
+    # [tool.uv] constraint-dependencies, keeping this bound Airflow-satisfiable.
+    "urllib3>=2.5.0,<3.0",
 }
 
 gcp_sm_common = {
@@ -232,10 +237,6 @@ aws_common = {
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
-    # Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441)
-    # fixed in urllib3>=2.6.0
-    # We cannot require >=2.6.0 due to great expectations
-    "urllib3>=1.26,<3.0",
     "botocore!=1.23.0,<2.0.0",
 }
 
@@ -656,11 +657,10 @@ plugins: Dict[str, Set[str]] = {
     "dremio": {"requests<3.0.0"} | sql_common,
     "druid": sql_common | {"pydruid>=0.6.2,<=0.6.9"},
     "dynamodb": aws_common | classification_lib,
-    # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
-    # UnsupportedProductError
-    # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
-    # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
-    "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
+    # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects
+    # OpenSearch, and elasticsearch==7.13.4 requires urllib3<2.
+    # 3.x generated APIs are keyword-only; require >=3 so 2.x is not installed.
+    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
@@ -883,6 +883,9 @@ all_exclude_plugins: Set[str] = {
     # The great-expectations extra is only retained for compatibility, but new users should
     # be using the datahub-gx-plugin package instead.
     "great-expectations",
+    # acryl-great-expectations 0.15.50.1 requires urllib3<1.27. Keep the extra installable
+    # for GE SQL profiling, but out of [all] so urllib3 2.x can lock for unstructured 0.24.1.
+    "profiling-ge",
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
