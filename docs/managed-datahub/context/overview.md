@@ -1,5 +1,5 @@
 ---
-title: Context Overview
+title: DataHub Context Overview
 description: "DataHub Context delivers trusted, human-validated context to AI agents, increasing their accuracy and reliability in production."
 visible-if:
   showContextHub: true
@@ -71,13 +71,13 @@ Configure [Domains](https://docs.datahub.com/docs/domains) with owners (users or
 
 ## Who Needs What Access
 
-| Role               | Action Required                                                                                                                                 | Allowable Context Actions                                                                                                                                                        |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Admin**          | Admin adds users who need the allowed context actions. Default privileges: `MANAGE_DOCUMENTS`, `MANAGE_ALL_DOCUMENT_PROPOSALS`, `MANAGE_AGENTS` | Configure context generation; create and edit metadata eval questions; view and edit all unpublished context documents and context proposals                                     |
-| **Editor**         | Admin adds Data Expert / SME users to the Editor role. Default privileges: `MANAGE_DOCUMENTS`, `MANAGE_DOCUMENT_PROPOSALS, MANAGE_EVALS`        | View, edit, comment on, manage publish state of, and approve/reject context document proposals; edit and delete context documents; view, create, edit, and delete metadata evals |
-| **Reader**         | Admin adds users to view published context                                                                                                      | View published context documents only                                                                                                                                            |
-| **Specific users** | Admin grants the `MANAGE_DOCUMENTS` privilege                                                                                                   | View and edit context proposals; view, edit, and delete context documents                                                                                                        |
-| **Specific users** | Admin grants the `MANAGE_DOCUMENT_PROPOSALS` privilege                                                                                          | View, manage publish state of, edit, comment on, and approve/reject context proposals                                                                                            |
+| Role               | Action Required                                                                                                                                               | Allowable Context Actions                                                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Admin**          | Admin adds users who need the allowed context actions. Default privileges: `MANAGE_DOCUMENTS`, `MANAGE_ALL_DOCUMENT_PROPOSALS`, `MANAGE_AGENTS, MANAGE_EVALS` | Configure context generation; create and edit metadata eval questions; view and edit all unpublished context documents and context proposals                                     |
+| **Editor**         | Admin adds Data Expert / SME users to the Editor role. Default privileges: `MANAGE_DOCUMENTS`, `MANAGE_DOCUMENT_PROPOSALS, MANAGE_EVALS`                      | View, edit, comment on, manage publish state of, and approve/reject context document proposals; edit and delete context documents; view, create, edit, and delete metadata evals |
+| **Reader**         | Admin adds users to view published context                                                                                                                    | View published context documents only                                                                                                                                            |
+| **Specific users** | Admin grants the `MANAGE_DOCUMENTS` privilege                                                                                                                 | View and edit context proposals; view, edit, and delete context documents                                                                                                        |
+| **Specific users** | Admin grants the `MANAGE_DOCUMENT_PROPOSALS` privilege                                                                                                        | View, manage publish state of, edit, comment on, and approve/reject context proposals                                                                                            |
 
 ## Best Practices for Context Validation
 
