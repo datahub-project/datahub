@@ -495,14 +495,21 @@ def _node_local_stable_name(
     and that holds for a cache outliving the process. This one is node-local
     and dies with the pod, so the staleness window is the pod's lifetime.
 
-    Dev-build wheel URLs are included, for the opposite reason: a Pages
-    deployment address names exactly one immutable build, so it is a content
-    address in a way `latest` is not. They were excluded over storage -- every
-    wheel tested leaves an entry behind -- which is what evict_to_budget and
-    the age sweep exist to reclaim, and an untouched dev build is the first
-    thing either reclaims. The same host also serves branch aliases that move,
-    which is the same exposure `latest` already carries and is bounded the
-    same way.
+    Dev-build wheel URLs are included, for the opposite reason: the build
+    pipeline hands out a per-deployment address, which names exactly one
+    immutable build, so it is a content address in a way `latest` is not. A
+    new commit is a new deployment and therefore a new key.
+
+    They were excluded over storage -- every wheel tested leaves an entry
+    behind. evict_to_budget is the only thing that reclaims those, and it runs
+    only when the cache is over its byte budget, so on a pod that stays under
+    budget a dev-build entry lives until the pod does. That is the cost of
+    this choice; accept it or add an age-based sweep, which does not exist.
+
+    The same host would also serve a branch alias, which moves, and hashing
+    one would pin a stale build. Nothing in the pipeline emits such a URL --
+    it publishes the deployment address -- so this is only reachable by
+    hand-writing one.
 
     Only the VENV becomes reusable. The PACKAGE cache stays bypassed for dev
     builds (UV_NO_CACHE=1 in setup_venv) and must: every dev wheel ships as the
@@ -570,10 +577,11 @@ def _name_dynamic_venv(
         a probe and the ingestion run it predicts install the same version,
         which resolving twice does not.
       - A dev-build wheel URL, which unlike `latest` names one immutable
-        build. Excluded until now over storage, which evict_to_budget and the
-        age sweep answer. It is the only version a probe can run before the
-        `recipe probe` command ships, so leaving it uncacheable made every
-        probe re-download its wheel -- about 4.4s of a 7-9s probe, every time.
+        build. Excluded until now over storage, which only evict_to_budget
+        bounds -- and only once the cache is over budget. It is the only
+        version a probe can run before the `recipe probe` command ships, so
+        leaving it uncacheable made every probe re-download its wheel --
+        about 4.4s of a 7-9s probe, every time.
 
     Everything else still gets a random, per-run name.
 

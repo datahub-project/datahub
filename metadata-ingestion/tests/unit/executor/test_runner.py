@@ -1713,6 +1713,107 @@ class TestVenvCacheInSetupVenv:
         assert first.venv_loc != second.venv_loc
         assert second_installs, "a different requirement set reused an entry"
 
+    # Every version whose name the cache is willing to reuse. The two existing
+    # identity tests only used a pinned version, which routes through
+    # get_stable_venv_name -- so _node_local_stable_name, the function that
+    # makes `latest` (the default for EVERY recipe) and dev wheels cacheable,
+    # had no identity coverage at all. Deleting both of its hash inputs left
+    # the whole suite green.
+    CACHEABLE_VERSIONS = [
+        pytest.param("0.15.0.1", id="pinned"),
+        pytest.param("latest", id="latest"),
+        pytest.param("https://b983b409.datahub-wheels.pages.dev/", id="dev-wheel"),
+    ]
+
+    async def _build_counting_installs(
+        self, tmp_path: pathlib.Path, config: VenvConfig
+    ) -> Tuple[VenvReference, int]:
+        """Build once, returning the reference and how many installs it took.
+
+        A tuple rather than an attribute on VenvReference: mypy covers tests/
+        here, and assigning an undeclared field to a dataclass fails it.
+        """
+        runner = SubprocessRunner(LogHolder())
+        mock = self._mock_execute()
+        with patch.object(runner, "execute", mock):
+            ref = await setup_venv(config, runner, tmp_path / "exec")
+        return ref, len([c for c in mock.call_args_list if "install" in c[0][0]])
+
+    @pytest.mark.parametrize("version", CACHEABLE_VERSIONS)
+    async def test_different_requirements_never_share_an_entry(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, version: str
+    ) -> None:
+        """Two requirement sets must not land on one venv, on ANY cacheable version.
+
+        Serving one venv for two different requirement sets is a wrong-answer
+        bug, not a slow one: the second recipe runs against the first's
+        dependencies. The pinned case was already covered; `latest` and dev
+        wheels were not, and they are the ones that go through
+        _node_local_stable_name.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        first, _ = await self._build_counting_installs(
+            tmp_path,
+            VenvConfig(
+                version=version,
+                main_plugin="snowflake",
+                extra_pip_requirements=["pandas==2.0.0"],
+            ),
+        )
+        assert first.lock is not None
+        first.lock.release()
+
+        second, second_installs = await self._build_counting_installs(
+            tmp_path,
+            VenvConfig(
+                version=version,
+                main_plugin="snowflake",
+                extra_pip_requirements=["pandas==2.1.0"],
+            ),
+        )
+        assert second.lock is not None
+        second.lock.release()
+
+        assert first.venv_loc != second.venv_loc, (
+            "two requirement sets shared one cache entry"
+        )
+        assert second_installs, "the second requirement set reused an entry"
+
+    @pytest.mark.parametrize("version", CACHEABLE_VERSIONS)
+    async def test_different_plugins_never_share_an_entry(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, version: str
+    ) -> None:
+        """extra_pip_plugins changes what is installed, so it must change the key.
+
+        Not varied anywhere else at the cache level, for any version, even
+        though it is hashed alongside the requirements.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        first, _ = await self._build_counting_installs(
+            tmp_path,
+            VenvConfig(
+                version=version, main_plugin="snowflake", extra_pip_plugins=["athena"]
+            ),
+        )
+        assert first.lock is not None
+        first.lock.release()
+
+        second, second_installs = await self._build_counting_installs(
+            tmp_path,
+            VenvConfig(
+                version=version, main_plugin="snowflake", extra_pip_plugins=["bigquery"]
+            ),
+        )
+        assert second.lock is not None
+        second.lock.release()
+
+        assert first.venv_loc != second.venv_loc, (
+            "two plugin sets shared one cache entry"
+        )
+        assert second_installs, "the second plugin set reused an entry"
+
     async def test_a_dev_build_is_cached_but_its_packages_are_not(
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
