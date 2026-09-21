@@ -1,8 +1,10 @@
 import json
 from typing import Any, Dict, List, Optional, cast
+from unittest.mock import patch
 
 import pytest
 
+from datahub.configuration.common import PipelineExecutionError
 from datahub.emitter.mce_builder import make_container_urn
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sigma.config import SigmaSourceReport
@@ -460,6 +462,23 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
             "status_code": 200,
             "json": [],
         }
+
+    # A real tenant always answers these two, with an empty list when it has no
+    # data models. Tests that exercise data models override both with
+    # get_mock_data_model_api(); leaving them unregistered would make every
+    # other test abort the listing, which is now reported as a failure.
+    api_vs_response["https://aws-api.sigmacomputing.com/v2/dataModels"] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": [], "total": 0, "nextPage": None},
+    }
+    api_vs_response[
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": [], "total": 0, "nextPage": None},
+    }
 
     # Default /v2/connections mock (one Snowflake connection). Every Sigma
     # integration test now exercises the connection registry build at
@@ -1875,6 +1894,241 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
         output_path=output_path,
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@pytest.mark.integration
+def test_a_dead_listing_does_not_soft_delete_what_it_could_not_list(
+    tmp_path, requests_mock, mock_datahub_graph
+):
+    """The causal claim, with stateful ingestion actually on.
+
+    Run 1 is healthy and checkpoints every entity. Run 2 gets a 500 on
+    /v2/workbooks, so it emits none of them. Before this change that run
+    reported success and `StaleEntityRemovalHandler` soft-deleted every
+    workbook the first run had emitted. Now the run fails, and the handler
+    copies the previous state forward instead.
+
+    `fail_safe_threshold=100` turns off the percentage backstop, so what is
+    being tested is the failure guard itself and nothing else.
+    """
+
+    def recipe(output_path: str) -> Dict[str, Any]:
+        config = _minimal_sigma_pipeline_config(output_path)
+        config["pipeline_name"] = "sigma_stateful_test"
+        config["source"]["config"]["stateful_ingestion"] = {
+            "enabled": True,
+            "remove_stale_metadata": True,
+            "fail_safe_threshold": 100.0,
+            "state_provider": {
+                "type": "datahub",
+                "config": {"datahub_api": {"server": "http://localhost:8080"}},
+            },
+        }
+        return config
+
+    def soft_deletes(path: str) -> List[str]:
+        with open(path) as f:
+            return [
+                mce["entityUrn"]
+                for mce in json.load(f)
+                if mce.get("aspectName") == "status"
+                and mce.get("aspect", {}).get("json", {}).get("removed") is True
+            ]
+
+    with patch(
+        "datahub.ingestion.source.state_provider."
+        "datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        register_mock_api(request_mock=requests_mock)
+        healthy_path = f"{tmp_path}/sigma_stateful_run1_mces.json"
+        healthy = Pipeline.create(recipe(healthy_path))
+        healthy.run()
+        healthy.raise_from_status()
+        assert soft_deletes(healthy_path) == []
+
+        register_mock_api(
+            request_mock=requests_mock,
+            override_data={
+                "https://aws-api.sigmacomputing.com/v2/workbooks": {
+                    "method": "GET",
+                    "status_code": 500,
+                    "json": {},
+                }
+            },
+        )
+        broken_path = f"{tmp_path}/sigma_stateful_run2_mces.json"
+        broken = Pipeline.create(recipe(broken_path))
+        broken.run()
+        with pytest.raises(PipelineExecutionError):
+            broken.raise_from_status()
+
+    assert _sigma_report(broken).entity_enumeration_failed == 1
+    # The point of the whole PR: the entities run 1 emitted and run 2 could
+    # not list are NOT soft-deleted.
+    assert soft_deletes(broken_path) == []
+
+
+@pytest.mark.integration
+def test_sigma_run_fails_when_a_run_wide_listing_dies(tmp_path, requests_mock):
+    """The causal chain this PR exists for, end to end through Pipeline.
+
+    A dead /v2/workbooks listing means every workbook is missing from this
+    run. If the run reports success, stale-entity removal reads that as "all
+    workbooks deleted" and soft-deletes them; the framework only suppresses
+    soft-deletion when the source reports a FAILURE. So the run must fail.
+    """
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data={
+            "https://aws-api.sigmacomputing.com/v2/workbooks": {
+                "method": "GET",
+                "status_code": 500,
+                "json": {},
+            }
+        },
+    )
+
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(f"{tmp_path}/sigma_workbooks_5xx_mces.json")
+    )
+    pipeline.run()
+    with pytest.raises(PipelineExecutionError):
+        pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.entity_enumeration_failed == 1
+    assert report.api_call_failures_by_status_or_error == {"500": 1}
+
+
+@pytest.mark.integration
+def test_sigma_removed_dataset_api_can_be_turned_off(tmp_path, requests_mock):
+    """Sigma ended dataset support on 2026-09-15, so a 410 on /v2/datasets is
+    a foreseeable end state rather than a transient fault.
+
+    It still fails the run -- the listing is run-wide, and letting it pass
+    would soft-delete every Sigma Dataset on that run. ``ingest_datasets``
+    exists so the operator can make that call deliberately instead of living
+    with a permanently red run and permanently frozen stale-entity removal.
+    """
+    override_data = {
+        "https://aws-api.sigmacomputing.com/v2/datasets": {
+            "method": "GET",
+            "status_code": 410,
+            "json": {"code": "gone"},
+        }
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(f"{tmp_path}/sigma_datasets_410_mces.json")
+    )
+    pipeline.run()
+    with pytest.raises(PipelineExecutionError):
+        pipeline.raise_from_status()
+    report = _sigma_report(pipeline)
+    assert report.entity_enumeration_failed == 1
+    assert report.datasets_listing_failed == 1
+    context = "".join(str(c) for c in report.failures[0].context)
+    assert "ingest_datasets=False" in context
+
+    opted_out = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            f"{tmp_path}/sigma_datasets_off_mces.json", ingest_datasets=False
+        )
+    )
+    opted_out.run()
+    opted_out.raise_from_status()
+    opted_out_report = _sigma_report(opted_out)
+    assert opted_out_report.entity_enumeration_failed == 0
+
+    # No Sigma Dataset survives the opt-out, by any route. The SQL-correlation
+    # branch used to build the URN straight from the lineage node id without
+    # consulting the flag, leaving a lineage-only shell that was never
+    # refreshed and -- because it stayed in the checkpoint -- never
+    # soft-deleted either. Charts keep their warehouse lineage directly.
+    with open(f"{tmp_path}/sigma_datasets_off_mces.json") as f:
+        opted_out_mces = json.load(f)
+    sigma_datasets = [
+        mce["entityUrn"]
+        for mce in opted_out_mces
+        if mce.get("entityType") == "dataset"
+        and "dataPlatform:sigma" in mce.get("entityUrn", "")
+    ]
+    assert sigma_datasets == []
+
+    # And the chart keeps the edge, via the caller's re-add of the tables the
+    # dataset branch no longer consumes. Asserted on ONE chart whose only
+    # input with the flag ON is the Sigma Dataset, so the warehouse URN can
+    # only have arrived through that re-add -- a whole-file "some snowflake
+    # URN exists" check passes even if the re-add is broken, since the
+    # fixture has other Snowflake lineage.
+    chart_inputs = [
+        # chartInfo inputs are {"string": urn} objects, not bare strings.
+        inp.get("string", "") if isinstance(inp, dict) else str(inp)
+        for mce in opted_out_mces
+        if mce.get("entityType") == "chart"
+        and mce.get("entityUrn") == "urn:li:chart:(sigma,Ml9C5ezT5W)"
+        and mce.get("aspectName") == "chartInfo"
+        for inp in mce.get("aspect", {}).get("json", {}).get("inputs", [])
+    ]
+    assert any(
+        "dataPlatform:snowflake" in inp and "adoption.pets" in inp
+        for inp in chart_inputs
+    ), f"chart lost its warehouse edge when datasets were turned off: {chart_inputs}"
+    # The opt-out must never be reported as a filtering choice; the branch
+    # that guarantees it is unit-tested in
+    # TestDatasetIngestionDisabled, since this
+    # fixture's elements do not reach the unresolvable-dataset path.
+    assert "workspace_pattern" not in "".join(
+        entry.message for entry in opted_out_report.infos
+    )
+
+
+@pytest.mark.integration
+def test_sigma_unentitled_data_models_can_be_turned_off(tmp_path, requests_mock):
+    """A 403 on /v2/dataModels fails the run, and the way out is to stop
+    making the call.
+
+    Treating the 403 as "nothing to list" would be worse than a red run: on a
+    scope REVOCATION the previous checkpoint still holds every Data Model, so
+    letting the run pass would soft-delete all of them on that run. The status
+    cannot distinguish a revocation from a token that never had the scope.
+    ``ingest_data_models=False`` removes the call, so the run is green. Note
+    what that costs: no DM entities are emitted, so stale-entity removal
+    soft-deletes every Data Model a previous run emitted. That is correct --
+    it is an explicit decision to stop ingesting them -- but it is a decision,
+    not a free way out of a red run.
+    """
+    override_data = {
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 403,
+            "json": {"code": "forbidden"},
+        }
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(f"{tmp_path}/sigma_dm_403_mces.json")
+    )
+    pipeline.run()
+    with pytest.raises(PipelineExecutionError):
+        pipeline.raise_from_status()
+    assert _sigma_report(pipeline).entity_enumeration_failed == 1
+
+    # No re-registration: requests_mock serves a plain json= response
+    # indefinitely, so the mocks from above are still live.
+    opted_out = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            f"{tmp_path}/sigma_dm_off_mces.json", ingest_data_models=False
+        )
+    )
+    opted_out.run()
+    opted_out.raise_from_status()
+    assert _sigma_report(opted_out).entity_enumeration_failed == 0
 
 
 def _minimal_sigma_pipeline_config(output_path: str, **extra: Any) -> Dict[str, Any]:
@@ -4898,8 +5152,13 @@ def test_sigma_ingest_data_models_elements_http_error(
     pytestconfig, tmp_path, requests_mock
 ):
     """Partial-failure regression: ``/dataModels/{id}/elements`` returning 500
-    leaves the rest of the run healthy. The DM Container should still be
-    emitted with zero elements, and the pipeline must not raise.
+    leaves the rest of the run healthy. The DM Container is still emitted with
+    zero elements, and the pipeline must not raise.
+
+    This listing is scoped to ONE Data Model, so it is counted rather than
+    failed: failing it would let one flaky child call freeze stale-entity
+    removal for the whole tenant. The loss is bounded to this DM's elements,
+    and ``fail_safe_threshold`` still catches a wipe.
     """
 
     override_data = get_mock_data_model_api()
@@ -4912,8 +5171,12 @@ def test_sigma_ingest_data_models_elements_http_error(
     output_path = f"{tmp_path}/sigma_dm_elements_5xx_mces.json"
     pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
     pipeline.run()
-    # Must not raise — _paginated_entries swallows and returns [].
     pipeline.raise_from_status()
+    report = _sigma_report(pipeline)
+    assert report.child_entity_listing_failed == 1
+    assert report.entity_enumeration_failed == 0
+    assert report.pagination_aborted == 1
+    assert report.api_call_failures_by_status_or_error == {"500": 1}
 
     with open(output_path) as f:
         mces = json.load(f)
@@ -7984,3 +8247,28 @@ def test_dataset_warehouse_upstream_survives_empty_element_sql(
     # exception here would otherwise pass silently, since goldens and counters
     # above would both still look right.
     assert not report.warnings, f"unexpected warnings: {list(report.warnings)}"
+
+
+@pytest.mark.integration
+def test_sigma_dataset_opt_out_is_silent_when_nothing_is_lost(tmp_path, requests_mock):
+    """The opt-out reports only when it actually costs lineage."""
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            f"{tmp_path}/sigma_dataset_opt_out_mces.json", ingest_datasets=False
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # This fixture's element DOES name SQL tables, so the caller re-adds them
+    # and nothing is lost -- the opt-out must stay silent here, and must never
+    # blame workspace_pattern. The reporting case is unit-tested in
+    # TestDatasetIngestionDisabled, where sql_named_tables can be set.
+    report = _sigma_report(pipeline)
+    messages = "".join(entry.message for entry in report.infos)
+    assert "workspace_pattern" not in messages
+    assert "ingestion disabled" not in "".join(
+        entry.title or "" for entry in report.infos
+    )

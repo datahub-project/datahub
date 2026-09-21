@@ -53,8 +53,12 @@ class Workspace(BaseModel):
     def update_values(cls, values: Dict) -> Dict:
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
-        # Update name if presonal workspace
-        if values["name"] == "User Folder":
+        # Update name if presonal workspace.
+        # .get, not [...]: a KeyError raised inside a `before` validator is
+        # NOT converted to a ValidationError, so a row missing `name` used to
+        # escape as a bare KeyError and be reported as a malformed response
+        # rather than a malformed row.
+        if values.get("name") == "User Folder":
             values["name"] = "My documents"
         return values
 

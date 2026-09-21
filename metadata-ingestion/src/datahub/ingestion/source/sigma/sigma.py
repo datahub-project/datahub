@@ -824,15 +824,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self._dataset_unlisted_warned.add(dataset_url_id)
                 if self.reporter.datasets_listing_failed:
                     # The listing itself failed, so this is not a filtering
-                    # choice. Already warned once by the API layer; keep this
-                    # per-dataset entry an info so the cause stays singular.
+                    # choice. The API layer already reported it once, as a
+                    # FAILURE; keep this per-dataset entry an info so the
+                    # cause stays singular.
                     self.reporter.info(
                         title="Sigma Dataset unresolvable: dataset listing failed",
                         message=(
                             "A workbook element reads a Sigma Dataset, but "
                             "/v2/datasets could not be listed this run, so its "
                             "warehouse table cannot be looked up. See the "
-                            "'Sigma dataset listing failed' warning."
+                            "'Sigma entity listing failed' failure for the "
+                            "cause."
                         ),
                         context=f"dataset_url_id={dataset_url_id}",
                     )
@@ -3780,6 +3782,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Consumes matching entries from ``sql_parser_in_tables`` in place so the
         caller does not later re-add them as direct warehouse inputs.
         """
+        if not self.config.ingest_datasets:
+            # Returning early leaves every entry in ``sql_parser_in_tables``,
+            # which the caller then adds as a DIRECT warehouse input -- so the
+            # chart keeps its lineage to the real table, without a Sigma
+            # Dataset hop. Emitting the dataset URN here instead would leave a
+            # lineage-only shell: never refreshed, and still in the
+            # checkpoint, so stale-entity removal never clears it either.
+            #
+            # Say so when the opt-out actually costs lineage. It only does
+            # when SQL named no tables, because there is then nothing for the
+            # caller to re-add. Once per dataset, not once per element.
+            if not sql_named_tables:
+                dataset_url_id = node_id.split("-")[-1]
+                if dataset_url_id not in self._dataset_unlisted_warned:
+                    self._dataset_unlisted_warned.add(dataset_url_id)
+                    self.reporter.info(
+                        title="Sigma Dataset skipped: dataset ingestion disabled",
+                        message=(
+                            "A workbook element reads a Sigma Dataset, but "
+                            "ingest_datasets is False, so the dataset was "
+                            "never listed and no warehouse table can be "
+                            "attributed to this element. The element's SQL "
+                            "named no tables either, so this lineage is lost "
+                            "rather than routed directly to the warehouse. "
+                            "Set ingest_datasets back to True to recover it."
+                        ),
+                        context=f"dataset_url_id={dataset_url_id}",
+                    )
+            return
         sigma_dataset_id = node_id.split("-")[-1]
         dataset_urn = self._gen_sigma_dataset_urn(sigma_dataset_id)
 
@@ -4627,7 +4658,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # future refactor that reorders or parallelizes the yields
         # cannot silently burn through the ``unresolved_external``
         # counter.
-        datasets = list(self.sigma_api.get_sigma_datasets())
+        # ``/v2/datasets`` is deprecated by Sigma and on a removal path, so a
+        # dead listing here is foreseeable rather than exceptional. It is a
+        # run-wide entity listing, so its failure fails the run -- and a
+        # permanently failed run permanently suppresses stale-entity removal.
+        # ``ingest_datasets=False`` is the way out: no call, no failure.
+        datasets = (
+            list(self.sigma_api.get_sigma_datasets())
+            if self.config.ingest_datasets
+            else []
+        )
         for dataset in datasets:
             self.sigma_dataset_urn_by_url_id[dataset.get_urn_part()] = (
                 self._gen_sigma_dataset_urn(dataset.get_urn_part())
@@ -4762,7 +4802,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             # the workspace_pattern-denied path above.
                             # Emit a structured warning so the operator can
                             # see which DM was dropped and why without
-                            # tailing stdout — get_workspace() only debugs.
+                            # tailing stdout. get_workspace() reports the API
+                            # failure itself, but not which DM it cost.
                             self.reporter.warning(
                                 title="Sigma discovered Data Model dropped: workspace unreachable",
                                 message=(
