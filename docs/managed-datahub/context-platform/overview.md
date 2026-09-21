@@ -17,7 +17,7 @@ DataHub Context is currently in Public Beta. Features, UI, and configuration opt
 
 **DataHub Cloud is an enterprise context platform that provides trusted context to agents**, dramatically increasing their accuracy, reliability, and efficiency in production.
 
-AI agents fail on real data not because they cannot write SQL, but because they do not know which table is authoritative, what a metric actually means, or how your business defines a term. The Context Platform closes that gap by capturing the semantic meaning already latent in your query logs, dbt projects, and BI dashboards, putting it in front of a human expert for validation, and then serving the validated result to any agent your team already uses.
+AI agents fail on real data not because they cannot write SQL, but because they do not know which table is authoritative, what a metric actually means, or how your business defines a term. DataHub Context closes that gap by capturing the semantic meaning already latent in your query logs, dbt projects, and BI dashboards, putting it in front of a human expert for validation, and then serving the validated result to any agent your team already uses.
 
 ## The Four Pillars
 
@@ -112,8 +112,8 @@ A grouping of related data assets in DataHub. Context generation is scoped by do
 
 ## Getting Help
 
-If you run into an issue with the Context Platform, post it in your shared Slack channel with the ticket 🎫 emoji. We respond within one business day.
+If you run into an issue with DataHub Context, post it in your shared Slack channel with the ticket 🎫 emoji. We respond within one business day.
 
 ## Next Steps
 
-Now that you understand the basics of the DataHub Context Platform, you're ready to [Configure Context Generation](configure-context-generation.md).
+Now that you understand the basics of DataHub Context, you're ready to [Configure Context Generation](configure-context-generation.md).
