@@ -19,6 +19,7 @@ from datahub.lite.lite_local import (
     SearchFlavor,
 )
 from datahub.lite.lite_util import get_datahub_lite
+from datahub.lite.sql_backed_lite import SqlBackedLite
 from datahub.lite.sqlite_lite import SqliteLite
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
@@ -320,3 +321,25 @@ def test_sqlite_warns_when_a_duckdb_sibling_exists(
         reopened = _open("sqlite", str(lite_dir / "datahub.db"))
     reopened.close()
     assert "datahub.duckdb" not in caplog.text
+
+
+def test_add_edge_updates_destination_and_label_together(
+    lite: DataHubLiteLocal,
+) -> None:
+    assert isinstance(lite, SqlBackedLite)
+
+    # Changing both halves of an existing edge builds a two-column UPDATE.
+    lite.add_edge("src:1", "name", "dst:A", dst_label="label-A")
+
+    lite.add_edge("src:1", "name", "dst:B", dst_label="label-B", remove_existing=True)
+    assert lite._execute(
+        "SELECT src_id, relnship, dst_id, dst_label FROM metadata_edge_v2 "
+        "WHERE src_id = 'src:1'"
+    ) == [("src:1", "name", "dst:B", "label-B")]
+
+    # Either half alone still works.
+    lite.add_edge("src:1", "name", "dst:C", dst_label="label-B", remove_existing=True)
+    lite.add_edge("src:1", "name", "dst:C", dst_label="label-C")
+    assert lite._execute(
+        "SELECT dst_id, dst_label FROM metadata_edge_v2 WHERE src_id = 'src:1'"
+    ) == [("dst:C", "label-C")]

@@ -440,8 +440,13 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
                     where_params = [src_id, relnship]
 
                 if read_dst_label != dst_label:
+                    # Append rather than replace: when the destination and the
+                    # label both change, dropping the dst_id assignment here
+                    # leaves a leading comma and invalid SQL.
                     update_fragment = (
-                        ",dst_label = ?" if update_fragment else "dst_label = ?"
+                        f"{update_fragment}, dst_label = ?"
+                        if update_fragment
+                        else "dst_label = ?"
                     )
                     update_params += [dst_label]
                     where_clause = "src_id = ? AND relnship = ? AND dst_id = ?"
