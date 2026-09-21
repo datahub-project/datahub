@@ -1,6 +1,6 @@
 import threading
 import unittest
-from typing import Union
+from typing import Union, cast
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -67,7 +67,7 @@ class KafkaSinkTest(unittest.TestCase):
         kafka_sink = DatahubKafkaSink.create(
             {"connection": {"bootstrap": "foobar:9092"}}, mock_context
         )
-        mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+        mock_mcp_producer = cast(MagicMock, kafka_sink.emitter.producers[MCP_KEY])
 
         mce = builder.make_lineage_mce(
             [
@@ -117,7 +117,7 @@ class KafkaSinkTest(unittest.TestCase):
         kafka_sink = DatahubKafkaSink.create(
             {"connection": {"bootstrap": "foobar:9092"}}, mock_context
         )
-        mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+        mock_mcp_producer = cast(MagicMock, kafka_sink.emitter.producers[MCP_KEY])
 
         user_urn = builder.make_user_urn("testuser")
         group_urns = [
@@ -183,7 +183,7 @@ class KafkaSinkTest(unittest.TestCase):
         kafka_sink = DatahubKafkaSink.create(
             {"connection": {"bootstrap": "foobar:9092"}}, mock_context
         )
-        mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+        mock_mcp_producer = cast(MagicMock, kafka_sink.emitter.producers[MCP_KEY])
 
         user_snapshot = models.CorpUserSnapshotClass(
             urn=builder.make_user_urn("testuser"),
@@ -231,7 +231,7 @@ class KafkaSinkTest(unittest.TestCase):
         kafka_sink = DatahubKafkaSink.create(
             {"connection": {"bootstrap": "foobar:9092"}}, mock_context
         )
-        mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+        mock_mcp_producer = cast(MagicMock, kafka_sink.emitter.producers[MCP_KEY])
 
         user_snapshot = models.CorpUserSnapshotClass(
             urn=builder.make_user_urn("testuser"),
