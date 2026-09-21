@@ -1,5 +1,5 @@
 ---
-title: Review Context Proposals
+title: Validate Context Proposals
 description: "Review, validate, and publish AI-generated context documents as a Data Expert or Subject Matter Expert."
 visible-if:
   showContextHub: true
@@ -7,12 +7,12 @@ visible-if:
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Review Context Proposals
+# Validate Context Proposals
 
 <FeatureAvailability saasOnly />
 
 :::caution Public Beta
-The Context Platform is currently in Public Beta. Features, UI, and configuration options are subject to change.
+DataHub Context is currently in Public Beta. Features, UI, and configuration options are subject to change.
 :::
 
 **Role: Data Expert / SME (Data Engineer, Analytics Engineer)**
