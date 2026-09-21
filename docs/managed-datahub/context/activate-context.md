@@ -1,8 +1,6 @@
 ---
 title: Activate Context
 description: "Deliver trusted, published context to the AI agents your team already uses via the DataHub MCP server and agent skills."
-visible-if:
-  showContextHub: true
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
