@@ -24,23 +24,11 @@ import {
 // in ALLOWED_RELATED_ASSET_TYPES.
 const ALLOWED_ENTITY_TYPES: EntityType[] = [...Object.values(ALLOWED_RELATED_ASSET_TYPES), EntityType.Document];
 
-const UNPUBLISHED_LIFECYCLE_STAGE_URN = 'urn:li:lifecycleStageType:UNPUBLISHED';
-const DRAFT_LIFECYCLE_STAGE_URN = 'urn:li:lifecycleStageType:DRAFT';
-
-// Exclude unpublished/draft documents from the entity picker. Uses negated filters so that
-// non-document entity types (which lack these fields) pass through unaffected.
-// For the backwards-compat edge case (legacy state=UNPUBLISHED + lifecycleStage=PUBLISHED),
-// the state filter would still exclude it here, but the main document search/listing
-// (handled by DocumentSearchFilterUtils on the backend) correctly shows it.
+// Default filter to exclude unpublished documents. For entity types without a "state"
+// field, the backend should ignore or gracefully skip this filter.
 const DEFAULT_FILTERS: AndFilterInput[] = [
     {
         and: [
-            {
-                field: 'lifecycleStage',
-                condition: FilterOperator.Equal,
-                negated: true,
-                values: [UNPUBLISHED_LIFECYCLE_STAGE_URN, DRAFT_LIFECYCLE_STAGE_URN],
-            },
             {
                 field: 'state',
                 condition: FilterOperator.Equal,
