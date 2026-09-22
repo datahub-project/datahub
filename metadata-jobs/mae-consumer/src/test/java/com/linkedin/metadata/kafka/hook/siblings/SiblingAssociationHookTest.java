@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.hook.siblings;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -34,9 +35,13 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -48,7 +53,7 @@ public class SiblingAssociationHookTest {
   OperationContext opContext;
 
   @BeforeMethod
-  public void setupTest() {
+  public void setupTest() throws Exception {
     EntityRegistry registry =
         new ConfigEntityRegistry(
             SiblingAssociationHookTest.class
@@ -61,6 +66,14 @@ public class SiblingAssociationHookTest {
         new SiblingAssociationHook(_mockEntityClient, _mockSearchService, true);
     _siblingAssociationHook.init(opContext);
     _siblingAssociationHook.setEnabled(true);
+
+    // The hook now batch-reads siblings and batch-checks existence instead of per-urn getV2/exists.
+    // Default: no pre-existing siblings, and every referenced urn exists (mirrors the previous
+    // per-test exists()==true stubs). Individual tests still override the SUB_TYPES getV2 read.
+    when(_mockEntityClient.batchGetV2(any(OperationContext.class), any(), any()))
+        .thenReturn(Collections.emptyMap());
+    when(_mockEntityClient.filterExistingUrns(any(OperationContext.class), any()))
+        .thenAnswer(inv -> new HashSet<>((Collection<Urn>) inv.getArgument(1)));
   }
 
   @Test
@@ -122,7 +135,11 @@ public class SiblingAssociationHookTest {
     proposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true));
+        .batchIngestProposals(
+            any(OperationContext.class),
+            Mockito.argThat(
+                (java.util.Collection<MetadataChangeProposal> l) -> l.contains(proposal)),
+            eq(true));
 
     final Siblings sourceSiblingsAspect =
         new Siblings()
@@ -143,7 +160,11 @@ public class SiblingAssociationHookTest {
     proposal2.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal2), eq(true));
+        .batchIngestProposals(
+            any(OperationContext.class),
+            Mockito.argThat(
+                (java.util.Collection<MetadataChangeProposal> l) -> l.contains(proposal2)),
+            eq(true));
   }
 
   @Test
@@ -208,7 +229,11 @@ public class SiblingAssociationHookTest {
     proposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true));
+        .batchIngestProposals(
+            any(OperationContext.class),
+            Mockito.argThat(
+                (java.util.Collection<MetadataChangeProposal> l) -> l.contains(proposal)),
+            eq(true));
   }
 
   @Test
@@ -252,7 +277,11 @@ public class SiblingAssociationHookTest {
     proposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true));
+        .batchIngestProposals(
+            any(OperationContext.class),
+            Mockito.argThat(
+                (java.util.Collection<MetadataChangeProposal> l) -> l.contains(proposal)),
+            eq(true));
 
     final Siblings sourceSiblingsAspect =
         new Siblings()
@@ -273,7 +302,11 @@ public class SiblingAssociationHookTest {
     proposal2.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal2), eq(true));
+        .batchIngestProposals(
+            any(OperationContext.class),
+            Mockito.argThat(
+                (java.util.Collection<MetadataChangeProposal> l) -> l.contains(proposal2)),
+            eq(true));
   }
 
   @Test
@@ -326,7 +359,11 @@ public class SiblingAssociationHookTest {
     proposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true));
+        .batchIngestProposals(
+            any(OperationContext.class),
+            Mockito.argThat(
+                (java.util.Collection<MetadataChangeProposal> l) -> l.contains(proposal)),
+            eq(true));
 
     final Siblings sourceSiblingsAspect =
         new Siblings()
@@ -347,7 +384,11 @@ public class SiblingAssociationHookTest {
     proposal2.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal2), eq(true));
+        .batchIngestProposals(
+            any(OperationContext.class),
+            Mockito.argThat(
+                (java.util.Collection<MetadataChangeProposal> l) -> l.contains(proposal2)),
+            eq(true));
   }
 
   @Test
@@ -376,7 +417,7 @@ public class SiblingAssociationHookTest {
     _siblingAssociationHook.invoke(opContext, event);
 
     Mockito.verify(_mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(OperationContext.class), Mockito.any(), eq(true));
+        .batchIngestProposals(any(OperationContext.class), Mockito.any(), eq(true));
   }
 
   @Test
@@ -404,8 +445,8 @@ public class SiblingAssociationHookTest {
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
     _siblingAssociationHook.invoke(opContext, event);
 
-    Mockito.verify(_mockEntityClient, Mockito.times(2))
-        .ingestProposal(any(OperationContext.class), Mockito.any(), eq(true));
+    Mockito.verify(_mockEntityClient, Mockito.times(1))
+        .batchIngestProposals(any(OperationContext.class), Mockito.any(), eq(true));
   }
 
   @Test
@@ -434,7 +475,40 @@ public class SiblingAssociationHookTest {
     _siblingAssociationHook.invoke(opContext, event);
 
     Mockito.verify(_mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(OperationContext.class), Mockito.any(), eq(true));
+        .batchIngestProposals(any(OperationContext.class), Mockito.any(), eq(true));
+  }
+
+  @Test
+  public void testInvokeSurfacesFailureWhenSiblingWriteThrows() throws Exception {
+    // The two sibling proposals are written in a single batch call. A failure must surface out of
+    // invoke() so the listener applies its at-most-once handling.
+    when(_mockEntityClient.batchIngestProposals(any(OperationContext.class), any(), eq(true)))
+        .thenThrow(new RemoteInvocationException("ingest boom"));
+
+    MetadataChangeLog event =
+        createEvent(DATASET_ENTITY_NAME, UPSTREAM_LINEAGE_ASPECT_NAME, ChangeType.UPSERT);
+    final UpstreamLineage upstreamLineage = new UpstreamLineage();
+    final UpstreamArray upstreamArray = new UpstreamArray();
+    upstreamArray.add(
+        createUpstream(
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)",
+            DatasetLineageType.TRANSFORMED));
+    upstreamLineage.setUpstreams(upstreamArray);
+    event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
+    event.setEntityUrn(
+        Urn.createFromString(
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
+
+    try {
+      _siblingAssociationHook.invoke(opContext, event);
+      fail("expected the sibling write failure to propagate out of invoke()");
+    } catch (RuntimeException expected) {
+      // at-most-once: the listener logs and skips.
+    }
+
+    // The single batch write was attempted.
+    Mockito.verify(_mockEntityClient, Mockito.times(1))
+        .batchIngestProposals(any(OperationContext.class), Mockito.any(), eq(true));
   }
 
   private MetadataChangeLog createEvent(
