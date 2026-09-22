@@ -3,10 +3,10 @@ revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "(python_full_version == '3.13.*' and platform_machine != 'arm64') or (python_full_version == '3.13.*' and sys_platform != 'darwin')",
-    "(python_full_version == '3.12.*' and platform_machine != 'arm64') or (python_full_version == '3.12.*' and sys_platform != 'darwin')",
-    "(python_full_version == '3.11.*' and platform_machine != 'arm64') or (python_full_version == '3.11.*' and sys_platform != 'darwin')",
     "python_full_version == '3.13.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "(python_full_version == '3.12.*' and platform_machine != 'arm64') or (python_full_version == '3.12.*' and sys_platform != 'darwin')",
     "python_full_version == '3.12.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "(python_full_version == '3.11.*' and platform_machine != 'arm64') or (python_full_version == '3.11.*' and sys_platform != 'darwin')",
     "python_full_version == '3.11.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
 ]
 supported-markers = [
@@ -2499,14 +2499,14 @@ requires-dist = [
     { name = "snowflake-connector-python", marker = "extra == 'snowflake-queries'", specifier = ">=4.4.0,<5.0.0" },
     { name = "snowflake-connector-python", marker = "extra == 'snowflake-slim'", specifier = ">=4.4.0,<5.0.0" },
     { name = "snowflake-connector-python", marker = "extra == 'snowflake-summary'", specifier = ">=4.4.0,<5.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'all'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'dev'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'docs'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'fivetran'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake-queries'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake-slim'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake-summary'", specifier = ">=1.8.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'all'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'dev'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'docs'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'fivetran'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake-queries'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake-slim'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake-summary'", specifier = ">=1.11.0,<2.0.0" },
     { name = "sortedcontainers", marker = "extra == 'all'", specifier = ">=2.4.0,<3.0.0" },
     { name = "sortedcontainers", marker = "extra == 'dev'", specifier = ">=2.4.0,<3.0.0" },
     { name = "sortedcontainers", marker = "extra == 'docs'", specifier = ">=2.4.0,<3.0.0" },
@@ -10929,15 +10929,15 @@ wheels = [
 
 [[package]]
 name = "snowflake-sqlalchemy"
-version = "1.9.0"
+version = "1.11.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "snowflake-connector-python" },
     { name = "sqlalchemy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ff/6a/fcc5c00c3a253029a7b7b293a3958ba07d5e97623b643de47be0cc9e5530/snowflake_sqlalchemy-1.9.0.tar.gz", hash = "sha256:fb32baf559f7f933ae8fde2ec535bcea5381bb15188777cd8c006b3226efa3b1", size = 141707, upload-time = "2026-03-04T13:48:17.905Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f2/0d/94458e9231da61efe076ff8b9d808da9c8e3be39d99eaff8e6fe85f7295e/snowflake_sqlalchemy-1.11.1.tar.gz", hash = "sha256:942b203de0404b79550c4098ca851aee2b0b22f695426b073e58d71772e38d51", size = 252184, upload-time = "2026-09-04T06:51:26.892Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/28/b7ae8df80847e8157b74669ad7e1b0180e82ac0e3daf950612effd232fea/snowflake_sqlalchemy-1.9.0-py3-none-any.whl", hash = "sha256:f0b1528173e93c8c80bd9ca510985054667e0e514dd90b890271ac1cfae261c1", size = 78953, upload-time = "2026-03-04T13:48:16.393Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/a5/542739ade547d5b2384d69c33220419b55ae6ae6114bf196b9caf3dce576/snowflake_sqlalchemy-1.11.1-py3-none-any.whl", hash = "sha256:b64ab947469bf25b3df3f88c5b92f17a938c9d47b5b09035551614f3ff1f44d9", size = 117912, upload-time = "2026-09-04T06:51:25.311Z" },
 ]
 
 [[package]]
