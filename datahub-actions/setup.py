@@ -60,7 +60,8 @@ base_requirements = {
 }
 
 framework_common = {
-    "click>=6.0.0",
+    # CVE-2026-7246: click 8.1.7 / 8.3.1; fixed in 8.3.3.
+    "click>=8.3.3",
     "click-default-group",
     "prometheus-client",
     "PyYAML",
@@ -127,7 +128,8 @@ base_dev_requirements = {
     "pytest-dependency>=0.5.1",
     "pytest-docker>=0.10.3",
     "tox",
-    "deepdiff",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    "deepdiff>=8.6.2,<9.0.0",
     "requests-mock",
     "freezegun",
     "jsonpickle",

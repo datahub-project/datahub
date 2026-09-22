@@ -346,6 +346,85 @@ describe('useLoadAggregationOptions', () => {
         expect(result.current.options.map((opt) => opt.value)).toEqual(['snowflake', 'redshift']);
     });
 
+    it('formats structured-property values using the aggregation facet entity valueType', () => {
+        const structuredPropField: FilterField = {
+            field: 'structuredProperties.io.acryl.privacy.retentionTime',
+            displayName: 'Retention Time',
+            type: FieldType.TEXT,
+            // No entity on the field itself: the definition must come from the facet.
+        };
+        const mockAggregationData = {
+            aggregateAcrossEntities: {
+                facets: [
+                    {
+                        field: structuredPropField.field,
+                        entity: {
+                            __typename: 'StructuredPropertyEntity',
+                            urn: 'urn:li:structuredProperty:io.acryl.privacy.retentionTime',
+                            definition: {
+                                valueType: { urn: 'urn:li:dataType:datahub.number' },
+                            },
+                        },
+                        aggregations: [{ value: '42000.0', count: 3, entity: null }],
+                    },
+                ],
+            },
+        };
+
+        (useAggregateAcrossEntitiesQuery as any).mockReturnValue({
+            data: mockAggregationData,
+            loading: false,
+        });
+
+        const { result } = renderHook(() =>
+            useLoadAggregationOptions({
+                field: structuredPropField,
+                visible: true,
+                includeCounts: true,
+            }),
+        );
+
+        // Raw Elasticsearch double renders as the formatted number, not "42000.0".
+        expect(result.current.options).toHaveLength(1);
+        expect(result.current.options[0].displayName).toEqual('42000');
+    });
+
+    it('falls back to the raw structured-property value when the facet carries no entity', () => {
+        const structuredPropField: FilterField = {
+            field: 'structuredProperties.io.acryl.privacy.retentionTime',
+            displayName: 'Retention Time',
+            type: FieldType.TEXT,
+        };
+        const mockAggregationData = {
+            aggregateAcrossEntities: {
+                facets: [
+                    {
+                        field: structuredPropField.field,
+                        entity: null,
+                        aggregations: [{ value: '42000.0', count: 3, entity: null }],
+                    },
+                ],
+            },
+        };
+
+        (useAggregateAcrossEntitiesQuery as any).mockReturnValue({
+            data: mockAggregationData,
+            loading: false,
+        });
+
+        const { result } = renderHook(() =>
+            useLoadAggregationOptions({
+                field: structuredPropField,
+                visible: true,
+                includeCounts: true,
+            }),
+        );
+
+        // Without a definition the value type is unknown, so the raw value renders verbatim.
+        expect(result.current.options).toHaveLength(1);
+        expect(result.current.options[0].displayName).toEqual('42000.0');
+    });
+
     it('should handle missing facet data', () => {
         const mockAggregationData = {
             aggregateAcrossEntities: {
