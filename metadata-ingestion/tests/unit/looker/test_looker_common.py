@@ -8,6 +8,7 @@ from looker_sdk.sdk.api40.models import (
     LookmlModelExploreJoins,
 )
 
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.looker.looker_common import (
     ExploreUpstreamViewField,
     LookerExplore,
@@ -16,6 +17,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewFieldType,
     create_view_project_map,
     extract_project_from_imported_file_path,
+    get_view_file_path,
 )
 from datahub.ingestion.source.looker.looker_config import LookerCommonConfig
 
@@ -185,15 +187,19 @@ class TestExtractProjectFromImportedFilePath:
                 "project-a",
             ),
             (
-                "imported_projects/my-project/path/to/file.view.lkml",
-                "my-project",
-            ),
-            (
-                "views/foo.view.lkml",  # same-project path, no imported_projects/ prefix
+                "views/foo.view.lkml",
                 None,
             ),
             (
-                "imported_projects",  # malformed: no slash after the prefix
+                "imported_projects/",
+                None,
+            ),
+            (
+                "imported_projects//views/x",
+                None,
+            ),
+            (
+                "imported_projects_v2/views/foo.view.lkml",
                 None,
             ),
         ],
@@ -215,20 +221,83 @@ class TestCreateViewProjectMap:
         )
 
     def test_cross_project_views_keep_their_own_project(self) -> None:
-        # Regression test: a cross-project imported view must keep the project taken from its
-        # source_file, even when it is the explore's primary view and the explore belongs to a
-        # different project. Overriding it produced upstream URNs that matched no view entity.
+        reporter = SourceReport()
         result = create_view_project_map(
             view_fields=[
                 self._make_view_field("my_view", project_name="project-a"),
                 self._make_view_field("other_view", project_name="project-b"),
-            ]
+            ],
+            reporter=reporter,
         )
         assert result == {"my_view": "project-a", "other_view": "project-b"}
 
     def test_same_project_view_not_in_map(self) -> None:
-        # Same-project views have project_name=None; they should not appear in the map
-        # and fall back to the explore's project via the BASE_PROJECT_NAME sentinel.
+        reporter = SourceReport()
         view_field = self._make_view_field("my_view", project_name=None)
-        result = create_view_project_map(view_fields=[view_field])
+        result = create_view_project_map(view_fields=[view_field], reporter=reporter)
         assert "my_view" not in result
+
+    def test_mixed_view_not_in_map(self) -> None:
+        reporter = SourceReport()
+        result = create_view_project_map(
+            view_fields=[
+                self._make_view_field("my_view", project_name=None),
+                self._make_view_field("my_view", project_name="project-a"),
+            ],
+            reporter=reporter,
+        )
+        assert "my_view" not in result
+
+    def test_all_imported_conflicting_projects_keeps_first(self) -> None:
+        reporter = SourceReport()
+        result = create_view_project_map(
+            view_fields=[
+                self._make_view_field("my_view", project_name="project-a"),
+                self._make_view_field("my_view", project_name="project-b"),
+            ],
+            reporter=reporter,
+        )
+        assert result == {"my_view": "project-a"}
+        assert len(reporter.warnings) == 1
+
+
+class TestGetViewFilePath:
+    def test_prefers_local_source_file_over_imported(self) -> None:
+        reporter = SourceReport()
+        lkml_fields = [
+            LookmlModelExploreField(
+                name="dim1",
+                type="string",
+                view="my_view",
+                source_file="imported_projects/project-a/views/foo.view.lkml",
+            ),
+            LookmlModelExploreField(
+                name="dim2",
+                type="string",
+                view="my_view",
+                source_file="views/foo.view.lkml",
+            ),
+        ]
+        assert (
+            get_view_file_path(lkml_fields, "my_view", reporter)
+            == "views/foo.view.lkml"
+        )
+
+    def test_all_imported_same_path(self) -> None:
+        reporter = SourceReport()
+        imported_path = "imported_projects/project-a/views/foo.view.lkml"
+        lkml_fields = [
+            LookmlModelExploreField(
+                name="dim1",
+                type="string",
+                view="my_view",
+                source_file=imported_path,
+            ),
+            LookmlModelExploreField(
+                name="dim2",
+                type="string",
+                view="my_view",
+                source_file=imported_path,
+            ),
+        ]
+        assert get_view_file_path(lkml_fields, "my_view", reporter) == imported_path

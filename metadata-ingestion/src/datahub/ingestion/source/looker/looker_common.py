@@ -50,7 +50,7 @@ from datahub.ingestion.source.looker.looker_config import (
     NamingPatternMapping,
     ViewNamingPatternMapping,
 )
-from datahub.ingestion.source.looker.looker_constant import IMPORTED_PROJECTS
+from datahub.ingestion.source.looker.looker_constant import IMPORTED_PROJECTS_PREFIX
 from datahub.ingestion.source.looker.looker_dataclasses import ProjectInclude
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
@@ -188,6 +188,23 @@ def find_view_from_resolved_includes(
     return None
 
 
+def extract_project_from_imported_file_path(
+    file_path: Optional[str],
+) -> Optional[str]:
+    """
+    Returns the project name embedded in an imported_projects/ file path, or None.
+
+    source_file is a key inside explore.fields pointing at the relative path of an
+    included view; it starts with "imported_projects/" when the view comes from
+    another project.
+
+    Example: "imported_projects/project-a/views/foo.view.lkml" -> "project-a"
+    """
+    if file_path is None or not file_path.startswith(IMPORTED_PROJECTS_PREFIX):
+        return None
+    return file_path.split("/")[1] or None
+
+
 @dataclass
 class LookerViewId:
     project_name: str
@@ -223,13 +240,18 @@ class LookerViewId:
         for pattern in str_to_remove:
             new_file_path = re.sub(pattern, "", new_file_path)
 
-        # Use the project embedded in the file path itself when it is a cross-project import so
-        # that the prefix strip succeeds even if self.project_name is the explore's project.
-        project_in_path = (
-            extract_project_from_imported_file_path(new_file_path) or self.project_name
-        )
+        extracted_project = extract_project_from_imported_file_path(new_file_path)
+        if extracted_project is not None:
+            project_in_path = extracted_project
+        elif new_file_path.startswith(IMPORTED_PROJECTS_PREFIX):
+            logger.warning(
+                f"Malformed imported_projects path for view '{self.view_name}': {new_file_path}"
+            )
+            project_in_path = self.project_name
+        else:
+            project_in_path = self.project_name
         str_to_replace: Dict[str, str] = {
-            f"^imported_projects/{re.escape(project_in_path)}/": "",  # escape any special regex character present in project-name
+            f"^{IMPORTED_PROJECTS_PREFIX}{re.escape(project_in_path)}/": "",
             "/": ".",  # / is not urn friendly
         }
 
@@ -499,21 +521,9 @@ class ExploreUpstreamViewField:
         )
 
 
-def extract_project_from_imported_file_path(file_path: str) -> Optional[str]:
-    """
-    Returns the project name embedded in an imported_projects/ file path, or None.
-
-    Example: "imported_projects/project-a/views/foo.view.lkml" -> "project-a"
-    """
-    prefix = f"{IMPORTED_PROJECTS}/"
-    if file_path.startswith(prefix):
-        tokens = file_path.split("/")
-        if len(tokens) >= 2:
-            return tokens[1]
-    return None
-
-
-def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
+def create_view_project_map(
+    view_fields: List[ViewField], reporter: SourceReport
+) -> Dict[str, str]:
     """
     Each view in a model has unique name.
     Use this function in scope of a model.
@@ -521,42 +531,91 @@ def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
     Args:
         view_fields: List of ViewField objects
     """
-    view_project_map: Dict[str, str] = {}
+    fields_by_view: Dict[str, List[ViewField]] = {}
     for view_field in view_fields:
-        if view_field.view_name is not None and view_field.project_name is not None:
-            # project_name is only non-None when set by extract_project_name_from_source_file(),
-            # which only returns a value for imported_projects/ paths (cross-project imports).
-            # Same-project views have project_name=None, so they never enter this map and fall
-            # back to explore_project_name via the BASE_PROJECT_NAME sentinel in _form_field_name().
-            view_project_map[view_field.view_name] = view_field.project_name
+        if view_field.view_name is None:
+            continue
+        fields_by_view.setdefault(view_field.view_name, []).append(view_field)
+
+    view_project_map: Dict[str, str] = {}
+    for view_name, fields in fields_by_view.items():
+        if any(field.project_name is None for field in fields):
+            # A local source_file means the view is defined in the explore project; inherited
+            # imported fields must not re-home it. Cross-project includes emit the view entity
+            # under the imported project (include.project), so only all-imported views belong here.
+            continue
+
+        first_project = fields[0].project_name
+        assert first_project is not None
+        for field in fields[1:]:
+            if field.project_name != first_project:
+                reporter.warning(
+                    title="Conflicting Imported View Projects",
+                    message=(
+                        f"View '{view_name}' has fields from different imported projects; "
+                        f"using '{first_project}'."
+                    ),
+                    log=False,
+                )
+                break
+        view_project_map[view_name] = first_project
 
     return view_project_map
 
 
 def get_view_file_path(
-    lkml_fields: List[LookmlModelExploreField], view_name: str
+    lkml_fields: List[LookmlModelExploreField],
+    view_name: str,
+    reporter: SourceReport,
 ) -> Optional[str]:
     """
     Search for the view file path on field, if found then return the file path
     """
     logger.debug("Entered")
 
-    for field in lkml_fields:
-        if (
-            LookerUtil.extract_view_name_from_lookml_model_explore_field(field)
-            == view_name
-        ):
-            # This path is relative to git clone directory
-            logger.debug(f"Found view({view_name}) file-path {field.source_file}")
-            return field.source_file
+    matching_fields: List[LookmlModelExploreField] = [
+        field
+        for field in lkml_fields
+        if LookerUtil.extract_view_name_from_lookml_model_explore_field(field)
+        == view_name
+    ]
+    if not matching_fields:
+        logger.debug(f"Failed to find view({view_name}) file-path")
+        return None
 
-    logger.debug(f"Failed to find view({view_name}) file-path")
+    local_fields: List[LookmlModelExploreField] = [
+        field
+        for field in matching_fields
+        if field.source_file is not None
+        and not field.source_file.startswith(IMPORTED_PROJECTS_PREFIX)
+    ]
+    if local_fields:
+        chosen = local_fields[0].source_file
+        logger.debug(f"Found view({view_name}) file-path {chosen}")
+        return chosen
 
-    return None
+    first_path = matching_fields[0].source_file
+    unique_paths = {
+        field.source_file for field in matching_fields if field.source_file is not None
+    }
+    if len(unique_paths) > 1:
+        reporter.warning(
+            title="Conflicting View File Paths",
+            message=(
+                f"View '{view_name}' has fields with different source_file paths; "
+                f"using '{first_path}'."
+            ),
+            log=False,
+        )
+
+    logger.debug(f"Found view({view_name}) file-path {first_path}")
+    return first_path
 
 
 def create_upstream_views_file_path_map(
-    view_names: Set[str], lkml_fields: List[LookmlModelExploreField]
+    view_names: Set[str],
+    lkml_fields: List[LookmlModelExploreField],
+    reporter: SourceReport,
 ) -> Dict[str, Optional[str]]:
     """
     Create a map of view-name v/s view file path, so that later we can fetch view's file path via view-name
@@ -566,7 +625,7 @@ def create_upstream_views_file_path_map(
 
     for view_name in view_names:
         file_path: Optional[str] = get_view_file_path(
-            lkml_fields=lkml_fields, view_name=view_name
+            lkml_fields=lkml_fields, view_name=view_name, reporter=reporter
         )
 
         upstream_views_file_path[view_name] = file_path
@@ -686,25 +745,6 @@ class LookerUtil:
             return field.original_view
 
         return field.view
-
-    @staticmethod
-    def extract_project_name_from_source_file(
-        source_file: Optional[str],
-    ) -> Optional[str]:
-        """
-        source_file is a key inside explore.fields. This key point to relative path of included views.
-        if view is included from another project then source_file is starts with "imported_projects".
-        Example: imported_projects/datahub-demo/views/datahub-demo/datasets/faa_flights.view.lkml
-        """
-        if source_file is None:
-            return None
-
-        if source_file.startswith(IMPORTED_PROJECTS):
-            tokens: List[str] = source_file.split("/")
-            if len(tokens) >= 2:
-                return tokens[1]  # second index is project-name
-
-        return None
 
     @staticmethod
     def get_field_type(native_type: str) -> SchemaFieldDataType:
@@ -1216,7 +1256,7 @@ class LookerExplore:
                                         if dim_field.dimension_group is not None
                                         else ViewFieldType.DIMENSION
                                     ),
-                                    project_name=LookerUtil.extract_project_name_from_source_file(
+                                    project_name=extract_project_from_imported_file_path(
                                         dim_field.source_file
                                     ),
                                     view_name=LookerUtil.extract_view_name_from_lookml_model_explore_field(
@@ -1255,7 +1295,7 @@ class LookerExplore:
                                         else ""
                                     ),
                                     field_type=ViewFieldType.MEASURE,
-                                    project_name=LookerUtil.extract_project_name_from_source_file(
+                                    project_name=extract_project_from_imported_file_path(
                                         measure_field.source_file
                                     ),
                                     view_name=LookerUtil.extract_view_name_from_lookml_model_explore_field(
@@ -1271,7 +1311,9 @@ class LookerExplore:
                                 )
                             )
 
-            view_project_map: Dict[str, str] = create_view_project_map(view_fields)
+            view_project_map: Dict[str, str] = create_view_project_map(
+                view_fields, reporter
+            )
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
@@ -1279,6 +1321,7 @@ class LookerExplore:
                 create_upstream_views_file_path_map(
                     lkml_fields=lkml_fields,
                     view_names=views,
+                    reporter=reporter,
                 )
             )
             if upstream_views_file_path:
