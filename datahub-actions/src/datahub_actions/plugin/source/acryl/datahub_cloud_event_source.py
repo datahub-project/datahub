@@ -3,7 +3,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 from pydantic import Field
 
@@ -58,7 +58,7 @@ _AVRO_PRIMITIVE_TYPES = frozenset(
 )
 
 
-def _unwrap_avro_json(obj: object) -> object:
+def _unwrap_avro_json(obj: Any) -> Any:
     """Recursively unwrap Avro JSON union encoding to Pegasus-style plain values.
 
     Avro JSON encodes union fields as ``{"typeName": value}`` (e.g.
@@ -91,7 +91,7 @@ def _unwrap_avro_json(obj: object) -> object:
 AVRO_BYTES_ENCODING = os.environ.get("DATAHUB_AVRO_BYTES_ENCODING", "latin-1")
 
 
-def _fix_avro_bytes(obj: object) -> object:
+def _fix_avro_bytes(obj: Any) -> Any:
     """Convert Avro ``bytes`` fields from str to ``bytes``.
 
     The Avro JSON encoder maps each byte to a Unicode code point in U+0000–U+00FF
