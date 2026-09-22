@@ -208,7 +208,7 @@ charset-normalizer==3.4.5
     #   unstructured
 ciso8601==2.3.3
     # via asynch
-click==8.3.1
+click==8.5.0
     # via
     #   acryl-datahub
     #   click-default-group
@@ -244,7 +244,6 @@ cloudpickle==3.1.2
 colorama==0.4.6
     # via
     #   build
-    #   click
     #   feast
     #   pytest
     #   tqdm
