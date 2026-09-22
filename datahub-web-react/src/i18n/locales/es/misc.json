@@ -146,6 +146,8 @@
     "metrics.homeEmptyTitle": "Aún no se han ingerido métricas",
     "metrics.homeEmptyDescription": "Una vez que se ingieran métricas y modelos semánticos desde su plataforma de datos, aparecerán aquí.",
     "metrics.homeEmptyAction": "Ingerir métricas",
+    "metrics.homeEmptyLearnMore": "Más información",
+    "metrics.homeEmptyMigrationHint": "¿Ya estás ingiriendo Snowflake Semantic Views? <anchor>Consulta cómo migrarlas</anchor> al nuevo modelo.",
     "mfeframework.disabledError": "{{label}} está desactivado.",
     "mfeframework.notAvailableError": "{{label}} no está disponible en este momento",
     "tags.appliedToEntityCount_one": "{{count}} entidad",
