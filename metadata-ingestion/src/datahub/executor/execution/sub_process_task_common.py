@@ -617,6 +617,28 @@ class SubProcessTaskUtil:
         `finally` blocks that may be unwinding a CancelledError, where awaiting
         invites a second cancellation and turns cleanup into a new failure mode.
         """
+        try:
+            SubProcessTaskUtil._keep_venv_lock_unless_exited_inner(
+                venv_ref, process, exited=exited
+            )
+        except Exception:
+            # The only member of this family that was not guarded, and it
+            # runs as the FIRST statement of a `finally` unwinding a
+            # CancelledError -- above a comment promising every step is
+            # guarded. Popen.poll() re-raises any non-ECHILD OSError from
+            # waitpid, so a raise here would replace the CancelledError AND
+            # skip the rest of the finally: no report, no logs, no lock
+            # release, no directory removal, and FAILED reported instead of
+            # CANCELLED.
+            logger.exception("Cleanup: failed to retain the venv cache lock")
+
+    @staticmethod
+    def _keep_venv_lock_unless_exited_inner(
+        venv_ref: Optional[VenvReference],
+        process: Optional[Union[asyncio.subprocess.Process, subprocess.Popen]],
+        *,
+        exited: Optional[bool],
+    ) -> None:
         if venv_ref is None or venv_ref.lock is None:
             return
         if exited is None or exited:
@@ -631,6 +653,42 @@ class SubProcessTaskUtil:
         )
         retain_lock(venv_ref.lock)
         venv_ref.lock = None
+
+    # How long a cancelled test-connection waits for its child, per signal.
+    # Short: the caller is already cancelling and this blocks the event loop.
+    # Long enough that a child which honours SIGTERM is reaped here rather
+    # than leaving every downstream check answering "it might still be alive".
+    CHILD_REAP_GRACE_SEC = 10
+
+    @staticmethod
+    def terminate_and_reap(process: subprocess.Popen) -> None:
+        """Signal a child and wait for it, escalating to SIGKILL.
+
+        Popen.poll() answers None for a signalled-but-unreaped child, so
+        every "is the child dead?" check downstream -- the venv lock keep or
+        release, and whether exec_out_dir may be removed -- gets the
+        pessimistic answer unless something actually reaps it.
+
+        Never raises: every caller is unwinding a cancellation.
+        """
+        try:
+            process.terminate()
+            try:
+                process.wait(timeout=SubProcessTaskUtil.CHILD_REAP_GRACE_SEC)
+                return
+            except subprocess.TimeoutExpired:
+                logger.warning(
+                    "Child %s ignored SIGTERM for %ds; sending SIGKILL",
+                    process.pid,
+                    SubProcessTaskUtil.CHILD_REAP_GRACE_SEC,
+                )
+            process.kill()
+            process.wait(timeout=SubProcessTaskUtil.CHILD_REAP_GRACE_SEC)
+        except Exception:
+            # A child that cannot be reaped leaves poll() at None, which is
+            # the safe answer everywhere downstream -- the lock is kept and
+            # the directory is left alone.
+            logger.exception("Cleanup: failed to reap child process")
 
     @staticmethod
     def retain_lock_if_held(venv_ref: Optional[VenvReference]) -> None:

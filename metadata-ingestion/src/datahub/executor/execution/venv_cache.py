@@ -298,7 +298,15 @@ def _evict_locked(
     # up front -- is what lets the pass keep going past an entry it could not
     # take: a locked entry is in use, and skipping it must not stop the cache
     # being trimmed, only spare that one venv.
+    # In-use entries DO count toward the limit: they occupy disk, which is
+    # what the limit bounds. The consequence to know is that a node running
+    # more concurrent tasks than DATAHUB_VENV_CACHE_MAX_ENTRIES will churn --
+    # each build evicts a warm idle entry to make room the locked ones are
+    # holding, and the hit rate falls. That is a misconfiguration to
+    # surface, not a case to silently exempt: exempting them would let the
+    # cache grow past the bound an operator sized their volume against.
     remaining = len(entries)
+    in_use = 0
     evicted = 0
     for venv in oldest_first:
         too_old = now - last_used_at(venv) > max_age_sec
@@ -309,6 +317,18 @@ def _evict_locked(
         if _remove_entry(venv):
             evicted += 1
             remaining -= 1
+        else:
+            in_use += 1
+    if in_use >= max_entries:
+        logger.warning(
+            "venv cache: %d of %d entries are in use, at or above the limit "
+            "of %d, so this pass could not free the space it needed. Raise "
+            "DATAHUB_VENV_CACHE_MAX_ENTRIES above the node's concurrency or "
+            "the cache will churn.",
+            in_use,
+            len(entries),
+            max_entries,
+        )
     return evicted
 
 
@@ -328,6 +348,14 @@ def _remove_entry(venv: pathlib.Path) -> bool:
         # with no packages and dies with ModuleNotFoundError. Dropping the
         # marker first makes a partial removal self-invalidating: the next
         # claimant discards and rebuilds it instead.
+        # Marker first, and deliberately NOT restored if the rmtree then
+        # fails. Restoring it would rescue a healthy-but-undeletable venv --
+        # a root-owned file, EBUSY, an NFS silly-rename -- but there is no
+        # cheap way to tell that case apart from a PARTIAL removal, which
+        # leaves bin/python and the marker while site-packages is gone.
+        # Serving that husk as complete is a silent ModuleNotFoundError on
+        # every later run; losing a rebuild is not. The undeletable
+        # directory is logged as a warning below so it is at least visible.
         (venv / COMPLETE_MARKER).unlink(missing_ok=True)
         shutil.rmtree(venv)
         # The .lock file beside it is deliberately left behind. Unlinking

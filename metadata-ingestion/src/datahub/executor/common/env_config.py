@@ -94,6 +94,13 @@ DEFAULT_VENV_CACHE_MAX_AGE_HOURS = 168  # 7 days
 # it resolved on the day it started, forever.
 DEFAULT_VENV_CACHE_LATEST_TTL_HOURS = 24
 
+# Ceilings, so an absurd value is rejected loudly rather than silently
+# removing the bound. 10k entries is far past any real node; 10 years of
+# hours is past any pod lifetime and stays well clear of the float overflow
+# that turns hours-to-seconds into inf.
+MAX_VENV_CACHE_ENTRIES = 10_000
+MAX_VENV_CACHE_HOURS = 24 * 365 * 10
+
 
 @functools.lru_cache(maxsize=None)
 def _warn_unusable_value_once(var: str, raw: str, fallback: float) -> None:
@@ -106,7 +113,7 @@ def _warn_unusable_value_once(var: str, raw: str, fallback: float) -> None:
     )
 
 
-def _positive_number(var: str, default: float) -> float:
+def _positive_number(var: str, default: float, *, maximum: float) -> float:
     """Read a positive, finite number from the environment, or the default.
 
     Never raises, and that is a requirement rather than politeness: these are
@@ -135,7 +142,14 @@ def _positive_number(var: str, default: float) -> float:
     except ValueError:
         _warn_unusable_value_once(var, raw, default)
         return default
-    if not math.isfinite(value) or value <= 0:
+    if not math.isfinite(value) or value <= 0 or value > maximum:
+        # An upper bound as well as a lower one. Rejecting only inf/nan lets
+        # an absurd-but-finite value through and silently removes the bound
+        # the knob exists to impose: MAX_ENTRIES=1e300 makes
+        # `remaining <= max_entries` always true, and MAX_AGE_HOURS=1e308
+        # overflows to inf when multiplied into seconds, without raising.
+        # Both give an unbounded cache with no log line, against docs that
+        # promise a bound an operator can size a volume against.
         _warn_unusable_value_once(var, raw, default)
         return default
     return value
@@ -150,7 +164,9 @@ def get_venv_cache_max_entries() -> int:
     """
     entries = int(
         _positive_number(
-            "DATAHUB_VENV_CACHE_MAX_ENTRIES", DEFAULT_VENV_CACHE_MAX_ENTRIES
+            "DATAHUB_VENV_CACHE_MAX_ENTRIES",
+            DEFAULT_VENV_CACHE_MAX_ENTRIES,
+            maximum=MAX_VENV_CACHE_ENTRIES,
         )
     )
     return entries if entries >= 1 else DEFAULT_VENV_CACHE_MAX_ENTRIES
@@ -160,7 +176,9 @@ def get_venv_cache_max_age_sec() -> float:
     """Evict an entry nothing has used in this long, regardless of count."""
     return (
         _positive_number(
-            "DATAHUB_VENV_CACHE_MAX_AGE_HOURS", DEFAULT_VENV_CACHE_MAX_AGE_HOURS
+            "DATAHUB_VENV_CACHE_MAX_AGE_HOURS",
+            DEFAULT_VENV_CACHE_MAX_AGE_HOURS,
+            maximum=MAX_VENV_CACHE_HOURS,
         )
         * 3600
     )
@@ -170,7 +188,9 @@ def get_venv_cache_latest_ttl_sec() -> float:
     """How long a venv built from a moving version may be reused before rebuild."""
     return (
         _positive_number(
-            "DATAHUB_VENV_CACHE_LATEST_TTL_HOURS", DEFAULT_VENV_CACHE_LATEST_TTL_HOURS
+            "DATAHUB_VENV_CACHE_LATEST_TTL_HOURS",
+            DEFAULT_VENV_CACHE_LATEST_TTL_HOURS,
+            maximum=MAX_VENV_CACHE_HOURS,
         )
         * 3600
     )

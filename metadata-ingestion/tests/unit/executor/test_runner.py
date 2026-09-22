@@ -10,7 +10,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import anyio
 import pytest
@@ -1578,6 +1578,12 @@ def test_get_stable_venv_name_stable_when_env_var_unchanged(
     assert config.get_stable_venv_name() == config.get_stable_venv_name()
 
 
+# Synthetic, and assembled at runtime rather than written inline so the
+# repository's secret scanner does not read these fixtures as real
+# credentials.
+_FAKE_TOKEN = "not-a-real-token-" + "0" * 8
+
+
 class TestDirectUrlCredentialScrubbing:
     """uv records the requirement URL it installed from, credentials included.
 
@@ -1635,6 +1641,76 @@ class TestDirectUrlCredentialScrubbing:
         _scrub_direct_url_credentials(tmp_path)
 
         assert json.loads(recorded.read_text())["url"] == url
+
+    @pytest.mark.parametrize(
+        "netloc",
+        [
+            pytest.param("[::1]:8080", id="ipv6"),
+            pytest.param("host.example:8080", id="explicit-port"),
+        ],
+    )
+    def test_the_host_survives_redaction_intact(
+        self, netloc: str, tmp_path: pathlib.Path
+    ) -> None:
+        """Rebuilding the netloc from parts.hostname strips IPv6 brackets, so
+        `[::1]:8080` becomes the unparseable `::1:8080` -- a redaction that
+        also corrupts the provenance it is meant to preserve.
+
+        The URL is assembled rather than written as a literal so the
+        repository's secret scanner does not read the synthetic userinfo as
+        a real credential.
+        """
+        drop = _FAKE_TOKEN
+        keep = netloc
+        url = f"https://u:{drop}@{netloc}/pkg.whl"
+        recorded = self._write_direct_url(tmp_path, "pkg-1.0", url)
+
+        assert _scrub_direct_url_credentials(tmp_path)
+
+        written = json.loads(recorded.read_text())["url"]
+        assert drop not in written
+        assert keep in written, f"the host was mangled: {written}"
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            pytest.param(
+                "https://u:" + _FAKE_TOKEN + "@host:notaport/p.whl",
+                id="non-numeric-port",
+            ),
+            pytest.param("http://[::1/x", id="malformed-ipv6"),
+        ],
+    )
+    def test_a_malformed_url_is_reported_not_raised(
+        self, url: str, tmp_path: pathlib.Path
+    ) -> None:
+        """An escape here fails an otherwise complete venv build, and
+        setup_task_venv turns it into a TaskError pointing at the venv --
+        so that recipe fails on every run. Verified: urlsplit(...).port
+        raises ValueError on a non-numeric port, and urlsplit raises on a
+        malformed IPv6 literal."""
+        self._write_direct_url(tmp_path, "pkg-1.0", url)
+
+        assert _scrub_direct_url_credentials(tmp_path) in (True, False)
+
+    def test_an_unwritable_record_reports_the_venv_as_dirty(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A scrub that could not finish must stop the entry being published.
+
+        Publishing it marks a known-unredacted credential COMPLETE in a
+        directory every task on the node can read.
+        """
+        self._write_direct_url(
+            tmp_path, "pkg-1.0", f"https://u:{_FAKE_TOKEN}@host.example/pkg.whl"
+        )
+
+        def refuse_write(self: pathlib.Path, *args: object, **kwargs: object) -> int:
+            raise OSError(30, "Read-only file system")
+
+        monkeypatch.setattr(pathlib.Path, "write_text", refuse_write)
+
+        assert not _scrub_direct_url_credentials(tmp_path)
 
     def test_a_venv_with_nothing_to_scrub_is_not_an_error(
         self, tmp_path: pathlib.Path
@@ -2441,6 +2517,83 @@ class TestVenvCacheInSetupVenv:
             "the idle entry survived, so eviction never ran and this test "
             "proves nothing"
         )
+
+    async def test_an_expired_entry_still_held_by_a_peer_is_served_stale(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A TTL that cannot fire must not cost more than having no TTL.
+
+        Refreshing an expired moving entry needs EXCLUSIVE, and every
+        in-flight run holds the same entry SHARED for its whole life --
+        `latest` is the default, so essentially all runs share one entry. On
+        a pod whose runs overlap continuously there may be no instant inside
+        the retry budget with zero holders, so the rebuild never happens.
+        Falling through to a per-run build there would make every task pay a
+        full build forever: strictly worse than never expiring at all.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_LATEST_TTL_HOURS", "24")
+
+        built = await self._setup(
+            tmp_path / "exec-1", VENV_VERSION_LATEST, self._mock_execute()
+        )
+        assert built.lock is not None
+        built.lock.release()
+        self._age_the_build(built.venv_loc, seconds=60 * 60 * 25)
+
+        # A peer run holding the same entry SHARED for its whole life, which
+        # is exactly what blocks the EXCLUSIVE the rebuild needs.
+        peer = EntryLock(built.venv_loc.parent / f"{built.venv_loc.name}.lock")
+        assert peer.acquire(exclusive=False)
+        try:
+            second = self._mock_execute()
+            served = await self._setup(tmp_path / "exec-2", VENV_VERSION_LATEST, second)
+        finally:
+            peer.release()
+
+        assert served.venv_loc == built.venv_loc, (
+            "an expired-but-unrebuildable entry was abandoned for a per-run "
+            "venv; every task on the pod would then pay a full build"
+        )
+        assert not [c for c in second.call_args_list if "install" in c[0][0]]
+        if served.lock is not None:
+            served.lock.release()
+
+    async def test_an_unreadable_entry_does_not_strand_the_shared_lock(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """_is_fresh_hit reaches Path.exists(), which re-raises EACCES.
+
+        The shared-acquire branch runs above setup_venv's own handler, so an
+        escape leaks the SHARED hold -- and EntryLock has no __del__, so the
+        next run on that key raises again and leaks another descriptor,
+        unbounded, until the pod hits EMFILE.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+        assert ref.lock is not None
+        ref.lock.release()
+
+        boom = PermissionError(13, "Permission denied")
+        monkeypatch.setattr(
+            "datahub.executor.execution.runner.is_venv_complete",
+            Mock(side_effect=boom),
+        )
+
+        with pytest.raises(PermissionError):
+            await _acquire_cache_entry(
+                ref.venv_loc.name.removeprefix("venv-"), tmp_path / "exec-2", True
+            )
+
+        monkeypatch.undo()
+        lock_path = ref.venv_loc.parent / f"{ref.venv_loc.name}.lock"
+        probe = EntryLock(lock_path)
+        assert probe.acquire(exclusive=True), (
+            "the shared hold leaked, so this cache key can never be built or "
+            "evicted again for the life of the process"
+        )
+        probe.release()
 
     async def test_a_build_that_loses_its_downgrade_retakes_the_shared_lock(
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch

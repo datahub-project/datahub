@@ -3,7 +3,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import Mock, mock_open, patch
 
 import pytest
@@ -667,3 +667,66 @@ async def test_a_popen_failure_also_removes_the_execution_directory(
         await task.execute(sample_args, exec_ctx)
 
     assert not Path(f"{config.tmp_dir}/{exec_ctx.exec_id}").exists()
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_run_reaps_its_child_and_releases_the_lock(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """Signalling without waiting pinned the shared `latest` entry forever.
+
+    Popen.poll() answers None for a signalled-but-unreaped child, so
+    keep_venv_lock_if_popen_may_be_alive handed the SHARED hold to
+    retain_lock for the life of the process. flock conflicts across fds
+    within one process, so once that entry passed its TTL no rebuild could
+    take EXCLUSIVE again -- and `latest` is the default and is deliberately
+    shared with ingestion, so one user pressing Cancel made every run on the
+    pod fall back to a full per-run build.
+
+    Reaping the child makes poll() truthful, and the lock is released
+    normally.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "venv-demo-data"
+
+    process = Mock()
+    process.pid = 4321
+    process.stdin = Mock()
+    process.stdout = Mock()
+    process.stdout.readline = Mock(side_effect=asyncio.CancelledError)
+    # None while running; terminate()+wait() is what makes it report exited.
+    poll_results: list[Optional[int]] = [None]
+    process.poll = Mock(side_effect=lambda: poll_results[0])
+
+    def reaped(timeout: object = None) -> int:
+        poll_results[0] = -15
+        return -15
+
+    process.wait = Mock(side_effect=reaped)
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            return_value=process,
+        ),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    process.terminate.assert_called_once()
+    process.wait.assert_called()
+    venv_ref.lock.release.assert_called_once()
+    assert venv_ref.lock is not None, (
+        "the lock was detached and retained for the process's life even "
+        "though the child was confirmed dead"
+    )

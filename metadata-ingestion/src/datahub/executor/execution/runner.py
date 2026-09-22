@@ -805,11 +805,27 @@ async def _acquire_cache_entry(
         )
 
     lock = EntryLock(venv_loc.parent / f"{venv_loc.name}.lock")
+    # A complete entry that is only past its TTL. Worth remembering: if no
+    # attempt ever wins EXCLUSIVE to refresh it, serving the stale venv beats
+    # the per-run build that would otherwise be the fallback. See below.
+    stale_but_complete = False
     for attempt in range(_CACHE_LOCK_ATTEMPTS):
         if lock.acquire(exclusive=False):
-            if _is_fresh_hit(venv_loc, moving=moving):
-                touch_last_used(venv_loc)
-                return _CacheEntry(venv_loc, lock, True, True)
+            # Guarded like the exclusive branch below. _is_fresh_hit reaches
+            # Path.exists(), which re-raises EACCES -- an entry made
+            # unreadable by a uid mismatch on a shared volume, or a
+            # part-removed tree. This runs ABOVE setup_venv's own try, so an
+            # escape here would leak the SHARED hold, and EntryLock has no
+            # __del__: every later run on the key would raise again and leak
+            # another fd.
+            try:
+                if _is_fresh_hit(venv_loc, moving=moving):
+                    touch_last_used(venv_loc)
+                    return _CacheEntry(venv_loc, lock, True, True)
+                stale_but_complete = is_venv_complete(venv_loc)
+            except BaseException:
+                lock.release()
+                raise
             # Nothing there yet, a build killed midway, or a moving entry past
             # its TTL. Either way this call has to build, and building needs
             # the entry exclusively.
@@ -829,7 +845,15 @@ async def _acquire_cache_entry(
                     # the caller then runs a child out of a directory the
                     # next eviction pass is free to rmtree.
                     if lock.downgrade_to_shared() or lock.acquire(exclusive=False):
-                        return _CacheEntry(venv_loc, lock, True, True)
+                        # Re-validate: the hold was momentarily gone either
+                        # way, and _remove_entry deliberately leaves the
+                        # .lock file behind, so a competing eviction can have
+                        # deleted the directory while the lock we just took
+                        # survived. Without this the child is spawned against
+                        # <venv>/bin/python and dies with FileNotFoundError.
+                        if is_venv_complete(venv_loc):
+                            return _CacheEntry(venv_loc, lock, True, True)
+                        lock.release()
                     logger.info(
                         "venv cache entry %s could not be held after the "
                         "downgrade; using a per-run venv",
@@ -840,14 +864,23 @@ async def _acquire_cache_entry(
                 # entry past its TTL. Either way it must be removed rather
                 # than built on top of, and if it cannot be removed this key
                 # is unusable until an operator clears it.
-                if venv_loc.exists() and not _discard_incomplete(venv_loc):
+                #
+                # Off the event loop: rmtree of a venv is tens of thousands
+                # of unlinks, and this coroutine's contract is that nothing
+                # in it blocks. flock is per open-file-description, so doing
+                # it on a worker thread changes no lock semantics.
+                if venv_loc.exists() and not await asyncio.to_thread(
+                    _discard_incomplete, venv_loc
+                ):
                     lock.release()
                     return per_run_fallback()
                 # Eviction runs here and nowhere else: on the build path only,
                 # and after we hold this entry, so it cannot select the
                 # directory we are about to write into (it skips anything it
-                # cannot take exclusively).
-                evict_stale_entries(
+                # cannot take exclusively). Also off the loop, and for the
+                # same reason -- an age pass can select every entry at once.
+                await asyncio.to_thread(
+                    evict_stale_entries,
                     venv_loc.parent,
                     max_entries=get_venv_cache_max_entries(),
                     max_age_sec=get_venv_cache_max_age_sec(),
@@ -864,11 +897,33 @@ async def _acquire_cache_entry(
 
     if lock.unusable:
         _warn_cache_unavailable_once(str(venv_loc.parent))
-    else:
-        logger.info(
-            "venv cache entry %s is held by another build; using a per-run venv",
-            venv_loc.name,
-        )
+        return per_run_fallback()
+
+    # Stale-while-in-use. Refreshing an expired moving entry needs EXCLUSIVE,
+    # and every in-flight run holds the same entry SHARED for its whole life
+    # -- and `latest` is the default, so essentially every run shares one
+    # entry. On a pod whose runs overlap continuously there may be no instant
+    # inside this budget with zero holders, so the refresh never happens.
+    # Falling through to a per-run build there would make the TTL strictly
+    # worse than not having one: every task would pay a full build forever,
+    # which is the cost this cache exists to remove. Serving the stale venv
+    # is the lesser evil, and the refresh still happens on the first attempt
+    # that finds the entry idle.
+    if stale_but_complete and lock.acquire(exclusive=False):
+        if is_venv_complete(venv_loc):
+            touch_last_used(venv_loc)
+            logger.info(
+                "venv cache entry %s is past its TTL but in use by another "
+                "run, so it cannot be rebuilt right now; serving it as-is",
+                venv_loc.name,
+            )
+            return _CacheEntry(venv_loc, lock, True, True)
+        lock.release()
+
+    logger.info(
+        "venv cache entry %s is held by another build; using a per-run venv",
+        venv_loc.name,
+    )
     return per_run_fallback()
 
 
@@ -959,8 +1014,12 @@ async def _install_extra_requirements(
             )
 
 
-def _scrub_direct_url_credentials(venv_loc: pathlib.Path) -> None:
+def _scrub_direct_url_credentials(venv_loc: pathlib.Path) -> bool:
     """Remove credentials uv recorded inside the installed packages.
+
+    Returns whether the venv is known clean. False means at least one record
+    could not be read or rewritten, so a credential may still be in there --
+    the caller must not publish the entry to the shared cache.
 
     PEP 610 has the installer write
     site-packages/<pkg>.dist-info/direct_url.json for anything installed from
@@ -974,46 +1033,52 @@ def _scrub_direct_url_credentials(venv_loc: pathlib.Path) -> None:
     exec_out_dir, created by `uv venv` at the ambient umask, shared by every
     task on the node, and kept until eviction.
 
-    Userinfo and query string both go: basic-auth credentials and
-    signed-URL tokens are equally common in private indexes. The scheme,
-    host and path stay, because "installed from this host" is useful and is
-    not the secret.
+    Userinfo and query string both go: basic-auth credentials and signed-URL
+    tokens are equally common in private indexes. The scheme, host and path
+    stay, because "installed from this host" is useful and is not the secret.
 
-    Best-effort by design -- a venv that built successfully must not fail
-    over metadata tidying -- but loud when it cannot do its job, because the
-    failure mode is a credential left on shared disk.
+    The netloc is rewritten by cutting at the last `@` rather than through
+    `parts.hostname`/`parts.port`. hostname strips the brackets from an IPv6
+    literal (`[::1]:8080` becomes an unparseable `::1:8080`), and reading
+    .port raises ValueError on a non-numeric port -- from a function whose
+    failure must never reach the caller as an exception.
     """
+    clean = True
     for record in venv_loc.glob(
         "lib/python*/site-packages/*.dist-info/direct_url.json"
     ):
         try:
             payload = json.loads(record.read_text())
-        except (OSError, ValueError):
-            logger.warning(
-                "Could not read %s to check it for credentials", record, exc_info=True
+            if not isinstance(payload, dict):
+                continue
+            url = payload.get("url")
+            if not isinstance(url, str):
+                continue
+            parts = urlsplit(url)
+            if "@" not in parts.netloc and not parts.query:
+                continue
+            payload["url"] = urlunsplit(
+                (
+                    parts.scheme,
+                    parts.netloc.rsplit("@", 1)[-1],
+                    parts.path,
+                    "",
+                    parts.fragment,
+                )
             )
-            continue
-        url = payload.get("url")
-        if not isinstance(url, str):
-            continue
-        parts = urlsplit(url)
-        if not parts.username and not parts.password and not parts.query:
-            continue
-        host = parts.hostname or ""
-        if parts.port:
-            host = f"{host}:{parts.port}"
-        payload["url"] = urlunsplit(
-            (parts.scheme, host, parts.path, "", parts.fragment)
-        )
-        try:
             record.write_text(json.dumps(payload))
-        except OSError:
+        except Exception:
+            # Every step is inside, not just the read: urlsplit raises on a
+            # malformed IPv6 URL and json.loads on anything non-JSON, and an
+            # escape from here fails an otherwise complete venv build.
+            clean = False
             logger.warning(
-                "Could not redact the credential recorded in %s; remove this "
-                "venv to clear it",
+                "Could not redact a credential possibly recorded in %s; this "
+                "venv will not be published to the shared cache",
                 record,
                 exc_info=True,
             )
+    return clean
 
 
 def _publish_cache_entry(
@@ -1273,10 +1338,18 @@ async def setup_venv(
             )
 
         # Before the entry is published, so a credential never becomes
-        # visible to another task through the cache.
-        _scrub_direct_url_credentials(venv_loc)
-
-        _publish_cache_entry(venv_reference, venv_loc)
+        # visible to another task through the cache. A venv that could not be
+        # fully scrubbed is deliberately NOT published: it stays unmarked,
+        # this run uses it, and the next claimant discards and rebuilds it
+        # rather than inheriting someone else's token.
+        if _scrub_direct_url_credentials(venv_loc):
+            _publish_cache_entry(venv_reference, venv_loc)
+        else:
+            logger.warning(
+                "Not publishing %s to the venv cache: a credential recorded "
+                "by the installer could not be redacted.",
+                venv_loc,
+            )
 
         return venv_reference
     except BaseException:
@@ -1288,6 +1361,18 @@ async def setup_venv(
         # task in the same long-lived pod that wants that venv falls back to a
         # per-run build, and eviction -- which needs a non-blocking exclusive
         # -- can never reclaim the directory either.
+        # Scrub before unwinding too. uv writes direct_url.json as each
+        # requirement is installed, so a run that failed on the SECOND of two
+        # private-index requirements -- or was cancelled -- has already left
+        # an expanded token inside a half-built entry that sits in the shared
+        # cache root until some later build discards it. The sibling cleanup
+        # in _install_extra_requirements is in a `finally` for exactly this
+        # reason; this one has to be as well. Guarded so it cannot replace
+        # the exception in flight.
+        try:
+            _scrub_direct_url_credentials(venv_loc)
+        except Exception:
+            logger.exception("Cleanup: failed to scrub credentials from %s", venv_loc)
         if lock is not None:
             lock.release()
         raise

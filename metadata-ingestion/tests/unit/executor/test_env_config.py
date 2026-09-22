@@ -60,6 +60,13 @@ UNUSABLE = [
     "",
     "ten",
     "10 entries",
+    # Absurd but FINITE. Rejecting only inf/nan lets these through and
+    # silently removes the bound the knob exists to impose: int(1e300) makes
+    # `remaining <= max_entries` always true, and 1e308 hours overflows to
+    # inf when multiplied into seconds -- without raising, and with no log
+    # line, against docs promising a bound an operator can size a volume by.
+    "1e300",
+    "1e308",
 ]
 
 

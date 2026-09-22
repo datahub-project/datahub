@@ -193,6 +193,17 @@ def test_acquire_creates_a_missing_cache_root(tmp_path: pathlib.Path) -> None:
     assert (tmp_path / "fresh" / "_venv_cache").is_dir()
 
 
+def _surviving_entries(root: pathlib.Path) -> list[pathlib.Path]:
+    """Entry directories still present.
+
+    Explicitly is_dir() rather than glob("venv-*/"): the trailing slash only
+    restricts a glob to directories from Python 3.11, and CI runs testQuick
+    on 3.10 too, where it would also match the `.lock` files _remove_entry
+    deliberately leaves behind.
+    """
+    return [p for p in root.glob(f"{venv_utils.ENTRY_PREFIX}*") if p.is_dir()]
+
+
 def _entry(root: pathlib.Path, name: str, age_s: float) -> pathlib.Path:
     """A complete cache entry whose last-used marker is `age_s` seconds old."""
     venv = root / f"venv-{name}"
@@ -365,7 +376,7 @@ def test_concurrent_eviction_passes_do_not_each_free_the_whole_deficit(
 
     assert first_pass_evicted == 2
     assert second_pass_evicted == 0, "a second pass re-evicted an already-fitting cache"
-    assert len(list(tmp_path.glob("venv-*/"))) == 4
+    assert len(_surviving_entries(tmp_path)) == 4
 
 
 def test_one_eviction_pass_at_a_time_per_root(tmp_path: pathlib.Path) -> None:
@@ -385,7 +396,7 @@ def test_one_eviction_pass_at_a_time_per_root(tmp_path: pathlib.Path) -> None:
     finally:
         blocker.release()
 
-    assert len(list(tmp_path.glob("venv-*/"))) == 6, (
+    assert len(_surviving_entries(tmp_path)) == 6, (
         "a concurrent pass evicted while another held the pass lock"
     )
 

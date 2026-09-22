@@ -134,11 +134,15 @@ class SubProcessTestConnectionTask(Task):
             )
             SubProcessTaskUtil.release_venv_lock(prepared.venv_ref)
             # finalize_task_output is what normally removes this, and it is
-            # never reached from here. The ingestion task does the same in the
-            # identical situation; on the cache-off or cache-busy path the
-            # directory holds a complete per-run venv, so each failure would
-            # otherwise leak a full venv's worth of disk.
-            SubProcessTaskUtil._remove_directory(exec_out_dir)
+            # never reached from here, so on the cache-off or cache-busy path
+            # the complete per-run venv inside it would leak.
+            #
+            # Only when nothing can still be running out of it. A
+            # non-cacheable venv lives INSIDE exec_out_dir, so removing it
+            # while a forked child is executing from it deletes that child's
+            # interpreter -- strictly worse than leaking the disk.
+            if ingest_process is None or ingest_process.poll() is not None:
+                SubProcessTaskUtil._remove_directory(exec_out_dir)
             raise
 
         try:
@@ -154,8 +158,27 @@ class SubProcessTestConnectionTask(Task):
             return_code = ingest_process.poll()
 
         except asyncio.CancelledError:
-            # Terminate the running child process
-            ingest_process.terminate()
+            # Terminate the child AND wait for it, rather than signalling and
+            # re-raising immediately. Two things downstream depend on knowing
+            # the child is dead, and both got the wrong answer without this:
+            #
+            # - keep_venv_lock_if_popen_may_be_alive polls the child. A
+            #   signalled-but-unreaped child still polls None, so the SHARED
+            #   hold was handed to retain_lock FOREVER. flock conflicts across
+            #   fds within one process, so once the entry passed its TTL no
+            #   rebuild could ever take EXCLUSIVE again -- and `latest` is the
+            #   default, shared with ingestion, so one user pressing Cancel
+            #   made every run on that pod build a per-run venv for the rest
+            #   of the pod's life.
+            # - finalize_task_output removes exec_out_dir, and a
+            #   non-cacheable venv lives INSIDE it. Deleting it under a live
+            #   interpreter is the ImportError-on-a-deleted-.so failure the
+            #   lock exists to prevent.
+            #
+            # Bounded, and blocking on purpose: this unwinds a CancelledError,
+            # where awaiting invites a second cancellation and turns cleanup
+            # into a new failure mode.
+            SubProcessTaskUtil.terminate_and_reap(ingest_process)
             raise
 
         finally:
