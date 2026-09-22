@@ -362,42 +362,6 @@ class TestSubProcessIngestionTaskSubprocessCreation:
             # Own session/process group, so cancellation can signal the whole tree.
             assert kwargs["start_new_session"] is True
 
-    async def test_a_spawn_failure_releases_the_venv_cache_lock(
-        self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
-    ) -> None:
-        """venv_ref reaches execute()'s finally only through the tuple return.
-
-        So anything raising after _setup_venv succeeded -- a cancellation at
-        create_subprocess_exec, which is a first-class flow here, or a broken
-        pipe on the stdin write -- strands the entry's SHARED hold with no
-        owner. execute()'s own `except BaseException` cannot help: venv_ref is
-        not bound there yet.
-        """
-        validated_args = SubProcessIngestionTaskArgs.model_validate(sample_args)
-        mock_venv_ref = Mock()
-        mock_venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
-
-        with (
-            patch(
-                "asyncio.create_subprocess_exec",
-                side_effect=asyncio.CancelledError(),
-            ),
-            patch.object(ingestion_task, "_setup_venv", return_value=mock_venv_ref),
-        ):
-            with pytest.raises(asyncio.CancelledError):
-                await ingestion_task._create_subprocess(
-                    validated_args,
-                    "demo-data",
-                    {"source": {"type": "demo-data"}},
-                    "/tmp/report.json",
-                    {"TEST": "value"},
-                    "/tmp/exec",
-                    LogHolder(),
-                    {},
-                )
-
-        mock_venv_ref.lock.release.assert_called_once()
-
     async def test_create_subprocess_writes_stdin_envelope(
         self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
     ) -> None:
@@ -510,6 +474,52 @@ class TestSubProcessIngestionTaskSubprocessCreation:
             )
 
         venv_ref.lock.release.assert_called_once()
+
+    async def test_a_cancellation_during_the_spawn_keeps_the_venv_cache_lock(
+        self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
+    ) -> None:
+        """A cancellation inside create_subprocess_exec may already have forked.
+
+        This is the one window the keep/release split cannot inspect: the
+        process handle is the return value of the await that got cancelled,
+        so there is nothing to poll. Releasing there marks the venv evictable
+        while a child may be executing from it, and the next build rmtrees a
+        running interpreter -- an ImportError on a deleted .so, inside a task
+        already reported CANCELLED, so the error lands nowhere.
+
+        Every other failure here (OSError from the fork, a missing wrapper
+        module) means no child exists, and those still release: see the
+        sibling test above.
+        """
+        validated_args = SubProcessIngestionTaskArgs.model_validate(sample_args)
+
+        venv_ref = Mock()
+        venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
+        # Captured up front: retaining detaches the lock from the reference,
+        # so venv_ref.lock is None by the time the assertion runs.
+        lock = venv_ref.lock
+
+        with (
+            patch("asyncio.create_subprocess_exec", side_effect=asyncio.CancelledError),
+            patch.object(ingestion_task, "_setup_venv", return_value=venv_ref),
+            pytest.raises(asyncio.CancelledError),
+        ):
+            await ingestion_task._create_subprocess(
+                validated_args,
+                "demo-data",
+                {"source": {"type": "demo-data"}},
+                "/tmp/report.json",
+                {"PATH": "/usr/bin"},
+                "/tmp/exec",
+                LogHolder(),
+                {},
+            )
+
+        lock.release.assert_not_called()
+        assert venv_ref.lock is None, (
+            "a retained lock must be detached, or finalize_task_output will "
+            "release it later and undo the protection"
+        )
 
     async def test_create_subprocess_secrets_not_in_env(
         self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]

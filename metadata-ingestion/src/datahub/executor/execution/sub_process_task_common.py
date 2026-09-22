@@ -633,6 +633,22 @@ class SubProcessTaskUtil:
         venv_ref.lock = None
 
     @staticmethod
+    def retain_lock_if_held(venv_ref: Optional[VenvReference]) -> None:
+        """Keep a venv's lock for the life of the process instead of releasing it.
+
+        For the windows where a child MAY exist but cannot be asked -- see
+        _keep_venv_lock_unless_exited for the ones that can. Safe from any
+        `except`/`finally`: it can never raise, because every caller is
+        already unwinding.
+        """
+        try:
+            if venv_ref is not None and venv_ref.lock is not None:
+                retain_lock(venv_ref.lock)
+                venv_ref.lock = None
+        except Exception:
+            logger.exception("Cleanup: failed to retain the venv cache lock")
+
+    @staticmethod
     def release_venv_lock(venv_ref: Optional[VenvReference]) -> None:
         """Let go of a cached venv's lock. Safe from any `except`/`finally`.
 

@@ -232,14 +232,33 @@ class SubProcessIngestionTask(Task):
                 secret_values,
                 venv_ref,
             )
+        except asyncio.CancelledError:
+            # The one window the keep/release split cannot inspect. A
+            # cancellation delivered inside `await create_subprocess_exec`
+            # may land after the fork, and the handle that would answer "is
+            # there a child?" is the return value of the await that was
+            # cancelled -- there is nothing to poll. Releasing here marks the
+            # venv evictable while a child may be executing from it, and the
+            # next build's eviction pass rmtrees a running interpreter: an
+            # ImportError on a deleted .so, inside a task already reported
+            # CANCELLED, so the error lands nowhere.
+            #
+            # Keeping it costs one unevictable entry until this executor
+            # restarts. Same trade as _keep_venv_lock_unless_exited: prefer
+            # the disk over a wrong answer. A post-spawn cancellation is
+            # already handled precisely in _spawn_ingestion_subprocess, so
+            # this only covers the genuinely unknowable case.
+            SubProcessTaskUtil.retain_lock_if_held(venv_ref)
+            raise
         except BaseException:
             # venv_ref only reaches execute() -- and therefore the finally that
             # releases its lock -- through this method's return value. Anything
-            # that raises after _setup_venv succeeded, most realistically a
-            # cancellation at create_subprocess_exec or a broken pipe on the
-            # stdin write, would otherwise strand the SHARED hold for the
-            # process's life and make that cache entry unevictable. Guarded, so
-            # it cannot replace the exception in flight.
+            # that raises after _setup_venv succeeded, most realistically an
+            # OSError from the fork or a broken pipe on the stdin write, would
+            # otherwise strand the SHARED hold for the process's life and make
+            # that cache entry unevictable. No child exists on these paths --
+            # a cancellation is handled above -- so releasing is right.
+            # Guarded, so it cannot replace the exception in flight.
             SubProcessTaskUtil.release_venv_lock(venv_ref)
             raise
 
