@@ -11,6 +11,7 @@ import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePath
 import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatformInstances;
 import com.linkedin.datahub.upgrade.system.dataplatforms.IndexDataPlatforms;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
+import com.linkedin.datahub.upgrade.system.dataproducts.ResyncDataProductAssets;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinks;
@@ -40,7 +41,6 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,6 +83,17 @@ public class NonBlockingConfigs {
   }
 
   @Bean
+  public NonBlockingSystemUpgrade resyncDataProductAssets(
+      final OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      @Value("${systemUpdate.dataProductAssets.reprocess.enabled}") final boolean reprocessEnabled,
+      @Value("${systemUpdate.dataProductAssets.batchSize}") final Integer batchSize) {
+    return new ResyncDataProductAssets(
+        opContext, entityService, searchService, reprocessEnabled, batchSize);
+  }
+
+  @Bean
   public NonBlockingSystemUpgrade backfillIcebergBrowsePathsV2(
       final OperationContext opContext,
       EntityService<?> entityService,
@@ -98,7 +109,6 @@ public class NonBlockingConfigs {
       final OperationContext opContext,
       EntityService<?> entityService,
       ElasticSearchService elasticSearchService,
-      SearchClientShim<?> restHighLevelClient,
       @Value("${systemUpdate.processInstanceHasRunEvents.enabled}") final boolean enabled,
       @Value("${systemUpdate.processInstanceHasRunEvents.reprocess.enabled}")
           boolean reprocessEnabled,
@@ -110,7 +120,6 @@ public class NonBlockingConfigs {
         opContext,
         entityService,
         elasticSearchService,
-        restHighLevelClient,
         enabled,
         reprocessEnabled,
         batchSize,
@@ -240,7 +249,8 @@ public class NonBlockingConfigs {
           final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
       final EntityService<?> entityService,
       // ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED
-      @Value("${elasticsearch.index.docIds.schemaField.hashIdEnabled}") final boolean hashEnabled,
+      @Value("${elasticsearch.entityIndex.v2.docIds.schemaField.hashIdEnabled}")
+          final boolean hashEnabled,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_ENABLED
       @Value("${systemUpdate.schemaFieldsDocIds.enabled}") final boolean enabled,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_BATCH_SIZE

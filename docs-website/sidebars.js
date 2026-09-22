@@ -36,26 +36,6 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Core Capabilities",
-      link: {
-        type: "generated-index",
-        title: "Core Capabilities",
-        description:
-          "AI-powered discovery, governance, and observability unify across your data estate to deliver data quality, compliance, and AI readiness.",
-      },
-      items: [
-        {
-          label: "Data Quality & Observability",
-          type: "doc",
-          id: "docs/features/feature-guides/observe",
-          customProps: {
-            icon: "🔍",
-          },
-        },
-      ],
-    },
-    {
-      type: "category",
       label: "Features",
       link: {
         type: "generated-index",
@@ -405,6 +385,42 @@ module.exports = {
           id: "docs/glossary/business-glossary",
         },
         {
+          label: "Ontology",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "What is an Ontology?",
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/overview",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/relating-glossary-terms",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/visualizing-your-ontology",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/querying-your-ontology",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/custom-relationships",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/sparql-api",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           label: "Compliance Forms",
           type: "category",
           collapsed: true,
@@ -703,6 +719,49 @@ module.exports = {
       id: "docs/managed-datahub/welcome-acryl",
     },
     {
+      type: "category",
+      label: "Context and AI",
+      items: [
+        {
+          label: "Context",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/context/overview",
+          },
+          className: "saasOnly",
+          items: [
+            {
+              label: "Configure Context Generation",
+              type: "doc",
+              id: "docs/managed-datahub/context/configure-context-generation",
+              className: "saasOnly",
+            },
+            {
+              label: "Validate Context",
+              type: "doc",
+              id: "docs/managed-datahub/context/review-context-proposals",
+              className: "saasOnly",
+            },
+            {
+              label: "Activate Context",
+              type: "doc",
+              id: "docs/managed-datahub/context/activate-context",
+              className: "saasOnly",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      label: "Data Quality & Observability",
+      type: "doc",
+      id: "docs/managed-datahub/observe/overview",
+      customProps: {
+        icon: "🔍",
+      },
+    },
+    {
       label: "Upgrading from DataHub Core to Cloud",
       type: "doc",
       id: "docs/managed-datahub/upgrade_core_to_cloud",
@@ -827,6 +886,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_2_0",
         "docs/managed-datahub/release-notes/v_2_1_0",
         "docs/managed-datahub/release-notes/v_2_0_0",
         "docs/managed-datahub/release-notes/v_1_1_0",
@@ -937,6 +997,7 @@ module.exports = {
             "docs/quick-ingestion-guides/snowflake/overview",
             "docs/quick-ingestion-guides/snowflake/setup",
             "docs/quick-ingestion-guides/snowflake/configuration",
+            "docs/quick-ingestion-guides/snowflake/migrate-to-key-pair-auth",
           ],
         },
         {
@@ -1561,6 +1622,7 @@ module.exports = {
       },
       items: [
         "docs/slack",
+        { type: "doc", label: "Otto (Community Assistant)", id: "docs/otto" },
         "docs/townhalls",
         //        "docs/townhall-history",
         "docs/CODE_OF_CONDUCT",

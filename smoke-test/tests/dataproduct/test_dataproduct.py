@@ -33,11 +33,16 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.urn import Urn
 from tests.utilities.domains import Domain
-from tests.utils import wait_for_writes_to_sync, with_test_retry
+from tests.utils import (
+    delete_urn,
+    unique_suffix,
+    wait_for_writes_to_sync,
+    with_test_retry,
+)
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.CATALOG)
+pytestmark = [pytest.mark.domain(Domain.CATALOG), pytest.mark.p0]
 
 
 start_index = randint(10, 10000)
@@ -65,6 +70,31 @@ mutation batchAddToDataProducts($dataProductUrns: [String!]!, $resourceUrns: [St
 BATCH_REMOVE_FROM_DATA_PRODUCTS_QUERY = """
 mutation batchRemoveFromDataProducts($dataProductUrns: [String!]!, $resourceUrns: [String!]!) {
   batchRemoveFromDataProducts(input: { dataProductUrns: $dataProductUrns, resourceUrns: $resourceUrns })
+}
+"""
+
+CREATE_DOMAIN_QUERY = """
+mutation createDomain($input: CreateDomainInput!) {
+  createDomain(input: $input)
+}
+"""
+
+GET_DATA_PRODUCT_QUERY = """
+query getDataProduct($urn: String!) {
+  dataProduct(urn: $urn) {
+    urn
+    domain {
+      domain {
+        urn
+      }
+    }
+  }
+}
+"""
+
+DELETE_DOMAIN_QUERY = """
+mutation deleteDomain($urn: String!) {
+  deleteDomain(urn: $urn)
 }
 """
 
@@ -407,3 +437,64 @@ def test_batch_remove_from_data_products(graph_client, ingest_cleanup_data):
         assert get_data_product_asset_urns(graph_client, data_product_urn) == set()
     finally:
         delete_data_product(graph_client, data_product_urn)
+
+
+@with_test_retry()
+def _assert_data_product_profile_loads(graph_client, data_product_urn: str) -> None:
+    result = graph_client.execute_graphql(
+        GET_DATA_PRODUCT_QUERY, {"urn": data_product_urn}
+    )
+    assert result["dataProduct"]["urn"] == data_product_urn
+    assert result["dataProduct"].get("domain") is None
+
+
+def test_delete_domain_with_associated_data_product(graph_client):
+    suffix = unique_suffix()
+    domain_id = f"dp-domain-{suffix}"
+    domain_urn = f"urn:li:domain:{domain_id}"
+    data_product_urn = None
+    try:
+        created = graph_client.execute_graphql(
+            CREATE_DOMAIN_QUERY,
+            {
+                "input": {
+                    "id": domain_id,
+                    "name": f"Test Domain {suffix}",
+                    "description": "Domain used to test Data Product detach on delete",
+                }
+            },
+        )
+        assert created["createDomain"] == domain_urn
+
+        created_product = graph_client.execute_graphql(
+            get_gql_query("tests/dataproduct/queries/add_dataproduct.graphql"),
+            {
+                "domainUrn": domain_urn,
+                "name": f"Test Product {suffix}",
+                "description": "Product associated with a domain that will be deleted",
+            },
+        )
+        data_product_urn = created_product["createDataProduct"]["urn"]
+        assert data_product_urn
+        wait_for_writes_to_sync()
+
+        deleted = graph_client.execute_graphql(DELETE_DOMAIN_QUERY, {"urn": domain_urn})
+        assert deleted["deleteDomain"] is True
+        wait_for_writes_to_sync()
+
+        _assert_data_product_profile_loads(graph_client, data_product_urn)
+
+        delete_data_product(graph_client, data_product_urn)
+        wait_for_writes_to_sync()
+        assert graph_client.exists(data_product_urn) is False
+        data_product_urn = None
+    finally:
+        if data_product_urn:
+            try:
+                delete_urn(graph_client, data_product_urn)
+            except Exception:
+                logger.warning("cleanup failed for %s", data_product_urn, exc_info=True)
+        try:
+            delete_urn(graph_client, domain_urn)
+        except Exception:
+            logger.warning("cleanup failed for %s", domain_urn, exc_info=True)

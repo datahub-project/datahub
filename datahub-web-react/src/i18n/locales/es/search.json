@@ -155,6 +155,7 @@
     "searchBar.sections.bestMatches": "Mejores coincidencias",
     "searchBar.sections.recentlySearched": "Búsquedas recientes",
     "searchBar.sections.recentlyViewed": "Visto recientemente",
+    "searchBar.viewAll": "Ver todo →",
     "searchBar.viewAllResults": "Ver todos los resultados de <bold>{{query}}</bold>",
     "searchHeader.discover": "Descubrir",
     "sidebar.loadingError": "No se pudo cargar la barra lateral.",

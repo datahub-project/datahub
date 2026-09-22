@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.testng.annotations.Test;
 
 public class MultiEntityMappingsUtilsTest {
@@ -605,5 +606,40 @@ public class MultiEntityMappingsUtilsTest {
     when(entitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(aspectSpec));
 
     return entitySpec;
+  }
+
+  @Test
+  public void testMergeMappingsPreservesStructuredPropertiesAcrossEntities() {
+    Map<String, Object> existingMappings =
+        Map.of(
+            "properties",
+            Map.of(
+                "structuredProperties",
+                Map.of(
+                    "dynamic",
+                    true,
+                    "properties",
+                    Map.of("propertyA", Map.of("type", "keyword")))));
+    Map<String, Object> configMappings =
+        Map.of(
+            "properties",
+            Map.of(
+                "structuredProperties",
+                Map.of(
+                    "dynamic", false, "properties", Map.of("propertyB", Map.of("type", "date")))));
+
+    Map<String, Object> result =
+        MultiEntityMappingsUtils.mergeMappings(existingMappings, configMappings);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> resultProperties = (Map<String, Object>) result.get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> structuredProperties =
+        (Map<String, Object>) resultProperties.get("structuredProperties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> scopedProperties =
+        (Map<String, Object>) structuredProperties.get("properties");
+    assertEquals(scopedProperties.keySet(), Set.of("propertyA", "propertyB"));
+    assertEquals(structuredProperties.get("dynamic"), false);
   }
 }

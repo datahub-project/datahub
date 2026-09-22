@@ -5,6 +5,7 @@ services:
     profiles:
     - quickstart
     - quickstart-backend
+    - quickstart-opensearch2
     depends_on:
       datahub-gms-quickstart:
         condition: service_healthy
@@ -12,6 +13,8 @@ services:
     environment:
       ACTIONS_CONFIG: ''
       ACTIONS_EXTRA_PACKAGES: ''
+      AWS_PROFILE: null
+      AWS_SDK_LOAD_CONFIG: '1'
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_GMS_PROTOCOL: http
@@ -47,6 +50,7 @@ services:
     profiles:
     - quickstart
     - quickstart-backend
+    - quickstart-opensearch2
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
@@ -63,6 +67,7 @@ services:
       DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
       DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
       DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID: generic-duhe-consumer-job-client-gms
+      DEV_TOOLING_ENABLED: 'false'
       EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
       EBEAN_DATASOURCE_HOST: mysql:3306
       EBEAN_DATASOURCE_PASSWORD: datahub
@@ -161,6 +166,7 @@ services:
     profiles:
     - quickstart
     - quickstart-frontend
+    - quickstart-opensearch2
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
@@ -226,8 +232,12 @@ services:
     - debug-consumers-cdc
     - debug-neo4j
     - debug-elasticsearch
+    - debug-opensearch2
+    - debug-opensearch3
     - debug-backend-aws
     - debug-aws
+    - quickstart-opensearch2
+    - quickstart-opensearch3
     command:
     - /bin/bash
     - -c
@@ -303,8 +313,12 @@ services:
     - debug-consumers-cdc
     - debug-neo4j
     - debug-elasticsearch
+    - debug-opensearch2
+    - debug-opensearch3
     - debug-backend-aws
     - debug-aws
+    - quickstart-opensearch2
+    - quickstart-opensearch3
     command:
     - --character-set-server=utf8mb4
     - --collation-server=utf8mb4_bin
@@ -365,6 +379,8 @@ services:
     - debug-neo4j
     - debug-backend-aws
     - debug-aws
+    - debug-opensearch2
+    - quickstart-opensearch2
     environment:
       DISABLE_SECURITY_PLUGIN: 'true'
       ES_JAVA_OPTS: -Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
@@ -374,7 +390,7 @@ services:
     healthcheck:
       test:
       - CMD-SHELL
-      - curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
+      - curl -sS --fail "http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s"
       timeout: 15s
       interval: 5s
       retries: 10
@@ -399,6 +415,7 @@ services:
     - quickstart-consumers
     - quickstart-frontend
     - quickstart-backend
+    - quickstart-opensearch2
     command:
     - -u
     - SystemUpdate

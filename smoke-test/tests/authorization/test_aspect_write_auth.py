@@ -47,6 +47,7 @@ pytestmark = [
     pytest.mark.no_cypress_suite1,
     pytest.mark.global_policy_mutator,
     pytest.mark.domain(Domain.PLATFORM),
+    pytest.mark.p0,
 ]
 
 _UNIQUE = uuid.uuid4().hex[:8]

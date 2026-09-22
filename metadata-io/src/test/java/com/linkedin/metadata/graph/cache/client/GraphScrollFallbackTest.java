@@ -242,6 +242,23 @@ public class GraphScrollFallbackTest {
     assertTrue(result.getChildUrns().isEmpty());
   }
 
+  // Descendant expansion feeds search access-control filters. If a frontier scroll fails, the BFS
+  // must NOT return the descendants gathered so far as if they were complete — a partial descendant
+  // set silently under-restricts a NOT_EQUALS/DENY filter (entities under the dropped subtree
+  // leak).
+  // allDescendants must fail closed (throw) on truncation rather than swallow it.
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void allDescendantsFailsClosedOnScrollTruncation() {
+    GraphRetriever graphRetriever = mock(GraphRetriever.class);
+    when(graphRetriever.scrollRelatedEntities(
+            any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), any(), any()))
+        .thenThrow(new RuntimeException("scroll failed"));
+
+    OperationContext opContext = contextWithGraphRetriever(graphRetriever);
+
+    GraphScrollFallback.allDescendants(opContext, HierarchyBindings.domainSpec(opContext), ROOT);
+  }
+
   private static Set<String> urnsInFilter(Filter filter) {
     Set<String> urns = new HashSet<>();
     for (ConjunctiveCriterion orClause : filter.getOr()) {

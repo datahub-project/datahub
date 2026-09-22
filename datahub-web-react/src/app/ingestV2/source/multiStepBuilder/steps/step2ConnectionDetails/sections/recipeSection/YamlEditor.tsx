@@ -62,9 +62,10 @@ const EDITOR_LANGUAGE = 'yaml';
 type Props = {
     value: string;
     onChange: (value: any) => void;
+    defaultHeight?: string;
 };
 
-export function YamlEditor({ value, onChange }: Props) {
+export function YamlEditor({ value, onChange, defaultHeight = '30vh' }: Props) {
     const { t: tc } = useTranslation('common.actions');
     const { t: tf } = useTranslation('common.feedback');
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -152,7 +153,7 @@ export function YamlEditor({ value, onChange }: Props) {
                         },
                         scrollBeyondLastLine: false,
                     }}
-                    height={isExpanded ? fullContentHeight : '30vh'}
+                    height={isExpanded ? fullContentHeight : defaultHeight}
                     defaultLanguage={EDITOR_LANGUAGE}
                     defaultValue={value}
                     onChange={onChange}
