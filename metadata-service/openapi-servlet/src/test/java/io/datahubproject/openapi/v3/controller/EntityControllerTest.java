@@ -601,6 +601,12 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                     "/openapi/v3/entity/corpuser/{urn}/corpusercredentials", userUrn)
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isForbidden());
+    // HEAD shares the gate: existence of credential material is not disclosed either.
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.head(
+                "/openapi/v3/entity/corpuser/{urn}/corpUserCredentials", userUrn))
+        .andExpect(status().isForbidden());
     verify(mockEntityService, never())
         .getEnvelopedVersionedAspects(any(OperationContext.class), anyMap(), anyBoolean());
   }

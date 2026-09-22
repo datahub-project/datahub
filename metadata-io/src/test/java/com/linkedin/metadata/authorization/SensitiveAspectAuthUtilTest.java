@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
@@ -132,6 +133,19 @@ public class SensitiveAspectAuthUtilTest {
             opContext, new LinkedHashMap<>(Map.of(USER_URN, response)));
 
     assertEquals(filtered.get(USER_URN).getAspects().keySet(), Set.of(CORP_USER_INFO_ASPECT_NAME));
+  }
+
+  @Test
+  public void testBlankNamesAndEmptyResponsesPassThrough() {
+    assertTrue(SensitiveAspectAuthUtil.canReadAspect(opContext, USER_URN, null));
+    assertTrue(SensitiveAspectAuthUtil.canReadAspect(opContext, USER_URN, " "));
+    assertTrue(SensitiveAspectAuthUtil.canReadAspect(opContext, (String) null, "x"));
+    assertNull(SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, (EntityResponse) null));
+    EntityResponse bare = new EntityResponse().setUrn(USER_URN);
+    assertSame(SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, bare), bare);
+    Map<String, String> empty = Map.of();
+    assertSame(SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, USER_URN, empty), empty);
+    authUtilMock.verifyNoInteractions();
   }
 
   private static CorpUserCredentials credentials() {
