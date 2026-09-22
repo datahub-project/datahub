@@ -37,7 +37,7 @@ annotated-doc==0.0.4 ; python_full_version >= '3.11' and python_full_version < '
     #   typer
 annotated-types==0.7.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via pydantic
-anyio==4.12.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+anyio==4.15.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   google-genai
@@ -1578,7 +1578,7 @@ types-ujson==5.10.0.20250822 ; python_full_version >= '3.11' and python_full_ver
     # via acryl-datahub
 types-urllib3==1.26.25.14 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via types-requests
-typing-extensions==4.15.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+typing-extensions==4.16.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   aiosignal

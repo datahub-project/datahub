@@ -82,3 +82,11 @@ Pygments>=2.20.0
 # torch: CVE-2025-3001 (fixed 2.10.0), CVE-2025-3000 (fixed 2.13.0). pytorch-lightning only
 # requires torch>=2.1.0 (no upper bound), so this is compatible. Cap major until reviewed.
 torch>=2.13.0,<3.0.0
+# anyio: CVE-2026-63374 (connect_tcp()/TLSStream.wrap() accepted a certificate issued for
+# the IDNA-2003 encoding of an internationalized domain name, so a hijacked connection still
+# validated client-side), CVE-2026-64847 (to_process worker stderr is on a pipe that is never
+# drained, so a worker writing enough to stderr wedges the awaiting call); both fixed in 4.14.2.
+# Not in setup.py: that floor stays anyio>=3.0.0,<5.0.0 because Airflow constraints pin anyio
+# (2.x: 4.4.0, 3.x: 4.9.0), and raising the published floor would make acryl-datahub
+# uninstallable alongside them. Safe here: images do not coexist with Airflow's pinned deps.
+anyio>=4.14.2,<5.0.0
