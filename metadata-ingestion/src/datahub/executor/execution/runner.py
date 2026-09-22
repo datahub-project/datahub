@@ -684,6 +684,12 @@ def _is_pinned_requirement(req: str) -> bool:
     behind an address can be republished, which is the same reason
     _node_local_stable_name treats a dev-build wheel URL as a moving target.
 
+    `==` alone is not enough to call it exact. PEP 440 prefix matching uses
+    the same operator, so `pkg==1.2.*` resolves to 1.2.3 today and 1.2.9
+    tomorrow while the cache key -- built from the requirement STRING --
+    never changes. `===` has no prefix form: it is arbitrary equality, a
+    literal string comparison, so it really is immutable.
+
     An unparseable requirement counts as unpinned. Being wrong that way costs
     a periodic rebuild; being wrong the other way freezes the entry for the
     pod's life.
@@ -694,7 +700,11 @@ def _is_pinned_requirement(req: str) -> bool:
         return False
     if parsed.url:
         return False
-    return any(spec.operator in ("==", "===") for spec in parsed.specifier)
+    return any(
+        spec.operator == "==="
+        or (spec.operator == "==" and not spec.version.endswith(".*"))
+        for spec in parsed.specifier
+    )
 
 
 def _requirements_file_is_pinned(path: pathlib.Path) -> bool:

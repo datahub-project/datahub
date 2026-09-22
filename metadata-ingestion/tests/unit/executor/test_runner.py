@@ -2349,6 +2349,14 @@ class TestVenvCacheInSetupVenv:
             pytest.param(["some-lib~=1.0"], True, id="compatible-release"),
             pytest.param(["pkg @ https://host.example/p.whl"], True, id="direct-url"),
             pytest.param(["some-lib==1.2.3"], False, id="exact-pin"),
+            # PEP 440 prefix matching uses `==` but is not an exact pin:
+            # `==1.2.*` resolves to 1.2.3 today and 1.2.9 tomorrow under one
+            # cache key, so the entry has to expire like any moving target.
+            pytest.param(["some-lib==1.2.*"], True, id="prefix-pin"),
+            pytest.param(["some-lib==1.*"], True, id="major-prefix-pin"),
+            # `===` is arbitrary-equality: a literal string match, no
+            # prefix semantics, so it really is immutable.
+            pytest.param(["some-lib===1.2.3"], False, id="arbitrary-equality"),
             pytest.param(["a==1.0", "b==2.0"], False, id="several-exact-pins"),
         ],
     )
