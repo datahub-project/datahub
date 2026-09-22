@@ -389,7 +389,9 @@ class TestGlossary:
             wait_for_hierarchy_writes()
 
             metrics_before = fetch_prometheus_metrics(auth_session)
-            counter_before = prometheus_counter_total(metrics_before, METRIC_GRAPH_SCROLL)
+            counter_before = prometheus_counter_total(
+                metrics_before, METRIC_GRAPH_SCROLL
+            )
 
             query_parent_node_urns_on_term(auth_session, term_urn)
             metrics_after_first = fetch_prometheus_metrics(auth_session)
@@ -541,8 +543,9 @@ class TestMembership:
             graph_client.hard_delete_entity(user_urn)
             wait_for_hierarchy_writes()
 
-
-    def test_session_user_dual_group_types_labeled_correctly(self, auth_session, graph_client):
+    def test_session_user_dual_group_types_labeled_correctly(
+        self, auth_session, graph_client
+    ):
         """Session-user outgoing membership must label corp vs native groups separately."""
         user_urn = auth_session._upstream.cookies["actor"]
         run_id = unique_id("egc-membership")
@@ -571,13 +574,14 @@ class TestMembership:
             )
         finally:
             if native_group_urn is not None:
-                remove_users_from_native_group(auth_session, native_group_urn, [user_urn])
+                remove_users_from_native_group(
+                    auth_session, native_group_urn, [user_urn]
+                )
                 delete_native_group(auth_session, native_group_urn)
             if corp_group_urn is not None:
                 remove_corp_group_membership(graph_client, user_urn, corp_group_urn)
                 delete_native_group(auth_session, corp_group_urn)
             wait_for_hierarchy_writes()
-
 
     def test_corp_group_incoming_members_after_native_add(self, auth_session):
         """Group profile member listing must reflect UI addGroupMembers immediately."""
@@ -599,8 +603,9 @@ class TestMembership:
                 remove_users_from_native_group(auth_session, group_urn, [user_urn])
                 delete_native_group(auth_session, group_urn)
 
-
-    def test_add_group_members_adds_every_user_in_one_mutation(self, auth_session, graph_client):
+    def test_add_group_members_adds_every_user_in_one_mutation(
+        self, auth_session, graph_client
+    ):
         """A single addGroupMembers call must add all supplied users.
 
         Writes are batched, so a regression to per-user handling that stops after the
@@ -626,7 +631,6 @@ class TestMembership:
         finally:
             cleanup_group_and_users(auth_session, graph_client, group_urn, user_urns)
             wait_for_hierarchy_writes()
-
 
     def test_migration_converts_existing_members_when_group_becomes_native(
         self, auth_session, graph_client
@@ -666,8 +670,9 @@ class TestMembership:
             )
             wait_for_hierarchy_writes()
 
-
-    def test_remove_group_members_revokes_legacy_membership(self, auth_session, graph_client):
+    def test_remove_group_members_revokes_legacy_membership(
+        self, auth_session, graph_client
+    ):
         """removeGroupMembers must revoke membership held via the legacy aspect.
 
         The group is native, so the resolver skips the migration and calls removeGroupMembers
@@ -701,7 +706,6 @@ class TestMembership:
         finally:
             cleanup_group_and_users(auth_session, graph_client, group_urn, [user_urn])
             wait_for_hierarchy_writes()
-
 
     def test_corp_group_incoming_members_immediately_after_add_second_member(
         self,
@@ -747,7 +751,9 @@ class TestMembership:
                 members,
             )
 
-            assert admin_urn in members, f"admin missing from INCOMING members: {members}"
+            assert admin_urn in members, (
+                f"admin missing from INCOMING members: {members}"
+            )
             assert datahub_urn in members, (
                 "datahub missing after addGroupMembers (Playwright parity); "
                 f"members={members}"
