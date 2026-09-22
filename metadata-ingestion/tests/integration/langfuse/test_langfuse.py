@@ -1,10 +1,12 @@
 import logging
+from typing import cast
 
 import pytest
 import requests
 import tenacity
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.langfuse.langfuse import LangfuseSource
 from datahub.testing import mce_helpers
 from tests.integration.langfuse.setup_test_data import (
     PROMPT_GREETING,
@@ -97,7 +99,7 @@ def test_langfuse_ingest(seeded_langfuse, pytestconfig, tmp_path, test_resources
         pipeline.run()
         pipeline.raise_from_status()
 
-        report = pipeline.source.get_report()
+        report = cast(LangfuseSource, pipeline.source).get_report()
         assert report.failures == []
         assert report.warnings == []
 
@@ -125,8 +127,6 @@ def test_langfuse_ingest(seeded_langfuse, pytestconfig, tmp_path, test_resources
 
 
 def test_langfuse_test_connection(seeded_langfuse):
-    from datahub.ingestion.source.langfuse.langfuse import LangfuseSource
-
     report = LangfuseSource.test_connection(
         {
             "connection": {
