@@ -107,6 +107,8 @@ The source will automatically detect and use the appropriate method based on you
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+With `incremental_lineage: true`, stored-procedure lineage is emitted as a patch. A patch only adds, so lineage from an earlier run is never pruned: an upstream a procedure no longer reads stays on the DataJob until it is removed through the UI. This is the trade-off for keeping lineage that users added by hand, which a full upsert would overwrite on every run.
+
 ### Troubleshooting
 
 #### Debug Mode

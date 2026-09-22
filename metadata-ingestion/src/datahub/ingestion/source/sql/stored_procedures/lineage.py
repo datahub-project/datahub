@@ -110,8 +110,25 @@ def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[Procedur
       unparseable; rest of the statement is captured as a literal string. We
       regex out the dotted target.
     """
+    if isinstance(parsed, sqlglot.exp.ExecuteSql):
+        # `sp_executesql` runs a string. The callee, if there is one at all, is inside
+        # it; the name here is the system procedure. A subclass of Execute, so it has
+        # to be tested first.
+        return None
+
     if isinstance(parsed, sqlglot.exp.Execute):
         target = parsed.this
+        identifier = target.this if isinstance(target, sqlglot.exp.Table) else None
+        if isinstance(identifier, sqlglot.exp.Parameter):
+            # `EXEC @proc_var`: dynamic dispatch. sqlglot still wraps the variable in a
+            # Table, so without this the variable's own name becomes the callee.
+            return None
+        if isinstance(identifier, sqlglot.exp.Identifier) and (
+            identifier.args.get("temporary") or identifier.args.get("global_")
+        ):
+            # `EXEC #tmp_proc`: session-scoped, and the name arrives with its `#`
+            # stripped, so it would collide with a real procedure of that name.
+            return None
         if isinstance(target, sqlglot.exp.Table):
             return ProcedureCall(
                 database=target.args["catalog"].name
@@ -290,6 +307,18 @@ def _classify_statements(
         call = _extract_procedure_call(parsed)
         if call is not None:
             procedure_calls.append(call)
+            continue
+
+        # An INSERT with no source is what `INSERT INTO #t EXEC p` leaves behind once
+        # the call splits off. Passed to the aggregator it registers `#t` as a temp
+        # table with no upstreams, and everything later built from `#t` then resolves
+        # to nothing -- costing the procedure its real output table. `DEFAULT VALUES`
+        # is the only other statement with this shape, and it already produced no
+        # lineage, so nothing is lost by dropping both.
+        if (
+            isinstance(parsed, sqlglot.exp.Insert)
+            and parsed.args.get("expression") is None
+        ):
             continue
 
         # Skip TSQL control flow keywords that don't produce lineage.
