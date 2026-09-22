@@ -2395,6 +2395,32 @@
       "platform_name": "Amazon Kinesis Data Streams",
       "support_status": "ALPHA"
     },
+    "langfuse": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default (Project container)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled for Prompts only (fully enumerated each run). NOT enabled for Traces/Generations, which are retrieved through a rolling time window and are excluded from stale-entity tracking to avoid incorrectly soft-deleting entities that simply aged out of the window.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Not implemented in this version",
+          "subtype_modifier": null,
+          "supported": false
+        }
+      ],
+      "classname": "datahub.ingestion.source.langfuse.langfuse.LangfuseSource",
+      "platform_id": "langfuse",
+      "platform_name": "Langfuse",
+      "support_status": "ALPHA"
+    },
     "ldap": {
       "capabilities": [
         {

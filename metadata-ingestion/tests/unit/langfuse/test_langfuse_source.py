@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -6,8 +6,10 @@ import requests
 from pydantic import SecretStr, ValidationError
 
 from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import CapabilityReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.langfuse.langfuse import LangfuseSource, _iso_to_millis
 from datahub.ingestion.source.langfuse.langfuse_client import (
     LangfuseAuthenticationError,
@@ -23,6 +25,26 @@ from datahub.metadata.schema_classes import (
     DataProcessInstancePropertiesClass,
     VersionPropertiesClass,
 )
+
+
+def _client(source: LangfuseSource) -> MagicMock:
+    return cast(MagicMock, source.client)
+
+
+def _mcpw(wu: MetadataWorkUnit) -> MetadataChangeProposalWrapper:
+    assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    return wu.metadata
+
+
+def _dpi_props(
+    workunits: List[MetadataWorkUnit],
+) -> List[DataProcessInstancePropertiesClass]:
+    return [
+        aspect
+        for wu in workunits
+        for aspect in [_mcpw(wu).aspect]
+        if isinstance(aspect, DataProcessInstancePropertiesClass)
+    ]
 
 
 @pytest.fixture
@@ -44,15 +66,15 @@ def source(connection: LangfuseConnectionConfig) -> LangfuseSource:
     return src
 
 
-def _obs(**kwargs) -> LangfuseObservation:
-    defaults = dict(
-        id="obs-default",
-        trace_id="trace-default",
-        type="SPAN",
-        is_root_observation=False,
-        start_time="2026-01-01T00:00:00Z",
-        end_time="2026-01-01T00:00:01Z",
-    )
+def _obs(**kwargs: Any) -> LangfuseObservation:
+    defaults: dict[str, Any] = {
+        "id": "obs-default",
+        "trace_id": "trace-default",
+        "type": "SPAN",
+        "is_root_observation": False,
+        "start_time": "2026-01-01T00:00:00Z",
+        "end_time": "2026-01-01T00:00:01Z",
+    }
     defaults.update(kwargs)
     return LangfuseObservation(**defaults)
 
@@ -60,13 +82,13 @@ def _obs(**kwargs) -> LangfuseObservation:
 class TestConfigValidation:
     def test_page_size_out_of_range_rejected(
         self, connection: LangfuseConnectionConfig
-    ):
+    ) -> None:
         with pytest.raises(ValidationError):
             LangfuseSourceConfig(connection=connection, page_size=0)
         with pytest.raises(ValidationError):
             LangfuseSourceConfig(connection=connection, page_size=1001)
 
-    def test_host_without_scheme_rejected(self):
+    def test_host_without_scheme_rejected(self) -> None:
         with pytest.raises(ValidationError):
             LangfuseConnectionConfig(
                 host="localhost:3000",
@@ -76,7 +98,7 @@ class TestConfigValidation:
 
     def test_default_window_spans_approximately_seven_days(
         self, connection: LangfuseConnectionConfig
-    ):
+    ) -> None:
         # Regression test: BaseTimeWindowConfig's own bare default is only
         # ~1 day (one bucket_duration back from now, floored to midnight),
         # not 7 days. LangfuseSourceConfig must pass start_time="-7d"
@@ -85,7 +107,7 @@ class TestConfigValidation:
         span = config.window.end_time - config.window.start_time
         assert span.days >= 6
 
-    def test_scores_require_traces(self, connection: LangfuseConnectionConfig):
+    def test_scores_require_traces(self, connection: LangfuseConnectionConfig) -> None:
         with pytest.raises(ValidationError):
             LangfuseSourceConfig(
                 connection=connection, include_traces=False, include_scores=True
@@ -93,7 +115,7 @@ class TestConfigValidation:
 
     def test_scores_allowed_when_traces_enabled(
         self, connection: LangfuseConnectionConfig
-    ):
+    ) -> None:
         config = LangfuseSourceConfig(
             connection=connection, include_traces=True, include_scores=True
         )
@@ -101,35 +123,31 @@ class TestConfigValidation:
 
 
 class TestIsoToMillis:
-    def test_parses_zulu_suffix(self):
+    def test_parses_zulu_suffix(self) -> None:
         assert _iso_to_millis("2026-01-01T00:00:00Z") == 1767225600000
 
-    def test_returns_none_for_missing_value(self):
+    def test_returns_none_for_missing_value(self) -> None:
         assert _iso_to_millis(None) is None
 
-    def test_returns_none_for_unparseable_value(self):
+    def test_returns_none_for_unparseable_value(self) -> None:
         assert _iso_to_millis("not-a-date") is None
 
 
 class TestTraceReconstruction:
     def test_generation_and_non_generation_counts_are_split_correctly(
         self, source: LangfuseSource
-    ):
-        source.client.iter_observations.return_value = [
+    ) -> None:
+        _client(source).iter_observations.return_value = [
             _obs(id="root-1", trace_id="t1", type="SPAN", is_root_observation=True),
             _obs(id="gen-1", trace_id="t1", type="GENERATION"),
             _obs(id="gen-2", trace_id="t1", type="GENERATION"),
             _obs(id="event-1", trace_id="t1", type="EVENT"),
         ]
-        source.client.iter_scores.return_value = []
+        _client(source).iter_scores.return_value = []
 
         workunits = list(source._get_trace_workunits())
 
-        props = [
-            wu.metadata.aspect
-            for wu in workunits
-            if isinstance(wu.metadata.aspect, DataProcessInstancePropertiesClass)
-        ]
+        props = _dpi_props(workunits)
         trace_props = next(p for p in props if p.customProperties["trace_id"] == "t1")
         assert trace_props.customProperties["generation_count"] == "2"
         assert trace_props.customProperties["non_generation_observation_count"] == "2"
@@ -141,31 +159,29 @@ class TestTraceReconstruction:
 
     def test_missing_root_observation_produces_partial_trace(
         self, source: LangfuseSource
-    ):
+    ) -> None:
         # Root observation started before the configured window; only a
         # generation-type child observation falls inside it.
-        source.client.iter_observations.return_value = [
+        _client(source).iter_observations.return_value = [
             _obs(
                 id="gen-1", trace_id="t2", type="GENERATION", is_root_observation=False
             ),
         ]
-        source.client.iter_scores.return_value = []
+        _client(source).iter_scores.return_value = []
 
         workunits = list(source._get_trace_workunits())
 
+        dpi_props = _dpi_props(workunits)
         trace_props = next(
-            wu.metadata.aspect
-            for wu in workunits
-            if isinstance(wu.metadata.aspect, DataProcessInstancePropertiesClass)
-            and wu.metadata.aspect.customProperties.get("trace_id") == "t2"
+            p for p in dpi_props if p.customProperties.get("trace_id") == "t2"
         )
         assert trace_props.customProperties["partial_trace"] == "true"
 
-    def test_trace_name_pattern_filters_traces(self, source: LangfuseSource):
+    def test_trace_name_pattern_filters_traces(self, source: LangfuseSource) -> None:
         source.config.trace_name_pattern = source.config.trace_name_pattern.__class__(
             deny=["^internal_.*"]
         )
-        source.client.iter_observations.return_value = [
+        _client(source).iter_observations.return_value = [
             _obs(
                 id="root-1",
                 trace_id="t1",
@@ -174,7 +190,7 @@ class TestTraceReconstruction:
                 name="internal_healthcheck",
             ),
         ]
-        source.client.iter_scores.return_value = []
+        _client(source).iter_scores.return_value = []
 
         workunits = list(source._get_trace_workunits())
 
@@ -183,15 +199,15 @@ class TestTraceReconstruction:
 
     def test_all_dataprocessinstance_workunits_excluded_from_stale_removal(
         self, source: LangfuseSource
-    ):
+    ) -> None:
         # Trace/Generation workunits must never be considered by stale-entity
         # removal, since they are retrieved through a rolling window, not
         # fully enumerated.
-        source.client.iter_observations.return_value = [
+        _client(source).iter_observations.return_value = [
             _obs(id="root-1", trace_id="t1", type="SPAN", is_root_observation=True),
             _obs(id="gen-1", trace_id="t1", type="GENERATION"),
         ]
-        source.client.iter_scores.return_value = []
+        _client(source).iter_scores.return_value = []
 
         workunits = list(source._get_trace_workunits())
 
@@ -202,8 +218,8 @@ class TestTraceReconstruction:
 class TestScoreAttachment:
     def test_trace_and_observation_scores_are_attached_with_data_type_preserved(
         self, source: LangfuseSource
-    ):
-        source.client.iter_scores.return_value = [
+    ) -> None:
+        _client(source).iter_scores.return_value = [
             LangfuseScore(
                 id="s1",
                 name="helpfulness",
@@ -237,12 +253,13 @@ class TestScoreAttachment:
         [metric] = metrics_by_urn[trace_urn]
         assert metric.name == "helpfulness"
         assert metric.value == "0.9"
+        assert metric.description is not None
         assert "NUMERIC" in metric.description
 
     def test_session_and_experiment_scores_are_dropped_not_attached(
         self, source: LangfuseSource
-    ):
-        source.client.iter_scores.return_value = [
+    ) -> None:
+        _client(source).iter_scores.return_value = [
             LangfuseScore(
                 id="s3",
                 name="engagement",
@@ -275,7 +292,7 @@ class TestScoreAttachment:
 class TestPromptVersionEmission:
     def test_emits_versioned_dataset_with_labels_as_aliases(
         self, source: LangfuseSource
-    ):
+    ) -> None:
         prompt = LangfusePromptVersion(
             name="greeting",
             version=2,
@@ -287,32 +304,33 @@ class TestPromptVersionEmission:
         )
         version_set_urn = source._get_prompt_version_set_urn("greeting")
 
-        workunits: List = list(source._emit_prompt_version(prompt, version_set_urn))
-
-        version_props = next(
-            wu.metadata.aspect
-            for wu in workunits
-            if isinstance(wu.metadata.aspect, VersionPropertiesClass)
+        workunits: List[MetadataWorkUnit] = list(
+            source._emit_prompt_version(prompt, version_set_urn)
         )
-        assert version_props.version.versionTag == "2"
-        assert version_props.sortId == "0000000002"
-        assert {a.versionTag for a in version_props.aliases} == {
+
+        version_workunits = [
+            wu
+            for wu in workunits
+            if isinstance(_mcpw(wu).aspect, VersionPropertiesClass)
+        ]
+        version_props = version_workunits[0].metadata
+        assert isinstance(version_props, MetadataChangeProposalWrapper)
+        assert isinstance(version_props.aspect, VersionPropertiesClass)
+        assert version_props.aspect.version.versionTag == "2"
+        assert version_props.aspect.sortId == "0000000002"
+        assert {a.versionTag for a in version_props.aspect.aliases} == {
             "production",
             "latest",
         }
-        assert "greeting.v2" in str(
-            next(
-                wu.metadata.entityUrn
-                for wu in workunits
-                if isinstance(wu.metadata.aspect, VersionPropertiesClass)
-            )
-        )
+        assert "greeting.v2" in str(_mcpw(version_workunits[0]).entityUrn)
 
-    def test_prompt_fetch_failure_is_skipped_not_fatal(self, source: LangfuseSource):
-        source.client.iter_prompt_names.return_value = [
+    def test_prompt_fetch_failure_is_skipped_not_fatal(
+        self, source: LangfuseSource
+    ) -> None:
+        _client(source).iter_prompt_names.return_value = [
             {"name": "broken-prompt", "versions": [1]}
         ]
-        source.client.get_prompt_version.side_effect = requests.HTTPError("boom")
+        _client(source).get_prompt_version.side_effect = requests.HTTPError("boom")
 
         workunits = list(source._get_prompt_workunits())
 
@@ -321,7 +339,7 @@ class TestPromptVersionEmission:
 
 
 class TestConnection:
-    def test_connection_success(self, connection: LangfuseConnectionConfig):
+    def test_connection_success(self, connection: LangfuseConnectionConfig) -> None:
         with patch(
             "datahub.ingestion.source.langfuse.langfuse.LangfuseClient"
         ) as client_cls:
@@ -345,7 +363,7 @@ class TestConnection:
 
     def test_connection_failure_on_bad_credentials(
         self, connection: LangfuseConnectionConfig
-    ):
+    ) -> None:
         with patch(
             "datahub.ingestion.source.langfuse.langfuse.LangfuseClient"
         ) as client_cls:
@@ -371,8 +389,12 @@ class TestGracefulFailureHandling:
     """A failure mid-ingestion must be reported and the run must stop
     cleanly, not crash with an unhandled traceback."""
 
-    def test_project_auth_failure_is_reported_not_raised(self, source: LangfuseSource):
-        source.client.get_project.side_effect = LangfuseAuthenticationError("bad creds")
+    def test_project_auth_failure_is_reported_not_raised(
+        self, source: LangfuseSource
+    ) -> None:
+        _client(source).get_project.side_effect = LangfuseAuthenticationError(
+            "bad creds"
+        )
 
         workunits = list(source.get_workunits_internal())
 
@@ -381,8 +403,8 @@ class TestGracefulFailureHandling:
 
     def test_project_connection_failure_is_reported_not_raised(
         self, source: LangfuseSource
-    ):
-        source.client.get_project.side_effect = requests.ConnectionError("refused")
+    ) -> None:
+        _client(source).get_project.side_effect = requests.ConnectionError("refused")
 
         workunits = list(source.get_workunits_internal())
 
@@ -391,9 +413,9 @@ class TestGracefulFailureHandling:
 
     def test_observation_fetch_failure_is_reported_not_raised(
         self, source: LangfuseSource
-    ):
-        source.client.iter_observations.side_effect = requests.ConnectionError("boom")
-        source.client.iter_scores.return_value = []
+    ) -> None:
+        _client(source).iter_observations.side_effect = requests.ConnectionError("boom")
+        _client(source).iter_scores.return_value = []
 
         workunits = list(source._get_trace_workunits())
 
@@ -402,9 +424,9 @@ class TestGracefulFailureHandling:
 
     def test_score_fetch_failure_is_reported_and_trace_ingestion_continues(
         self, source: LangfuseSource
-    ):
-        source.client.iter_scores.side_effect = requests.ConnectionError("boom")
-        source.client.iter_observations.return_value = [
+    ) -> None:
+        _client(source).iter_scores.side_effect = requests.ConnectionError("boom")
+        _client(source).iter_observations.return_value = [
             _obs(id="root-1", trace_id="t1", type="SPAN", is_root_observation=True),
         ]
 
