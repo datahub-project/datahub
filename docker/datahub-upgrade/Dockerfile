@@ -10,7 +10,9 @@ ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
 ENV JMX_VERSION=1.0.1
 
+ARG WOLFI_PKG_REFRESH=2026-09-13
 RUN printf '%s\n' "${APK_REPOSITORY_URL}" > /etc/apk/repositories \
+    && echo "wolfi pkg refresh: ${WOLFI_PKG_REFRESH}" \
     && apk update --no-cache \
     && apk upgrade --no-cache
 
