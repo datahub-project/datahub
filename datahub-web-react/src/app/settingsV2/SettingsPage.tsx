@@ -274,6 +274,22 @@ const SettingsPageContent = () => {
                     },
                 ],
             },
+            // AI Assistant Section
+            {
+                type: NavBarMenuItemTypes.Group,
+                title: 'AI Assistant',
+                key: 'ai-assistant-group',
+                items: [
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Configuration',
+                        key: 'ai-assistant',
+                        link: `${url}/ai-assistant`,
+                        icon: <Star />,
+                        selectedIcon: fillIcon(<Star />),
+                    },
+                ],
+            },
         ],
     };
 
