@@ -16,6 +16,12 @@ _METADATA_INGESTION = Path(__file__).resolve().parent.parent.parent
 # 82.5, !=82.* allows 81.x, >=78.1.1, etc.), not just ==82.0.0.
 _SUB_83 = ("0.0.1", "78.1.1", "81.0.0", "82.0.0", "82.5.0", "82.99.0")
 
+# Sub-26.2 pip versions spanning every CVE window the floor closes: 26.0/26.0.1
+# (CVE-2026-3219, CVE-2026-6357), 26.1/26.1.1 (CVE-2026-8643), 26.1.2
+# (CVE-2026-13346). Sweeping the range catches a relaxed floor (>26, !=26.1.*,
+# >=26.0, ...), not just ==26.0.
+_SUB_26_2 = ("0.0.1", "25.3", "26.0", "26.0.1", "26.1", "26.1.1", "26.1.2")
+
 
 def _load_setup_args(monkeypatch):
     # Exec setup.py in-process (the loader lives in scripts/; setup.py reads
@@ -165,3 +171,67 @@ def test_docker_ingestion_snippet_floors_setuptools():
     )
     for req in setuptools_reqs:
         _assert_floored_at_83(req.specifier, f"Docker snippet '{req}'")
+
+
+def _pip_floor_ok(specifier: SpecifierSet, label: str) -> None:
+    # Permit 26.2 and reject every sub-26.2 release, so a relaxed floor is
+    # caught rather than only an exact-pin regression.
+    assert specifier.contains("26.2"), f"{label} blocks pip 26.2 (CVE-2026-13346)"
+    for below in _SUB_26_2:
+        assert not specifier.contains(below), f"{label} allows sub-26.2 pip {below}"
+
+
+def test_pip_floored_at_26_2_everywhere():
+    # setup.py declares a bare "pip" (no upper bound: pip is a system tool), so
+    # the CVE floor lives in two places that must not drift apart:
+    #   - [tool.uv] constraint-dependencies, which resolves into constraints.txt
+    #     and ships as datahub/constraints.txt (the executor constrains every
+    #     venv it builds with it),
+    #   - the Docker snippet, wired into the datahub-actions image via
+    #     UV_CONSTRAINT and passed to the bundled venv builder.
+    # Floor is 26.2: CVE-2026-3219 and CVE-2026-6357 (fixed 26.1), CVE-2026-8643
+    # (fixed 26.1.2) and CVE-2026-13346 (fixed 26.2).
+    pyproject = toml.load(_METADATA_INGESTION / "pyproject.toml")
+    uv_constraints = pyproject["tool"]["uv"]["constraint-dependencies"]
+    pip_reqs = [
+        r for r in (Requirement(c) for c in uv_constraints) if r.name.lower() == "pip"
+    ]
+    assert pip_reqs, (
+        "pyproject [tool.uv] constraint-dependencies must floor pip>=26.2 "
+        "(CVE-2026-13346)"
+    )
+    for req in pip_reqs:
+        _pip_floor_ok(req.specifier, f"[tool.uv] pip constraint '{req}'")
+
+    # Resolved lock: the version the wheel actually ships to the executor.
+    constraints = (_METADATA_INGESTION / "constraints.txt").read_text()
+    m = re.search(r"^pip==(\S+)", constraints, re.MULTILINE)
+    assert m, "pip must be pinned in the locked constraints.txt"
+    assert Version(m.group(1)) >= Version("26.2"), (
+        f"constraints.txt locks pip=={m.group(1)}, below the >=26.2 floor "
+        "(CVE-2026-13346); re-run ./gradlew :metadata-ingestion:updateLockFile"
+    )
+
+    # Docker snippet: governs the bundled venvs, which install pip explicitly.
+    snippet_path = (
+        _METADATA_INGESTION.parent / "docker/snippets/ingestion/constraints.txt"
+    )
+    if not snippet_path.exists():
+        pytest.skip("docker snippet not present (partial checkout)")
+    snippet_reqs = []
+    for raw in snippet_path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            req = Requirement(line)
+        except InvalidRequirement:
+            continue
+        if req.name.lower() == "pip":
+            snippet_reqs.append(req)
+    assert snippet_reqs, (
+        "docker/snippets/ingestion/constraints.txt must floor pip>=26.2 "
+        "(CVE-2026-13346)"
+    )
+    for req in snippet_reqs:
+        _pip_floor_ok(req.specifier, f"Docker snippet '{req}'")

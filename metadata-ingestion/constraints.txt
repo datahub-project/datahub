@@ -931,7 +931,7 @@ pinecone-plugin-interface==0.0.7 ; python_full_version >= '3.11' and python_full
     # via
     #   pinecone-client
     #   pinecone-plugin-inference
-pip==26.1.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
+pip==26.2.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 platformdirs==4.9.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
