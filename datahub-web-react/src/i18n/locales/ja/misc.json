@@ -170,6 +170,8 @@
     "metrics.homeEmptyTitle": "まだメトリクスが取り込まれていません",
     "metrics.homeEmptyDescription": "データプラットフォームからメトリクスとセマンティックモデルが取り込まれると、ここに表示されます。",
     "metrics.homeEmptyAction": "メトリクスを取り込む",
+    "metrics.homeEmptyLearnMore": "詳細を見る",
+    "metrics.homeEmptyMigrationHint": "すでにSnowflake Semantic Viewsを取り込んでいますか？<anchor>新しいモデルへの移行方法</anchor>をご覧ください。",
     "marketplace.allDataProducts": "すべてのData Product",
     "marketplace.cardAssets_other": "{{count}}件のAsset",
     "marketplace.cardDeprecated": "非推奨",

@@ -17,7 +17,7 @@ import {
     AlertHeaderRight,
     AlertIconWrapper,
 } from '@components/components/Alert/components';
-import { AlertProps, AlertVariant } from '@components/components/Alert/types';
+import { AlertAction, AlertProps, AlertVariant } from '@components/components/Alert/types';
 import { Button } from '@components/components/Button';
 import { Text } from '@components/components/Text';
 import type { ColorOptions } from '@components/theme/config';
@@ -45,13 +45,28 @@ const VARIANT_BUTTON_COLOR_MAP: Record<AlertVariant, ColorOptions> = {
 };
 
 /**
+ * True when `action` is the structured `{ label, onClick }` shape rather than a
+ * custom ReactNode (which existing SaaS call sites still pass).
+ */
+function isAlertAction(action: AlertAction | React.ReactNode): action is AlertAction {
+    return (
+        typeof action === 'object' &&
+        action !== null &&
+        !React.isValidElement(action) &&
+        'label' in action &&
+        'onClick' in action
+    );
+}
+
+/**
  * Inline status banner for success, error, warning, info, brand, and gray
  * messages. Layout is a header row (icon + title on the left, optional
  * topRight action + close button on the right) with description, errorMessage,
  * and inline actions stacked below the header at full content width.
  *
  * Colors are derived from semantic theme tokens based on the variant.
- * Action and close buttons inherit the matching button color automatically.
+ * Structured actions and the close button inherit the matching button color;
+ * ReactNode actions are rendered as-is.
  */
 export function Alert({
     variant,
@@ -74,18 +89,23 @@ export function Alert({
     const hasHeaderRight = showTopRightAction || !!onClose;
     const hasBody = !!description || !!errorMessage || !!showInlineAction;
 
-    const actionButton = action ? (
-        <Button
-            variant="text"
-            color={buttonColor}
-            size="sm"
-            icon={action.icon}
-            onClick={action.onClick}
-            data-testid={action.dataTestId}
-        >
-            {action.label}
-        </Button>
-    ) : null;
+    let actionContent: React.ReactNode = null;
+    if (action) {
+        actionContent = isAlertAction(action) ? (
+            <Button
+                variant="text"
+                color={buttonColor}
+                size="sm"
+                icon={action.icon}
+                onClick={action.onClick}
+                data-testid={action.dataTestId}
+            >
+                {action.label}
+            </Button>
+        ) : (
+            action
+        );
+    }
 
     return (
         <AlertContainer
@@ -104,7 +124,7 @@ export function Alert({
                 </AlertHeaderLeft>
                 {hasHeaderRight && (
                     <AlertHeaderRight>
-                        {showTopRightAction && actionButton}
+                        {showTopRightAction && actionContent}
                         {onClose && (
                             <Button
                                 variant="text"
@@ -123,7 +143,7 @@ export function Alert({
                 <AlertBody>
                     {description && <Text size="md">{description}</Text>}
                     {errorMessage && <AlertErrorMessage>{errorMessage}</AlertErrorMessage>}
-                    {showInlineAction && <AlertActions>{actionButton}</AlertActions>}
+                    {showInlineAction && <AlertActions>{actionContent}</AlertActions>}
                 </AlertBody>
             )}
         </AlertContainer>

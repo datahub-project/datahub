@@ -127,8 +127,10 @@ buildscript {
   // CVE-2026-40542 / GHSA: SCRAM-SHA-256 authentication verification (httpclient5 5.6 → 5.6.1+)
   // CVE-2026-64607 (connection leak on invalid Content-Encoding): fixed in 5.6.3+
   ext.httpClient5Version = '5.6.3'
-  // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
-  ext.bouncyCastleJdk18onVersion = '1.84'
+  // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil).
+  // CVE-2026-0636 fixed in 1.84+; CVE-2026-13506 and CVE-2026-8763 fixed in 1.85+;
+  // 1.86 is the latest 1.x (CVE-2026-17507 / 18036 / 18040 / 71885–71892 / 85515).
+  ext.bouncyCastleJdk18onVersion = '1.86'
   // gRPC protobuf/stub line from Pegasus/Rest.li transitives (not gRPC transport — grpc-netty-shaded is excluded repo-wide).
   ext.grpcVersion = '1.81.0'
   // Align with Spring Boot 4.0.7 / reactor-bom 2025.0.5; io.netty transitives aligned via eachDependency + nettyVersion.

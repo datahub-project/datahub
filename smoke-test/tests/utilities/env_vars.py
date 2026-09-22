@@ -154,6 +154,18 @@ def get_batch_number() -> int:
     return int(os.getenv("BATCH_NUMBER", "0"))
 
 
+def get_smoke_dump_batch_plan() -> Optional[str]:
+    """Path for the opt-in batch-plan dump plugin.
+
+    When set, overrides ``--dump-batch-plan`` so CI can choose the artifact
+    path without changing pytest argv. Empty/unset means use the CLI option
+    (or stdout if that is also unset). Only has effect when the plugin is
+    loaded with ``-p batch_plan_dump``.
+    """
+    value = os.getenv("SMOKE_DUMP_BATCH_PLAN", "").strip()
+    return value or None
+
+
 def get_pytest_xdist_workers() -> int:
     """pytest-xdist worker count used for a batch's parallel phase.
 
