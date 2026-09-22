@@ -589,14 +589,10 @@ def get_view_file_path(
         if field.source_file is not None
         and not field.source_file.startswith(IMPORTED_PROJECTS_PREFIX)
     ]
-    if local_fields:
-        chosen = local_fields[0].source_file
-        logger.debug(f"Found view({view_name}) file-path {chosen}")
-        return chosen
-
-    first_path = matching_fields[0].source_file
+    preferred_fields = local_fields if local_fields else matching_fields
+    first_path = preferred_fields[0].source_file
     unique_paths = {
-        field.source_file for field in matching_fields if field.source_file is not None
+        field.source_file for field in preferred_fields if field.source_file is not None
     }
     if len(unique_paths) > 1:
         reporter.warning(
@@ -1311,8 +1307,30 @@ class LookerExplore:
                                 )
                             )
 
+            # Parameters are not emitted as schema fields, but they still carry
+            # imported_projects/ source_file evidence for view project assignment.
+            project_map_fields: List[ViewField] = []
+            for field in lkml_fields:
+                field_view_name = (
+                    LookerUtil.extract_view_name_from_lookml_model_explore_field(field)
+                )
+                if field_view_name is None:
+                    continue
+                project_map_fields.append(
+                    ViewField(
+                        name=field.name or "",
+                        label=None,
+                        type=field.type if field.type is not None else "",
+                        description="",
+                        field_type=ViewFieldType.UNKNOWN,
+                        project_name=extract_project_from_imported_file_path(
+                            field.source_file
+                        ),
+                        view_name=field_view_name,
+                    )
+                )
             view_project_map: Dict[str, str] = create_view_project_map(
-                view_fields, reporter
+                project_map_fields, reporter
             )
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")

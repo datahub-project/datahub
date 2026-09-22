@@ -5,6 +5,7 @@ import pytest
 from looker_sdk.sdk.api40.models import (
     LookmlModelExplore,
     LookmlModelExploreField,
+    LookmlModelExploreFieldset,
     LookmlModelExploreJoins,
 )
 
@@ -20,6 +21,7 @@ from datahub.ingestion.source.looker.looker_common import (
     get_view_file_path,
 )
 from datahub.ingestion.source.looker.looker_config import LookerCommonConfig
+from datahub.ingestion.source.looker.lookml_config import BASE_PROJECT_NAME
 
 
 class TestExploreUpstreamViewFieldFormFieldName:
@@ -301,3 +303,63 @@ class TestGetViewFilePath:
             ),
         ]
         assert get_view_file_path(lkml_fields, "my_view", reporter) == imported_path
+
+    def test_conflicting_local_paths_keeps_first_and_warns(self) -> None:
+        reporter = SourceReport()
+        lkml_fields = [
+            LookmlModelExploreField(
+                name="dim1",
+                type="string",
+                view="my_view",
+                source_file="views/a.view.lkml",
+            ),
+            LookmlModelExploreField(
+                name="dim2",
+                type="string",
+                view="my_view",
+                source_file="views/b.view.lkml",
+            ),
+        ]
+        assert (
+            get_view_file_path(lkml_fields, "my_view", reporter) == "views/a.view.lkml"
+        )
+        assert len(reporter.warnings) == 1
+
+
+class TestFromApiImportedViewProject:
+    def test_parameter_only_imported_view_uses_imported_project(self) -> None:
+        client = MagicMock()
+        client.lookml_model_explore.return_value = LookmlModelExplore(
+            name="spoke_explore",
+            project_name="spoke",
+            view_name="hub_view",
+            fields=LookmlModelExploreFieldset(
+                dimensions=[],
+                measures=[],
+                parameters=[
+                    LookmlModelExploreField(
+                        name="hub_view.date_filter",
+                        type="date",
+                        view="hub_view",
+                        source_file="imported_projects/hub/views/hub_view.view.lkml",
+                    )
+                ],
+            ),
+        )
+        explore = LookerExplore.from_api(
+            model="m",
+            explore_name="spoke_explore",
+            client=client,
+            reporter=SourceReport(),
+            source_config=MagicMock(),
+        )
+        assert explore is not None
+        assert explore.fields == []
+        assert explore.upstream_views is not None
+        assert len(explore.upstream_views) == 1
+        assert explore.upstream_views[0].project == "hub"
+        assert explore.upstream_views[0].include == "hub_view"
+        assert explore.upstream_views_file_path == {
+            "hub_view": "imported_projects/hub/views/hub_view.view.lkml"
+        }
+        assert explore.upstream_views[0].project != BASE_PROJECT_NAME
