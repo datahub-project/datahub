@@ -412,6 +412,11 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 
 ## Changelog
 
+### Unreleased
+
+- _Dependencies_:
+  - libthrift 0.23.0 → 0.24.0 for CVE-2026-48586 (`TZlibTransport` zip-bomb DoS)
+
 ### Version 0.2.18
 
 - _Changes_:
