@@ -31,8 +31,9 @@ interface Props {
 const OwnerDetail = ({ owner }: Props) => {
     const entityRegistry = useEntityRegistryV2();
 
-    const ownerName = entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner);
-    const ownerPictureLink = owner.owner.editableProperties?.pictureLink || undefined;
+    const ownerName = entityRegistry.getDisplayName(owner.owner.type, owner.owner);
+    const ownerPictureLink =
+        ('editableProperties' in owner.owner && owner.owner.editableProperties?.pictureLink) || undefined;
     const avatarType = owner.owner.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
 
     return (

@@ -70,16 +70,11 @@ Each field carries a **semantic annotation** identifying it as a `DIMENSION` (gr
 
 ## Prerequisites
 
-**For DataHub Cloud customers**: Reach out to your DataHub representative to enable this feature for your organization. Metrics & Semantic Models require **DataHub Cloud 2.1.0 or later**, and the feature is gated behind a per-tenant flag while it's in Beta.
+**For DataHub Cloud customers**: Metrics & Semantic Models require **DataHub Cloud 2.1.0 or later**. The feature is on by default from **2.3.0**; reach out to your DataHub representative if you need it turned off for your organization.
 
-**For DataHub Core (OSS) deployments**: Available in **DataHub Core v1.7.0 or later**. Set the environment variable `METRICS_ENABLED=true` on the GMS service before starting DataHub. For local docker-compose deployments:
+**For DataHub Core (OSS) deployments**: Available in **DataHub Core v1.7.0 or later**. The feature is on by default from **v1.8.0**. To hide Metrics from the UI, set `METRICS_ENABLED=false` on the GMS service.
 
-```bash
-# Add METRICS_ENABLED=true to your GMS environment
-METRICS_ENABLED=true datahub docker quickstart
-```
-
-Verify the flag is on via the GraphQL app-config query:
+Verify the flag via the GraphQL app-config query:
 
 ```graphql
 {
@@ -91,7 +86,7 @@ Verify the flag is on via the GraphQL app-config query:
 }
 ```
 
-Once enabled, the **Metrics** section appears in the left navigation sidebar with a `Beta` badge.
+The **Metrics** section appears in the left navigation sidebar with a `Beta` badge.
 
 ## Ingesting Metrics
 
@@ -178,7 +173,7 @@ The **Metrics** left-nav item opens `/metrics`, a landing page with a browse tre
 
 ### Search
 
-Metrics and Semantic Models appear in **global Search** and the **search-bar autocomplete** when `METRICS_ENABLED=true`. Search by display name, description, or platform; use the **Type** filter to narrow to Metrics or Semantic Models. The dedicated **`/metrics`** browse tree remains the best way to explore metrics grouped by Semantic Model. Browse V2 does not list these entity types — use Search or `/metrics` instead.
+Metrics and Semantic Models appear in **global Search** and the **search-bar autocomplete**. Search by display name, description, or platform; use the **Type** filter to narrow to Metrics or Semantic Models. The dedicated **`/metrics`** browse tree remains the best way to explore metrics grouped by Semantic Model. Browse V2 does not list these entity types — use Search or `/metrics` instead.
 
 ### Lineage
 

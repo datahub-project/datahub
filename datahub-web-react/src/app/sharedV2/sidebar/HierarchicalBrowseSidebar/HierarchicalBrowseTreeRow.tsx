@@ -46,6 +46,8 @@ export type HierarchicalBrowseTreeRowProps = {
     trailing?: React.ReactNode;
     /** Documents use `hover`; Glossary / Domains keep `always`. */
     countReveal?: 'always' | 'hover';
+    /** When true, label may stack title + meta (e.g. Help search hits with path and snippet). */
+    multilineLabel?: boolean;
     onSelect: () => void;
     onToggleExpand?: () => void;
     isLoadingChildren?: boolean;
@@ -71,6 +73,7 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
             onSelect,
             onToggleExpand,
             isLoadingChildren = false,
+            multilineLabel = false,
             'data-testid': dataTestId,
             className,
         },
@@ -120,7 +123,11 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
         }
 
         // Native `title` on truncated text is unreliable (esp. nested flex); use Tooltip.
-        const titleEl = <TreeRowTitle $isSelected={isSelected}>{label}</TreeRowTitle>;
+        const titleEl = (
+            <TreeRowTitle $isSelected={isSelected} $multiline={multilineLabel}>
+                {label}
+            </TreeRowTitle>
+        );
         const titledLabel =
             labelTitle != null && labelTitle !== '' ? (
                 <Tooltip
@@ -153,13 +160,19 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
                 data-testid={dataTestId}
                 $isSelected={isSelected}
                 $isCollapsed={isCollapsed}
+                $multilineLabel={multilineLabel}
                 onClick={onSelect}
             >
-                <TreeRowLeftContent $isCollapsed={isCollapsed}>
+                <TreeRowLeftContent $isCollapsed={isCollapsed} $multilineLabel={multilineLabel}>
                     {isCollapsed ? (
                         <TreeRowIconSlot $isCollapsed>{leading}</TreeRowIconSlot>
                     ) : (
-                        <TreeRowExpandZone $level={level} $expandable={canExpand} onClick={handleExpand}>
+                        <TreeRowExpandZone
+                            $level={level}
+                            $expandable={canExpand}
+                            $multilineLabel={multilineLabel}
+                            onClick={handleExpand}
+                        >
                             <TreeRowIconSlot>{leading}</TreeRowIconSlot>
                         </TreeRowExpandZone>
                     )}
