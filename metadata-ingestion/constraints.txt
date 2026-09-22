@@ -206,7 +206,7 @@ charset-normalizer==3.4.5 ; python_full_version >= '3.11' and python_full_versio
     #   unstructured
 ciso8601==2.3.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via asynch
-click==8.3.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+click==8.5.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   click-default-group
@@ -242,7 +242,6 @@ cloudpickle==3.1.2 ; python_full_version >= '3.11' and python_full_version < '3.
 colorama==0.4.6 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   build
-    #   click
     #   feast
     #   loguru
     #   pytest
