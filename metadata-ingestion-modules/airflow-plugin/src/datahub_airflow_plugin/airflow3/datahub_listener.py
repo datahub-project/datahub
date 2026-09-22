@@ -65,6 +65,7 @@ from datahub_airflow_plugin._version import __package_name__, __version__
 
 # Import Airflow 3.x compatibility and patches before any Airflow imports
 from datahub_airflow_plugin.airflow3 import _airflow_compat  # noqa: F401
+from datahub_airflow_plugin.airflow3._extraction_scope import datahub_extraction_scope
 from datahub_airflow_plugin.airflow3._shims import (
     OpenLineagePlugin,
     Operator,
@@ -712,10 +713,14 @@ class DataHubListener:
             facet_method = getattr(task, facet_method_name)
 
             try:
-                # Call the appropriate facet method
-                operator_lineage = (
-                    facet_method(task_instance) if complete else facet_method()
-                )
+                # These methods are not side-effect free: the OpenLineage provider
+                # only re-runs them because it forks. Mark the call so the DataHub
+                # patches skip the warehouse lookups and provider-side event
+                # emission that DataHub never reads. See _extraction_scope.
+                with datahub_extraction_scope():
+                    operator_lineage = (
+                        facet_method(task_instance) if complete else facet_method()
+                    )
 
                 if not operator_lineage:
                     logger.debug(

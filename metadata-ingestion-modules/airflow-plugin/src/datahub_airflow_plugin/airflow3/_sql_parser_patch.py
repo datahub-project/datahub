@@ -35,6 +35,7 @@ from datahub_airflow_plugin._sql_parsing_common import (
     format_sql_for_job_facet,
     parse_sql_with_datahub,
 )
+from datahub_airflow_plugin.airflow3._extraction_scope import in_datahub_extraction
 
 if TYPE_CHECKING:
     from airflow.providers.openlineage.extractors import OperatorLineage
@@ -85,6 +86,16 @@ def _datahub_generate_openlineage_metadata_from_sql(
             )
             openlineage_enabled = False
 
+        # The OpenLineage provider re-runs this inside its own fork, which is the only
+        # reason it is safe for it to query the warehouse. When the DataHub listener is
+        # the caller we are in the task-runner process, so repeating those
+        # information_schema lookups (a fresh connection and two queries per pass)
+        # would double them. Run the parser connectionless instead: it still returns
+        # its table list, resolved from the parse tree rather than the warehouse, so
+        # lineage coverage is unchanged and the provider's forked pass stays the only
+        # thing that connects.
+        datahub_driven = in_datahub_extraction()
+
         # If OpenLineage is enabled, call the original parser first to get its results
         ol_result = None
         if openlineage_enabled and _original_sql_parser_method is not None:
@@ -99,7 +110,7 @@ def _datahub_generate_openlineage_metadata_from_sql(
                     database_info,
                     database,
                     sqlalchemy_engine,
-                    use_connection,
+                    use_connection=False if datahub_driven else use_connection,
                 )
                 logger.debug(f"OpenLineage parser result: {ol_result}")
             except Exception as e:
