@@ -5,14 +5,14 @@ instance. How to run the suite: `[README.md](README.md)`.
 
 ## Where tests and helpers live
 
-| Path | What goes here |
-| --- | --- |
-| `tests/e2e/` | Live GMS pytest (needs quickstart). Default `pytest` / `smoke.sh` collection. |
-| `tests/unit/` | CPU pytest (no stack). `./gradlew :smoke-test:stackFreePytest`. |
-| `tests/zdu/` | ZDU live E2E pytest (`test_zdu_upgrade.py`) and docs. Not in docker pytest. |
-| `tests/zdu/framework/` | ZDU upgrade framework. Daily workflow: `python -m tests.zdu.framework`. |
-| `tests/oauth/` | OAuth IdP smoke. `.github/workflows/oauth-smoke.yml`. Not in docker pytest. |
-| `utilities/` | Shared helpers, not tests. |
+| Path                   | What goes here                                                                |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| `tests/e2e/`           | Live GMS pytest (needs quickstart). Default `pytest` / `smoke.sh` collection. |
+| `tests/unit/`          | CPU pytest (no stack). `./gradlew :smoke-test:stackFreePytest`.               |
+| `tests/zdu/`           | ZDU live E2E pytest (`test_zdu_upgrade.py`) and docs. Not in docker pytest.   |
+| `tests/zdu/framework/` | ZDU upgrade framework. Daily workflow: `python -m tests.zdu.framework`.       |
+| `tests/oauth/`         | OAuth IdP smoke. `.github/workflows/oauth-smoke.yml`. Not in docker pytest.   |
+| `utilities/`           | Shared helpers, not tests.                                                    |
 
 Do not put `test_*.py` next to helpers in `utilities/`. GMS fixtures live in `tests/e2e/conftest.py` only.
 
@@ -102,7 +102,7 @@ from conftest import _ingest_cleanup_unique_dataset_impl
 def dataset_urn(auth_session, graph_client, tmp_path_factory):
     yield from _ingest_cleanup_unique_dataset_impl(
         auth_session, graph_client,
-        "tests/tags_and_terms/data.json", "tags_and_terms",
+        "tests/e2e/tags_and_terms/data.json", "tags_and_terms",
         "test-tags-terms-sample-kafka",
         tmp_path_factory.mktemp("tags_and_terms"),
     )
@@ -110,7 +110,7 @@ def dataset_urn(auth_session, graph_client, tmp_path_factory):
 
 Tests take `dataset_urn` as a fixture argument. Multi-entity fixtures: rewrite
 each key with `materialize_with_unique_name` — see
-`tests/containers/containers_test.py`.
+`tests/e2e/containers/containers_test.py`.
 
 Mid-test creates:
 

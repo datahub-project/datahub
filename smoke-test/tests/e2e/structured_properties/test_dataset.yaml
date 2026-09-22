@@ -3,7 +3,7 @@
   # urn: urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD) # use urn instead of id and platform
   subtype: table
   schema:
-    file: tests/structured_properties/click_event.avsc
+    file: tests/e2e/structured_properties/click_event.avsc
     fields:
     - id: ip
       structured_properties:

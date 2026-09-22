@@ -128,7 +128,7 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
 
     # Get the path to the backfill script
     script_dir = (
-        Path(__file__).parent.parent.parent / "test_resources" / "analytics_backfill"
+        Path(__file__).resolve().parents[3] / "test_resources" / "analytics_backfill"
     )
     backfill_script = script_dir / "backfill_activity_events.py"
     users_file = script_dir / "users.json"

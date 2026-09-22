@@ -25,10 +25,10 @@ source smoke-test/venv/bin/activate
 
 There are **two** equivalent entry points — both construct the same `ZDUTestRunner` and run the same pipeline. They differ only in how results are surfaced:
 
-| Entry point                            | When to use                                                                               | Result format                                                                            |
-| -------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `python -m tests.zdu.framework` (recommended)    | CLI / CI / scripted runs                                                                  | Printed report + JSON at `smoke-test/build/zdu-test-report.json` + non-zero exit on FAIL |
-| `pytest tests/zdu/test_zdu_upgrade.py` | When you want per-phase + per-scenario pytest output (xfail/skip native, IDE integration) | pytest UI; same JSON report                                                              |
+| Entry point                                   | When to use                                                                               | Result format                                                                            |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `python -m tests.zdu.framework` (recommended) | CLI / CI / scripted runs                                                                  | Printed report + JSON at `smoke-test/build/zdu-test-report.json` + non-zero exit on FAIL |
+| `pytest tests/zdu/test_zdu_upgrade.py`        | When you want per-phase + per-scenario pytest output (xfail/skip native, IDE integration) | pytest UI; same JSON report                                                              |
 
 Running both in the same invocation is not supported — they each build their own `ZDUTestRunner`. Pick one.
 

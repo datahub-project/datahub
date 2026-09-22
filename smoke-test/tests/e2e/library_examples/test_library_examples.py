@@ -9,7 +9,7 @@ The test execution order is defined in example_manifest.py to ensure:
 - Dependencies between examples are respected
 - Examples can be run sequentially without conflicts
 
-Run with: cd smoke-test && source venv/bin/activate && pytest tests/library_examples/ -v
+Run with: cd smoke-test && source venv/bin/activate && pytest tests/e2e/library_examples/ -v
 """
 
 import os
@@ -27,10 +27,7 @@ pytestmark = [pytest.mark.domain(Domain.INGESTION), pytest.mark.p0]
 
 # Path to metadata-ingestion examples
 EXAMPLES_DIR = (
-    Path(__file__).parent.parent.parent.parent
-    / "metadata-ingestion"
-    / "examples"
-    / "library"
+    Path(__file__).resolve().parents[4] / "metadata-ingestion" / "examples" / "library"
 )
 
 

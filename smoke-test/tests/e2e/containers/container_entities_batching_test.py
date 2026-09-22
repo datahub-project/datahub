@@ -266,7 +266,7 @@ def test_container_entities_filters_are_applied(auth_session):
 
 
 _FRONTEND_GRAPHQL_DIR = (
-    Path(__file__).resolve().parents[3] / "datahub-web-react" / "src" / "graphql"
+    Path(__file__).resolve().parents[4] / "datahub-web-react" / "src" / "graphql"
 )
 _PRODUCTION_SEARCH_OPERATION = "getSearchResultsForMultiple"
 

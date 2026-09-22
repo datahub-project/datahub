@@ -47,7 +47,7 @@ MIXED_XML = """<?xml version="1.0" encoding="utf-8"?>
 CLASS_BASED_FAILURE_XML = """<?xml version="1.0" encoding="utf-8"?>
 <testsuites>
   <testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.2">
-    <testcase classname="tests.my_module.MyTest" name="test_it" time="0.1">
+    <testcase classname="tests.e2e.my_module.MyTest" name="test_it" time="0.1">
       <failure message="assert False">assert False</failure>
     </testcase>
   </testsuite>
