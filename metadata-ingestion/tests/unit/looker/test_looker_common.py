@@ -1,4 +1,5 @@
 import logging
+from typing import List
 from unittest.mock import MagicMock
 
 import pytest
@@ -327,33 +328,54 @@ class TestGetViewFilePath:
 
 
 class TestFromApiImportedViewProject:
-    def test_parameter_only_imported_view_uses_imported_project(self) -> None:
+    def _from_api(
+        self,
+        *,
+        dimensions: List[LookmlModelExploreField],
+        parameters: List[LookmlModelExploreField],
+    ) -> LookerExplore:
         client = MagicMock()
         client.lookml_model_explore.return_value = LookmlModelExplore(
             name="spoke_explore",
             project_name="spoke",
             view_name="hub_view",
             fields=LookmlModelExploreFieldset(
-                dimensions=[],
+                dimensions=dimensions,
                 measures=[],
-                parameters=[
-                    LookmlModelExploreField(
-                        name="hub_view.date_filter",
-                        type="date",
-                        view="hub_view",
-                        source_file="imported_projects/hub/views/hub_view.view.lkml",
-                    )
-                ],
+                parameters=parameters,
             ),
+        )
+        source_config = MagicMock()
+        real_config = LookerCommonConfig()
+        source_config.platform_name = real_config.platform_name
+        source_config.env = real_config.env
+        source_config.platform_instance = real_config.platform_instance
+        source_config.view_naming_pattern = real_config.view_naming_pattern
+        source_config.extract_column_level_lineage = (
+            real_config.extract_column_level_lineage
         )
         explore = LookerExplore.from_api(
             model="m",
             explore_name="spoke_explore",
             client=client,
             reporter=SourceReport(),
-            source_config=MagicMock(),
+            source_config=source_config,
         )
         assert explore is not None
+        return explore
+
+    def test_parameter_only_imported_view_uses_imported_project(self) -> None:
+        explore = self._from_api(
+            dimensions=[],
+            parameters=[
+                LookmlModelExploreField(
+                    name="hub_view.date_filter",
+                    type="date",
+                    view="hub_view",
+                    source_file="imported_projects/hub/views/hub_view.view.lkml",
+                )
+            ],
+        )
         assert explore.fields == []
         assert explore.upstream_views is not None
         assert len(explore.upstream_views) == 1
@@ -362,4 +384,50 @@ class TestFromApiImportedViewProject:
         assert explore.upstream_views_file_path == {
             "hub_view": "imported_projects/hub/views/hub_view.view.lkml"
         }
+        assert explore.upstream_views[0].project != BASE_PROJECT_NAME
+
+    def test_imported_dims_ignore_parameter_without_source_file(self) -> None:
+        explore = self._from_api(
+            dimensions=[
+                LookmlModelExploreField(
+                    name="hub_view.col_a",
+                    type="string",
+                    view="hub_view",
+                    source_file="imported_projects/hub/views/hub_view.view.lkml",
+                )
+            ],
+            parameters=[
+                LookmlModelExploreField(
+                    name="hub_view.date_filter",
+                    type="date",
+                    view="hub_view",
+                    source_file=None,
+                )
+            ],
+        )
+        assert explore.upstream_views is not None
+        assert explore.upstream_views[0].project == "hub"
+        assert explore.upstream_views[0].project != BASE_PROJECT_NAME
+
+    def test_imported_dims_ignore_local_parameter(self) -> None:
+        explore = self._from_api(
+            dimensions=[
+                LookmlModelExploreField(
+                    name="hub_view.col_a",
+                    type="string",
+                    view="hub_view",
+                    source_file="imported_projects/hub/views/hub_view.view.lkml",
+                )
+            ],
+            parameters=[
+                LookmlModelExploreField(
+                    name="hub_view.date_filter",
+                    type="date",
+                    view="hub_view",
+                    source_file="explores/spoke.explore.lkml",
+                )
+            ],
+        )
+        assert explore.upstream_views is not None
+        assert explore.upstream_views[0].project == "hub"
         assert explore.upstream_views[0].project != BASE_PROJECT_NAME

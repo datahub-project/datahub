@@ -1307,28 +1307,34 @@ class LookerExplore:
                                 )
                             )
 
-            # Parameters are not emitted as schema fields, but they still carry
-            # imported_projects/ source_file evidence for view project assignment.
-            project_map_fields: List[ViewField] = []
-            for field in lkml_fields:
-                field_view_name = (
-                    LookerUtil.extract_view_name_from_lookml_model_explore_field(field)
-                )
-                if field_view_name is None:
-                    continue
-                project_map_fields.append(
-                    ViewField(
-                        name=field.name or "",
-                        label=None,
-                        type=field.type if field.type is not None else "",
-                        description="",
-                        field_type=ViewFieldType.UNKNOWN,
-                        project_name=extract_project_from_imported_file_path(
-                            field.source_file
-                        ),
-                        view_name=field_view_name,
+            # Parameters are not schema fields. An imported parameter still
+            # carries imported_projects/ evidence, but a missing or local
+            # parameter source_file must not veto that — it is not proof the
+            # view is defined in the explore project.
+            project_map_fields: List[ViewField] = list(view_fields)
+            if explore.fields is not None and explore.fields.parameters is not None:
+                for field in explore.fields.parameters:
+                    field_view_name = (
+                        LookerUtil.extract_view_name_from_lookml_model_explore_field(
+                            field
+                        )
                     )
-                )
+                    project_name = extract_project_from_imported_file_path(
+                        field.source_file
+                    )
+                    if field_view_name is None or project_name is None:
+                        continue
+                    project_map_fields.append(
+                        ViewField(
+                            name=field.name or "",
+                            label=None,
+                            type=field.type if field.type is not None else "",
+                            description="",
+                            field_type=ViewFieldType.UNKNOWN,
+                            project_name=project_name,
+                            view_name=field_view_name,
+                        )
+                    )
             view_project_map: Dict[str, str] = create_view_project_map(
                 project_map_fields, reporter
             )
