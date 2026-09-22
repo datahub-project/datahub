@@ -17,6 +17,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.parseq.Task;
@@ -104,7 +105,7 @@ public class EntityVersionedV2Resource
                   ? opContext.getEntityAspectNames(entityType)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            return _entityService.getEntitiesVersionedV2(opContext,
+            return SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, _entityService.getEntitiesVersionedV2(opContext,
                 versionedUrnStrs.stream()
                     .map(
                         versionedUrnTyperef -> {
@@ -117,7 +118,7 @@ public class EntityVersionedV2Resource
                           return versionedUrn;
                         })
                     .collect(Collectors.toSet()),
-                projectedAspects);
+                projectedAspects));
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(

@@ -30,6 +30,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
@@ -720,6 +721,8 @@ public class EntityController
                         aspectItemMap,
                         name ->
                             lookupAspectSpec(u, name).map(AspectSpec::isTimeseries).orElse(false));
+                aspectItemMap =
+                    SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, u, aspectItemMap);
 
                 return GenericEntityV3.builder().build(objectMapper, u, aspectItemMap);
               })
