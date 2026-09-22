@@ -49,6 +49,49 @@ logger = logging.getLogger(__name__)
 _original_sql_parser_method: Optional[Callable[..., Any]] = None
 
 
+def _match_connection_backed_casing(
+    ol_result: "OperatorLineage", database_info: Any
+) -> "OperatorLineage":
+    """Fold connectionless dataset names the way the database itself would.
+
+    With ``use_connection=False`` the provider names datasets from the parse tree --
+    identifiers exactly as written in the SQL. The connection-backed path names them
+    from ``information_schema``, i.e. as the database stores them.
+    ``from_table_meta`` upper-cases for databases that declare ``is_uppercase_names``
+    (Snowflake), but does not fold for the rest, so mixed-case SQL against a
+    case-folding database would otherwise produce a differently-cased duplicate URN.
+
+    ``normalize_name_method`` is the provider's own model of that folding -- it is what
+    builds the ``information_schema`` predicates -- so reusing it keeps the two paths
+    in agreement.
+    """
+    if getattr(database_info, "is_uppercase_names", False):
+        return ol_result
+
+    normalize = getattr(database_info, "normalize_name_method", None)
+    if normalize is None:
+        return ol_result
+
+    def _fold(dataset: Any) -> Any:
+        try:
+            folded = normalize(dataset.name)
+        except Exception as e:
+            logger.debug(f"Could not normalize dataset name {dataset.name!r}: {e}")
+            return dataset
+        if folded == dataset.name:
+            return dataset
+        return OpenLineageDataset(  # type: ignore[misc]
+            namespace=dataset.namespace, name=folded, facets=dataset.facets
+        )
+
+    return OperatorLineage(  # type: ignore[misc]
+        inputs=[_fold(d) for d in ol_result.inputs],
+        outputs=[_fold(d) for d in ol_result.outputs],
+        job_facets=ol_result.job_facets,
+        run_facets=ol_result.run_facets,
+    )
+
+
 def _datahub_generate_openlineage_metadata_from_sql(
     self: Any,
     sql: Any,
@@ -113,6 +156,10 @@ def _datahub_generate_openlineage_metadata_from_sql(
                     use_connection=False if datahub_driven else use_connection,
                 )
                 logger.debug(f"OpenLineage parser result: {ol_result}")
+                if datahub_driven and ol_result is not None:
+                    ol_result = _match_connection_backed_casing(
+                        ol_result, database_info
+                    )
             except Exception as e:
                 logger.warning(
                     f"Error calling original OpenLineage parser, will use only DataHub parser: {e}",
