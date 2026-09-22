@@ -43,7 +43,9 @@ node {
   Wrappers around Yarn Tasks.
  */
 task yarnInstall(type: YarnTask) {
-  def argsList = ['install', '--network-timeout', '300000']
+  def integrityFile = file('node_modules/.yarn-integrity')
+  def packageManifest = layout.buildDirectory.file('yarn-installed-packages.txt')
+  def argsList = ['install', '--check-files', '--network-timeout', '300000']
   if (System.getenv("CI") == "true") {
     argsList += ['--frozen-lockfile']
   }
@@ -57,7 +59,24 @@ task yarnInstall(type: YarnTask) {
     file('yarn.lock'),
     file('package.json'),
   )
-  outputs.dir('node_modules')
+  // Snapshot Yarn's marker plus a precomputed package inventory. Checking the listed
+  // package roots catches incomplete installs without walking node_modules on every run.
+  outputs.files(integrityFile, packageManifest)
+  outputs.upToDateWhen {
+    def manifestFile = packageManifest.get().asFile
+    manifestFile.isFile() && manifestFile.readLines().every { relativePath ->
+      file(relativePath).isFile()
+    }
+  }
+
+  doLast {
+    def installedPackages = fileTree('node_modules') {
+      include '**/package.json'
+    }.files.collect { relativePath(it) }.sort()
+    def manifestFile = packageManifest.get().asFile
+    manifestFile.parentFile.mkdirs()
+    manifestFile.text = installedPackages.join('\n') + '\n'
+  }
 }
 
 task yarnGenerateCacheable(type: YarnTask, dependsOn: yarnInstall) {
@@ -243,7 +262,7 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLa
   // Pass DataHub version via environment variable to vite build
   environment.put('DATAHUB_APP_VERSION', project.version)
 
-  args = ['run', project.hasProperty('sourcemap') ? 'buildWithSourceMap' :'build']
+  args = ['run', project.hasProperty('sourcemap') ? 'buildViteWithSourceMap' : 'buildVite']
 
   outputs.cacheIf { true }
   // The -Psourcemap flag switches yarnBuild between build-only and buildWithSourceMap-only, which
