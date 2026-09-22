@@ -109,7 +109,11 @@ framework_common = {
     # streams) used to supervise ingestion subprocesses in
     # datahub.executor.execution.runner. Previously only available transitively
     # via httpx/openai/starlette; declare it explicitly.
-    "anyio>=3.0.0,<5.0.0",
+    # Floor 4.10.0 — the highest the airflow-plugin CI tolerates (Airflow 3.0.x
+    # constraints pin anyio==4.10.0; 3.1.x pins 4.11.0; 3.2.x pins 4.13.0).
+    # CVE-2026-64847 (>=4.14.2) is applied at lock time via pyproject
+    # [tool.uv] constraint-dependencies.
+    "anyio>=4.10.0,<5.0.0",
 }
 
 rest_common = {
@@ -189,7 +193,7 @@ pyarrow_common = {
 
 sqlalchemy_lib = {
     # Required for all SQL sources.
-    # <2 held by databricks-sql-connector and great-expectations (sqlalchemy-redshift
+    # <2 held by databricks-sql-connector (sqlalchemy-redshift
     # >=1.0.0 now supports SQLAlchemy 2). Lifting this cap unblocks pkg_resources-free
     # dialect releases (sqlalchemy-redshift, sqlalchemy-cockroachdb), then delete the
     # pkg_resources shim; test_sqlalchemy_stays_below_2_until_shim_removed enforces it.
@@ -297,8 +301,9 @@ snowflake_common = {
     # Original lower bound 1.4.3 was due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     #
     # Upper bound <1.7.4: Version 1.7.4 of snowflake-sqlalchemy introduced a bug that breaks
-    # table column name reflection for non-uppercase table names. While we do not
-    # use this method directly, it is used by great-expectations during profiling.
+    # table column name reflection for non-uppercase table names. The original reason for
+    # this cap was the (now removed) Great Expectations profiler, which relied on that
+    # reflection. Re-validate against the SQLAlchemy profiler before lifting the cap.
     #
     # See: https://github.com/snowflakedb/snowflake-sqlalchemy/compare/v1.7.3...v1.7.4
     #
@@ -791,7 +796,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
-    # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common / GE (urllib3 1.x lock-in).
+    # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common (urllib3 1.x lock-in).
     "redshift-slim": redshift_common
     | usage_common
     | sqlglot_lib

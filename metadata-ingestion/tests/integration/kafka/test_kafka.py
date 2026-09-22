@@ -700,7 +700,7 @@ def _get_test_profiling_config():
         include_field_median_value = True
         include_field_stddev_value = True
         include_field_quantiles = True
-        include_field_distinct_count = True  # Default from GEProfilingConfig
+        include_field_distinct_count = True  # Default from ProfilingConfig
         include_field_distinct_value_frequencies = True
         include_field_histogram = True
 

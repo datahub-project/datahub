@@ -1,3 +1,5 @@
+import { extractTypeFromUrn } from '@app/entity/shared/utils';
+
 import { EntityType, LineageDirection } from '@types';
 
 export function getValidEntityTypes(lineageDirection: LineageDirection, entityType?: EntityType) {
@@ -36,4 +38,10 @@ export function getValidEntityTypes(lineageDirection: LineageDirection, entityTy
                 return [];
         }
     }
+}
+
+/** Keep the current-list and add/remove payload on types updateLineage can persist. */
+export function filterManualLineageUrns(urns: Iterable<string>, validTypes: EntityType[]): string[] {
+    const allowed = new Set(validTypes);
+    return Array.from(urns).filter((urn) => allowed.has(extractTypeFromUrn(urn)));
 }

@@ -7,7 +7,7 @@ import sqlalchemy as sa
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
