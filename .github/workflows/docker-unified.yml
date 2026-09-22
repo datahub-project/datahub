@@ -1413,7 +1413,7 @@ jobs:
         working-directory: smoke-test
         run: |
           source venv/bin/activate
-          pytest tests/semantic/test_local_embedding_provider.py \
+          pytest tests/e2e/semantic/test_local_embedding_provider.py \
             -v \
             --junit-xml=junit.smoke-ai.xml \
             --timeout=120
@@ -1429,7 +1429,7 @@ jobs:
         working-directory: smoke-test
         run: |
           source venv/bin/activate
-          pytest tests/semantic/test_classical_embedding_provider.py \
+          pytest tests/e2e/semantic/test_classical_embedding_provider.py \
             -v \
             --junit-xml=junit.smoke-ai.xml \
             --timeout=120
