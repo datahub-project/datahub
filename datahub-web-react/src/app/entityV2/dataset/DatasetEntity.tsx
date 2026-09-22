@@ -150,6 +150,152 @@ export class DatasetEntity implements Entity<Dataset> {
         />
     );
 
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowDatasetSummaryPage();
+        return [
+            ...(showSummaryTab
+                ? [
+                      {
+                          name: i18next.t('entity.types:tab.summary'),
+                          component: SummaryTab,
+                          icon: SUMMARY_TAB_ICON,
+                      },
+                  ]
+                : []),
+            {
+                name: i18next.t('common.labels:columns'),
+                component: SchemaTab,
+                icon: LayoutOutlined,
+                getCount: useGetColumnTabCount,
+            },
+            {
+                name: i18next.t('entity.types:dataset.viewDefinitionTab'),
+                component: ViewDefinitionTab,
+                icon: CodeOutlined,
+                display: {
+                    visible: (_, dataset: GetDatasetQuery) =>
+                        !!dataset?.dataset?.viewProperties?.logic ||
+                        !!dataset?.dataset?.subTypes?.typeNames
+                            ?.map((t) => t.toLocaleLowerCase())
+                            .includes(SUBTYPES.VIEW.toLocaleLowerCase()),
+                    enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
+                },
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: i18next.t('entity.types:tab.documentation'),
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
+            {
+                name: i18next.t('common.actions:preview'),
+                component: EmbedTab,
+                icon: EyeOutlined,
+                display: {
+                    visible: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
+                    enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
+                },
+            },
+            {
+                name: i18next.t('entity.types:tab.lineage'),
+                component: LineageTab,
+                icon: PartitionOutlined,
+            },
+            {
+                name: i18next.t('entity.types:shared.accessTab'),
+                component: AccessManagement,
+                icon: UnlockOutlined,
+                display: {
+                    visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
+                    enabled: (_, _2) => true,
+                },
+            },
+            {
+                name: i18next.t('entity.types:tab.properties'),
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+                getCount: (_, dataset: GetDatasetQuery) => {
+                    const customPropertiesCount = dataset?.dataset?.properties?.customProperties?.length || 0;
+                    const visibleStructuredPropertiesCount =
+                        dataset?.dataset?.structuredProperties?.properties?.filter(
+                            (prop) => !prop.structuredProperty?.settings?.isHidden,
+                        ).length || 0;
+                    const propertiesCount = customPropertiesCount + visibleStructuredPropertiesCount;
+                    return propertiesCount;
+                },
+            },
+            {
+                name: i18next.t('entity.types:tab.queries'),
+                component: QueriesTab,
+                icon: ConsoleSqlOutlined,
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, _2) => true,
+                },
+            },
+            {
+                name: i18next.t('entity.types:dataset.statsTab'),
+                component: StatsTabWrapper,
+                icon: FundOutlined,
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, dataset: GetDatasetQuery) =>
+                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
+                        (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0 ||
+                        (dataset?.dataset?.operations?.length || 0) > 0,
+                },
+            },
+            {
+                name: getQualityTabName(),
+                component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
+                icon: CheckCircleOutlined,
+            },
+            {
+                name: getGovernanceTabName(),
+                icon: () => (
+                    <span
+                        style={{
+                            marginRight: 6,
+                            verticalAlign: '-0.2em',
+                        }}
+                    >
+                        <GovernMenuIcon width={16} height={16} fill="currentColor" />
+                    </span>
+                ),
+                component: GovernanceTab,
+                getCount: (_, dataset) => {
+                    const passingTests = dataset?.dataset?.testResults?.passing || [];
+                    const failingTests = dataset?.dataset?.testResults?.failing || [];
+                    return passingTests.length + failingTests.length;
+                },
+            },
+            {
+                name: i18next.t('entity.types:tab.runs'), // TODO: Rename this to DatasetRunsTab.
+                component: OperationsTab,
+                display: {
+                    visible: (_, dataset: GetDatasetQuery) => {
+                        return (dataset?.dataset?.runs?.total || 0) > 0;
+                    },
+                    enabled: (_, dataset: GetDatasetQuery) => {
+                        return (dataset?.dataset?.runs?.total || 0) > 0;
+                    },
+                },
+            },
+            {
+                name: i18next.t('entity.types:tab.incidents'),
+                icon: WarningOutlined,
+                component: IncidentTab,
+                getCount: (_, dataset) => {
+                    return dataset?.dataset?.activeIncidents?.total;
+                },
+            },
+        ];
+    };
+
     getSidebarSections = () => [
         { component: SidebarEntityHeader },
         { component: SidebarDatasetHeaderSection },
@@ -249,149 +395,6 @@ export class DatasetEntity implements Entity<Dataset> {
         };
     };
 
-    getProfileTabs = (): EntityTab[] => {
-        const showSummaryTab = useShowDatasetSummaryPage();
-        return [
-            ...(showSummaryTab
-                ? [
-                      {
-                          name: i18next.t('entity.types:tab.summary'),
-                          component: SummaryTab,
-                          icon: SUMMARY_TAB_ICON,
-                      },
-                  ]
-                : []),
-            {
-                name: i18next.t('common.labels:columns'),
-                component: SchemaTab,
-                icon: LayoutOutlined,
-                getCount: useGetColumnTabCount,
-            },
-            {
-                name: i18next.t('entity.types:dataset.viewDefinitionTab'),
-                component: ViewDefinitionTab,
-                icon: CodeOutlined,
-                display: {
-                    visible: (_, dataset: GetDatasetQuery) =>
-                        !!dataset?.dataset?.viewProperties?.logic ||
-                        !!dataset?.dataset?.subTypes?.typeNames
-                            ?.map((t) => t.toLocaleLowerCase())
-                            .includes(SUBTYPES.VIEW.toLocaleLowerCase()),
-                    enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
-                },
-            },
-            ...(!showSummaryTab
-                ? [
-                      {
-                          name: i18next.t('entity.types:tab.documentation'),
-                          component: DocumentationTab,
-                          icon: FileOutlined,
-                      },
-                  ]
-                : []),
-            {
-                name: i18next.t('common.actions:preview'),
-                component: EmbedTab,
-                icon: EyeOutlined,
-                display: {
-                    visible: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
-                    enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
-                },
-            },
-            {
-                name: i18next.t('entity.types:tab.lineage'),
-                component: LineageTab,
-                icon: PartitionOutlined,
-            },
-            {
-                name: i18next.t('entity.types:shared.accessTab'),
-                component: AccessManagement,
-                icon: UnlockOutlined,
-                display: {
-                    visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
-                    enabled: (_, _2) => true,
-                },
-            },
-            {
-                name: i18next.t('entity.types:tab.properties'),
-                component: PropertiesTab,
-                icon: UnorderedListOutlined,
-                getCount: (_, dataset: GetDatasetQuery) => {
-                    const customPropertiesCount = dataset?.dataset?.properties?.customProperties?.length || 0;
-                    const structuredPropertiesCount = dataset?.dataset?.structuredProperties?.properties?.length || 0;
-                    const propertiesCount = customPropertiesCount + structuredPropertiesCount;
-                    return propertiesCount;
-                },
-            },
-            {
-                name: i18next.t('entity.types:tab.queries'),
-                component: QueriesTab,
-                icon: ConsoleSqlOutlined,
-                display: {
-                    visible: (_, _1) => true,
-                    enabled: (_, _2) => true,
-                },
-            },
-            {
-                name: i18next.t('entity.types:dataset.statsTab'),
-                component: StatsTabWrapper,
-                icon: FundOutlined,
-                display: {
-                    visible: (_, _1) => true,
-                    enabled: (_, dataset: GetDatasetQuery) =>
-                        (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
-                        (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
-                        (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0 ||
-                        (dataset?.dataset?.operations?.length || 0) > 0,
-                },
-            },
-            {
-                name: getQualityTabName(),
-                component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
-                icon: CheckCircleOutlined,
-            },
-            {
-                name: getGovernanceTabName(),
-                icon: () => (
-                    <span
-                        style={{
-                            marginRight: 6,
-                            verticalAlign: '-0.2em',
-                        }}
-                    >
-                        <GovernMenuIcon width={16} height={16} fill="currentColor" />
-                    </span>
-                ),
-                component: GovernanceTab,
-                getCount: (_, dataset) => {
-                    const passingTests = dataset?.dataset?.testResults?.passing || [];
-                    const failingTests = dataset?.dataset?.testResults?.failing || [];
-                    return passingTests.length + failingTests.length;
-                },
-            },
-            {
-                name: i18next.t('entity.types:tab.runs'), // TODO: Rename this to DatasetRunsTab.
-                component: OperationsTab,
-                display: {
-                    visible: (_, dataset: GetDatasetQuery) => {
-                        return (dataset?.dataset?.runs?.total || 0) > 0;
-                    },
-                    enabled: (_, dataset: GetDatasetQuery) => {
-                        return (dataset?.dataset?.runs?.total || 0) > 0;
-                    },
-                },
-            },
-            {
-                name: i18next.t('entity.types:tab.incidents'),
-                icon: WarningOutlined,
-                component: IncidentTab,
-                getCount: (_, dataset) => {
-                    return dataset?.dataset?.activeIncidents?.total;
-                },
-            },
-        ];
-    };
-
     renderPreview = (previewType: PreviewType, data: Dataset) => {
         const genericProperties = this.getGenericEntityProperties(data);
         const platformNames = genericProperties?.siblingPlatforms?.map(
@@ -401,7 +404,7 @@ export class DatasetEntity implements Entity<Dataset> {
             <Preview
                 urn={data.urn}
                 data={genericProperties}
-                name={data.properties?.name || data.name}
+                name={this.displayName(data)}
                 origin={data.origin}
                 subtype={getFirstSubType(data)}
                 description={data.editableProperties?.description || data.properties?.description}
@@ -436,7 +439,7 @@ export class DatasetEntity implements Entity<Dataset> {
             <Preview
                 urn={data.urn}
                 data={genericProperties}
-                name={data.properties?.name || data.name}
+                name={this.displayName(data)}
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
@@ -487,8 +490,8 @@ export class DatasetEntity implements Entity<Dataset> {
     getLineageVizConfig = (entity: Dataset) => {
         return {
             urn: entity?.urn,
-            name: entity?.properties?.name || entity.name,
-            expandedName: entity?.properties?.qualifiedName || entity?.properties?.name || entity.name,
+            name: this.displayName(entity),
+            expandedName: entity?.properties?.qualifiedName || this.displayName(entity),
             type: EntityType.Dataset,
             subtype: getFirstSubType(entity) || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
@@ -502,6 +505,10 @@ export class DatasetEntity implements Entity<Dataset> {
         return data?.editableProperties?.name || data?.properties?.name || data.name || data.urn;
     };
 
+    createdTime = (data: Dataset) => {
+        return data?.properties?.created;
+    };
+
     platformLogoUrl = (data: Dataset) => {
         return data.platform.properties?.logoUrl || undefined;
     };
@@ -513,6 +520,10 @@ export class DatasetEntity implements Entity<Dataset> {
             getOverrideProperties: this.getOverridePropertiesFromEntity,
             flags,
         });
+    };
+
+    getPlatformProperties = (data: Dataset) => {
+        return data?.platform;
     };
 
     supportedCapabilities = () => {
