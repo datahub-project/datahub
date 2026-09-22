@@ -260,6 +260,7 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLa
     file('.env'),
     file('vite.config.ts'),
     file('tsconfig.json'),
+    project.fileTree(dir: "vite-plugins"),
   )
   outputs.dir('dist')
 }
