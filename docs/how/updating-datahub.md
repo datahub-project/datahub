@@ -49,6 +49,8 @@ Requirements:
 
 ### Breaking Changes
 
+- **(GMS / GraphQL patchEntity)** `patchEntity` and `patchEntities` now take the entity type used for authorization from the target URN rather than from the optional `entityType` argument. A request whose `entityType` disagrees with the URN, or whose URN cannot be parsed, is rejected as unauthorized instead of being checked as the claimed type. Previously a grant scoped to one entity type could be matched against a URN of a different type by supplying the wrong `entityType`. **Action:** none for clients that omit `entityType` or pass the URN's actual type; fix any client that passes a mismatched value. In addition, the mutations now accept the entity type's own management privilege as an alternative to **Edit Entity** (for example **Manage Policies** for `dataHubPolicy`, **Manage Secrets** for `dataHubSecret`), matching the dedicated mutations for those types; Edit Entity on the target remains sufficient for every type.
+
 - #19815 **(Sigma ingestion)** Sigma ended support for datasets as a data source on 2026-09-15, and a dataset-backed workbook element no longer returns SQL. The connector now recovers a Sigma Dataset's warehouse table from Sigma's connection metadata instead, so **Sigma Dataset** lineage URNs are built from `connection_to_platform_map` rather than `chart_sources_platform_mapping`. Three things to know:
 
   - **`env` and `platform_instance` move.** Without a `connection_to_platform_map` entry the URN uses the recipe's own `env` and no platform instance, where the SQL route used the mapping's.
