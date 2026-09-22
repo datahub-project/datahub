@@ -136,7 +136,9 @@ public class ViewUtils {
     }
 
     // Fall back to legacy operator+filters format
-    if (input.getOperator() != null && input.getFilters() != null && !input.getFilters().isEmpty()) {
+    if (input.getOperator() != null
+        && input.getFilters() != null
+        && !input.getFilters().isEmpty()) {
       if (LogicalOperator.AND.equals(input.getOperator())) {
         return buildAndFilter(input.getFilters(), aspectRetriever);
       } else {

@@ -83,9 +83,7 @@ test.describe('View Within Operator', () => {
 
     // Verify orFilters contains the DESCENDANTS_INCL condition
     const orFilters = requestBody.variables?.input?.definition?.filter?.orFilters ?? [];
-    const domainOrFilter = orFilters
-      .flatMap((or) => or.and || [])
-      .find((criterion) => criterion.field === 'domains');
+    const domainOrFilter = orFilters.flatMap((or) => or.and || []).find((criterion) => criterion.field === 'domains');
     expect(domainOrFilter?.condition).toBe('DESCENDANTS_INCL');
 
     await manageViewsPage.expectViewVisible(viewName);
