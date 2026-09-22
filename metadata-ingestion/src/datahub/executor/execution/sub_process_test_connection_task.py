@@ -100,18 +100,23 @@ class SubProcessTestConnectionTask(Task):
             # exists that would be the same unguarded window again.
             masking_filter = SecretMaskingFilter()
 
+            # Hand the venv-cache lock to the child; see lock_handoff.
+            lock_fds, lock_env = SubProcessTaskUtil.lock_handoff(prepared.venv_ref)
+
             ingest_process = subprocess.Popen(
                 [
                     sys.executable,
                     command_script,
                     str(prepared.venv_ref.venv_loc),
                 ],
-                env=prepared.subprocess_env,
+                env={**prepared.subprocess_env, **lock_env},
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                pass_fds=lock_fds,
             )
+            SubProcessTaskUtil.complete_lock_handoff(prepared.venv_ref, lock_fds)
 
             # Write envelope to stdin and close
             assert ingest_process.stdin is not None
@@ -126,12 +131,10 @@ class SubProcessTestConnectionTask(Task):
             # pod's life. Guarded inside, so it cannot replace the exception in
             # flight.
             #
-            # Releasing is only right when no child got started. A broken pipe
-            # on the stdin write means Popen already succeeded, and that child
-            # is executing out of the venv the lock protects.
-            SubProcessTaskUtil.keep_venv_lock_if_popen_may_be_alive(
-                prepared.venv_ref, ingest_process
-            )
+            # No "is the child alive?" question to answer any more. If the
+            # spawn got far enough to produce a child, that child inherited
+            # the lock descriptor and owns the hold; this only closes our own
+            # copy, which the kernel would do at exit anyway.
             SubProcessTaskUtil.release_venv_lock(prepared.venv_ref)
             # finalize_task_output is what normally removes this, and it is
             # never reached from here, so on the cache-off or cache-busy path
@@ -158,22 +161,12 @@ class SubProcessTestConnectionTask(Task):
             return_code = ingest_process.poll()
 
         except asyncio.CancelledError:
-            # Terminate the child AND wait for it, rather than signalling and
-            # re-raising immediately. Two things downstream depend on knowing
-            # the child is dead, and both got the wrong answer without this:
-            #
-            # - keep_venv_lock_if_popen_may_be_alive polls the child. A
-            #   signalled-but-unreaped child still polls None, so the SHARED
-            #   hold was handed to retain_lock FOREVER. flock conflicts across
-            #   fds within one process, so once the entry passed its TTL no
-            #   rebuild could ever take EXCLUSIVE again -- and `latest` is the
-            #   default, shared with ingestion, so one user pressing Cancel
-            #   made every run on that pod build a per-run venv for the rest
-            #   of the pod's life.
-            # - finalize_task_output removes exec_out_dir, and a
-            #   non-cacheable venv lives INSIDE it. Deleting it under a live
-            #   interpreter is the ImportError-on-a-deleted-.so failure the
-            #   lock exists to prevent.
+            # Terminate the child AND wait for it. The venv lock no longer
+            # depends on this -- the kernel releases it when the child dies
+            # -- but exec_out_dir still does: a NON-cacheable venv lives
+            # inside it, and finalize_task_output removes it. Deleting it
+            # under a live interpreter is the ImportError-on-a-deleted-.so
+            # failure this whole mechanism exists to prevent.
             #
             # Bounded, and blocking on purpose: this unwinds a CancelledError,
             # where awaiting invites a second cancellation and turns cleanup
@@ -182,12 +175,6 @@ class SubProcessTestConnectionTask(Task):
             raise
 
         finally:
-            # terminate() above signals and re-raises without waiting, so on
-            # the cancellation path the child may still be running when
-            # finalize_task_output would release the lock.
-            SubProcessTaskUtil.keep_venv_lock_if_popen_may_be_alive(
-                prepared.venv_ref, ingest_process
-            )
             SubProcessTaskUtil.finalize_task_output(
                 report_out_file,
                 exec_out_dir,

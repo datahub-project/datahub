@@ -232,33 +232,15 @@ class SubProcessIngestionTask(Task):
                 secret_values,
                 venv_ref,
             )
-        except asyncio.CancelledError:
-            # The one window the keep/release split cannot inspect. A
-            # cancellation delivered inside `await create_subprocess_exec`
-            # may land after the fork, and the handle that would answer "is
-            # there a child?" is the return value of the await that was
-            # cancelled -- there is nothing to poll. Releasing here marks the
-            # venv evictable while a child may be executing from it, and the
-            # next build's eviction pass rmtrees a running interpreter: an
-            # ImportError on a deleted .so, inside a task already reported
-            # CANCELLED, so the error lands nowhere.
-            #
-            # Keeping it costs one unevictable entry until this executor
-            # restarts. Same trade as _keep_venv_lock_unless_exited: prefer
-            # the disk over a wrong answer. A post-spawn cancellation is
-            # already handled precisely in _spawn_ingestion_subprocess, so
-            # this only covers the genuinely unknowable case.
-            SubProcessTaskUtil.retain_lock_if_held(venv_ref)
-            raise
         except BaseException:
             # venv_ref only reaches execute() -- and therefore the finally that
             # releases its lock -- through this method's return value. Anything
-            # that raises after _setup_venv succeeded, most realistically an
-            # OSError from the fork or a broken pipe on the stdin write, would
-            # otherwise strand the SHARED hold for the process's life and make
-            # that cache entry unevictable. No child exists on these paths --
-            # a cancellation is handled above -- so releasing is right.
-            # Guarded, so it cannot replace the exception in flight.
+            # that raises after _setup_venv succeeded would otherwise strand
+            # the hold for the process's life and make that cache entry
+            # unevictable. Correct even for a cancellation delivered inside
+            # the spawn, where a child may already have been forked: this
+            # closes our copy rather than unlocking, so an inherited hold
+            # survives. Guarded, so it cannot replace the exception in flight.
             SubProcessTaskUtil.release_venv_lock(venv_ref)
             raise
 
@@ -310,11 +292,17 @@ class SubProcessIngestionTask(Task):
             },
         )
 
+        # Hand the venv-cache lock to the child, which inherits the
+        # descriptor and therefore the flock. From here the KERNEL releases
+        # it when the child tree dies -- including on SIGKILL, an OOM kill
+        # and a node drain, none of which run any code in this process.
+        lock_fds, lock_env = SubProcessTaskUtil.lock_handoff(venv_ref)
+
         process = await asyncio.create_subprocess_exec(
             sys.executable,
             command_script,
             str(venv_ref.venv_loc),
-            env=venv_env,
+            env={**venv_env, **lock_env},
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
@@ -322,18 +310,20 @@ class SubProcessIngestionTask(Task):
             # Own process group, so cancellation can signal the whole tree. Without
             # this, terminating the wrapper leaves the datahub grandchild running.
             start_new_session=True,
+            pass_fds=lock_fds,
         )
 
-        # A child exists from here on, so the venv it is about to execute from
-        # must not become evictable. _create_subprocess's except cannot make
-        # that call -- `process` is local to this frame and never reaches it --
-        # so the decision belongs here, and its release downgrades to a no-op.
+        # Only after the spawn succeeded. A failed spawn has no child to own
+        # the hold, so the lock must unwind normally instead.
+        SubProcessTaskUtil.complete_lock_handoff(venv_ref, lock_fds)
+
         try:
             assert process.stdin is not None
             process.stdin.write(stdin_envelope.encode("utf-8"))
             process.stdin.close()
         except BaseException:
-            SubProcessTaskUtil.keep_venv_lock_if_child_may_be_alive(venv_ref, process)
+            # The child already exists and owns the lock descriptor, so
+            # there is nothing to protect here any more.
             raise
 
         return process, venv_ref
@@ -445,9 +435,10 @@ class SubProcessIngestionTask(Task):
             cancelled = True
             raise
         finally:
-            SubProcessTaskUtil.keep_venv_lock_if_child_may_be_alive(
-                venv_ref, ingest_process
-            )
+            # No lock bookkeeping here any more. The child inherited the
+            # descriptor at spawn, so whether it is still alive is the
+            # kernel's question rather than this function's.
+            #
             # _handle_subprocess_completion is contractually safe to call here:
             # it only raises TaskError on a real non-cancelled failure. All
             # cleanup steps are internally guarded, so this finally cannot mask

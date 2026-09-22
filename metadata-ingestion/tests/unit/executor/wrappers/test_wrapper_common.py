@@ -4,10 +4,14 @@ These helpers run inside the short-lived wrapper subprocess, so they are
 exercised here directly rather than through a task.
 """
 
+import contextlib
 import io
 import json
+import os
+import pathlib
 import resource
 import signal
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -267,3 +271,59 @@ class TestTheTwoMaskingSwitches:
             wrapper_common.register_secrets_for_masking({"PW": "a-real-secret"})
 
         assert init.called
+
+
+class TestVenvLockHandoffToTheCli:
+    """The wrapper is a middleman; the CLI is what runs out of the venv.
+
+    The executor hands the wrapper an inherited venv-cache lock descriptor.
+    If it stops here, killing the wrapper releases the lock while the CLI
+    keeps running -- and the CLI gets its own session precisely so it CAN
+    outlive the wrapper.
+    """
+
+    def test_the_inherited_descriptor_is_passed_on_to_the_cli(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        probe = os.open(tmp_path / "held", os.O_RDWR | os.O_CREAT, 0o644)
+        try:
+            monkeypatch.setenv(wrapper_common.VENV_LOCK_FD_ENV, str(probe))
+            seen: dict = {}
+
+            class FakePopen:
+                def __init__(self, *args: object, **kwargs: object) -> None:
+                    seen["pass_fds"] = kwargs.get("pass_fds")
+                    self.stdin, self.stdout, self.returncode = (
+                        io.StringIO(),
+                        io.StringIO(),
+                        0,
+                    )
+
+                def wait(self, timeout: object = None) -> int:
+                    return 0
+
+                def poll(self) -> int:
+                    return 0
+
+            monkeypatch.setattr(subprocess, "Popen", FakePopen)
+            with contextlib.suppress(Exception):
+                wrapper_common.run_datahub_subprocess(["/bin/true"], "{}")
+
+            assert seen.get("pass_fds") == (probe,), (
+                "the venv-cache lock stopped at the wrapper; a SIGKILLed "
+                "wrapper would release it with the CLI still running"
+            )
+        finally:
+            os.close(probe)
+
+    @pytest.mark.parametrize(
+        "raw", ["", "not-a-number", "999999"], ids=["unset", "garbage", "closed-fd"]
+    )
+    def test_an_unusable_descriptor_is_ignored_rather_than_fatal(
+        self, raw: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The lock is an optimisation; it must never fail a run that could
+        otherwise have worked."""
+        monkeypatch.setenv(wrapper_common.VENV_LOCK_FD_ENV, raw)
+
+        assert wrapper_common._inherited_lock_fds() == ()

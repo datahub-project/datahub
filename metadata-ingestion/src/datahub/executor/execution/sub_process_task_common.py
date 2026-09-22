@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import dataclasses
 import errno
 import importlib.util
@@ -22,9 +21,9 @@ import os
 import re
 import shutil
 import subprocess
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import pydantic
 import yaml
@@ -42,7 +41,7 @@ from datahub.executor.execution.runner import (
     setup_venv,
 )
 from datahub.executor.execution.task import TaskError
-from datahub.executor.execution.venv_cache import retain_lock
+from datahub.executor.execution.wrapper_common import VENV_LOCK_FD_ENV
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.constants import SENTINEL_MESSAGES
 from datahub.masking.masking_filter import SecretMaskingFilter
@@ -531,181 +530,44 @@ class SubProcessTaskUtil:
         )
 
     @staticmethod
-    def keep_venv_lock_if_child_may_be_alive(
-        venv_ref: Optional[VenvReference],
-        process: Optional[asyncio.subprocess.Process],
-    ) -> None:
-        """Ingestion's variant: an asyncio child. See _keep_venv_lock_unless_exited."""
-        SubProcessTaskUtil._keep_venv_lock_unless_exited(
-            venv_ref,
-            process,
-            exited=None
-            if process is None
-            else SubProcessTaskUtil._answer_or_assume_alive(
-                lambda: process.returncode is not None
-            ),
-        )
+    def release_venv_lock(venv_ref: Optional[VenvReference]) -> None:
+        """Give up a venv's cache lock. Safe from any `except`/`finally`.
 
-    @staticmethod
-    def keep_venv_lock_if_popen_may_be_alive(
-        venv_ref: Optional[VenvReference],
-        process: Optional[subprocess.Popen],
-    ) -> None:
-        """Test-connection's variant: a blocking Popen child.
+        Only reachable BEFORE the handoff: once complete_lock_handoff has
+        run, venv_ref.lock is None and this is a no-op. That narrow window
+        is the point -- the old model needed a family of keep/retain/release
+        helpers because every unwinding path had to decide whether a child
+        might be alive. Now the child owns the lock the moment it exists,
+        and releasing only ever means "no child was started".
 
-        poll() rather than .returncode, because on a Popen the attribute stays
-        None until something reaps the child -- reading it directly would call
-        every finished child "still running" and leak its lock forever.
-        """
-        SubProcessTaskUtil._keep_venv_lock_unless_exited(
-            venv_ref,
-            process,
-            exited=None
-            if process is None
-            else SubProcessTaskUtil._answer_or_assume_alive(
-                lambda: process.poll() is not None
-            ),
-        )
+        Even so it closes rather than unlocking (see EntryLock.release), so
+        it stays correct on the one path that cannot tell: a cancellation
+        delivered inside the spawn, where a process may have been forked
+        before the handoff line was reached. Closing our copy leaves that
+        child's hold intact; LOCK_UN would not have.
 
-    @staticmethod
-    def _answer_or_assume_alive(probe: Callable[[], bool]) -> bool:
-        """Run a liveness probe, resolving an unanswerable one to "alive".
-
-        The probe is passed in rather than the process, so each wrapper
-        keeps its own statically-typed accessor -- there is no sound runtime
-        test to dispatch on, because tests patch subprocess.Popen and an
-        isinstance check would see a Mock rather than a class. That is the
-        whole reason the two wrappers exist.
-
-        Wrapped because `poll()` re-raises any non-ECHILD OSError from
-        waitpid. Evaluated inline at the call site, that exception was
-        raised while building the `exited=` argument -- outside the handler
-        inside _keep_venv_lock_unless_exited -- so it still replaced an
-        in-flight CancelledError and skipped the rest of the `finally`: no
-        report, no logs, no lock release, no directory removal, and FAILED
-        reported instead of CANCELLED.
-
-        "Unknown" resolves to "may still be alive", the conservative answer
-        everywhere downstream: the lock is kept and exec_out_dir is left.
+        Never raises: every caller is already unwinding.
         """
         try:
-            return probe()
+            if venv_ref is not None and venv_ref.lock is not None:
+                venv_ref.lock.release()
+                venv_ref.lock = None
         except Exception:
-            logger.exception(
-                "Cleanup: could not determine whether the child had exited; "
-                "assuming it may still be running"
-            )
-            return False
-
-    @staticmethod
-    def _keep_venv_lock_unless_exited(
-        venv_ref: Optional[VenvReference],
-        # The union rather than Any: the two public wrappers exist precisely
-        # so mypy can pick the right variant at each call site, and Any here
-        # would give that back. Only read for its pid, in the log line below.
-        process: Optional[Union[asyncio.subprocess.Process, subprocess.Popen]],
-        *,
-        exited: Optional[bool],
-    ) -> None:
-        """Detach the venv cache lock instead of releasing it, if a child may still run.
-
-        The lock is what stops eviction removing the venv a child is EXECUTING
-        from. Every unwinding path that releases it has to answer "is the child
-        dead?" first, and on several of them the answer is no: cancellation
-        signals the child and re-raises without waiting, and a SIGTERM or
-        SIGKILL against a process wedged in an uninterruptible syscall is not
-        delivered until that syscall returns. Releasing then marks the entry
-        evictable while it is in use, and the next build's eviction pass
-        rmtree's a running interpreter -- which kills it with an ImportError on
-        a deleted .so, inside a task already reported as CANCELLED, so the
-        error lands nowhere.
-
-        Detaching keeps the lock for the life of this process: the entry
-        becomes unevictable, which costs disk. Deleting a venv out from under a
-        live interpreter costs a wrong answer. Prefer the disk.
-
-        Handed to retain_lock rather than simply dropped. An EntryLock owns a
-        raw os.open fd and has no __del__, so dropping the reference keeps the
-        lock AND leaks a descriptor -- one per EVENT, not one per entry, and
-        test-connection reaches this on essentially every cancellation because
-        the child is signalled without being waited for. retain_lock keys on
-        the lock path, so a second detach of an entry already retained costs
-        nothing and the bounded "one unevictable entry" above is what actually
-        happens.
-
-        Call one of the two public wrappers immediately before whatever would
-        release the lock -- release_venv_lock or finalize_task_output. Both are
-        no-ops once the reference is gone, so the pair reads the same on every
-        path: keep, then release.
-
-        The wrappers exist rather than one function branching on the process
-        type because there is no sound runtime test: the two process families
-        report exit differently, and `isinstance(p, subprocess.Popen)` is not
-        usable here -- tests patch `subprocess.Popen`, so the check would see a
-        Mock rather than a class. Splitting it lets mypy pick the right variant
-        at each call site instead.
-
-        `exited is None` means no child was ever started, so there is nothing
-        to protect and the caller should release normally. A cancellation
-        *inside* the spawn call itself is the one case this cannot cover: there
-        is no handle to ask, so a child that got as far as forking is
-        indistinguishable from one that never started.
-
-        Deliberately synchronous -- no await. This runs in `except` and
-        `finally` blocks that may be unwinding a CancelledError, where awaiting
-        invites a second cancellation and turns cleanup into a new failure mode.
-        """
-        try:
-            SubProcessTaskUtil._keep_venv_lock_unless_exited_inner(
-                venv_ref, process, exited=exited
-            )
-        except Exception:
-            # The only member of this family that was not guarded, and it
-            # runs as the FIRST statement of a `finally` unwinding a
-            # CancelledError -- above a comment promising every step is
-            # guarded. Popen.poll() re-raises any non-ECHILD OSError from
-            # waitpid, so a raise here would replace the CancelledError AND
-            # skip the rest of the finally: no report, no logs, no lock
-            # release, no directory removal, and FAILED reported instead of
-            # CANCELLED.
-            logger.exception("Cleanup: failed to retain the venv cache lock")
-
-    @staticmethod
-    def _keep_venv_lock_unless_exited_inner(
-        venv_ref: Optional[VenvReference],
-        process: Optional[Union[asyncio.subprocess.Process, subprocess.Popen]],
-        *,
-        exited: Optional[bool],
-    ) -> None:
-        if venv_ref is None or venv_ref.lock is None:
-            return
-        if exited is None or exited:
-            return
-
-        logger.warning(
-            "Child process %s was not confirmed exited; keeping the venv cache "
-            "lock on %s so eviction cannot remove a venv still in use. The "
-            "entry stays until this executor restarts.",
-            getattr(process, "pid", "?"),
-            venv_ref.venv_loc,
-        )
-        retain_lock(venv_ref.lock)
-        venv_ref.lock = None
+            logger.exception("Cleanup: failed to release the venv cache lock")
 
     # How long a cancelled test-connection waits for its child, per signal.
     # Short: the caller is already cancelling and this blocks the event loop.
-    # Long enough that a child which honours SIGTERM is reaped here rather
-    # than leaving every downstream check answering "it might still be alive".
     CHILD_REAP_GRACE_SEC = 10
 
     @staticmethod
     def terminate_and_reap(process: subprocess.Popen) -> None:
         """Signal a child and wait for it, escalating to SIGKILL.
 
-        Popen.poll() answers None for a signalled-but-unreaped child, so
-        every "is the child dead?" check downstream -- the venv lock keep or
-        release, and whether exec_out_dir may be removed -- gets the
-        pessimistic answer unless something actually reaps it.
+        Not about the venv lock any more -- the kernel handles that. This is
+        for exec_out_dir: a NON-cacheable venv lives inside it, so removing
+        it while a forked child is still executing from it deletes that
+        child's interpreter. poll() answers None for a signalled-but-unreaped
+        child, so without this the caller cannot tell.
 
         Never raises: every caller is unwinding a cancellation.
         """
@@ -723,48 +585,51 @@ class SubProcessTaskUtil:
             process.kill()
             process.wait(timeout=SubProcessTaskUtil.CHILD_REAP_GRACE_SEC)
         except Exception:
-            # A child that cannot be reaped leaves poll() at None, which is
-            # the safe answer everywhere downstream -- the lock is kept and
-            # the directory is left alone.
             logger.exception("Cleanup: failed to reap child process")
 
     @staticmethod
-    def retain_lock_if_held(venv_ref: Optional[VenvReference]) -> None:
-        """Keep a venv's lock for the life of the process instead of releasing it.
+    def lock_handoff(
+        venv_ref: Optional[VenvReference],
+    ) -> tuple[tuple[int, ...], dict[str, str]]:
+        """What to pass a child so it inherits this venv's cache lock.
 
-        For the windows where a child MAY exist but cannot be asked -- see
-        _keep_venv_lock_unless_exited for the ones that can. Safe from any
-        `except`/`finally`: it can never raise, because every caller is
-        already unwinding.
+        Returns the descriptors for `pass_fds` and the environment entry that
+        tells the wrapper which one to pass on to the datahub CLI. Both are
+        empty when there is no lock -- an ephemeral venv, a bundled one, or
+        the cache switched off -- so every caller can pass them
+        unconditionally.
+
+        This replaces a family of keep/release/retain helpers that had to be
+        invoked by hand at every window where a task could unwind. Ownership
+        is the fix: flock lives on the open file description, so a child that
+        inherits the descriptor holds the lock, and the kernel releases it
+        when that process dies -- for ANY reason, including the SIGKILL, OOM
+        kill and node drain that run no cleanup code at all. The executor no
+        longer has to be alive, or correct, at the moment the venv stops
+        being used.
         """
-        try:
-            if venv_ref is not None and venv_ref.lock is not None:
-                retain_lock(venv_ref.lock)
-                venv_ref.lock = None
-        except Exception:
-            logger.exception("Cleanup: failed to retain the venv cache lock")
+        if venv_ref is None or venv_ref.lock is None or not venv_ref.lock.held:
+            return (), {}
+        fd = venv_ref.lock.fileno
+        return (fd,), {VENV_LOCK_FD_ENV: str(fd)}
 
     @staticmethod
-    def release_venv_lock(venv_ref: Optional[VenvReference]) -> None:
-        """Let go of a cached venv's lock. Safe from any `except`/`finally`.
+    def complete_lock_handoff(
+        venv_ref: Optional[VenvReference], lock_fds: tuple[int, ...]
+    ) -> None:
+        """Give up this process's copy of a lock a child now owns.
 
-        Every caller invokes this while unwinding, so it can never raise: it
-        would replace the exception that got us here. Idempotent, because the
-        normal path releases in finalize_task_output and a failure part-way
-        may already have released. A venv that is not cached carries no lock,
-        so this is a no-op for every path where the cache is off or unusable.
+        Call ONLY once the spawn has succeeded: a failed spawn leaves no
+        child to hold the entry, so the lock has to unwind normally instead.
 
-        Called from every window between setup_venv returning and
-        finalize_task_output running, because in those windows nothing else
-        owns the lock: a leak there holds the entry SHARED for the process's
-        life, so eviction -- which needs a non-blocking exclusive -- can never
-        reclaim it.
+        detach_to_child closes without LOCK_UN, because the descriptors are
+        duplicates sharing one description and unlocking either would release
+        the child's hold too.
         """
-        try:
-            if venv_ref is not None and venv_ref.lock is not None:
-                venv_ref.lock.release()
-        except Exception:
-            logger.exception("Failed to release the venv cache lock")
+        if not lock_fds or venv_ref is None or venv_ref.lock is None:
+            return
+        venv_ref.lock.detach_to_child()
+        venv_ref.lock = None
 
     @staticmethod
     def finalize_task_output(
@@ -871,23 +736,18 @@ class SubProcessTaskUtil:
         except Exception:
             logger.exception("Failed to set logs on execution report")
 
-        # Stamp the entry as used NOW, before letting go of it. The hit path
-        # already touched it when the task STARTED, and eviction is LRU, so
-        # without this an entry's recorded age is really "age since the run
-        # began" -- an ingestion that runs longer than
-        # DATAHUB_VENV_CACHE_MAX_AGE_HOURS would be eligible for age eviction
-        # the moment it stops, despite having been in continuous use the
-        # whole time. Only the lock kept it alive during the run.
-        # touch_last_used swallows its own OSError, so this cannot raise here.
-        if venv_ref is not None and venv_ref.lock is not None:
+        # Stamp the entry as used NOW. The hit path already touched it when
+        # the task STARTED, and eviction is LRU, so without this an entry's
+        # recorded age is really "age since the run began" -- an ingestion
+        # running longer than DATAHUB_VENV_CACHE_MAX_AGE_HOURS would be
+        # eligible for age eviction the moment it stops, despite having been
+        # in continuous use throughout.
+        #
+        # No lock release here any more: the child owns the hold and the
+        # kernel drops it when the child dies. touch_last_used swallows its
+        # own OSError, so this cannot raise.
+        if venv_ref is not None:
             venv_utils.touch_last_used(Path(venv_ref.venv_loc))
-
-        # Before the directory removal and guarded like it: the shared lock on
-        # a cached venv is what keeps eviction from deleting it mid-run, so it
-        # has to be let go of here or the entry becomes immortal and the cache
-        # can never be trimmed. An ephemeral venv carries no lock, so this is a
-        # no-op for every path where the cache is off or unusable.
-        SubProcessTaskUtil.release_venv_lock(venv_ref)
 
         # Last, and guarded separately: this directory holds the run's reports,
         # with real object names in them, so leaving it behind on a failure

@@ -12,7 +12,7 @@ import os
 import pathlib
 import shutil
 import time
-from typing import Dict, Optional
+from typing import Optional
 
 from datahub.executor.execution.venv_utils import (
     COMPLETE_MARKER,
@@ -114,6 +114,30 @@ class EntryLock:
         self._fd = fd
         return True
 
+    @property
+    def fileno(self) -> int:
+        """The raw descriptor, for handing to a child via `pass_fds`.
+
+        Raises if nothing is held: there is no meaningful "no lock" fd, and
+        silently passing -1 would spawn a child that protects nothing.
+        """
+        if self._fd is None:
+            raise RuntimeError("no lock is held")
+        return self._fd
+
+    def detach_to_child(self) -> None:
+        """Hand this hold to a child that inherited the descriptor.
+
+        Identical to release() -- both simply close this process's copy --
+        but named for the intent, because the consequence is the opposite:
+        the entry stays LOCKED, by the child, and the KERNEL releases it
+        when that process dies for any reason at all, including SIGKILL, an
+        OOM kill and a node drain. None of those run code in this process,
+        which is why ownership rather than bookkeeping is what makes the
+        cache safe.
+        """
+        self.release()
+
     def downgrade_to_shared(self) -> bool:
         """Convert an exclusive hold to shared on the same fd.
 
@@ -157,55 +181,29 @@ class EntryLock:
             return False
 
     def release(self) -> None:
+        """Give up this process's hold by CLOSING, never by LOCK_UN.
+
+        The kernel releases an flock once every descriptor referring to that
+        open file description is closed. Closing is therefore correct in
+        both situations this lock can be in: when nothing else holds a copy
+        the lock drops immediately, and when a child inherited one via
+        pass_fds the child's hold survives -- which is exactly what should
+        happen, because that child is executing out of the venv.
+
+        LOCK_UN would not be correct in the second case. Duplicate
+        descriptors share one description, so unlocking this copy releases
+        the CHILD's lock too, leaving a live interpreter in a venv eviction
+        is free to delete. Verified: with the child alive, a peer is refused
+        after a close and granted after a LOCK_UN. There is no case where
+        this class wants LOCK_UN, so it is not used anywhere.
+        """
         fd, self._fd = self._fd, None
         if fd is None:
             return
         try:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-        except OSError:
-            pass
-        try:
             os.close(fd)
         except OSError:
             pass
-
-
-# Locks deliberately kept for the life of the process, keyed by lock path so
-# the same entry is only ever retained once. See retain_lock.
-_RETAINED_LOCKS: Dict[str, EntryLock] = {}
-
-
-def retain_lock(lock: EntryLock) -> None:
-    """Keep this entry locked for the rest of the process, at a bounded cost.
-
-    Callers reach this when they must NOT release: a child may still be
-    executing out of the venv, and releasing would let the next build's
-    evict_stale_entries rmtree a running interpreter.
-
-    Simply dropping the EntryLock reference achieves the lock part and
-    nothing else. The object owns a raw os.open fd and has no __del__, so
-    each detach adds a descriptor on the same lock file -- one per EVENT, not
-    one per entry, and test-connection reaches it on essentially every
-    cancellation because the child is signalled without being waited for.
-    Descriptors then accumulate for the pod's life until os.open raises
-    EMFILE, at which point unrelated sockets and subprocesses start failing
-    too.
-
-    Keying on the lock path collapses that back to the cost the callers
-    actually reason about -- one unevictable entry, one descriptor -- because
-    a second hold on an entry already retained protects nothing the first
-    does not.
-    """
-    if not lock.held:
-        return
-    key = str(lock.lock_path)
-    existing = _RETAINED_LOCKS.get(key)
-    if existing is not None and existing.held and existing is not lock:
-        # Already protected for the life of the process. This hold is
-        # redundant, so give its descriptor back rather than stacking it.
-        lock.release()
-        return
-    _RETAINED_LOCKS[key] = lock
 
 
 # One pass at a time per cache root. Each pass reads the whole root and then

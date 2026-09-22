@@ -580,6 +580,9 @@ class TestSharedRecipeTaskSkeleton:
         """
         venv_ref = Mock()
         venv_ref.venv_loc = "/tmp/venv"
+        # Captured before the call: releasing detaches the lock from
+        # the reference, so venv_ref.lock is None by the time we assert.
+        captured_lock = venv_ref.lock
 
         with (
             patch.object(
@@ -602,7 +605,7 @@ class TestSharedRecipeTaskSkeleton:
                     exec_out_dir=str(tmp_path / "exec-789"),
                 )
 
-        venv_ref.lock.release.assert_called_once()
+        captured_lock.release.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_a_directory_the_caller_already_made_is_left_alone(
@@ -1040,36 +1043,6 @@ def test_extra_cannot_overwrite_the_envelopes_own_keys() -> None:
     assert envelope["ok"] == 1, "an ordinary extra key is still passed through"
 
 
-def test_finalize_releases_the_venv_cache_lock(tmp_path: Path) -> None:
-    """Held for the task's life so eviction cannot delete a venv mid-run --
-    which means something has to let go of it, or the entry becomes immortal
-    and the cache can never be trimmed.
-    """
-    from datahub.executor.execution.runner import VenvConfig, VenvReference
-    from datahub.executor.execution.venv_cache import EntryLock
-
-    lock = EntryLock(tmp_path / "entry.lock")
-    assert lock.acquire(exclusive=False)
-    venv_ref = VenvReference(
-        venv_loc=tmp_path / "venv-x",
-        venv_config=VenvConfig(version="0.15.0.1", main_plugin="snowflake"),
-        lock=lock,
-    )
-
-    SubProcessTaskUtil.finalize_task_output(
-        str(tmp_path / "absent-report.json"),
-        str(tmp_path / "exec-dir"),
-        [],
-        Mock(),
-        venv_ref=venv_ref,
-    )
-
-    assert not lock.held
-    assert EntryLock(tmp_path / "entry.lock").acquire(exclusive=True), (
-        "the entry is still locked, so eviction can never reclaim it"
-    )
-
-
 def test_finalize_without_a_venv_ref_is_unchanged(tmp_path: Path) -> None:
     """Every existing caller passes nothing, and the ephemeral path has no
     lock to release."""
@@ -1083,7 +1056,7 @@ def test_finalize_without_a_venv_ref_is_unchanged(tmp_path: Path) -> None:
     assert not exec_dir.exists()
 
 
-def test_finalizing_stamps_the_entry_as_used_before_letting_go(
+def test_finalizing_stamps_the_entry_as_used(
     tmp_path: pathlib.Path,
 ) -> None:
     """A long run must not look idle the moment it ends.
@@ -1117,32 +1090,4 @@ def test_finalizing_stamps_the_entry_as_used_before_letting_go(
     assert venv_utils.last_used_at(venv_loc) > began + 3000, (
         "the entry still records when the run started, so a run longer than "
         "the max age is evictable the moment it ends"
-    )
-    venv_ref.lock.release.assert_called_once()
-
-
-def test_a_failing_liveness_probe_does_not_replace_the_exception_in_flight() -> None:
-    """poll() re-raises any non-ECHILD OSError from waitpid.
-
-    Evaluated inline as the `exited=` argument it was raised while BUILDING
-    the call, outside the handler inside _keep_venv_lock_unless_exited -- so
-    it replaced an in-flight CancelledError and skipped the rest of the
-    `finally`: no report, no logs, no lock release, no directory removal,
-    and FAILED reported instead of CANCELLED.
-
-    An unanswerable probe must resolve to "may still be alive", which keeps
-    the lock rather than letting eviction delete a venv still in use.
-    """
-    venv_ref = Mock()
-    venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
-    process = Mock()
-    process.pid = 99
-    process.poll = Mock(side_effect=OSError(errno.EPERM, "waitpid failed"))
-
-    # Must not raise.
-    SubProcessTaskUtil.keep_venv_lock_if_popen_may_be_alive(venv_ref, process)
-
-    assert venv_ref.lock is None, (
-        "an unanswerable liveness probe must be treated as 'may be alive', "
-        "so the lock is retained rather than released"
     )

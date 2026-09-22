@@ -416,6 +416,9 @@ async def test_a_popen_failure_releases_the_venv_cache_lock(
 
     venv_ref = Mock()
     venv_ref.venv_loc = tmp_path / "venv-demo-data"
+    # Captured before the call: releasing detaches the lock from
+    # the reference, so venv_ref.lock is None by the time we assert.
+    captured_lock = venv_ref.lock
 
     with (
         patch(
@@ -430,7 +433,7 @@ async def test_a_popen_failure_releases_the_venv_cache_lock(
     ):
         await task.execute(sample_args, exec_ctx)
 
-    venv_ref.lock.release.assert_called_once()
+    captured_lock.release.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -614,6 +617,9 @@ async def test_a_wrapper_resolution_failure_releases_the_lock_and_cleans_up(
 
     venv_ref = Mock()
     venv_ref.venv_loc = tmp_path / "venv-demo-data"
+    # Captured before the call: releasing detaches the lock from
+    # the reference, so venv_ref.lock is None by the time we assert.
+    captured_lock = venv_ref.lock
 
     with (
         patch(
@@ -628,7 +634,7 @@ async def test_a_wrapper_resolution_failure_releases_the_lock_and_cleans_up(
     ):
         await task.execute(sample_args, exec_ctx)
 
-    venv_ref.lock.release.assert_called_once()
+    captured_lock.release.assert_called_once()
     assert not Path(f"{config.tmp_dir}/{exec_ctx.exec_id}").exists(), (
         "the per-execution directory was left behind; on the cache-off path "
         "it holds a complete per-run venv"
@@ -670,24 +676,21 @@ async def test_a_popen_failure_also_removes_the_execution_directory(
 
 
 @pytest.mark.asyncio
-async def test_a_cancelled_run_reaps_its_child_and_releases_the_lock(
+async def test_a_cancelled_run_reaps_its_child_before_cleanup(
     executor_ctx: ExecutorContext,
     exec_ctx: ExecutionContext,
     sample_args: dict[str, str],
     tmp_path: Path,
 ) -> None:
-    """Signalling without waiting pinned the shared `latest` entry forever.
+    """Signalling without waiting leaves the child's state unknowable.
 
-    Popen.poll() answers None for a signalled-but-unreaped child, so
-    keep_venv_lock_if_popen_may_be_alive handed the SHARED hold to
-    retain_lock for the life of the process. flock conflicts across fds
-    within one process, so once that entry passed its TTL no rebuild could
-    take EXCLUSIVE again -- and `latest` is the default and is deliberately
-    shared with ingestion, so one user pressing Cancel made every run on the
-    pod fall back to a full per-run build.
-
-    Reaping the child makes poll() truthful, and the lock is released
-    normally.
+    The venv LOCK no longer depends on this -- the child inherited the
+    descriptor and the kernel releases it when the child dies. exec_out_dir
+    still does: a non-cacheable venv lives inside it and
+    finalize_task_output removes it, so deleting it under a live
+    interpreter would take that child's python with it. Popen.poll()
+    answers None for a signalled-but-unreaped child, so without the wait
+    the caller cannot tell.
     """
     config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
     task = SubProcessTestConnectionTask(config, executor_ctx)
@@ -724,9 +727,8 @@ async def test_a_cancelled_run_reaps_its_child_and_releases_the_lock(
         await task.execute(sample_args, exec_ctx)
 
     process.terminate.assert_called_once()
-    process.wait.assert_called()
-    venv_ref.lock.release.assert_called_once()
-    assert venv_ref.lock is not None, (
-        "the lock was detached and retained for the process's life even "
-        "though the child was confirmed dead"
+    process.wait.assert_called(), "the child was signalled but never reaped"
+    assert process.poll() is not None, (
+        "after the reap the child must report exited, or every downstream "
+        "check has to assume it may still be running"
     )

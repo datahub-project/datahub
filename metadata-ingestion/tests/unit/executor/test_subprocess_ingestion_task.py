@@ -456,6 +456,9 @@ class TestSubProcessIngestionTaskSubprocessCreation:
 
         venv_ref = Mock()
         venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
+        # Captured before the call: releasing detaches the lock from
+        # the reference, so venv_ref.lock is None by the time we assert.
+        captured_lock = venv_ref.lock
 
         with (
             patch("asyncio.create_subprocess_exec", side_effect=OSError("ENOMEM")),
@@ -473,53 +476,7 @@ class TestSubProcessIngestionTaskSubprocessCreation:
                 {},
             )
 
-        venv_ref.lock.release.assert_called_once()
-
-    async def test_a_cancellation_during_the_spawn_keeps_the_venv_cache_lock(
-        self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
-    ) -> None:
-        """A cancellation inside create_subprocess_exec may already have forked.
-
-        This is the one window the keep/release split cannot inspect: the
-        process handle is the return value of the await that got cancelled,
-        so there is nothing to poll. Releasing there marks the venv evictable
-        while a child may be executing from it, and the next build rmtrees a
-        running interpreter -- an ImportError on a deleted .so, inside a task
-        already reported CANCELLED, so the error lands nowhere.
-
-        Every other failure here (OSError from the fork, a missing wrapper
-        module) means no child exists, and those still release: see the
-        sibling test above.
-        """
-        validated_args = SubProcessIngestionTaskArgs.model_validate(sample_args)
-
-        venv_ref = Mock()
-        venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
-        # Captured up front: retaining detaches the lock from the reference,
-        # so venv_ref.lock is None by the time the assertion runs.
-        lock = venv_ref.lock
-
-        with (
-            patch("asyncio.create_subprocess_exec", side_effect=asyncio.CancelledError),
-            patch.object(ingestion_task, "_setup_venv", return_value=venv_ref),
-            pytest.raises(asyncio.CancelledError),
-        ):
-            await ingestion_task._create_subprocess(
-                validated_args,
-                "demo-data",
-                {"source": {"type": "demo-data"}},
-                "/tmp/report.json",
-                {"PATH": "/usr/bin"},
-                "/tmp/exec",
-                LogHolder(),
-                {},
-            )
-
-        lock.release.assert_not_called()
-        assert venv_ref.lock is None, (
-            "a retained lock must be detached, or finalize_task_output will "
-            "release it later and undo the protection"
-        )
+        captured_lock.release.assert_called_once()
 
     async def test_create_subprocess_secrets_not_in_env(
         self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
@@ -825,48 +782,6 @@ class TestSubProcessIngestionTaskExecution:
             await ingestion_task.execute(sample_args, mock_execution_context)
 
             assert mock_completion.call_args.kwargs.get("cancelled") is False
-
-    async def test_an_unconfirmed_child_keeps_its_venv_cache_lock(
-        self,
-        ingestion_task: SubProcessIngestionTask,
-        sample_args: dict[str, str],
-        mock_execution_context: Mock,
-    ) -> None:
-        """A returncode of None means the child was never reaped.
-
-        _monitor_subprocess SIGKILLs and re-raises on cancellation without
-        waiting, and SIGKILL against a process wedged in an uninterruptible
-        syscall is not delivered until that syscall returns. Releasing the lock
-        then marks the entry evictable while the interpreter inside it is still
-        running, so a later build's eviction can rmtree a live venv. The lock is
-        detached instead: the entry leaks until restart, which costs disk rather
-        than a wrong answer.
-        """
-        mock_process = AsyncMock()
-        mock_process.returncode = None
-        venv_ref = Mock()
-        mock_completion = Mock()
-
-        with (
-            patch.multiple(
-                ingestion_task,
-                _setup_directories=Mock(
-                    return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
-                ),
-                _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=(mock_process, venv_ref)),
-                _monitor_subprocess=AsyncMock(),
-                _handle_subprocess_completion=mock_completion,
-            ),
-            patch(
-                _RESOLVE_RECIPE, return_value=({"source": {"type": "demo-data"}}, {})
-            ),
-            patch(_GET_PLUGIN, return_value="demo-data"),
-            patch("builtins.open", mock_open()),
-        ):
-            await ingestion_task.execute(sample_args, mock_execution_context)
-
-        assert mock_completion.call_args.kwargs["venv_ref"].lock is None
 
     async def test_a_confirmed_exit_still_releases_the_venv_cache_lock(
         self,

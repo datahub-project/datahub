@@ -10,7 +10,9 @@ import fcntl
 import os
 import pathlib
 import shutil
-import tempfile
+import subprocess
+import sys
+import time
 from unittest import mock
 
 import pytest
@@ -401,40 +403,6 @@ def test_one_eviction_pass_at_a_time_per_root(tmp_path: pathlib.Path) -> None:
     )
 
 
-def test_retaining_one_entry_twice_does_not_consume_two_descriptors() -> None:
-    """Deliberately keeping a lock must cost one fd per ENTRY, not per event.
-
-    _keep_venv_lock_unless_exited detaches the lock rather than releasing it,
-    because releasing marks a venv evictable while a child is still executing
-    from it. Its docstring accounts for that as "the entry becomes
-    unevictable, which costs disk" -- one entry, held once.
-
-    Simply dropping the reference does not deliver that. EntryLock owns a raw
-    os.open fd and has no __del__, so every detach adds another descriptor on
-    the same lock file, and test-connection reaches this on essentially every
-    cancellation (the child is signalled without being waited for, so poll()
-    is None). At RLIMIT_NOFILE the next os.open raises EMFILE and the cache
-    switches itself off for the life of the pod.
-    """
-    lock_path = pathlib.Path(tempfile.mkdtemp()) / "entry.lock"
-    first = EntryLock(lock_path)
-    assert first.acquire(exclusive=False)
-    second = EntryLock(lock_path)
-    assert second.acquire(exclusive=False)
-
-    before = _open_fd_count()
-    venv_cache.retain_lock(first)
-    venv_cache.retain_lock(second)
-    after = _open_fd_count()
-
-    assert after - before <= 1, (
-        f"retaining the same entry twice cost {after - before} descriptors; "
-        "this accumulates until EMFILE disables the cache"
-    )
-    # Still protected: retaining is not releasing.
-    assert not EntryLock(lock_path).acquire(exclusive=True)
-
-
 def test_running_out_of_descriptors_is_not_treated_as_permanent(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -457,3 +425,135 @@ def test_running_out_of_descriptors_is_not_treated_as_permanent(
         "EMFILE is transient; treating it as permanent disables the cache for "
         "the life of the pod"
     )
+
+
+def _peer_can_take_exclusive(lock_path: pathlib.Path) -> bool:
+    """Whether some other claimant could evict this entry right now."""
+    peer = EntryLock(lock_path)
+    if peer.acquire(exclusive=True):
+        peer.release()
+        return True
+    return False
+
+
+def test_a_lock_handed_to_a_child_outlives_this_process_releasing_it(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The lock must belong to whoever is USING the venv, not to whoever
+    remembered to hold it.
+
+    flock lives on the open file description, so a descriptor inherited by
+    the child keeps the lock after the parent lets go of its own copy -- and
+    the kernel drops it when the child dies, for any reason at all. That is
+    what makes eviction safe without the executor having to run cleanup code
+    on every unwinding path.
+    """
+    lock_path = tmp_path / "entry.lock"
+    lock = EntryLock(lock_path)
+    assert lock.acquire(exclusive=False)
+
+    child = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        pass_fds=(lock.fileno,),
+    )
+    try:
+        lock.detach_to_child()
+
+        assert not lock.held, "the parent must stop claiming a hold it gave away"
+        assert not _peer_can_take_exclusive(lock_path), (
+            "the child is executing from this venv and eviction could take it"
+        )
+    finally:
+        child.kill()
+        child.wait()
+
+    # The kernel closed the child's descriptor. No executor code ran.
+    deadline = time.time() + 5
+    while time.time() < deadline and not _peer_can_take_exclusive(lock_path):
+        time.sleep(0.05)
+    assert _peer_can_take_exclusive(lock_path), (
+        "the entry stayed locked after the child died, so it can never be evicted again"
+    )
+
+
+def test_detaching_must_not_unlock_the_descriptor_the_child_shares(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The one way to get this wrong.
+
+    pass_fds duplicates the descriptor, and duplicates share ONE open file
+    description -- so LOCK_UN on the parent's copy releases the child's lock
+    too. release() does exactly LOCK_UN then close(), which is why detaching
+    needs its own method and why the lock must be unusable afterwards.
+    """
+    lock_path = tmp_path / "entry.lock"
+    lock = EntryLock(lock_path)
+    assert lock.acquire(exclusive=False)
+
+    child = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        pass_fds=(lock.fileno,),
+    )
+    try:
+        lock.detach_to_child()
+        # A later cleanup path calling release() must not reach the child's
+        # lock. Detaching makes the object spent, so this is a no-op.
+        lock.release()
+
+        assert not _peer_can_take_exclusive(lock_path), (
+            "release() after a detach unlocked the descriptor the child "
+            "shares; the venv is now evictable while it is in use"
+        )
+    finally:
+        child.kill()
+        child.wait()
+
+
+def test_the_lock_reaches_the_grandchild_not_just_the_wrapper(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The CLI is a grandchild, and it is the process that must hold the lock.
+
+    The executor spawns a wrapper; the wrapper spawns the datahub CLI in its
+    own session. If the descriptor stops at the wrapper, then killing the
+    wrapper -- which leaves the CLI running, the very reason it gets its own
+    session -- releases the lock while an interpreter is still importing out
+    of the venv.
+
+    Exercises the real two-hop inheritance with real processes, because that
+    is the only thing that can show it.
+    """
+    lock_path = tmp_path / "entry.lock"
+    lock = EntryLock(lock_path)
+    assert lock.acquire(exclusive=False)
+
+    # A stand-in wrapper: re-passes the inherited fd to ITS child, then exits
+    # while the grandchild lives on -- exactly the SIGKILL-the-wrapper shape.
+    wrapper_src = (
+        "import os, subprocess, sys\n"
+        "fd = int(os.environ['DATAHUB_VENV_LOCK_FD'])\n"
+        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'],\n"
+        "                 pass_fds=(fd,))\n"
+    )
+    env = {**os.environ, "DATAHUB_VENV_LOCK_FD": str(lock.fileno)}
+    wrapper = subprocess.Popen(
+        [sys.executable, "-c", wrapper_src], env=env, pass_fds=(lock.fileno,)
+    )
+    lock.detach_to_child()
+    assert wrapper.wait(timeout=30) == 0, "the stand-in wrapper failed"
+
+    try:
+        # The wrapper is gone. Only the grandchild holds the descriptor now.
+        assert not _peer_can_take_exclusive(lock_path), (
+            "the lock died with the wrapper; the datahub CLI is still "
+            "running in a venv eviction is now free to delete"
+        )
+    finally:
+        subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import subprocess,sys; subprocess.run(['pkill','-f','time.sleep(30)'])",
+            ],
+            capture_output=True,
+        )
