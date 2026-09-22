@@ -188,6 +188,29 @@ Each term is emitted as a `GlossaryTerm` with:
 
 When `include_glossary_term_associations` is enabled (opt-in, default: `false`), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. For each term, the API is called at the term's location to retrieve all linked assets (regardless of where those assets are located). This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked. It requires a role granting `resourcemanager.projects.get` (such as [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser)) on all configured projects. See the Permissions table in the [Prerequisites](#permissions) section above and the GCP [Resource Manager roles reference](https://cloud.google.com/iam/docs/understanding-roles#resource-manager-roles).
 
+:::warning Term associations replace existing glossary terms
+
+`glossaryTerms` has no server-side merge, so each run writes the complete term list for an
+asset. Terms added in the DataHub UI, or applied by another connector to the same entity, are
+replaced by whatever Dataplex reports. Column-level terms are unaffected.
+
+To keep Dataplex's terms scoped to Dataplex and leave everything else intact, add the
+[`set_attribution`](../../../../metadata-ingestion/docs/transformer/intro.md) transformer to
+your recipe:
+
+```yaml
+transformers:
+  - type: "set_attribution"
+    config:
+      attribution_source: "urn:li:dataPlatform:dataplex"
+```
+
+With the default `patch_mode: false`, a run still replaces Dataplex's own terms — so unlinking
+a term in Dataplex removes it from DataHub on the next run — while terms attributed to any
+other source are left untouched.
+
+:::
+
 **Configuration:**
 
 | Field                                | Default    | Description                                                                                                                                                                                                                |
@@ -216,6 +239,12 @@ source:
     # Term-to-asset associations (opt-in; requires roles/browser or another
     # role granting resourcemanager.projects.get on each configured project)
     # include_glossary_term_associations: true
+# Scope term writes to Dataplex so terms curated in the UI are not replaced.
+# See the warning above.
+# transformers:
+#   - type: "set_attribution"
+#     config:
+#       attribution_source: "urn:li:dataPlatform:dataplex"
 ```
 
 ### Limitations
