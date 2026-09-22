@@ -60,7 +60,8 @@ base_requirements = {
 }
 
 framework_common = {
-    "click>=6.0.0",
+    # CVE-2026-7246: click 8.1.7 / 8.3.1; fixed in 8.3.3.
+    "click>=8.3.3",
     "click-default-group",
     "prometheus-client",
     "PyYAML",

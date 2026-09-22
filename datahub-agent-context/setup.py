@@ -76,7 +76,8 @@ google_adk_requirements = {
 }
 
 snowflake_requirements = {
-    "click>=8.0.0,<9.0.0",
+    # CVE-2026-7246: click 8.1.7 / 8.3.1; fixed in 8.3.3.
+    "click>=8.3.3,<9.0.0",
     "snowflake-connector-python>=4.0.0,<5.0.0",
 }
 

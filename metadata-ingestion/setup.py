@@ -52,8 +52,8 @@ gcp_sm_common = {
 }
 
 framework_common = {
-    # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
-    "click>=7.1.2,!=8.2.0,<9.0.0",
+    # CVE-2026-7246: click 8.1.7 / 8.3.1; fixed in 8.3.3.
+    "click>=8.3.3,<9.0.0",
     "click-default-group<2.0.0",
     "PyYAML<7.0.0",
     "toml>=0.10.0,<=0.10.2",
