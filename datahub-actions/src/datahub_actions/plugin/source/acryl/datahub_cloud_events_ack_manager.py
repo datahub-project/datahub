@@ -27,9 +27,9 @@ class AckManager:
     def ack(self, meta: dict, processed: bool) -> None:
         batch_id, msg_id = (meta["batch_id"], meta["msg_id"])
         if processed:
-            self.acks.pop((batch_id, msg_id), None)
+            self.acks.pop((batch_id, msg_id))
         else:
-            logger.debug(f"Event not processed (filtered/buffered): {meta}")
+            logger.warning(f"Whoops - we didn't process {meta}")
 
     def outstanding_acks(self) -> int:
         return len(self.acks)
