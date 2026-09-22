@@ -2098,6 +2098,14 @@ constraint-dependencies = [
     # CVE-2026-59890: floored at lock time, not in base_requirements (Airflow
     # constraint files pin setuptools, so a base floor breaks those installs).
     "setuptools>=83.0.0",
+    # anyio: CVE-2026-64847 (process-pool workers block on undrained stderr);
+    # fixed in 4.14.2. Not in setup.py: Airflow constraints pin anyio==4.10.0
+    # (3.0.x), 4.11.0 (3.1.x), 4.13.0 (3.2.x). Enforced here at lock time.
+    "anyio>=4.14.2,<5.0.0",
+    # soupsieve: CVE-2026-85999, CVE-2026-86000 (ReDoS); also CVE-2026-49476/49477
+    # (fixed 2.8.4). Transitive via beautifulsoup4; not in setup.py. Docker
+    # snippet: docker/snippets/ingestion/constraints.txt.
+    "soupsieve>=2.9.0",
 ]
 
 [tool.ruff]

@@ -25,6 +25,10 @@ protobuf>=6.33.5,<7.0.0
 # older version; this constraint is safe for Docker images which don't coexist with
 # Airflow's pinned dependencies.
 aiohttp>=3.13.4
+# anyio: CVE-2026-64847 (process-pool workers block indefinitely on undrained
+# stderr); fixed in 4.14.2. Not in setup.py (Airflow constraints pin 4.10–4.13);
+# lock-time floor is [tool.uv] constraint-dependencies.
+anyio>=4.14.2
 pillow>=12.1.1
 # CVE-2026-59890 (also covers CVE-2025-47273); fixed in setuptools 83.0.0.
 setuptools>=83.0.0
@@ -72,3 +76,7 @@ mlflow-skinny>=3.9.0,<4.0.0
 # DoS (GHSA-c8rr-9gxc-jprv) fixed in 5.12.0. CVE-2026-44660 (dump() write-failure memory
 # leak) fixed in 5.12.1. Cap major until reviewed.
 ujson>=5.12.1,<6
+# soupsieve: CVE-2026-49476, CVE-2026-49477 (memory exhaustion / ReDoS; 2.8.4),
+# CVE-2026-85999 (ReDoS RE_WS_END), CVE-2026-86000 (ReDoS IDENTIFIER/VALUE);
+# all fixed in 2.9.0. Transitive (beautifulsoup4); not in setup.py.
+soupsieve>=2.9.0

@@ -39,7 +39,7 @@ annotated-doc==0.0.4
     #   typer
 annotated-types==0.7.0
     # via pydantic
-anyio==4.12.1
+anyio==4.14.2
     # via
     #   google-genai
     #   gql
@@ -1362,7 +1362,7 @@ sortedcontainers==2.4.0
     # via
     #   pyiceberg
     #   snowflake-connector-python
-soupsieve==2.8.3
+soupsieve==2.9.2
     # via beautifulsoup4
 spacy==3.7.5
     # via
