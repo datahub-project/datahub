@@ -15,6 +15,7 @@ supported-markers = [
 
 [manifest]
 constraints = [
+    { name = "anyio", specifier = ">=4.14.2,<5.0.0" },
     { name = "authlib", specifier = ">=1.6.11,<2.0.0" },
     { name = "idna", specifier = ">=3.15,<4.0.0" },
     { name = "jaraco-context", specifier = ">=6.1.0,<7" },
@@ -1599,9 +1600,9 @@ requires-dist = [
     { name = "aiohttp", specifier = "<4" },
     { name = "aiohttp", marker = "extra == 'dev'", specifier = "<4" },
     { name = "aiohttp", marker = "extra == 'docs'", specifier = "<4" },
-    { name = "anyio", specifier = ">=4.14.2,<5.0.0" },
-    { name = "anyio", marker = "extra == 'dev'", specifier = ">=4.14.2,<5.0.0" },
-    { name = "anyio", marker = "extra == 'docs'", specifier = ">=4.14.2,<5.0.0" },
+    { name = "anyio", specifier = ">=4.10.0,<5.0.0" },
+    { name = "anyio", marker = "extra == 'dev'", specifier = ">=4.10.0,<5.0.0" },
+    { name = "anyio", marker = "extra == 'docs'", specifier = ">=4.10.0,<5.0.0" },
     { name = "atlassian-python-api", marker = "extra == 'confluence'", specifier = ">=3.41.0,<5.0.0" },
     { name = "atlassian-python-api", marker = "extra == 'dev'", specifier = ">=3.41.0,<5.0.0" },
     { name = "atlassian-python-api", marker = "extra == 'docs'", specifier = ">=3.41.0,<5.0.0" },
