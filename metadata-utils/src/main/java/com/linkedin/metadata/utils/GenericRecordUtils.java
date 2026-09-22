@@ -28,19 +28,26 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.GenericPayload;
 import jakarta.json.JsonPatch;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nonnull;
 
 public class GenericRecordUtils {
   public static final String JSON = "application/json";
   public static final String JSON_PATCH = "application/json-patch+json";
+  public static final String JSON_GZIP = "application/json+gzip";
 
   private GenericRecordUtils() {}
 
@@ -69,24 +76,73 @@ public class GenericRecordUtils {
     return deserializeAspect(aspectValue, contentType, aspectSpec.getDataTemplateClass());
   }
 
+  /**
+   * Decompresses and decodes base64 gzipped data.
+   * 
+   * @param base64GzippedData The base64 encoded, gzipped data
+   * @return The decompressed string
+   * @throws IOException if decompression fails
+   */
+  private static String decompressGzippedBase64String(String base64GzippedData) throws IOException {
+    // Decode from Base64
+    byte[] decodedBytes = Base64.getDecoder().decode(base64GzippedData);
+    
+    // Set up the GZIP streams
+    ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(decodedBytes);
+    GZIPInputStream gzipInputStream = new GZIPInputStream(byteArrayInputStream);
+    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    
+    // Decompress the data
+    byte[] buffer = new byte[1024];
+    int len;
+    while ((len = gzipInputStream.read(buffer)) > 0) {
+      byteArrayOutputStream.write(buffer, 0, len);
+    }
+    
+    // Clean up
+    gzipInputStream.close();
+    byteArrayOutputStream.close();
+    
+    // Return the decompressed string
+    return byteArrayOutputStream.toString(StandardCharsets.UTF_8.name());
+  }
+
   @Nonnull
   public static <T extends RecordTemplate> T deserializeAspect(
       @Nonnull ByteString aspectValue, @Nonnull String contentType, @Nonnull Class<T> clazz) {
-    if (!contentType.equals(JSON)) {
+    if (contentType.equals(JSON)) {
+      return RecordUtils.toRecordTemplate(clazz, aspectValue.asString(StandardCharsets.UTF_8));
+    } else if (contentType.equals(JSON_GZIP)) {
+      try {
+        // For gzipped content, we first need to base64 decode and then decompress
+        String decompressedJson = decompressGzippedBase64String(aspectValue.asString(StandardCharsets.UTF_8));
+        return RecordUtils.toRecordTemplate(clazz, decompressedJson);
+      } catch (IOException e) {
+        throw new IllegalArgumentException("Failed to decompress gzipped aspect value", e);
+      }
+    } else {
       throw new IllegalArgumentException(
           String.format("%s content type is not supported", contentType));
     }
-    return RecordUtils.toRecordTemplate(clazz, aspectValue.asString(StandardCharsets.UTF_8));
   }
 
   @Nonnull
   public static <T extends RecordTemplate> T deserializePayload(
       @Nonnull ByteString payloadValue, @Nonnull String contentType, @Nonnull Class<T> clazz) {
-    if (!contentType.equals(JSON)) {
+    if (contentType.equals(JSON)) {
+      return RecordUtils.toRecordTemplate(clazz, payloadValue.asString(StandardCharsets.UTF_8));
+    } else if (contentType.equals(JSON_GZIP)) {
+      try {
+        // For gzipped content, we first need to base64 decode and then decompress
+        String decompressedJson = decompressGzippedBase64String(payloadValue.asString(StandardCharsets.UTF_8));
+        return RecordUtils.toRecordTemplate(clazz, decompressedJson);
+      } catch (IOException e) {
+        throw new IllegalArgumentException("Failed to decompress gzipped payload value", e);
+      }
+    } else {
       throw new IllegalArgumentException(
           String.format("%s content type is not supported", contentType));
     }
-    return RecordUtils.toRecordTemplate(clazz, payloadValue.asString(StandardCharsets.UTF_8));
   }
 
   @Nonnull
@@ -95,6 +151,24 @@ public class GenericRecordUtils {
     return deserializePayload(payloadValue, JSON, clazz);
   }
 
+  /**
+   * Compresses and base64-encodes a string.
+   *
+   * @param uncompressedData The string to compress
+   * @return Base64-encoded compressed data
+   * @throws IOException if compression fails
+   */
+  private static String compressAndBase64EncodeString(String uncompressedData) throws IOException {
+    // Compress the data
+    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream);
+    gzipOutputStream.write(uncompressedData.getBytes(StandardCharsets.UTF_8));
+    gzipOutputStream.close();
+    
+    // Base64 encode the compressed data
+    return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
+  }
+  
   @Nonnull
   public static GenericAspect serializeAspect(@Nonnull RecordTemplate aspect) {
     return serializeAspect(RecordUtils.toJsonString(aspect));
@@ -107,6 +181,26 @@ public class GenericRecordUtils {
     genericAspect.setContentType(GenericRecordUtils.JSON);
     return genericAspect;
   }
+  
+  @Nonnull
+  public static GenericAspect serializeGzippedAspect(@Nonnull RecordTemplate aspect) {
+    return serializeGzippedAspect(RecordUtils.toJsonString(aspect));
+  }
+  
+  @Nonnull
+  public static GenericAspect serializeGzippedAspect(@Nonnull String str) {
+    GenericAspect genericAspect = new GenericAspect();
+    try {
+      String compressedBase64 = compressAndBase64EncodeString(str);
+      genericAspect.setValue(ByteString.unsafeWrap(compressedBase64.getBytes(StandardCharsets.UTF_8)));
+      genericAspect.setContentType(GenericRecordUtils.JSON_GZIP);
+    } catch (IOException e) {
+      // Fallback to standard JSON if compression fails
+      genericAspect.setValue(ByteString.unsafeWrap(str.getBytes(StandardCharsets.UTF_8)));
+      genericAspect.setContentType(GenericRecordUtils.JSON);
+    }
+    return genericAspect;
+  }
 
   @Nonnull
   public static GenericAspect serializeAspect(@Nonnull JsonNode json) {
@@ -114,6 +208,11 @@ public class GenericRecordUtils {
     genericAspect.setValue(ByteString.unsafeWrap(json.toString().getBytes(StandardCharsets.UTF_8)));
     genericAspect.setContentType(GenericRecordUtils.JSON);
     return genericAspect;
+  }
+  
+  @Nonnull
+  public static GenericAspect serializeGzippedAspect(@Nonnull JsonNode json) {
+    return serializeGzippedAspect(json.toString());
   }
 
   @Nonnull
