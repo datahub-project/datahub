@@ -21,6 +21,8 @@ These are the same composition rules used by ``BaseProcedure.to_urn`` /
 DataJob URNs emitted for the called procedures elsewhere in ingestion.
 """
 
+import pytest
+
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
@@ -375,3 +377,208 @@ def test_begin_end_wrapped_body_recovers_first_dml_and_call():
     assert result.outputDatasets == [
         "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.target_table,PROD)"
     ]
+
+
+def test_tsql_dispatcher_procedure_without_semicolons():
+    """Newline-separated ``EXEC`` calls inside ``BEGIN TRY`` must resolve every callee.
+
+    Distinct callees on purpose: a repeated callee would dedupe to one URN and hide a
+    dropped call. The trailing ``SET NOCOUNT OFF`` / ``RETURN`` used to swallow the
+    final call.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+
+    code = """
+    CREATE PROCEDURE dbo.add_stats (@p_id CHAR(10), @p_date SMALLDATETIME = NULL)
+    AS
+    BEGIN
+        SET NOCOUNT ON
+
+        BEGIN TRY
+            -- dispatch one row per statistic type
+            EXEC add_stats_detail @p_id,1,@p_date
+            EXEC add_stats_offer @p_id,3,@p_date
+            EXEC add_stats_bid @p_id,4,@p_date
+            SET NOCOUNT OFF
+            RETURN
+        END TRY
+        BEGIN CATCH
+            EXEC master.dbo.sp_LogError @p_id
+            SET NOCOUNT OFF
+            RETURN
+        END CATCH
+    END
+    """
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+    assert result.inputDatajobs == [
+        f"urn:li:dataJob:({flow},add_stats_detail)",
+        f"urn:li:dataJob:({flow},add_stats_offer)",
+        f"urn:li:dataJob:({flow},add_stats_bid)",
+        "urn:li:dataJob:(urn:li:dataFlow:"
+        "(mssql,master.dbo.stored_procedures,STG),sp_LogError)",
+    ]
+
+
+@pytest.mark.parametrize("verb", ["DENY", "GRANT", "REVOKE"])
+@pytest.mark.parametrize(
+    "body",
+    [
+        "{verb} EXECUTE TO reporting_user\n        EXEC dbo.real_child @a",
+        "EXEC dbo.real_child @a\n        {verb} EXECUTE TO reporting_user",
+        "{verb} EXECUTE ON OBJECT::dbo.thing TO reporting_user\n        EXEC dbo.real_child @a",
+        # The worst of the four: a call followed by the ON form used to leave the whole
+        # body unparseable, so nothing at all resolved -- not even the call.
+        "EXEC dbo.real_child @a\n        {verb} EXECUTE ON OBJECT::dbo.thing TO reporting_user",
+    ],
+    ids=[
+        "privilege-then-call",
+        "call-then-privilege",
+        "on-form-then-call",
+        "call-then-on-form",
+    ],
+)
+def test_privilege_statement_does_not_invent_a_called_procedure(verb, body):
+    """A privilege statement must not become a call.
+
+    `DENY EXECUTE TO r` has no ON, and `TO` tokenizes as a valid call target, so a
+    splitter that treats every EXECUTE as a statement start hands sqlglot
+    `EXECUTE TO r` -- parsed as a call to a procedure named TO, while the real call
+    that preceded it is swallowed into the fragment left behind. Invented lineage is
+    worse than missing lineage, so assert on the resolved URNs, not the fragments.
+
+    Parametrized rather than looped so each verb/position reports on its own: in a
+    loop the first failing case hides whether the rest are covered at all.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=(
+            "CREATE PROCEDURE dbo.setup AS\n"
+            f"    BEGIN\n        {body.format(verb=verb)}\n    END"
+        ),
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [f"urn:li:dataJob:({flow},real_child)"]
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        "EXEC sp_executesql @sql",
+        "EXEC sys.sp_executesql @sql",
+        "EXEC sp_rename 'a', 'b'",
+        "EXEC msdb.dbo.sp_send_dbmail @p = 1",
+    ],
+)
+def test_system_procedure_calls_are_currently_emitted_as_edges(call):
+    """Known gap, pinned rather than fixed here: system procedures become dataJobs.
+
+    The call detector has no system-procedure filter, so `sp_executesql` resolves to
+    `<default_db>.dbo.stored_procedures` even though it lives in `sys`. That predates
+    this change: on the base splitter any body written with semicolons already emitted
+    these. What changes here is reach -- semicolon-less bodies now resolve too, and
+    `sp_executesql` is the most common call there is.
+
+    The fix is a policy decision (which names count as system) rather than a bug fix,
+    so it is deliberately not made here. Note for whoever does make it: T-SQL `EXEC`
+    goes through the `Execute` branch of `_extract_procedure_call` and every other
+    dialect's `CALL` goes through the `Command` branch, so a filter in the `Execute`
+    branch would be T-SQL-only. A blanket `sp_` prefix test would wrongly drop a user
+    procedure such as `master.dbo.sp_LogError`.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=(
+            f"CREATE PROCEDURE dbo.runner AS\n"
+            f"    BEGIN\n        {call}\n        EXEC dbo.real_child @a\n    END"
+        ),
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    jobs = result.inputDatajobs or []
+    # The real call is captured, which is the point of this PR...
+    assert f"urn:li:dataJob:({flow},real_child)" in jobs
+    # ...but so is the system procedure, under a database and schema it does not live
+    # in. Change this assertion when the detector learns to drop them.
+    assert len(jobs) == 2
+
+
+def test_insert_exec_records_the_call_but_not_the_target():
+    """`INSERT INTO t EXEC p` splits, so the call resolves where it used to be lost.
+
+    The target table is still not recorded as an output: the `INSERT INTO t` fragment
+    left behind has no source and produces no dataset lineage. Pinned so the gap is
+    visible rather than assumed -- capturing the target is a follow-up.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=(
+            "CREATE PROCEDURE dbo.loader AS\n"
+            "    BEGIN\n"
+            "        INSERT INTO dbo.target EXEC dbo.src_proc @a\n"
+            "    END"
+        ),
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert result.inputDatajobs == [f"urn:li:dataJob:({flow},src_proc)"]
+    assert not result.outputDatasets
+
+
+def test_return_code_call_yields_no_lineage():
+    """Known gap, pinned rather than fixed here: `EXEC @rc = proc` loses its edge.
+
+    Assigning the return code is a real call to `child`, but `@rc` is where the
+    splitter looks for the callee name, so the form never opens a statement -- and
+    where a preceding EXEC does split it out, sqlglot 30.12 raises on it anyway.
+    Neither half is worth fixing in a splitter change: the detector needs to accept
+    `@var =` before the name, and that belongs with the other detector gaps.
+
+    Change this assertion when it learns to. The pattern is common in exactly the
+    dispatcher procedures this PR is about, so the gap is not academic.
+    """
+    schema_resolver = SchemaResolver(platform="mssql", env="STG")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+        default_schema="dbo",
+        code=(
+            "CREATE PROCEDURE dbo.runner AS\n"
+            "    BEGIN\n"
+            "        DECLARE @rc INT\n"
+            "        EXEC @rc = dbo.child @a\n"
+            "    END"
+        ),
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is None or not result.inputDatajobs
