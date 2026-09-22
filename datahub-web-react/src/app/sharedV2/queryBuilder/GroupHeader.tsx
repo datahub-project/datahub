@@ -74,6 +74,7 @@ const GroupHeader = ({
                         variant="text"
                         onClick={(e) => selectOperator(e, LogicalOperatorType.AND)}
                         isSelected={selectedOperation === LogicalOperatorType.AND}
+                        data-testid="query-builder-all-button"
                     >
                         {t('group.allLabel')}
                     </OperationButton>
@@ -83,6 +84,7 @@ const GroupHeader = ({
                         variant="text"
                         onClick={(e) => selectOperator(e, LogicalOperatorType.OR)}
                         isSelected={selectedOperation === LogicalOperatorType.OR}
+                        data-testid="query-builder-any-button"
                     >
                         {t('group.anyLabel')}
                     </OperationButton>
@@ -92,6 +94,7 @@ const GroupHeader = ({
                         variant="text"
                         onClick={(e) => selectOperator(e, LogicalOperatorType.NOT)}
                         isSelected={selectedOperation === LogicalOperatorType.NOT}
+                        data-testid="query-builder-none-button"
                     >
                         {t('group.noneLabel')}
                     </OperationButton>

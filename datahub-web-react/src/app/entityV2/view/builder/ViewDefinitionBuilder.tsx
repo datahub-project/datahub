@@ -29,6 +29,7 @@ import { LogicalOperator } from '@types';
 const ScrollableFiltersWrapper = styled.div`
     max-height: 300px;
     overflow-y: auto;
+    padding-bottom: 20px;
 `;
 
 const ReadOnlyWrapper = styled.div`
