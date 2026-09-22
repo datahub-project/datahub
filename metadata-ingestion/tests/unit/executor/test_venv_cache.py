@@ -457,7 +457,7 @@ def test_a_lock_handed_to_a_child_outlives_this_process_releasing_it(
         pass_fds=(lock.fileno,),
     )
     try:
-        lock.detach_to_child()
+        lock.release()
 
         assert not lock.held, "the parent must stop claiming a hold it gave away"
         assert not _peer_can_take_exclusive(lock_path), (
@@ -482,9 +482,10 @@ def test_detaching_must_not_unlock_the_descriptor_the_child_shares(
     """The one way to get this wrong.
 
     pass_fds duplicates the descriptor, and duplicates share ONE open file
-    description -- so LOCK_UN on the parent's copy releases the child's lock
-    too. release() does exactly LOCK_UN then close(), which is why detaching
-    needs its own method and why the lock must be unusable afterwards.
+    description -- so LOCK_UN on the parent's copy would release the child's
+    lock too. release() therefore closes without unlocking, and is
+    idempotent, so a later cleanup path calling it again cannot reach
+    through to the child's hold.
     """
     lock_path = tmp_path / "entry.lock"
     lock = EntryLock(lock_path)
@@ -495,7 +496,7 @@ def test_detaching_must_not_unlock_the_descriptor_the_child_shares(
         pass_fds=(lock.fileno,),
     )
     try:
-        lock.detach_to_child()
+        lock.release()
         # A later cleanup path calling release() must not reach the child's
         # lock. Detaching makes the object spent, so this is a no-op.
         lock.release()
@@ -539,7 +540,7 @@ def test_the_lock_reaches_the_grandchild_not_just_the_wrapper(
     wrapper = subprocess.Popen(
         [sys.executable, "-c", wrapper_src], env=env, pass_fds=(lock.fileno,)
     )
-    lock.detach_to_child()
+    lock.release()
     assert wrapper.wait(timeout=30) == 0, "the stand-in wrapper failed"
 
     try:

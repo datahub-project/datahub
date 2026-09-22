@@ -531,22 +531,28 @@ class SubProcessTaskUtil:
 
     @staticmethod
     def release_venv_lock(venv_ref: Optional[VenvReference]) -> None:
-        """Give up a venv's cache lock. Safe from any `except`/`finally`.
+        """Give up THIS process's copy of a venv's cache lock.
 
-        Only reachable BEFORE the handoff: once complete_lock_handoff has
-        run, venv_ref.lock is None and this is a no-op. That narrow window
-        is the point -- the old model needed a family of keep/retain/release
-        helpers because every unwinding path had to decide whether a child
-        might be alive. Now the child owns the lock the moment it exists,
-        and releasing only ever means "no child was started".
+        Called on every path that is finished with the venv: normally from
+        finalize_task_output, once the last-used marker has been stamped,
+        and from the failure paths above the spawn.
 
-        Even so it closes rather than unlocking (see EntryLock.release), so
-        it stays correct on the one path that cannot tell: a cancellation
-        delivered inside the spawn, where a process may have been forked
-        before the handoff line was reached. Closing our copy leaves that
-        child's hold intact; LOCK_UN would not have.
+        Unconditional by design, and that is the whole reason the old
+        family of keep/retain/release helpers is gone. Each of those existed
+        so a caller could work out whether a child might still be running
+        before letting go, because the executor's hold was then the ONLY
+        protection -- and the windows they missed are where most of this
+        PR's review findings lived. A spawned child now inherits its own
+        descriptor, so releasing here can never expose a venv something is
+        still executing from, and no caller has to reason about it.
 
-        Never raises: every caller is already unwinding.
+        Correct even on the one path that cannot tell whether a child
+        exists -- a cancellation delivered inside the spawn, possibly after
+        the fork -- because EntryLock.release closes rather than unlocking.
+        Closing leaves any inherited hold intact; LOCK_UN would release the
+        child's too, since duplicate descriptors share one description.
+
+        Never raises: every caller may already be unwinding.
         """
         try:
             if venv_ref is not None and venv_ref.lock is not None:

@@ -125,19 +125,6 @@ class EntryLock:
             raise RuntimeError("no lock is held")
         return self._fd
 
-    def detach_to_child(self) -> None:
-        """Hand this hold to a child that inherited the descriptor.
-
-        Identical to release() -- both simply close this process's copy --
-        but named for the intent, because the consequence is the opposite:
-        the entry stays LOCKED, by the child, and the KERNEL releases it
-        when that process dies for any reason at all, including SIGKILL, an
-        OOM kill and a node drain. None of those run code in this process,
-        which is why ownership rather than bookkeeping is what makes the
-        cache safe.
-        """
-        self.release()
-
     def downgrade_to_shared(self) -> bool:
         """Convert an exclusive hold to shared on the same fd.
 
