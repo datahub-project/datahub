@@ -928,3 +928,40 @@ def test_json_schema_ref_loop_in_definitions():
     # Both should be RecordType
     assert isinstance(fields[0].type.type, RecordTypeClass)
     assert isinstance(fields[1].type.type, RecordTypeClass)
+
+
+def test_json_schema_typeless_map_field_still_resolves_as_map():
+    # A typeless additionalProperties map (no "type": valid JSON Schema /
+    # OpenAPI 3.1) must resolve as a map and extract its value type, not
+    # collapse to an empty object.
+    schema = {
+        "type": "object",
+        "title": "R",
+        "properties": {
+            "labels": {"additionalProperties": {"type": "string"}},
+        },
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    labels = next(f for f in fields if f.fieldPath.endswith("labels"))
+    assert isinstance(labels.type.type, MapTypeClass)
+
+
+def test_json_schema_object_with_named_properties_and_additional_keeps_object_type():
+    # A schema declaring BOTH named properties and dict additionalProperties is
+    # an object with named fields, not a map: the named fields must survive.
+    schema = {
+        "type": "object",
+        "title": "R",
+        "properties": {
+            "config": {
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+                "additionalProperties": {"type": "string"},
+            },
+        },
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    config = next(f for f in fields if f.fieldPath.endswith("config"))
+    assert isinstance(config.type.type, RecordTypeClass)
+    # The named nested field survives (it would be dropped by the map path).
+    assert any(f.fieldPath.endswith(".id") for f in fields)

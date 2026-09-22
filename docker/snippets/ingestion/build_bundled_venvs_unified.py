@@ -27,6 +27,10 @@ from bundled_venv_config import (
     groups_config_from_plugin_group_env,
 )
 
+_UNSTRUCTURED_EXTRAS = frozenset(
+    {"unstructured", "notion", "confluence", "datahub-documents"}
+)
+
 
 def _env_truthy(key: str) -> bool:
     return os.environ.get(key, "").lower() in ("true", "1", "yes")
@@ -138,6 +142,19 @@ def create_bundled_venv(
         subprocess.run(
             ["bash", "-c", install_cmd], check=True, capture_output=True, text=True
         )
+
+        extras_set = {e.strip() for e in extras_str.split(",") if e.strip()}
+        if extras_set & _UNSTRUCTURED_EXTRAS:
+            # unstructured 0.24+ lazily installs en-core-web-sm on first partition.
+            # Bake it into the image so air-gapped / read-only runs do not hit GitHub.
+            print("  → Pre-installing spaCy model en_core_web_sm...")
+            python_exe = os.path.join(venv_path, "bin", "python")
+            subprocess.run(
+                [python_exe, "-m", "spacy", "download", "en_core_web_sm"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
 
         install_from_local = os.path.exists("/metadata-ingestion/setup.py")
         enforce_cli_pin = _env_truthy("BUNDLED_CLI_VERSION_ENFORCE")
