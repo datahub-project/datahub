@@ -36,17 +36,17 @@ source venv/bin/activate
 # Run with OpenAI
 ENABLE_SEMANTIC_SEARCH_TESTS=true \
 OPENAI_API_KEY="sk-your-key" \
-pytest tests/semantic/test_semantic_search.py -v
+pytest tests/e2e/semantic/test_semantic_search.py -v
 
 # Run with Cohere
 ENABLE_SEMANTIC_SEARCH_TESTS=true \
 COHERE_API_KEY="your-cohere-key" \
-pytest tests/semantic/test_semantic_search.py -v
+pytest tests/e2e/semantic/test_semantic_search.py -v
 
 # Run with AWS Bedrock
 ENABLE_SEMANTIC_SEARCH_TESTS=true \
 AWS_PROFILE=your-profile \
-pytest tests/semantic/test_semantic_search.py -v
+pytest tests/e2e/semantic/test_semantic_search.py -v
 ```
 
 The test is **provider-agnostic** - it fetches embedding configuration from the GMS server via the AppConfig API and works with any configured provider.

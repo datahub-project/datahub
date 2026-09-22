@@ -27,13 +27,13 @@ This approach ensures:
 ```bash
 cd smoke-test
 source venv/bin/activate
-pytest tests/library_examples/ -v
+pytest tests/e2e/library_examples/ -v
 ```
 
 ## Test Structure
 
 ```
-tests/library_examples/
+tests/e2e/library_examples/
 ├── test_library_examples.py   # Main test file that executes scripts
 ├── example_manifest.py         # Ordered list of examples to test
 └── README.md                   # This file
@@ -150,7 +150,7 @@ EXAMPLE_MANIFEST = [
 ### Step 3: Run the Test
 
 ```bash
-pytest tests/library_examples/test_library_examples.py::test_library_example[my_new_example.py] -v
+pytest tests/e2e/library_examples/test_library_examples.py::test_library_example[my_new_example.py] -v
 ```
 
 ## Test Fixtures
@@ -205,7 +205,7 @@ These can be tested later once their dependencies are available.
 ### See Full Output
 
 ```bash
-pytest tests/library_examples/test_library_examples.py::test_library_example[notebook_create.py] -vv
+pytest tests/e2e/library_examples/test_library_examples.py::test_library_example[notebook_create.py] -vv
 ```
 
 ### Run Example Manually
@@ -260,7 +260,7 @@ Traceback (most recent call last):
 These tests run in the smoke-test CI pipeline:
 
 1. CI spins up full DataHub stack
-2. Runs `pytest tests/library_examples/` as part of smoke tests
+2. Runs `pytest tests/e2e/library_examples/` as part of smoke tests
 3. Reports failures if any example script fails
 
 ## Benefits of This Approach
