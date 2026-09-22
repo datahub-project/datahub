@@ -82,3 +82,9 @@ Pygments>=2.20.0
 # torch: CVE-2025-3001 (fixed 2.10.0), CVE-2025-3000 (fixed 2.13.0). pytorch-lightning only
 # requires torch>=2.1.0 (no upper bound), so this is compatible. Cap major until reviewed.
 torch>=2.13.0,<3.0.0
+# soupsieve: CVE-2026-49476, CVE-2026-49477 (memory exhaustion / ReDoS) fixed in 2.8.4;
+# CVE-2026-85999, CVE-2026-86000 fixed in 2.9.
+# Not in setup.py: soupsieve has no first-party declaration to raise - it arrives transitively
+# via beautifulsoup4, which declares soupsieve>=1.6.1 with no upper bound. Airflow constraints
+# also pin it older (2.x: 2.5, 3.x: 2.7).
+soupsieve>=2.9
