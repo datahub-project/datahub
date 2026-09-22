@@ -299,12 +299,13 @@ class TestProcessTermAssociations:
         self,
         processor: DataplexGlossaryProcessor,
         ctx: DataplexContext,
+        location: str = "global",
     ) -> None:
         """Seed the processor with one emitted term and one entry in ctx."""
         processor._emitted_terms = [
             GlossaryTermRef(
                 project_id="my-project",
-                location="global",
+                location=location,
                 glossary_id="g1",
                 term_id="t1",
             )
@@ -586,8 +587,12 @@ class TestProcessTermAssociations:
         """The entry path must carry the project NUMBER and the term's own location in
         both halves, and the API must be called once per term rather than once per
         configured entries_location. Getting either wrong makes Dataplex reject the
-        request at the edge with a 403."""
-        self._setup_processor_with_terms(processor, ctx)
+        request at the edge with a 403.
+
+        The term sits in a regional glossary, so a hardcoded ``locations/global`` in
+        either half of the entry path fails here -- ``glossary_locations`` is
+        user-configurable and glossaries can live in any location."""
+        self._setup_processor_with_terms(processor, ctx, location="us-central1")
         ctx.config.entries_locations = ["us", "us-central1", "us-east5"]
 
         with patch.object(ctx, "authed_session") as mock_session:
@@ -596,13 +601,82 @@ class TestProcessTermAssociations:
 
         assert mock_session.get.call_count == 1
         expected_entry = (
-            "projects/123456789/locations/global/entryGroups/@dataplex/entries/"
-            "projects/123456789/locations/global/glossaries/g1/terms/t1"
+            "projects/123456789/locations/us-central1/entryGroups/@dataplex/entries/"
+            "projects/123456789/locations/us-central1/glossaries/g1/terms/t1"
         )
         assert mock_session.get.call_args[0][0] == (
             "https://dataplex.googleapis.com/v1/projects/my-project"
-            "/locations/global:lookupEntryLinks"
+            "/locations/us-central1:lookupEntryLinks"
             f"?entry={urllib.parse.quote(expected_entry, safe='')}"
+        )
+
+    def test_partial_match_counts_both_and_does_not_warn(
+        self,
+        processor: DataplexGlossaryProcessor,
+        ctx: DataplexContext,
+        source_report: Mock,
+    ) -> None:
+        """One link matching and one not is the normal case for a glossary whose terms
+        reach outside the configured scope. Both must be counted, and the aggregate
+        "nothing matched" warning must stay silent."""
+        self._setup_processor_with_terms(processor, ctx)
+
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = {
+            "entryLinks": [
+                {
+                    "entryLinkType": (
+                        "projects/655216118709/locations/global/entryLinkTypes/definition"
+                    ),
+                    "entryReferences": [
+                        {"type": "SOURCE", "name": _ASSET_ENTRY_NAME_API_FORM},
+                        {
+                            "type": "SOURCE",
+                            "name": (
+                                "projects/123456789/locations/us-central1/entryGroups"
+                                "/@bigquery/entries/bigquery.googleapis.com/projects"
+                                "/other-project/datasets/ds9/tables/not_ingested"
+                            ),
+                        },
+                    ],
+                }
+            ]
+        }
+
+        with patch.object(ctx, "authed_session") as mock_session:
+            mock_session.get.return_value = response
+            workunits = list(processor.process_term_associations(max_workers=1))
+
+        assert processor._report.term_links_matched == 1
+        assert processor._report.term_links_unmatched == 1
+        assert processor._report.term_associations_emitted == 1
+        assert len(workunits) > 0
+        assert not any(
+            call.kwargs.get("title")
+            == "No Dataplex term links matched an ingested asset"
+            for call in source_report.warning.call_args_list
+        )
+
+    def test_lookup_failure_warns_and_skips_term(
+        self,
+        processor: DataplexGlossaryProcessor,
+        ctx: DataplexContext,
+        source_report: Mock,
+    ) -> None:
+        """A transient failure now zeroes the term rather than falling through to
+        another location, so it has to surface as a warning rather than silently."""
+        self._setup_processor_with_terms(processor, ctx)
+
+        with patch.object(ctx, "authed_session") as mock_session:
+            mock_session.get.side_effect = ConnectionError("boom")
+            workunits = list(processor.process_term_associations(max_workers=1))
+
+        assert workunits == []
+        assert processor._report.term_associations_emitted == 0
+        assert any(
+            call.kwargs.get("title") == "lookupEntryLinks call failed"
+            for call in source_report.warning.call_args_list
         )
 
     def test_missing_project_number_warns_and_skips_term(
@@ -611,7 +685,8 @@ class TestProcessTermAssociations:
         ctx: DataplexContext,
         source_report: Mock,
     ) -> None:
-        """An unresolved project number must not raise inside the worker thread."""
+        """An unresolved project number must warn and make no call, rather than
+        building an entry path with a missing segment."""
         self._setup_processor_with_terms(processor, ctx)
         ctx.project_numbers = {}
 

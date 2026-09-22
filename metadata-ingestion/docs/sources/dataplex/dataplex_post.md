@@ -195,8 +195,8 @@ asset. Terms added in the DataHub UI, or applied by another connector to the sam
 replaced by whatever Dataplex reports. Column-level terms are unaffected.
 
 To keep Dataplex's terms scoped to Dataplex and leave everything else intact, add the
-[`set_attribution`](../../../../metadata-ingestion/docs/transformer/intro.md) transformer to
-your recipe:
+[`set_attribution`](../../../../metadata-ingestion/docs/transformer/set_attribution.md)
+transformer to your recipe:
 
 ```yaml
 transformers:
@@ -253,7 +253,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 
 #### Entity Type Support
 
-Dataplex entries map to either DataHub **Dataset** entities (BigQuery tables and views, Cloud SQL tables, Spanner tables and graphs, Bigtable tables, Pub/Sub topics, Vertex AI datasets, Dataproc Metastore tables) or DataHub **Container** entities (BigQuery datasets, Cloud SQL instances and databases, Spanner instances and databases, Bigtable instances, Dataproc Metastore services and databases).
+Dataplex entries map to either DataHub **Dataset** entities (BigQuery tables and views, Cloud SQL for MySQL tables, Spanner tables and graphs, Bigtable tables, Pub/Sub topics, Vertex AI datasets, Dataproc Metastore tables) or DataHub **Container** entities (BigQuery datasets, Cloud SQL for MySQL instances and databases, Spanner instances and databases, Bigtable instances, Dataproc Metastore services and databases).
 
 **Lineage extraction** applies to Dataset entities only. Containers have no lineage in Dataplex, so no lineage is emitted for them.
 

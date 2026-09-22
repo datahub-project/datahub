@@ -36,9 +36,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import GlossaryNodeUrn, GlossaryTermUrn
 
-# Imported rather than inlined: this is the actor the SDK writes for terms, tags
-# and owners, and the constant carries a TODO to change its value -- hardcoding the
-# literal here would silently diverge from the rest of DataHub if that lands.
+# Imported rather than inlined: the constant carries a TODO to change its value.
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.entity import Entity
 from datahub.sdk.glossary_node import GlossaryNode
@@ -72,17 +70,12 @@ _SOURCE_ROLE = "SOURCE"
 
 
 def _terms_audit_stamp() -> AuditStampClass:
-    """The audit stamp attached to every emitted ``glossaryTerms`` aspect.
+    """Mirrors ``HasTerms._terms_audit_stamp`` so the emitted aspect matches the SDK.
 
-    ``time=0`` is DataHub's "unknown timestamp" sentinel, and is what the SDK
-    writes for terms, tags and owners. Dataplex does expose a ``createTime`` per
-    entry link, but ``glossaryTerms`` carries a single stamp for the whole term
-    list, so there is no one authoritative time when an asset has several terms.
-    A fixed value also keeps the aspect byte-stable, so re-running ingestion does
-    not rewrite unchanged associations.
-
-    Returns a new instance per call: the aspect classes are mutable, and a shared
-    instance would be aliased into every emitted aspect.
+    ``time=0`` is the "unknown timestamp" sentinel. Dataplex does expose a
+    ``createTime`` per entry link, but ``glossaryTerms`` carries one stamp for the
+    whole term list, so there is no authoritative time once an asset has several
+    terms -- and a fixed value keeps the aspect byte-stable across runs.
     """
     return AuditStampClass(time=0, actor=DEFAULT_ACTOR_URN)
 
@@ -262,8 +255,9 @@ class DataplexGlossaryProcessor:
     1. ``process_glossaries`` — lists all glossaries in configured locations and emits
        GlossaryNode (glossary) / GlossaryNode (category) / GlossaryTerm entities.
     2. ``process_term_associations`` — for each emitted term, calls the Dataplex
-       ``lookupEntryLinks`` REST API across all entries_locations to find linked assets
-       and emits a ``glossaryTerms`` aspect update on those DataHub Dataset entities.
+       ``lookupEntryLinks`` REST API once at the term's own location to find linked
+       assets, and emits a ``glossaryTerms`` aspect on each one. Linked assets may be
+       DataHub Dataset or Container entities.
     """
 
     def __init__(

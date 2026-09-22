@@ -26,7 +26,7 @@ class DataplexContext:
     config: "DataplexConfig"
     credentials: Optional["service_account.Credentials"]
 
-    # Populated during the entries stage; consumed by lineage + glossary stages.
+    # Populated during the entries stage; consumed by the lineage stage.
     entry_data: List["EntryDataTuple"] = field(default_factory=list)
 
     # Maps Dataplex entry resource name -> DataHub entity urn, for BOTH Dataset and
