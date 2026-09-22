@@ -18,7 +18,14 @@ Attribution also makes provenance visible: each tag, owner, and term it writes c
 | `ownership`     | Each owner           |
 | `glossaryTerms` | Each glossary term   |
 
-This transformer applies to every entity type. Other aspects pass through unchanged, so adding it to a recipe does not affect the rest of what your source emits.
+This transformer applies to every entity type. Aspects other than the three above are forwarded untouched.
+
+:::warning Sources that emit MCEs lose their other aspects
+
+If your source emits `MetadataChangeEvent`s (MCEs), which carry several aspects per entity in one snapshot, only the three aspects above are forwarded — anything else in that MCE, such as a description or custom properties, is dropped. Sources that emit `MetadataChangeProposal`s (MCPs), which carry a single aspect each, are unaffected. See [MetadataChangeProposal & MetadataChangeLog](/docs/advanced/mcp-mcl.md) for the distinction.
+
+If you are unsure which your source emits, run the pipeline into a `file` sink with and without this transformer and compare which aspects appear.
+:::
 
 ## Config Details
 
@@ -55,6 +62,13 @@ Each item is added to this source's existing set. Items this source asserted pre
 Use this for partial or incremental runs, where the absence of a tag means "this run didn't look at it" rather than "this tag is gone" — for example when you ingest one schema at a time, or backfill in batches.
 
 ## Examples
+
+:::warning List this transformer after the ones it attributes
+
+Any transformer that writes tags, owners, or terms **after** `set_attribution` emits a plain overwrite of that aspect, and that overwrite lands on top of the scoped write. It discards the attribution and removes the tags, owners, or terms contributed by every other source — the exact outcome this transformer exists to prevent.
+
+So `set_attribution` must come after every transformer whose output you want attributed.
+:::
 
 Attribute everything the pipeline produces to an ingestion source, and let removals propagate:
 
@@ -167,7 +181,7 @@ With `patch_mode: true`, each tag is added individually, leaving the slot's othe
 
 ## Behavior notes
 
-- **Order matters.** Place `set_attribution` after any transformer that adds the tags, owners, or terms you want attributed. It stamps what it receives, so anything added after it runs will not carry attribution.
 - **In the default mode, omitting metadata removes it.** With `patch_mode: false`, if a run emits no tags for an entity, every tag this source previously applied to that entity is cleared. This is the intended way to propagate removals, but it means an incomplete run can wipe your own source's metadata — use `patch_mode: true` for partial runs, where the same situation is a no-op.
-- **Attribution already present is replaced.** If an incoming tag, owner, or term already carries attribution, it is overwritten with the configured `attribution_source` and `actor`.
-- **Records it cannot process pass through unchanged.** Unsupported aspects, and records the transformer cannot interpret, are forwarded as-is rather than failing the run. When something is skipped for an unexpected reason, a warning is logged — worth checking the ingestion logs if attribution is missing where you expected it.
+- **Attribution is replaced on the metadata it attributes.** If an incoming tag, owner, or term already carries attribution and falls within this transformer's scope, that attribution is overwritten with the configured `attribution_source` and `actor`.
+- **Metadata already scoped to another source is left alone, silently.** Tags, owners, and terms that arrive already attributed to a different source keep that attribution — they are not re-attributed to your configured source, and nothing is reported when this happens. If metadata you expected to own is missing attribution, check whether something upstream is already attributing it elsewhere.
+- **Records it cannot interpret are forwarded unchanged** rather than failing the run, with a warning in the ingestion log. Not every skip is reported, though — the case above is silent — so the log alone is not proof that everything was attributed.
