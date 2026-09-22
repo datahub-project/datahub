@@ -5,26 +5,27 @@ performing any actual venv creation or management". Everything with a side
 effect lives here.
 """
 
+import errno
 import fcntl
-import functools
 import logging
 import os
 import pathlib
 import shutil
-from typing import List, NamedTuple, Optional, Tuple
+import time
+from typing import Dict, Optional
 
 from datahub.executor.execution.venv_utils import (
     COMPLETE_MARKER,
     ENTRY_PREFIX,
-    is_venv_complete,
     last_used_at,
 )
 
-# Cached answer to "how big is this entry", written beside the entry itself.
-# Safe only because a COMPLETE entry never changes again -- see _entry_size.
-SIZE_MARKER = ".datahub-venv-size"
-
 logger = logging.getLogger(__name__)
+
+# open() failures that clear by themselves. Everything else -- an unwritable
+# or read-only cache root, a filesystem without flock -- stays broken, and
+# retrying it only delays the fallback to a per-run venv.
+_TRANSIENT_OPEN_ERRNOS = frozenset({errno.EMFILE, errno.ENFILE, errno.ENOMEM})
 
 
 class EntryLock:
@@ -42,6 +43,10 @@ class EntryLock:
         self._lock_path = lock_path
         self._fd: Optional[int] = None
         self._unusable = False
+
+    @property
+    def lock_path(self) -> pathlib.Path:
+        return self._lock_path
 
     @property
     def held(self) -> bool:
@@ -78,9 +83,20 @@ class EntryLock:
             # before anything has written to the cache.
             self._lock_path.parent.mkdir(parents=True, exist_ok=True)
             fd = os.open(self._lock_path, os.O_RDWR | os.O_CREAT, 0o644)
-        except OSError:
-            logger.debug("venv cache: cannot open lock %s", self._lock_path)
-            self._unusable = True
+        except OSError as e:
+            # Descriptor exhaustion is the one open() failure that clears on
+            # its own, and it is the one this cache can cause: every retained
+            # lock holds an fd for the life of the process. Marking it
+            # `unusable` would make a transient condition permanent -- the
+            # caller breaks out of its retry loop, and
+            # _warn_cache_unavailable_once's lru_cache freezes the operator's
+            # picture of a "broken" cache root for the rest of the pod's life.
+            self._unusable = e.errno not in _TRANSIENT_OPEN_ERRNOS
+            logger.debug(
+                "venv cache: cannot open lock %s (%s)",
+                self._lock_path,
+                errno.errorcode.get(e.errno or 0, e.errno),
+            )
             return False
         try:
             fcntl.flock(fd, mode)
@@ -154,149 +170,69 @@ class EntryLock:
             pass
 
 
-class _Measurement(NamedTuple):
-    """An entry's size, and whether every file in it was actually counted."""
-
-    total: int
-    complete: bool
+# Locks deliberately kept for the life of the process, keyed by lock path so
+# the same entry is only ever retained once. See retain_lock.
+_RETAINED_LOCKS: Dict[str, EntryLock] = {}
 
 
-def _measure_entry(venv: pathlib.Path) -> _Measurement:
-    """Sum the entry's apparent file sizes, with one directory read per level.
+def retain_lock(lock: EntryLock) -> None:
+    """Keep this entry locked for the rest of the process, at a bounded cost.
 
-    os.scandir carries the stat from the directory read, so this costs one
-    syscall per directory rather than one per FILE. That is the whole
-    difference: the os.walk plus lstat version this replaces took 0.97s over
-    four entries where this takes 0.15s, for a byte-identical answer, because
-    a venv is tens of thousands of small files.
+    Callers reach this when they must NOT release: a child may still be
+    executing out of the venv, and releasing would let the next build's
+    evict_stale_entries rmtree a running interpreter.
 
-    Individual read failures are skipped rather than raised -- a directory
-    that vanishes under a concurrent eviction is normal -- but they are
-    COUNTED, because a size that silently omits most of an entry is what
-    disables the budget entirely. See evict_to_budget.
+    Simply dropping the EntryLock reference achieves the lock part and
+    nothing else. The object owns a raw os.open fd and has no __del__, so
+    each detach adds a descriptor on the same lock file -- one per EVENT, not
+    one per entry, and test-connection reaches it on essentially every
+    cancellation because the child is signalled without being waited for.
+    Descriptors then accumulate for the pod's life until os.open raises
+    EMFILE, at which point unrelated sockets and subprocesses start failing
+    too.
+
+    Keying on the lock path collapses that back to the cost the callers
+    actually reason about -- one unevictable entry, one descriptor -- because
+    a second hold on an entry already retained protects nothing the first
+    does not.
     """
-    total = 0
-    complete = True
-    stack = [str(venv)]
-    while stack:
-        try:
-            with os.scandir(stack.pop()) as it:
-                for entry in it:
-                    try:
-                        if entry.is_dir(follow_symlinks=False):
-                            stack.append(entry.path)
-                        else:
-                            total += entry.stat(follow_symlinks=False).st_size
-                    except OSError:
-                        complete = False
-        except OSError:
-            complete = False
-    return _Measurement(total, complete)
+    if not lock.held:
+        return
+    key = str(lock.lock_path)
+    existing = _RETAINED_LOCKS.get(key)
+    if existing is not None and existing.held and existing is not lock:
+        # Already protected for the life of the process. This hold is
+        # redundant, so give its descriptor back rather than stacking it.
+        lock.release()
+        return
+    _RETAINED_LOCKS[key] = lock
 
 
-def _entry_size(venv: pathlib.Path) -> "_Measurement":
-    """Nominal size of one entry, measured once and remembered.
-
-    NOT the bytes deleting it would reclaim. DataHub defaults uv to
-    UV_LINK_MODE=hardlink, so most of a venv's files are hardlinks into uv's
-    package cache and are shared with sibling entries -- removing this
-    directory drops the directory entries, and the data survives as long as
-    anything else links it.
-
-    Deliberately not corrected for that. Over-counting makes the cache reach
-    its budget sooner than real disk usage does, so eviction runs earlier than
-    strictly necessary and actual usage stays under the configured ceiling;
-    under-counting would be the direction that lets a disk fill. Deduplicating
-    by inode would measure the cache more accurately and err the less safe way,
-    and would still be wrong about links uv holds outside the cache -- which is
-    why uv documents `uv cache prune` as a separate operation.
-
-    The consequence to know: DATAHUB_VENV_CACHE_MAX_GB is a budget in nominal
-    size, so it does not line up with `du` on the cache directory.
-
-    The measurement is cached in a file beside the entry, which is sound only
-    because a COMPLETE entry is immutable: nothing writes into it after the
-    completion marker goes on, so its size cannot change. An incomplete entry
-    is measured fresh every time and never remembered -- it is mid-build, and
-    remembering a partial size would under-report exactly the entry about to
-    grow. That matters because eviction reads every entry on every build, so
-    without this the cost is paid again and again for answers that cannot have
-    changed.
-    """
-    hint = venv / SIZE_MARKER
-    complete = is_venv_complete(venv)
-    if complete:
-        try:
-            return _Measurement(int(hint.read_text()), True)
-        except (OSError, ValueError):
-            pass
-    measured = _measure_entry(venv)
-    # Only a measurement that saw every file is worth remembering. Caching a
-    # partial one would make the under-count permanent for that entry.
-    if complete and measured.complete:
-        try:
-            hint.write_text(str(measured.total))
-        except OSError:
-            # A read-only or full filesystem costs a re-measure next time, and
-            # nothing else. Never fail eviction over a cache of a cache.
-            logger.debug("venv cache: could not record size for %s", venv)
-    return measured
+# One pass at a time per cache root. Each pass reads the whole root and then
+# deletes; without this, concurrent passes each snapshot the same over-limit
+# count and each free the full deficit. See evict_stale_entries.
+EVICT_LOCK_NAME = ".datahub-venv-evict.lock"
 
 
-# Ceiling on the cache as a share of the filesystem holding it. The configured
-# budget is what an operator wants; this is what the disk can actually give.
-# Half, because the same volume carries the per-execution directories and uv's
-# package cache, and the cache must not be the reason a build runs out of room.
-_MAX_SHARE_OF_FILESYSTEM = 0.5
+def evict_stale_entries(
+    cache_root: pathlib.Path, *, max_entries: int, max_age_sec: float
+) -> int:
+    """Trim the cache to `max_entries`, dropping anything unused for
+    `max_age_sec` first. Returns how many entries were removed.
 
+    Bounded by COUNT and AGE rather than by bytes, which is a deliberate
+    trade. Sizing the cache in bytes means measuring it, and measuring a venv
+    means walking tens of thousands of small files -- per entry, on every
+    build, because the answer is needed before anything can be deleted. On a
+    real datahub venv (~48k files) that is seconds per entry, and it bought a
+    number that did not correspond to disk anyway: DataHub defaults uv to
+    UV_LINK_MODE=hardlink, so most of a venv is links into uv's package cache
+    and deleting the directory reclaims almost nothing. A count is one stat
+    per entry, and an operator can check it with `ls`.
 
-@functools.lru_cache(maxsize=None)
-def _warn_budget_clamped_once(cache_root: str, configured: int, allowed: int) -> None:
-    """Once per root, not per build -- eviction runs on every build path."""
-    logger.warning(
-        "venv cache: the configured budget of %d bytes exceeds %.0f%% of the "
-        "filesystem at %s; enforcing %d bytes instead. Set "
-        "DATAHUB_VENV_CACHE_MAX_GB to a value this node can hold.",
-        configured,
-        _MAX_SHARE_OF_FILESYSTEM * 100,
-        cache_root,
-        allowed,
-    )
-
-
-def _budget_for_filesystem(cache_root: pathlib.Path, max_bytes: int) -> int:
-    """Lower the budget to something the underlying filesystem can actually hold.
-
-    The 20 GB default is reasonable on a build host and larger than the whole
-    disk on a small node, where it means eviction never triggers before the
-    volume fills -- the cache becomes the thing that breaks the node it was
-    meant to speed up. Sizing against the real filesystem makes the default
-    safe everywhere instead of correct only where it was chosen.
-
-    Deliberately measured against TOTAL capacity rather than free space: free
-    space moves with every other tenant of the volume, so a budget derived
-    from it would swing between builds and make eviction behaviour
-    irreproducible.
-    """
-    try:
-        stat = os.statvfs(cache_root)
-    except (OSError, AttributeError):
-        # AttributeError: no statvfs on this platform. Either way the
-        # configured value stands -- a budget we cannot check is better than
-        # no budget.
-        return max_bytes
-
-    capacity = stat.f_blocks * stat.f_frsize
-    allowed = int(capacity * _MAX_SHARE_OF_FILESYSTEM)
-    if capacity <= 0 or max_bytes <= allowed:
-        return max_bytes
-
-    _warn_budget_clamped_once(str(cache_root), max_bytes, allowed)
-    return allowed
-
-
-def evict_to_budget(cache_root: pathlib.Path, max_bytes: int) -> int:
-    """Remove least-recently-used entries until the cache fits. Returns bytes freed.
+    What it gives up: entries vary from a few hundred MB to a few GB, so a
+    count does not bound disk tightly. DATAHUB_VENV_CACHE_MAX_ENTRIES should
+    be set against the largest connector a node runs.
 
     Ordered by the .datahub-venv-last-used marker, never filesystem atime --
     containers mount relatime or noatime, so atime is not a usable signal.
@@ -304,13 +240,36 @@ def evict_to_budget(cache_root: pathlib.Path, max_bytes: int) -> int:
     An entry whose exclusive lock cannot be taken immediately is in use and is
     SKIPPED, never waited on: a build must not block behind an hours-long
     ingestion, and deleting a venv a running task is executing out of is worse
-    than exceeding the budget.
+    than exceeding the limit.
     """
+    # One pass at a time. DefaultExecutor gives each task its own thread and
+    # event loop, so several builds on different keys reach this within a
+    # second of each other. The per-entry flock only stops two passes picking
+    # the SAME victim; without a pass lock each one independently measures the
+    # same overshoot and frees it in full, so N passes evict N times what was
+    # needed and warm entries well inside the limit are destroyed. Declining
+    # is right rather than merely cheap: the peer holding this is doing this
+    # call's work, and waiting would mean a blocking flock on the event loop.
+    pass_lock = EntryLock(cache_root / EVICT_LOCK_NAME)
+    if not pass_lock.acquire(exclusive=True):
+        logger.debug("venv cache: another eviction pass is running, skipping")
+        return 0
+    try:
+        return _evict_locked(
+            cache_root, max_entries=max_entries, max_age_sec=max_age_sec
+        )
+    finally:
+        pass_lock.release()
+
+
+def _evict_locked(
+    cache_root: pathlib.Path, *, max_entries: int, max_age_sec: float
+) -> int:
     try:
         # Only directories this cache created. DATAHUB_VENV_CACHE_PATH is an
         # operator knob returned verbatim by get_venv_cache_path, so the root
         # may be a directory that already holds other things -- a volume mount,
-        # or /tmp. Without this filter the first build to cross the budget
+        # or /tmp. Without this filter the first build to cross the limit
         # rmtree's whatever it finds there.
         entries = [
             p
@@ -320,70 +279,58 @@ def evict_to_budget(cache_root: pathlib.Path, max_bytes: int) -> int:
     except OSError:
         return 0
 
-    max_bytes = _budget_for_filesystem(cache_root, max_bytes)
+    now = time.time()
+    oldest_first = sorted(entries, key=last_used_at)
 
-    sized: List[Tuple[float, int, pathlib.Path]] = []
-    unmeasured: List[pathlib.Path] = []
-    for p in entries:
-        measured = _entry_size(p)
-        sized.append((last_used_at(p), measured.total, p))
-        if not measured.complete:
-            unmeasured.append(p)
-
-    total = sum(size for _, size, _ in sized)
-
-    if unmeasured:
-        # An under-count is the direction that lets the disk fill, and it is
-        # invisible: the budget check just keeps answering "we fit". In the
-        # worst case every read fails, every entry measures 0, and eviction
-        # reports nothing to do for the life of the pod while the cache grows
-        # without bound. Say so, rather than let the budget quietly stop
-        # existing. Eviction still proceeds -- the entries that DID measure
-        # are real bytes worth reclaiming.
-        logger.warning(
-            "venv cache: could not fully measure %d of %d entries (%s); the "
-            "%d-byte budget is being enforced against an under-count and the "
-            "cache may exceed it.",
-            len(unmeasured),
-            len(entries),
-            ", ".join(p.name for p in unmeasured[:3]),
-            max_bytes,
-        )
-
-    if total <= max_bytes:
-        return 0
-
-    freed = 0
-    for _stamp, size, venv in sorted(sized, key=lambda row: row[0]):
-        if total - freed <= max_bytes:
+    # One walk, oldest first, applying both rules at once: an entry goes if
+    # nothing has used it in max_age_sec, or if the cache is still over its
+    # count. Counting down as we go -- rather than slicing a fixed victim list
+    # up front -- is what lets the pass keep going past an entry it could not
+    # take: a locked entry is in use, and skipping it must not stop the cache
+    # being trimmed, only spare that one venv.
+    remaining = len(entries)
+    evicted = 0
+    for venv in oldest_first:
+        too_old = now - last_used_at(venv) > max_age_sec
+        if not too_old and remaining <= max_entries:
+            # Oldest first, so every entry after this one is younger and the
+            # count only shrinks. Nothing further can qualify.
             break
-        lock = EntryLock(venv.parent / f"{venv.name}.lock")
-        if not lock.acquire(exclusive=True):
-            logger.debug("venv cache: %s is in use, not evicting", venv)
-            continue
-        try:
-            # Invalidate before removing. rmtree raises on the FIRST failure,
-            # having already deleted an arbitrary prefix of the tree, and
-            # traversal order is not defined -- so site-packages can be gone
-            # while bin/python and the completion marker survive.
-            # is_venv_complete accepts that husk, nothing on the hit path
-            # re-validates, and every later run for that key "reuses" a venv
-            # with no packages and dies with ModuleNotFoundError. Dropping the
-            # marker first makes a partial removal self-invalidating: the next
-            # claimant discards and rebuilds it instead.
-            (venv / COMPLETE_MARKER).unlink(missing_ok=True)
-            shutil.rmtree(venv)
-            # The .lock file beside it is deliberately left behind. Unlinking
-            # it would break mutual exclusion rather than tidy up: a peer
-            # already holding it holds an fd on that inode, so the next two
-            # claimants would create a NEW inode and flock a different file
-            # from the peer -- two processes each believing they hold the
-            # entry. The files are empty and bounded by the number of distinct
-            # cache keys, so the inodes are the cheaper side of that trade.
-            freed += size
-            logger.info("venv cache: evicted %s (%d bytes)", venv, size)
-        except OSError:
-            logger.warning("venv cache: could not evict %s", venv, exc_info=True)
-        finally:
-            lock.release()
-    return freed
+        if _remove_entry(venv):
+            evicted += 1
+            remaining -= 1
+    return evicted
+
+
+def _remove_entry(venv: pathlib.Path) -> bool:
+    """Take the entry exclusively and delete it. False when it is in use."""
+    lock = EntryLock(venv.parent / f"{venv.name}.lock")
+    if not lock.acquire(exclusive=True):
+        logger.debug("venv cache: %s is in use, not evicting", venv)
+        return False
+    try:
+        # Invalidate before removing. rmtree raises on the FIRST failure,
+        # having already deleted an arbitrary prefix of the tree, and
+        # traversal order is not defined -- so site-packages can be gone
+        # while bin/python and the completion marker survive.
+        # is_venv_complete accepts that husk, nothing on the hit path
+        # re-validates, and every later run for that key "reuses" a venv
+        # with no packages and dies with ModuleNotFoundError. Dropping the
+        # marker first makes a partial removal self-invalidating: the next
+        # claimant discards and rebuilds it instead.
+        (venv / COMPLETE_MARKER).unlink(missing_ok=True)
+        shutil.rmtree(venv)
+        # The .lock file beside it is deliberately left behind. Unlinking
+        # it would break mutual exclusion rather than tidy up: a peer
+        # already holding it holds an fd on that inode, so the next two
+        # claimants would create a NEW inode and flock a different file
+        # from the peer -- two processes each believing they hold the
+        # entry. The files are empty and bounded by the number of distinct
+        # cache keys, so the inodes are the cheaper side of that trade.
+        logger.info("venv cache: evicted %s", venv)
+        return True
+    except OSError:
+        logger.warning("venv cache: could not evict %s", venv, exc_info=True)
+        return False
+    finally:
+        lock.release()

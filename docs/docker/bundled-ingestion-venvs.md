@@ -88,7 +88,7 @@ If everything resolves in one venv, avoid extra groups.
 
 ## Dynamic venvs and the uv cache (non-bundled runs)
 
-When a run targets a CLI version or connector that is **not** bundled into the image, the executor builds a **dynamic venv** at runtime under **`/tmp/datahub/ingest/<execution-id>/`** and removes it when the run finishes. To keep repeated runs from filling disk, installs go through the [`uv`](https://docs.astral.sh/uv/) package cache: each package is unpacked **once** into a content-addressed cache (default **`$HOME/.cache/uv`**), and every venv **links** its files from that cache instead of copying them. This applies to both DataHub Core (**`datahub-actions`**) and DataHub Cloud (**`datahub-executor`**).
+When a run targets a CLI version or connector that is **not** bundled into the image, the executor builds a **dynamic venv** at runtime. A venv whose contents are fully determined by its name is kept in a node-local cache and reused across runs (see [Reusing venvs between runs](#reusing-venvs-between-runs)); anything else is built under **`/tmp/datahub/ingest/<execution-id>/`** and removed when the run finishes. To keep repeated runs from filling disk, installs go through the [`uv`](https://docs.astral.sh/uv/) package cache: each package is unpacked **once** into a content-addressed cache (default **`$HOME/.cache/uv`**), and every venv **links** its files from that cache instead of copying them. This applies to both DataHub Core (**`datahub-actions`**) and DataHub Cloud (**`datahub-executor`**).
 
 The link method is controlled by **`UV_LINK_MODE`**:
 
@@ -116,17 +116,40 @@ and the recipe probe — pay that rebuild to do a few seconds of work. The
 executor therefore keeps reusable venvs in a node-local cache outside the
 per-execution directory.
 
-| Variable                         | Meaning                                                                                                    |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **`DATAHUB_VENV_CACHE_ENABLED`** | **`false`** restores a freshly built venv per run (default **`true`**).                                    |
-| **`DATAHUB_VENV_CACHE_PATH`**    | Cache root (default **`<tmp_dir>/_venv_cache`**, i.e. **`/tmp/datahub/ingest/_venv_cache`**).              |
-| **`DATAHUB_VENV_CACHE_MAX_GB`**  | Eviction budget in GB (default **`20`**). Least-recently-used venvs are removed once the cache exceeds it. |
+| Variable                                  | Meaning                                                                                                                                                 |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`DATAHUB_VENV_CACHE_ENABLED`**          | **`false`** restores a freshly built venv per run (default **`true`**). See the note below about reclaiming what the cache already wrote.               |
+| **`DATAHUB_VENV_CACHE_PATH`**             | Cache root (default **`<tmp_dir>/_venv_cache`**, i.e. **`/tmp/datahub/ingest/_venv_cache`**).                                                           |
+| **`DATAHUB_VENV_CACHE_MAX_ENTRIES`**      | How many venvs to keep (default **`10`**). Least-recently-used entries are removed once the cache exceeds it.                                           |
+| **`DATAHUB_VENV_CACHE_MAX_AGE_HOURS`**    | Drop an entry nothing has used in this long, whatever the count (default **`168`**, seven days).                                                        |
+| **`DATAHUB_VENV_CACHE_LATEST_TTL_HOURS`** | How long a venv built from a **moving** version (`latest`, or a dev-build wheel URL) is reused before being rebuilt and re-resolved (default **`24`**). |
 
-The cache is node-local and is lost when the pod restarts, which is what bounds
-how stale a `latest` venv can become: the first run in a pod resolves `latest`,
-and the rest of that pod's life reuses it. A venv in use by a running task is
-never evicted. Pin `version` in the recipe if a run must control its CLI
-version exactly.
+The cache is bounded by **entry count and age, not by bytes**. Sizing it in bytes would mean
+measuring it, and measuring a venv means walking tens of thousands of files per entry on every
+build — for a number that would not match real disk usage anyway, because `UV_LINK_MODE=hardlink`
+makes most of a venv's files links into the uv cache, shared with sibling entries.
+
+**Plan capacity accordingly.** Venvs range from a few hundred MB to a few GB depending on the
+connector, so size the volume for `DATAHUB_VENV_CACHE_MAX_ENTRIES` × your largest connector's venv,
+on top of the uv cache and your retained-log budget. Lower the entry count on nodes with tight
+ephemeral storage. Note that a Kubernetes `emptyDir` `sizeLimit` and `limits.ephemeral-storage` are
+enforced by the kubelet eviction manager rather than by a filesystem quota, so nothing stops the
+cache growing into a pod eviction if the entry count is set higher than the volume can hold.
+
+A venv in use by a running task is never evicted.
+
+**Staleness.** A pinned `version` names one immutable build, so its entry never expires. `latest`
+and dev-build wheel URLs are moving targets, so their entries are rebuilt once they are older than
+`DATAHUB_VENV_CACHE_LATEST_TTL_HOURS` — measured from when the venv was **built**, not when it was
+last used, so a busy entry still expires on schedule. Without that bound, a long-lived pod would
+serve the build it resolved on the day it started for the rest of its life. Lower the TTL if you
+ship connector fixes and need pods to pick them up sooner; pin `version` if a run must control its
+CLI version exactly.
+
+**Turning the cache off does not clear it.** `DATAHUB_VENV_CACHE_ENABLED=false` stops new entries
+being created or reused, and eviction only ever runs on the build path — so entries written before
+the switch stay on disk. Delete `DATAHUB_VENV_CACHE_PATH` by hand after disabling the cache if you
+need the space back.
 
 ## Rebuild from this repository
 

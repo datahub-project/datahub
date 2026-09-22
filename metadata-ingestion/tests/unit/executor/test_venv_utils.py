@@ -166,6 +166,87 @@ class TestVenvLocation:
         assert loc == "/tmp/datahub/ingest/_venv_cache/venv-snowflake-abc"
 
 
+class TestVenvEntryNameSafety:
+    """A cache entry's name reaches the path from unvalidated recipe input.
+
+    `main_plugin` is recipe["source"]["type"], and it is string-concatenated
+    into a node-SHARED directory. Before the cache the name only ever indexed
+    a per-execution directory that was deleted wholesale, so nothing here
+    mattered; now a separator or a `..` breaks two invariants at once.
+    """
+
+    CACHE_ROOT = "/tmp/datahub/ingest/_venv_cache"
+
+    @pytest.mark.parametrize(
+        "venv_name",
+        [
+            pytest.param("mysql/x-latest-abc123", id="separator"),
+            pytest.param("../../escaped-latest-abc123", id="parent-traversal"),
+            pytest.param("a/b/c-latest-abc123", id="nested-separators"),
+            pytest.param(".-latest-abc123", id="dot"),
+            pytest.param("..", id="bare-parent"),
+            pytest.param("sn\x00owflake-latest-abc", id="nul-byte"),
+        ],
+    )
+    def test_an_unsafe_name_stays_a_single_child_of_the_cache_root(
+        self, venv_name: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Two things go wrong when it does not.
+
+        _acquire_cache_entry evicts against `venv_loc.parent`, so a name with
+        a separator makes that build trim the wrong directory and never the
+        real cache. Worse, any OTHER task's eviction pass, running against the
+        real root, sees the intermediate directory as an entry (it starts with
+        `venv-`), finds no last-used marker so it sorts FIRST for eviction,
+        and takes a `.lock` path nobody holds before rmtree-ing a venv a live
+        ingestion is executing from.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", self.CACHE_ROOT)
+
+        loc = pathlib.Path(
+            venv_utils.venv_location(venv_name, "/tmp/x", cacheable=True)
+        )
+
+        assert loc.parent == pathlib.Path(self.CACHE_ROOT), (
+            f"{loc} is not a direct child of the cache root, so eviction and "
+            "the lock-path convention both break"
+        )
+        assert loc.name.startswith(venv_utils.ENTRY_PREFIX), (
+            "eviction only considers directories with the entry prefix, so an "
+            "entry without it is never reclaimed"
+        )
+        assert "\x00" not in loc.name
+
+    def test_unsafe_names_do_not_collapse_onto_each_other(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Sanitising by replacement alone would map `a/b` and `a_b` -- and
+        every recipe whose source type differs only in a stripped character --
+        onto one entry, which is the wrong-venv bug the cache key exists to
+        prevent."""
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", self.CACHE_ROOT)
+
+        first = venv_utils.venv_location("a/b-latest-abc", "/tmp/x", cacheable=True)
+        second = venv_utils.venv_location("a_b-latest-abc", "/tmp/x", cacheable=True)
+
+        assert first != second
+
+    @pytest.mark.parametrize(
+        "venv_name",
+        ["snowflake-abc123", "snowflake-latest-0123456789abcdef", "mysql-0.15.0.1-ab"],
+    )
+    def test_an_ordinary_name_is_left_byte_identical(
+        self, venv_name: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Every real source type is already safe, so sanitising must be a
+        no-op for them -- otherwise every existing entry is orphaned."""
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", self.CACHE_ROOT)
+
+        loc = venv_utils.venv_location(venv_name, "/tmp/x", cacheable=True)
+
+        assert loc == f"{self.CACHE_ROOT}/{venv_utils.ENTRY_PREFIX}{venv_name}"
+
+
 class TestVenvEntryState:
     """A half-built venv must never be reused.
 

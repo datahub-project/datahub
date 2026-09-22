@@ -74,13 +74,6 @@ class SubProcessTestConnectionTask(Task):
             envelope_extra={"__report_out_file__": report_out_file},
         )
 
-        # Invoked with this interpreter rather than by bare name off PATH: the wrapper
-        # must run in the executor's own environment (it then activates the per-run
-        # target venv itself). By absolute path rather than -m: see
-        # resolve_wrapper_script.
-        command_script: str = resolve_wrapper_script(
-            "datahub.executor.wrappers.run_test_connection"
-        )
         stdout_lines: deque = deque(maxlen=SubProcessTaskUtil.MAX_LOG_LINES)
 
         # Bound before the try so the except can tell "Popen never ran" from
@@ -88,6 +81,25 @@ class SubProcessTestConnectionTask(Task):
         # opposite answers about the venv lock.
         ingest_process: Optional[subprocess.Popen] = None
         try:
+            # Invoked with this interpreter rather than by bare name off PATH: the
+            # wrapper must run in the executor's own environment (it then activates
+            # the per-run target venv itself). By absolute path rather than -m: see
+            # resolve_wrapper_script.
+            #
+            # Inside the try, not before it. prepare_recipe_run returns holding
+            # the cache entry SHARED, and resolve_wrapper_script raises
+            # RuntimeError when importlib.util.find_spec returns None -- a
+            # packaging or partially-installed-image failure. Outside a handler
+            # that is a deterministic leak: every test-connection request pins
+            # one more unevictable entry for the life of the pod.
+            command_script: str = resolve_wrapper_script(
+                "datahub.executor.wrappers.run_test_connection"
+            )
+            # Also inside, and before the spawn. finalize_task_output's own
+            # comment notes that constructing this can fail; after a child
+            # exists that would be the same unguarded window again.
+            masking_filter = SecretMaskingFilter()
+
             ingest_process = subprocess.Popen(
                 [
                     sys.executable,
@@ -106,12 +118,13 @@ class SubProcessTestConnectionTask(Task):
             ingest_process.stdin.write(prepared.stdin_envelope)
             ingest_process.stdin.close()
         except BaseException:
-            # Spawning and the stdin write sit before the try/finally that
-            # calls finalize_task_output, so a failure here -- an OSError from
-            # Popen, a broken pipe, a cancellation -- is the one window where
-            # nothing releases the cached venv's SHARED lock. Left held, the
-            # entry can never be evicted for the rest of the pod's life.
-            # Guarded inside, so it cannot replace the exception in flight.
+            # Everything above sits before the try/finally that calls
+            # finalize_task_output, so a failure here -- an OSError from Popen,
+            # a broken pipe, a missing wrapper module, a cancellation -- is the
+            # one window where nothing releases the cached venv's SHARED lock.
+            # Left held, the entry can never be evicted for the rest of the
+            # pod's life. Guarded inside, so it cannot replace the exception in
+            # flight.
             #
             # Releasing is only right when no child got started. A broken pipe
             # on the stdin write means Popen already succeeded, and that child
@@ -120,9 +133,13 @@ class SubProcessTestConnectionTask(Task):
                 prepared.venv_ref, ingest_process
             )
             SubProcessTaskUtil.release_venv_lock(prepared.venv_ref)
+            # finalize_task_output is what normally removes this, and it is
+            # never reached from here. The ingestion task does the same in the
+            # identical situation; on the cache-off or cache-busy path the
+            # directory holds a complete per-run venv, so each failure would
+            # otherwise leak a full venv's worth of disk.
+            SubProcessTaskUtil._remove_directory(exec_out_dir)
             raise
-
-        masking_filter = SecretMaskingFilter()
 
         try:
             while ingest_process.poll() is None:

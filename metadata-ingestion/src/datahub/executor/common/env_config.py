@@ -12,8 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
+import logging
+import math
 import os
 import pathlib
+
+logger = logging.getLogger(__name__)
 
 # ACRYL_EXECUTOR_GMS_PAYLOAD_MAX_LENGTH keeps its original name on purpose:
 # renaming it would silently change behaviour for deployments that already set it.
@@ -71,11 +76,101 @@ def get_venv_cache_path(exec_out_dir: str) -> str:
     return str(pathlib.Path(exec_out_dir).parent / "_venv_cache")
 
 
-def get_venv_cache_max_bytes() -> int:
-    """Eviction budget. Bytes, because venv sizes vary hugely by connector and
-    a count limit would not bound disk at all."""
-    raw = os.environ.get("DATAHUB_VENV_CACHE_MAX_GB", "20")
+# How many entries the cache keeps. Chosen over a byte budget deliberately:
+# sizing the cache in bytes means measuring it, and measuring a venv means
+# walking tens of thousands of files per entry on every build -- for a number
+# that does not correspond to disk anyway, because DataHub defaults uv to
+# UV_LINK_MODE=hardlink and most of a venv is links into uv's package cache.
+# A count is one stat per entry and an operator can see it with `ls`.
+DEFAULT_VENV_CACHE_MAX_ENTRIES = 10
+
+# Drop an entry nothing has used in this long, even when the cache is under
+# its entry count. Bounds the cache on a pod that runs one recipe for weeks.
+DEFAULT_VENV_CACHE_MAX_AGE_HOURS = 168  # 7 days
+
+# How long a venv built from a MOVING version -- `latest`, or a dev-build
+# branch alias -- may be served before it is rebuilt. Unlike the two above
+# this is not about disk: it is what stops a long-lived pod serving the build
+# it resolved on the day it started, forever.
+DEFAULT_VENV_CACHE_LATEST_TTL_HOURS = 24
+
+
+@functools.lru_cache(maxsize=None)
+def _warn_unusable_value_once(var: str, raw: str, fallback: float) -> None:
+    """Once per distinct value -- these are read on every build path."""
+    logger.warning(
+        "%s=%r is not usable; falling back to %s. Set a positive, finite number.",
+        var,
+        raw,
+        fallback,
+    )
+
+
+def _positive_number(var: str, default: float) -> float:
+    """Read a positive, finite number from the environment, or the default.
+
+    Never raises, and that is a requirement rather than politeness: these are
+    read from inside the exclusive-lock region of _acquire_cache_entry, which
+    has no handler above it before setup_venv's own try. An exception would
+    escape with the entry still locked, so that cache key could never be
+    built, hit or evicted again for the life of the process, and every
+    ingestion and test-connection on the node would fail at venv setup.
+
+    `float(raw)` alone is not enough. It accepts "inf", "Infinity", "-inf"
+    and "1e400" -- exactly how an operator writes "no limit" -- and int() on
+    those raises OverflowError, an ArithmeticError rather than the ValueError
+    a narrower guard catches.
+
+    Non-positive values are rejected rather than honoured. A negative bound
+    parses cleanly and makes every entry look over the limit, so eviction
+    would delete the entire cache on every single build; zero says the same
+    thing, and DATAHUB_VENV_CACHE_ENABLED already exists for operators who
+    want no cache at all.
+    """
+    raw = os.environ.get(var)
+    if raw is None:
+        return default
     try:
-        return int(float(raw) * 1024**3)
+        value = float(raw)
     except ValueError:
-        return 20 * 1024**3
+        _warn_unusable_value_once(var, raw, default)
+        return default
+    if not math.isfinite(value) or value <= 0:
+        _warn_unusable_value_once(var, raw, default)
+        return default
+    return value
+
+
+def get_venv_cache_max_entries() -> int:
+    """Most entries the cache keeps, oldest-used evicted first.
+
+    Rounded DOWN, so a fractional value can never widen the bound past what
+    the operator asked for -- and a value that floors to zero falls back to
+    the default rather than emptying the cache on every build.
+    """
+    entries = int(
+        _positive_number(
+            "DATAHUB_VENV_CACHE_MAX_ENTRIES", DEFAULT_VENV_CACHE_MAX_ENTRIES
+        )
+    )
+    return entries if entries >= 1 else DEFAULT_VENV_CACHE_MAX_ENTRIES
+
+
+def get_venv_cache_max_age_sec() -> float:
+    """Evict an entry nothing has used in this long, regardless of count."""
+    return (
+        _positive_number(
+            "DATAHUB_VENV_CACHE_MAX_AGE_HOURS", DEFAULT_VENV_CACHE_MAX_AGE_HOURS
+        )
+        * 3600
+    )
+
+
+def get_venv_cache_latest_ttl_sec() -> float:
+    """How long a venv built from a moving version may be reused before rebuild."""
+    return (
+        _positive_number(
+            "DATAHUB_VENV_CACHE_LATEST_TTL_HOURS", DEFAULT_VENV_CACHE_LATEST_TTL_HOURS
+        )
+        * 3600
+    )

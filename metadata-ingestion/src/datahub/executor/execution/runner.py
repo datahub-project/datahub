@@ -12,10 +12,11 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Generator, Iterator
 from datetime import datetime, timezone
 from typing import Annotated, Any, Mapping, Optional, Union
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlsplit, urlunsplit
 
 # Note: BaseExceptionGroup handling removed for Python 3.9 compatibility
 import anyio
@@ -34,10 +35,14 @@ from datahub.executor.common.env_config import (
     get_bundled_venv_path,
     get_dependency_resolution_enabled,
     get_venv_cache_enabled,
-    get_venv_cache_max_bytes,
+    get_venv_cache_latest_ttl_sec,
+    get_venv_cache_max_age_sec,
+    get_venv_cache_max_entries,
 )
-from datahub.executor.execution.venv_cache import EntryLock, evict_to_budget
+from datahub.executor.execution.venv_cache import EntryLock, evict_stale_entries
 from datahub.executor.execution.venv_utils import (
+    COMPLETE_MARKER,
+    built_at,
     is_venv_complete,
     mark_venv_complete,
     touch_last_used,
@@ -336,7 +341,7 @@ class VenvReference:
     venv_config: VenvConfig
     # Held for the task's life when this venv came from the cache, so eviction
     # cannot delete it mid-run. None for ephemeral venvs and whenever the cache
-    # is off or unusable. finalize_task_output releases it; see Task 6.
+    # is off or unusable. finalize_task_output releases it.
     lock: Optional["EntryLock"] = None
 
     def command(self, cmd: str) -> str:
@@ -501,13 +506,16 @@ def _node_local_stable_name(
     new commit is a new deployment and therefore a new key.
 
     They were excluded over storage -- every wheel tested leaves an entry
-    behind. evict_to_budget is the only thing that reclaims those, and it runs
-    only when the cache is over its byte budget, so on a pod that stays under
-    budget a dev-build entry lives until the pod does. That is the cost of
-    this choice; accept it or add an age-based sweep, which does not exist.
+    behind. evict_stale_entries reclaims those on both axes: a dev-build entry
+    is dropped once the cache is over DATAHUB_VENV_CACHE_MAX_ENTRIES, and also
+    once nothing has used it for DATAHUB_VENV_CACHE_MAX_AGE_HOURS, so a
+    one-off wheel test no longer lives as long as the pod does.
 
-    The same host would also serve a branch alias, which moves, and hashing
-    one would pin a stale build. Nothing in the pipeline emits such a URL --
+    A branch alias served from the same host DOES move, and hashing one would
+    pin a stale build if nothing else intervened. _is_fresh_hit covers that:
+    every URL version is treated as moving and expires after
+    DATAHUB_VENV_CACHE_LATEST_TTL_HOURS. Nothing in the pipeline emits such a
+    URL --
     it publishes the deployment address -- so this is only reachable by
     hand-writing one.
 
@@ -538,7 +546,7 @@ def _node_local_stable_name(
     return f"{venv_config.main_plugin}-{tag}-{suffix.digest().hex()[:16]}"
 
 
-def _extra_env_vars_cache_suffix(extra_env_vars: dict) -> str:
+def _extra_env_vars_cache_suffix(extra_env_vars: Mapping[str, object]) -> str:
     """Short digest distinguishing cache entries that differ only in extra_env_vars.
 
     extra_env_vars is user-supplied per recipe (package index URLs, private-
@@ -557,13 +565,24 @@ def _extra_env_vars_cache_suffix(extra_env_vars: dict) -> str:
     prevent, and 32 bits is a birthday collision at a few tens of thousands
     of distinct environments. Widening it costs nothing but directory-name
     length.
+
+    Each field is LENGTH-PREFIXED rather than delimited. Widening the digest
+    only addresses accidental collisions; framing pairs as `key=value\\n`
+    leaves a structural one wide open, because a value containing a newline
+    impersonates an extra pair. `{"A": "b", "C": "d"}` and `{"A": "b\\nC=d"}`
+    digest identically under that framing, and so do
+    `{"CREDS": ..., "UV_INDEX_URL": "https://prod/simple"}` and the single key
+    that absorbs the second pair into its value. These values are unvalidated
+    beyond json.loads and routinely hold multi-line content -- service-account
+    JSON, PEM keys, pip/uv config -- so the collision needs no malice to
+    happen, and on a shared executor pod a deliberate one is trivial to
+    construct. A length prefix cannot be forged from inside a field.
     """
     digest = hashlib.sha256()
     for key, value in sorted(extra_env_vars.items()):
-        digest.update(key.encode("utf-8"))
-        digest.update(b"=")
-        digest.update(str(value).encode("utf-8"))
-        digest.update(b"\n")
+        for field in (key.encode("utf-8"), str(value).encode("utf-8")):
+            digest.update(f"{len(field)}:".encode("ascii"))
+            digest.update(field)
     return digest.hexdigest()[:16]
 
 
@@ -581,8 +600,8 @@ def _name_dynamic_venv(
         a probe and the ingestion run it predicts install the same version,
         which resolving twice does not.
       - A dev-build wheel URL, which unlike `latest` names one immutable
-        build. Excluded until now over storage, which only evict_to_budget
-        bounds -- and only once the cache is over budget. It is the only
+        build. Excluded until now over storage, which evict_stale_entries now
+        bounds by both entry count and age. It is the only
         version a probe can run before the `recipe probe` command ships, so
         leaving it uncacheable made every probe re-download its wheel --
         about 4.4s of a 7-9s probe, every time.
@@ -657,8 +676,89 @@ class _CacheEntry:
     ready: bool
 
 
+def _is_moving_version(version: str) -> bool:
+    """Whether this version can resolve to different bytes tomorrow.
+
+    Exactly the set _node_local_stable_name makes cacheable beyond a pin:
+    `latest`, and dev-build wheel URLs. A pinned version names one immutable
+    build, so it is never moving and never expires.
+    """
+    return version == VENV_VERSION_LATEST or version.startswith(("http://", "https://"))
+
+
+def _is_fresh_hit(venv_loc: pathlib.Path, *, moving: bool) -> bool:
+    """Whether this entry may be served, rather than merely being complete.
+
+    Completeness alone is the right question for a pinned version: the name
+    is a content address, so an entry that finished building is the right
+    bytes forever.
+
+    It is not the right question for a moving version, and `latest` is the
+    default for every recipe. With no age bound the hit path never
+    re-resolves: a pod that starts on Monday keeps executing Monday's
+    acryl-datahub until it restarts, so a connector fix published on Tuesday
+    silently never arrives -- and because test-connection deliberately shares
+    the entry, re-testing after the fix reports the old behaviour too. That is
+    the "I shipped the fix, the customer re-ran, still broken" ticket.
+
+    Measured from BUILD time, not last use. touch_last_used fires on every
+    hit, so an age taken from it would make the busiest entry -- the shared
+    `latest` one -- the one thing that never expires.
+    """
+    if not is_venv_complete(venv_loc):
+        return False
+    if not moving:
+        return True
+    age = time.time() - built_at(venv_loc)
+    ttl = get_venv_cache_latest_ttl_sec()
+    if age <= ttl:
+        return True
+    logger.info(
+        "venv cache: %s was built from a moving version %.1f hours ago "
+        "(TTL %.1f hours); rebuilding so it re-resolves.",
+        venv_loc.name,
+        age / 3600,
+        ttl / 3600,
+    )
+    return False
+
+
+def _discard_incomplete(venv_loc: pathlib.Path) -> bool:
+    """Clear a half-built entry so a build can start clean. False if it survives.
+
+    Only safe under an EXCLUSIVE hold on the entry.
+
+    The marker goes first, so a removal that fails part-way leaves something
+    that reads as incomplete rather than a husk the hit path would serve.
+
+    Errors are NOT ignored, which is the whole point. `ignore_errors=True`
+    makes a completely failed discard indistinguishable from a successful
+    one, and the build that follows then either dies forever on that key --
+    `uv venv` on a surviving non-venv directory fails hard with "exists, but
+    it's not a virtual environment" -- or, if pyvenv.cfg happened to survive,
+    recreates the venv over the leftovers and gets stamped COMPLETE, so every
+    later run reuses a venv that may mix two builds' site-packages and
+    nothing on the hit path re-validates. The causes are ordinary: an NFS
+    .nfsXXXX silly-rename, a uid mismatch on a shared volume, a read-only
+    remount. Reporting the failure lets the caller use a per-run venv, which
+    is slower and always correct.
+    """
+    try:
+        (venv_loc / COMPLETE_MARKER).unlink(missing_ok=True)
+        shutil.rmtree(venv_loc)
+        return True
+    except OSError:
+        logger.warning(
+            "Could not discard the incomplete venv at %s; falling back to a "
+            "per-run venv. Clear this directory to re-enable the cache entry.",
+            venv_loc,
+            exc_info=True,
+        )
+        return False
+
+
 async def _acquire_cache_entry(
-    venv_name: str, tmp_dir: pathlib.Path, cacheable: bool
+    venv_name: str, tmp_dir: pathlib.Path, cacheable: bool, *, moving: bool = False
 ) -> _CacheEntry:
     """Resolve a dynamic venv against the cache and take the lock guarding it.
 
@@ -670,50 +770,91 @@ async def _acquire_cache_entry(
 
     The protocol, in order:
 
-    1. SHARED, non-blocking. A complete entry is served immediately. This is
-       the warm hit, it is the common case, and it must never wait: a running
-       task holds its entry SHARED for the whole run, so taking EXCLUSIVE here
-       would make two recipes on the same `latest` entry -- the default, and
-       therefore the norm -- serialize behind the longer one.
+    1. SHARED, non-blocking. A complete, fresh entry is served immediately.
+       This is the warm hit, it is the common case, and it must never wait: a
+       running task holds its entry SHARED for the whole run, so taking
+       EXCLUSIVE here would make two recipes on the same `latest` entry --
+       the default, and therefore the norm -- serialize behind the longer one.
     2. Otherwise a build is needed, and building needs EXCLUSIVE. Retry
        non-blocking on a short budget, re-attempting the shared hit each pass:
        a peer that finishes its build downgrades to SHARED and keeps it, so an
        exclusive-only retry could never succeed again once it lost the race.
-    3. Whenever EXCLUSIVE is won, re-check completeness INSIDE the lock --
-       another process may have finished building while we waited.
+    3. Whenever EXCLUSIVE is won, re-check INSIDE the lock -- another process
+       may have finished building while we waited.
     4. When the budget runs out, someone else is building. Fall back to a
        per-run venv rather than waiting on them.
+
+    Everything inside an EXCLUSIVE hold runs under a handler that releases it.
+    This function is called ABOVE setup_venv's own `try`, whose
+    `except BaseException` exists precisely to release the lock, so anything
+    raised here -- a bad DATAHUB_VENV_CACHE_* value, an eviction pass hitting
+    an unreadable root -- would otherwise escape with the entry still locked.
+    That key could then never be built, hit or evicted again for the life of
+    the process, and every task on it would fall back to a full per-run build.
     """
     venv_loc = pathlib.Path(venv_location(venv_name, str(tmp_dir), cacheable=cacheable))
     if not cacheable:
         return _CacheEntry(venv_loc, None, False, False)
 
+    def per_run_fallback() -> _CacheEntry:
+        return _CacheEntry(
+            pathlib.Path(venv_location(venv_name, str(tmp_dir), cacheable=False)),
+            None,
+            False,
+            False,
+        )
+
     lock = EntryLock(venv_loc.parent / f"{venv_loc.name}.lock")
     for attempt in range(_CACHE_LOCK_ATTEMPTS):
         if lock.acquire(exclusive=False):
-            if is_venv_complete(venv_loc):
+            if _is_fresh_hit(venv_loc, moving=moving):
                 touch_last_used(venv_loc)
                 return _CacheEntry(venv_loc, lock, True, True)
-            # Nothing there yet, or a build killed midway. Either way this call
-            # has to build, and building needs the entry exclusively.
+            # Nothing there yet, a build killed midway, or a moving entry past
+            # its TTL. Either way this call has to build, and building needs
+            # the entry exclusively.
             lock.release()
         elif lock.unusable:
             break
 
         if lock.acquire(exclusive=True):
-            if is_venv_complete(venv_loc):
-                touch_last_used(venv_loc)
-                # A failed downgrade has already surrendered the hold, so the
-                # entry is usable but no longer guarded. Report no lock rather
-                # than one that guards nothing.
-                held = lock if lock.downgrade_to_shared() else None
-                return _CacheEntry(venv_loc, held, True, True)
-            # Eviction runs here and nowhere else: on the build path only, so
-            # a cache HIT never pays for a full measurement of every file of
-            # every entry, and after we hold this entry, so eviction cannot select
-            # the directory we are about to write into (it skips anything it
-            # cannot take exclusively).
-            evict_to_budget(venv_loc.parent, get_venv_cache_max_bytes())
+            try:
+                if _is_fresh_hit(venv_loc, moving=moving):
+                    touch_last_used(venv_loc)
+                    # flock has no atomic downgrade -- the kernel drops the
+                    # exclusive hold before it looks for conflicts -- so a
+                    # peer granted EXCLUSIVE in that window leaves us with
+                    # nothing. Re-taking SHARED outright is the recovery;
+                    # returning a "ready" entry with no lock is not, because
+                    # the caller then runs a child out of a directory the
+                    # next eviction pass is free to rmtree.
+                    if lock.downgrade_to_shared() or lock.acquire(exclusive=False):
+                        return _CacheEntry(venv_loc, lock, True, True)
+                    logger.info(
+                        "venv cache entry %s could not be held after the "
+                        "downgrade; using a per-run venv",
+                        venv_loc.name,
+                    )
+                    return per_run_fallback()
+                # A directory here is a build killed midway, or a moving
+                # entry past its TTL. Either way it must be removed rather
+                # than built on top of, and if it cannot be removed this key
+                # is unusable until an operator clears it.
+                if venv_loc.exists() and not _discard_incomplete(venv_loc):
+                    lock.release()
+                    return per_run_fallback()
+                # Eviction runs here and nowhere else: on the build path only,
+                # and after we hold this entry, so it cannot select the
+                # directory we are about to write into (it skips anything it
+                # cannot take exclusively).
+                evict_stale_entries(
+                    venv_loc.parent,
+                    max_entries=get_venv_cache_max_entries(),
+                    max_age_sec=get_venv_cache_max_age_sec(),
+                )
+            except BaseException:
+                lock.release()
+                raise
             return _CacheEntry(venv_loc, lock, True, False)
         if lock.unusable:
             break
@@ -728,25 +869,18 @@ async def _acquire_cache_entry(
             "venv cache entry %s is held by another build; using a per-run venv",
             venv_loc.name,
         )
-    return _CacheEntry(
-        pathlib.Path(venv_location(venv_name, str(tmp_dir), cacheable=False)),
-        None,
-        False,
-        False,
-    )
+    return per_run_fallback()
 
 
 def _resolve_existing_venv(entry: _CacheEntry, runner: SubprocessRunner) -> bool:
     """Whether the entry can be returned as-is, without building anything.
 
     A cache hit is already decided -- in _acquire_cache_entry, under the lock,
-    which is the only place is_venv_complete() can be trusted. What is left
-    here is the non-cached legacy check, where the interpreter's presence
-    alone is enough since certain systems clean up files in temp directories
-    but not the directories themselves, and discarding a cached directory that
-    failed the completeness check: that is a build killed midway and must be
-    removed rather than built on top of. The removal is only safe because the
-    caller holds this entry EXCLUSIVE.
+    which is the only place is_venv_complete() can be trusted, and so is
+    discarding a half-built entry: both need the EXCLUSIVE hold that only
+    exists there. What is left here is the non-cached legacy check, where the
+    interpreter's presence alone is enough since certain systems clean up
+    files in temp directories but not the directories themselves.
     """
     venv_loc = entry.venv_loc
     if entry.ready:
@@ -757,11 +891,6 @@ def _resolve_existing_venv(entry: _CacheEntry, runner: SubprocessRunner) -> bool
         if venv_loc.exists() and (venv_loc / "bin/python").exists():
             runner._logs.append(f"venv at {venv_loc} already exists, skipping setup.\n")
             return True
-        return False
-
-    if venv_loc.exists():
-        runner._logs.append(f"Discarding incomplete venv at {venv_loc}.\n")
-        shutil.rmtree(venv_loc, ignore_errors=True)
     return False
 
 
@@ -769,7 +898,7 @@ async def _install_extra_requirements(
     runner: SubprocessRunner,
     venv_loc: pathlib.Path,
     expanded_pip_reqs: list[str],
-    venv_env: dict,
+    venv_env: dict[str, str],
 ) -> None:
     """Install extra_pip_requirements, leaving no credential on disk.
 
@@ -830,6 +959,63 @@ async def _install_extra_requirements(
             )
 
 
+def _scrub_direct_url_credentials(venv_loc: pathlib.Path) -> None:
+    """Remove credentials uv recorded inside the installed packages.
+
+    PEP 610 has the installer write
+    site-packages/<pkg>.dist-info/direct_url.json for anything installed from
+    a URL, and uv writes the EXPANDED requirement -- so
+    `pkg @ https://user:${TOKEN}@host/pkg.whl` leaves the token in the venv,
+    where _install_extra_requirements' own cleanup cannot see it. It removes
+    the requirements FILE; this removes what the install copied out of it.
+
+    Before the venv cache this was bounded: the venv lived under exec_out_dir
+    and went away with the run. A cacheable venv is deliberately outside
+    exec_out_dir, created by `uv venv` at the ambient umask, shared by every
+    task on the node, and kept until eviction.
+
+    Userinfo and query string both go: basic-auth credentials and
+    signed-URL tokens are equally common in private indexes. The scheme,
+    host and path stay, because "installed from this host" is useful and is
+    not the secret.
+
+    Best-effort by design -- a venv that built successfully must not fail
+    over metadata tidying -- but loud when it cannot do its job, because the
+    failure mode is a credential left on shared disk.
+    """
+    for record in venv_loc.glob(
+        "lib/python*/site-packages/*.dist-info/direct_url.json"
+    ):
+        try:
+            payload = json.loads(record.read_text())
+        except (OSError, ValueError):
+            logger.warning(
+                "Could not read %s to check it for credentials", record, exc_info=True
+            )
+            continue
+        url = payload.get("url")
+        if not isinstance(url, str):
+            continue
+        parts = urlsplit(url)
+        if not parts.username and not parts.password and not parts.query:
+            continue
+        host = parts.hostname or ""
+        if parts.port:
+            host = f"{host}:{parts.port}"
+        payload["url"] = urlunsplit(
+            (parts.scheme, host, parts.path, "", parts.fragment)
+        )
+        try:
+            record.write_text(json.dumps(payload))
+        except OSError:
+            logger.warning(
+                "Could not redact the credential recorded in %s; remove this "
+                "venv to clear it",
+                record,
+                exc_info=True,
+            )
+
+
 def _publish_cache_entry(
     venv_reference: "VenvReference", venv_loc: pathlib.Path
 ) -> None:
@@ -849,14 +1035,42 @@ def _publish_cache_entry(
         # must not fail a build that otherwise succeeded. An unmarked venv just
         # looks incomplete and gets rebuilt next time -- the same degradation
         # touch_last_used already accepts.
-        logger.debug("Could not mark venv complete at %s", venv_loc, exc_info=True)
+        #
+        # WARNING rather than DEBUG, because the degradation is not local to
+        # this run. This entry stays locked SHARED for the task's whole life,
+        # so for as long as that lasts every peer on the same key pays the
+        # full retry budget, finds the entry incomplete, cannot take it
+        # exclusively, and rebuilds per-run. A cache that has silently stopped
+        # caching should be visible without turning on debug logging.
+        logger.warning(
+            "Could not mark venv complete at %s; this entry will be rebuilt "
+            "rather than reused, and peers on the same key will fall back to "
+            "per-run venvs while this task holds it.",
+            venv_loc,
+            exc_info=True,
+        )
     touch_last_used(venv_loc)
 
-    if not venv_reference.lock.downgrade_to_shared():
-        # The hold is gone either way; carrying the object would only let
-        # finalize_task_output release a lock nobody has, and would report the
-        # entry as protected when eviction is free to take it.
-        venv_reference.lock = None
+    # flock has no atomic downgrade, so the exclusive hold is already gone by
+    # the time the conversion is refused. Re-requesting SHARED outright is the
+    # recovery and nearly always succeeds -- the window is sub-second.
+    if venv_reference.lock.downgrade_to_shared() or venv_reference.lock.acquire(
+        exclusive=False
+    ):
+        return
+
+    # Nothing left to hold. Carrying the object would only let
+    # finalize_task_output release a lock nobody has, and would report the
+    # entry as protected when eviction is free to take it. The venv itself is
+    # complete and this task is about to run out of it, so the honest state is
+    # "usable, unprotected" -- said out loud, because an eviction pass landing
+    # here kills the child with an ImportError on a deleted file.
+    logger.warning(
+        "Lost the venv cache hold on %s after building it; this run continues "
+        "against an entry eviction may reclaim.",
+        venv_loc,
+    )
+    venv_reference.lock = None
 
 
 # I had to change this from the base file because we needed to introduce
@@ -950,7 +1164,9 @@ async def setup_venv(
     expanded_pip_reqs = venv_config.resolve_pip_requirements()
 
     venv_name, cacheable = _name_dynamic_venv(venv_config, expanded_pip_reqs)
-    entry = await _acquire_cache_entry(venv_name, tmp_dir, cacheable)
+    entry = await _acquire_cache_entry(
+        venv_name, tmp_dir, cacheable, moving=_is_moving_version(venv_config.version)
+    )
     venv_loc, lock, cacheable = entry.venv_loc, entry.lock, entry.cacheable
 
     venv_reference = VenvReference(
@@ -1055,6 +1271,10 @@ async def setup_venv(
             await _install_extra_requirements(
                 runner, venv_loc, expanded_pip_reqs, venv_env
             )
+
+        # Before the entry is published, so a credential never becomes
+        # visible to another task through the cache.
+        _scrub_direct_url_credentials(venv_loc)
 
         _publish_cache_entry(venv_reference, venv_loc)
 

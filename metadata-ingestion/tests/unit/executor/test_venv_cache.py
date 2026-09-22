@@ -2,20 +2,36 @@
 
 flock is sound here because the cache is node-local: one pod is the only
 writer. A shared volume would need a different mechanism -- flock on NFS/EFS is
-unreliable -- which is why the spec rules shared storage out of scope.
+unreliable -- so shared storage is deliberately out of scope.
 """
 
+import errno
 import fcntl
-import logging
 import os
 import pathlib
 import shutil
+import tempfile
 from unittest import mock
 
 import pytest
 
 from datahub.executor.execution import venv_cache, venv_utils
-from datahub.executor.execution.venv_cache import EntryLock, evict_to_budget
+from datahub.executor.execution.venv_cache import EntryLock, evict_stale_entries
+
+
+def _open_fd_count() -> int:
+    """How many descriptors this process holds. Linux and macOS both expose
+    this through /dev/fd; the fallback keeps the test meaningful elsewhere."""
+    try:
+        return len(os.listdir("/dev/fd"))
+    except OSError:
+        return len(os.listdir(f"/proc/{os.getpid()}/fd"))
+
+
+ROOT_IGNORES_PERMISSIONS = pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0,
+    reason="chmod cannot deny uid 0, so the failure under test cannot be staged",
+)
 
 
 def test_two_locks_on_one_entry_do_not_both_get_it_exclusively(
@@ -62,11 +78,18 @@ def test_downgrade_lets_an_evictor_be_refused_but_a_reader_in(
     builder = EntryLock(lock_path)
     assert builder.acquire(exclusive=True)
 
-    builder.downgrade_to_shared()
+    assert builder.downgrade_to_shared()
+    reader = EntryLock(lock_path)
     try:
-        assert EntryLock(lock_path).acquire(exclusive=False)
+        assert reader.acquire(exclusive=False)
+        # Released before the next assertion, otherwise the test's OWN shared
+        # hold is what refuses the evictor and the assertion passes even if
+        # downgrade_to_shared were replaced by a plain release() -- exactly
+        # the regression the sibling test exists to catch.
+        reader.release()
         assert not EntryLock(lock_path).acquire(exclusive=True)
     finally:
+        reader.release()
         builder.release()
 
 
@@ -131,6 +154,7 @@ def test_release_is_idempotent(tmp_path: pathlib.Path) -> None:
     assert not lock.held
 
 
+@ROOT_IGNORES_PERMISSIONS
 def test_an_unwritable_lock_directory_degrades_rather_than_raising(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -169,11 +193,12 @@ def test_acquire_creates_a_missing_cache_root(tmp_path: pathlib.Path) -> None:
     assert (tmp_path / "fresh" / "_venv_cache").is_dir()
 
 
-def _entry(root: pathlib.Path, name: str, size: int, age_s: float) -> pathlib.Path:
+def _entry(root: pathlib.Path, name: str, age_s: float) -> pathlib.Path:
+    """A complete cache entry whose last-used marker is `age_s` seconds old."""
     venv = root / f"venv-{name}"
     (venv / "bin").mkdir(parents=True)
     (venv / "bin" / "python").touch()
-    (venv / "payload").write_bytes(b"x" * size)
+    (venv / "payload").write_bytes(b"x" * 64)
     venv_utils.mark_venv_complete(venv)
     venv_utils.touch_last_used(venv)
     marker = venv / venv_utils.LAST_USED_MARKER
@@ -182,29 +207,46 @@ def _entry(root: pathlib.Path, name: str, size: int, age_s: float) -> pathlib.Pa
     return venv
 
 
+_FOREVER = 10**12
+
+
 def test_eviction_removes_the_least_recently_used_first(
     tmp_path: pathlib.Path,
 ) -> None:
-    old = _entry(tmp_path, "old", 4000, age_s=10_000)
-    fresh = _entry(tmp_path, "fresh", 4000, age_s=1)
+    old = _entry(tmp_path, "old", age_s=10_000)
+    fresh = _entry(tmp_path, "fresh", age_s=1)
 
-    evict_to_budget(tmp_path, max_bytes=5000)
+    evict_stale_entries(tmp_path, max_entries=1, max_age_sec=_FOREVER)
 
     assert not old.exists()
     assert fresh.exists()
 
 
-def test_eviction_stops_once_inside_budget(tmp_path: pathlib.Path) -> None:
+def test_eviction_stops_once_inside_the_bound(tmp_path: pathlib.Path) -> None:
     """It frees enough, not everything -- a cache emptied on every build is
     not a cache."""
-    oldest = _entry(tmp_path, "a", 4000, age_s=300)
-    middle = _entry(tmp_path, "b", 4000, age_s=200)
-    newest = _entry(tmp_path, "c", 4000, age_s=100)
+    oldest = _entry(tmp_path, "a", age_s=300)
+    middle = _entry(tmp_path, "b", age_s=200)
+    newest = _entry(tmp_path, "c", age_s=100)
 
-    evict_to_budget(tmp_path, max_bytes=9000)
+    evict_stale_entries(tmp_path, max_entries=2, max_age_sec=_FOREVER)
 
     assert not oldest.exists()
     assert middle.exists() and newest.exists()
+
+
+def test_an_entry_nothing_has_used_in_too_long_goes_even_when_the_count_fits(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The count alone does not bound a pod that runs one recipe for weeks:
+    it sits under the limit forever while stale venvs hold disk."""
+    stale = _entry(tmp_path, "stale", age_s=60 * 60 * 24 * 30)
+    active = _entry(tmp_path, "active", age_s=60)
+
+    evict_stale_entries(tmp_path, max_entries=100, max_age_sec=60 * 60 * 24)
+
+    assert not stale.exists()
+    assert active.exists()
 
 
 def test_an_in_use_entry_is_skipped_even_when_it_is_the_oldest(
@@ -212,13 +254,13 @@ def test_an_in_use_entry_is_skipped_even_when_it_is_the_oldest(
 ) -> None:
     """The point of the shared lock: never delete a venv a running ingestion
     is executing out of."""
-    in_use = _entry(tmp_path, "inuse", 4000, age_s=10_000)
-    spare = _entry(tmp_path, "spare", 4000, age_s=5_000)
+    in_use = _entry(tmp_path, "inuse", age_s=10_000)
+    spare = _entry(tmp_path, "spare", age_s=5_000)
 
     holder = EntryLock(tmp_path / "venv-inuse.lock")
     assert holder.acquire(exclusive=False)
     try:
-        evict_to_budget(tmp_path, max_bytes=5000)
+        evict_stale_entries(tmp_path, max_entries=1, max_age_sec=_FOREVER)
     finally:
         holder.release()
 
@@ -227,7 +269,7 @@ def test_an_in_use_entry_is_skipped_even_when_it_is_the_oldest(
 
 
 def test_a_missing_cache_root_is_not_an_error(tmp_path: pathlib.Path) -> None:
-    assert evict_to_budget(tmp_path / "absent", max_bytes=1) == 0
+    assert evict_stale_entries(tmp_path / "absent", max_entries=1, max_age_sec=1) == 0
 
 
 def test_an_entry_with_no_last_used_marker_is_evicted_first(
@@ -237,10 +279,9 @@ def test_an_entry_with_no_last_used_marker_is_evicted_first(
     legacy = tmp_path / "venv-legacy"
     (legacy / "bin").mkdir(parents=True)
     (legacy / "bin" / "python").touch()
-    (legacy / "payload").write_bytes(b"x" * 4000)
-    recent = _entry(tmp_path, "recent", 4000, age_s=1)
+    recent = _entry(tmp_path, "recent", age_s=1)
 
-    evict_to_budget(tmp_path, max_bytes=5000)
+    evict_stale_entries(tmp_path, max_entries=1, max_age_sec=_FOREVER)
 
     assert not legacy.exists()
     assert recent.exists()
@@ -254,16 +295,16 @@ def test_eviction_leaves_directories_it_does_not_own(tmp_path: pathlib.Path) -> 
     -- a volume mount, or /tmp. Eviction rmtree's what it selects, so it must
     select only entries this cache created.
     """
-    ours = _entry(tmp_path, "ours", 4000, age_s=10_000)
+    ours = _entry(tmp_path, "ours", age_s=10_000)
     theirs = tmp_path / "important-operator-data"
     theirs.mkdir()
     (theirs / "keep.txt").write_text("not ours")
     loose = tmp_path / "notes.txt"
     loose.write_text("not ours either")
 
-    evict_to_budget(tmp_path, max_bytes=100)
+    evict_stale_entries(tmp_path, max_entries=0, max_age_sec=_FOREVER)
 
-    assert not ours.exists(), "our own over-budget entry should have gone"
+    assert not ours.exists(), "our own over-limit entry should have gone"
     assert (theirs / "keep.txt").read_text() == "not ours", (
         "eviction deleted a directory the cache did not create"
     )
@@ -282,7 +323,7 @@ def test_a_partly_removed_entry_is_not_left_looking_complete(
     -- permanently. Removing the marker before rmtree makes a partial removal
     self-invalidating.
     """
-    entry = _entry(tmp_path, "doomed", 4000, age_s=10_000)
+    entry = _entry(tmp_path, "doomed", age_s=10_000)
     assert venv_utils.is_venv_complete(entry)
 
     def half_delete(path, *args, **kwargs):
@@ -291,7 +332,7 @@ def test_a_partly_removed_entry_is_not_left_looking_complete(
         raise OSError(13, "Permission denied")
 
     monkeypatch.setattr(shutil, "rmtree", half_delete)
-    evict_to_budget(tmp_path, max_bytes=100)
+    evict_stale_entries(tmp_path, max_entries=0, max_age_sec=_FOREVER)
 
     assert entry.exists(), "the test needs a survivor to be meaningful"
     assert not venv_utils.is_venv_complete(entry), (
@@ -299,67 +340,109 @@ def test_a_partly_removed_entry_is_not_left_looking_complete(
     )
 
 
-def test_an_unmeasurable_entry_is_reported_not_silently_counted_as_zero(
+def test_concurrent_eviction_passes_do_not_each_free_the_whole_deficit(
     tmp_path: pathlib.Path,
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A failed measurement disables the budget, invisibly.
+    """Nothing serialises the pass itself, only the individual victims.
 
-    Sizes come from directory reads that skip what they cannot read. If those
-    fail, every entry measures 0, the total lands under budget, and eviction
-    answers "nothing to do" for the life of the pod while the cache grows
-    without bound. The under-count is the direction that fills a disk, so it
-    has to be audible.
+    DefaultExecutor gives each task its own thread and event loop, so several
+    builds on DIFFERENT keys start within a second, each win EXCLUSIVE on
+    their own entry and each call eviction. Every pass snapshots the same
+    over-limit count and picks its own victims -- the per-entry flock only
+    stops two passes choosing the SAME one -- so N passes evict N times the
+    deficit, destroying warm entries well inside the limit that each cost
+    minutes to rebuild.
     """
-    root = tmp_path / "cache"
-    root.mkdir()
-    _entry(root, "a", 4096, age_s=1)
+    for i in range(6):
+        _entry(tmp_path, f"e{i}", age_s=1000 - i)
 
-    def unreadable(path: str) -> object:
-        raise OSError("permission denied")
+    first_pass_evicted = evict_stale_entries(
+        tmp_path, max_entries=4, max_age_sec=_FOREVER
+    )
+    second_pass_evicted = evict_stale_entries(
+        tmp_path, max_entries=4, max_age_sec=_FOREVER
+    )
 
-    monkeypatch.setattr(os, "scandir", unreadable)
-
-    with caplog.at_level(logging.WARNING):
-        evict_to_budget(root, 1)
-
-    assert any("could not fully measure" in r.message for r in caplog.records)
-
-
-def test_a_partial_measurement_is_never_remembered(tmp_path: pathlib.Path) -> None:
-    """The size hint is permanent for a COMPLETE entry, so caching a partial
-    reading would make one bad measurement stick for the entry's whole life."""
-    root = tmp_path / "cache"
-    root.mkdir()
-    venv = _entry(root, "a", 4096, age_s=1)
-
-    with mock.patch.object(
-        venv_cache, "_measure_entry", return_value=venv_cache._Measurement(7, False)
-    ):
-        assert venv_cache._entry_size(venv).total == 7
-
-    assert not (venv / venv_cache.SIZE_MARKER).exists()
+    assert first_pass_evicted == 2
+    assert second_pass_evicted == 0, "a second pass re-evicted an already-fitting cache"
+    assert len(list(tmp_path.glob("venv-*/"))) == 4
 
 
-def test_the_budget_cannot_exceed_the_filesystem_holding_it(
+def test_one_eviction_pass_at_a_time_per_root(tmp_path: pathlib.Path) -> None:
+    """A pass that finds another already running must decline, not duplicate it.
+
+    Skipping is correct rather than merely convenient: the peer holding the
+    pass lock is doing exactly the work this call would do, and waiting for
+    it would put a blocking flock on the event-loop thread.
+    """
+    for i in range(6):
+        _entry(tmp_path, f"e{i}", age_s=1000 - i)
+
+    blocker = EntryLock(tmp_path / venv_cache.EVICT_LOCK_NAME)
+    assert blocker.acquire(exclusive=True)
+    try:
+        assert evict_stale_entries(tmp_path, max_entries=1, max_age_sec=_FOREVER) == 0
+    finally:
+        blocker.release()
+
+    assert len(list(tmp_path.glob("venv-*/"))) == 6, (
+        "a concurrent pass evicted while another held the pass lock"
+    )
+
+
+def test_retaining_one_entry_twice_does_not_consume_two_descriptors() -> None:
+    """Deliberately keeping a lock must cost one fd per ENTRY, not per event.
+
+    _keep_venv_lock_unless_exited detaches the lock rather than releasing it,
+    because releasing marks a venv evictable while a child is still executing
+    from it. Its docstring accounts for that as "the entry becomes
+    unevictable, which costs disk" -- one entry, held once.
+
+    Simply dropping the reference does not deliver that. EntryLock owns a raw
+    os.open fd and has no __del__, so every detach adds another descriptor on
+    the same lock file, and test-connection reaches this on essentially every
+    cancellation (the child is signalled without being waited for, so poll()
+    is None). At RLIMIT_NOFILE the next os.open raises EMFILE and the cache
+    switches itself off for the life of the pod.
+    """
+    lock_path = pathlib.Path(tempfile.mkdtemp()) / "entry.lock"
+    first = EntryLock(lock_path)
+    assert first.acquire(exclusive=False)
+    second = EntryLock(lock_path)
+    assert second.acquire(exclusive=False)
+
+    before = _open_fd_count()
+    venv_cache.retain_lock(first)
+    venv_cache.retain_lock(second)
+    after = _open_fd_count()
+
+    assert after - before <= 1, (
+        f"retaining the same entry twice cost {after - before} descriptors; "
+        "this accumulates until EMFILE disables the cache"
+    )
+    # Still protected: retaining is not releasing.
+    assert not EntryLock(lock_path).acquire(exclusive=True)
+
+
+def test_running_out_of_descriptors_is_not_treated_as_permanent(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The 20 GB default is larger than the whole disk on a small node.
+    """`unusable` means "retrying cannot fix this", and EMFILE is not that.
 
-    Left unclamped it means eviction never triggers before the volume fills,
-    so the cache becomes the thing that breaks the node it was meant to speed
-    up. Two entries and a 1 TB budget: nothing would be evicted, but a 10 KB
-    filesystem allows only 5 KB of cache, so the LRU entry goes.
+    Marking it unusable makes _acquire_cache_entry break out of its retry loop
+    AND trip _warn_cache_unavailable_once, whose lru_cache makes the warning
+    -- and the operator's picture of the cache -- permanent for the pod, over
+    a condition that clears as soon as other descriptors close.
     """
-    root = tmp_path / "cache"
-    root.mkdir()
-    old = _entry(root, "old", 4096, age_s=10_000)
-    new = _entry(root, "new", 4096, age_s=1)
+    lock = EntryLock(tmp_path / "entry.lock")
 
-    monkeypatch.setattr(os, "statvfs", lambda _p: mock.Mock(f_blocks=10, f_frsize=1024))
-    venv_cache._warn_budget_clamped_once.cache_clear()
+    def out_of_descriptors(*args: object, **kwargs: object) -> int:
+        raise OSError(errno.EMFILE, "Too many open files")
 
-    assert evict_to_budget(root, 1024**4) > 0
-    assert not old.exists()
-    assert new.exists()
+    monkeypatch.setattr(os, "open", out_of_descriptors)
+
+    assert not lock.acquire(exclusive=True)
+    assert not lock.unusable, (
+        "EMFILE is transient; treating it as permanent disables the cache for "
+        "the life of the pod"
+    )

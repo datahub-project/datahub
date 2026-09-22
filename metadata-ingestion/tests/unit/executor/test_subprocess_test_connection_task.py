@@ -590,3 +590,80 @@ async def test_cancellation_keeps_the_venv_cache_lock_while_the_child_lives(
 
     assert venv_ref.lock is None, "the lock must be detached, not released"
     lock.release.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_a_wrapper_resolution_failure_releases_the_lock_and_cleans_up(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """The window between prepare_recipe_run and the spawn try was unguarded.
+
+    prepare_recipe_run returns holding the entry SHARED, and
+    resolve_wrapper_script runs before any handler: it raises RuntimeError
+    when importlib.util.find_spec returns None, which is what a packaging or
+    partially-installed-image failure looks like. Nothing released the lock
+    and nothing removed exec_out_dir -- and because the failure is
+    deterministic, every test-connection request repeated it, pinning one
+    unevictable entry per distinct recipe key for the life of the pod.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "venv-demo-data"
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.resolve_wrapper_script",
+            side_effect=RuntimeError("wrapper module not found"),
+        ),
+        pytest.raises(RuntimeError, match="wrapper module not found"),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    venv_ref.lock.release.assert_called_once()
+    assert not Path(f"{config.tmp_dir}/{exec_ctx.exec_id}").exists(), (
+        "the per-execution directory was left behind; on the cache-off path "
+        "it holds a complete per-run venv"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_popen_failure_also_removes_the_execution_directory(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """The ingestion task removes exec_out_dir in the identical situation.
+
+    On the cache-off or cache-busy path that directory holds a complete
+    per-run venv, so each such failure leaks a full venv's worth of disk.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "venv-demo-data"
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            side_effect=OSError("cannot fork"),
+        ),
+        pytest.raises(OSError, match="cannot fork"),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    assert not Path(f"{config.tmp_dir}/{exec_ctx.exec_id}").exists()

@@ -5,8 +5,10 @@ Everything here answers a question about a venv without touching one. Anything
 with a side effect belongs in venv_cache.
 """
 
+import hashlib
 import logging
 import pathlib
+import re
 
 from datahub.executor.common.env_config import get_venv_cache_path
 
@@ -46,15 +48,59 @@ def should_use_bundled_venv_by_name(venv_name: str) -> bool:
     return venv_name.endswith("-bundled")
 
 
+# Everything a cache entry's directory name is allowed to contain. Deliberately
+# a strict allowlist rather than a blocklist of separators: the input is recipe
+# data, and the only characters any real source type uses are already in here.
+_UNSAFE_ENTRY_CHARS = re.compile(r"[^A-Za-z0-9._-]")
+
+
+def _safe_entry_name(venv_name: str) -> str:
+    """Reduce a venv name to one path component, without merging distinct names.
+
+    The name carries `main_plugin`, which is recipe["source"]["type"] --
+    unvalidated input -- and it is concatenated straight into a node-SHARED
+    directory. A separator in it is not cosmetic. `source.type: "mysql/x"`
+    makes the entry `<root>/venv-mysql/x-latest-<hash>`, and then:
+
+    - _acquire_cache_entry evicts against `venv_loc.parent`, which is now
+      `<root>/venv-mysql` rather than the cache root, so that build never
+      trims the real cache; and
+    - any OTHER task's eviction pass, running against the real root, sees
+      `venv-mysql` as an entry -- it is a directory with the prefix -- finds
+      no LAST_USED marker so last_used_at returns 0.0 and it sorts FIRST,
+      then takes `<root>/venv-mysql.lock`, a path no live task holds, and
+      rmtrees a venv a running ingestion is executing from.
+
+    `..` is the same problem pointed outward: the entry and its lock land
+    outside the cache root entirely, where nothing ever reclaims them.
+
+    Substitution alone would be a different bug -- it is many-to-one, so
+    `a/b` and `a_b` would share an entry and one recipe would get the other's
+    venv. A digest of the ORIGINAL name is appended whenever substitution
+    changed anything, which keeps distinct names distinct while leaving every
+    already-safe name byte-identical, so existing entries are not orphaned.
+    """
+    sanitized = _UNSAFE_ENTRY_CHARS.sub("_", venv_name)
+    if sanitized == venv_name:
+        return venv_name
+    logger.warning(
+        "venv name %r is not a safe directory name; using %r instead. This "
+        "usually means a recipe's source type contains a path separator.",
+        venv_name,
+        sanitized,
+    )
+    return f"{sanitized}-{hashlib.sha256(venv_name.encode('utf-8')).hexdigest()[:16]}"
+
+
 def venv_location(venv_name: str, tmp_dir: str, *, cacheable: bool) -> str:
     """Where this venv should live.
 
-    `cacheable` comes from VenvConfig.get_stable_venv_name() returning a name
-    rather than None -- the caller has already decided whether this venv's
-    contents are fully determined by its name. A cacheable venv goes in the
-    node-local cache and survives the task; an ephemeral one stays under the
-    execution directory and is deleted with it.
+    `cacheable` is decided by the caller (_name_dynamic_venv): a stable name
+    AND the cache switched on. A cacheable venv goes in the node-local cache
+    and survives the task; an ephemeral one stays under the execution
+    directory and is deleted with it.
     """
+    venv_name = _safe_entry_name(venv_name)
     if should_use_bundled_venv_by_name(venv_name):
         return get_venv_path(venv_name, tmp_dir)
     if cacheable:
@@ -99,6 +145,25 @@ def touch_last_used(venv_loc: pathlib.Path) -> None:
         (venv_loc / LAST_USED_MARKER).touch()
     except OSError:
         logger.debug("Could not touch the last-used marker in %s", venv_loc)
+
+
+def built_at(venv_loc: pathlib.Path) -> float:
+    """Epoch seconds when this venv finished building, or 0.0 if unknown.
+
+    The completion marker is written once, as the last step of a successful
+    build, and never touched again -- so its mtime is the build time. This is
+    deliberately NOT the last-used marker, which is refreshed on every hit:
+    an age measured from last use would make the busiest entry the one that
+    never expires, which is exactly backwards for a moving version like
+    `latest` that every recipe shares.
+
+    0.0 for an entry with no marker, so an unknown build age reads as
+    infinitely old and is rebuilt rather than trusted.
+    """
+    try:
+        return (venv_loc / COMPLETE_MARKER).stat().st_mtime
+    except OSError:
+        return 0.0
 
 
 def last_used_at(venv_loc: pathlib.Path) -> float:

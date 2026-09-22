@@ -24,7 +24,7 @@ import shutil
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import pydantic
 import yaml
@@ -42,6 +42,7 @@ from datahub.executor.execution.runner import (
     setup_venv,
 )
 from datahub.executor.execution.task import TaskError
+from datahub.executor.execution.venv_cache import retain_lock
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.constants import SENTINEL_MESSAGES
 from datahub.masking.masking_filter import SecretMaskingFilter
@@ -561,7 +562,10 @@ class SubProcessTaskUtil:
     @staticmethod
     def _keep_venv_lock_unless_exited(
         venv_ref: Optional[VenvReference],
-        process: Any,
+        # The union rather than Any: the two public wrappers exist precisely
+        # so mypy can pick the right variant at each call site, and Any here
+        # would give that back. Only read for its pid, in the log line below.
+        process: Optional[Union[asyncio.subprocess.Process, subprocess.Popen]],
         *,
         exited: Optional[bool],
     ) -> None:
@@ -573,14 +577,23 @@ class SubProcessTaskUtil:
         signals the child and re-raises without waiting, and a SIGTERM or
         SIGKILL against a process wedged in an uninterruptible syscall is not
         delivered until that syscall returns. Releasing then marks the entry
-        evictable while it is in use, and the next build's evict_to_budget
+        evictable while it is in use, and the next build's eviction pass
         rmtree's a running interpreter -- which kills it with an ImportError on
         a deleted .so, inside a task already reported as CANCELLED, so the
         error lands nowhere.
 
-        Detaching leaks the lock for the life of this process: the entry
+        Detaching keeps the lock for the life of this process: the entry
         becomes unevictable, which costs disk. Deleting a venv out from under a
         live interpreter costs a wrong answer. Prefer the disk.
+
+        Handed to retain_lock rather than simply dropped. An EntryLock owns a
+        raw os.open fd and has no __del__, so dropping the reference keeps the
+        lock AND leaks a descriptor -- one per EVENT, not one per entry, and
+        test-connection reaches this on essentially every cancellation because
+        the child is signalled without being waited for. retain_lock keys on
+        the lock path, so a second detach of an entry already retained costs
+        nothing and the bounded "one unevictable entry" above is what actually
+        happens.
 
         Call one of the two public wrappers immediately before whatever would
         release the lock -- release_venv_lock or finalize_task_output. Both are
@@ -616,6 +629,7 @@ class SubProcessTaskUtil:
             getattr(process, "pid", "?"),
             venv_ref.venv_loc,
         )
+        retain_lock(venv_ref.lock)
         venv_ref.lock = None
 
     @staticmethod
@@ -790,13 +804,19 @@ class SubProcessTaskUtil:
             venv_ref = await SubProcessTaskUtil.setup_task_venv(
                 args, plugin, exec_out_dir, version=venv_version, logs=venv_logs
             )
-        except Exception:
-            # setup_venv writes an EXPANDED requirements file in here -- env-var
-            # templates resolved, so a private index URL carries its token in
-            # clear text on disk. The only caller invokes this outside the try
-            # whose finally calls finalize_task_output, so nothing else was
-            # scheduled to remove it and a failed run left the credential
-            # behind.
+        except BaseException:
+            # The only caller invokes this outside the try whose finally calls
+            # finalize_task_output, so nothing else is scheduled to remove
+            # this directory and a failed setup would leave it -- plus the
+            # half-built ephemeral venv inside it -- behind for good.
+            #
+            # BaseException, not Exception: the venv build is both the longest
+            # step and the likeliest cancellation point (DefaultExecutor.signal
+            # cancels the task future), and CancelledError is a BaseException.
+            # Matching the handler below, and sub_process_ingestion_task's.
+            # Note setup_task_venv deliberately keeps its narrower
+            # `except Exception` -- a cancellation must stay a CancelledError
+            # rather than become a TaskError -- so the cleanup has to be here.
             #
             # Only what this call created. exec_out_dir may already exist
             # because a caller laid artifact directories out under it first,
