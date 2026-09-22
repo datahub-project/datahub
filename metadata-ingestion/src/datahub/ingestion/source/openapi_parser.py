@@ -610,6 +610,8 @@ def merge_allof_schemas(
                 dict.fromkeys(existing_required + new_required)
             )
 
+        _merge_allof_enum(merged_schema, resolved_allof)
+
         # Merge other schema attributes (type, format, description, etc.)
         # Only merge if not already present in merged_schema
         for key in [
@@ -617,7 +619,6 @@ def merge_allof_schemas(
             "format",
             "description",
             "title",
-            "enum",
             "default",
             "example",
         ]:
@@ -666,7 +667,30 @@ def merge_allof_schemas(
             merged_schema, sw_dict, resolving_refs=True, max_depth=max_depth
         )
 
+    # A disjoint enum intersection collapses to []. Emitting `enum: []` is invalid
+    # per the JSON Schema meta-schema (minItems 1), so json_schema_util's
+    # check_schema rejects the whole schema and drops every field -- not just the
+    # enum. The composition is unsatisfiable; drop the keyword so the field stays
+    # typed by its other keywords instead of voiding the entire schema.
+    if merged_schema.get("enum") == []:
+        del merged_schema["enum"]
+
     return merged_schema
+
+
+def _merge_allof_enum(merged_schema: Dict, resolved_allof: Dict) -> None:
+    # enum under allOf is the intersection of the members' allowed values, not
+    # first-wins: allOf[{enum:[1,2,3]},{enum:[2,3,4]}] permits only [2,3].
+    # Membership test (not a set) so unhashable enum values don't raise.
+    new_enum = resolved_allof.get("enum")
+    if not isinstance(new_enum, list):
+        return
+    existing_enum = merged_schema.get("enum")
+    merged_schema["enum"] = (
+        [v for v in existing_enum if v in new_enum]
+        if isinstance(existing_enum, list)
+        else list(new_enum)
+    )
 
 
 def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
@@ -842,6 +866,21 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
             resolved_schema["additionalProperties"], sw_dict, max_depth=max_depth - 1
         )
 
+    # Recursively resolve references under patternProperties (a map whose keys
+    # match a regex) and propertyNames (a schema constraining the key strings).
+    # Master resolved neither, so a $ref'd map value type was left unresolved.
+    if isinstance(resolved_schema.get("patternProperties"), dict):
+        pattern_properties = dict(resolved_schema["patternProperties"])
+        for pattern, prop_schema in pattern_properties.items():
+            pattern_properties[pattern] = resolve_schema_references(
+                prop_schema, sw_dict, max_depth=max_depth - 1
+            )
+        resolved_schema["patternProperties"] = pattern_properties
+    if isinstance(resolved_schema.get("propertyNames"), dict):
+        resolved_schema["propertyNames"] = resolve_schema_references(
+            resolved_schema["propertyNames"], sw_dict, max_depth=max_depth - 1
+        )
+
     # Handle allOf by merging schemas (before treating as union)
     if "allOf" in resolved_schema:
         resolved_schema = merge_allof_schemas(
@@ -858,7 +897,44 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
                 for union_schema in resolved_schema[union_key]
             ]
 
-    return resolved_schema
+    # Promote a map-only patternProperties schema to additionalProperties so
+    # json_schema_util extracts the map value type. Done after allOf merge so
+    # named properties contributed by allOf are seen and preserved.
+    return _promote_pattern_properties_to_additional(resolved_schema)
+
+
+def _promote_pattern_properties_to_additional(resolved_schema: Dict) -> Dict:
+    """Promote a map-only ``patternProperties`` schema to ``additionalProperties``.
+
+    ``json_schema_util`` extracts a map's value type from ``additionalProperties``
+    but ignores ``patternProperties``. Only promote when the schema is map-only
+    (no named ``properties`` and no dict ``additionalProperties``); named
+    properties otherwise take precedence and would be dropped by the map path.
+    Returns the same object when nothing is promoted, else a copy (the input may
+    alias a shared ``sw_dict`` component that must not be mutated in place).
+    """
+    pattern_properties = resolved_schema.get("patternProperties")
+    if not isinstance(pattern_properties, dict):
+        return resolved_schema
+    if isinstance(resolved_schema.get("additionalProperties"), dict):
+        return resolved_schema
+    if resolved_schema.get("properties"):
+        return resolved_schema
+    pattern_schemas = [
+        dict(s) if isinstance(s, dict) else s for s in pattern_properties.values()
+    ]
+    if not pattern_schemas:
+        return resolved_schema
+    promoted = dict(resolved_schema)
+    if len(pattern_schemas) == 1:
+        promoted["additionalProperties"] = pattern_schemas[0]
+    else:
+        # Disjoint pattern namespaces collapse to one map value type -- a lossy
+        # approximation of the original per-pattern schemas.
+        promoted["additionalProperties"] = {"anyOf": pattern_schemas}
+    if "type" not in promoted:
+        promoted["type"] = "object"
+    return promoted
 
 
 def extract_schema_from_response_schema(

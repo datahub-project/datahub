@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import yaml
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.source.openapi import APISource, OpenApiConfig
 from datahub.ingestion.source.openapi_parser import (
     flatten2list,
@@ -1371,6 +1372,103 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIn("required", resolved)
         self.assertIn("name", resolved["required"])
         self.assertIn("id", resolved["required"])
+
+    def test_resolve_schema_references_pattern_properties_ref_resolved_and_promoted(
+        self,
+    ):
+        # A map-only patternProperties schema with a $ref value: the ref is
+        # resolved and the pattern schema is promoted to additionalProperties so
+        # json_schema_util can extract the map value type.
+        sw_dict = {
+            "swagger": "2.0",
+            "definitions": {"Value": {"type": "integer"}},
+        }
+        schema = {
+            "type": "object",
+            "patternProperties": {"^x-": {"$ref": "#/definitions/Value"}},
+        }
+        resolved = resolve_schema_references(schema, sw_dict)
+        self.assertEqual(resolved["patternProperties"]["^x-"], {"type": "integer"})
+        self.assertEqual(resolved["additionalProperties"], {"type": "integer"})
+
+    def test_resolve_schema_references_multiple_pattern_properties_promoted_to_anyof(
+        self,
+    ):
+        schema = {
+            "type": "object",
+            "patternProperties": {
+                "^s_": {"type": "string"},
+                "^n_": {"type": "integer"},
+            },
+        }
+        resolved = resolve_schema_references(schema, {})
+        self.assertIn("anyOf", resolved["additionalProperties"])
+        self.assertEqual(
+            resolved["additionalProperties"]["anyOf"],
+            [{"type": "string"}, {"type": "integer"}],
+        )
+
+    def test_resolve_schema_references_named_properties_block_pattern_promotion(self):
+        # Named properties must win; promotion would route extraction through the
+        # additionalProperties map path and drop the named fields.
+        schema = {
+            "type": "object",
+            "properties": {"id": {"type": "integer"}},
+            "patternProperties": {"^x-": {"type": "string"}},
+        }
+        resolved = resolve_schema_references(schema, {})
+        self.assertNotIn("additionalProperties", resolved)
+        self.assertIn("id", resolved["properties"])
+
+    def test_resolve_schema_references_property_names_ref_resolved(self):
+        sw_dict = {
+            "swagger": "2.0",
+            "definitions": {"Key": {"type": "string", "pattern": "^[a-z]+$"}},
+        }
+        schema = {
+            "type": "object",
+            "additionalProperties": {"type": "integer"},
+            "propertyNames": {"$ref": "#/definitions/Key"},
+        }
+        resolved = resolve_schema_references(schema, sw_dict)
+        self.assertEqual(
+            resolved["propertyNames"], {"type": "string", "pattern": "^[a-z]+$"}
+        )
+
+    def test_merge_allof_enum_intersects_across_members(self):
+        schema = {
+            "allOf": [
+                {"type": "integer", "enum": [1, 2, 3]},
+                {"enum": [2, 3, 4]},
+            ]
+        }
+        resolved = resolve_schema_references(schema, {})
+        self.assertEqual(resolved["enum"], [2, 3])
+
+    def test_merge_allof_disjoint_enum_dropped_keeps_schema_valid(self):
+        # Disjoint enums across allOf members intersect to the empty set. An
+        # empty `enum: []` is invalid per the JSON Schema meta-schema
+        # (minItems 1), so json_schema_util's check_schema rejects the whole
+        # schema and drops every field -- not just the one enum constraint. The
+        # composition is unsatisfiable, so the enum keyword must be dropped and
+        # the rest of the schema must stay extractable.
+        schema = {
+            "type": "object",
+            "properties": {
+                "status": {"allOf": [{"enum": ["a", "b"]}, {"enum": ["c", "d"]}]},
+                "name": {"type": "string"},
+            },
+        }
+        resolved = resolve_schema_references(schema, {})
+        self.assertNotIn("enum", resolved["properties"]["status"])
+        # The whole schema must remain valid for extraction; an empty enum would
+        # raise in check_schema here (swallow_exceptions=False) and drop `name`.
+        fields = list(
+            JsonSchemaTranslator.get_fields_from_schema(
+                resolved, swallow_exceptions=False
+            )
+        )
+        self.assertTrue(any(f.fieldPath.endswith("name") for f in fields))
 
     def test_resolve_schema_references_circular(self):
         """Test that circular references are handled by max_depth limit."""
