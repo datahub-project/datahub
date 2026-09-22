@@ -127,7 +127,8 @@ base_dev_requirements = {
     "pytest-dependency>=0.5.1",
     "pytest-docker>=0.10.3",
     "tox",
-    "deepdiff",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    "deepdiff>=8.6.2,<9.0.0",
     "requests-mock",
     "freezegun",
     "jsonpickle",

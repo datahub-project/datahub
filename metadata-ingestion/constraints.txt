@@ -318,7 +318,7 @@ db-dtypes==1.5.0 ; python_full_version >= '3.11' and python_full_version < '3.14
     # via acryl-datahub
 decorator==5.2.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via gssapi
-deepdiff==8.6.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+deepdiff==8.6.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 deepmerge==2.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
