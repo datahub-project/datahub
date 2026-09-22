@@ -175,7 +175,7 @@ export default function QueriesTab() {
             </Content>
             {showQueryBuilder && (
                 <QueryBuilderModal
-                    datasetUrn={baseEntity.dataset?.urn}
+                    datasetUrn={baseEntity?.dataset?.urn}
                     onClose={() => setShowQueryBuilder(false)}
                     onSubmit={onQueryCreated}
                 />
