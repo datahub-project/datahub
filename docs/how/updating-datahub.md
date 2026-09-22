@@ -49,7 +49,7 @@ Requirements:
 
 ### Breaking Changes
 
-- **(GMS / Logging)** GMS no longer writes DEBUG-level logs to `gms.debug.log` by default. Debug logging has a reasonably high performance cost and is rarely useful outside of active troubleshooting. **Action:** to restore the old behavior, set the JVM system property `-Dlogging.appender.debug_file.level=DEBUG` on the GMS process (for example via `JAVA_OPTS` in your Helm values or Docker Compose env).
+- **(GMS / Logging)** GMS no longer writes DEBUG-level logs to `gms.debug.log` by default. Debug logging has a reasonably high performance cost and is rarely useful outside of active troubleshooting. Local dev/debug Docker Compose stacks (e.g. `./gradlew quickstartDebug`) are unaffected and keep it enabled. **Action:** to restore the old behavior elsewhere, set the JVM system property `-Dlogging.appender.debug_file.level=DEBUG` on the GMS process (for example via `JAVA_OPTS` in your Helm values or Docker Compose env).
 
 - [#19516](https://github.com/datahub-project/datahub/pull/19516) **(Ingestion / Data lakes)** Data lake ingestion now skips files whose extension is not listed in `file_types`. Compressed files are checked by their inner extension; files such as `archive.gz` require `default_extension`. **Action:** Add required extensions to `file_types`, or set `default_extension` for extensionless or compressed files.
 
