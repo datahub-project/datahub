@@ -50,7 +50,7 @@ describe('useGetDomainsYouOwn', () => {
         );
     });
 
-    it('uses the cards search query for domains owned by the user', () => {
+    it('searches domains owned by the user using the trimmed cards query', () => {
         const user = mockCorpUser('urn:li:corpuser:alice');
         renderHook(() => useGetDomainsYouOwn(user));
 

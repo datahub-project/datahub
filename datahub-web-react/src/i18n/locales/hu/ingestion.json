@@ -17,6 +17,7 @@
     "executions.cancelError": "Nem sikerült megszakítani a végrehajtást!: \n {{errorMessage}}",
     "executions.cancelSuccess": "A megszakítási kérés sikeresen elküldve!",
     "executions.cliExecution": "CLI-végrehajtás",
+    "executions.cliExecutionBy": "CLI-végrehajtás – <user></user>",
     "executions.colDuration": "Időtartam",
     "executions.colExecutedBy": "Végrehajtotta",
     "executions.colStartedAt": "Elindítva",

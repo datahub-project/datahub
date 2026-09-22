@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-import sys
 from typing import Any, Optional
 from unittest.mock import Mock, patch
 
@@ -15,7 +14,7 @@ from datahub.ingestion.source.unstructured.event_consumer import (
     DocumentEventConsumer,
 )
 
-# Skip entire module if unstructured is not installed (requires Python 3.10+)
+# Skip entire module if unstructured is not installed (requires Python 3.11+)
 pytest.importorskip("unstructured")
 
 from datahub.ingestion.api.common import PipelineContext
@@ -59,10 +58,6 @@ def _mock_fetch(source, entities, urns=None):
 class TestTextPartitioner:
     """Test text partitioner."""
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason="unstructured requires Python 3.10+",
-    )
     def test_partition_simple_markdown(self):
         """Test partitioning simple markdown text."""
         partitioner = TextPartitioner()
@@ -76,10 +71,6 @@ class TestTextPartitioner:
         element_types = {elem.get("type") for elem in elements}
         assert "Title" in element_types or "Header" in element_types
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason="unstructured requires Python 3.10+",
-    )
     def test_partition_empty_text(self):
         """Test partitioning empty text."""
         partitioner = TextPartitioner()
@@ -89,10 +80,6 @@ class TestTextPartitioner:
 
         assert elements == []
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason="unstructured requires Python 3.10+",
-    )
     def test_partition_single_character_falls_back(self):
         """A single-character document yields zero elements from the markdown
         partitioner; the fallback keeps it embeddable instead of silently
@@ -2459,6 +2446,61 @@ class TestPartialEntityHandling:
             workunits = list(source._process_single_event(event))
             assert len(workunits) == 0
 
+    def test_document_info_event_null_contents_falls_back_to_fetch(
+        self, ctx, config, mock_graph
+    ):
+        """A partial documentInfo event (null contents) falls back to fetching the full
+        aspect instead of dropping the event, so a document whose only event carried a
+        partial payload is still embedded."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            event: dict[str, Any] = {
+                "entityUrn": "urn:li:document:partial-event",
+                "aspectName": "documentInfo",
+                "aspect": json.dumps({"contents": None}),
+            }
+
+            with (
+                patch.object(
+                    source,
+                    "_fetch_document_info_dict",
+                    return_value={
+                        "source": {"sourceType": "NATIVE"},
+                        "contents": {"text": "full body from fetch"},
+                    },
+                ) as mock_fetch,
+                patch.object(source, "_fetch_semantic_text", return_value=None),
+                patch.object(
+                    source, "_process_document_with_throttle", return_value=iter([])
+                ) as mock_process,
+            ):
+                list(source._process_single_event(event))
+
+            mock_fetch.assert_called_once()
+            mock_process.assert_called_once()
+            doc = mock_process.call_args[0][0]
+            assert doc["text"] == "full body from fetch"
+
+    def test_document_info_event_null_contents_and_unreadable_fallback_skips(
+        self, ctx, config, mock_graph
+    ):
+        """When the fetch fallback is also unreadable, the event is skipped without
+        stamping a skip marker from content that was never readable."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            event: dict[str, Any] = {
+                "entityUrn": "urn:li:document:unreadable",
+                "aspectName": "documentInfo",
+                "aspect": json.dumps({"contents": None}),
+            }
+
+            with patch.object(source, "_fetch_document_info_dict", return_value=None):
+                workunits = list(source._process_single_event(event))
+
+        assert workunits == []
+
     def test_fetch_documents_mixed_null_and_valid(self, ctx, config, mock_graph):
         """Test batch mode with a mix of null-info, null-contents, and valid entities."""
         with mock_graph:
@@ -4753,3 +4795,29 @@ class TestTotalProcessingFailure:
             source = self._run(ctx, failed=2, processed=5)
 
         assert not source.report.failures
+
+
+def test_datahub_documents_does_not_embed_when_only_v3_enabled():
+    """V3 on with semantic search off must not start embedding generation."""
+    from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
+    from datahub.ingestion.source.unstructured.chunking_source import (
+        DocumentChunkingSource,
+    )
+
+    fake_graph = Mock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": False,
+                "enabledEntities": ["document"],
+                "embeddingConfig": None,
+            },
+            "entityIndexV3": {"enabled": True},
+        }
+    }
+    resolved = DocumentChunkingSource.resolve_embedding_config(
+        EmbeddingConfig(), graph=fake_graph
+    )
+    assert resolved.provider is None
+    query = fake_graph.execute_graphql.call_args.kwargs["query"]
+    assert "entityIndexV3" in query

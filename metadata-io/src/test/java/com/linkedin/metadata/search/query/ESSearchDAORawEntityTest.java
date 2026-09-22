@@ -27,7 +27,9 @@ public class ESSearchDAORawEntityTest {
   public void testRawEntityWithMockedClient() throws Exception {
     // Setup mocks
     SearchClientShim<?> mockClient = Mockito.mock(SearchClientShim.class);
-    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    OperationContext opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), mockClient);
 
     // Mock search response
     SearchResponse mockResponse = Mockito.mock(SearchResponse.class);
@@ -52,7 +54,6 @@ public class ESSearchDAORawEntityTest {
     // Create ESSearchDAO with mocked client
     ESSearchDAO esSearchDAO =
         new ESSearchDAO(
-            mockClient,
             false,
             TEST_OS_SEARCH_CONFIG,
             null,

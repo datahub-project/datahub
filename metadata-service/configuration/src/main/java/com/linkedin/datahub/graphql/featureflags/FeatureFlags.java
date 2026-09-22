@@ -39,6 +39,9 @@ public class FeatureFlags {
   private boolean themeV2Enabled = false;
   private boolean themeV2Default = false;
   private boolean themeV2Toggleable = false;
+  // Gates the user-facing light/dark mode toggle and applying the dark color theme.
+  // Default OFF until dark mode is ready to ship. Preference is still stored locally when enabled.
+  private boolean themeDarkModeEnabled = false;
   private boolean showSeparateSiblings = false;
   private boolean alternateMCPValidation = false;
   private boolean showManageStructuredProperties = false;
@@ -66,7 +69,7 @@ public class FeatureFlags {
   private boolean showHomepageUserRole = false;
   private boolean assetSummaryPageV1 = false;
   private boolean datasetSummaryPageV1 = false;
-  private boolean metricsEnabled = false;
+  private boolean metricsEnabled = true;
   private boolean showDefaultExternalLinks = true;
   private boolean documentationFileUploadV1 = false;
   private boolean multipleDataProductsPerAsset = false;
@@ -74,6 +77,7 @@ public class FeatureFlags {
   private boolean dataProductLineageEnabled = false;
   private boolean contextDocumentsEnabled = false;
   private boolean glossaryBasedPoliciesEnabled = false;
+  private boolean structuredPropertiesInPoliciesEnabled = false;
   private boolean showTestsInHealthIcon = false;
   private boolean createSchemaVersionIndex = false;
   private boolean aspectMigrationMutatorEnabled = false;

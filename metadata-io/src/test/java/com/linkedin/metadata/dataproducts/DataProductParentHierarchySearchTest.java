@@ -13,6 +13,7 @@ import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -32,7 +33,7 @@ public class DataProductParentHierarchySearchTest {
   private static final AspectSpec ASPECT_SPEC =
       ENTITY_SPEC.getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
   private static final SearchDocumentTransformer TRANSFORMER =
-      new SearchDocumentTransformer(1000, 1000, 1000);
+      new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
 
   private static final Urn ROOT = UrnUtils.getUrn("urn:li:dataProduct:hierarchy-root");
   private static final Urn MID = UrnUtils.getUrn("urn:li:dataProduct:hierarchy-mid");

@@ -253,7 +253,7 @@ class QueryCombinerRunner:
         self, table: "sa.Table", column: str
     ) -> FutureResult[int]:
         """
-        Get non-null count (avoids GE's problematic IN (NULL) pattern).
+        Get non-null count for a column.
 
         Returns FutureResult that resolves after query_combiner.flush().
         """

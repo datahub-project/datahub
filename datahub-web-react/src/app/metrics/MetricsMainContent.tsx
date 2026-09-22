@@ -4,7 +4,7 @@ import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
 import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
 import React, { useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -27,6 +27,9 @@ import { Entity } from '@types';
 // Cap the recent lists at the same count the home modules use, with a
 // "show more" toggle — mirrors `EntityLinkList` / `AssetsYouOwn`.
 const MAX_RECENT = 5;
+const METRICS_DOCS_URL = 'https://docs.datahub.com/docs/features/feature-guides/metrics-and-semantic-models';
+// The migration guidance for pre-existing `Semantic View` datasets lives in the guide's FAQ.
+const METRICS_MIGRATION_DOCS_URL = `${METRICS_DOCS_URL}#faq`;
 
 const ContentCard = styled.div`
     flex: 1;
@@ -100,7 +103,7 @@ const ModuleContent = styled.div<{ $hasFooter?: boolean }>`
 const MetricsModuleHeader = styled(ModuleHeader)`
     &:hover {
         background: transparent;
-        border-bottom: ${borders['1px']} ${(props) => props.theme.colors.bg};
+        border-bottom: ${borders['1px']} transparent;
     }
 `;
 
@@ -218,12 +221,36 @@ export default function MetricsMainContent() {
                     <EmptyState
                         icon={Sigma}
                         title={t('metrics.homeEmptyTitle')}
-                        description={t('metrics.homeEmptyDescription')}
+                        description={
+                            <>
+                                {t('metrics.homeEmptyDescription')}
+                                <br />
+                                <Trans
+                                    t={t}
+                                    i18nKey="metrics.homeEmptyMigrationHint"
+                                    components={{
+                                        anchor: (
+                                            // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                            <a
+                                                target="_blank"
+                                                rel="noreferrer noopener"
+                                                href={METRICS_MIGRATION_DOCS_URL}
+                                            />
+                                        ),
+                                    }}
+                                />
+                            </>
+                        }
                         size="lg"
                         action={{
                             label: t('metrics.homeEmptyAction'),
                             onClick: () => history.push(PageRoutes.INGESTION_CREATE),
                             dataTestId: 'metrics-ingest-cta',
+                        }}
+                        secondaryAction={{
+                            label: t('metrics.homeEmptyLearnMore'),
+                            onClick: () => window.open(METRICS_DOCS_URL, '_blank'),
+                            dataTestId: 'metrics-learn-more-cta',
                         }}
                     />
                 </EmptyListHint>

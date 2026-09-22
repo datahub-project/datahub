@@ -385,6 +385,42 @@ module.exports = {
           id: "docs/glossary/business-glossary",
         },
         {
+          label: "Ontology",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "What is an Ontology?",
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/overview",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/relating-glossary-terms",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/visualizing-your-ontology",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/querying-your-ontology",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/custom-relationships",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/sparql-api",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           label: "Compliance Forms",
           type: "category",
           collapsed: true,
@@ -683,6 +719,41 @@ module.exports = {
       id: "docs/managed-datahub/welcome-acryl",
     },
     {
+      type: "category",
+      label: "Context and AI",
+      items: [
+        {
+          label: "Context",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/context/overview",
+          },
+          className: "saasOnly",
+          items: [
+            {
+              label: "Configure Context Generation",
+              type: "doc",
+              id: "docs/managed-datahub/context/configure-context-generation",
+              className: "saasOnly",
+            },
+            {
+              label: "Validate Context",
+              type: "doc",
+              id: "docs/managed-datahub/context/review-context-proposals",
+              className: "saasOnly",
+            },
+            {
+              label: "Activate Context",
+              type: "doc",
+              id: "docs/managed-datahub/context/activate-context",
+              className: "saasOnly",
+            },
+          ],
+        },
+      ],
+    },
+    {
       label: "Data Quality & Observability",
       type: "doc",
       id: "docs/managed-datahub/observe/overview",
@@ -900,6 +971,7 @@ module.exports = {
           items: [
             "metadata-ingestion/docs/transformer/dataset_transformer",
             "metadata-ingestion/docs/transformer/universal_transformers",
+            "metadata-ingestion/docs/transformer/set_attribution",
           ],
         },
       ],
@@ -926,6 +998,7 @@ module.exports = {
             "docs/quick-ingestion-guides/snowflake/overview",
             "docs/quick-ingestion-guides/snowflake/setup",
             "docs/quick-ingestion-guides/snowflake/configuration",
+            "docs/quick-ingestion-guides/snowflake/migrate-to-key-pair-auth",
           ],
         },
         {

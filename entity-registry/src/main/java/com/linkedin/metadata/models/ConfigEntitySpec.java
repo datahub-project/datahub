@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.ToString;
 
 @ToString
@@ -30,7 +31,7 @@ public class ConfigEntitySpec implements EntitySpec {
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
       @Nonnull final Collection<AspectSpec> aspectSpecs,
-      @Nonnull final String searchGroup) {
+      @Nullable final String searchGroup) {
     this(entityName, keyAspect, aspectSpecs, searchGroup, false);
   }
 
@@ -38,7 +39,7 @@ public class ConfigEntitySpec implements EntitySpec {
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
       @Nonnull final Collection<AspectSpec> aspectSpecs,
-      @Nonnull final String searchGroup,
+      @Nullable final String searchGroup,
       final boolean viewUnrestricted) {
     _aspectSpecs =
         aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));

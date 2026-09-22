@@ -7,6 +7,8 @@
     "domainSelector.searchPlaceholder": "Search all domains...",
     "entitySearch.noEntitiesFound": "No entities found",
     "entitySearch.placeholder": "Search for entities...",
+    "customOwnershipType": "Custom Ownership Type",
+    "ingestionSource": "Ingestion Source",
     "groupBy.displayValue": "Group {{label}}",
     "groupBy.group": "Group"
 }

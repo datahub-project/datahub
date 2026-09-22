@@ -6,7 +6,7 @@ import { Direction } from '@app/lineage/types';
 import { FilterMode } from '@app/search/utils/constants';
 
 import {
-    AllowedValue,
+    AllowedValueInput,
     DataHubPageModuleType,
     DataHubViewType,
     EntityType,
@@ -980,7 +980,7 @@ interface StructuredPropertyEvent extends BaseEvent {
     appliesTo: string[];
     qualifiedName?: string;
     allowedAssetTypes?: string[];
-    allowedValues?: AllowedValue[];
+    allowedValues?: AllowedValueInput[];
     cardinality?: PropertyCardinality;
     showInFilters?: boolean;
     isHidden: boolean;

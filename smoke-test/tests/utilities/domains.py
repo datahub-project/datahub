@@ -10,8 +10,9 @@ the suite per pull request and route a failure to the owning team:
 The helpers here back the `--domain` command-line option wired up in conftest.py.
 """
 
+import json
 from enum import Enum
-from typing import Optional, Sequence, Set
+from typing import List, Optional, Sequence, Set, Tuple
 
 from _pytest.mark.structures import Mark
 
@@ -24,6 +25,7 @@ class Domain(str, Enum):
     INGESTION = "ingestion"
     AI = "ai"
     CATALOG = "catalog"
+    PLATFORM_INTERNAL = "platform-internal"
 
 
 ALL_DOMAINS: Set[str] = {domain.value for domain in Domain}
@@ -53,6 +55,14 @@ def domains_of(marker: Optional[Mark]) -> Set[str]:
         arg.value if isinstance(arg, Domain) else str(arg).lower()
         for arg in marker.args
     }
+
+
+def junit_user_properties(marker: Optional[Mark]) -> List[Tuple[str, str]]:
+    """JUnit ``domains`` property: a JSON array of the test's domain marker values."""
+    declared = sorted(domains_of(marker))
+    if not declared:
+        return []
+    return [("domains", json.dumps(declared))]
 
 
 def is_selected(declared: Set[str], requested: Set[str]) -> bool:

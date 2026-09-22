@@ -811,6 +811,7 @@ class Scenario(BaseModel):
 # @tenacity.retry(
 #     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 # )
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "lineage_style",
     [
