@@ -27,6 +27,7 @@ from datahub.executor.execution.sub_process_task_common import (
     unprotectable_disclosed_values,
 )
 from datahub.executor.execution.task import TaskError
+from datahub.executor.execution.venv_cache import EntryLock
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -1091,3 +1092,53 @@ def test_finalizing_stamps_the_entry_as_used(
         "the entry still records when the run started, so a run longer than "
         "the max age is evictable the moment it ends"
     )
+
+
+def test_the_last_used_stamp_happens_while_the_entry_is_still_held(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Recording the hit must not race the eviction it exists to prevent.
+
+    Handing the descriptor to the child and immediately dropping this
+    process's copy leaves the child as the only holder -- so the kernel
+    releases the entry the moment the child exits, and the end-of-run stamp
+    lands later, after _monitor_subprocess unwinds through an in-flight
+    heartbeat sleep. In that window a concurrent build sees an unlocked
+    entry whose marker still says "when the run started" and evicts it as
+    idle: exactly the case the stamp was added to prevent.
+
+    Keeping this process's copy costs nothing in the ownership model -- the
+    child's copy covers the child, and the kernel closes both on death --
+    and it puts the stamp back inside the protected window.
+    """
+    venv_loc = tmp_path / "venv-demo"
+    venv_loc.mkdir()
+    lock = EntryLock(tmp_path / "venv-demo.lock")
+    assert lock.acquire(exclusive=False)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = str(venv_loc)
+    venv_ref.lock = lock
+
+    held_at_stamp: list[bool] = []
+    real_touch = venv_utils.touch_last_used
+
+    def spy(loc: pathlib.Path) -> None:
+        held_at_stamp.append(lock.held)
+        real_touch(loc)
+
+    with patch.object(venv_utils, "touch_last_used", spy):
+        SubProcessTaskUtil.finalize_task_output(
+            str(tmp_path / "absent-report.json"),
+            str(tmp_path / "exec-out"),
+            deque(),
+            Mock(),
+            masking_filter=SecretMaskingFilter(),
+            venv_ref=venv_ref,
+        )
+
+    assert held_at_stamp == [True], (
+        "the entry was already unlocked when its last-used marker was "
+        "stamped, so eviction could have taken it first"
+    )
+    assert not lock.held, "finalize must let go once the stamp is recorded"

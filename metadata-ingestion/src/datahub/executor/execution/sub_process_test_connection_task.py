@@ -116,7 +116,6 @@ class SubProcessTestConnectionTask(Task):
                 text=True,
                 pass_fds=lock_fds,
             )
-            SubProcessTaskUtil.complete_lock_handoff(prepared.venv_ref, lock_fds)
 
             # Write envelope to stdin and close
             assert ingest_process.stdin is not None

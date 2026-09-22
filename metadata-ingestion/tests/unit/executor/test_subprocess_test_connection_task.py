@@ -486,19 +486,25 @@ async def test_a_stdin_failure_after_popen_keeps_the_venv_cache_lock(
     sample_args: dict[str, str],
     tmp_path: Path,
 ) -> None:
-    """Popen succeeding and the stdin write failing means a child is running.
+    """Releasing this process's copy is safe once a child exists.
 
-    The except covering this window releases the lock, which is right when
-    Popen itself failed and wrong once it produced a child: eviction would then
-    be free to rmtree the venv that child is executing out of. The two cases
-    reach the same handler, so the handler has to tell them apart.
+    Under the old model the parent's lock was the ONLY protection, so every
+    path here had to work out whether a child might still be running before
+    letting go -- and that reasoning is where most of this PR's review
+    findings lived. Now the child inherited its own descriptor at spawn, so
+    the entry stays locked by the kernel for exactly as long as that process
+    lives. Whether this process releases early, late or not at all no longer
+    changes correctness.
+
+    What DOES still matter is that the descriptor actually reached the
+    child, which is what this asserts. Real two-hop inheritance is covered
+    against live processes in test_venv_cache.
     """
     config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
     task = SubProcessTestConnectionTask(config, executor_ctx)
 
     venv_ref = Mock()
     venv_ref.venv_loc = tmp_path / "venv-demo-data"
-    lock = venv_ref.lock
 
     live_child = Mock()
     live_child.poll = Mock(return_value=None)  # never reaped: may still be running
@@ -513,13 +519,16 @@ async def test_a_stdin_failure_after_popen_keeps_the_venv_cache_lock(
         patch(
             "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
             return_value=live_child,
-        ),
+        ) as popen,
         pytest.raises(BrokenPipeError),
     ):
         await task.execute(sample_args, exec_ctx)
 
-    assert venv_ref.lock is None, "the lock must be detached, not released"
-    lock.release.assert_not_called()
+    assert popen.call_args is not None
+    assert popen.call_args.kwargs.get("pass_fds"), (
+        "the child was spawned without the lock descriptor, so nothing "
+        "protects the venv it is about to execute from"
+    )
 
 
 @pytest.mark.asyncio
@@ -529,12 +538,19 @@ async def test_cancellation_keeps_the_venv_cache_lock_while_the_child_lives(
     exec_ctx: ExecutionContext,
     sample_args: dict[str, str],
 ) -> None:
-    """terminate() signals and re-raises without waiting for the child to go.
+    """Releasing this process's copy is safe once a child exists.
 
-    SIGTERM against a process wedged in an uninterruptible syscall is not
-    delivered until that syscall returns, so finalize_task_output would drop
-    the lock on a venv still in use. Ingestion already guarded this path; this
-    one did not.
+    Under the old model the parent's lock was the ONLY protection, so every
+    path here had to work out whether a child might still be running before
+    letting go -- and that reasoning is where most of this PR's review
+    findings lived. Now the child inherited its own descriptor at spawn, so
+    the entry stays locked by the kernel for exactly as long as that process
+    lives. Whether this process releases early, late or not at all no longer
+    changes correctness.
+
+    What DOES still matter is that the descriptor actually reached the
+    child, which is what this asserts. Real two-hop inheritance is covered
+    against live processes in test_venv_cache.
     """
     task = SubProcessTestConnectionTask(task_config, executor_ctx)
     args: dict[str, Any] = {
@@ -560,7 +576,6 @@ async def test_cancellation_keeps_the_venv_cache_lock_while_the_child_lives(
 
     venv_ref = Mock()
     venv_ref.venv_loc = "/tmp/venv-demo-data-test"
-    lock = venv_ref.lock
 
     with (
         patch(
@@ -578,7 +593,7 @@ async def test_cancellation_keeps_the_venv_cache_lock_while_the_child_lives(
         patch(
             "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
             return_value=live_child,
-        ),
+        ) as popen,
         patch("os.path.exists", return_value=False),
         patch(
             "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._remove_directory"
@@ -591,8 +606,11 @@ async def test_cancellation_keeps_the_venv_cache_lock_while_the_child_lives(
         with pytest.raises(asyncio.CancelledError):
             await pending
 
-    assert venv_ref.lock is None, "the lock must be detached, not released"
-    lock.release.assert_not_called()
+    assert popen.call_args is not None
+    assert popen.call_args.kwargs.get("pass_fds"), (
+        "the child was spawned without the lock descriptor, so nothing "
+        "protects the venv it is about to execute from"
+    )
 
 
 @pytest.mark.asyncio

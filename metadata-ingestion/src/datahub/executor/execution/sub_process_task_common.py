@@ -599,37 +599,24 @@ class SubProcessTaskUtil:
         the cache switched off -- so every caller can pass them
         unconditionally.
 
-        This replaces a family of keep/release/retain helpers that had to be
-        invoked by hand at every window where a task could unwind. Ownership
-        is the fix: flock lives on the open file description, so a child that
-        inherits the descriptor holds the lock, and the kernel releases it
-        when that process dies -- for ANY reason, including the SIGKILL, OOM
-        kill and node drain that run no cleanup code at all. The executor no
-        longer has to be alive, or correct, at the moment the venv stops
-        being used.
+        This process KEEPS its own copy. Two descriptors now protect the
+        entry -- this one and the child's -- and the kernel closes both on
+        death, so neither is load-bearing for the other. That is what
+        replaced a family of keep/release/retain helpers: no unwinding path
+        has to work out whether a child might still be alive before letting
+        go, because letting go early is harmless (the child's copy remains)
+        and letting go late is bounded by this process's lifetime.
+
+        Dropping this copy at spawn would reintroduce a narrower version of
+        the old bug from the other side: the child would be the only holder,
+        the kernel would release the entry the instant it exited, and the
+        end-of-run last-used stamp in finalize_task_output would land after
+        a concurrent build could already have evicted the entry as idle.
         """
         if venv_ref is None or venv_ref.lock is None or not venv_ref.lock.held:
             return (), {}
         fd = venv_ref.lock.fileno
         return (fd,), {VENV_LOCK_FD_ENV: str(fd)}
-
-    @staticmethod
-    def complete_lock_handoff(
-        venv_ref: Optional[VenvReference], lock_fds: tuple[int, ...]
-    ) -> None:
-        """Give up this process's copy of a lock a child now owns.
-
-        Call ONLY once the spawn has succeeded: a failed spawn leaves no
-        child to hold the entry, so the lock has to unwind normally instead.
-
-        detach_to_child closes without LOCK_UN, because the descriptors are
-        duplicates sharing one description and unlocking either would release
-        the child's hold too.
-        """
-        if not lock_fds or venv_ref is None or venv_ref.lock is None:
-            return
-        venv_ref.lock.detach_to_child()
-        venv_ref.lock = None
 
     @staticmethod
     def finalize_task_output(
@@ -743,11 +730,17 @@ class SubProcessTaskUtil:
         # eligible for age eviction the moment it stops, despite having been
         # in continuous use throughout.
         #
-        # No lock release here any more: the child owns the hold and the
-        # kernel drops it when the child dies. touch_last_used swallows its
-        # own OSError, so this cannot raise.
+        # touch_last_used swallows its own OSError, so this cannot raise.
         if venv_ref is not None:
             venv_utils.touch_last_used(Path(venv_ref.venv_loc))
+
+        # AFTER the stamp, and only this process's copy. The child inherited
+        # its own descriptor, so if one is somehow still running it stays
+        # protected; releasing here is simply "this task is done with it".
+        # Ordering matters: releasing first would let a concurrent build
+        # evict the entry before its last-used marker had been brought up to
+        # date, and the marker still says "when the run started".
+        SubProcessTaskUtil.release_venv_lock(venv_ref)
 
         # Last, and guarded separately: this directory holds the run's reports,
         # with real object names in them, so leaving it behind on a failure

@@ -408,14 +408,41 @@ class TestSubProcessIngestionTaskSubprocessCreation:
     async def test_a_stdin_failure_after_spawning_keeps_the_venv_cache_lock(
         self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
     ) -> None:
-        """Once the child exists, its venv must stop being evictable.
+        """Releasing this process's copy is safe once a child exists.
 
-        The lock release for this window lives in _create_subprocess's except,
-        which cannot see `process` -- it is local to _spawn_ingestion_subprocess.
-        So a broken pipe on the stdin write used to release the lock with a live
-        interpreter running out of that venv, and the next build's eviction
-        could rmtree it. Popen succeeding and the write failing is the ordinary
-        way to reach that: the child is spawned, then the pipe breaks.
+
+
+        Under the old model the parent's lock was the ONLY protection, so every
+
+
+        path here had to work out whether a child might still be running before
+
+
+        letting go -- and that reasoning is where most of this PR's review
+
+
+        findings lived. Now the child inherited its own descriptor at spawn, so
+
+
+        the entry stays locked by the kernel for exactly as long as that process
+
+
+        lives. Whether this process releases early, late or not at all no longer
+
+
+        changes correctness.
+
+
+
+        What DOES still matter is that the descriptor actually reached the
+
+
+        child, which is what this asserts. Real two-hop inheritance is covered
+
+
+        against live processes in test_venv_cache.
+
+
         """
         validated_args = SubProcessIngestionTaskArgs.model_validate(sample_args)
 
@@ -426,10 +453,9 @@ class TestSubProcessIngestionTaskSubprocessCreation:
 
         venv_ref = Mock()
         venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
-        lock = venv_ref.lock
 
         with (
-            patch("asyncio.create_subprocess_exec", return_value=mock_process),
+            patch("asyncio.create_subprocess_exec", return_value=mock_process) as spawn,
             patch.object(ingestion_task, "_setup_venv", return_value=venv_ref),
             pytest.raises(BrokenPipeError),
         ):
@@ -444,8 +470,11 @@ class TestSubProcessIngestionTaskSubprocessCreation:
                 {},
             )
 
-        assert venv_ref.lock is None, "the lock must be detached, not released"
-        lock.release.assert_not_called()
+        assert spawn.call_args is not None
+        assert spawn.call_args.kwargs.get("pass_fds"), (
+            "the child was spawned without the lock descriptor, so nothing "
+            "protects the venv it is about to execute from"
+        )
 
     async def test_a_spawn_failure_before_any_child_releases_the_lock(
         self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]

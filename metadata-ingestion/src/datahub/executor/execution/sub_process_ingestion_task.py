@@ -313,10 +313,6 @@ class SubProcessIngestionTask(Task):
             pass_fds=lock_fds,
         )
 
-        # Only after the spawn succeeded. A failed spawn has no child to own
-        # the hold, so the lock must unwind normally instead.
-        SubProcessTaskUtil.complete_lock_handoff(venv_ref, lock_fds)
-
         try:
             assert process.stdin is not None
             process.stdin.write(stdin_envelope.encode("utf-8"))
