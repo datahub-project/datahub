@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from shard_pack import ModuleShard, pack_module_plans, pack_modules
+from shard_pack import (
+    ModuleShard,
+    items_for_batch,
+    pack_module_plans,
+    pack_modules,
+    plan_collected_items,
+)
 from tests.utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM_INTERNAL)
@@ -15,6 +21,42 @@ def _batch_of(plans, path: str) -> int:
         if path in plan.module_paths:
             return i
     raise AssertionError(f"{path} was not assigned to any batch")
+
+
+def test_plan_collected_items_matches_pack_module_plans() -> None:
+    class _Item:
+        def __init__(self, nodeid: str, serial: bool = False) -> None:
+            self.nodeid = nodeid
+            self._serial = serial
+
+        def get_closest_marker(self, name: str) -> object | None:
+            if name == "global_policy_mutator" and self._serial:
+                return object()
+            return None
+
+    items = [
+        _Item("tests/a.py::TestA::test_one"),
+        _Item("tests/a.py::TestA::test_two"),
+        _Item("tests/b.py::test_fn"),
+        _Item("tests/c.py::test_mutator", serial=True),
+    ]
+    weights = {
+        "tests.a.TestA::test_one": 40.0,
+        "tests.a.TestA::test_two": 10.0,
+        "tests.b::test_fn": 20.0,
+        "tests.c::test_mutator": 15.0,
+    }
+    packed = plan_collected_items(
+        items, batch_count=2, xdist_workers=3, test_weights=weights
+    )
+    by_path = {shard.path: shard for shard in packed.shards}
+    assert by_path["tests/a.py::TestA"].parallel_seconds == pytest.approx(50.0)
+    assert by_path["tests/b.py"].parallel_seconds == pytest.approx(20.0)
+    assert by_path["tests/c.py"].serial_seconds == pytest.approx(15.0)
+    assert packed.missing_weight_ids == []
+    expected = pack_module_plans(packed.shards, 2, 3)
+    assert [p.module_paths for p in packed.plans] == [p.module_paths for p in expected]
+    assert len(items_for_batch(packed, 0)) + len(items_for_batch(packed, 1)) == 4
 
 
 def test_pack_modules_rejects_empty_batch_count() -> None:
@@ -97,3 +139,23 @@ def test_oversized_module_sets_wall_floor_without_a_second_giant() -> None:
     assert giant_batch != other_batch
     assert plans[giant_batch].predicted_wall == pytest.approx(1000.0)
     assert max(plan.predicted_wall for plan in plans) == pytest.approx(1000.0)
+
+
+def test_timeline_classes_pack_by_class_makespan_not_file_sum() -> None:
+    """Four classes in one file must not pack as a single 885s leftover shard."""
+    path = "tests/timeline/timeline_change_history_test.py"
+    shards = [
+        ModuleShard(f"{path}::{cls}", seconds, 0.0)
+        for cls, seconds in (
+            ("TestDatasetTimeline", 303.2),
+            ("TestDataProductTimeline", 295.9),
+            ("TestGlossaryTermTimeline", 167.5),
+            ("TestDomainTimeline", 118.7),
+        )
+    ]
+    assert sum(s.parallel_seconds for s in shards) == pytest.approx(885.3)
+    plans = pack_module_plans(shards, batch_count=7, xdist_workers=3)
+    walls = [plan.predicted_wall for plan in plans]
+    assert max(walls) == pytest.approx(303.2)
+    assigned = {path for plan in plans for path in plan.module_paths}
+    assert assigned == {s.path for s in shards}

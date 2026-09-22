@@ -54,7 +54,7 @@ def test_not_generate_partition_profiler_query_if_not_partitioned_sharded_table(
 
 def test_get_batch_kwargs_includes_row_count():
     # The SQLAlchemy profiler uses this row count to skip a COUNT(*) when
-    # deciding whether to sample. The GE profiler ignores it (**kwargs).
+    # deciding whether to sample.
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
     test_table = BigqueryTable(
         name="test_table",

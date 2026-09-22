@@ -1,11 +1,8 @@
 pytest_plugins = ["tests.utilities.agent_reporter"]
 
-import json
 import logging
 import os
-from collections import defaultdict
-from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import List, Optional, Set
 
 import pytest
 import requests
@@ -16,7 +13,7 @@ from datahub.ingestion.graph.client import (
     DataHubGraph,
     get_default_graph,
 )
-from shard_pack import ModuleShard, pack_module_plans
+from shard_pack import is_global_policy_mutator, items_for_batch, plan_collected_items
 from tests.test_result_msg import send_message
 from tests.utilities import env_vars
 from tests.utilities.domains import (
@@ -41,8 +38,6 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_TEST_WEIGHT = 1.0
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -301,114 +296,6 @@ def pytest_sessionfinish(session, exitstatus):
     send_message(exitstatus)
 
 
-def load_pytest_test_weights() -> Dict[str, float]:
-    """
-    Load pytest test weights from JSON file.
-
-    Returns:
-        Dictionary mapping test IDs (classname::test_name) to durations in seconds.
-        Returns empty dict if weights file doesn't exist.
-    """
-    weights_file = Path(__file__).parent / "pytest_test_weights.json"
-
-    if not weights_file.exists():
-        return {}
-
-    try:
-        with open(weights_file) as f:
-            weights_data = json.load(f)
-
-        # Convert to dict: {"test_e2e::test_gms_get_dataset": 262.807, ...}
-        return {
-            item["testId"]: float(item["duration"][:-1])  # Strip 's' suffix
-            for item in weights_data
-        }
-    except Exception as e:
-        logger.warning(f"Warning: Failed to load pytest test weights: {e}")
-        return {}
-
-
-def get_pytest_test_weight(
-    item: Item, test_weights: Dict[str, float]
-) -> tuple[float, bool]:
-    """Return (seconds, used_default). used_default is True when the nodeid
-    was missing from pytest_test_weights.json."""
-    nodeid = item.nodeid
-    test_id = nodeid.replace("/", ".").replace(".py::", "::")
-    weight = test_weights.get(test_id)
-    if weight is not None:
-        return weight, False
-
-    nodeid_parts = nodeid.split("::")
-    if len(nodeid_parts) > 2:
-        module_id = nodeid_parts[0].replace("/", ".").removesuffix(".py")
-        weight = test_weights.get(f"{module_id}::{nodeid_parts[-1]}")
-        if weight is not None:
-            return weight, False
-
-    return DEFAULT_TEST_WEIGHT, True
-
-
-def aggregate_module_weights(
-    items: List[Item], test_weights: Dict[str, float]
-) -> List[Tuple[str, List[Item], float, float]]:
-    """
-    Group test items by module, splitting each module's weight by execution phase.
-
-    smoke.sh runs each batch as two pytest invocations: non-mutator tests under
-    xdist ``--dist=loadscope``, then policy mutators serially. Those two buckets
-    are accumulated separately so packing can treat a file's parallel time as
-    one worker's load and add serial time after phase 1.
-
-    Args:
-        items: List of pytest test items
-        test_weights: Dictionary mapping test IDs to durations
-
-    Returns:
-        List of (module_path, items_in_module, parallel_seconds, serial_seconds)
-    """
-
-    # Group items by module (file path)
-    modules: Dict[str, List[Item]] = defaultdict(list)
-    for item in items:
-        # Get the module path from the item's fspath
-        module_path = str(item.fspath)
-        modules[module_path].append(item)
-
-    # Each item's weight is looked up exactly once, here.
-    module_data = []
-    missing_weight_ids: List[str] = []
-    for module_path, module_items in modules.items():
-        parallel_seconds = 0.0
-        serial_seconds = 0.0
-        for item in module_items:
-            weight, used_default = get_pytest_test_weight(item, test_weights)
-            if used_default:
-                missing_weight_ids.append(item.nodeid)
-            if _is_global_policy_mutator(item):
-                serial_seconds += weight
-            else:
-                parallel_seconds += weight
-
-        module_data.append(
-            (module_path, module_items, parallel_seconds, serial_seconds)
-        )
-
-    if missing_weight_ids:
-        logger.info(
-            "No recorded duration for %s test(s); packing with %.1fs each. Sample: %s",
-            len(missing_weight_ids),
-            DEFAULT_TEST_WEIGHT,
-            ", ".join(missing_weight_ids[:5]),
-        )
-
-    return module_data
-
-
-def _is_global_policy_mutator(item: Item) -> bool:
-    return item.get_closest_marker("global_policy_mutator") is not None
-
-
 def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
     """Keep batch assignment stable across smoke.sh's two pytest invocations.
 
@@ -420,11 +307,11 @@ def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
     if phase is None:
         return
     if phase == "1":
-        items[:] = [item for item in items if not _is_global_policy_mutator(item)]
+        items[:] = [item for item in items if not is_global_policy_mutator(item)]
         logger.info("SMOKE_POLICY_PHASE=1: running %s non-mutator test(s)", len(items))
         return
     if phase == "2":
-        items[:] = [item for item in items if _is_global_policy_mutator(item)]
+        items[:] = [item for item in items if is_global_policy_mutator(item)]
         logger.info("SMOKE_POLICY_PHASE=2: running %s mutator test(s)", len(items))
         return
     logger.warning("Unknown SMOKE_POLICY_PHASE=%r; running all collected tests", phase)
@@ -502,33 +389,24 @@ def pytest_collection_modifyitems(
         _apply_smoke_policy_phase_filter(items)
         return
 
-    # Load test weights
-    test_weights = load_pytest_test_weights()
-
-    # Group items by module and aggregate weights
-    module_data = aggregate_module_weights(items, test_weights)
-
-    module_map: Dict[str, List[Item]] = {}
-    shards: List[ModuleShard] = []
-    for path, module_items, parallel_seconds, serial_seconds in module_data:
-        module_map[path] = module_items
-        shards.append(ModuleShard(path, parallel_seconds, serial_seconds))
     xdist_workers = env_vars.get_pytest_xdist_workers()
+    packed = plan_collected_items(items, batch_count, xdist_workers)
 
     logger.info(
-        "Batching %s tests from %s modules across %s batches (xdist_workers=%s)",
+        "Batching %s tests from %s scopes across %s batches (xdist_workers=%s)",
         len(items),
-        len(shards),
+        len(packed.shards),
         batch_count,
         xdist_workers,
     )
 
-    batch_plans = pack_module_plans(shards, batch_count, xdist_workers)
-    for i, plan in enumerate(batch_plans):
-        test_count = sum(len(module_map[path]) for path in plan.module_paths)
+    for i, plan in enumerate(packed.plans):
+        test_count = sum(
+            len(packed.items_by_scope[scope_key]) for scope_key in plan.module_paths
+        )
         logger.info(
             "Batch %s: predicted_wall=%.1fs phase1_makespan=%.1fs serial=%.1fs "
-            "modules=%s tests=%s",
+            "scopes=%s tests=%s",
             i,
             plan.predicted_wall,
             plan.phase1_makespan,
@@ -537,16 +415,14 @@ def pytest_collection_modifyitems(
             test_count,
         )
 
-    selected_modules = batch_plans[batch_number].module_paths
-    selected_items = []
-    for module_path in selected_modules:
-        selected_items.extend(module_map[module_path])
+    selected_items = items_for_batch(packed, batch_number)
+    selected_scopes = packed.plans[batch_number].module_paths
 
     logger.info(
-        "Batch %s: Running %s tests from %s modules",
+        "Batch %s: Running %s tests from %s scopes",
         batch_number,
         len(selected_items),
-        len(selected_modules),
+        len(selected_scopes),
     )
 
     # Replace items with the filtered list, then apply smoke.sh phase filter
