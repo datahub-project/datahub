@@ -84,9 +84,17 @@ describe('selectorUtils', () => {
             expect(cache.get('urn:li:corpGroup:group1')).toBe(mockGroup1);
         });
 
-        it('should handle empty entities array', () => {
-            const cache = buildEntityCache([]);
-            expect(cache.size).toBe(0);
+        it('should skip null slots from a missing-entity getEntities response', () => {
+            const cache = buildEntityCache([null, mockUser1, undefined]);
+
+            expect(cache.size).toBe(1);
+            expect(cache.get('urn:li:corpuser:user1')).toBe(mockUser1);
+        });
+
+        it('should handle an empty or missing entities payload', () => {
+            expect(buildEntityCache([]).size).toBe(0);
+            expect(buildEntityCache(null).size).toBe(0);
+            expect(buildEntityCache(undefined).size).toBe(0);
         });
 
         it('should handle duplicate URNs by keeping the last one', () => {
@@ -126,6 +134,14 @@ describe('selectorUtils', () => {
             const result = isEntityResolutionRequired([], cache);
 
             expect(result).toBe(false);
+        });
+
+        it('should return false when missing URNs were already requested', () => {
+            const cache = new Map();
+            const urns = ['urn:li:document:missing'];
+            const attempted = new Set(urns);
+
+            expect(isEntityResolutionRequired(urns, cache, attempted)).toBe(false);
         });
     });
 
