@@ -311,7 +311,10 @@ def _validate_init_inputs(
         case_sensitive=False,
     ),
     default=None,
-    help="Token expiration duration (default: ONE_MONTH for localhost, ONE_HOUR otherwise)",
+    help=(
+        "Token expiration duration (default: ONE_MONTH for localhost, ONE_HOUR otherwise). "
+        "NO_EXPIRY requires ACCESS_TOKEN_ALLOW_NO_EXPIRY=true on the server (disabled by default)."
+    ),
 )
 @click.option(
     "--force",

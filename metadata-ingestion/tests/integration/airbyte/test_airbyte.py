@@ -10,6 +10,7 @@ import time_machine
 from datahub.testing import mce_helpers
 from tests.integration.airbyte.airbyte_test_setup import (  # type: ignore[import-untyped]
     AIRBYTE_API_PORT,
+    AIRBYTE_CHART_VERSION,
     BASIC_AUTH_PASSWORD,
     BASIC_AUTH_USERNAME,
     cleanup_airbyte,
@@ -124,6 +125,8 @@ def airbyte_service(
         str(abctl_path),
         "local",
         "install",
+        "--chart-version",
+        AIRBYTE_CHART_VERSION,
         "--port",
         str(AIRBYTE_API_PORT),
         "--no-browser",

@@ -1,11 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { AccessTokenModal } from '@app/settingsV2/AccessTokenModal';
-import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from '@app/settingsV2/utils';
+import {
+    ACCESS_TOKEN_NO_EXPIRY,
+    DEFAULT_ACCESS_TOKEN_DURATIONS_ISO,
+    buildAccessTokenDurationOptions,
+    getDefaultAccessTokenDuration,
+    getTokenExpireDate,
+} from '@app/settingsV2/utils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useAppConfig } from '@app/useAppConfig';
 import { Button, Input, Modal, SimpleSelect, Text, TextArea, toast } from '@src/alchemy-components';
 import { spacing } from '@src/alchemy-components/theme';
 
@@ -66,26 +73,43 @@ export default function CreateTokenModal({
 }: Props) {
     const { t } = useTranslation('settings.tokens');
     const { t: tc } = useTranslation('common.actions');
+    const { config } = useAppConfig();
+    const allowedIsoDurations = useMemo(
+        () => config.authConfig?.allowedAccessTokenDurations ?? [...DEFAULT_ACCESS_TOKEN_DURATIONS_ISO],
+        [config.authConfig?.allowedAccessTokenDurations],
+    );
+    const allowNoExpiry = config.authConfig?.allowNoExpiry ?? false;
+    // Remote executor historically required Never; only lock to that when never-expire is allowed.
+    const lockToNoExpiry = Boolean(forRemoteExecutor && allowNoExpiry);
+
+    const durationOptions = useMemo(
+        () => buildAccessTokenDurationOptions(allowedIsoDurations, allowNoExpiry),
+        [allowedIsoDurations, allowNoExpiry],
+    );
+
+    const defaultDuration = lockToNoExpiry
+        ? ACCESS_TOKEN_NO_EXPIRY
+        : getDefaultAccessTokenDuration(allowedIsoDurations);
+
     // Support legacy currentUserUrn prop
     const resolvedActorUrn = actorUrn || currentUserUrn || '';
 
     const [tokenName, setTokenName] = useState('');
     const [tokenDescription, setTokenDescription] = useState('');
-    const [selectedDuration, setSelectedDuration] = useState<AccessTokenDuration>(
-        forRemoteExecutor ? AccessTokenDuration.NoExpiry : ACCESS_TOKEN_DURATIONS[2].duration,
-    );
-    const [selectedTokenDuration, setSelectedTokenDuration] = useState<AccessTokenDuration | null>(null);
+    const [selectedDuration, setSelectedDuration] = useState<string>(defaultDuration);
+    const [selectedTokenDuration, setSelectedTokenDuration] = useState<string | null>(null);
     const [showAccessTokenModal, setShowAccessTokenModal] = useState(false);
     const [tokenNameError, setTokenNameError] = useState('');
 
     const [createAccessToken, { data }] = useCreateAccessTokenMutation();
 
-    // Update duration if forRemoteExecutor changes
     useEffect(() => {
-        if (forRemoteExecutor) {
-            setSelectedDuration(AccessTokenDuration.NoExpiry);
+        if (lockToNoExpiry) {
+            setSelectedDuration(ACCESS_TOKEN_NO_EXPIRY);
+        } else {
+            setSelectedDuration(getDefaultAccessTokenDuration(allowedIsoDurations));
         }
-    }, [forRemoteExecutor]);
+    }, [lockToNoExpiry, allowedIsoDurations]);
 
     useEffect(() => {
         if (data && data.createAccessToken?.accessToken) {
@@ -103,7 +127,9 @@ export default function CreateTokenModal({
     const resetForm = () => {
         setTokenName('');
         setTokenDescription('');
-        setSelectedDuration(forRemoteExecutor ? AccessTokenDuration.NoExpiry : ACCESS_TOKEN_DURATIONS[2].duration);
+        setSelectedDuration(
+            lockToNoExpiry ? ACCESS_TOKEN_NO_EXPIRY : getDefaultAccessTokenDuration(allowedIsoDurations),
+        );
         setTokenNameError('');
     };
 
@@ -128,13 +154,25 @@ export default function CreateTokenModal({
     const onCreateNewToken = () => {
         if (!validateForm()) return;
 
-        const input: CreateAccessTokenInput = {
-            actorUrn: resolvedActorUrn,
-            type: tokenType,
-            duration: selectedDuration,
-            name: tokenName,
-            description: tokenDescription || undefined,
-        };
+        const input: CreateAccessTokenInput =
+            selectedDuration === ACCESS_TOKEN_NO_EXPIRY && allowNoExpiry
+                ? {
+                      actorUrn: resolvedActorUrn,
+                      type: tokenType,
+                      duration: AccessTokenDuration.NoExpiry,
+                      name: tokenName,
+                      description: tokenDescription || undefined,
+                  }
+                : {
+                      actorUrn: resolvedActorUrn,
+                      type: tokenType,
+                      durationIso:
+                          selectedDuration === ACCESS_TOKEN_NO_EXPIRY
+                              ? getDefaultAccessTokenDuration(allowedIsoDurations)
+                              : selectedDuration,
+                      name: tokenName,
+                      description: tokenDescription || undefined,
+                  };
 
         createAccessToken({ variables: { input } })
             .then(({ errors }) => {
@@ -161,7 +199,7 @@ export default function CreateTokenModal({
 
     const accessToken = data?.createAccessToken?.accessToken;
     const selectedExpiresInText = selectedTokenDuration && getTokenExpireDate(selectedTokenDuration);
-    const hasSelectedNoExpiration = selectedDuration === AccessTokenDuration.NoExpiry;
+    const hasSelectedNoExpiration = selectedDuration === ACCESS_TOKEN_NO_EXPIRY;
     const showFormModal = visible && !showAccessTokenModal;
 
     const getModalTitle = () => {
@@ -176,11 +214,6 @@ export default function CreateTokenModal({
         }
         return t('createTitle');
     };
-
-    const durationOptions = ACCESS_TOKEN_DURATIONS.map((duration) => ({
-        value: duration.duration,
-        label: duration.text,
-    }));
 
     return (
         <>
@@ -238,12 +271,12 @@ export default function CreateTokenModal({
                                 values={[selectedDuration]}
                                 onUpdate={(values) => {
                                     if (values.length > 0) {
-                                        setSelectedDuration(values[0] as AccessTokenDuration);
+                                        setSelectedDuration(values[0]);
                                     }
                                 }}
                                 showClear={false}
                                 width="full"
-                                isDisabled={forRemoteExecutor}
+                                isDisabled={lockToNoExpiry}
                                 dataTestId="create-token-duration"
                             />
                             <ExpirationText size="sm" color="gray" $isWarning={hasSelectedNoExpiration}>

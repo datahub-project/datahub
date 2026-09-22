@@ -286,6 +286,67 @@ def test_operation_processor_advanced_matching_tags():
     assert tag_aspect.tags[0].tag == "urn:li:tag:case_4567"
 
 
+def test_operation_processor_add_domain():
+    raw_props = {
+        "domain": "Marketing",
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "domain": {
+                "match": ".*",
+                "operation": "add_domain",
+                "config": {"domain": "{{ $match }}"},
+            },
+        },
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_domain" in aspect_map
+
+    domain_aspect: DomainsClass = aspect_map["add_domain"]
+    assert domain_aspect.domains == ["urn:li:domain:Marketing"]
+
+
+def test_operation_processor_add_domain_with_urn():
+    raw_props = {
+        "domain": "urn:li:domain:Finance",
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "domain": {
+                "match": ".*",
+                "operation": "add_domain",
+                "config": {"domain": "{{ $match }}"},
+            },
+        },
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_domain" in aspect_map
+
+    domain_aspect: DomainsClass = aspect_map["add_domain"]
+    # make_domain_urn is idempotent — full URNs are not double-wrapped
+    assert domain_aspect.domains == ["urn:li:domain:Finance"]
+
+
+def test_operation_processor_add_domain_static_value():
+    raw_props = {
+        "has_pii": True,
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "has_pii": {
+                "match": True,
+                "operation": "add_domain",
+                "config": {"domain": "DataGovernance"},
+            },
+        },
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_domain" in aspect_map
+
+    domain_aspect: DomainsClass = aspect_map["add_domain"]
+    assert domain_aspect.domains == ["urn:li:domain:DataGovernance"]
+
+
 def test_operation_processor_institutional_memory():
     raw_props = {
         "documentation_link": "https://test.com/documentation#ignore-this",

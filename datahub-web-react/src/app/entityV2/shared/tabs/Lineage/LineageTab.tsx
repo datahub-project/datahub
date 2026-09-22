@@ -1,4 +1,4 @@
-import { Icon } from '@components';
+import { Icon, Tab, TabButtons } from '@components';
 import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React, { useCallback, useContext, useMemo } from 'react';
@@ -9,8 +9,6 @@ import { CompactLineageTab } from '@app/entityV2/shared/tabs/Lineage/CompactLine
 import { LineageColumnView } from '@app/entityV2/shared/tabs/Lineage/LineageColumnView';
 import { useLineageViewState } from '@app/entityV2/shared/tabs/Lineage/hooks';
 import { TabRenderType } from '@app/entityV2/shared/types';
-import { TabButtons } from '@app/homeV3/modules/shared/ButtonTabs/TabButtons';
-import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
 import LineageGraph from '@app/lineageV3/LineageGraph';
 import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 

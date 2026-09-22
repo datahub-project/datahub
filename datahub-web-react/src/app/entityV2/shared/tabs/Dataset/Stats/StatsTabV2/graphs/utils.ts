@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { getTimeWindowStart } from '@src/app/shared/time/timeUtils';
 import { DateInterval, TimeRange } from '@src/types.generated';
@@ -131,9 +133,10 @@ export const getXAxisTickFormat = (interval: TimeInterval, time: number) => {
 
 export const getPopoverTimeFormat = (interval: TimeInterval, time: number | string) => {
     if (interval === TimeInterval.WEEK) {
-        return `Week of ${dayjs(time).format('MMM. D ’YY')} - ${dayjs(
-            dayjs(time).endOf('week').toDate().getTime(),
-        ).format('MMM. D ’YY')}`;
+        return i18next.t('entity.profile.stats:popoverTimeFormat.weekOf', {
+            start: dayjs(time).format('MMM. D ’YY'),
+            end: dayjs(dayjs(time).endOf('week').toDate().getTime()).format('MMM. D ’YY'),
+        });
     }
     if (interval === TimeInterval.MONTH) {
         return dayjs(time).format('MMMM ’YYYY');

@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DocumentContentInput;
 import com.linkedin.datahub.graphql.generated.UpdateDocumentContentsInput;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
 import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -63,7 +64,8 @@ public class UpdateDocumentContentsResolverTest {
             any(),
             eq(null),
             eq(null),
-            any(Urn.class));
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -86,7 +88,8 @@ public class UpdateDocumentContentsResolverTest {
             any(),
             eq("New Title"),
             eq(null),
-            any(Urn.class));
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -99,7 +102,14 @@ public class UpdateDocumentContentsResolverTest {
 
     // Verify service was NOT called
     verify(mockService, times(0))
-        .updateDocumentContents(any(OperationContext.class), any(), any(), any(), any(), any());
+        .updateDocumentContents(
+            any(OperationContext.class),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(SearchIndexMode.class));
   }
 
   @Test
@@ -110,7 +120,14 @@ public class UpdateDocumentContentsResolverTest {
 
     doThrow(new RuntimeException("Service error"))
         .when(mockService)
-        .updateDocumentContents(any(OperationContext.class), any(), any(), any(), any(), any());
+        .updateDocumentContents(
+            any(OperationContext.class),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            eq(SearchIndexMode.SYNC));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
@@ -122,7 +139,14 @@ public class UpdateDocumentContentsResolverTest {
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
     doThrow(new ServiceAuthorizationException("denied"))
         .when(mockService)
-        .updateDocumentContents(any(OperationContext.class), any(), any(), any(), any(), any());
+        .updateDocumentContents(
+            any(OperationContext.class),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            eq(SearchIndexMode.SYNC));
 
     CompletionException exception =
         expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -150,6 +174,7 @@ public class UpdateDocumentContentsResolverTest {
             any(),
             eq(null),
             eq(java.util.Collections.singletonList("FAQ")),
-            any(Urn.class));
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
   }
 }

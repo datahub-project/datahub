@@ -1,0 +1,98 @@
+query getRootDataProductsBrowse($input: GetRootEntitiesInput!) {
+    getRootDataProducts(input: $input) {
+        total
+        start
+        count
+        dataProducts {
+            urn
+            type
+            properties {
+                name
+                description
+                numAssets
+                createdOn {
+                    time
+                }
+            }
+            domain {
+                ...entityDomain
+            }
+            applications {
+                ...entityApplication
+            }
+            childDataProducts(input: { count: 0, query: "*" }) {
+                total
+            }
+            ownership {
+                ...ownershipFields
+            }
+            tags {
+                ...globalTagsFields
+            }
+            deprecation {
+                ...deprecationFields
+            }
+        }
+    }
+}
+
+fragment dataProductBrowseFields on DataProduct {
+    properties {
+        name
+        description
+        numAssets
+        createdOn {
+            time
+        }
+        parentDataProduct {
+            urn
+            type
+            properties {
+                name
+            }
+        }
+    }
+    parentDataProducts {
+        urn
+        type
+        properties {
+            name
+        }
+    }
+    domain {
+        ...entityDomain
+    }
+    applications {
+        ...entityApplication
+    }
+    childDataProducts(input: { count: 0, query: "*" }) {
+        total
+    }
+    ownership {
+        ...ownershipFields
+    }
+    tags {
+        ...globalTagsFields
+    }
+    deprecation {
+        ...deprecationFields
+    }
+}
+
+# Cursor-based scroll for root data products (hasParentDataProduct=false) and children.
+query scrollDataProducts($input: ScrollAcrossEntitiesInput!) {
+    scrollAcrossEntities(input: $input) {
+        nextScrollId
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ... on DataProduct {
+                    ...dataProductBrowseFields
+                }
+            }
+        }
+    }
+}

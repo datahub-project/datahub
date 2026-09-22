@@ -11,6 +11,9 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
 from datahub.ingestion.source.notion.notion_source import NotionSource
+from datahub.ingestion.source.unstructured.chunking_source import (
+    SkipMarkerReadError,
+)
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
@@ -273,6 +276,28 @@ def test_should_skip_file_empty_document():
 
 
 def test_should_skip_file_text_too_short():
+    # min_text_length is opt-in (default 0); set it explicitly to exercise the filter.
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        database_ids=["abcdef01234567890123456789012345"],
+        filtering={"min_text_length": 50},
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+    )
+    ctx = PipelineContext(run_id="test")
+    source = NotionSource(config=config, ctx=ctx)
+
+    data = {"elements": [{"text": "Short"}], "metadata": {}}
+
+    assert source._should_skip_file(data, set()) is True
+
+
+def test_should_not_skip_short_file_by_default():
+    # With the default min_text_length of 0, short (non-empty) docs are embedded.
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         database_ids=["abcdef01234567890123456789012345"],
@@ -288,7 +313,7 @@ def test_should_skip_file_text_too_short():
 
     data = {"elements": [{"text": "Short"}], "metadata": {}}
 
-    assert source._should_skip_file(data, set()) is True
+    assert source._should_skip_file(data, set()) is False
 
 
 def test_should_skip_file_text_long_enough():
@@ -947,15 +972,16 @@ def test_embedding_stats_aggregation(notion_source):
 
 
 def test_notion_types_filter_unknown_fields_paragraph_icon():
-    """AI-603: Paragraph blocks now include 'icon' which unstructured-ingest 0.7.2 rejects."""
+    """unstructured-ingest 1.4.28 models Paragraph.icon (AI-603); construction must succeed."""
     pytest.importorskip("unstructured_ingest")
     from unstructured_ingest.processes.connectors.notion.types.blocks import Paragraph
 
     NotionSource._monkeypatch_notion_types_filter_unknown_fields()
 
-    paragraph = Paragraph(color="default", icon={"type": "emoji", "emoji": "📝"})
+    icon = {"type": "emoji", "emoji": "📝"}
+    paragraph = Paragraph(color="default", icon=icon)
     assert paragraph.color == "default"
-    assert not hasattr(paragraph, "icon")
+    assert paragraph.icon == icon
 
 
 def test_notion_types_filter_unknown_fields_page_is_archived():
@@ -1041,10 +1067,11 @@ def test_icon_dispatcher_handles_none_payload():
 
 
 def test_icon_dispatcher_unknown_types_preserves_known_types():
-    """Emoji and external icons must still parse correctly after the patch."""
+    """Emoji, external, and file icons must still parse after the patch."""
     pytest.importorskip("unstructured_ingest")
     from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
         EmojiIcon,
+        FileIcon,
         Icon,
     )
 
@@ -1053,3 +1080,140 @@ def test_icon_dispatcher_unknown_types_preserves_known_types():
     emoji_result = Icon.from_dict({"type": "emoji", "emoji": "📝"})
     assert isinstance(emoji_result, EmojiIcon)
     assert emoji_result.emoji == "📝"
+
+    file_result = Icon.from_dict(
+        {"type": "file", "file": {"url": "https://example.com/icon.png"}}
+    )
+    assert isinstance(file_result, FileIcon)
+
+
+def test_unstructured_ingest_syncblock_handles_null_synced_from():
+    """1.4.28 already treats synced_from=null as an original block; do not re-patch."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
+        DuplicateSyncedBlock,
+        OriginalSyncedBlock,
+        SyncBlock,
+    )
+
+    original = SyncBlock.from_dict({"synced_from": None})
+    assert isinstance(original, OriginalSyncedBlock)
+
+    duplicate = SyncBlock.from_dict(
+        {"synced_from": {"type": "block_id", "block_id": "abc"}}
+    )
+    assert isinstance(duplicate, DuplicateSyncedBlock)
+    assert duplicate.block_id == "abc"
+
+
+def test_empty_original_synced_block_is_reported(
+    notion_source, config, pipeline_context
+):
+    """Report empty original synced blocks using the outer Block id, once per wrap."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.block import Block
+    from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
+        DuplicateSyncedBlock,
+        OriginalSyncedBlock,
+    )
+
+    def block_payload(block_id: str, synced_block: dict) -> dict:
+        return {
+            "id": block_id,
+            "type": "synced_block",
+            "created_time": "2024-01-01T00:00:00.000Z",
+            "last_edited_time": "2024-01-01T00:00:00.000Z",
+            "created_by": {"id": "user-1"},
+            "last_edited_by": {"id": "user-1"},
+            "archived": False,
+            "in_trash": False,
+            "has_children": True,
+            "parent": {"type": "page_id", "page_id": "page-1"},
+            "synced_block": synced_block,
+        }
+
+    notion_source._warn_on_empty_original_synced_blocks()
+    notion_source._warn_on_empty_original_synced_blocks()
+
+    empty = Block.from_dict(block_payload("block-empty", {"synced_from": None}))
+    assert isinstance(empty.block, OriginalSyncedBlock)
+    assert notion_source.report.num_synced_blocks_skipped == 1
+    assert "block-empty" in list(notion_source.report.synced_blocks_skipped)
+
+    duplicate = Block.from_dict(
+        block_payload(
+            "block-dup",
+            {"synced_from": {"type": "block_id", "block_id": "abc"}},
+        )
+    )
+    assert isinstance(duplicate.block, DuplicateSyncedBlock)
+    assert notion_source.report.num_synced_blocks_skipped == 1
+
+    other_source = NotionSource(config=config, ctx=pipeline_context)
+    other_source._warn_on_empty_original_synced_blocks()
+    Block.from_dict(block_payload("block-other", {"synced_from": None}))
+    assert other_source.report.num_synced_blocks_skipped == 1
+    assert notion_source.report.num_synced_blocks_skipped == 1
+
+
+def _document_entity_test_setup(notion_source, side_effect):
+    """Wire a mocked document builder + chunking source whose inline processing raises
+    side_effect, with the stateful gate enabled so _update_document_state WOULD be
+    reached on the swallow-and-continue path (without this, assert_not_called on it is
+    vacuous)."""
+    data = {
+        "elements": [{"type": "NarrativeText", "text": "hello", "metadata": {}}],
+        "metadata": {
+            "data_source": {"record_locator": {"page_id": "p1"}},
+            "filetype": "notion",
+        },
+    }
+    doc = MagicMock()
+    doc.urn = "urn:li:document:p1"
+    doc.as_workunits.return_value = []
+    notion_source.document_builder = MagicMock()
+    notion_source.document_builder.build_document_entity.return_value = doc
+    notion_source.document_builder.content_mapper.extract_text_content.return_value = (
+        "hello"
+    )
+    notion_source.chunking_source = MagicMock()
+    notion_source.chunking_source.process_elements_inline.side_effect = side_effect
+    notion_source.chunking_source.report.num_documents_limit_reached = False
+    notion_source.config.stateful_ingestion = MagicMock(enabled=True)
+    return data
+
+
+def test_skip_marker_read_error_leaves_document_retryable(notion_source):
+    """A SkipMarkerReadError from the chunking sub-source must not record document
+    state (or count the document processed): state would permanently drop the skip
+    marker; returning early leaves the document retryable next run."""
+    data = _document_entity_test_setup(
+        notion_source, SkipMarkerReadError("read failed")
+    )
+
+    with patch.object(notion_source, "_update_document_state") as update_state:
+        list(notion_source._create_document_entity(data))
+
+    # Discriminates the dedicated SkipMarkerReadError handler: if it were removed,
+    # the generic RuntimeError handler swallows the error and execution falls
+    # through to report accounting and the (enabled) state update.
+    update_state.assert_not_called()
+    assert notion_source.report.num_files_processed == 0
+
+
+def test_embedding_failure_leaves_document_retryable(notion_source):
+    """An inline embedding failure (provider error or zero-vector response surfaces as a
+    RuntimeError) must not record document state or count the page as processed: no
+    semanticContent was written, and checkpointing would permanently skip the unchanged
+    page instead of retrying it."""
+    data = _document_entity_test_setup(
+        notion_source, RuntimeError("provider returned no vectors")
+    )
+
+    with patch.object(notion_source, "_update_document_state") as update_state:
+        list(notion_source._create_document_entity(data))
+
+    # The non-limit RuntimeError handler must return: without the return, execution falls
+    # through to report accounting and the (enabled) state update, checkpointing the page.
+    update_state.assert_not_called()
+    assert notion_source.report.num_files_processed == 0

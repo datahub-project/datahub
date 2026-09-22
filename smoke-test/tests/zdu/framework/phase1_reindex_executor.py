@@ -64,8 +64,8 @@ def _validate_single_index_reindex(
     scenario; the discipline of keeping it in sync with PDL diffs is enforced
     by code review on ``scenarios.py``.
     """
-    swaps = _alias_swaps(ctx)
-    if swaps is None:
+    classified = _classify_reindexes(ctx)
+    if classified is None:
         return _skip_no_data(scenario)
     if scenario.expected_reindex_indices is None:
         return ValidationResult(
@@ -78,7 +78,7 @@ def _validate_single_index_reindex(
                 "in scenarios.py to enable input-driven validation"
             ),
         )
-    observed = frozenset(alias for alias, new in swaps if new)
+    observed = frozenset(classified[0])
     expected = scenario.expected_reindex_indices
     missing = expected - observed
     unexpected = observed - expected
@@ -113,8 +113,8 @@ def _validate_unchanged_indices(
     not subjected to a real reindex. Reads the expected-reindex set from
     TC-101's scenario, looked up via ``ctx.all_scenarios``.
     """
-    swaps = _alias_swaps(ctx)
-    if swaps is None:
+    classified = _classify_reindexes(ctx)
+    if classified is None:
         return _skip_no_data(scenario)
     expected_reindex = _lookup_expected_reindex_indices(ctx)
     if expected_reindex is None:
@@ -128,13 +128,10 @@ def _validate_unchanged_indices(
                 "TC-102 depends on it (was TC-101 filtered out of the run?)"
             ),
         )
-    violations = [
-        (alias, new_idx)
-        for alias, new_idx in swaps
-        if alias not in expected_reindex and new_idx
-    ]
+    real, no_op = classified
+    violations = sorted(real - expected_reindex)
     if not violations:
-        clean = [alias for alias, new in swaps if alias not in expected_reindex]
+        clean = sorted(no_op - expected_reindex)
         return ValidationResult(
             tc_number=scenario.tc_number,
             name=scenario.name,
@@ -151,8 +148,8 @@ def _validate_unchanged_indices(
         expected_to_fail=False,
         actual_result=f"Unexpected real reindex(es): {violations}",
         failure_reason=(
-            "Indices outside TC-101's expected_reindex_indices got a "
-            "non-empty next_index_name (real reindex)"
+            "Indices outside TC-101's expected_reindex_indices copied data "
+            "(non-zero sourceDocCount), i.e. took the real reindex path"
         ),
     )
 
@@ -160,26 +157,30 @@ def _validate_unchanged_indices(
 def _validate_empty_source_noop(
     scenario: ZDUTestScenario, ctx: TestContext
 ) -> ValidationResult:
-    """TC-104 — at least one captured alias swap is an empty-source no-op.
+    """TC-104 — at least one processed alias took the empty-source no-op path.
 
-    Signal: empty ``next_index_name`` on the swap. When the MySQL raw payload
+    Signal: the alias was swapped onto a newly created index but no data was
+    copied (``sourceDocCount=0``, no reindex task). When the MySQL raw payload
     is available, cross-check ``sourceDocCount=0`` and ``status=COMPLETED``
     on the same aliases.
     """
-    swaps = _alias_swaps(ctx)
-    if swaps is None:
+    classified = _classify_reindexes(ctx)
+    if classified is None:
         return _skip_no_data(scenario)
-    no_op_swaps = [alias for alias, new in swaps if not new]
+    no_op_swaps = sorted(classified[1])
     if not no_op_swaps:
         return ValidationResult(
             tc_number=scenario.tc_number,
             name=scenario.name,
             status="FAIL",
             expected_to_fail=False,
-            actual_result=f"No empty-source no-op swaps observed; swaps={swaps}",
+            actual_result=(
+                f"No empty-source no-op swaps observed; "
+                f"real={sorted(classified[0])}, swaps={_alias_swaps(ctx)}"
+            ),
             failure_reason=(
-                "Expected at least one alias swap with empty next_index_name "
-                "(empty-source no-op path)"
+                "Expected at least one alias to take the empty-source no-op "
+                "path (swapped with sourceDocCount=0, no reindex task)"
             ),
         )
     if ctx.upgrade_blocking and ctx.upgrade_blocking.raw:
@@ -228,11 +229,11 @@ def _validate_mixed_reindex(
     job correctly classifies each index by need and skips reindex when
     appropriate.
     """
-    swaps = _alias_swaps(ctx)
-    if swaps is None:
+    classified = _classify_reindexes(ctx)
+    if classified is None:
         return _skip_no_data(scenario)
-    real = [a for a, n in swaps if n]
-    noop = [a for a, n in swaps if not n]
+    real = sorted(classified[0])
+    noop = sorted(classified[1])
     if real and noop:
         return ValidationResult(
             tc_number=scenario.tc_number,
@@ -390,14 +391,13 @@ def _validate_settings_only_update(
                 "diff routed through the reindex+swap path instead"
             ),
         )
-    # Cross-check: none of the expected in-place indices should ALSO appear
-    # in alias_swaps_observed with a non-empty new_index_name. If they do,
-    # production took both paths somehow — surface as a FAIL.
-    swap_violations = [
-        alias
-        for alias, new_idx in ctx.upgrade_blocking.alias_swaps_observed
-        if alias in expected and new_idx
-    ]
+    # Cross-check: none of the expected in-place indices should ALSO have taken
+    # the real reindex path. If one did, production took both paths somehow —
+    # surface as a FAIL. Keyed on copied-data rather than on a non-empty
+    # next_index_name, for the reason described in ``_classify_reindexes``.
+    classified = _classify_reindexes(ctx)
+    real_reindexes = classified[0] if classified else set()
+    swap_violations = sorted(expected & real_reindexes)
     if swap_violations:
         return ValidationResult(
             tc_number=scenario.tc_number,
@@ -662,6 +662,57 @@ def _alias_swaps(ctx: TestContext) -> list[tuple[str, str]] | None:
     if ctx.upgrade_blocking is None:
         return None
     return list(ctx.upgrade_blocking.alias_swaps_observed)
+
+
+def _classify_reindexes(ctx: TestContext) -> tuple[set[str], set[str]] | None:
+    """Split the processed aliases into ``(real_reindex, no_op_swap)``.
+
+    "Real" means data was actually copied; "no-op" means the alias was still
+    repointed at a freshly created index (so new code reads the new mappings)
+    but no ``_reindex`` ran because the source held no documents.
+
+    Classification reads ``ctx.upgrade_blocking.indices``, i.e. the
+    ``DataHubUpgradeResult.indicesState`` persisted in MySQL, and keys on
+    ``source_doc_count``. That is the authoritative record of what production
+    did. ``task_id`` is an equivalent signal — ``BuildIndicesIncrementalStep``
+    only emits it for a non-empty source — and is used as a tiebreak.
+
+    Deliberately NOT keyed on "``next_index_name`` is non-empty". Both paths
+    create a next index and swap onto it (see the "Still need to swap the alias
+    so new code reads from the next index with correct mappings, even though
+    both indices have 0 docs" branch in ``BuildIndicesIncrementalStep``), so a
+    non-empty next index says nothing about whether data moved. That
+    discriminator only ever worked because the empty-source branch used to log
+    a line that omitted the next index name; once #11215 routed every branch
+    through the shared ``swapAliasOrCleanUp`` helper, the generic
+    ``Alias swapped: <alias> -> <next>`` line is emitted for the empty-source
+    case too. The framework then records the same swap twice — once via the
+    ``had 0 docs ... alias swapped`` pattern (no next index) and once via the
+    generic pattern (with one) — and a next-index-based check reads the second
+    entry as a real reindex.
+
+    Returns ``None`` when Phase 4 didn't run. Falls back to the log-derived
+    swaps when MySQL state is unavailable; there, an alias counts as a no-op if
+    ANY captured entry for it lacks a next index name, since that entry can
+    only come from the empty-source log line.
+    """
+    if ctx.upgrade_blocking is None:
+        return None
+
+    if ctx.upgrade_blocking.indices:
+        real: set[str] = set()
+        no_op: set[str] = set()
+        for state in ctx.upgrade_blocking.indices:
+            if state.source_doc_count > 0 or state.task_id:
+                real.add(state.alias)
+            else:
+                no_op.add(state.alias)
+        return real, no_op
+
+    swaps = ctx.upgrade_blocking.alias_swaps_observed
+    no_op = {alias for alias, next_idx in swaps if not next_idx}
+    real = {alias for alias, next_idx in swaps if next_idx} - no_op
+    return real, no_op
 
 
 def _lookup_expected_reindex_indices(

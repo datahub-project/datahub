@@ -1011,7 +1011,14 @@ public class PlatformEventGeneratorHookTest {
             ChangeOperation.MODIFY,
             null,
             ImmutableMap.of(
-                "description", "newC2Desc", "fieldPath", "c2", "parentUrn", TEST_DATASET_URN),
+                "description",
+                "newC2Desc",
+                "previousDescription",
+                "oldC2Desc",
+                "fieldPath",
+                "c2",
+                "parentUrn",
+                TEST_DATASET_URN),
             actorUrn),
         false);
 
@@ -1089,7 +1096,14 @@ public class PlatformEventGeneratorHookTest {
             ChangeOperation.MODIFY,
             null,
             ImmutableMap.of(
-                "description", "newC2Desc", "fieldPath", "c2", "parentUrn", TEST_DATASET_URN),
+                "description",
+                "newC2Desc",
+                "previousDescription",
+                "oldC2Desc",
+                "fieldPath",
+                "c2",
+                "parentUrn",
+                TEST_DATASET_URN),
             actorUrn),
         false);
 

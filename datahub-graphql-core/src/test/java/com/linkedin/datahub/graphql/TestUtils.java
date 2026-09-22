@@ -153,6 +153,46 @@ public class TestUtils {
         .build(operationContext.getSessionActorContext(), false);
   }
 
+  /**
+   * Returns a context that allows a single privilege on a single resource URN and denies everything
+   * else. Lets a test assert which URN a check was actually made against, rather than only whether
+   * it passed.
+   */
+  public static QueryContext getMockAllowContextForResource(
+      @Nonnull final String actorUrn,
+      @Nonnull final String privilege,
+      @Nonnull final Urn allowedResourceUrn) {
+    Authorizer mockAuthorizer = mock(Authorizer.class);
+    when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            args -> {
+              AuthorizationRequest request = args.getArgument(0);
+              boolean allowed =
+                  privilege.equals(request.getPrivilege())
+                      && request
+                          .getResourceSpec()
+                          .map(spec -> allowedResourceUrn.toString().equals(spec.getEntity()))
+                          .orElse(false);
+              return new AuthorizationResult(
+                  request,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  "");
+            });
+
+    Authentication authentication =
+        new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
+
+    QueryContext mockContext = mock(QueryContext.class);
+    when(mockContext.getActorUrn()).thenReturn(actorUrn);
+    when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
+    when(mockContext.getAuthentication()).thenReturn(authentication);
+    OperationContext operationContext =
+        withDefaultSearchEntityTypes(
+            TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication));
+    when(mockContext.getOperationContext()).thenReturn(operationContext);
+    return mockContext;
+  }
+
   public static QueryContext getMockDenyContext() {
     return getMockDenyContext("urn:li:corpuser:test");
   }

@@ -9,6 +9,7 @@ import pytest
 import requests
 
 from datahub.ingestion.run.pipeline import Pipeline
+from tests.utilities.domains import Domain
 from tests.utilities.messaging_transport import (
     build_pgqueue_sink_config,
     is_pgqueue_transport,
@@ -32,7 +33,10 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.domain(Domain.PLATFORM, Domain.CATALOG),
+]
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 usage_sample_data = "./test_resources/bigquery_usages_golden.json"
@@ -208,12 +212,14 @@ def test_run_ingestion(auth_session):
     wait_for_writes_to_sync()
 
 
+@pytest.mark.p0
 def test_gms_get_user(auth_session):
     username = "jdoe"
     urn = f"urn:li:corpuser:{username}"
     _ensure_user_present(auth_session, urn=urn)
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "platform,dataset_name,env",
     [
@@ -278,6 +284,7 @@ def test_gms_batch_get_v2(auth_session):
     )  # Aspect does not exist.
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "query,min_expected_results",
     [
@@ -301,6 +308,7 @@ def test_gms_search_dataset(auth_session, query, min_expected_results):
     assert len(res_data["value"]["entities"]) >= min_expected_results
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "query,min_expected_results",
     [
@@ -338,8 +346,43 @@ def test_gms_usage_fetch(auth_session):
 
     data = response.json()["value"]
 
-    assert len(data["buckets"]) == 6
-    assert data["buckets"][0]["metrics"]["topSqlQueries"]
+    # bigquery_usages_golden.json seeds three non-empty DAY buckets for this resource.
+    # DAY date_histogram uses min_doc_count=0, so empty interstitial days (May 29–31) are
+    # also returned. Assert seeded days + gap-filled empties rather than a bare length check.
+    expected_non_empty = {
+        1622073600000: 4,  # 2021-05-27
+        1622160000000: 2,  # 2021-05-28
+        1622505600000: 1,  # 2021-06-01
+    }
+    expected_empty = (
+        1622246400000,  # 2021-05-29
+        1622332800000,  # 2021-05-30
+        1622419200000,  # 2021-05-31
+    )
+    expected_top_sql_queries = {
+        "\nSELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`;\n\n",
+        "SELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`",
+    }
+    buckets_by_ts = {bucket["bucket"]: bucket for bucket in data["buckets"]}
+    for ts, total_sql_queries in expected_non_empty.items():
+        assert ts in buckets_by_ts, (
+            f"missing usage bucket {ts}; got {sorted(buckets_by_ts)}"
+        )
+        metrics = buckets_by_ts[ts]["metrics"]
+        assert metrics["totalSqlQueries"] == total_sql_queries
+        assert metrics["uniqueUserCount"] == 1
+    for ts in expected_empty:
+        assert ts in buckets_by_ts, (
+            f"missing empty interstitial bucket {ts}; got {sorted(buckets_by_ts)}"
+        )
+        metrics = buckets_by_ts[ts].get("metrics") or {}
+        assert metrics.get("totalSqlQueries") is None, metrics
+        assert metrics.get("uniqueUserCount") is None, metrics
+        assert not metrics.get("topSqlQueries"), metrics
+    assert (
+        set(buckets_by_ts[1622073600000]["metrics"]["topSqlQueries"])
+        == expected_top_sql_queries
+    )
 
     fields = data["aggregations"].pop("fields")
     assert len(fields) == 12
@@ -356,6 +399,7 @@ def test_gms_usage_fetch(auth_session):
     }
 
 
+@pytest.mark.p0
 def test_frontend_auth(auth_session):
     pass
 
@@ -385,6 +429,7 @@ def test_frontend_browse_datasets(auth_session):
     assert len(res_data["data"]["browse"]["groups"]) > 0
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "query,min_expected_results",
     [
@@ -419,6 +464,7 @@ def test_frontend_search_datasets(auth_session, query, min_expected_results):
     assert len(res_data["data"]["search"]["searchResults"]) >= min_expected_results
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "query,min_expected_results",
     [
@@ -454,6 +500,7 @@ def test_frontend_search_across_entities(auth_session, query, min_expected_resul
     )
 
 
+@pytest.mark.p0
 def test_frontend_user_info(auth_session):
     urn = get_root_urn()
     query = """query corpUser($urn: String!) {
@@ -478,6 +525,7 @@ def test_frontend_user_info(auth_session):
     assert res_data["data"]["corpUser"]["urn"] == urn
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "platform,dataset_name,env",
     [
@@ -716,7 +764,13 @@ def test_list_users(auth_session):
     )  # Length of default user set.
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
+# The bootstrapped groups come from bootstrap_mce.json and are only visible here
+# once Elasticsearch has indexed them. wait_for_writes_to_sync() inside
+# execute_graphql() only covers the write pipeline, not the search refresh, so
+# an unretried run can legitimately see fewer than the 2 expected groups.
+@with_test_retry()
 def test_list_groups(auth_session):
     query = """query listGroups($input: ListGroupsInput!) {
         listGroups(input: $input) {
@@ -749,6 +803,7 @@ def test_list_groups(auth_session):
     )  # Length of default group set.
 
 
+@pytest.mark.p0
 @pytest.mark.dependency(depends=["test_list_groups"])
 def test_add_remove_members_from_group(auth_session):
     # Assert no group edges for user jdoe
@@ -997,6 +1052,49 @@ def test_home_page_recommendations(auth_session):
     )
 
 
+def test_home_page_recommendations_with_module_filter(auth_session):
+    def get_recommendation_module_ids(modules_filter):
+        json = {
+            "query": """query listRecommendations($input: ListRecommendationsInput!) {\n
+                listRecommendations(input: $input) { modules { moduleId } } }""",
+            "variables": {
+                "input": {
+                    "userUrn": get_root_urn(),
+                    "requestContext": {
+                        "scenario": "HOME",
+                        "modules": modules_filter,
+                    },
+                    "limit": 10,
+                }
+            },
+        }
+
+        response = auth_session.post(
+            f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+        )
+        response.raise_for_status()
+        res_data = response.json()
+        logger.info(res_data)
+
+        assert res_data
+        assert res_data["data"]
+        assert res_data["data"]["listRecommendations"]
+        assert "errors" not in res_data
+
+        return {
+            module["moduleId"]
+            for module in res_data["data"]["listRecommendations"]["modules"]
+        }
+
+    # Filtering to a single module should only ever return that module
+    assert get_recommendation_module_ids(["DOMAINS"]).issubset({"Domains"})
+
+    # Filtering to multiple modules should only return modules from that set
+    assert get_recommendation_module_ids(["PLATFORMS", "DOMAINS"]).issubset(
+        {"Platforms", "Domains"}
+    )
+
+
 def test_search_results_recommendations(auth_session):
     # This test simply ensures that the recommendations endpoint does not return an error.
     json = {
@@ -1024,6 +1122,7 @@ def test_search_results_recommendations(auth_session):
     assert "errors" not in res_data
 
 
+@pytest.mark.p0
 def test_generate_personal_access_token(auth_session):
     # Test success case
     json = {

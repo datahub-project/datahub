@@ -104,7 +104,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Snowplow")
 @config_class(SnowplowSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via configuration")
 @capability(

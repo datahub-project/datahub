@@ -7,6 +7,10 @@ from typing import Any, Dict, List
 
 import pytest
 
+from tests.utilities.domains import Domain
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
+
 _MESSAGING_BASE = "/openapi/operations/messaging"
 
 

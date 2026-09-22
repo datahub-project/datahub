@@ -262,7 +262,7 @@ def _model_tables(
     offset: int = 0,
     fields: str | None = None,
 ) -> ModelTablesResponse:
-    assert fields == "physicalTable,attributes,facts"
+    assert fields == "information,physicalTable,attributes,facts"
     if offset > 0:
         return ModelTablesResponse(tables=[], total=1)
     return ModelTablesResponse.model_validate(

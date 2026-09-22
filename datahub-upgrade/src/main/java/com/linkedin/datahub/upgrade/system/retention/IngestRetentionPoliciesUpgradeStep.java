@@ -192,18 +192,19 @@ public class IngestRetentionPoliciesUpgradeStep implements UpgradeStep {
 
     if (applyAfterIngest && !hasUpdate) {
       log.info("Applying retention policies to all records (applyOnBootstrap)");
-      retentionService.batchApplyRetention(null, null);
+      retentionService.batchApplyRetention(opContext, null, null);
     } else if (hasUpdate && (applyOnPolicyChange || applyAfterIngest)) {
       if (applyAfterIngest || needsGlobalBatch) {
         log.info("Applying retention policies to all records");
-        retentionService.batchApplyRetention(null, null);
+        retentionService.batchApplyRetention(opContext, null, null);
       } else {
         for (DataHubRetentionKey scope : specificBatchScopes) {
           log.info(
               "Applying retention policies for entity={}, aspect={}",
               scope.getEntityName(),
               scope.getAspectName());
-          retentionService.batchApplyRetention(scope.getEntityName(), scope.getAspectName());
+          retentionService.batchApplyRetention(
+              opContext, scope.getEntityName(), scope.getAspectName());
         }
       }
     }

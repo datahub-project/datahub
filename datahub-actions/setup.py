@@ -76,10 +76,10 @@ framework_common = {
 plugins: Dict[str, Set[str]] = {
     # Source Plugins
     "kafka": {
-        "confluent-kafka[schemaregistry]<2.13.0",
+        "confluent-kafka[schemaregistry]>=2.15.1,<3.0.0",
     },
     # Action Plugins
-    "executor": {"acryl-executor>=0.3.11,<1"},
+    "executor": set(),
     "slack": {
         "slack-bolt>=1.15.5",
     },
@@ -209,6 +209,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",

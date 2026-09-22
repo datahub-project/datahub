@@ -438,6 +438,7 @@ export abstract class SourcesBaseTab extends BaseTab {
 
   async expectSourceStatusContains(sourceName: string, status: string): Promise<void> {
     // Wait briefly for executor to pick up the request
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.SHORT);
     const row = this.getSourceRow(sourceName);
     // Ingestion source execution completion

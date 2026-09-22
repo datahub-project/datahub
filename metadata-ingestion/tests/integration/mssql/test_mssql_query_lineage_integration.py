@@ -39,6 +39,11 @@ def mssql_runner(docker_compose_runner, test_resources_dir):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "sql-server"
     ) as docker_services:
+        # Ephemeral host port: a leaked container from a prior CI run can
+        # never hold onto it. Tests build connection strings from this
+        # discovered port rather than a hardcoded one.
+        host_port = docker_services.port_for("testsqlserver", MSSQL_PORT)
+
         wait_for_port(
             docker_services,
             "testsqlserver",
@@ -47,7 +52,7 @@ def mssql_runner(docker_compose_runner, test_resources_dir):
             checker=lambda: is_mssql_up("testsqlserver"),
         )
         time.sleep(5)  # Extra time for SQL Server to fully initialize
-        yield docker_services
+        yield host_port
 
 
 @pytest.fixture(scope="module")
@@ -63,7 +68,7 @@ def mssql_connection(mssql_runner):
     """Create SQLAlchemy connection to test SQL Server instance."""
     # First, create database and enable Query Store using master connection
     master_engine = sa.create_engine(
-        "mssql+pyodbc://sa:test!Password@127.0.0.1:21433/master?"
+        f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/master?"
         "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
@@ -87,7 +92,7 @@ def mssql_connection(mssql_runner):
 
     # Now create engine connected to lineage_test database
     test_engine = sa.create_engine(
-        "mssql+pyodbc://sa:test!Password@127.0.0.1:21433/lineage_test?"
+        f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/lineage_test?"
         "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
@@ -313,12 +318,12 @@ class TestMSSQLLineageIntegration:
         assert "has_view_server_state" in row
         assert row["has_view_server_state"] in (0, 1)
 
-    def test_lineage_extractor_prerequisites(self, mssql_connection):
+    def test_lineage_extractor_prerequisites(self, mssql_connection, mssql_runner):
         """Test that MSSQLLineageExtractor can check prerequisites."""
         config = SQLServerConfig(
             username="sa",
             password="test!Password",
-            host_port="localhost:21433",
+            host_port=f"localhost:{mssql_runner}",
             database="lineage_test",
         )
 
@@ -376,10 +381,10 @@ class TestMSSQLLineageIntegration:
         for q in queries:
             assert q["execution_count"] >= 3
 
-    def test_query_store_disabled_scenario(self, mssql_connection):
+    def test_query_store_disabled_scenario(self, mssql_connection, mssql_runner):
         """Test behavior when Query Store is disabled."""
         master_engine = sa.create_engine(
-            "mssql+pyodbc://sa:test!Password@127.0.0.1:21433/master?"
+            f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/master?"
             "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
             isolation_level="AUTOCOMMIT",
         )
@@ -391,7 +396,7 @@ class TestMSSQLLineageIntegration:
             master_conn.execute(text("ALTER DATABASE test_no_qs SET QUERY_STORE = OFF"))
 
         test_engine = sa.create_engine(
-            "mssql+pyodbc://sa:test!Password@127.0.0.1:21433/test_no_qs?"
+            f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/test_no_qs?"
             "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
             isolation_level="AUTOCOMMIT",
         )
@@ -400,7 +405,7 @@ class TestMSSQLLineageIntegration:
             config = SQLServerConfig(
                 username="sa",
                 password="test!Password",
-                host_port="localhost:21433",
+                host_port=f"localhost:{mssql_runner}",
                 database="test_no_qs",
             )
 
@@ -511,7 +516,7 @@ class TestMSSQLLineageIntegration:
         )
         assert isinstance(query, TextClause)
 
-    def test_end_to_end_lineage_aggregation(self, mssql_connection):
+    def test_end_to_end_lineage_aggregation(self, mssql_connection, mssql_runner):
         """Test complete lineage extraction and aggregation pipeline."""
         mssql_connection.execute(text("DROP TABLE IF EXISTS lineage_test.etl_source"))
         mssql_connection.execute(text("DROP TABLE IF EXISTS lineage_test.etl_staging"))
@@ -580,7 +585,7 @@ class TestMSSQLLineageIntegration:
         config = SQLServerConfig(
             username="sa",
             password="test!Password",
-            host_port="localhost:21433",
+            host_port=f"localhost:{mssql_runner}",
             database="lineage_test",
             include_query_lineage=True,
             max_queries_to_extract=100,
@@ -605,12 +610,12 @@ class TestMSSQLLineageIntegration:
 
         aggregator.close()
 
-    def test_lineage_with_parse_failures(self, mssql_connection):
+    def test_lineage_with_parse_failures(self, mssql_connection, mssql_runner):
         """Test that lineage extraction continues gracefully when some queries fail to parse."""
         config = SQLServerConfig(
             username="sa",
             password="test!Password",
-            host_port="localhost:21433",
+            host_port=f"localhost:{mssql_runner}",
             database="lineage_test",
             include_query_lineage=True,
         )
@@ -641,12 +646,12 @@ class TestMSSQLLineageIntegration:
 
         aggregator.close()
 
-    def test_connection_loss_during_extraction(self, mssql_connection):
+    def test_connection_loss_during_extraction(self, mssql_connection, mssql_runner):
         """Test graceful handling of connection loss during query extraction."""
         config = SQLServerConfig(
             username="sa",
             password="test!Password",
-            host_port="localhost:21433",
+            host_port=f"localhost:{mssql_runner}",
             database="lineage_test",
             include_query_lineage=True,
         )
@@ -698,7 +703,9 @@ class TestMSSQLLineageIntegration:
 
 
 @pytest.mark.integration
-def test_end_to_end_lineage_graph_validation(mssql_connection, aggregator):
+def test_end_to_end_lineage_graph_validation(
+    mssql_connection, aggregator, mssql_runner
+):
     """
     BLOCKER: Verify actual lineage graph is correct, not just mechanics.
 
@@ -745,7 +752,7 @@ def test_end_to_end_lineage_graph_validation(mssql_connection, aggregator):
         {
             "username": "sa",
             "password": "test_123!@#",
-            "host_port": "localhost:1433",
+            "host_port": f"localhost:{mssql_runner}",
             "database": "TestDB",
             "include_query_lineage": True,
             "max_queries_to_extract": 100,
@@ -774,7 +781,7 @@ def test_end_to_end_lineage_graph_validation(mssql_connection, aggregator):
 
 
 @pytest.mark.integration
-def test_column_level_lineage_validation(mssql_connection, aggregator):
+def test_column_level_lineage_validation(mssql_connection, aggregator, mssql_runner):
     """BLOCKER: Verify column-level lineage is extracted correctly."""
     conn = mssql_connection
 
@@ -812,7 +819,7 @@ def test_column_level_lineage_validation(mssql_connection, aggregator):
         {
             "username": "sa",
             "password": "test_123!@#",
-            "host_port": "localhost:1433",
+            "host_port": f"localhost:{mssql_runner}",
             "database": "TestDB",
             "include_query_lineage": True,
         }
@@ -843,7 +850,7 @@ def test_column_level_lineage_validation(mssql_connection, aggregator):
 
 
 @pytest.mark.integration
-def test_merge_statement_lineage_extraction(mssql_connection, aggregator):
+def test_merge_statement_lineage_extraction(mssql_connection, aggregator, mssql_runner):
     """Test MERGE statement (common in MSSQL) produces correct lineage."""
     conn = mssql_connection
 
@@ -869,7 +876,7 @@ def test_merge_statement_lineage_extraction(mssql_connection, aggregator):
         {
             "username": "sa",
             "password": "test_123!@#",
-            "host_port": "localhost:1433",
+            "host_port": f"localhost:{mssql_runner}",
             "database": "TestDB",
             "include_query_lineage": True,
         }
@@ -896,7 +903,7 @@ def test_merge_statement_lineage_extraction(mssql_connection, aggregator):
 
 
 @pytest.mark.integration
-def test_select_into_creates_lineage(mssql_connection, aggregator):
+def test_select_into_creates_lineage(mssql_connection, aggregator, mssql_runner):
     """Test SELECT INTO (MSSQL CTAS) produces lineage."""
     conn = mssql_connection
 
@@ -913,7 +920,7 @@ def test_select_into_creates_lineage(mssql_connection, aggregator):
         {
             "username": "sa",
             "password": "test_123!@#",
-            "host_port": "localhost:1433",
+            "host_port": f"localhost:{mssql_runner}",
             "database": "TestDB",
             "include_query_lineage": True,
         }
@@ -941,7 +948,7 @@ def test_select_into_creates_lineage(mssql_connection, aggregator):
 
 
 @pytest.mark.integration
-def test_update_with_join_tsql_syntax(mssql_connection, aggregator):
+def test_update_with_join_tsql_syntax(mssql_connection, aggregator, mssql_runner):
     """Test MSSQL-specific UPDATE with JOIN syntax."""
     conn = mssql_connection
 
@@ -969,7 +976,7 @@ def test_update_with_join_tsql_syntax(mssql_connection, aggregator):
         {
             "username": "sa",
             "password": "test_123!@#",
-            "host_port": "localhost:1433",
+            "host_port": f"localhost:{mssql_runner}",
             "database": "TestDB",
             "include_query_lineage": True,
         }
@@ -997,7 +1004,9 @@ def test_update_with_join_tsql_syntax(mssql_connection, aggregator):
 
 
 @pytest.mark.integration
-def test_bracket_quoted_identifiers_in_queries(mssql_connection, aggregator):
+def test_bracket_quoted_identifiers_in_queries(
+    mssql_connection, aggregator, mssql_runner
+):
     """Test that bracket-quoted identifiers are handled correctly."""
     conn = mssql_connection
 
@@ -1019,7 +1028,7 @@ def test_bracket_quoted_identifiers_in_queries(mssql_connection, aggregator):
         {
             "username": "sa",
             "password": "test_123!@#",
-            "host_port": "localhost:1433",
+            "host_port": f"localhost:{mssql_runner}",
             "database": "TestDB",
             "include_query_lineage": True,
         }
@@ -1091,7 +1100,7 @@ def test_stored_procedure_with_temp_tables_filtered(mssql_connection):
 def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
     """End-to-end DMV extraction test simulating SQL Server 2014 (no Query Store)."""
     master_engine = sa.create_engine(
-        "mssql+pyodbc://sa:test!Password@127.0.0.1:21433/master?"
+        f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/master?"
         "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
@@ -1102,7 +1111,7 @@ def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
         master_conn.execute(text("ALTER DATABASE dmv_test_db SET QUERY_STORE = OFF"))
 
     test_engine = sa.create_engine(
-        "mssql+pyodbc://sa:test!Password@127.0.0.1:21433/dmv_test_db?"
+        f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/dmv_test_db?"
         "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
@@ -1182,7 +1191,7 @@ def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
             config = SQLServerConfig(
                 username="sa",
                 password="test!Password",
-                host_port="localhost:21433",
+                host_port=f"localhost:{mssql_runner}",
                 database="dmv_test_db",
                 include_query_lineage=True,
                 max_queries_to_extract=100,

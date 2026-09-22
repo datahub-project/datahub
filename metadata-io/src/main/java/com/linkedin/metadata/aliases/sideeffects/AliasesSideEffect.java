@@ -28,6 +28,9 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Derives the system-computed {@code aliases.lowercasedUrn} field from the entity's URN. Keyed on
  * the dataset key aspect so it runs once, at creation.
+ *
+ * <p>Skipped when the URN already equals its lowercased form, so a lookup has to match {@code urn}
+ * OR {@code lowercasedUrn}.
  */
 @Slf4j
 @Getter
@@ -64,6 +67,10 @@ public class AliasesSideEffect extends MCPSideEffect {
       lowercasedUrn = AliasesUtils.lowercaseDatasetUrn(urn);
     } catch (URISyntaxException e) {
       log.warn("Unable to compute lowercasedUrn for {}", urn, e);
+      return Stream.empty();
+    }
+
+    if (lowercasedUrn.equals(urn)) {
       return Stream.empty();
     }
 

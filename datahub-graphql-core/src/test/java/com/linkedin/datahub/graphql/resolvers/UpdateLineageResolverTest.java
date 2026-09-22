@@ -7,6 +7,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.LineageEdge;
@@ -46,6 +48,9 @@ public class UpdateLineageResolverTest {
       "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test1)";
   private static final String DATAJOB_URN_2 =
       "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test2)";
+  private static final String METRIC_URN =
+      "urn:li:metric:(urn:li:dataPlatform:looker,kpi.revenue,PROD)";
+  private static final String DATA_PRODUCT_URN = "urn:li:dataProduct:test";
 
   @BeforeMethod
   public void setupTest() {
@@ -157,6 +162,116 @@ public class UpdateLineageResolverTest {
         .thenAnswer(args -> args.getArgument(1));
 
     assertThrows(AuthorizationException.class, () -> resolver.get(_mockEnv).join());
+  }
+
+  @Test
+  public void testUpdateChartWithMetricUpstream() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Collections.singletonList(createLineageEdge(CHART_URN, METRIC_URN));
+    mockInputAndContext(edgesToAdd, new ArrayList<>());
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertTrue(resolver.get(_mockEnv).get());
+    Mockito.verify(_lineageService)
+        .updateChartLineage(
+            any(),
+            eq(urn(CHART_URN)),
+            eq(Collections.singletonList(urn(METRIC_URN))),
+            eq(Collections.emptyList()),
+            any());
+    Mockito.verify(_lineageService, Mockito.never())
+        .updateUpstreamMetricsLineage(any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testUpdateDashboardWithMetricUpstream() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Collections.singletonList(createLineageEdge(DASHBOARD_URN, METRIC_URN));
+    mockInputAndContext(edgesToAdd, new ArrayList<>());
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertTrue(resolver.get(_mockEnv).get());
+    Mockito.verify(_lineageService)
+        .updateDashboardLineage(
+            any(),
+            eq(urn(DASHBOARD_URN)),
+            eq(Collections.singletonList(urn(METRIC_URN))),
+            eq(Collections.emptyList()),
+            any());
+    Mockito.verify(_lineageService, Mockito.never())
+        .updateUpstreamMetricsLineage(any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testUpdateDatasetWithMetricUpstream() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Collections.singletonList(createLineageEdge(DATASET_URN_1, METRIC_URN));
+    mockInputAndContext(edgesToAdd, new ArrayList<>());
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertTrue(resolver.get(_mockEnv).get());
+    Mockito.verify(_lineageService)
+        .updateDatasetLineage(
+            any(),
+            eq(urn(DATASET_URN_1)),
+            eq(Collections.singletonList(urn(METRIC_URN))),
+            eq(Collections.emptyList()),
+            any());
+    Mockito.verify(_lineageService, Mockito.never())
+        .updateUpstreamMetricsLineage(any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testUpdateChartWithMixedMetricAndDatasetUpstreams() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Arrays.asList(
+            createLineageEdge(CHART_URN, METRIC_URN), createLineageEdge(CHART_URN, DATASET_URN_2));
+    List<LineageEdge> edgesToRemove =
+        Collections.singletonList(createLineageEdge(CHART_URN, DATASET_URN_1));
+    mockInputAndContext(edgesToAdd, edgesToRemove);
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertTrue(resolver.get(_mockEnv).get());
+    Mockito.verify(_lineageService)
+        .updateChartLineage(
+            any(),
+            eq(urn(CHART_URN)),
+            eq(Arrays.asList(urn(METRIC_URN), urn(DATASET_URN_2))),
+            eq(Collections.singletonList(urn(DATASET_URN_1))),
+            any());
+    Mockito.verify(_lineageService, Mockito.never())
+        .updateUpstreamMetricsLineage(any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testFailClosedUnsupportedDownstreamType() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Collections.singletonList(createLineageEdge(DATA_PRODUCT_URN, DATASET_URN_1));
+    mockInputAndContext(edgesToAdd, new ArrayList<>());
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertThrows(CompletionException.class, () -> resolver.get(_mockEnv).join());
+    Mockito.verify(_lineageService, Mockito.never())
+        .updateDatasetLineage(any(), any(), any(), any(), any());
+  }
+
+  private static Urn urn(String urn) {
+    return UrnUtils.getUrn(urn);
   }
 
   private void mockInputAndContext(List<LineageEdge> edgesToAdd, List<LineageEdge> edgesToRemove) {

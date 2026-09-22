@@ -425,6 +425,14 @@ fragment lineageNodeProperties on EntityWithRelationships {
             description
             externalUrl
         }
+        metricUpstreams {
+            fieldUpstreams {
+                destination {
+                    urn
+                    type
+                }
+            }
+        }
         platform {
             ...platformFields
         }
@@ -936,6 +944,11 @@ fragment canEditLineageFragment on EntityWithRelationships {
             canEditLineage
         }
     }
+    ... on Metric {
+        privileges {
+            canEditLineage
+        }
+    }
 }
 
 query getLineageCounts(
@@ -980,6 +993,58 @@ query getLineageCounts(
                 total
             }
         }
+    }
+}
+
+# How many columns a column is directly related to, counted the way the lineage graph draws them.
+# `orFilters` carries the degree filter plus the exclusions that keep this comparable to the drawn
+# graph -- see `buildRelatedColumnFilters`.
+#
+# Counts only: the related columns are mostly schema fields that were never materialized as entities
+# -- fine-grained lineage writes graph edges without creating them -- so there is nothing to return
+# for them, and `includeGhostEntities` is what stops them being left out of the count. See the
+# caveats on that field: the count is approximate.
+query getColumnLineageCounts(
+    $urn: String!
+    $startTimeMillis: Long
+    $endTimeMillis: Long
+    $ignoreAsHops: [EntityTypeToPlatforms!]
+    $includeSoftDeleted: Boolean = false
+    $orFilters: [AndFilterInput!]
+) {
+    upstream: searchAcrossLineageCounts(
+        input: {
+            urn: $urn
+            direction: UPSTREAM
+            types: [SCHEMA_FIELD, METRIC]
+            orFilters: $orFilters
+            lineageFlags: {
+                startTimeMillis: $startTimeMillis
+                endTimeMillis: $endTimeMillis
+                ignoreAsHops: $ignoreAsHops
+            }
+            includeGhostEntities: true
+            includeSoftDeleted: $includeSoftDeleted
+        }
+    ) {
+        total
+    }
+    downstream: searchAcrossLineageCounts(
+        input: {
+            urn: $urn
+            direction: DOWNSTREAM
+            types: [SCHEMA_FIELD, METRIC]
+            orFilters: $orFilters
+            lineageFlags: {
+                startTimeMillis: $startTimeMillis
+                endTimeMillis: $endTimeMillis
+                ignoreAsHops: $ignoreAsHops
+            }
+            includeGhostEntities: true
+            includeSoftDeleted: $includeSoftDeleted
+        }
+    ) {
+        total
     }
 }
 

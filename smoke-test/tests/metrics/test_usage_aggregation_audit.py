@@ -35,6 +35,7 @@ from tests.metrics.usage_aggregation_metrics import (
     find_metric_samples,
     generate_graphql_read_traffic,
     generate_graphql_search_traffic,
+    generate_openapi_corpuser_read_traffic,
     generate_openapi_metadata_read_traffic,
     generate_openapi_search_traffic,
     graphql_metadata_query_tags,
@@ -47,6 +48,8 @@ from tests.metrics.usage_aggregation_metrics import (
     wait_for_metric_at_least,
     wait_for_metric_delta,
 )
+from tests.tokens.token_utils import revoke_access_token
+from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import get_prometheus_metrics
 from tests.utilities.multi_user import cleanup_step_actor_user, make_step_actor_user
 from tests.utils import (
@@ -57,6 +60,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _require_prometheus_url() -> str:
@@ -99,41 +104,6 @@ class TestUsageAggregationAdminSessions:
             assert tags_on_line.get("actor_class") == actor_class
             assert tags_on_line.get("request_api") == "graphql"
         logger.info("admin session evidence: urn=%s actor_class=%s", urn, actor_class)
-
-    def test_usage_aggregation_pat_authenticated_traffic(self, auth_session):
-        """Configured admin exports traffic when authenticating via a minted PAT."""
-        gms_url = _require_prometheus_url()
-        admin_urn = session_corp_user_urn(auth_session)
-        actor_class = resolve_usage_actor_class(auth_session)
-
-        admin_pat = try_mint_personal_access_token(auth_session, admin_urn)
-        if admin_pat is None:
-            pytest.skip("Cannot mint PAT for configured admin in this environment")
-
-        pat_session = TestSessionWrapper(requests.Session(), prebuilt_token=admin_pat)
-        try:
-            tags = aggregation_tags(
-                actor_class, usage_operation="metadata_read", request_api="openapi"
-            )
-            baseline = fetch_metric_total(
-                pat_session, gms_url, OUTPUT_BYTES_METRIC, tags
-            )
-            generate_openapi_metadata_read_traffic(pat_session, repeat=2)
-            wait_for_metric_delta(
-                pat_session,
-                gms_url,
-                OUTPUT_BYTES_METRIC,
-                baseline,
-                required_tags=tags,
-                min_delta=1.0,
-            )
-            logger.info(
-                "PAT-authenticated admin evidence: urn=%s actor_class=%s",
-                admin_urn,
-                actor_class,
-            )
-        finally:
-            pat_session.destroy()
 
     def test_usage_aggregation_fresh_admin_session_login(self, auth_session):
         """Fresh frontend login for the configured admin exports GraphQL byte counters."""
@@ -182,6 +152,61 @@ class TestUsageAggregationAdminSessions:
         content = get_prometheus_metrics(auth_session, gms_url)
         samples = find_metric_samples(content, INPUT_BYTES_METRIC, required_tags=tags)
         assert_samples_have_tag_keys(samples, AGGREGATION_TAG_KEYS)
+
+
+class TestUsageAggregationPatTraffic:
+    def test_usage_aggregation_pat_authenticated_traffic(self, auth_session):
+        """PAT OpenAPI traffic on a dedicated regular user so Prometheus tags
+        do not collide with admin OpenAPI tests running under xdist.
+
+        Scrape counters with the admin session: the PAT is the traffic source,
+        not the Prometheus reader. actor_class=regular isolates this series
+        from admin (system) and from make_support_actor_user OpenAPI setup.
+        """
+        gms_url = _require_prometheus_url()
+        if not can_provision_native_users(auth_session):
+            pytest.skip(
+                "Session lacks manageIdentities — cannot provision a regular user locally"
+            )
+
+        user_urn, user_session = make_step_actor_user(auth_session, "usage-pat-traffic")
+        pat_session = None
+        token_id = None
+        try:
+            minted = try_mint_personal_access_token(user_session, user_urn)
+            if minted is None:
+                minted = try_mint_personal_access_token(auth_session, user_urn)
+            if minted is None:
+                pytest.skip("Cannot mint PAT for dedicated user in this environment")
+
+            pat, token_id = minted
+            pat_session = TestSessionWrapper(requests.Session(), prebuilt_token=pat)
+            tags = aggregation_tags(
+                "regular", usage_operation="metadata_read", request_api="openapi"
+            )
+            baseline = fetch_metric_total(
+                auth_session, gms_url, OUTPUT_BYTES_METRIC, tags
+            )
+            generate_openapi_corpuser_read_traffic(pat_session, user_urn, repeat=3)
+            wait_for_metric_delta(
+                auth_session,
+                gms_url,
+                OUTPUT_BYTES_METRIC,
+                baseline,
+                required_tags=tags,
+                min_delta=1.0,
+            )
+            logger.info(
+                "PAT-authenticated regular evidence: urn=%s actor_class=regular",
+                user_urn,
+            )
+        finally:
+            if pat_session is not None:
+                pat_session.destroy()
+            if token_id is not None:
+                revoke_access_token(auth_session, token_id)
+            user_session.destroy()
+            cleanup_step_actor_user(auth_session, user_urn)
 
 
 @pytest.mark.read_only

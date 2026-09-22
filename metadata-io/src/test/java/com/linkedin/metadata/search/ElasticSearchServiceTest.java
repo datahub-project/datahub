@@ -236,7 +236,7 @@ public class ElasticSearchServiceTest {
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getEntityIndexNameSemantic(TEST_URN.getEntityType());
+            .getEntityIndexNameSemantic(opContext, TEST_URN.getEntityType());
 
     // Capture the arguments for semantic index update
     ArgumentCaptor<String> indexNameCaptor = ArgumentCaptor.forClass(String.class);
@@ -1171,5 +1171,31 @@ public class ElasticSearchServiceTest {
     verify(mockBrowseDAO)
         .browse(
             any(OperationContext.class), eq(entityName), eq(path), eq(filters), eq(from), eq(null));
+  }
+
+  @Test
+  public void testGetActiveIncidentStatsDelegatesToSearchDao() {
+    final ESSearchDAO mockSearchDAO = mock(ESSearchDAO.class);
+    final ElasticSearchService serviceWithMockDAO =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mockSearchDAO,
+            mock(ESBrowseDAO.class),
+            mock(ESWriteDAO.class));
+
+    final Set<Urn> entityUrns = Set.of(TEST_URN);
+    final Map<Urn, IncidentStats> expected =
+        Map.of(TEST_URN, new IncidentStats(2, UrnUtils.getUrn("urn:li:incident:i1")));
+    when(mockSearchDAO.getActiveIncidentStats(opContext, entityUrns)).thenReturn(expected);
+
+    final Map<Urn, IncidentStats> result =
+        serviceWithMockDAO.getActiveIncidentStats(opContext, entityUrns);
+
+    assertEquals(result, expected);
+    verify(mockSearchDAO).getActiveIncidentStats(opContext, entityUrns);
   }
 }

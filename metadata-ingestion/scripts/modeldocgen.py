@@ -28,6 +28,7 @@ from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.metadata.schema_classes import (
+    ASPECT_NAME_MAP,
     BrowsePathEntryClass,
     BrowsePathsClass,
     BrowsePathsV2Class,
@@ -918,6 +919,19 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
             this_aspect_doc += (
                 f"\n#### {aspect}{deprecated_message}{timeseries_qualifier}\n"
             )
+            # Emitted below the heading rather than in it, so the anchor slug is
+            # unchanged and existing deep links keep working.
+            #
+            # Read from the generated map rather than derived from `aspect`. The
+            # class is named after the PDL record while this heading carries the
+            # @Aspect annotation name, and those diverge for 35 of the current
+            # aspects: mlModelTrainingData -> TrainingDataClass, propertyDefinition
+            # -> StructuredPropertyDefinitionClass, mlModelProperties ->
+            # MLModelPropertiesClass. Deriving the name here would be wrong in
+            # every one of those cases.
+            aspect_class = ASPECT_NAME_MAP.get(aspect)
+            if aspect_class is not None:
+                this_aspect_doc += f"\nPython class: `{aspect_class.__name__}`\n\n"
             this_aspect_doc += f"{aspect_definition.schema.get_prop('doc')}\n\n"
 
             # Extract fields for table view

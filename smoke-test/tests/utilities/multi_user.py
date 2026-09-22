@@ -70,7 +70,7 @@ def make_step_actor_user(admin_session, prefix: str) -> tuple[str, TestSessionWr
     res_data = removeUser(admin_session, user_urn)
     assert res_data
     assert "error" not in res_data
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     sign_up_json = {
         "fullName": "Smoke Test User",
@@ -88,7 +88,7 @@ def make_step_actor_user(admin_session, prefix: str) -> tuple[str, TestSessionWr
     # signUp assigns the new user's frontend cookie on the underlying requests session.
     _restore_admin_frontend_session(admin_session, admin_cookies)
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     wait_for_user_in_list(admin_session, email, present=True)
 
     regular_session = TestSessionWrapper(login_as(email, _DEFAULT_PASSWORD))
@@ -104,7 +104,7 @@ def cleanup_step_actor_user(admin_session, user_urn: str) -> None:
         if not res_data.get("data", {}).get("removeUser"):
             logger.warning("removeUser returned false for %s: %s", user_urn, res_data)
             return
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
         wait_for_user_in_list(admin_session, email, present=False)
         logger.info("Removed step actor user %s", user_urn)
     except Exception:

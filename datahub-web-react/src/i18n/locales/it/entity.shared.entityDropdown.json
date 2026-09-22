@@ -40,6 +40,9 @@
     "deprecation.ok": "Ok",
     "deprecation.reasonLabel": "Motivo",
     "deprecation.reasonPlaceholder": "Aggiungi motivo",
+    "deprecation.replacementColumnLabel": "Colonna",
+    "deprecation.replacementColumnPlaceholder": "Seleziona colonna",
+    "deprecation.replacementParentPlaceholder": "Seleziona {{entityName}}",
     "deprecation.replacementLabel": "Sostituzione",
     "deprecation.replacementSearchTitle": "Seleziona un'entità con cui sostituire l'entità obsoleta.",
     "deprecation.selectReplacement": "Seleziona sostituto",
@@ -95,5 +98,8 @@
     "unlinkVersion.confirmTitle": "Confermare?",
     "unlinkVersion.error": "Scollegamento non riuscito: \n {{errorMessage}}",
     "unlinkVersion.loading": "Scollegamento in corso...",
-    "unlinkVersion.success": "Scollegamento di {{entityName}} completato!"
+    "unlinkVersion.success": "Scollegamento di {{entityName}} completato!",
+    "dataProductSelect.notFound": "Nessun Data Product trovato",
+    "dataProductSelect.placeholder": "Seleziona un Data Product padre",
+    "moveDataProduct.title": "Sposta Data Product"
 }

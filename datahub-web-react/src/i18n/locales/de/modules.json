@@ -42,6 +42,7 @@
     "assetCollection.viewAllManualHint": "Manuell ausgewählte Sammlungen unterstützen den Link „Alle anzeigen“ derzeit nicht.",
     "assetCollection.viewAllUnsupportedHint": "Diese Sammlung zeigt keinen Link „Alle anzeigen“ an — dieser Filtertyp wird derzeit nicht unterstützt.",
     "assets.moduleName": "Assets",
+    "assets.relatedModuleName": "Verwandte Assets",
     "assets.moduleDescription": "Verwandte Assets, die mit der übergeordneten Entität getaggt sind",
     "assets.addTermError": "Begriff konnte nicht zum Glossar hinzugefügt werden: \n {{error}}",
     "assets.addTermModalTitle": "Glossar-Begriff zu Assets hinzufügen",

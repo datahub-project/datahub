@@ -7,12 +7,11 @@ import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { Button } from '@components/components/Button';
+import { ButtonTabs } from '@components/components/ButtonTabs';
 import { Dropdown } from '@components/components/Dropdown';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
 import { FileUploadContent } from '@components/components/Editor/toolbar/FileUploadContent';
 import { Input } from '@components/components/Input';
-
-import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
 
 const UPLOAD_FILE_KEY = 'uploadFile';
 const URL_KEY = 'url';

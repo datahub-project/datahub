@@ -403,7 +403,7 @@ const getFilteredIncidents = (incidents: Incident[], filter: IncidentListFilter)
     });
 };
 
-/** Return return filter incident as per selected type status and other things
+/** Return filter incident as per selected type status and other things
  * it returns transformated into
  * 1. group of incidents as per type , status
  * 2. Transform data into {@link IncidentListTableRow }  data
@@ -559,4 +559,10 @@ export const useSiblingOptionsForIncidentBuilder = (
         });
     });
     return optionsToAuthorOn;
+};
+
+export const buildIncidentUrlSearch = ({ urn, baseUrl }: { urn: string; baseUrl?: string }): string => {
+    const queryParams = new URLSearchParams();
+    queryParams.set('incident_urn', urn);
+    return `${baseUrl}?${queryParams.toString()}`;
 };

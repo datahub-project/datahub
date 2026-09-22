@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity.ebean;
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
@@ -165,7 +166,8 @@ public class EbeanAspectDaoSeamRoutingTest {
     assertEquals(found.get(keyB).getMetadata(), "batch-b");
 
     ArgumentCaptor<OperationContext> resolved = ArgumentCaptor.forClass(OperationContext.class);
-    verify(tableResolverSpy, atLeastOnce()).aspectTable(resolved.capture());
+    verify(tableResolverSpy, atLeastOnce())
+        .aspectTable(resolved.capture(), eq(EbeanAspectV2.TABLE_NAME));
     assertTrue(
         resolved.getAllValues().stream().allMatch(ctx -> ctx == rawSqlContext),
         "every table-name resolution in the raw SQL must use the caller's context");
@@ -182,7 +184,7 @@ public class EbeanAspectDaoSeamRoutingTest {
     assertEquals(range.getSecond().longValue(), 7L);
 
     ArgumentCaptor<OperationContext> resolved = ArgumentCaptor.forClass(OperationContext.class);
-    verify(tableResolverSpy).aspectTable(resolved.capture());
+    verify(tableResolverSpy).aspectTable(resolved.capture(), eq(EbeanAspectV2.TABLE_NAME));
     assertSame(resolved.getValue(), rawSqlContext);
 
     ArgumentCaptor<OperationContext> scoped = ArgumentCaptor.forClass(OperationContext.class);

@@ -34,7 +34,7 @@ automatically — no extra flags required.
 datahub init --username datahub --password datahub
 
 # Local instance — explicit duration override
-datahub init --username datahub --password datahub --token-duration NO_EXPIRY
+datahub init --username datahub --password datahub --token-duration ONE_MONTH
 
 # Remote instance — always pass --host explicitly
 datahub init --host https://your-instance.acryl.io/gms --username alice --password secret
@@ -96,3 +96,8 @@ CLI flags take precedence over environment variables.
 
 `ONE_HOUR`, `ONE_DAY`, `ONE_WEEK`, `ONE_MONTH`, `THREE_MONTHS`, `SIX_MONTHS`, `ONE_YEAR`,
 `NO_EXPIRY`
+
+`NO_EXPIRY` requires the server to allow never-expiring tokens
+(`ACCESS_TOKEN_ALLOW_NO_EXPIRY=true`). That is disabled by default; use a finite duration
+unless your deployment has re-enabled never-expiry. Allowed finite durations are also
+controlled by `ACCESS_TOKEN_ALLOWED_DURATIONS` on the server.

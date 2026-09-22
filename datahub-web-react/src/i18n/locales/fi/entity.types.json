@@ -327,5 +327,6 @@
     "user.tab.ownerOf": "Omistaa",
     "user.teamLabel": "Tiimi",
     "user.teamsHeading": "Tiimit",
-    "user.titleRoleLabel": "Titteli/rooli"
+    "user.titleRoleLabel": "Titteli/rooli",
+    "dataProduct.parentLabel": "Ylätason Data Product"
 }

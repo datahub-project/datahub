@@ -42,6 +42,7 @@
     "assetCollection.viewAllManualHint": "Le raccolte selezionate manualmente al momento non supportano il link “Visualizza tutto”.",
     "assetCollection.viewAllUnsupportedHint": "Questa raccolta non mostrerà un link “Visualizza tutto” — questo tipo di filtro al momento non è supportato.",
     "assets.moduleName": "Asset",
+    "assets.relatedModuleName": "Asset correlati",
     "assets.moduleDescription": "Asset correlati associati all'entità padre",
     "assets.addTermError": "Aggiunta del termine del glossario non riuscita: \n {{error}}",
     "assets.addTermModalTitle": "Aggiungi termine del glossario agli asset",

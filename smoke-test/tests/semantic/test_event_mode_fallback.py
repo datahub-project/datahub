@@ -40,9 +40,12 @@ from tests.semantic.test_semantic_search import (
     create_documents_with_sdk,
     delete_document,
 )
+from tests.utilities.domains import Domain
 from tests.utils import run_datahub_cmd
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.AI)
 
 
 def create_event_mode_recipe(

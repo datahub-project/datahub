@@ -17,7 +17,7 @@ ext {
 }
 
 application {
-    mainClassName = javaMainClass
+    mainClass = javaMainClass
 }
 
 dependencies {
@@ -48,7 +48,7 @@ task compileProtobuf {
         ].collectMany { it.collect() }.each { f ->
             def input = basePath.relativize(Paths.get(f.getAbsolutePath()))
             println(input.toString() + " => " + input.toString().replace(".proto", ".protoc"))
-            exec {
+            execOps.exec {
                 workingDir "${projectDir}/src/test/resources"
                 commandLine 'protoc', '--proto_path=.', '--include_imports', '--include_source_info',
                         "--descriptor_set_out=${input.toString().replace(".proto", ".protoc")}",
@@ -82,9 +82,9 @@ shadowJar {
                 it.name
             }
   dependencies {
-    exclude(dependency {
+    exclude {
             exclude_modules.contains(it.name)
-        })
+        }
 
   }
   mergeServiceFiles()
@@ -137,7 +137,7 @@ task javadocJar(type: Jar) {
 publishing {
   publications {
     shadow(MavenPublication) {
-      publication -> project.shadow.component(publication)
+      from components.shadow
       pom {
         name = 'Datahub Protobuf'
         group = 'io.acryl'

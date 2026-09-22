@@ -174,11 +174,24 @@ The upsert API will return the unique identifier (URN) for the assertion if you 
 To create or update a custom assertion in Python, use `client.assertions.sync_custom_assertion`.
 This wraps the same `upsertCustomAssertion` GraphQL mutation.
 
+:::note
+With `acryl-datahub` 1.7.0 and earlier, `client.assertions` requires the
+`acryl-datahub-cloud` package and raises `SdkUsageError` without it. Use
+`DataHubGraph.upsert_custom_assertion` below instead.
+
+In releases after 1.7.0, open-source `acryl-datahub` provides an
+`AssertionClient` fallback, so `client.assertions.sync_custom_assertion` works
+without the cloud package. Other cloud-only assertion methods still require
+`acryl-datahub-cloud`.
+:::
+
 ```python
 {{ inline /metadata-ingestion/examples/library/sync_custom_assertion.py show_path_as_comment }}
 ```
 
-Lower-level `DataHubGraph.upsert_custom_assertion` is also available if you are not using the V2 SDK:
+If you are not using the V2 SDK, you can call the lower-level
+`DataHubGraph.upsert_custom_assertion` directly. This is also the path to use
+with `acryl-datahub` 1.7.0 and earlier:
 
 ```python
 {{ inline /metadata-ingestion/examples/library/upsert_custom_assertion.py show_path_as_comment }}
@@ -250,8 +263,10 @@ If the result is `true`, the result was successfully reported.
 </TabItem>
 <TabItem value="python" label="Python">
 
-To report an assertion result in Python, use `client.assertions.report_assertion_result`
-(or `DataHubGraph.report_assertion_result`).
+To report an assertion result in Python, use `client.assertions.report_assertion_result`.
+On `acryl-datahub` 1.7.0 and earlier, use
+`DataHubGraph.report_assertion_result` instead if `acryl-datahub-cloud` is not
+installed.
 
 ```python
 {{ inline /metadata-ingestion/examples/library/report_assertion_result.py show_path_as_comment }}

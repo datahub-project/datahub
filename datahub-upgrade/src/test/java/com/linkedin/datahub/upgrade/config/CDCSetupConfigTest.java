@@ -1,174 +1,92 @@
 package com.linkedin.datahub.upgrade.config;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertTrue;
 
-import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.linkedin.datahub.upgrade.system.cdc.CDCSourceSetup;
-import com.linkedin.datahub.upgrade.system.cdc.debezium.DebeziumCDCSourceSetup;
-import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.config.CDCSourceConfiguration;
-import com.linkedin.metadata.config.DebeziumConfiguration;
-import com.linkedin.metadata.config.EbeanConfiguration;
-import com.linkedin.metadata.config.MCLProcessingConfiguration;
-import com.linkedin.metadata.config.kafka.KafkaConfiguration;
-import com.linkedin.metadata.config.kafka.ProducerConfiguration;
-import io.datahubproject.metadata.context.OperationContext;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class CDCSetupConfigTest {
 
-  @Mock private OperationContext mockOpContext;
-
   private CDCSetupConfig cdcSetupConfig;
-  private CDCSourceConfiguration cdcSourceConfig;
-  private DebeziumConfiguration debeziumConfig;
-  private EbeanConfiguration ebeanConfig;
-  private KafkaConfiguration kafkaConfig;
-  private KafkaProperties kafkaProperties;
+  private Logger configLogger;
+  private ListAppender<ILoggingEvent> logAppender;
 
   @BeforeMethod
-  public void setUp() throws Exception {
-    MockitoAnnotations.openMocks(this);
-
+  public void setUp() {
     cdcSetupConfig = new CDCSetupConfig();
-
-    // Create real configuration objects
-    setupRealConfigurations();
+    configLogger = (Logger) LoggerFactory.getLogger(CDCSetupConfig.class);
+    configLogger.setLevel(Level.INFO);
+    logAppender = new ListAppender<>();
+    logAppender.start();
+    configLogger.addAppender(logAppender);
   }
 
-  private void setupRealConfigurations() {
-    // Create real DebeziumConfiguration
-    debeziumConfig = new DebeziumConfiguration();
-    debeziumConfig.setName("test-connector");
-    debeziumConfig.setUrl("http://localhost:8083");
-
-    Map<String, String> connectorConfig = new HashMap<>();
-    connectorConfig.put("connector.class", "io.debezium.connector.mysql.MySqlConnector");
-    connectorConfig.put("database.include.list", "testdb");
-    connectorConfig.put("topic.prefix", "test-prefix");
-    debeziumConfig.setConfig(connectorConfig);
-
-    // Create real CDCSourceConfiguration
-    cdcSourceConfig = new CDCSourceConfiguration();
-    cdcSourceConfig.setEnabled(true);
-    cdcSourceConfig.setConfigureSource(true);
-    cdcSourceConfig.setType("debezium-kafka-connector");
-    cdcSourceConfig.setCdcImplConfig(debeziumConfig);
-
-    // Create real EbeanConfiguration
-    ebeanConfig = new EbeanConfiguration();
-    ebeanConfig.setUrl("jdbc:mysql://localhost:3306/testdb");
-    ebeanConfig.setUsername("testuser");
-    ebeanConfig.setPassword("testpass");
-
-    // Create real KafkaConfiguration
-    kafkaConfig = new KafkaConfiguration();
-    kafkaConfig.setProducer(new ProducerConfiguration());
-    kafkaConfig.setBootstrapServers("localhost:9092");
-
-    // Create real KafkaProperties
-    kafkaProperties = new KafkaProperties();
-    kafkaProperties.setBootstrapServers(List.of("localhost:9092"));
+  @AfterMethod
+  public void tearDown() {
+    configLogger.detachAppender(logAppender);
   }
 
   @Test
-  public void testCdcSetupWithNullList() {
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(null);
-    assertNull(result);
+  public void testLogCdcSetupsWithNullList() {
+    cdcSetupConfig.logCdcSetups(null);
+    assertTrue(
+        logAppender.list.stream()
+            .anyMatch(
+                e ->
+                    e.getLevel() == Level.INFO
+                        && e.getFormattedMessage().contains("No CDC source setups found")));
   }
 
   @Test
-  public void testCdcSetupWithEmptyList() {
-    List<CDCSourceSetup> emptyList = Collections.emptyList();
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(emptyList);
-    assertNull(result);
+  public void testLogCdcSetupsWithEmptyList() {
+    cdcSetupConfig.logCdcSetups(Collections.emptyList());
+    assertTrue(
+        logAppender.list.stream()
+            .anyMatch(
+                e ->
+                    e.getLevel() == Level.INFO
+                        && e.getFormattedMessage().contains("No CDC source setups found")));
   }
 
   @Test
-  public void testCdcSetupWithSingleImplementation() {
-    // Create mock ConfigurationProvider
-    ConfigurationProvider mockConfigProvider =
-        org.mockito.Mockito.mock(ConfigurationProvider.class);
-    MCLProcessingConfiguration mclConfig = new MCLProcessingConfiguration();
-    mclConfig.setCdcSource(cdcSourceConfig);
-
-    org.mockito.Mockito.when(mockConfigProvider.getMclProcessing()).thenReturn(mclConfig);
-    org.mockito.Mockito.when(mockConfigProvider.getEbean()).thenReturn(ebeanConfig);
-    org.mockito.Mockito.when(mockConfigProvider.getKafka()).thenReturn(kafkaConfig);
-
-    DebeziumCDCSourceSetup debeziumSetup =
-        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
-
-    List<CDCSourceSetup> cdcSetups = List.of(debeziumSetup);
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(cdcSetups);
-
-    assertNotNull(result);
-    assertTrue(result instanceof DebeziumCDCSourceSetup);
-    assertEquals(result.id(), "DebeziumCDCSetup");
+  public void testLogCdcSetupsWithSingleImplementation() {
+    CDCSourceSetup setup = mock(CDCSourceSetup.class);
+    when(setup.id()).thenReturn("DebeziumCDCSetup");
+    cdcSetupConfig.logCdcSetups(List.of(setup));
+    assertTrue(
+        logAppender.list.stream()
+            .anyMatch(
+                e ->
+                    e.getLevel() == Level.INFO
+                        && e.getFormattedMessage().contains("CDC source setup enabled")
+                        && e.getFormattedMessage().contains("DebeziumCDCSetup")));
   }
 
   @Test
-  public void testCdcSetupWithMultipleImplementations() {
-    // Create mock ConfigurationProvider
-    ConfigurationProvider mockConfigProvider =
-        org.mockito.Mockito.mock(ConfigurationProvider.class);
-    MCLProcessingConfiguration mclConfig = new MCLProcessingConfiguration();
-    mclConfig.setCdcSource(cdcSourceConfig);
-
-    org.mockito.Mockito.when(mockConfigProvider.getMclProcessing()).thenReturn(mclConfig);
-    org.mockito.Mockito.when(mockConfigProvider.getEbean()).thenReturn(ebeanConfig);
-    org.mockito.Mockito.when(mockConfigProvider.getKafka()).thenReturn(kafkaConfig);
-
-    DebeziumCDCSourceSetup debeziumSetup1 =
-        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
-
-    DebeziumCDCSourceSetup debeziumSetup2 =
-        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
-
-    List<CDCSourceSetup> cdcSetups = new ArrayList<>();
-    cdcSetups.add(debeziumSetup1);
-    cdcSetups.add(debeziumSetup2);
-
-    // Should return the first one and log a warning
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(cdcSetups);
-
-    assertNotNull(result);
-    assertTrue(result instanceof DebeziumCDCSourceSetup);
-    assertEquals(result, debeziumSetup1); // Should be the first one
-  }
-
-  @Test
-  public void testCdcSetupReturnsFirstFromList() {
-    // Create mock ConfigurationProvider
-    ConfigurationProvider mockConfigProvider =
-        org.mockito.Mockito.mock(ConfigurationProvider.class);
-    MCLProcessingConfiguration mclConfig = new MCLProcessingConfiguration();
-    mclConfig.setCdcSource(cdcSourceConfig);
-
-    org.mockito.Mockito.when(mockConfigProvider.getMclProcessing()).thenReturn(mclConfig);
-    org.mockito.Mockito.when(mockConfigProvider.getEbean()).thenReturn(ebeanConfig);
-    org.mockito.Mockito.when(mockConfigProvider.getKafka()).thenReturn(kafkaConfig);
-
-    DebeziumCDCSourceSetup debeziumSetup =
-        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
-
-    List<CDCSourceSetup> cdcSetups = List.of(debeziumSetup);
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(cdcSetups);
-
-    assertNotNull(result);
-    assertEquals(result, debeziumSetup);
-    assertEquals(((CDCSourceSetup) result).getCdcType(), "debezium");
+  public void testLogCdcSetupsWithMultipleImplementations() {
+    CDCSourceSetup setup1 = mock(CDCSourceSetup.class);
+    CDCSourceSetup setup2 = mock(CDCSourceSetup.class);
+    when(setup1.id()).thenReturn("DebeziumCDCSetup");
+    when(setup2.id()).thenReturn("OtherCDCSetup");
+    cdcSetupConfig.logCdcSetups(List.of(setup1, setup2));
+    assertTrue(
+        logAppender.list.stream()
+            .anyMatch(
+                e ->
+                    e.getLevel() == Level.WARN
+                        && e.getFormattedMessage().contains("Multiple CDC source setups detected")
+                        && e.getFormattedMessage().contains("DebeziumCDCSetup")
+                        && e.getFormattedMessage().contains("OtherCDCSetup")));
   }
 }

@@ -21,11 +21,13 @@ export class PoliciesPage extends BasePage {
     await expect(this.searchInput).toBeVisible();
     await this.searchInput.clear();
     await this.searchInput.fill(policyName);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(500);
   }
 
   async openRowMenu(policyName: string): Promise<void> {
     await this.page.getByRole('row').filter({ hasText: policyName }).getByRole('button').last().click({ force: true });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(300);
   }
 
@@ -42,6 +44,7 @@ export class PoliciesPage extends BasePage {
       const roleText = await row.getByRole('cell').nth(3).textContent();
       if (roleText?.includes('All Users')) {
         await row.getByRole('button').last().click({ force: true });
+        // eslint-disable-next-line playwright/no-wait-for-timeout
         await this.page.waitForTimeout(300);
         const deactivateItem = this.page.getByRole('menuitem').getByText('Deactivate');
         if ((await deactivateItem.count()) > 0) {

@@ -5,9 +5,12 @@ from typing import Any, Dict, List, Optional
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import delete_entity, execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 # One request that resolves childrenCount for the parent and for every child at the next
 # level, so the children are batched together by GlossaryNodeChildrenCountBatchLoader.
@@ -48,7 +51,12 @@ def _create_node(auth_session, node_id: str, parent: Optional[str] = None) -> st
     entity_input: Dict[str, Any] = {"id": node_id, "name": node_id}
     if parent:
         entity_input["parentNode"] = parent
-    res = execute_graphql(auth_session, CREATE_NODE_MUTATION, {"input": entity_input})
+    res = execute_graphql(
+        auth_session,
+        CREATE_NODE_MUTATION,
+        {"input": entity_input},
+        no_sync_wait=True,
+    )
     return res["data"]["createGlossaryNode"]
 
 
@@ -57,6 +65,7 @@ def _create_term(auth_session, term_id: str, parent: str) -> str:
         auth_session,
         CREATE_TERM_MUTATION,
         {"input": {"id": term_id, "name": term_id, "parentNode": parent}},
+        no_sync_wait=True,
     )
     return res["data"]["createGlossaryTerm"]
 
@@ -86,14 +95,15 @@ def glossary_tree(auth_session):
         track(_create_term(auth_session, f"{suffix}-branch-term-{i}", branch))
     track(_create_node(auth_session, f"{suffix}-branch-child", branch))
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     yield {"parent": parent, "branch": branch, "leaf_a": leaf_a, "leaf_b": leaf_b}
 
     logger.info(f"removing glossary tree {suffix}")
-    # Deepest entities first so a delete never orphans a child.
+    # Deepest entities first so a delete never orphans a child. Nothing reads
+    # this state afterward, so the deletes don't need to wait for each other.
     for urn in reversed(created):
-        delete_entity(auth_session, urn)
+        delete_entity(auth_session, urn, no_sync_wait=True)
 
 
 @with_test_retry()

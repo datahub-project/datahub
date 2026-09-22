@@ -9,6 +9,7 @@
     "empty.title": "Empty Glossary",
     "list.error": "Failed to load glossary! An unexpected error occurred.",
     "list.loading": "Loading Glossary...",
+    "page.contactAdmin": "Reach out to your DataHub admin to set up Glossary.",
     "page.createGlossary": "Create Glossary",
     "page.subtitle": "Classify your data assets and columns using data dictionaries",
     "page.title": "Business Glossary",
@@ -17,5 +18,11 @@
     "sidebar.collapse": "Collapse Glossary",
     "sidebar.expand": "Expand Glossary",
     "sidebar.home": "Glossary Home",
-    "sidebar.section.allTerms": "All Glossary Terms"
+    "sidebar.ownerFilter.label": "Owners",
+    "sidebar.ownerFilter.placeholder": "Filter by owner",
+    "sidebar.domainFilter.label": "Domains",
+    "sidebar.domainFilter.placeholder": "Filter by domain",
+    "sidebar.section.allTerms": "All Glossary Terms",
+    "sidebar.tagFilter.label": "Tags",
+    "sidebar.tagFilter.placeholder": "Filter by tag"
 }

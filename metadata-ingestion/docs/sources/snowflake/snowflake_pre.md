@@ -30,7 +30,7 @@ grant references on all views in database "<your-database>" to role datahub_role
 grant references on future views in database "<your-database>" to role datahub_role;
 -- Note: Semantic views are covered by the above view grants
 
--- Grant monitor privileges for dynamic tables
+// Required if you have Dynamic Tables and want DataHub to extract them and their lineage.
 grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
 grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
 
@@ -100,6 +100,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 - `usage` on `stages` is required to list stages via `SHOW STAGES`. Only needed if `include_stages: true` or `include_pipes: true`.
 - `monitor` on `tasks` is required to list tasks via `SHOW TASKS`. Only needed if `include_tasks: true`.
 - `monitor` on `pipes` is required to list pipes via `SHOW PIPES`. Only needed if `include_pipes: true`.
+- `monitor` on `dynamic tables` is required for DataHub to extract their lineage, both table-level and column-level.
 
 This represents the bare minimum privileges required to extract databases, schemas, views, and tables from Snowflake.
 

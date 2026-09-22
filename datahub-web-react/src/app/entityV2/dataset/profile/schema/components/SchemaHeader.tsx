@@ -1,4 +1,4 @@
-import { Button, Icon, Tooltip } from '@components';
+import { Button, Icon, TabButtonItem, TabButtons, Tooltip } from '@components';
 import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { Table } from '@phosphor-icons/react/dist/csr/Table';
@@ -12,8 +12,6 @@ import VersionSelector from '@app/entityV2/dataset/profile/schema/components/Ver
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import AddLogicalModelColumnButton from '@app/entityV2/shared/logicalModels/AddLogicalModelColumnButton';
 import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
-import { TabButtons } from '@app/homeV3/modules/shared/ButtonTabs/TabButtons';
-import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
 
 import { SemanticVersionStruct } from '@types';
 
@@ -67,12 +65,6 @@ const RightButtonsGroup = styled.div`
 
 const SchemaViewSwitch = styled.div`
     flex-shrink: 0;
-
-    button {
-        width: auto;
-        min-width: 32px;
-        padding: 4px 8px;
-    }
 `;
 
 const SchemaViewIcon = styled.span`
@@ -130,7 +122,7 @@ export default function SchemaHeader({
     const schemaAuditToggleText = showSchemaTimeline ? t('dataset.closeChangeHistory') : t('dataset.viewChangeHistory');
     const schemaViewActiveKey = showRaw ? SCHEMA_VIEW_RAW : SCHEMA_VIEW_TABULAR;
 
-    const schemaViewTabs: Tab[] = [
+    const schemaViewTabs: TabButtonItem[] = [
         {
             key: SCHEMA_VIEW_TABULAR,
             label: (
@@ -141,7 +133,6 @@ export default function SchemaHeader({
                 </Tooltip>
             ),
             dataTestId: 'schema-tabular-view-button',
-            content: null,
         },
         {
             key: SCHEMA_VIEW_RAW,
@@ -153,7 +144,6 @@ export default function SchemaHeader({
                 </Tooltip>
             ),
             dataTestId: 'schema-raw-view-button',
-            content: null,
         },
     ];
 
@@ -205,6 +195,7 @@ export default function SchemaHeader({
                                 tabs={schemaViewTabs}
                                 activeTab={schemaViewActiveKey}
                                 onTabClick={(key) => setShowRaw(key === SCHEMA_VIEW_RAW)}
+                                fit="hug"
                             />
                         </SchemaViewSwitch>
                     )}

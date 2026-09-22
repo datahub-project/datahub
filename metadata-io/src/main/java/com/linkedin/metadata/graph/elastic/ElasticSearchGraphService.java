@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.Constants.GRAPH_SERVICE_INDEX;
 import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 import static com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils.getUrnStatusFieldName;
 import static com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils.getUrnStatusQuery;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
@@ -80,7 +82,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   private final ESGraphQueryDAO graphReadDAO;
   private final ESIndexBuilder indexBuilder;
   private final String idHashAlgo;
-  public static final String INDEX_NAME = "graph_service_v1";
+  public static final String INDEX_NAME = GRAPH_SERVICE_INDEX;
   private static final Map<String, Object> EMPTY_HASH = new HashMap<>();
 
   private static String toDocument(@Nonnull final Edge edge) {
@@ -331,7 +333,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     return List.of(
         indexBuilder.buildReindexState(
             opContext,
-            indexConvention.getIndexName(INDEX_NAME),
+            indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME),
             GraphRelationshipMappingsBuilder.getMappings(),
             Collections.emptyMap()));
   }
@@ -339,7 +341,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   @Override
   public void clear(@Nonnull OperationContext opContext) {
     // Instead of deleting all documents (inefficient), delete and recreate the index
-    String indexName = indexConvention.getIndexName(INDEX_NAME);
+    String indexName = indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME);
     try {
       // Build a config with the correct target mappings for recreation
       ReindexConfig config =
@@ -482,7 +484,8 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     searchSourceBuilder.size(getGraphServiceConfig().getLimit().getResults().getApiDefault());
 
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(
+        indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME));
 
     // Execute search using the graphReadDAO's search client
     SearchResponse searchResponse = graphReadDAO.executeSearch(opContext, searchRequest);

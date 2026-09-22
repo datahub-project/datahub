@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "The specific platform instance where the asset lives.",
     "prop.softDeleted": "Soft Deleted",
     "prop.softDeletedDesc": "Whether the asset has been soft deleted.",
+    "prop.structuredPropertyGroup": "Structured Property",
     "prop.subType": "Sub Type",
     "prop.subTypeDesc": "The sub type of the asset (e.g. Table, View, Topic).",
     "publicTab": "Public Views",

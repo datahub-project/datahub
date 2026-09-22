@@ -5,6 +5,8 @@ import static org.testng.Assert.*;
 
 import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
@@ -285,6 +287,31 @@ public class GlobalControllerExceptionHandlerTest {
     assertNotNull(response.getBody());
     assertEquals(response.getBody().get("error"), "Authorization Error");
     assertEquals(response.getBody().get("message"), "Authorization validation failed");
+  }
+
+  @Test
+  public void testHandleValidationExceptionPreservesAuthorizationFromCollectionCtor() {
+    // Regression: AspectsBatchImpl used to throw ValidationException(String) which dropped the
+    // collection, so AUTHORIZATION subtype mapped to HTTP 400 instead of 403.
+    when(mockRequest.getRequestURI()).thenReturn("/openapi/v3/entity/dataset");
+
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
+    BatchItem item = mock(BatchItem.class);
+    when(item.getUrn()).thenReturn(mock(com.linkedin.common.urn.Urn.class));
+    when(item.getAspectName()).thenReturn("domains");
+    when(item.getChangeType()).thenReturn(com.linkedin.events.metadata.ChangeType.UPSERT);
+    collection.addException(
+        AspectValidationException.forAuth(item, "Unauthorized to create domains on entity"));
+
+    ValidationException ex = new ValidationException(collection);
+
+    ResponseEntity<Map<String, String>> response =
+        exceptionHandler.handleValidationException(ex, mockRequest);
+
+    assertEquals(response.getStatusCode(), HttpStatus.FORBIDDEN);
+    assertNotNull(response.getBody());
+    assertEquals(response.getBody().get("error"), "Authorization Error");
+    assertTrue(response.getBody().get("message").contains("Unauthorized"));
   }
 
   @Test

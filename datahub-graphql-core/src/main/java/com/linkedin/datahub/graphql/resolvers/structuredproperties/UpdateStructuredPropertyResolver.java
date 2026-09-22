@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.AllowedValueInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertySettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateStructuredPropertyInput;
@@ -204,7 +205,13 @@ public class UpdateStructuredPropertyResolver
       buildTypeQualifier(input, builder, existingDefinition);
       hasUpdatedDefinition = true;
     }
-    if (input.getNewAllowedValues() != null) {
+    if (input.getAllowedValues() != null && input.getNewAllowedValues() != null) {
+      throw new IllegalArgumentException("Provide allowedValues or newAllowedValues, not both.");
+    }
+    if (input.getAllowedValues() != null) {
+      builder.setAllowedValues(mapAllowedValues(input.getAllowedValues()));
+      hasUpdatedDefinition = true;
+    } else if (input.getNewAllowedValues() != null) {
       buildAllowedValues(input, builder);
       hasUpdatedDefinition = true;
     }
@@ -251,22 +258,30 @@ public class UpdateStructuredPropertyResolver
   private void buildAllowedValues(
       @Nonnull final UpdateStructuredPropertyInput input,
       @Nonnull final StructuredPropertyDefinitionPatchBuilder builder) {
-    input
-        .getNewAllowedValues()
-        .forEach(
-            allowedValueInput -> {
-              PropertyValue value = new PropertyValue();
-              PrimitivePropertyValue primitiveValue = new PrimitivePropertyValue();
-              if (allowedValueInput.getStringValue() != null) {
-                primitiveValue.setString(allowedValueInput.getStringValue());
-              }
-              if (allowedValueInput.getNumberValue() != null) {
-                primitiveValue.setDouble(allowedValueInput.getNumberValue().doubleValue());
-              }
-              value.setValue(primitiveValue);
-              value.setDescription(allowedValueInput.getDescription(), SetMode.IGNORE_NULL);
-              builder.addAllowedValue(value);
-            });
+    mapAllowedValues(input.getNewAllowedValues()).forEach(builder::addAllowedValue);
+  }
+
+  private List<PropertyValue> mapAllowedValues(@Nonnull final List<AllowedValueInput> inputs) {
+    List<PropertyValue> values = new ArrayList<>();
+    for (AllowedValueInput allowedValueInput : inputs) {
+      if ((allowedValueInput.getStringValue() == null)
+          == (allowedValueInput.getNumberValue() == null)) {
+        throw new IllegalArgumentException(
+            "Each allowed value must provide exactly one of stringValue or numberValue.");
+      }
+      PropertyValue value = new PropertyValue();
+      PrimitivePropertyValue primitiveValue = new PrimitivePropertyValue();
+      if (allowedValueInput.getStringValue() != null) {
+        primitiveValue.setString(allowedValueInput.getStringValue());
+      }
+      if (allowedValueInput.getNumberValue() != null) {
+        primitiveValue.setDouble(allowedValueInput.getNumberValue());
+      }
+      value.setValue(primitiveValue);
+      value.setDescription(allowedValueInput.getDescription(), SetMode.IGNORE_NULL);
+      values.add(value);
+    }
+    return values;
   }
 
   private EntityResponse getExistingStructuredProperty(

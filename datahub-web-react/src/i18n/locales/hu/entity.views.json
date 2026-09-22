@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "Az adott platformpéldány, ahol az eszköz található.",
     "prop.softDeleted": "Logikailag törölt",
     "prop.softDeletedDesc": "Az eszközt logikailag törölték-e.",
+    "prop.structuredPropertyGroup": "Strukturált tulajdonság",
     "prop.subType": "Altípus",
     "prop.subTypeDesc": "Az eszköz altípusa (pl. Tábla, Nézet, Téma).",
     "publicTab": "Nyilvános Nézetek",

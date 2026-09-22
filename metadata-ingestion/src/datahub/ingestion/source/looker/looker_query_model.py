@@ -33,6 +33,7 @@ class LookerField(StrEnum):
     COUNT = "count"
     MODEL = "model"
     VIEW = "view"
+    FIELDS = "fields"
 
 
 class ViewField(StrEnum):
@@ -66,6 +67,9 @@ class QueryViewField(ViewField):
     # LookML view). Together with `query.model` it identifies the explore.
     QUERY_MODEL = f"{LookerView.QUERY}.{LookerField.MODEL}"
     QUERY_VIEW = f"{LookerView.QUERY}.{LookerField.VIEW}"
+    # System Activity's list of fully-qualified `view.field` names each query
+    # referenced.  Returned as a single delimited string (not an array).
+    QUERY_FIELDS = f"{LookerView.QUERY}.{LookerField.FIELDS}"
 
 
 @dataclass

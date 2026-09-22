@@ -308,14 +308,11 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
             else
                 artifact_subdir="$RUN_DIR/pytests-0"
             fi
-        elif [[ $artifact_name =~ "cypress" ]]; then
-            # Extract batch number if present
-            if [[ $artifact_name =~ cypress[[:space:]]+([0-9]+) ]]; then
-                batch_num="${BASH_REMATCH[1]}"
-                artifact_subdir="$RUN_DIR/cypress-$batch_num"
-            else
-                artifact_subdir="$RUN_DIR/cypress-0"
-            fi
+        elif [[ $artifact_name =~ ^playwright-junit-([0-9]+)$ ]]; then
+            # Each shard's artifact contains a same-named test-results/junit.xml; without a
+            # per-shard subdirectory here, every shard after the first overwrites the last
+            # extracted into the shared "other" dir, silently dropping 7/8 shards' data.
+            artifact_subdir="$RUN_DIR/playwright-${BASH_REMATCH[1]}"
         else
             artifact_subdir="$RUN_DIR/other"
         fi
@@ -366,5 +363,4 @@ echo
 echo "Next step: Generate test weights with:"
 echo "  python .github/scripts/generate_test_weights.py \\"
 echo "    --input-dir $OUTPUT_DIR \\"
-echo "    --cypress-output ./dev-artifacts/generated-weights/cypress_weights.json \\"
 echo "    --pytest-output ./dev-artifacts/generated-weights/pytest_weights.json"

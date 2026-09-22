@@ -11,6 +11,25 @@ from typing import Iterator
 
 log = logging.getLogger(__name__)
 
+# Ceiling for a whole-stack `docker compose up -d`, overridable via
+# ZDU_COMPOSE_UP_TIMEOUT_S.
+#
+# This bounds the compose call, not service readiness — NukeAndRedeployPhase
+# waits for GMS health separately (300s), so a wedged stack is still caught
+# either way and there is nothing to gain from a tight bound here.
+#
+# It was 120s, which a cold runner does not reliably clear: CI run 30538448639
+# passed with `up -d completed in 114.8s`, a 5-second margin, and the next
+# dispatch exceeded it and raised TimeoutExpired. Cold bring-up legitimately
+# takes ~2 minutes — every image starting from nothing, plus the boot-time
+# system-update, which at ZDU stage 20 also runs aspect migration and
+# incremental reindex before GMS reports healthy.
+#
+# (A previous investigation removed a knob like this after a green dispatch
+# suggested 120s was adequate. That conclusion held against the 114.8s reality
+# and no longer does.)
+DEFAULT_UP_TIMEOUT_S = int(os.environ.get("ZDU_COMPOSE_UP_TIMEOUT_S", "600"))
+
 
 class DockerComposeClient:
     def __init__(
@@ -143,6 +162,7 @@ class DockerComposeClient:
         service: str,
         compose_env: dict[str, str] | None = None,
         timeout_s: int = 120,
+        no_deps: bool = False,
     ) -> None:
         """Recreate a single compose service with optional compose_env override.
 
@@ -157,13 +177,26 @@ class DockerComposeClient:
                 read time (e.g. ``{"DATAHUB_GMS_VERSION": new_tag}``).
                 ``None`` (default) inherits the parent process env.
             timeout_s: seconds to wait for ``healthy`` before raising.
+            no_deps: pass ``--no-deps`` so the service's ``depends_on`` graph is
+                not brought up alongside it.
 
-        Raises:
-            RuntimeError: if ``docker compose up -d`` returns non-zero.
-            TimeoutError: if the service does not become healthy within
-                ``timeout_s`` (propagated from ``wait_healthy``).
+                Relevant because ``datahub-gms-debug`` declares
+                ``depends_on: [system-update-debug]``, so a plain
+                ``up -d datahub-gms-debug`` re-runs the one-shot system-update
+                job as a side effect. That job is unmanaged by the framework: it
+                runs with whatever the base config says rather than the
+                per-phase ``-e`` overrides, which on a deployment sitting at ZDU
+                stage 20 means ``systemUpdate.migrateAspects.enabled`` defaults
+                true and it sweeps every stale aspect at revision 0. Callers
+                that only mean to swap a container's image should set this, or
+                the recreate silently migrates fixtures the following phase
+                still needs. Callers that genuinely want the cascade (cold-boot
+                paths like ``prepare_old_stack``) must leave it False.
         """
-        cmd = self._base_cmd() + ["up", "-d", service]
+        cmd = self._base_cmd() + ["up", "-d"]
+        if no_deps:
+            cmd += ["--no-deps"]
+        cmd += [service]
         log.info("Recreating service %s with compose_env=%s", service, compose_env)
         t_start = time.monotonic()
 
@@ -308,13 +341,18 @@ class DockerComposeClient:
         self,
         compose_env: dict[str, str] | None = None,
         services: list[str] | None = None,
-        timeout_s: int = 120,
+        timeout_s: int = DEFAULT_UP_TIMEOUT_S,
     ) -> None:
         """Run `docker compose up -d` (optionally with explicit services).
 
         Like recreate_service but for whole-stack cold-boot — does NOT call
         wait_healthy because individual service-readiness is handled by the
         caller (NukeAndRedeployPhase waits for GMS specifically).
+
+        The timeout bounds the ``up -d`` call only; it is not a readiness
+        deadline. A genuinely wedged stack is still caught afterwards by the
+        caller's own health wait, which is why this can afford to be generous —
+        see ``DEFAULT_UP_TIMEOUT_S``.
         """
         cmd = self._base_cmd() + ["up", "-d"]
         if services:

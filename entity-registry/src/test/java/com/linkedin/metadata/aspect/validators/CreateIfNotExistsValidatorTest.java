@@ -22,6 +22,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.testng.annotations.BeforeTest;
@@ -113,6 +114,41 @@ public class CreateIfNotExistsValidatorTest {
             AspectValidationException.forItem(
                 testItem,
                 "Cannot perform CREATE_ENTITY if not exists since the entity key already exists.")));
+  }
+
+  @Test
+  public void testCreateIfEntityNotExistsFilteredWhenPrecondition() {
+    // Reproduces the "id already exists" case an optional caller-provided id relies on
+    // (raiseIncident, CreateTagResolver-style resolvers): a CREATE_ENTITY proposal with
+    // If-None-Match: * should be dropped, not rejected as a hard validation failure, when the
+    // entity already exists.
+    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator().setConfig(validatorConfig);
+    Urn testEntityUrn = UrnUtils.getUrn("urn:li:chart:(looker,baz1)");
+
+    ChangeMCP testItem =
+        TestMCP.builder()
+            .changeType(ChangeType.CREATE_ENTITY)
+            .urn(testEntityUrn)
+            .entitySpec(entityRegistry.getEntitySpec(testEntityUrn.getEntityType()))
+            .aspectSpec(
+                entityRegistry.getEntitySpec(testEntityUrn.getEntityType()).getAspectSpec("status"))
+            .recordTemplate(new Status().setRemoved(false))
+            .headers(
+                Map.of(
+                    CreateIfNotExistsValidator.FILTER_EXCEPTION_HEADER,
+                    CreateIfNotExistsValidator.FILTER_EXCEPTION_VALUE))
+            .build();
+
+    // missing key aspect: the entity already exists
+    Set<AspectValidationException> exceptions =
+        test.validatePreCommit(OperationFingerprint.EMPTY, List.of(testItem), mockRetrieverContext)
+            .collect(Collectors.toSet());
+
+    assertEquals(
+        exceptions,
+        Set.of(
+            AspectValidationException.forFilter(
+                testItem, "Dropping write per precondition header If-None-Match: *")));
   }
 
   @Test

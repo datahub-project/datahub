@@ -151,6 +151,66 @@ public class MembershipGraphScrollFallbackTest {
   }
 
   @Test
+  public void listRelatedCanonicalizesQuotedNeighborsAndSkipsNull() {
+    GraphRetriever graphRetriever = mock(GraphRetriever.class);
+    when(graphRetriever.scrollRelatedEntities(
+            eq(Set.of(CORP_USER_ENTITY_NAME)),
+            any(),
+            eq(Set.of(CORP_GROUP_ENTITY_NAME)),
+            isNull(),
+            eq(spec.getGroupRelationshipTypes()),
+            any(),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                3,
+                3,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME,
+                        USER.toString(),
+                        "  " + GROUP.toString() + "  ",
+                        RelationshipDirection.OUTGOING,
+                        null),
+                    new RelatedEntities(
+                        IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME,
+                        USER.toString(),
+                        "null",
+                        RelationshipDirection.OUTGOING,
+                        null),
+                    new RelatedEntities(
+                        IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME,
+                        USER.toString(),
+                        "\"urn:li:corpGroup:other\"",
+                        RelationshipDirection.OUTGOING,
+                        null))));
+
+    opContext = contextWithGraphRetriever(graphRetriever);
+
+    MembershipNeighborResult result =
+        MembershipGraphScrollFallback.listRelated(
+            opContext,
+            spec,
+            USER.toString(),
+            TraversalDirection.FORWARD,
+            spec.getGroupRelationshipTypes(),
+            0,
+            10);
+
+    assertTrue(result.isHit());
+    assertEquals(
+        result.neighborsOrEmpty().stream()
+            .map(MembershipNeighborResult.Neighbor::neighborUrn)
+            .toList(),
+        List.of(GROUP.toString(), "urn:li:corpGroup:other"));
+  }
+
+  @Test
   public void listRelatedScrollsGroupReverseToMembers() {
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     when(graphRetriever.scrollRelatedEntities(
@@ -239,10 +299,10 @@ public class MembershipGraphScrollFallbackTest {
   }
 
   @Test
-  public void listRelatedScrollsRoleReverseToUsers() {
+  public void listRelatedScrollsRoleReverseToUsersAndGroups() {
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     when(graphRetriever.scrollRelatedEntities(
-            eq(Set.of(CORP_USER_ENTITY_NAME)),
+            eq(Set.of(CORP_USER_ENTITY_NAME, CORP_GROUP_ENTITY_NAME)),
             isNull(),
             eq(Set.of(DATAHUB_ROLE_ENTITY_NAME)),
             any(),
@@ -255,13 +315,19 @@ public class MembershipGraphScrollFallbackTest {
             isNull()))
         .thenReturn(
             new RelatedEntitiesScrollResult(
-                1,
-                1,
+                2,
+                2,
                 null,
                 List.of(
                     new RelatedEntities(
                         IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME,
                         USER.toString(),
+                        ROLE.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null),
+                    new RelatedEntities(
+                        IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME,
+                        GROUP.toString(),
                         ROLE.toString(),
                         RelationshipDirection.OUTGOING,
                         null))));
@@ -279,7 +345,12 @@ public class MembershipGraphScrollFallbackTest {
             10);
 
     assertTrue(result.isHit());
-    assertEquals(result.neighborsOrEmpty().get(0).neighborUrn(), USER.toString());
+    assertEquals(result.neighborsOrEmpty().size(), 2);
+    assertEquals(
+        result.neighborsOrEmpty().stream()
+            .map(MembershipNeighborResult.Neighbor::neighborUrn)
+            .toList(),
+        List.of(USER.toString(), GROUP.toString()));
   }
 
   @Test

@@ -48,6 +48,7 @@ export class BrowseV2Page extends BasePage {
 
   async expectSidebarCollapsed(): Promise<void> {
     // Wait for sidebar to actually collapse (width change)
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
     const width = await this.browseV2Container.evaluate((el) => window.getComputedStyle(el).width);
     // Collapsed state should have width ~63px
@@ -62,8 +63,10 @@ export class BrowseV2Page extends BasePage {
     await this.browseV2Toggle.click();
     // Wait for CSS transition animation and state change to propagate
     // The sidebar animates for 200ms, plus buffer for state updates
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
     // Give React state a moment to update
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
@@ -71,6 +74,7 @@ export class BrowseV2Page extends BasePage {
     const platformHeader = this.browsePlatformHeaderLocator(platformName);
     await platformHeader.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await platformHeader.click({ force: true });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
@@ -79,6 +83,7 @@ export class BrowseV2Page extends BasePage {
     await locator.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await locator.click({ force: true });
     // Wait for animation and DOM updates
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
@@ -86,6 +91,7 @@ export class BrowseV2Page extends BasePage {
     const locator = this.browseNodeLocator(nodeName);
     await locator.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await locator.click({ force: true });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 

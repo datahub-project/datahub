@@ -380,6 +380,8 @@ class SyncCatalogBuildResult(BaseModel):
     ambiguous: StreamNamespacesByName = Field(default_factory=dict)
     skipped_stream_payloads: List[str] = Field(default_factory=list)
     streams_api_unavailable: bool = False
+    streams_api_unavailable_status_code: Optional[int] = None
+    streams_api_unavailable_message: Optional[str] = None
     streams_api_namespaces_absent: bool = False
 
     model_config = ConfigDict(frozen=True)
@@ -519,6 +521,8 @@ class AirbyteConnectionPartial(BaseModel):
     ambiguous_stream_namespaces: StreamNamespacesByName = Field(default_factory=dict)
     skipped_stream_payloads: List[str] = Field(default_factory=list)
     streams_api_unavailable: bool = False
+    streams_api_unavailable_status_code: Optional[int] = None
+    streams_api_unavailable_message: Optional[str] = None
     streams_api_namespaces_absent: bool = False
     configuration: Optional[Dict[str, Any]] = None
     schedule_type: Optional[str] = Field(None, alias="scheduleType")
@@ -621,6 +625,10 @@ class AirbyteStreamApiMetadata(BaseModel):
     )
     namespaces_by_name: StreamNamespacesByName = Field(default_factory=dict)
     unavailable: bool = False
+    # Populated when unavailable=True so the source warning can report what
+    # Airbyte actually returned (HTTP status vs network/connection error).
+    unavailable_status_code: Optional[int] = None
+    unavailable_message: Optional[str] = None
     # `/streams` answered but no row carried a namespace, so there is nothing to
     # back-fill from.
     namespaces_absent: bool = False

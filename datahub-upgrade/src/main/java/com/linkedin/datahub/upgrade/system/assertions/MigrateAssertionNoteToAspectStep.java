@@ -19,8 +19,6 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -142,99 +140,105 @@ public class MigrateAssertionNoteToAspectStep implements UpgradeStep {
               .urnBasedPagination(resumeUrn != null)
               .limit(limit);
 
-      try (PartitionedStream<EbeanAspectV2> stream =
-          aspectDao.streamAspectBatches(opContext, args)) {
-        stream
-            .partition(args.batchSize)
-            .forEach(
-                batch -> {
-                  long currentBatch = batchNumber.incrementAndGet();
-                  log.info("{}: Processing batch {}", STEP_ID, currentBatch);
+      aspectDao.streamAspectBatches(
+          opContext,
+          args,
+          stream -> {
+            stream
+                .partition(args.batchSize)
+                .forEach(
+                    batch -> {
+                      long currentBatch = batchNumber.incrementAndGet();
+                      log.info("{}: Processing batch {}", STEP_ID, currentBatch);
 
-                  List<com.linkedin.metadata.aspect.SystemAspect> batchAspects =
-                      EntityUtils.toSystemAspectFromEbeanAspects(
-                          opContext,
-                          opContext.getRetrieverContext(),
-                          batch.collect(Collectors.toList()));
+                      List<com.linkedin.metadata.aspect.SystemAspect> batchAspects =
+                          EntityUtils.toSystemAspectFromEbeanAspects(
+                              opContext,
+                              opContext.getRetrieverContext(),
+                              batch.collect(Collectors.toList()));
 
-                  if (batchAspects.isEmpty()) {
-                    return;
-                  }
-
-                  // Batch-check which URNs already have assertionNote to avoid overwriting a note
-                  // that was set after the dedicated aspect was introduced.
-                  Map<String, Set<String>> urnToAspects =
-                      batchAspects.stream()
-                          .collect(
-                              Collectors.toMap(
-                                  sa -> sa.getUrn().toString(),
-                                  sa -> Set.of(ASSERTION_NOTE_ASPECT_NAME),
-                                  (a, b) -> a));
-
-                  Map<String, Map<String, com.linkedin.metadata.aspect.SystemAspect>>
-                      existingNotes = aspectDao.getLatestAspects(opContext, urnToAspects, false);
-
-                  // Collect proposals for assertions that need migration.
-                  MigrationCounts counts = new MigrationCounts(totalNoNote, totalSkipped);
-                  List<com.linkedin.mxe.MetadataChangeProposal> proposals =
-                      buildMigrationProposals(batchAspects, existingNotes, counts);
-
-                  if (!proposals.isEmpty()) {
-                    log.info(
-                        "{}: Writing {} assertionNote aspects in batch {}",
-                        STEP_ID,
-                        proposals.size(),
-                        currentBatch);
-                    for (com.linkedin.mxe.MetadataChangeProposal proposal : proposals) {
-                      try {
-                        entityService.ingestProposal(opContext, proposal, auditStamp, false);
-                        totalMigrated.incrementAndGet();
-                      } catch (Exception e) {
-                        // A single bad assertion should not abort the entire migration. Affected
-                        // assertions retain their notes via the assertionInfo.note fallback.
-                        log.warn(
-                            "{}: Failed to migrate assertionNote for {}, skipping",
-                            STEP_ID,
-                            proposal.getEntityUrn(),
-                            e);
-                        totalErrors.incrementAndGet();
+                      if (batchAspects.isEmpty()) {
+                        return;
                       }
-                    }
-                  }
 
-                  // Checkpoint after each batch for resume capability.
-                  com.linkedin.metadata.aspect.SystemAspect lastAspect =
-                      batchAspects.stream().reduce((a, b) -> b).orElse(null);
-                  if (lastAspect != null) {
-                    log.info(
-                        "{}: Batch {} done. lastUrn={} migrated={} skipped={} noNote={} errors={}",
-                        STEP_ID,
-                        currentBatch,
-                        lastAspect.getUrn(),
-                        totalMigrated.get(),
-                        totalSkipped.get(),
-                        totalNoNote.get(),
-                        totalErrors.get());
-                    context
-                        .upgrade()
-                        .setUpgradeResult(
-                            opContext,
-                            getUpgradeIdUrn(),
-                            entityService,
-                            DataHubUpgradeState.IN_PROGRESS,
-                            Map.of(LAST_URN_KEY, lastAspect.getUrn().toString()));
-                  }
+                      // Batch-check which URNs already have assertionNote to avoid overwriting a
+                      // note
+                      // that was set after the dedicated aspect was introduced.
+                      Map<String, Set<String>> urnToAspects =
+                          batchAspects.stream()
+                              .collect(
+                                  Collectors.toMap(
+                                      sa -> sa.getUrn().toString(),
+                                      sa -> Set.of(ASSERTION_NOTE_ASPECT_NAME),
+                                      (a, b) -> a));
 
-                  if (batchDelayMs > 0) {
-                    try {
-                      Thread.sleep(batchDelayMs);
-                    } catch (InterruptedException e) {
-                      Thread.currentThread().interrupt();
-                      throw new RuntimeException("Migration interrupted during batch delay", e);
-                    }
-                  }
-                });
-      }
+                      Map<String, Map<String, com.linkedin.metadata.aspect.SystemAspect>>
+                          existingNotes =
+                              aspectDao.getLatestAspects(opContext, urnToAspects, false);
+
+                      // Collect proposals for assertions that need migration.
+                      MigrationCounts counts = new MigrationCounts(totalNoNote, totalSkipped);
+                      List<com.linkedin.mxe.MetadataChangeProposal> proposals =
+                          buildMigrationProposals(batchAspects, existingNotes, counts);
+
+                      if (!proposals.isEmpty()) {
+                        log.info(
+                            "{}: Writing {} assertionNote aspects in batch {}",
+                            STEP_ID,
+                            proposals.size(),
+                            currentBatch);
+                        for (com.linkedin.mxe.MetadataChangeProposal proposal : proposals) {
+                          try {
+                            entityService.ingestProposal(opContext, proposal, auditStamp, false);
+                            totalMigrated.incrementAndGet();
+                          } catch (Exception e) {
+                            // A single bad assertion should not abort the entire migration.
+                            // Affected
+                            // assertions retain their notes via the assertionInfo.note fallback.
+                            log.warn(
+                                "{}: Failed to migrate assertionNote for {}, skipping",
+                                STEP_ID,
+                                proposal.getEntityUrn(),
+                                e);
+                            totalErrors.incrementAndGet();
+                          }
+                        }
+                      }
+
+                      // Checkpoint after each batch for resume capability.
+                      com.linkedin.metadata.aspect.SystemAspect lastAspect =
+                          batchAspects.stream().reduce((a, b) -> b).orElse(null);
+                      if (lastAspect != null) {
+                        log.info(
+                            "{}: Batch {} done. lastUrn={} migrated={} skipped={} noNote={} errors={}",
+                            STEP_ID,
+                            currentBatch,
+                            lastAspect.getUrn(),
+                            totalMigrated.get(),
+                            totalSkipped.get(),
+                            totalNoNote.get(),
+                            totalErrors.get());
+                        context
+                            .upgrade()
+                            .setUpgradeResult(
+                                opContext,
+                                getUpgradeIdUrn(),
+                                entityService,
+                                DataHubUpgradeState.IN_PROGRESS,
+                                Map.of(LAST_URN_KEY, lastAspect.getUrn().toString()));
+                      }
+
+                      if (batchDelayMs > 0) {
+                        try {
+                          Thread.sleep(batchDelayMs);
+                        } catch (InterruptedException e) {
+                          Thread.currentThread().interrupt();
+                          throw new RuntimeException("Migration interrupted during batch delay", e);
+                        }
+                      }
+                    });
+            return null;
+          });
 
       log.info(
           "{}: Migration complete. migrated={} skipped={} noNote={} errors={}",

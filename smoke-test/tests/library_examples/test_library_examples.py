@@ -19,7 +19,11 @@ from pathlib import Path
 
 import pytest
 
+from tests.utilities.domains import Domain
+
 from .example_manifest import EXAMPLE_DEPENDENCIES, EXAMPLE_MANIFEST
+
+pytestmark = [pytest.mark.domain(Domain.INGESTION), pytest.mark.p0]
 
 # Path to metadata-ingestion examples
 EXAMPLES_DIR = (
@@ -104,6 +108,10 @@ def test_library_example(example_script: str, datahub_env):
     1. The script executes without errors (exit code 0)
     2. The script can authenticate and communicate with DataHub
     3. The example produces the expected side effects in DataHub
+
+    Exit code is the whole contract: examples are responsible for failing loudly when
+    the metadata they were asked to read or write isn't there, rather than printing
+    "not found" and exiting 0. See the README section on exit codes.
 
     Args:
         example_script: Relative path to the example script (from EXAMPLE_MANIFEST)

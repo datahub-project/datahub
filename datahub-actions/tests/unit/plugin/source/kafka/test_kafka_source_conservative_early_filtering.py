@@ -14,7 +14,8 @@
 
 """Tests for MCL pre-deserialization filter OR semantics and conservative behavior."""
 
-from unittest.mock import patch
+from typing import cast
+from unittest.mock import MagicMock, patch
 
 from datahub_actions.event.event_registry import (
     ENTITY_CHANGE_EVENT_V1_TYPE,
@@ -293,8 +294,9 @@ def test_rejected_message_advances_offset_async():
         "Should reject (definite miss)"
     )
 
-    source.consumer.store_offsets.assert_called_once()
-    tp = source.consumer.store_offsets.call_args.kwargs["offsets"][0]
+    consumer = cast(MagicMock, source.consumer)
+    consumer.store_offsets.assert_called_once()
+    tp = consumer.store_offsets.call_args.kwargs["offsets"][0]
     # Kafka commits the next offset to consume, i.e. message offset + 1.
     assert (tp.topic, tp.partition, tp.offset) == (
         "MetadataChangeLog_Versioned_v1",
@@ -318,8 +320,9 @@ def test_skip_entirely_advances_offset_async():
 
     assert list(source.handle_mcl(_rejected_msg())) == []
 
-    source.consumer.store_offsets.assert_called_once()
-    tp = source.consumer.store_offsets.call_args.kwargs["offsets"][0]
+    consumer = cast(MagicMock, source.consumer)
+    consumer.store_offsets.assert_called_once()
+    tp = consumer.store_offsets.call_args.kwargs["offsets"][0]
     assert tp.offset == 101
 
 
@@ -334,8 +337,9 @@ def test_rejected_message_commits_offset_sync_mode():
     assert list(source.handle_mcl(_rejected_msg())) == []
 
     # Sync mode commits synchronously instead of storing for auto-commit.
-    source.consumer.commit.assert_called_once()
-    source.consumer.store_offsets.assert_not_called()
+    consumer = cast(MagicMock, source.consumer)
+    consumer.commit.assert_called_once()
+    consumer.store_offsets.assert_not_called()
 
 
 def test_matched_message_does_not_advance_offset():
@@ -355,4 +359,4 @@ def test_matched_message_does_not_advance_offset():
 
     # A matched message flows to the pipeline (yielded) and is acked there, not here.
     assert len(list(source.handle_mcl(TestMessage(_MCL_MSG)))) == 1
-    source.consumer.store_offsets.assert_not_called()
+    cast(MagicMock, source.consumer).store_offsets.assert_not_called()

@@ -2,13 +2,17 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.BaseConfigurationLoader;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** Builder for generating settings for elasticsearch indices with entity-based field structure */
 public class MultiEntitySettingsBuilder implements SettingsBuilder {
@@ -17,6 +21,8 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
   private final Map<String, Object> analyzerConfiguration;
   private final Integer maxFieldsLimit;
   @Nonnull private final IndexConvention indexConvention;
+  @Nullable private final SearchClientShim<?> searchClientShim;
+  @Nullable private final SemanticSearchConfiguration semanticSearchConfiguration;
 
   /**
    * Creates a SettingsBuilder with analyzer configuration loaded from a resource path. This
@@ -31,7 +37,18 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
       @Nonnull EntityIndexConfiguration entityIndexConfiguration,
       @Nonnull IndexConvention indexConvention)
       throws IOException {
+    this(entityIndexConfiguration, indexConvention, null, null);
+  }
+
+  public MultiEntitySettingsBuilder(
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
+      @Nonnull IndexConvention indexConvention,
+      @Nullable SearchClientShim<?> searchClientShim,
+      @Nullable SemanticSearchConfiguration semanticSearchConfiguration)
+      throws IOException {
     this.indexConvention = indexConvention;
+    this.searchClientShim = searchClientShim;
+    this.semanticSearchConfiguration = semanticSearchConfiguration;
     this.maxFieldsLimit = entityIndexConfiguration.getV3().getMaxFieldsLimit();
 
     if (!entityIndexConfiguration.getV3().getAnalyzerConfig().trim().isEmpty()) {
@@ -48,12 +65,18 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
   @Override
   public Map<String, Object> getSettings(
       @Nonnull IndexConfiguration indexConfiguration, @Nonnull String indexName) {
-    // For v3, only apply settings to indices that match the v3 entity naming pattern
-    if (!indexConvention.isV3EntityIndex(indexName)) {
-      // Return empty settings if this is not a v3 entity index
+    // For v3, only apply settings to indices that match the v3 entity naming pattern. Prefix-
+    // INDEPENDENT type check: the index name is already fully resolved (may carry a per-operation
+    // prefix); this bootstrap path only needs its type, not a prefix-scoped match.
+    if (!indexConvention.isV3EntityIndexType(indexName)) {
       return new HashMap<>();
     }
-    return buildSettings();
+    Map<String, Object> result = new HashMap<>(buildSettings());
+    if (SemanticEmbeddingMappings.isSemanticEnabledV3Index(semanticSearchConfiguration, indexName)
+        && SemanticEmbeddingMappings.shouldEnableIndexLevelKnn(searchClientShim)) {
+      result.put("knn", true);
+    }
+    return result;
   }
 
   /**

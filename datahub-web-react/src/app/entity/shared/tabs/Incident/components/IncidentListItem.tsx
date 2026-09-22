@@ -7,10 +7,10 @@ import styled, { useTheme } from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import MarkdownViewer from '@app/entity/shared/components/legacy/MarkdownViewer';
 import { ResolveIncidentModal } from '@app/entity/shared/tabs/Incident/components/ResolveIncidentModal';
 import { getNameFromType } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -233,7 +233,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             </TitleContainer>
                             <DescriptionContainer>
                                 <IncidentDescriptionLabel>{tc('common.labels:description')}</IncidentDescriptionLabel>
-                                <MarkdownViewer source={incident?.description || ''} />
+                                <CompactMarkdownViewer content={incident?.description || ''} />
                                 {incident.incidentStatus?.state === IncidentState.Resolved ? (
                                     <>
                                         <IncidentDescriptionLabel>

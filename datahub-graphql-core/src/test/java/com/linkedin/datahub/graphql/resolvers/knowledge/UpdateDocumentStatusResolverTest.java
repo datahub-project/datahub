@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DocumentState;
 import com.linkedin.datahub.graphql.generated.UpdateDocumentStatusInput;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
@@ -61,7 +62,8 @@ public class UpdateDocumentStatusResolverTest {
             any(OperationContext.class),
             eq(UrnUtils.getUrn(TEST_ARTICLE_URN)),
             eq(com.linkedin.knowledge.DocumentState.PUBLISHED),
-            any(Urn.class));
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -81,7 +83,8 @@ public class UpdateDocumentStatusResolverTest {
 
     // Verify service was NOT called
     verify(mockService, times(0))
-        .updateDocumentStatus(any(OperationContext.class), any(), any(), any());
+        .updateDocumentStatus(
+            any(OperationContext.class), any(), any(), any(), any(SearchIndexMode.class));
   }
 
   @Test
@@ -99,7 +102,12 @@ public class UpdateDocumentStatusResolverTest {
     // Make service throw exception
     doThrow(new RuntimeException("Service error"))
         .when(mockService)
-        .updateDocumentStatus(any(OperationContext.class), any(Urn.class), any(), any(Urn.class));
+        .updateDocumentStatus(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(),
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
 
     // Execute and expect exception
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());

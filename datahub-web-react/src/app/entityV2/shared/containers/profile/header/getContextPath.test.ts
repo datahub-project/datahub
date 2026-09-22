@@ -2,7 +2,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { dataPlatform } from '@src/Mocks';
 
-import { DataProduct, EntityType } from '@types';
+import { EntityType } from '@types';
 
 const PARENT_CONTAINERS: GenericEntityProperties['parentContainers'] = {
     containers: [
@@ -45,9 +45,18 @@ const PARENT: GenericEntityProperties = {
     platform: dataPlatform,
 };
 
-const dataProduct: DataProduct = {
+const immediateParent = {
+    urn: 'urn:li:dataProduct:parent',
+    type: EntityType.DataProduct,
+    properties: { name: 'Parent DP' },
+};
+
+const dataProduct = {
     urn: 'urn:li:dataProduct:test',
     type: EntityType.DataProduct,
+    properties: {
+        parentDataProduct: immediateParent,
+    },
     domain: {
         associatedUrn: '',
         domain: {
@@ -57,6 +66,7 @@ const dataProduct: DataProduct = {
             parentDomains: PARENT_DOMAINS,
         },
     },
+    parentDataProducts: [],
 };
 
 describe('getContextPath', () => {
@@ -117,6 +127,21 @@ describe('getContextPath', () => {
 
     it('returns correct context path for data products', () => {
         const entityData = dataProduct;
+
+        const contextPath = getParentEntities(entityData, EntityType.DataProduct);
+        expect(contextPath).toEqual([
+            immediateParent,
+            dataProduct.domain?.domain,
+            ...(dataProduct.domain?.domain?.parentDomains?.domains || []),
+        ]);
+    });
+
+    it('returns domain chain only for data products without parent data products', () => {
+        const entityData = {
+            ...dataProduct,
+            properties: {},
+            parentDataProducts: [],
+        };
 
         const contextPath = getParentEntities(entityData, EntityType.DataProduct);
         expect(contextPath).toEqual([

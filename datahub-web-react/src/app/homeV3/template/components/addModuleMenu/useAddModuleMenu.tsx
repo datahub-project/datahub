@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { CONTENTS_MODULE_URN, DATA_SOURCES_MODULE_URN } from '@app/entityV2/summary/modules/assets/constants';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { SMALL_MODULE_TYPES } from '@app/homeV3/modules/constants';
 import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
@@ -78,6 +79,32 @@ export const ASSETS_MODULE: PageModuleFragment = {
     },
 };
 
+export const CONTENTS_MODULE: PageModuleFragment = {
+    urn: CONTENTS_MODULE_URN,
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('entity.types:tab.contents');
+        },
+        type: DataHubPageModuleType.Assets,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const DATA_SOURCES_MODULE: PageModuleFragment = {
+    urn: DATA_SOURCES_MODULE_URN,
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('entity.types:shared.dataSources');
+        },
+        type: DataHubPageModuleType.Assets,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export const OUTPUT_PORTS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:output_ports',
     type: EntityType.DatahubPageModule,
@@ -112,6 +139,19 @@ export const DATA_PRODUCTS_MODULE: PageModuleFragment = {
             return i18next.t('modules:dataProducts.moduleName');
         },
         type: DataHubPageModuleType.DataProducts,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const SUB_DATA_PRODUCTS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:sub_data_products',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:subDataProducts.moduleName');
+        },
+        type: DataHubPageModuleType.SubDataProducts,
         visibility: { scope: PageModuleScope.Global },
         params: {},
     },
@@ -409,13 +449,19 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-platforms-module',
         };
 
+        const assetsTitle =
+            entityType === EntityType.Chart ? i18next.t('entity.types:dashboard.namePlural') : t('assets.moduleName');
         const assets = {
-            name: t('assets.moduleName'),
+            name: assetsTitle,
             key: 'assets',
             label: (
                 <MenuItem
-                    description={t('assets.moduleDescription')}
-                    title={t('assets.moduleName')}
+                    description={
+                        entityType === EntityType.Chart
+                            ? t('assets.dashboardsModuleDescription')
+                            : t('assets.moduleDescription')
+                    }
+                    title={assetsTitle}
                     icon={Database}
                     isSmallModule={false}
                 />
@@ -424,6 +470,40 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 handleAddExistingModule(ASSETS_MODULE);
             },
             'data-testid': 'add-assets-module',
+        };
+
+        const contents = {
+            name: i18next.t('entity.types:tab.contents'),
+            key: 'contents',
+            label: (
+                <MenuItem
+                    description={t('assets.contentsModuleDescription')}
+                    title={i18next.t('entity.types:tab.contents')}
+                    icon={Database}
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(CONTENTS_MODULE);
+            },
+            'data-testid': 'add-contents-module',
+        };
+
+        const dataSources = {
+            name: i18next.t('entity.types:shared.dataSources'),
+            key: 'data-sources',
+            label: (
+                <MenuItem
+                    description={t('assets.dataSourcesModuleDescription')}
+                    title={i18next.t('entity.types:shared.dataSources')}
+                    icon={Database}
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(DATA_SOURCES_MODULE);
+            },
+            'data-testid': 'add-data-sources-module',
         };
 
         const childHierarchy = {
@@ -525,6 +605,12 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             defaultSummaryModules = [...defaultSummaryModules, relatedTerms];
         } else if (entityType === EntityType.Dataset) {
             defaultSummaryModules = [schemaTable, lineage];
+        } else if (entityType === EntityType.Chart) {
+            defaultSummaryModules = [assets, lineage];
+        } else if (entityType === EntityType.Dashboard) {
+            defaultSummaryModules = [dataSources, contents, lineage];
+        } else if (entityType === EntityType.Application || entityType === EntityType.Container) {
+            defaultSummaryModules = [assets];
         }
 
         const finalDefaultModules =

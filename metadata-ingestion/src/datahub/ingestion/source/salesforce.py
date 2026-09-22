@@ -543,7 +543,7 @@ class SalesforceApi:
 
 @platform_name("Salesforce")
 @config_class(SalesforceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     capability_name=SourceCapability.PLATFORM_INSTANCE,
     description="Can be equivalent to Salesforce organization",

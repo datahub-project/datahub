@@ -35,10 +35,6 @@ export class SiblingsPage extends BasePage {
     return this.entityHeader.getByTestId(`platform-icon-${platform.toLowerCase()}`);
   }
 
-  private getSearchResultPlatformIcon(platform: string): Locator {
-    return this.page.getByTestId(`platform-icon-${platform.toLowerCase()}`);
-  }
-
   private getTermOption(termName: string): Locator {
     return this.page.getByTestId(`tag-term-option-${termName}`);
   }
@@ -114,11 +110,18 @@ export class SiblingsPage extends BasePage {
   }
 
   async verifySingleSearchResult(datasetName: string, platforms: string[]): Promise<void> {
-    await expect(this.searchResults).toHaveCount(1);
-    await expect(this.searchResults.getByText(datasetName)).toBeVisible();
+    // Match the result title (not any card text) so incidental mentions do not
+    // inflate the count. Search cards render logos as <img alt="...">, not
+    // entity-profile platform-icon-* test ids.
+    const result = this.searchResults.filter({
+      has: this.page.getByTestId('entity-title').getByText(datasetName, { exact: true }),
+    });
+    await expect(result).toHaveCount(1, { timeout: TIMEOUTS.LONG });
 
     for (const platform of platforms) {
-      await expect(this.getSearchResultPlatformIcon(platform)).toBeVisible();
+      await expect(result.getByRole('img', { name: new RegExp(platform, 'i') })).toBeVisible({
+        timeout: TIMEOUTS.MEDIUM,
+      });
     }
   }
 
@@ -138,10 +141,12 @@ export class SiblingsPage extends BasePage {
     await this.addTermsButton.click();
     await this.tagTermModalTrigger.click();
     await this.tagTermInput.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     await this.tagTermInput.click();
     await this.tagTermInput.fill(termName);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     const termOption = this.getTermOption(termName);
@@ -150,6 +155,7 @@ export class SiblingsPage extends BasePage {
     await termOption.click({ force: true });
 
     await this.tagTermModalTrigger.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
     await this.addTagTermConfirmButton.click();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);

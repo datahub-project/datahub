@@ -2,23 +2,121 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union, cast
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnClause, ColumnElement, Label
 
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    flattenable_query,
+    single_row_query,
 )
 
 logger = logging.getLogger(__name__)
 
 # Default quantiles for statistical profiling
 DEFAULT_QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
+
+
+class ProfilingConnection:
+    """Connection facade that makes every statement declare its row shape.
+
+    Deliberately does not expose .execute(), so the declaration cannot be
+    forgotten -- a bare .execute() call is a mypy error. Pick the rung that
+    describes your query; each is strictly weaker than the one above.
+
+    | method                | for                              | batched | flattened |
+    |-----------------------|----------------------------------|---------|-----------|
+    | execute_aggregate     | one aggregate over a whole table | yes     | yes       |
+    | execute_single_row    | a query you built, one row       | yes     | no        |
+    | execute_rows          | zero, one or many rows           | no      | no        |
+
+    Batching wraps each statement in a CTE and cross-joins them, which needs
+    exactly one row per statement but preserves every clause. Flattening merges
+    aggregates over the same table into one SELECT, which saves a table scan
+    but keeps only the select list and the FROM -- so any clause you added
+    would be silently dropped, and only execute_aggregate, which builds the
+    statement itself, can promise there is none.
+
+    When in doubt, go down a rung: the cost is a lost optimisation, not a
+    wrong number. get_row_count is the example worth studying -- it uses
+    execute_aggregate normally and execute_single_row when a sample clause has
+    to survive.
+    """
+
+    def __init__(self, conn: Connection) -> None:
+        self._conn = conn
+
+    def execute_aggregate(
+        self,
+        table: Any,
+        expr: ColumnElement[Any],
+        literal_is_aggregate: bool = False,
+    ) -> Any:
+        """Execute one aggregate over a whole table.
+
+        `expr` must collapse the whole table to a single row -- count, min,
+        max, avg, stddev, a native median. That is the merge contract: the
+        query is built here so it cannot carry a WHERE, GROUP BY or LIMIT, but
+        clause-absence alone is not enough. `SELECT v FROM t` has no clauses
+        and still returns N rows; merged with real aggregates it becomes
+        `SELECT count(*), v FROM t`, which returns one row on MySQL and SQLite
+        and silently drops the rest.
+
+        A non-aggregate is detected and run uncombined instead, so results stay
+        correct and only the batching is lost. sa.literal_column is opaque --
+        nothing can tell `MEDIAN(v)` from `v` -- so pass
+        literal_is_aggregate=True to assert that yours collapses to one row.
+        """
+        query = sa.select([expr]).select_from(table)
+
+        inner = expr.element if isinstance(expr, Label) else expr
+        # None: a function, which returns one row by construction.
+        # False: a plain column. True: a literal_column, opaque either way.
+        is_opaque = bool(inner.is_literal) if isinstance(inner, ColumnClause) else None
+        if is_opaque is False or (is_opaque is True and not literal_is_aggregate):
+            logger.warning(
+                f"execute_aggregate expects an expression that returns one row "
+                f"but got {expr}; running it uncombined. If it is an aggregate, "
+                f"pass literal_is_aggregate=True."
+            )
+            return self._conn.execute(query)
+
+        return self._conn.execute(flattenable_query(single_row_query(query)))
+
+    def execute_single_row(self, query: Any) -> Any:
+        """Execute a query you built yourself that returns exactly one row.
+
+        Batchable into a CTE, which preserves every clause. Not flattenable --
+        flattening keeps only the select list and the FROM, so any clause you
+        added would be silently dropped.
+        """
+        return self._conn.execute(single_row_query(query))
+
+    def execute_rows(self, query: Any) -> Any:
+        """Execute a statement returning zero, one, or many rows. Never batched.
+
+        Also the right choice on the methods QueryCombinerRunner calls directly
+        rather than scheduling -- get_column_quantiles, get_column_histogram,
+        the *_frequencies pair and get_column_sample_values. Those run on the
+        main greenlet, where _handle_execute returns before it ever reads the
+        tag, so nothing there can be batched whatever its row shape. Some of
+        those queries are single-row, but tagging them would assert a batching
+        contract that no code path can exercise or test.
+        """
+        return self._conn.execute(query)
+
+    def execute_statement(self, statement: Any) -> Any:
+        """Execute DDL or another statement with no meaningful result set."""
+        return self._conn.execute(statement)
 
 
 class PlatformAdapter(ABC):
@@ -32,12 +130,10 @@ class PlatformAdapter(ABC):
     This design keeps all platform-specific code in one place per platform,
     making the codebase easier to understand and maintain.
 
-    Some methods (eg `get_column_max`, `get_column_min`, etc) return `Any` to preserve native
-    type formatting to match GE behavior.
-    Instead, this `PlatformAdapter` should be more opinionated on the expected data type for those methods, so:
-     - we can have consistent formatting across different sources
-     - no complex formatting depending on native data types, as we currently do in `sqlalchemy_profiler.py`
-       in order to match GE profiler
+    Some methods (eg `get_column_max`, `get_column_min`, etc) return `Any` because
+    database drivers return different native types (int, float, Decimal, etc.).
+    Formatting is handled centrally by `format_profile_value` in
+    `sqlalchemy_profiler.py`, which applies consistent rules by column type.
     """
 
     def __init__(
@@ -57,6 +153,7 @@ class PlatformAdapter(ABC):
         self.config = config
         self.report = report
         self.base_engine = base_engine
+        self._inspector: Optional[Inspector] = None
 
     # =========================================================================
     # Setup & Teardown
@@ -232,8 +329,7 @@ class PlatformAdapter(ABC):
           - prevents precision loss on MySQL/Doris (which return DECIMAL(N,4) for
             AVG over integer columns without the cast).
 
-        GE uses the same trick (sqlalchemy_dataset.py:1093-1101). Redshift adapter
-        overrides this with an explicit CAST for full precision.
+        Redshift adapter overrides this with an explicit CAST for full precision.
 
         Args:
             column: Column name
@@ -257,7 +353,7 @@ class PlatformAdapter(ABC):
         return False
 
     def get_estimated_row_count(
-        self, table: sa.Table, conn: Connection
+        self, table: sa.Table, conn: ProfilingConnection
     ) -> Optional[int]:
         """
         Get fast row count estimate without full table scan.
@@ -285,7 +381,7 @@ class PlatformAdapter(ABC):
     def get_row_count(
         self,
         table: sa.Table,
-        conn: Connection,
+        conn: ProfilingConnection,
         sample_clause: Optional[str] = None,
         use_estimation: bool = False,
     ) -> int:
@@ -319,17 +415,23 @@ class PlatformAdapter(ABC):
             result = self.get_estimated_row_count(table, conn)
             return int(result) if result is not None else 0
 
-        query = sa.select([sa.func.count()]).select_from(table)
         if sample_clause:
-            query = query.suffix_with(sample_clause)
-        count_result: Any = conn.execute(query).scalar()
+            # The sample clause must survive, so this one cannot be flattened.
+            query = (
+                sa.select([sa.func.count()])
+                .select_from(table)
+                .suffix_with(sample_clause)
+            )
+            count_result: Any = conn.execute_single_row(query).scalar()
+        else:
+            count_result = conn.execute_aggregate(table, sa.func.count()).scalar()
         # scalar() can return Any | None, so we need to handle None
         if count_result is None:
             return 0
         return int(count_result)
 
     def get_column_non_null_count(
-        self, table: sa.Table, column: str, conn: Connection
+        self, table: sa.Table, column: str, conn: ProfilingConnection
     ) -> int:
         """
         Get non-null count for a column.
@@ -344,11 +446,14 @@ class PlatformAdapter(ABC):
         Returns:
             Non-null count
         """
-        query = sa.select([sa.func.count(sa.column(column))]).select_from(table)
-        result = conn.execute(query).scalar()
+        result = conn.execute_aggregate(
+            table, sa.func.count(sa.column(column))
+        ).scalar()
         return int(result) if result is not None else 0
 
-    def get_column_min(self, table: sa.Table, column: str, conn: Connection) -> Any:
+    def get_column_min(
+        self, table: sa.Table, column: str, conn: ProfilingConnection
+    ) -> Any:
         """
         Get minimum value for a column.
 
@@ -360,10 +465,11 @@ class PlatformAdapter(ABC):
         Returns:
             Minimum value
         """
-        query = sa.select([sa.func.min(sa.column(column))]).select_from(table)
-        return conn.execute(query).scalar()
+        return conn.execute_aggregate(table, sa.func.min(sa.column(column))).scalar()
 
-    def get_column_max(self, table: sa.Table, column: str, conn: Connection) -> Any:
+    def get_column_max(
+        self, table: sa.Table, column: str, conn: ProfilingConnection
+    ) -> Any:
         """
         Get maximum value for a column.
 
@@ -375,17 +481,16 @@ class PlatformAdapter(ABC):
         Returns:
             Maximum value
         """
-        query = sa.select([sa.func.max(sa.column(column))]).select_from(table)
-        return conn.execute(query).scalar()
+        return conn.execute_aggregate(table, sa.func.max(sa.column(column))).scalar()
 
     def get_column_mean(
-        self, table: sa.Table, column: str, conn: Connection
+        self, table: sa.Table, column: str, conn: ProfilingConnection
     ) -> Optional[Any]:
         """
         Get average value for a column.
 
-        Returns the raw database result to preserve native type formatting
-        (e.g., DECIMAL precision) to match GE behavior.
+        Returns the raw database result; formatting is handled by
+        `format_profile_value` in `sqlalchemy_profiler.py`.
 
         Args:
             table: SQLAlchemy table object
@@ -399,14 +504,12 @@ class PlatformAdapter(ABC):
         # (e.g., Redshift needs CAST to preserve precision)
         avg_expr = self.get_mean_expr(column)
 
-        query = sa.select([avg_expr]).select_from(table)
-        result = conn.execute(query).scalar()
+        result = conn.execute_aggregate(table, avg_expr).scalar()
 
-        # Return raw result to preserve database-native formatting (like GE does)
         return result
 
     def get_column_stdev(
-        self, table: sa.Table, column: str, conn: Connection
+        self, table: sa.Table, column: str, conn: ProfilingConnection
     ) -> Optional[Any]:
         """
         Get standard deviation for a column.
@@ -418,11 +521,11 @@ class PlatformAdapter(ABC):
           - multiple rows but all-equal: zero variance → return 0.0
           - all-null column: dialect-specific (most return None, Redshift returns 0.0)
         """
-        # GE uses stddev_samp (sample stddev, Bessel-corrected). Some dialects' bare
-        # `stddev()` defaults to STDDEV_POP (MySQL, Doris) — calling stddev_samp
-        # explicitly keeps semantics consistent across dialects.
-        query = sa.select([sa.func.stddev_samp(sa.column(column))]).select_from(table)
-        result = conn.execute(query).scalar()
+        # Some dialects' bare `stddev()` defaults to STDDEV_POP (MySQL, Doris) —
+        # calling stddev_samp explicitly keeps semantics consistent across dialects.
+        result = conn.execute_aggregate(
+            table, sa.func.stddev_samp(sa.column(column))
+        ).scalar()
         if result is None:
             non_null_count = self.get_column_non_null_count(table, column, conn)
             if non_null_count == 1:
@@ -438,8 +541,8 @@ class PlatformAdapter(ABC):
     def get_stdev_null_value(self) -> Optional[Any]:
         """
         Value to return when stddev_samp returns NULL and the column has no
-        non-null values. Most dialects return None (matches GE for all-null
-        columns); Redshift returns 0.0 (it returns 0.0 from STDDEV on all-null).
+        non-null values. Most dialects return None; Redshift returns 0.0
+        (it returns 0.0 from STDDEV on all-null).
         """
         return None
 
@@ -447,7 +550,7 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         use_approx: bool = True,
     ) -> int:
         """
@@ -467,11 +570,12 @@ class PlatformAdapter(ABC):
         else:
             expr = sa.func.count(sa.func.distinct(sa.column(column)))
 
-        query = sa.select([expr]).select_from(table)
-        result = conn.execute(query).scalar()
+        result = conn.execute_aggregate(table, expr).scalar()
         return int(result) if result is not None else 0
 
-    def get_column_median(self, table: sa.Table, column: str, conn: Connection) -> Any:
+    def get_column_median(
+        self, table: sa.Table, column: str, conn: ProfilingConnection
+    ) -> Any:
         """
         Get median value for a column.
 
@@ -486,17 +590,21 @@ class PlatformAdapter(ABC):
         expr = self.get_median_expr(column)
         if expr is not None:
             try:
-                query = sa.select([expr]).select_from(table)
                 # Return raw result to preserve database-native formatting.
-                return conn.execute(query).scalar()
+                # A median expression collapses the table to one row by
+                # definition, including the literal_column forms several
+                # adapters use (quantile(), PERCENTILE_CONT, APPROX_QUANTILES).
+                return conn.execute_aggregate(
+                    table, expr, literal_is_aggregate=True
+                ).scalar()
             except SQLAlchemyError as e:
                 logger.debug(
                     f"Native MEDIAN expression failed for column {column}; "
                     f"falling back to OFFSET/LIMIT in Python: {e}"
                 )
 
-        # Python-side fallback (mirrors GE's get_column_median for dialects
-        # without a native MEDIAN function: MySQL, Doris, etc.).
+        # Python-side fallback for dialects without a native MEDIAN function
+        # (MySQL, Doris, etc.).
         non_null_count = self.get_column_non_null_count(table, column, conn)
         if non_null_count == 0:
             return None
@@ -509,7 +617,9 @@ class PlatformAdapter(ABC):
             .offset(offset)
             .limit(2)
         )
-        rows = [row[0] for row in conn.execute(middle_query).fetchall()]
+        # Deliberately not single-row: the OFFSET/LIMIT window returns two rows
+        # for an even count, which would break a combined batch.
+        rows = [row[0] for row in conn.execute_rows(middle_query).fetchall()]
         if not rows:
             return None
         if non_null_count % 2 == 0 and len(rows) == 2:
@@ -522,7 +632,7 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         """
@@ -567,13 +677,15 @@ class PlatformAdapter(ABC):
         for q in quantiles:
             try:
                 quoted_column = self.quote_identifier(column)
-                # Use literal_column with label() to preserve column metadata
-                # which is needed for the query combiner to work correctly.
+                # label() keeps the column named for result extraction. It used
+                # to be described as required by the query combiner, which is
+                # wrong: quantiles run on the main greenlet (see
+                # ProfilingConnection.execute_rows) and are never combined.
                 percentile_expr = sa.literal_column(
                     f"PERCENTILE_CONT({q}) WITHIN GROUP (ORDER BY {quoted_column})"
                 ).label("percentile")
                 query = sa.select([percentile_expr]).select_from(table)
-                result = conn.execute(query).scalar()
+                result = conn.execute_rows(query).scalar()
                 logger.debug(
                     f"Quantile {q} for {column}: result type={type(result)}, value={result}"
                 )
@@ -590,7 +702,7 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         num_buckets: int = 10,
         min_val: Optional[float] = None,
         max_val: Optional[float] = None,
@@ -618,11 +730,9 @@ class PlatformAdapter(ABC):
         if min_val is None or max_val is None:
             return []
 
-        # Constant column: GE's expect_column_kl_divergence_to_be_less_than fails when
-        # min == max (zero variance), and the surrounding try/except in
-        # ge_data_profiler.py results in no histogram being emitted. Match that:
-        # emit nothing rather than a degenerate 10-bucket histogram where bucket 0
-        # holds all rows and buckets 1-9 are empty.
+        # Constant column: when min == max (zero variance), emit nothing rather
+        # than a degenerate 10-bucket histogram where bucket 0 holds all rows
+        # and buckets 1-9 are empty.
         if max_val == min_val:
             return []
 
@@ -666,7 +776,9 @@ class PlatformAdapter(ABC):
             buckets.append(sa.func.sum(bucket_case_expr).label(f"bucket_{i}"))
 
         query = sa.select(buckets).select_from(table)
-        result = conn.execute(query).fetchone()
+        # Single-row, but on the main greenlet, so not batchable regardless --
+        # see ProfilingConnection.execute_rows.
+        result = conn.execute_rows(query).fetchone()
 
         # Convert to list of tuples
         histogram: List[Tuple[float, float, int]] = []
@@ -683,7 +795,7 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         top_k: int = 10,
     ) -> List[Tuple[Any, int]]:
         """
@@ -707,7 +819,7 @@ class PlatformAdapter(ABC):
             .limit(top_k)
         )
 
-        result = conn.execute(query).fetchall()
+        result = conn.execute_rows(query).fetchall()
         logger.debug(
             f"get_column_value_frequencies for {column}: got {len(result)} rows"
         )
@@ -723,20 +835,19 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
     ) -> List[Tuple[Any, int]]:
         """
         Get all distinct non-null values with their counts, sorted by value in Python.
 
-        Mirrors the GE profiler's `_get_dataset_column_distinct_value_frequencies`
-        query structure intentionally:
+        The query structure is intentional:
           - `WHERE col IS NOT NULL` filters nulls and (importantly) changes
             predicate pushdown for the Trino JDBC connector so the GROUP BY runs
             Trino-side, where Trino's JSON type supports GROUP BY. Without this
             clause Trino pushes the whole query down to PostgreSQL, which fails
             on `GROUP BY <json column>` because Postgres `json` has no equality
             operator.
-          - `COUNT(<col>)` instead of `COUNT(*)` matches GE's projection exactly.
+          - `COUNT(<col>)` instead of `COUNT(*)` excludes nulls from the count.
           - Sorting is done in Python after fetch because not all column types
             (Trino/Athena JSON) are orderable in SQL.
         """
@@ -748,7 +859,7 @@ class PlatformAdapter(ABC):
             .group_by(sa.column(column))
         )
 
-        rows = [(row[0], int(row[1])) for row in conn.execute(query).fetchall()]
+        rows = [(row[0], int(row[1])) for row in conn.execute_rows(query).fetchall()]
         try:
             rows.sort(key=lambda r: (r[0] is None, r[0]))
         except TypeError:
@@ -771,14 +882,13 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         limit: int = 20,
     ) -> List[Any]:
         """
         Get actual sample rows from the table (not distinct values).
 
-        This matches GE profiler behavior which uses expect_column_values_to_be_in_set
-        with an empty set to get actual sample rows with duplicates.
+        Returns actual sample rows (not distinct values), which may contain duplicates.
 
         Args:
             table: SQLAlchemy table object
@@ -796,7 +906,7 @@ class PlatformAdapter(ABC):
             .limit(limit)
         )
 
-        result = conn.execute(query).fetchall()
+        result = conn.execute_rows(query).fetchall()
         logger.debug(
             f"get_column_sample_values for {column}: got {len(result)} rows, limit={limit}"
         )
@@ -830,10 +940,169 @@ class PlatformAdapter(ABC):
         Returns:
             SQLAlchemy Table object
         """
+        engine = autoload_with or self.base_engine
         metadata = sa.MetaData()
-        return sa.Table(
+        sql_table = sa.Table(
             table,
             metadata,
             schema=schema,
-            autoload_with=autoload_with or self.base_engine,
+            autoload_with=engine,
         )
+        return self._use_stored_column_names(sql_table, engine)
+
+    def _case_fold_inspector(self, engine: Union[Engine, Connection]) -> Inspector:
+        """A reused Inspector for the base engine, so reflection hits its cache.
+
+        Dialects fetch a whole schema's columns in one query and memoize it on the
+        Inspector's info cache. A fresh ``sa.inspect()`` per table would defeat that
+        and issue one round trip per table; holding one makes it one per schema.
+
+        Only the base engine is cached. Profiling opens a fresh Connection per
+        table, and an Inspector keeps a strong reference to the bind it was built
+        from — caching those would pin one dead Connection per profiled table for
+        the adapter's lifetime. They would not even pay off: a per-table connection
+        exists to reflect its own temp table exactly once.
+        """
+        if engine is self.base_engine and self._inspector is not None:
+            return self._inspector
+
+        # cast rather than the house-preferred assert isinstance: sa.inspect is
+        # overloaded and mypy picks InstanceState for a Union[Engine, Connection],
+        # but on a bind it is always an Inspector. A runtime check would only
+        # force every test that patches sa.inspect to use a spec'd mock.
+        inspector = cast(Inspector, sa.inspect(engine))
+        if engine is self.base_engine:
+            self._inspector = inspector
+        return inspector
+
+    def _use_stored_column_names(
+        self, sql_table: sa.Table, engine: Union[Engine, Connection]
+    ) -> sa.Table:
+        """Name every column the way the database stores it.
+
+        Dialects that normalize identifiers -- of the ones DataHub's SQL
+        connectors use, Snowflake and Oracle -- fold
+        reflected column names, so two columns differing only by case — legal via
+        quoted identifiers — arrive under the same name. ``sa.Table`` rejects the
+        second one, silently dropping a real column before profiling ever sees it.
+
+        Reflection returns both, so re-inspect and rebuild from the as-stored
+        identifiers, each forced to quote on render. Quoting is what makes the
+        emitted SQL address exactly one physical column: the recovered name of a
+        lowercase-stored column would otherwise be folded straight back up.
+
+        This is unconditional rather than reserved for the colliding columns. A
+        profile's field path is a separate concern from the identifier its SQL
+        uses, and ``field_path_for`` translates between them; deciding the SQL
+        name by whether some *other* column happened to collide only entangles
+        the two again. Keys are synthetic because ``sa.Table`` de-duplicates on a
+        column's name, not only on its key.
+
+        Subclasses that build the table themselves must call this on the result.
+        Dialects that do not normalize are returned untouched — their reflected
+        names are already the stored ones.
+
+        The end-to-end win is Snowflake's, because it is the source that can keep
+        both spellings in its schema. On Oracle the recovered column is profiled
+        and then its profile is dropped at emission: normalize_name folds "col"
+        and "COL" to the same path, so schemaMetadata declares one field and the
+        second profile has nothing to attach to. That costs a few queries and
+        gains nothing today; it becomes useful if the Oracle source ever stops
+        folding. Recovering the column is still right — dropping a profile is
+        recoverable, never collecting it is not.
+        """
+        # Declared on DefaultDialect rather than the Dialect interface, and third
+        # party dialects need not set it at all.
+        if not getattr(engine.dialect, "requires_name_normalize", False):
+            return sql_table
+
+        try:
+            reflected = self._case_fold_inspector(engine).get_columns(
+                sql_table.name, schema=sql_table.schema
+            )
+        except SQLAlchemyError as e:
+            # Returning the reflected table means any case-only pair stays folded
+            # and one of them goes unprofiled -- the exact loss this method exists
+            # to prevent. Silent recovery from a silent bug is not recovery.
+            self.report.warning(
+                title="Could not read stored column names",
+                message="Re-inspection failed, so columns differing only by case "
+                "stay folded together and only one of each pair is profiled.",
+                context=f"{sql_table.fullname}: {type(e).__name__}: {e}",
+                exc=e,
+            )
+            return sql_table
+
+        denormalize = engine.dialect.denormalize_name
+        # Only the name and type are carried over: profiling reads nothing else off
+        # these columns (no nullable, default or comment anywhere in this package),
+        # and schemaMetadata comes from the source, not from here.
+        columns = [
+            sa.Column(
+                sa.sql.quoted_name(denormalize(col["name"]), quote=True),
+                col["type"],
+                key=f"_dh_col_{index}",
+            )
+            for index, col in enumerate(reflected)
+        ]
+        # Reuse the original name objects so any quoting decided by the caller
+        # (Snowflake quotes mixed-case table and schema names) is preserved.
+        rebuilt = sa.Table(
+            sql_table.name, sa.MetaData(), *columns, schema=sql_table.schema
+        )
+        if len(rebuilt.columns) > len(sql_table.columns):
+            logger.info(
+                f"Recovered case-folded columns for {sql_table.fullname}: "
+                f"{sorted(str(c.name) for c in rebuilt.columns)}"
+            )
+        elif len(rebuilt.columns) < len(sql_table.columns):
+            # The check used to run one way only, so it announced recoveries and
+            # said nothing about losses. sa.Table de-duplicates on name, so two
+            # stored names that denormalize to one string drop a column here.
+            self.report.warning(
+                title="Lost columns while reading stored names",
+                message="Rebuilding the table from its stored column names "
+                "produced fewer columns than reflection did, so some columns "
+                "will not be profiled.",
+                context=f"{sql_table.fullname}: "
+                f"{len(sql_table.columns)} reflected, {len(rebuilt.columns)} rebuilt",
+            )
+        return rebuilt
+
+    def field_path_for(
+        self, stored_name: str, engine: Union[Engine, Connection]
+    ) -> str:
+        """The field path a profile of ``stored_name`` should be emitted under.
+
+        Profiling addresses columns by their stored identifier, but a profile has
+        to attach to the field path the *source* emitted in schemaMetadata. For a
+        SQLAlchemy source that is reflection's normalized name, which is what this
+        returns.
+
+        Overriding is only needed where both of these hold, which is narrower than
+        it sounds:
+
+        1. the dialect sets ``requires_name_normalize`` — otherwise this returns
+           the name untouched and the choice cannot matter. Of the dialects
+           DataHub's SQL connectors use, only Oracle and Snowflake do; db2
+           deliberately clears the flag because ibm_db_sa's casing is unreliable;
+        2. the source builds schemaMetadata from something other than reflection.
+
+        Snowflake meets both — it reads INFORMATION_SCHEMA — but does *not*
+        override this method. Its field path depends on the source's own casing
+        configuration (``convert_urns_to_lowercase``, and whatever else the
+        source's identifier rules take into account), which this layer cannot
+        see, so ``snowflake_profiler`` hands the profiler
+        ``field_path_transform=snowflake_identifier`` instead; the profiler prefers that transform over
+        this method, so nothing here runs for Snowflake at all. Oracle meets the
+        second condition alone: ``OracleInspectorObjectWrapper`` supplies its own
+        columns, but names them with ``dialect.normalize_name`` exactly as
+        reflection would, so the default is already right for it.
+        """
+        if not getattr(engine.dialect, "requires_name_normalize", False):
+            # str() because callers pass sql_table column names, which this module
+            # rebuilds as quoted_name -- a str subclass whose .lower()/.upper()
+            # return self while the identifier is quoted. Returning the subclass
+            # makes every later fold silently do nothing.
+            return str(stored_name)
+        return str(engine.dialect.normalize_name(stored_name) or stored_name)

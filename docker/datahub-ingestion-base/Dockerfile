@@ -1,6 +1,6 @@
 # This image has two variants: full and slim.
 ARG APP_ENV=full
-ARG PYTHON_VERSION=3.10
+ARG PYTHON_VERSION=3.11
 
 # INLINE-BEGIN @/docker/snippets/ingestion_base
 # This is the "base" image workflow.
@@ -70,6 +70,9 @@ ENV UV_DEFAULT_INDEX=${PIP_MIRROR_URL}
 USER datahub
 WORKDIR $HOME
 RUN uv venv --python "$PYTHON_VERSION"
+# Pre-create as datahub so BuildKit cache mounts at $HOME/.cache/uv do not leave
+# the parent root-owned (siblings like puccinialin then hit PermissionError).
+RUN mkdir -p $HOME/.cache
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 

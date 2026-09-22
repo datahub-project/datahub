@@ -9,6 +9,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -119,8 +120,9 @@ public final class EntityAuthorizationUtils {
   }
 
   /**
-   * Authorizes MCP ingest. Document update-like proposals against missing URNs are authorized as
-   * CREATE; other entity types and change types retain standard {@link AuthUtil} behavior.
+   * Authorizes MCP ingest. Applies existence-aware CREATE vs EDIT privilege selection for all
+   * entity types, seeds proposed domains for domain-scoped create/edit matching, and retains
+   * document-specific effective change-type remapping.
    */
   public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorizedIngest(
       @Nonnull OperationContext opContext,
@@ -129,6 +131,8 @@ public final class EntityAuthorizationUtils {
     if (!AuthUtil.isRestApiAuthorizationEnabled()) {
       return AuthUtil.isAPIAuthorized(opContext, ENTITY, entityRegistry, mcps);
     }
+
+    DomainWriteAuthorizationUtils.seedProposedDomainsFromMcps(opContext, entityRegistry, mcps);
 
     List<Pair<MetadataChangeProposal, Pair<ChangeType, Urn>>> resolvedProposals =
         mcps.stream()
@@ -145,37 +149,62 @@ public final class EntityAuthorizationUtils {
                 })
             .toList();
 
-    Set<Urn> documentUpdateUrns =
-        resolvedProposals.stream()
-            .map(Pair::getSecond)
-            .filter(
-                changeUrn ->
-                    DocumentAuthorizationUtils.isDocumentEntity(changeUrn.getSecond())
-                        && DocumentAuthorizationUtils.isUpdateLike(changeUrn.getFirst()))
-            .map(Pair::getSecond)
-            .collect(Collectors.toSet());
-    Map<Urn, Boolean> documentExistence =
-        documentUpdateUrns.isEmpty()
+    return authorizeResolvedChangeUrns(opContext, resolvedProposals);
+  }
+
+  /**
+   * Authorize each change in an AspectsBatch (OpenAPI createEntity path) with existence-aware
+   * privileges and proposed-domain seeding.
+   */
+  public static List<Pair<BatchItem, Integer>> isAPIAuthorizedBatchItems(
+      @Nonnull OperationContext opContext, @Nonnull Collection<? extends BatchItem> items) {
+    if (!AuthUtil.isRestApiAuthorizationEnabled()) {
+      return items.stream().map(item -> Pair.of((BatchItem) item, HttpStatus.SC_OK)).toList();
+    }
+
+    List<? extends BatchItem> orderedItems =
+        items instanceof List ? (List<? extends BatchItem>) items : List.copyOf(items);
+    DomainWriteAuthorizationUtils.seedProposedDomainsForApiAuth(
+        opContext, opContext, opContext.getAspectRetriever(), orderedItems);
+
+    List<Pair<BatchItem, Pair<ChangeType, Urn>>> resolved =
+        items.stream()
+            .map(item -> Pair.of((BatchItem) item, Pair.of(item.getChangeType(), item.getUrn())))
+            .toList();
+
+    return authorizeResolvedChangeUrns(opContext, resolved);
+  }
+
+  private static <T> List<Pair<T, Integer>> authorizeResolvedChangeUrns(
+      @Nonnull OperationContext opContext, @Nonnull List<Pair<T, Pair<ChangeType, Urn>>> resolved) {
+
+    Set<Urn> allUrns =
+        resolved.stream().map(pair -> pair.getSecond().getSecond()).collect(Collectors.toSet());
+    Map<Urn, Boolean> entityExists =
+        allUrns.isEmpty()
             ? Map.of()
-            : opContext.getAspectRetriever().entityExists(opContext, documentUpdateUrns);
+            : opContext.getAspectRetriever().entityExists(opContext, allUrns);
 
     Map<Pair<ChangeType, Urn>, Pair<ChangeType, Urn>> effectiveAuthorizationKeys =
-        resolvedProposals.stream()
+        resolved.stream()
             .map(Pair::getSecond)
             .distinct()
             .collect(
                 Collectors.toMap(
                     changeUrn -> changeUrn,
                     changeUrn ->
-                        DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
-                            changeUrn.getFirst(),
-                            changeUrn.getSecond(),
-                            documentExistence.getOrDefault(changeUrn.getSecond(), false))));
+                        DocumentAuthorizationUtils.isDocumentEntity(changeUrn.getSecond())
+                            ? DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
+                                changeUrn.getFirst(),
+                                changeUrn.getSecond(),
+                                entityExists.getOrDefault(changeUrn.getSecond(), false))
+                            : changeUrn));
 
     Map<Pair<ChangeType, Urn>, Integer> authorizationResults =
         AuthUtil.isAPIAuthorizedUrns(
-            opContext, ENTITY, Set.copyOf(effectiveAuthorizationKeys.values()));
-    return resolvedProposals.stream()
+            opContext, ENTITY, Set.copyOf(effectiveAuthorizationKeys.values()), entityExists);
+
+    return resolved.stream()
         .map(
             proposal ->
                 Pair.of(

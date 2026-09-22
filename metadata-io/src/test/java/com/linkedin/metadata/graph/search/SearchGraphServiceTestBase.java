@@ -6,6 +6,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_C
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
@@ -41,7 +42,6 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
@@ -79,15 +79,16 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   private final IndexConvention _indexConvention =
       IndexConventionImpl.noPrefix("MD5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
-  private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
+  private final String _indexName =
+      _indexConvention.getIndexName(OperationFingerprint.EMPTY, INDEX_NAME);
   private ElasticSearchGraphService _client;
-  private OperationContext operationContext;
 
   private static final String TAG_RELATIONSHIP = "SchemaFieldTaggedWith";
 
   @BeforeClass
   public void setup() {
-    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    operationContext =
+        TestOperationContexts.withFixedSearchClient(operationContext, getSearchClient());
     _client = buildService(getElasticSearchConfiguration(), TEST_GRAPH_SERVICE_CONFIG);
     _client.reindexAll(operationContext, Collections.emptySet());
   }

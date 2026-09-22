@@ -26,6 +26,7 @@ class FailedTest:
     name: str
     test_type: str
     error_message: Optional[str] = None
+    custom_properties: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -34,6 +35,21 @@ class PostHogConfig:
     api_key: str
     host: str
     timeout: int = 10
+
+
+def _testcase_custom_properties(testcase: ET.Element) -> Optional[Dict[str, Any]]:
+    """Collect ``<properties>/<property>`` from a JUnit testcase."""
+    properties: Dict[str, Any] = {}
+    for prop in testcase.findall("properties/property"):
+        name = prop.get("name")
+        if not name:
+            continue
+        value = prop.get("value", "")
+        try:
+            properties[name] = json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            properties[name] = value
+    return properties or None
 
 
 def _detect_junit_subtype(xml_file: Path) -> str:
@@ -59,14 +75,12 @@ def detect_xml_type(xml_file: Path) -> str:
     """
     Detect the type of JUnit XML file.
 
-    Returns: 'cypress', 'playwright', 'pytest', 'java', or 'unknown'
+    Returns: 'playwright', 'pytest', 'java', or 'unknown'
     """
     filename = xml_file.name
 
     # Check filename patterns
-    if filename.startswith('cypress-test-'):
-        return 'cypress'
-    elif filename.startswith('TEST-') and filename.endswith('.xml'):
+    if filename.startswith('TEST-') and filename.endswith('.xml'):
         return 'java'
     elif filename.startswith('junit') and filename.endswith('.xml'):
         # Both Playwright (junit.xml) and Pytest (junit.*.xml) match this pattern.
@@ -74,63 +88,6 @@ def detect_xml_type(xml_file: Path) -> str:
         return _detect_junit_subtype(xml_file)
 
     return 'unknown'
-
-
-def parse_cypress_failures(xml_file: Path) -> List[FailedTest]:
-    """
-    Parse Cypress JUnit XML to extract failed tests.
-
-    Cypress reports at the spec file level, not individual test level.
-    """
-    failed_tests = []
-
-    try:
-        tree = ET.parse(xml_file)
-        root = tree.getroot()
-
-        # Find testsuite with file attribute
-        file_testsuite = root.find('.//testsuite[@file]')
-        if file_testsuite is None:
-            return failed_tests
-
-        file_path = file_testsuite.get('file', '')
-        if not file_path:
-            return failed_tests
-
-        # Check if any testcase has failures
-        has_failures = False
-        error_msg = None
-
-        for testcase in root.findall('.//testcase'):
-            failure = testcase.find('failure')
-            error = testcase.find('error')
-
-            if failure is not None or error is not None:
-                has_failures = True
-                if error_msg is None:  # Get first error message
-                    if failure is not None:
-                        error_msg = failure.get('message', failure.text or '')
-                    elif error is not None:
-                        error_msg = error.get('message', error.text or '')
-                break
-
-        if has_failures:
-            # Strip 'cypress/e2e/' prefix
-            if file_path.startswith('cypress/e2e/'):
-                file_path = file_path.replace('cypress/e2e/', '')
-
-            failed_tests.append(FailedTest(
-                name=file_path,
-                test_type='cypress',
-                error_message=error_msg[:200] if error_msg else None
-            ))
-
-    except ET.ParseError as e:
-        print(f"⚠️ Failed to parse {xml_file}: {e}", file=sys.stderr)
-    except Exception as e:
-        print(f"⚠️ Error processing {xml_file}: {e}", file=sys.stderr)
-
-    return failed_tests
 
 
 def parse_playwright_failures(xml_file: Path) -> List[FailedTest]:
@@ -172,7 +129,8 @@ def parse_playwright_failures(xml_file: Path) -> List[FailedTest]:
                 failed_tests.append(FailedTest(
                     name=test_identifier,
                     test_type='playwright',
-                    error_message=error_msg[:200] if error_msg else None
+                    error_message=error_msg[:200] if error_msg else None,
+                    custom_properties=_testcase_custom_properties(testcase),
                 ))
 
     except ET.ParseError as e:
@@ -224,7 +182,8 @@ def parse_pytest_failures(xml_file: Path) -> List[FailedTest]:
                 failed_tests.append(FailedTest(
                     name=test_identifier,
                     test_type='pytest',
-                    error_message=error_msg[:200] if error_msg else None
+                    error_message=error_msg[:200] if error_msg else None,
+                    custom_properties=_testcase_custom_properties(testcase),
                 ))
 
     except ET.ParseError as e:
@@ -271,7 +230,8 @@ def parse_java_failures(xml_file: Path) -> List[FailedTest]:
                 failed_tests.append(FailedTest(
                     name=test_identifier,
                     test_type='java',
-                    error_message=error_msg[:200] if error_msg else None
+                    error_message=error_msg[:200] if error_msg else None,
+                    custom_properties=_testcase_custom_properties(testcase),
                 ))
 
     except ET.ParseError as e:
@@ -304,9 +264,7 @@ def parse_all_failures(input_dir: Path) -> List[FailedTest]:
     for xml_file in xml_files:
         xml_type = detect_xml_type(xml_file)
 
-        if xml_type == 'cypress':
-            failures = parse_cypress_failures(xml_file)
-        elif xml_type == 'playwright':
+        if xml_type == 'playwright':
             failures = parse_playwright_failures(xml_file)
         elif xml_type == 'pytest':
             failures = parse_pytest_failures(xml_file)
@@ -315,7 +273,6 @@ def parse_all_failures(input_dir: Path) -> List[FailedTest]:
         else:
             # Try all parsers for unknown types
             failures = (
-                parse_cypress_failures(xml_file) or
                 parse_pytest_failures(xml_file) or
                 parse_java_failures(xml_file)
             )
@@ -350,6 +307,8 @@ def send_posthog_event(
             "test_type": test.test_type,
             **metadata
         }
+        if test.custom_properties:
+            properties["custom_properties"] = test.custom_properties
 
         # Build event payload
         payload = {
@@ -568,7 +527,7 @@ Examples:
     )
     parser.add_argument(
         '--test-strategy',
-        help='Test strategy: pytests or cypress (for docker-unified matrix)'
+        help='Test strategy: pytests (for docker-unified matrix)'
     )
     parser.add_argument(
         '--command',

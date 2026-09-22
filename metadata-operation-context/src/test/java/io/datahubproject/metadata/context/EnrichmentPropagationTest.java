@@ -1,6 +1,7 @@
 package io.datahubproject.metadata.context;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
@@ -22,7 +23,7 @@ import org.testng.annotations.Test;
  * OperationContext.getEnrichment(Class).
  *
  * <p>Uses a local {@link SampleEnrichment} subclass so the OSS test does not depend on any
- * deployment-specific enrichment concept (e.g. tenant).
+ * deployment-specific enrichment concept.
  */
 public class EnrichmentPropagationTest {
 
@@ -33,6 +34,17 @@ public class EnrichmentPropagationTest {
    * A second sample enrichment — proves multi-type coexistence in one EnrichmentBundle container.
    */
   private record OtherSampleEnrichment(String name) implements Enrichment {}
+
+  /**
+   * Forces a hashCode collision (constant 42) so two distinct values share a Java hash — used to
+   * prove the context cache id discriminates by content, not by the collision-prone hashCode.
+   */
+  private record ConstantHashEnrichment(String value) implements Enrichment {
+    @Override
+    public int hashCode() {
+      return 42;
+    }
+  }
 
   @Test
   public void enrichmentsFlowFromRequestAttributeToSessionOpContext() {
@@ -201,6 +213,59 @@ public class EnrichmentPropagationTest {
     assertEquals(enhanced.getEnrichment(SampleEnrichment.class).get().value(), "bootstrapped");
     // Original stays clean.
     assertTrue(systemCtx.getEnrichment(SampleEnrichment.class).isEmpty());
+  }
+
+  @Test
+  public void enrichmentDiscriminatesContextCacheIds() {
+    // The enrichment bundle must discriminate the OperationContext cache ids, so a cache keyed on
+    // getSearchContextId()/getEntityContextId()/getGlobalContextId() (e.g. the entity-search cache)
+    // isolates by enrichment. This is the generic mechanism behind per-operation cache isolation: a
+    // deployment stamps an enrichment and two operations carrying different enrichments can no
+    // longer collide on a cache key.
+    OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
+    OperationContext a = base.withEnrichment(new SampleEnrichment("a"));
+    OperationContext b = base.withEnrichment(new SampleEnrichment("b"));
+
+    // Adding an enrichment changes every id scope vs the bare context.
+    assertNotEquals(base.getSearchContextId(), a.getSearchContextId());
+    assertNotEquals(base.getEntityContextId(), a.getEntityContextId());
+    assertNotEquals(base.getGlobalContextId(), a.getGlobalContextId());
+
+    // Different enrichment value -> different ids in every scope.
+    assertNotEquals(a.getSearchContextId(), b.getSearchContextId());
+    assertNotEquals(a.getEntityContextId(), b.getEntityContextId());
+    assertNotEquals(a.getGlobalContextId(), b.getGlobalContextId());
+  }
+
+  @Test
+  public void sameEnrichmentValueYieldsStableContextCacheIds() {
+    // Stability matters as much as discrimination: two contexts carrying an equal enrichment must
+    // produce identical ids, otherwise the cache would never hit for a given enrichment value.
+    OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
+    OperationContext first = base.withEnrichment(new SampleEnrichment("same"));
+    OperationContext second = base.withEnrichment(new SampleEnrichment("same"));
+
+    assertEquals(first.getSearchContextId(), second.getSearchContextId());
+    assertEquals(first.getEntityContextId(), second.getEntityContextId());
+    assertEquals(first.getGlobalContextId(), second.getGlobalContextId());
+  }
+
+  @Test
+  public void hashCollidingEnrichmentsStillYieldDistinctCacheIds() {
+    // Two enrichments with equal hashCodes but different values. A hashCode-based discriminator
+    // would collapse them onto one cache id (serving one identity's data to the other); the stable
+    // content token must keep them distinct.
+    OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
+    ConstantHashEnrichment x = new ConstantHashEnrichment("x");
+    ConstantHashEnrichment y = new ConstantHashEnrichment("y");
+    assertEquals(x.hashCode(), y.hashCode(), "test premise: hashCodes must collide");
+
+    OperationContext cx = base.withEnrichment(x);
+    OperationContext cy = base.withEnrichment(y);
+
+    assertNotEquals(cx.getSearchContextId(), cy.getSearchContextId());
+    assertNotEquals(cx.getEntityContextId(), cy.getEntityContextId());
+    assertNotEquals(cx.getGlobalContextId(), cy.getGlobalContextId());
   }
 
   @Test

@@ -1,5 +1,6 @@
 import logging
 import re
+import warnings
 from abc import abstractmethod
 from collections import defaultdict
 from copy import deepcopy
@@ -19,6 +20,7 @@ from typing import (
     Tuple,
     Type,
     TypedDict,
+    TypeVar,
     Union,
 )
 
@@ -37,6 +39,7 @@ from datahub.configuration.common import (
     ConfigEnum,
     ConfigModel,
     ConfigurationError,
+    ConfigurationWarning,
 )
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -104,7 +107,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     ChangeAuditStampsClass,
+    ContainerClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
     DatasetProfileClass,
@@ -175,6 +181,38 @@ class _TwoTierSchemaResolver(SchemaResolver):
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
 _DBT_MAX_SQL_LENGTH = 1 * 1024 * 1024  # 1MB
+_TARGET_PLATFORM_PREFETCH_ASPECT_NAMES = [
+    BrowsePathsV2Class.ASPECT_NAME,
+    ContainerClass.ASPECT_NAME,
+    DatasetPropertiesClass.ASPECT_NAME,
+]
+_TARGET_PLATFORM_PREFETCH_CHUNK_SIZE = 200
+
+
+@dataclass
+class _TargetPlatformAspects:
+    """The subset of a target-platform entity's aspects the prefetch reads.
+
+    Typed so a mismatch between an aspect name and its expected type (three
+    aspect types keyed by string in the prefetch response) is a mypy error
+    rather than something only caught at runtime.
+    """
+
+    browse_path: Optional[BrowsePathsV2Class] = None
+    container: Optional[ContainerClass] = None
+    properties: Optional[DatasetPropertiesClass] = None
+
+
+_PrefetchedAspectT = TypeVar("_PrefetchedAspectT")
+
+
+def _get_prefetched_aspect(
+    aspects: Dict[str, Tuple[Any, Any]], aspect_class: Type[_PrefetchedAspectT]
+) -> Optional[_PrefetchedAspectT]:
+    entry = aspects.get(aspect_class.ASPECT_NAME)  # type: ignore[attr-defined]
+    return entry[0] if entry is not None else None
+
+
 # URN-safe chars only; names like "Revenue (USD)" become "Revenue_USD_" which can
 # collide with "Revenue [USD]" - duplicates are detected and skipped with warnings.
 _QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]+")
@@ -365,6 +403,11 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     # Semantic model entity emission statistics
     num_semantic_models_emitted: int = 0
+
+    # Target-platform sibling browse path / display name statistics
+    num_target_platform_aspect_prefetch_batches: int = 0
+    num_target_browse_paths_written: int = 0
+    num_target_display_names_set: int = 0
 
     def record_node_failure(
         self,
@@ -571,6 +614,24 @@ class DBTCommonConfig(
     target_platform_instance: Optional[str] = Field(
         default=None,
         description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
+    )
+    emit_target_platform_instance_aspects: bool = Field(
+        default=True,
+        description="When target_platform_instance is set, emit dataPlatformInstance and "
+        "browsePathsV2 aspects for target-platform sibling entities so they are correctly "
+        "grouped under their platform instance in browse and filters. Browse paths written "
+        "by the warehouse connector are never overwritten.",
+    )
+    emit_target_platform_display_name: bool = Field(
+        default=True,
+        description="Set a display name on target-platform entities that the warehouse "
+        "connector has not ingested. Those entities have no datasetProperties, so the UI "
+        "falls back to the urn and shows the full dotted path (instance.database.schema.table) "
+        "rather than just the table name. Enabling this patches datasetProperties.name with "
+        "the table name, matching how the warehouse connector's own entities are labelled. "
+        "Has no effect unless both `target_platform_instance` is set and "
+        "`emit_target_platform_instance_aspects` is enabled - a warning is logged if set "
+        "without them.",
     )
     use_identifiers: bool = Field(
         default=False,
@@ -814,6 +875,30 @@ class DBTCommonConfig(
         ):
             raise ValueError(
                 "When `skip_sources_in_lineage` is enabled, `entities_enabled.sources` must be set to NO."
+            )
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_emit_target_platform_display_name(self) -> "DBTCommonConfig":
+        # Defaults to True, so only warn when the user explicitly opted in -
+        # otherwise every recipe without a platform instance would warn about
+        # a flag it never touched.
+        if (
+            "emit_target_platform_display_name" in self.model_fields_set
+            and self.emit_target_platform_display_name
+            and not (
+                self.target_platform_instance
+                and self.emit_target_platform_instance_aspects
+            )
+        ):
+            warnings.warn(
+                "`emit_target_platform_display_name` has no effect without both "
+                "`target_platform_instance` set and `emit_target_platform_instance_aspects` "
+                "enabled - it patches datasetProperties.name on the same target-platform "
+                "sibling entities those two produce. Ignoring it.",
+                ConfigurationWarning,
+                stacklevel=2,
             )
 
         return self
@@ -1454,7 +1539,7 @@ def get_column_type(
 
 @platform_name("dbt")
 @config_class(DBTCommonConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
@@ -1482,6 +1567,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._exposures: List[DBTExposure] = []
         # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
         self._upstream_exists_cache: Dict[str, bool] = {}
+        # Cache of container urn -> parent container urn, for target-platform
+        # browse paths. Sibling tables share ancestors, so without this every
+        # table in a schema re-reads that schema's and database's container.
+        self._container_parent_cache: Dict[str, Optional[str]] = {}
 
     def _node_context(self, node: DBTNode) -> str:
         return f"{node.dbt_name} ({node.dbt_file_path})"
@@ -2407,6 +2496,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     sql_result = self._parse_cll(node, cte_mapping, schema_resolver)
                 else:
                     self.report.sql_parser_skipped_missing_code.append(node.dbt_name)
+                    if self.config.include_column_lineage:
+                        self.report.warning(
+                            title="Missing compiled code, skipping column lineage",
+                            message="Column-level lineage requires compiled SQL, which is not present "
+                            "in the manifest for this node. Manifests written by `dbt test` or "
+                            "`dbt source freshness` do not include compiled model SQL; generate "
+                            "the manifest with `dbt compile`, `dbt build`, or `dbt docs generate` "
+                            "and point the ingestion at that manifest instead.",
+                            context=node.dbt_name,
+                        )
 
                 # Save the column lineage.
                 if self.config.include_column_lineage and sql_result:
@@ -2942,6 +3041,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         mce_platform = self.config.target_platform
         mce_platform_instance = self.config.target_platform_instance
 
+        prefetched_target_platform_aspects: Optional[
+            Dict[str, _TargetPlatformAspects]
+        ] = None
+        if mce_platform_instance and self.config.emit_target_platform_instance_aspects:
+            candidate_urns = [
+                node.get_urn(mce_platform, self.config.env, mce_platform_instance)
+                for node in dbt_nodes
+                if node.exists_in_target_platform
+                and self.config.entities_enabled.can_emit_node_type(node.node_type)
+            ]
+            prefetched_target_platform_aspects = self._prefetch_target_platform_aspects(
+                candidate_urns
+            )
+
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
             try:
                 node_datahub_urn = node.get_urn(
@@ -2995,6 +3108,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         for mcp in target_patch.build()
                     )
 
+                # Deliberately NOT gated by _should_create_sibling_relationships:
+                # lineage emission below also auto-creates target entities, so
+                # these aspects are needed whenever the target URN is referenced,
+                # not only when this source emits the sibling patch itself.
+                yield from self._create_target_platform_instance_workunits(
+                    node, node_datahub_urn, prefetched_target_platform_aspects
+                )
+
                 # This code block is run when we are generating entities of platform type.
                 # We will not link the platform not to the dbt node for type "source" because
                 # in this case the platform table existed first.
@@ -3035,6 +3156,237 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     message="Failed to emit target-platform metadata for this node; some or all of its workunits may be missing.",
                     kind="emission",
                 )
+
+    def _prefetch_target_platform_aspects(
+        self, urns: List[str]
+    ) -> Optional[Dict[str, _TargetPlatformAspects]]:
+        """Batch-read the aspects needed to decide each target entity's browse path/display name.
+
+        A prefetch entry missing for a urn is read by the caller as "this
+        entity has no browsePathsV2/container/datasetProperties yet" - i.e. a
+        stub the warehouse connector has not ingested. That is only a safe
+        conclusion from a genuinely empty result. A failed read looks
+        identical to an empty one, so on any read failure this returns None
+        rather than a partial dict, and the caller skips target-platform
+        browse path/display name emission entirely for the run instead of
+        risking overwriting warehouse-owned entities it simply failed to see.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return None
+        if not urns:
+            return {}
+
+        result: Dict[str, _TargetPlatformAspects] = {}
+        try:
+            for chunk in more_itertools.chunked(
+                urns, _TARGET_PLATFORM_PREFETCH_CHUNK_SIZE
+            ):
+                entities = graph.get_entities(
+                    entity_name="dataset",
+                    urns=list(chunk),
+                    aspects=_TARGET_PLATFORM_PREFETCH_ASPECT_NAMES,
+                )
+                self.report.num_target_platform_aspect_prefetch_batches += 1
+                for urn, aspects in entities.items():
+                    result[urn] = _TargetPlatformAspects(
+                        browse_path=_get_prefetched_aspect(aspects, BrowsePathsV2Class),
+                        container=_get_prefetched_aspect(aspects, ContainerClass),
+                        properties=_get_prefetched_aspect(
+                            aspects, DatasetPropertiesClass
+                        ),
+                    )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to prefetch target-platform aspects",
+                message="Could not batch-read existing aspects for target-platform "
+                "entities; skipping browsePathsV2 and display-name emission for "
+                "this run.",
+                exc=e,
+            )
+            return None
+
+        return result
+
+    def _create_target_platform_instance_workunits(
+        self,
+        node: DBTNode,
+        node_datahub_urn: str,
+        prefetched_aspects: Optional[Dict[str, _TargetPlatformAspects]],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit dataPlatformInstance (and, when safe, browsePathsV2) for a target entity.
+
+        Only active when target_platform_instance is configured. The
+        dataPlatformInstance value is identical to what the warehouse connector
+        writes for the same entity, so the upsert is a no-op for entities the
+        warehouse connector owns and a fix for sibling-only "stub" entities.
+        Stubs also get a display name, which nothing else sets for them.
+        """
+        if not self.config.target_platform_instance:
+            return
+        if not self.config.emit_target_platform_instance_aspects:
+            return
+
+        platform_urn = mce_builder.make_data_platform_urn(self.config.target_platform)
+        instance_urn = mce_builder.make_dataplatform_instance_urn(
+            platform_urn, self.config.target_platform_instance
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=node_datahub_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=platform_urn,
+                instance=instance_urn,
+            ),
+        ).as_workunit(is_primary_source=False)
+
+        if prefetched_aspects is None:
+            # No graph connection, or the batched prefetch failed outright -
+            # skip the browse path / display name portion rather than risk
+            # treating a failed read as "this entity has no container".
+            return
+        entity_aspects = prefetched_aspects.get(
+            node_datahub_urn, _TargetPlatformAspects()
+        )
+
+        existing_browse_path = entity_aspects.browse_path
+        existing_entries: List[BrowsePathEntryClass] = (
+            list(existing_browse_path.path)
+            if existing_browse_path is not None and existing_browse_path.path
+            else []
+        )
+        if self._is_container_based_path(existing_entries):
+            # The warehouse connector owns this entity's browse path, which means
+            # it ingested the entity and owns its properties too. Nothing to add,
+            # and no need to walk the container chain to find that out.
+            return
+
+        container_entries = self._resolve_container_browse_path_entries(
+            node_datahub_urn, entity_aspects.container
+        )
+        if container_entries is None:
+            return
+
+        path = [
+            BrowsePathEntryClass(id=instance_urn, urn=instance_urn)
+        ] + container_entries
+        if path != existing_entries:
+            self.report.num_target_browse_paths_written += 1
+            yield MetadataChangeProposalWrapper(
+                entityUrn=node_datahub_urn,
+                aspect=BrowsePathsV2Class(path=path),
+            ).as_workunit(is_primary_source=False)
+
+        if not container_entries and self.config.emit_target_platform_display_name:
+            # No container means the warehouse connector has not ingested this
+            # entity, so nothing has written datasetProperties for it either and
+            # the UI falls back to the urn's name - the full dotted path rather
+            # than the table name.
+            yield from self._create_target_display_name_workunits(
+                node,
+                node_datahub_urn,
+                entity_aspects.properties,
+            )
+
+    def _create_target_display_name_workunits(
+        self,
+        node: DBTNode,
+        node_datahub_urn: str,
+        existing_properties: Optional[DatasetPropertiesClass],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Set datasetProperties.name on a target entity the warehouse has not ingested.
+
+        node.name is the warehouse-side table name (identifier and alias already
+        applied) and is the last segment of the entity's urn, so it matches what
+        the warehouse connector would write for the same table.
+
+        An existing name is never replaced: the patch only fills a gap. That also
+        keeps re-runs quiet, since the name written by an earlier run is read back
+        (from the prefetch) here rather than proposed again.
+        """
+        if existing_properties is not None and existing_properties.name:
+            return
+
+        self.report.num_target_display_names_set += 1
+        patch = DatasetPatchBuilder(node_datahub_urn)
+        patch.set_display_name(node.name)
+        for mcp in patch.build():
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(mcp),
+                mcp_raw=mcp,
+                is_primary_source=False,
+            )
+
+    def _resolve_container_browse_path_entries(
+        self,
+        node_datahub_urn: str,
+        own_container: Optional[ContainerClass],
+    ) -> Optional[List[BrowsePathEntryClass]]:
+        """Rebuild the container portion of a target entity's browse path, root first.
+
+        Mirrors the server-side walk in BrowsePathV2Utils.aggregateParentContainers
+        so the path we write is identical to the one the warehouse connector
+        produces for the same entity. The container URNs cannot be derived from the
+        dbt manifest: each target platform has its own container key scheme and
+        identifier casing rules, and a guessed plain-name segment lands in a second
+        Browse folder next to the real container-backed one.
+
+        ``own_container`` is the entity's own Container aspect, already read as
+        part of the batched prefetch. Only its ancestors - shared across sibling
+        tables in the same schema/database - are read here individually, memoized
+        in ``_container_parent_cache`` for the run.
+
+        Returns None when the graph is unavailable or an ancestor read fails (the
+        caller then skips the write), and an empty list when the entity has no
+        container yet - the warehouse connector has not ingested it, so there is
+        no real folder to nest it under and it stays directly beneath the
+        platform instance.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return None
+        if own_container is None:
+            return []
+
+        container_urns: List[str] = []
+        seen = {node_datahub_urn}
+        parent: Optional[str] = own_container.container
+        try:
+            while parent is not None:
+                if parent in seen:
+                    # Defensive: a corrupt cyclic chain would otherwise never end.
+                    break
+                seen.add(parent)
+                container_urns.insert(0, parent)
+                current = parent
+                if current in self._container_parent_cache:
+                    parent = self._container_parent_cache[current]
+                else:
+                    container = graph.get_aspect(current, ContainerClass)
+                    parent = container.container if container is not None else None
+                    self._container_parent_cache[current] = parent
+        except Exception as e:
+            self.report.warning(
+                title="Failed to resolve target container path",
+                message="Could not read the container hierarchy of the target-platform "
+                "entity; skipping browsePathsV2 emission for this entity.",
+                context=node_datahub_urn,
+                exc=e,
+            )
+            return None
+
+        return [BrowsePathEntryClass(id=urn, urn=urn) for urn in container_urns]
+
+    @staticmethod
+    def _is_container_based_path(entries: List[BrowsePathEntryClass]) -> bool:
+        """Whether a browse path was written by the connector that owns the entity.
+
+        Container-based paths carry a container urn on every entry below the root,
+        and only the warehouse connector produces them. Everything else is built
+        from plain names - a server-generated default, or the database/schema guess
+        this source wrote before it resolved real containers
+        (datahub-project/datahub#18539) - and is ours to replace.
+        """
+        return len(entries) > 1 and all(entry.urn is not None for entry in entries[1:])
 
     def extract_query_tag_aspects(
         self,

@@ -40,6 +40,9 @@
     "deprecation.ok": "OK",
     "deprecation.reasonLabel": "Årsak",
     "deprecation.reasonPlaceholder": "Legg til årsak",
+    "deprecation.replacementColumnLabel": "Kolonne",
+    "deprecation.replacementColumnPlaceholder": "Velg kolonne",
+    "deprecation.replacementParentPlaceholder": "Velg {{entityName}}",
     "deprecation.replacementLabel": "Erstatning",
     "deprecation.replacementSearchTitle": "Velg én entitet som skal erstatte den utdaterte entiteten.",
     "deprecation.selectReplacement": "Velg erstatning",
@@ -95,5 +98,8 @@
     "unlinkVersion.confirmTitle": "Er du sikker?",
     "unlinkVersion.error": "Kunne ikke oppheve lenke: \n {{errorMessage}}",
     "unlinkVersion.loading": "Opphever lenke...",
-    "unlinkVersion.success": "Lenken til {{entityName}} opphevet!"
+    "unlinkVersion.success": "Lenken til {{entityName}} opphevet!",
+    "dataProductSelect.notFound": "Ingen Data Products funnet",
+    "dataProductSelect.placeholder": "Velg et overordnet Data Product",
+    "moveDataProduct.title": "Flytt Data Product"
 }

@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.plugins;
 
 import static org.testng.Assert.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -10,6 +11,7 @@ import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
+import io.micrometer.core.instrument.MeterRegistry;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.mockito.Answers;
@@ -47,6 +49,10 @@ public class AspectMigrationMutatorChainInjectionTest extends AbstractTestNGSpri
   private ConfigurationProvider configurationProvider;
 
   @MockitoBean private StructuredPropertyMappingLookup structuredPropertyMappingLookup;
+
+  @MockitoBean private MeterRegistry meterRegistry;
+
+  @MockitoBean private ObjectMapper objectMapper;
 
   @BeforeClass
   private void setup() {

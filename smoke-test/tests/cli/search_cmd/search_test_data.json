@@ -6,8 +6,8 @@
     "aspectName": "datasetProperties",
     "aspect": {
       "json": {
-        "name": "orders",
-        "description": "Search smoke test: Snowflake orders dataset",
+        "name": "search_smoke_test.orders",
+        "description": "Search smoke test: Snowflake search_smoke_test.orders dataset",
         "customProperties": {}
       }
     }
@@ -19,8 +19,8 @@
     "aspectName": "datasetProperties",
     "aspect": {
       "json": {
-        "name": "customers",
-        "description": "Search smoke test: Snowflake customers dataset",
+        "name": "search_smoke_test.customers",
+        "description": "Search smoke test: Snowflake search_smoke_test.customers dataset",
         "customProperties": {}
       }
     }
@@ -32,8 +32,8 @@
     "aspectName": "datasetProperties",
     "aspect": {
       "json": {
-        "name": "revenue",
-        "description": "Search smoke test: BigQuery revenue dataset",
+        "name": "search_smoke_test.revenue",
+        "description": "Search smoke test: BigQuery search_smoke_test.revenue dataset",
         "customProperties": {}
       }
     }
@@ -45,8 +45,8 @@
     "aspectName": "chartInfo",
     "aspect": {
       "json": {
-        "title": "Revenue Chart",
-        "description": "Search smoke test: Looker revenue chart",
+        "title": "search_smoke_test Revenue Chart",
+        "description": "Search smoke test: Looker search_smoke_test.revenue_chart",
         "lastModified": {
           "created": { "time": 0, "actor": "urn:li:corpuser:datahub" },
           "lastModified": { "time": 0, "actor": "urn:li:corpuser:datahub" }
@@ -62,8 +62,8 @@
     "aspectName": "dashboardInfo",
     "aspect": {
       "json": {
-        "title": "Sales Dashboard",
-        "description": "Search smoke test: Looker sales dashboard",
+        "title": "search_smoke_test Sales Dashboard",
+        "description": "Search smoke test: Looker search_smoke_test.sales_dashboard",
         "charts": [],
         "datasets": [],
         "lastModified": {

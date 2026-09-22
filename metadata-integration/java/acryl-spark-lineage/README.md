@@ -12,11 +12,13 @@ Databricks, refer to [Configuration Instructions for Databricks](#configuration-
 
 ### Before you begin: Versions and Release Notes
 
-Versioning of the jar artifact will follow the semantic versioning of the
-main [DataHub repo](https://github.com/datahub-project/datahub) and release notes will be
-available [here](https://github.com/datahub-project/datahub/releases).
-Always check [the Maven central repository](https://search.maven.org/search?q=a:acryl-spark-lineage) for the latest
-released version.
+The agent jar is published on every DataHub release and carries that release's version, so
+`acryl-spark-lineage_2.12:1.7.0.10` is the agent built from DataHub `v1.7.0.10`. Most releases
+contain no agent changes — see the [Changelog](#changelog) below for the versions that did change,
+and the [DataHub release notes](https://github.com/datahub-project/datahub/releases) for everything
+else in a given release. Always check
+[the Maven central repository](https://search.maven.org/search?q=a:acryl-spark-lineage) for the
+latest released version.
 
 **Note**: Starting from version 0.2.18, we provide separate jars for different Scala versions:
 
@@ -469,7 +471,7 @@ The agent shadow jar is compiled to **Java 17 bytecode**, so it requires a Spark
 **Java 17 or newer**. This matches the current defaults of the major managed Spark platforms:
 
 - Amazon EMR 7.x (Java 17)
-- Databricks Runtime 16.4 LTS / 17.3 LTS and newer (Java 17; 18+ is Java 21)
+- Databricks Runtime 16.4 LTS / 17.3 LTS and newer (Java 17; 18.x/19.x run Java 21)
 - Dataproc Serverless 2.x / 3.0 and Dataproc on GCE image 3.0
 - Microsoft Fabric runtime 2.0
 
@@ -478,7 +480,7 @@ Java 8 and Java 11 runtimes are **not supported** (e.g. EMR 6.x, Databricks ≤ 
 
 ## How to build
 
-The build uses Gradle (the JDK 21 toolchain is provisioned automatically) and produces the Java
+The build uses Gradle (the JDK 25 toolchain is provisioned automatically) and produces the Java
 17-bytecode shadow jar:
 
 ```shell
@@ -491,20 +493,169 @@ The build uses Gradle (the JDK 21 toolchain is provisioned automatically) and pr
 
 ## Changelog
 
+The agent jar is published on **every** DataHub release and carries that release's version, so
+`io.acryl:acryl-spark-lineage_2.12:1.7.0.10` is the agent built from DataHub `v1.7.0.10`. Most
+DataHub releases change nothing in the agent, so only the versions that actually changed it are
+listed below — a version that is not listed behaves the same as the nearest listed version below
+it, and picking the newest published version is always safe.
+
+Versions before `1.5.0.15` used a standalone `0.2.x` scheme, with `0.2.18` as the last release on
+it. See [Before you begin: Versions and Release Notes](#before-you-begin-versions-and-release-notes).
+
 ### Next
 
+_Unreleased. Currently published as `1.7.0.11rc*`._
+
+- _Dependencies_:
+  - Apache Parquet bumped to 1.18.1 in the shaded jar for CVE-2026-73334 ([#19743](https://github.com/datahub-project/datahub/pull/19743))
+
+### Version 1.7.0.10
+
+- _Fixes_:
+  - **Domain configuration hardening** ([#19519](https://github.com/datahub-project/datahub/pull/19519)): `spark.datahub.domains` now rejects values that are not domain URNs (`urn:li:domain:<id>`) with a warning instead of emitting a malformed `domains` aspect, no longer sorts the caller's config list in place, and skips the aspect entirely when nothing valid remains. Domains are now attached to both the DataFlow and the DataJob.
+
+### Version 1.7.0.9
+
+- _Dependencies_:
+  - httpclient5, Spring Boot and the OpenTelemetry agent bumped in the shaded jar ([#19564](https://github.com/datahub-project/datahub/pull/19564))
+
+### Version 1.7.0.8
+
+- _Fixes_:
+  - **Scala 2.13 artifact shipped Scala 2.12-compiled classes** ([#19254](https://github.com/datahub-project/datahub/pull/19254), issue [#19289](https://github.com/datahub-project/datahub/issues/19289)): the agent's own sources were compiled once, against the Scala 2.12 Spark API, and that same output went into both artifacts. Spark returns `scala.collection.Seq` on Scala 2.12 and `scala.collection.immutable.Seq` on 2.13, and the JVM resolves methods on the full descriptor including the return type — so on a Spark 4 / Scala 2.13 cluster a plain Parquet scan hit `NoSuchMethodError: FileScanRDD.filePartitions()`. That is an `Error` rather than an exception, so it escaped the listener's guards and Spark's `tryOrStopSparkContext` shut the SparkContext down and failed the application. Two further sites (`LogicalPlan.output()` in the JDBC/Delta write path, `TreeNode.children()` in the Delta MERGE traversal) instead dropped output schemas and column-level lineage silently. The sources are now compiled once per Scala binary version, and each artifact carries only its own.
+
+### Version 1.7.0.5
+
 - _Changes_:
-  - **OpenLineage upgrade to 1.50.0**: the vendored/shaded OpenLineage classes were refreshed onto the 1.50 upstream base. Iceberg-on-Glue symlink resolution is now provided natively by OpenLineage (since 1.46), so the temporary DataHub Glue-ARN workaround was removed.
+  - Build migrated to compile-time Java 25 on Gradle 9 ([#19237](https://github.com/datahub-project/datahub/pull/19237)). The published agent bytecode still targets Java 17, so cluster requirements are unchanged.
+- _Dependencies_:
+  - libthrift 0.22.0 → 0.23.0 for CVE-2026-43869 ([#19262](https://github.com/datahub-project/datahub/pull/19262))
+  - Netty 4.2.16 → 4.2.17 for CVE-2026-59902 ([#19304](https://github.com/datahub-project/datahub/pull/19304))
+
+### Version 1.7.0.4
+
+- _Dependencies_ (all in the shaded jar):
+  - Apache Parquet stack to 1.18.0 for shaded Jackson CVEs ([#19188](https://github.com/datahub-project/datahub/pull/19188))
+  - Log4j to 2.25.5 for CVE-2026-49844 ([#19193](https://github.com/datahub-project/datahub/pull/19193))
+  - Logback to 1.5.38 for CVE-2026-9828 ([#19195](https://github.com/datahub-project/datahub/pull/19195))
+  - micrometer-core, reactor-netty-core and httpcore5 security bumps ([#19172](https://github.com/datahub-project/datahub/pull/19172))
+
+_No agent changes in `1.7.0`, `1.7.0.1`, `1.7.0.2`, `1.7.0.3`, `1.7.0.6` or `1.7.0.7`._
+
+### Version 1.6.0.17
+
+- _Dependencies_:
+  - PostgreSQL JDBC to 42.7.12 for CVE-2026-54291 ([#18665](https://github.com/datahub-project/datahub/pull/18665))
+  - lz4-java to 1.11.1 and Jackson to 2.21.5 ([#18736](https://github.com/datahub-project/datahub/pull/18736))
+
+### Version 1.6.0.16
+
+- _Fixes_:
+  - **JNI SQL parser broken by shading** ([#18578](https://github.com/datahub-project/datahub/pull/18578)): `io.openlineage.sql` is a Rust JNI binding that resolves its native symbols from the original package name, so the full relocation introduced in 1.6.0.12 left it unable to load. It is now excluded from relocation, restoring SQL parsing and therefore column-level lineage for every source that goes through the OpenLineage SQL parser.
+- _Dependencies_:
+  - kafka-clients to 8.2.2 for Kafka 4.2 support ([#18473](https://github.com/datahub-project/datahub/pull/18473))
+  - Netty 4.2.16.Final and Jetty 12.1.10 ([#18603](https://github.com/datahub-project/datahub/pull/18603))
+
+### Version 1.6.0.12
+
+- _Changes_:
+  - **OpenLineage upgrade to 1.50.0** ([#14911](https://github.com/datahub-project/datahub/pull/14911)): the vendored/shaded OpenLineage classes were refreshed onto the 1.50 upstream base. Iceberg-on-Glue symlink resolution is now provided natively by OpenLineage (since 1.46), so the temporary DataHub Glue-ARN workaround was removed.
   - **Apache Spark 4.x support**: the agent is verified to attach and emit lineage on Apache Spark 4.0.0 (Scala 2.13) via a dedicated compatibility smoke test. Spark 4 requires the Scala 2.13 build of the agent.
   - **OpenLineage dataset-name trimmers auto-disabled when DataHub path trimming is configured**: OpenLineage 1.39+ enables built-in partition trimmers by default, which run before — and thus collide with — DataHub's own path handling. The plugin now disables them automatically when a `path_spec_list` or `file_partition_regexp` is set (otherwise they stay on, matching upstream). Override with `spark.datahub.metadata.dataset.openLineageTrimmersEnabled` (`true`/`false`).
-  - Map jdbc sqlserver dialect to mssql platform otherwise OpenLineage fails to parse the sql
+  - Map the JDBC `sqlserver` dialect to the `mssql` platform, otherwise OpenLineage fails to parse the SQL.
 - _Fixes_:
   - **Listener Null-Safety Fix**: the underlying OpenLineage listener is created lazily and can remain uninitialized (listener disabled, no active `SparkContext`/`SparkEnv` yet, or config parse failure). The event handlers now no-op in those cases instead of throwing a `NullPointerException` back into Spark's listener bus.
-  - **Dependency Relocation Fix** ([#14989](https://github.com/datahub-project/datahub/issues/14989)): Fixed shadow JAR packaging to properly relocate all transitive dependencies, preventing classloading conflicts with other Spark extensions. All dependencies except `io.openlineage` (which contains customized classes) and `datahub.spark` (the public API) are now properly relocated under `io.acryl.shaded` namespace. This resolves conflicts with libraries like ANTLR, Apache Avro, and others that could clash with Delta Lake and other Spark components.
+  - **Dependency Relocation Fix** (issue [#14989](https://github.com/datahub-project/datahub/issues/14989)): Fixed shadow JAR packaging to properly relocate all transitive dependencies, preventing classloading conflicts with other Spark extensions. All dependencies except `io.openlineage` (which contains customized classes) and `datahub.spark` (the public API) are now properly relocated under `io.acryl.shaded` namespace. This resolves conflicts with libraries like ANTLR, Apache Avro, and others that could clash with Delta Lake and other Spark components.
   - **Missing Output Lineage Fix**: Fixed an issue where `outputDatasetEdges` in the `dataJobInputOutput` aspect could be empty when using coalesced emission with the REST emitter. Early coalesced emissions (e.g., on START events) sent an UPSERT with empty edge arrays, which clobbered later PATCH emissions that contained actual output edges. The fix skips emitting `dataJobInputOutput` when all edges are empty.
   - **SparkEnv NPE Fix**: Added null-check for `SparkEnv.get()` in `PlanUtils.getDirectoryPath()` to prevent `NullPointerException` during Spark shutdown or in test contexts.
   - **URISyntaxException Crash Fix**: `RemovePathPatternUtils.removePathPattern()` no longer throws `RuntimeException` for dataset names that are not valid URIs. Instead, it logs a warning and returns the original name.
   - **JDBC Option Guard**: `SaveIntoDataSourceCommandVisitor` now checks that `dbtable` and `url` options are present before accessing them, preventing `NoSuchElementException` for query-based JDBC sinks.
+
+### Version 1.6.0.11
+
+- _Changes_:
+  - `CERT` added as a fabric type, so `spark.datahub.metadata.dataset.env=CERT` is now accepted ([#18211](https://github.com/datahub-project/datahub/pull/18211))
+
+### Version 1.6.0.10
+
+- _Changes_:
+  - **Cross-platform platform instances** ([#17962](https://github.com/datahub-project/datahub/pull/17962)): `spark.datahub.connections.*` lets the agent resolve a `platform_instance` per source system (JDBC URL, Glue catalog, warehouse) instead of applying one instance to every dataset a job touches. See [Cross-platform platform instances (`connections`)](#cross-platform-platform-instances-connections).
+- _Fixes_:
+  - **EMR / DataZone classpath conflict** ([#17947](https://github.com/datahub-project/datahub/pull/17947)): OpenLineage classes are relocated in the shaded jar so the agent no longer collides with the OpenLineage build that Amazon EMR and DataZone put on the classpath.
+  - **Java 17 bytecode restored** ([#18113](https://github.com/datahub-project/datahub/pull/18113)): the Java 21 toolchain migration had bumped the agent's shadow jar to Java 21 bytecode, which fails to load on Java 17 Spark clusters. The agent targets Java 17 again.
+
+### Version 1.6.0.9
+
+- _Dependencies_:
+  - spring-security and commons-configuration2 CVE bumps ([#18055](https://github.com/datahub-project/datahub/pull/18055))
+
+### Version 1.6.0.7
+
+- _Dependencies_:
+  - jackson-databind to 2.21.4 for CVE-2026-54512 / CVE-2026-54513 ([#18045](https://github.com/datahub-project/datahub/pull/18045))
+
+### Version 1.6.0.3
+
+- _Fixes_:
+  - Avoid a `NullPointerException` when an OpenLineage `SchemaDatasetFacet` field omits its type ([#17871](https://github.com/datahub-project/datahub/pull/17871))
+- _Dependencies_:
+  - Netty to 4.2.15.Final for CVE-2026-47691 ([#17867](https://github.com/datahub-project/datahub/pull/17867))
+
+### Version 1.6.0.1
+
+- _Changes_:
+  - **Suppress noisy INDIRECT column upstreams** ([#17594](https://github.com/datahub-project/datahub/pull/17594)): `spark.datahub.columnLineage.includeIndirect=false` drops input columns whose only role is INDIRECT (JOIN keys, WHERE filters, GROUP BY columns), avoiding the every-column-depends-on-every-join-key fan-out in the lineage panel. Defaults to `true`, matching previous behaviour.
+  - The Kafka emitter now retries producer sends ([#17791](https://github.com/datahub-project/datahub/pull/17791))
+- _Dependencies_:
+  - lz4-java pinned to 1.11.0 for CVE-2025-12183 ([#17542](https://github.com/datahub-project/datahub/pull/17542))
+
+### Version 1.6.0
+
+- _Changes_:
+  - Build properties consolidated to support airgapped builds against a custom artifact server ([#17381](https://github.com/datahub-project/datahub/pull/17381))
+- _Dependencies_:
+  - jackson-core to 2.21.3, Parquet aligned to 1.17.1 ([#17507](https://github.com/datahub-project/datahub/pull/17507))
+
+_No agent changes in `1.6.0.2`, `1.6.0.4`, `1.6.0.5`, `1.6.0.6`, `1.6.0.8`, `1.6.0.13`, `1.6.0.14` or `1.6.0.15`._
+
+### Version 1.5.0.19
+
+- _Dependencies_:
+  - Spring Boot 3.5.6 → 4.0.5 (Spring Framework 7.0, Spring Kafka 4.0) ([#16816](https://github.com/datahub-project/datahub/pull/16816))
+  - httpclient5 to 5.6.1 for CVE-2026-40542 ([#17323](https://github.com/datahub-project/datahub/pull/17323))
+  - Hadoop thirdparty, Netty and gRPC alignment ([#17330](https://github.com/datahub-project/datahub/pull/17330))
+  - Netty to 4.2.13.Final for CVE-2026-41417 ([#17352](https://github.com/datahub-project/datahub/pull/17352))
+
+### Version 1.5.0.18
+
+- _Dependencies_:
+  - PostgreSQL JDBC to 42.7.11 for CVE-2026-42198 ([#17274](https://github.com/datahub-project/datahub/pull/17274))
+  - Hadoop to 3.4.1 for CVE-2024-23454 ([#17278](https://github.com/datahub-project/datahub/pull/17278))
+
+### Version 1.5.0.16
+
+- _Dependencies_:
+  - Jackson aligned on BOM 2.21.1 ([#17228](https://github.com/datahub-project/datahub/pull/17228))
+
+### Version 1.5.0.15
+
+First release on the DataHub version scheme. The previous release was `0.2.18`; only
+`0.2.19-rc1`…`0.2.19-rc5` were published in between, so everything below accumulated over that
+window ships here.
+
+- _Major changes_:
+  - **Jar version now tracks the DataHub release version.** `0.2.x` numbering is retired.
+  - **The legacy `io.acryl:datahub-spark-lineage` artifact is no longer published** ([#17123](https://github.com/datahub-project/datahub/pull/17123)): the `spark-lineage-legacy` module was removed. `1.5.0.15rc2` is its last published version. Move to `io.acryl:acryl-spark-lineage_2.12` or `io.acryl:acryl-spark-lineage_2.13`.
+- _Changes_:
+  - **Column-level lineage capture control** ([#14300](https://github.com/datahub-project/datahub/pull/14300)): `spark.datahub.captureColumnLevelLineage` turns column-level lineage capture off without disabling the agent.
+  - SQL query text from OpenLineage's `SQLJobFacet` is attached to column-level lineage transformations ([#15232](https://github.com/datahub-project/datahub/pull/15232))
+  - `env` and `orchestrator` are honoured during OpenLineage event emission ([#15251](https://github.com/datahub-project/datahub/pull/15251))
+- _Fixes_:
+  - Handle null fields in Trino OpenLineage COMPLETE events ([#15867](https://github.com/datahub-project/datahub/pull/15867))
+- _Build and dependencies_:
+  - Java build and runtime toolchain moved from 17 to 21 ([#16912](https://github.com/datahub-project/datahub/pull/16912)); the published agent bytecode is standardized on Java 17 ([#16134](https://github.com/datahub-project/datahub/pull/16134))
+  - Gradle dependency locking, so the shaded jar's contents are reproducible ([#15303](https://github.com/datahub-project/datahub/pull/15303))
+  - Accumulated CVE bumps in the shaded jar: Log4j 2.25.4, Bouncy Castle 1.84, Guava pin, maven-artifact 3.9.15, Velocity 2.3, snappy-java, lz4-java, commons-compress, hive-llap-common, Jackson 2.18.6, Netty 4.1.132, Jetty, Rhino, Logback, commons-lang3 ([#17106](https://github.com/datahub-project/datahub/pull/17106), [#17203](https://github.com/datahub-project/datahub/pull/17203), [#17202](https://github.com/datahub-project/datahub/pull/17202), [#17152](https://github.com/datahub-project/datahub/pull/17152), [#16193](https://github.com/datahub-project/datahub/pull/16193), [#16210](https://github.com/datahub-project/datahub/pull/16210), [#16194](https://github.com/datahub-project/datahub/pull/16194), [#16212](https://github.com/datahub-project/datahub/pull/16212), [#16213](https://github.com/datahub-project/datahub/pull/16213), [#16405](https://github.com/datahub-project/datahub/pull/16405), [#16828](https://github.com/datahub-project/datahub/pull/16828), [#17030](https://github.com/datahub-project/datahub/pull/17030), [#16950](https://github.com/datahub-project/datahub/pull/16950))
 
 ### Version 0.2.18
 

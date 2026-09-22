@@ -29,8 +29,11 @@ public enum ConsistencyCheckMode {
       case "disabled" -> DISABLED;
       case "active" -> ACTIVE;
       case "dry-run", "dryrun" -> DRY_RUN;
-      default -> throw new IllegalArgumentException(
-          "Unknown consistency check mode '" + value + "'. Expected: disabled, dry-run, or active");
+      default ->
+          throw new IllegalArgumentException(
+              "Unknown consistency check mode '"
+                  + value
+                  + "'. Expected: disabled, dry-run, or active");
     };
   }
 

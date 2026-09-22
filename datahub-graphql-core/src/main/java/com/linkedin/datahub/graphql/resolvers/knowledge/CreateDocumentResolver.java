@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.CreateDocumentInput;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
 import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -121,7 +122,8 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
                     relatedDocumentUrns,
                     settings,
                     owners,
-                    actorUrn);
+                    actorUrn,
+                    SearchIndexMode.SYNC);
 
             return documentUrn.toString();
           } catch (ServiceAuthorizationException e) {
