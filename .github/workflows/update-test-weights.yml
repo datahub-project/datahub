@@ -145,7 +145,7 @@ jobs:
             --framework "Smoke pytest" \
             --workflow docker-unified.yml \
             --entry-noun tests \
-            --batch-hint "python_batch_count in docker-unified.yml (full=7; p0=4; forks=3)" \
+            --batch-hint "python_batch_count in docker-unified.yml (full=9; p0=4; forks=3)" \
             --test-id-key testId \
             --threshold 5.0 \
             --pr-gate threshold \
