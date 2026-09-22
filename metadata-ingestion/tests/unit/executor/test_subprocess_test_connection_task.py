@@ -474,3 +474,119 @@ async def test_a_successful_run_forwards_the_venv_ref_to_finalize(
         await task.execute(sample_args, exec_ctx)
 
     assert mock_finalize.call_args.kwargs["venv_ref"] is venv_ref
+
+
+@pytest.mark.asyncio
+async def test_a_stdin_failure_after_popen_keeps_the_venv_cache_lock(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """Popen succeeding and the stdin write failing means a child is running.
+
+    The except covering this window releases the lock, which is right when
+    Popen itself failed and wrong once it produced a child: eviction would then
+    be free to rmtree the venv that child is executing out of. The two cases
+    reach the same handler, so the handler has to tell them apart.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "venv-demo-data"
+    lock = venv_ref.lock
+
+    live_child = Mock()
+    live_child.poll = Mock(return_value=None)  # never reaped: may still be running
+    live_child.stdin = Mock()
+    live_child.stdin.write = Mock(side_effect=BrokenPipeError("EPIPE"))
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            return_value=live_child,
+        ),
+        pytest.raises(BrokenPipeError),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    assert venv_ref.lock is None, "the lock must be detached, not released"
+    lock.release.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_cancellation_keeps_the_venv_cache_lock_while_the_child_lives(
+    task_config: SubProcessTestConnectionTaskConfig,
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+) -> None:
+    """terminate() signals and re-raises without waiting for the child to go.
+
+    SIGTERM against a process wedged in an uninterruptible syscall is not
+    delivered until that syscall returns, so finalize_task_output would drop
+    the lock on a venv still in use. Ingestion already guarded this path; this
+    one did not.
+    """
+    task = SubProcessTestConnectionTask(task_config, executor_ctx)
+    args: dict[str, Any] = {
+        **sample_args,
+        "extra_env_vars": {},
+        "extra_pip_requirements": [],
+        "extra_pip_plugins": [],
+    }
+
+    entered_read_loop = asyncio.Event()
+
+    def _readline() -> str:
+        entered_read_loop.set()
+        return ""
+
+    live_child = Mock()
+    live_child.returncode = None
+    live_child.poll = Mock(return_value=None)
+    live_child.stdout = Mock()
+    live_child.stdout.readline = Mock(side_effect=_readline)
+    live_child.stdin = Mock()
+    live_child.terminate = Mock()
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = "/tmp/venv-demo-data-test"
+    lock = venv_ref.lock
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._resolve_recipe",
+            return_value=({"source": {"type": "demo-data"}}, {}),
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._get_plugin_from_recipe",
+            return_value="demo-data",
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            return_value=live_child,
+        ),
+        patch("os.path.exists", return_value=False),
+        patch(
+            "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._remove_directory"
+        ),
+    ):
+        pending = asyncio.ensure_future(task.execute(args, exec_ctx))
+        await asyncio.wait_for(entered_read_loop.wait(), timeout=5)
+        pending.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await pending
+
+    assert venv_ref.lock is None, "the lock must be detached, not released"
+    lock.release.assert_not_called()

@@ -305,10 +305,17 @@ class SubProcessIngestionTask(Task):
             start_new_session=True,
         )
 
-        # Write the envelope to stdin and close it
-        assert process.stdin is not None
-        process.stdin.write(stdin_envelope.encode("utf-8"))
-        process.stdin.close()
+        # A child exists from here on, so the venv it is about to execute from
+        # must not become evictable. _create_subprocess's except cannot make
+        # that call -- `process` is local to this frame and never reaches it --
+        # so the decision belongs here, and its release downgrades to a no-op.
+        try:
+            assert process.stdin is not None
+            process.stdin.write(stdin_envelope.encode("utf-8"))
+            process.stdin.close()
+        except BaseException:
+            SubProcessTaskUtil.keep_venv_lock_if_child_may_be_alive(venv_ref, process)
+            raise
 
         return process, venv_ref
 
@@ -419,7 +426,9 @@ class SubProcessIngestionTask(Task):
             cancelled = True
             raise
         finally:
-            self._keep_lock_if_child_may_be_alive(ingest_process, venv_ref)
+            SubProcessTaskUtil.keep_venv_lock_if_child_may_be_alive(
+                venv_ref, ingest_process
+            )
             # _handle_subprocess_completion is contractually safe to call here:
             # it only raises TaskError on a real non-cancelled failure. All
             # cleanup steps are internally guarded, so this finally cannot mask
@@ -435,45 +444,6 @@ class SubProcessIngestionTask(Task):
                 venv_ref=venv_ref,
                 cancelled=cancelled,
             )
-
-    @staticmethod
-    def _keep_lock_if_child_may_be_alive(
-        process: asyncio.subprocess.Process, venv_ref: Optional[VenvReference]
-    ) -> None:
-        """Only release the venv cache lock once the child is known to be dead.
-
-        The lock is what stops eviction removing the venv the child is
-        EXECUTING from. On the cancellation path _monitor_subprocess sends
-        SIGKILL and re-raises without waiting for the process to go, and a
-        SIGKILL against a task wedged in an uninterruptible syscall is not
-        delivered until that syscall returns. Releasing then marks the entry
-        evictable while it is still in use, and the next build's
-        evict_to_budget rmtree's a running interpreter -- which kills it with
-        an ImportError on a deleted .so, inside a task already reported as
-        CANCELLED, so the error lands nowhere.
-
-        `returncode` is None until the process has been reaped, so it is
-        exactly "we do not know that it is dead". Detaching the lock leaks it
-        for the life of this process: that entry becomes unevictable, which
-        costs disk. Deleting a venv out from under a live interpreter costs a
-        wrong answer. Prefer the disk.
-
-        Deliberately synchronous -- no await. This runs in a finally that may
-        be unwinding a CancelledError, where awaiting invites a second
-        cancellation and turns a cleanup step into a new failure mode.
-        """
-        if venv_ref is None or venv_ref.lock is None:
-            return
-        if process.returncode is not None:
-            return
-        logger.warning(
-            "Child process %s was not confirmed exited; keeping the venv cache "
-            "lock on %s so eviction cannot remove a venv still in use. The "
-            "entry stays until this executor restarts.",
-            process.pid,
-            venv_ref.venv_loc,
-        )
-        venv_ref.lock = None
 
     @staticmethod
     def _signal_process_group(process: asyncio.subprocess.Process, sig: int) -> None:

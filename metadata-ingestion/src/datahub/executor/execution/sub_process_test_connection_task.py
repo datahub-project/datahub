@@ -17,6 +17,7 @@ import logging
 import subprocess
 import sys
 from collections import deque
+from typing import Optional
 
 from datahub.executor.common.config import ConfigModel
 from datahub.executor.context.execution_context import ExecutionContext
@@ -82,6 +83,10 @@ class SubProcessTestConnectionTask(Task):
         )
         stdout_lines: deque = deque(maxlen=SubProcessTaskUtil.MAX_LOG_LINES)
 
+        # Bound before the try so the except can tell "Popen never ran" from
+        # "Popen produced a child and the stdin write then failed". Those need
+        # opposite answers about the venv lock.
+        ingest_process: Optional[subprocess.Popen] = None
         try:
             ingest_process = subprocess.Popen(
                 [
@@ -107,6 +112,13 @@ class SubProcessTestConnectionTask(Task):
             # nothing releases the cached venv's SHARED lock. Left held, the
             # entry can never be evicted for the rest of the pod's life.
             # Guarded inside, so it cannot replace the exception in flight.
+            #
+            # Releasing is only right when no child got started. A broken pipe
+            # on the stdin write means Popen already succeeded, and that child
+            # is executing out of the venv the lock protects.
+            SubProcessTaskUtil.keep_venv_lock_if_popen_may_be_alive(
+                prepared.venv_ref, ingest_process
+            )
             SubProcessTaskUtil.release_venv_lock(prepared.venv_ref)
             raise
 
@@ -130,6 +142,12 @@ class SubProcessTestConnectionTask(Task):
             raise
 
         finally:
+            # terminate() above signals and re-raises without waiting, so on
+            # the cancellation path the child may still be running when
+            # finalize_task_output would release the lock.
+            SubProcessTaskUtil.keep_venv_lock_if_popen_may_be_alive(
+                prepared.venv_ref, ingest_process
+            )
             SubProcessTaskUtil.finalize_task_output(
                 report_out_file,
                 exec_out_dir,

@@ -441,6 +441,76 @@ class TestSubProcessIngestionTaskSubprocessCreation:
             assert envelope["__report_out_file__"] == "/tmp/report.json"
             assert envelope["__debug_mode__"] == "false"
 
+    async def test_a_stdin_failure_after_spawning_keeps_the_venv_cache_lock(
+        self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
+    ) -> None:
+        """Once the child exists, its venv must stop being evictable.
+
+        The lock release for this window lives in _create_subprocess's except,
+        which cannot see `process` -- it is local to _spawn_ingestion_subprocess.
+        So a broken pipe on the stdin write used to release the lock with a live
+        interpreter running out of that venv, and the next build's eviction
+        could rmtree it. Popen succeeding and the write failing is the ordinary
+        way to reach that: the child is spawned, then the pipe breaks.
+        """
+        validated_args = SubProcessIngestionTaskArgs.model_validate(sample_args)
+
+        mock_process = AsyncMock()
+        mock_process.returncode = None  # never reaped: may still be running
+        mock_process.stdin = Mock()
+        mock_process.stdin.write = Mock(side_effect=BrokenPipeError("EPIPE"))
+
+        venv_ref = Mock()
+        venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
+        lock = venv_ref.lock
+
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_process),
+            patch.object(ingestion_task, "_setup_venv", return_value=venv_ref),
+            pytest.raises(BrokenPipeError),
+        ):
+            await ingestion_task._create_subprocess(
+                validated_args,
+                "demo-data",
+                {"source": {"type": "demo-data"}},
+                "/tmp/report.json",
+                {"PATH": "/usr/bin"},
+                "/tmp/exec",
+                LogHolder(),
+                {},
+            )
+
+        assert venv_ref.lock is None, "the lock must be detached, not released"
+        lock.release.assert_not_called()
+
+    async def test_a_spawn_failure_before_any_child_releases_the_lock(
+        self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
+    ) -> None:
+        # The other half: no child was ever created, so holding the lock buys
+        # nothing and leaking it would make the entry unevictable for free.
+        validated_args = SubProcessIngestionTaskArgs.model_validate(sample_args)
+
+        venv_ref = Mock()
+        venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
+
+        with (
+            patch("asyncio.create_subprocess_exec", side_effect=OSError("ENOMEM")),
+            patch.object(ingestion_task, "_setup_venv", return_value=venv_ref),
+            pytest.raises(OSError, match="ENOMEM"),
+        ):
+            await ingestion_task._create_subprocess(
+                validated_args,
+                "demo-data",
+                {"source": {"type": "demo-data"}},
+                "/tmp/report.json",
+                {"PATH": "/usr/bin"},
+                "/tmp/exec",
+                LogHolder(),
+                {},
+            )
+
+        venv_ref.lock.release.assert_called_once()
+
     async def test_create_subprocess_secrets_not_in_env(
         self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
     ) -> None:

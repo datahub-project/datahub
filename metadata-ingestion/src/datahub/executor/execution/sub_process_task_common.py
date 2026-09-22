@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import dataclasses
 import errno
 import importlib.util
@@ -527,6 +528,95 @@ class SubProcessTaskUtil:
                 },
             }
         )
+
+    @staticmethod
+    def keep_venv_lock_if_child_may_be_alive(
+        venv_ref: Optional[VenvReference],
+        process: Optional[asyncio.subprocess.Process],
+    ) -> None:
+        """Ingestion's variant: an asyncio child. See _keep_venv_lock_unless_exited."""
+        SubProcessTaskUtil._keep_venv_lock_unless_exited(
+            venv_ref,
+            process,
+            exited=None if process is None else process.returncode is not None,
+        )
+
+    @staticmethod
+    def keep_venv_lock_if_popen_may_be_alive(
+        venv_ref: Optional[VenvReference],
+        process: Optional[subprocess.Popen],
+    ) -> None:
+        """Test-connection's variant: a blocking Popen child.
+
+        poll() rather than .returncode, because on a Popen the attribute stays
+        None until something reaps the child -- reading it directly would call
+        every finished child "still running" and leak its lock forever.
+        """
+        SubProcessTaskUtil._keep_venv_lock_unless_exited(
+            venv_ref,
+            process,
+            exited=None if process is None else process.poll() is not None,
+        )
+
+    @staticmethod
+    def _keep_venv_lock_unless_exited(
+        venv_ref: Optional[VenvReference],
+        process: Any,
+        *,
+        exited: Optional[bool],
+    ) -> None:
+        """Detach the venv cache lock instead of releasing it, if a child may still run.
+
+        The lock is what stops eviction removing the venv a child is EXECUTING
+        from. Every unwinding path that releases it has to answer "is the child
+        dead?" first, and on several of them the answer is no: cancellation
+        signals the child and re-raises without waiting, and a SIGTERM or
+        SIGKILL against a process wedged in an uninterruptible syscall is not
+        delivered until that syscall returns. Releasing then marks the entry
+        evictable while it is in use, and the next build's evict_to_budget
+        rmtree's a running interpreter -- which kills it with an ImportError on
+        a deleted .so, inside a task already reported as CANCELLED, so the
+        error lands nowhere.
+
+        Detaching leaks the lock for the life of this process: the entry
+        becomes unevictable, which costs disk. Deleting a venv out from under a
+        live interpreter costs a wrong answer. Prefer the disk.
+
+        Call one of the two public wrappers immediately before whatever would
+        release the lock -- release_venv_lock or finalize_task_output. Both are
+        no-ops once the reference is gone, so the pair reads the same on every
+        path: keep, then release.
+
+        The wrappers exist rather than one function branching on the process
+        type because there is no sound runtime test: the two process families
+        report exit differently, and `isinstance(p, subprocess.Popen)` is not
+        usable here -- tests patch `subprocess.Popen`, so the check would see a
+        Mock rather than a class. Splitting it lets mypy pick the right variant
+        at each call site instead.
+
+        `exited is None` means no child was ever started, so there is nothing
+        to protect and the caller should release normally. A cancellation
+        *inside* the spawn call itself is the one case this cannot cover: there
+        is no handle to ask, so a child that got as far as forking is
+        indistinguishable from one that never started.
+
+        Deliberately synchronous -- no await. This runs in `except` and
+        `finally` blocks that may be unwinding a CancelledError, where awaiting
+        invites a second cancellation and turns cleanup into a new failure mode.
+        """
+        if venv_ref is None or venv_ref.lock is None:
+            return
+        if exited is None or exited:
+            return
+
+        logger.warning(
+            "Child process %s was not confirmed exited; keeping the venv cache "
+            "lock on %s so eviction cannot remove a venv still in use. The "
+            "entry stays until this executor restarts.",
+            getattr(process, "pid", "?"),
+            venv_ref.venv_loc,
+        )
+        venv_ref.lock = None
 
     @staticmethod
     def release_venv_lock(venv_ref: Optional[VenvReference]) -> None:
