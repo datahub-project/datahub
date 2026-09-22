@@ -131,7 +131,11 @@ makes most of a venv's files links into the uv cache, shared with sibling entrie
 
 **Plan capacity accordingly.** Venvs range from a few hundred MB to a few GB depending on the
 connector, so size the volume for `DATAHUB_VENV_CACHE_MAX_ENTRIES` × your largest connector's venv,
-on top of the uv cache and your retained-log budget. Lower the entry count on nodes with tight
+on top of the uv cache and your retained-log budget. Budget for **one entry more** than the limit:
+eviction runs just before a new venv is created, so it only counts what is already on disk and the
+peak is `DATAHUB_VENV_CACHE_MAX_ENTRIES + 1`. Eviction also runs **only when a venv is built** — a
+cache that is only being hit never trims, which is what keeps a warm hit to a single lock and stat,
+so expect space to be reclaimed by the next build rather than on a timer. Lower the entry count on nodes with tight
 ephemeral storage. Note that a Kubernetes `emptyDir` `sizeLimit` and `limits.ephemeral-storage` are
 enforced by the kubelet eviction manager rather than by a filesystem quota, so nothing stops the
 cache growing into a pod eviction if the entry count is set higher than the volume can hold.

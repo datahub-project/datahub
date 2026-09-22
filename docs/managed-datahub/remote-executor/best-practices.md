@@ -88,7 +88,8 @@ older than the retention window, with a size cap as a safety net. Tunables:
 Size ephemeral storage — Fargate
 [`ephemeral_storage`](../operator-guide/setting-up-remote-ingestion-executor.md#deploy-on-amazon-ecs), or the node /
 `emptyDir` backing `/tmp` on Kubernetes — for the retained venv cache (`DATAHUB_VENV_CACHE_MAX_ENTRIES`, default `10`,
-× your largest connector's venv), plus one in-flight per-run venv, plus the `uv` cache, plus your retained-log budget.
+**plus one** — eviction runs just before a new venv is created, so it counts only what is already on disk — × your
+largest connector's venv), plus one in-flight per-run venv, plus the `uv` cache, plus your retained-log budget.
 Lower `DATAHUB_VENV_CACHE_MAX_ENTRIES` if that does not fit: the kubelet enforces `emptyDir` `sizeLimit` and
 `limits.ephemeral-storage` by evicting the pod, not by failing the write.
 

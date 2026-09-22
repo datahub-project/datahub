@@ -234,6 +234,16 @@ def evict_stale_entries(
     count does not bound disk tightly. DATAHUB_VENV_CACHE_MAX_ENTRIES should
     be set against the largest connector a node runs.
 
+    Two things about WHEN this runs, both of which affect what an operator
+    should expect on disk:
+
+    - Only on the build path. A cache taking nothing but hits never trims,
+      which is what keeps a warm hit down to one flock and one stat. Space
+      is reclaimed when a new venv is built, not as time passes.
+    - Before the new venv is created, so the pass only counts entries
+      already on disk. The peak is therefore max_entries + 1, not
+      max_entries: the build that trims the cache then adds to it.
+
     Ordered by the .datahub-venv-last-used marker, never filesystem atime --
     containers mount relatime or noatime, so atime is not a usable signal.
 
