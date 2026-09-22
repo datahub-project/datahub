@@ -417,4 +417,8 @@ export class DashboardEntity implements Entity<Dashboard> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );
+
+    getPlatformProperties = (data: Dashboard) => {
+        return data?.platform;
+    };
 }
