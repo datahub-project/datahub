@@ -1,6 +1,6 @@
 import pytest
 
-from tests.zdu.log_monitor import (
+from tests.zdu.framework.log_monitor import (
     NonBlockingState,
     Phase1State,
     SweepState,

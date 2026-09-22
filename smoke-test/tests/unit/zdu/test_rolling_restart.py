@@ -7,9 +7,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tests.zdu.constants import MAE_SERVICE, MCE_SERVICE
-from tests.zdu.context import TestContext
-from tests.zdu.phases.rolling_restart import (
+from tests.zdu.framework.constants import MAE_SERVICE, MCE_SERVICE
+from tests.zdu.framework.context import TestContext
+from tests.zdu.framework.phases.rolling_restart import (
     RollingRestartPhase,
     _compose_env_for_service,
 )

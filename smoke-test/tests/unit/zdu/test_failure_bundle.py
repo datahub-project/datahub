@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tests.zdu.context import (
+from tests.zdu.framework.context import (
     IOObservation,
     IOWriteResult,
     TestContext,
@@ -16,9 +16,9 @@ from tests.zdu.context import (
     UpgradeNonBlockingResult,
     ValidationResult,
 )
-from tests.zdu.failure_bundle import FailureBundleWriter
-from tests.zdu.phases.base import PhaseResult
-from tests.zdu.runner import ZDUReport
+from tests.zdu.framework.failure_bundle import FailureBundleWriter
+from tests.zdu.framework.phases.base import PhaseResult
+from tests.zdu.framework.runner import ZDUReport
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)

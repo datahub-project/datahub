@@ -6,9 +6,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tests.zdu.context import IndexState, TestContext, UpgradeBlockingResult
-from tests.zdu.mysql_client import EbeanAspectV2Row
-from tests.zdu.phases.inject_traffic_dual import InjectTrafficDualPhase
+from tests.zdu.framework.context import IndexState, TestContext, UpgradeBlockingResult
+from tests.zdu.framework.mysql_client import EbeanAspectV2Row
+from tests.zdu.framework.phases.inject_traffic_dual import InjectTrafficDualPhase
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)

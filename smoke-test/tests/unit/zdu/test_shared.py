@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tests.zdu.constants import TOKEN_SERVICE_KEYS
-from tests.zdu.phases._shared import old_image_window, read_token_passthrough
+from tests.zdu.framework.constants import TOKEN_SERVICE_KEYS
+from tests.zdu.framework.phases._shared import old_image_window, read_token_passthrough
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)

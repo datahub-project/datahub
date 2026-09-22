@@ -7,10 +7,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.zdu.config import ZDUTestConfig
-from tests.zdu.context import TestContext
-from tests.zdu.log_monitor import SweepEvent, SweepState
-from tests.zdu.phases.upgrade_nonblocking import UpgradeNonBlockingPhase
+from tests.zdu.framework.config import ZDUTestConfig
+from tests.zdu.framework.context import TestContext
+from tests.zdu.framework.log_monitor import SweepEvent, SweepState
+from tests.zdu.framework.phases.upgrade_nonblocking import UpgradeNonBlockingPhase
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
@@ -88,7 +88,9 @@ class TestUpgradeNonBlockingPhase:
         with patch.object(
             UpgradeNonBlockingPhase, "_drain_nonblocking_queue", return_value=([], {})
         ):
-            with patch("tests.zdu.phases.upgrade_nonblocking.LogMonitor") as mon_cls:
+            with patch(
+                "tests.zdu.framework.phases.upgrade_nonblocking.LogMonitor"
+            ) as mon_cls:
                 mon = mon_cls.return_value
                 mon.start.return_value = None
                 # Simulate the sweep_queue.get returning COMPLETED on first poll.
@@ -116,7 +118,9 @@ class TestUpgradeNonBlockingPhase:
         )
         ctx = TestContext()
 
-        with patch("tests.zdu.phases.upgrade_nonblocking.LogMonitor") as mon_cls:
+        with patch(
+            "tests.zdu.framework.phases.upgrade_nonblocking.LogMonitor"
+        ) as mon_cls:
             mon = mon_cls.return_value
             mon.start.return_value = None
             with patch.object(Queue, "get", return_value=completed):
@@ -167,7 +171,9 @@ class TestUpgradeNonBlockingPhase:
         with patch.object(
             UpgradeNonBlockingPhase, "_drain_nonblocking_queue", return_value=([], {})
         ):
-            with patch("tests.zdu.phases.upgrade_nonblocking.LogMonitor") as mon_cls:
+            with patch(
+                "tests.zdu.framework.phases.upgrade_nonblocking.LogMonitor"
+            ) as mon_cls:
                 mon_cls.return_value.start.return_value = None
                 with patch.object(Queue, "get", return_value=completed):
                     phase.run(ctx)
@@ -200,7 +206,9 @@ class TestUpgradeNonBlockingPhase:
         )
         ctx = TestContext()
 
-        with patch("tests.zdu.phases.upgrade_nonblocking.LogMonitor") as mon_cls:
+        with patch(
+            "tests.zdu.framework.phases.upgrade_nonblocking.LogMonitor"
+        ) as mon_cls:
             mon_cls.return_value.start.return_value = None
             with patch.object(Queue, "get", return_value=completed):
                 with patch.object(

@@ -107,7 +107,7 @@ cd "$(git rev-parse --show-toplevel)"  # cd to the datahub repo root
 TOKEN=$(grep '  token:' ~/.datahubenv | awk '{print $2}')
 DATAHUB_GMS_URL=http://localhost:8080 \
 DATAHUB_GMS_TOKEN="$TOKEN" \
-smoke-test/venv/bin/python -m tests.zdu
+smoke-test/venv/bin/python -m tests.zdu.framework
 ```
 
 Runs all 10 phases + all 59 scenarios. On a single-image dev stack, expect ~17 PASS / 38 XFAIL / 3 SKIP / 1 pre-existing FAIL.
@@ -116,26 +116,26 @@ Runs all 10 phases + all 59 scenarios. On a single-image dev stack, expect ~17 P
 
 ```bash
 # Suite A only
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 
 # Multiple suites
-smoke-test/venv/bin/python -m tests.zdu --suite a d f
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a d f
 
 # All five codified
-smoke-test/venv/bin/python -m tests.zdu --suite a b d e f
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a b d e f
 ```
 
 ### 3. Single test case (or subset)
 
 ```bash
 # Just TC-015 (ES reindex check)
-smoke-test/venv/bin/python -m tests.zdu --only-tc 15
+smoke-test/venv/bin/python -m tests.zdu.framework --only-tc 15
 
 # Multiple specific TCs
-smoke-test/venv/bin/python -m tests.zdu --only-tc 1 4 15 22
+smoke-test/venv/bin/python -m tests.zdu.framework --only-tc 1 4 15 22
 
 # TC + suite filter (intersection)
-smoke-test/venv/bin/python -m tests.zdu --suite d --only-tc 305 306
+smoke-test/venv/bin/python -m tests.zdu.framework --suite d --only-tc 305 306
 ```
 
 ### 4. Skip specific phases
@@ -143,14 +143,14 @@ smoke-test/venv/bin/python -m tests.zdu --suite d --only-tc 305 306
 ```bash
 # Recommended dev-stack invocation — skip phases that need real two-image infra
 ZDU_SKIP_PHASES=rolling_restart \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 
 # Or via CLI flag
-smoke-test/venv/bin/python -m tests.zdu --skip rolling_restart
+smoke-test/venv/bin/python -m tests.zdu.framework --skip rolling_restart
 
 # Skip everything heavy — validation-only
 ZDU_SKIP_PHASES=rolling_restart,upgrade_blocking,upgrade_nonblocking \
-smoke-test/venv/bin/python -m tests.zdu --suite d
+smoke-test/venv/bin/python -m tests.zdu.framework --suite d
 ```
 
 ### 5. Run via pytest (instead of `__main__`)
@@ -174,11 +174,11 @@ Phase 0 (`BuildImagesPhase`) and Phase 0.5 (`PrepareOldStackPhase`) are **defaul
 # First run: 40-70 min cold (Gradle :docker for 4 services × 2 sides).
 # Reruns: cache-hit, <2s. Phase 0.5: ~1s if stack is already OLD, ~60-120s if recreation needed.
 DATAHUB_GMS_TOKEN="$TOKEN" \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 
 # Build OLD from a specific release tag instead of master
 ZDU_OLD_REF=v1.5.0 \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 ```
 
 `BuildImagesPhase` syncs `smoke-test/build/zdu-images/old/` to the OLD ref and `smoke-test/build/zdu-images/new/` to the current branch (persistent worktrees, never deleted between runs), builds OLD with `-Ptag=zdu-old-{sha8}`, NEW with `-Ptag=zdu-new-{sha8}`, and mutates `config.old_image_tag` / `config.new_image_tag` before downstream phases construct. `PrepareOldStackPhase` then inspects the running stack and recreates any service that is not on the new OLD tag.
@@ -194,7 +194,7 @@ ZDU_SKIP_BUILD_IMAGES=1 ZDU_SKIP_PREPARE_OLD_STACK=1 \
 ZDU_OLD_IMAGE_TAG=v1.5.0 \
 ZDU_NEW_IMAGE_TAG=v1.6.0 \
 DATAHUB_GMS_TOKEN="$TOKEN" \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 ```
 
 In either path, the XFAIL TCs that require a real rolling restart (TC-101..107, TC-301..304, etc.) automatically flip to active assertions.
@@ -216,7 +216,7 @@ smoke-test/venv/bin/python -m pytest \
 ### 8. Opt-out of auto-bootJar (skip the ~14s gradle check)
 
 ```bash
-ZDU_SKIP_BOOTJAR=1 smoke-test/venv/bin/python -m tests.zdu --suite a
+ZDU_SKIP_BOOTJAR=1 smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 ```
 
 Useful in CI where the JAR is pre-built, or when iterating on Python-only changes.
@@ -227,7 +227,7 @@ Useful in CI where the JAR is pre-built, or when iterating on Python-only change
 # Through Python logging
 PYTHONUNBUFFERED=1 \
 LOGGING_LEVEL_ROOT=DEBUG \
-smoke-test/venv/bin/python -m tests.zdu --suite a 2>&1 | tee zdu-debug.log
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a 2>&1 | tee zdu-debug.log
 ```
 
 ---
@@ -266,7 +266,7 @@ TOKEN=$(grep '  token:' ~/.datahubenv | awk '{print $2}' | head -1)
 DATAHUB_GMS_URL=http://localhost:8080 \
 DATAHUB_GMS_TOKEN="$TOKEN" \
 DATAHUB_LOCAL_COMMON_ENV=zdu-test.env \
-smoke-test/venv/bin/python -m tests.zdu --suite a b d e f
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a b d e f
 ```
 
 First run: ~5-15 min for cold builds. Subsequent runs cache-hit and complete in ~30s.
@@ -279,7 +279,7 @@ First run: ~5-15 min for cold builds. Subsequent runs cache-hit and complete in 
 ZDU_SKIP_BUILD_IMAGES=1 ZDU_SKIP_PREPARE_OLD_STACK=1 \
 DATAHUB_LOCAL_COMMON_ENV=zdu-test.env \
 ZDU_SKIP_PHASES=rolling_restart,upgrade_nonblocking \
-smoke-test/venv/bin/python -m tests.zdu --suite a --only-tc 1
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a --only-tc 1
 ```
 
 ### Full pipeline against running stack (no rebuild)
@@ -291,7 +291,7 @@ DATAHUB_GMS_TOKEN="$TOKEN" \
 DATAHUB_LOCAL_COMMON_ENV=zdu-test.env \
 ZDU_SKIP_BUILD_IMAGES=1 ZDU_SKIP_PREPARE_OLD_STACK=1 \
 ZDU_SKIP_PHASES=rolling_restart \
-smoke-test/venv/bin/python -m tests.zdu --suite a b d e f
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a b d e f
 ```
 
 Recommended single-image dev-stack invocation: Phase 0 and Phase 0.5 are opted out (existing `debug` images), and the upgrade/rolling-restart phases that need a real two-image stack are skipped. Suite A baseline preserved; all 59 scenarios run.
@@ -300,13 +300,13 @@ Recommended single-image dev-stack invocation: Phase 0 and Phase 0.5 are opted o
 
 ```bash
 ZDU_SKIP_PHASES=discovery,seed,snapshot_t0,upgrade_blocking,inject_traffic_pre,rolling_restart,inject_traffic_dual,upgrade_nonblocking,runtime_migration \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 ```
 
 ### Single Suite F TC-504 (writes preserved during sweep)
 
 ```bash
-smoke-test/venv/bin/python -m tests.zdu --only-tc 504
+smoke-test/venv/bin/python -m tests.zdu.framework --only-tc 504
 ```
 
 ### Cleanup test entities after a run
@@ -345,13 +345,13 @@ If you want to **only run** a single phase end-to-end (e.g., for debugging), the
 # Run ONLY upgrade_blocking + validation (opt out of Phase 0/0.5 + skip irrelevant phases)
 ZDU_SKIP_BUILD_IMAGES=1 ZDU_SKIP_PREPARE_OLD_STACK=1 \
 ZDU_SKIP_PHASES=inject_traffic_pre,rolling_restart,inject_traffic_dual,upgrade_nonblocking,runtime_migration \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 
 # Run ONLY rolling_restart + validation (CAUTION: this disrupts the dev stack)
 ZDU_OLD_IMAGE_TAG=v1.5.0 ZDU_NEW_IMAGE_TAG=v1.6.0 \
 ZDU_SKIP_BUILD_IMAGES=1 ZDU_SKIP_PREPARE_OLD_STACK=1 \
 ZDU_SKIP_PHASES=upgrade_blocking,inject_traffic_pre,inject_traffic_dual,upgrade_nonblocking,runtime_migration \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 ```
 
 Note: `seed`, `snapshot_t0`, and `discovery` are needed by downstream phases — skipping them often produces SKIP results instead of failures. Phase 0 (`build_images`) and Phase 0.5 (`prepare_old_stack`) are default-on; opt out via `ZDU_SKIP_BUILD_IMAGES=1` / `ZDU_SKIP_PREPARE_OLD_STACK=1` (preferred) or by adding them to `ZDU_SKIP_PHASES`.

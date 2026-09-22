@@ -6,9 +6,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tests.zdu.context import SeededEntity, TestContext
-from tests.zdu.datahub_client import AspectResponse
-from tests.zdu.phases.runtime_migration import RuntimeMigrationPhase
+from tests.zdu.framework.context import SeededEntity, TestContext
+from tests.zdu.framework.datahub_client import AspectResponse
+from tests.zdu.framework.phases.runtime_migration import RuntimeMigrationPhase
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)

@@ -3,8 +3,9 @@ import warnings
 
 import pytest
 
-from tests.zdu.runner import ZDUReport
-from tests.zdu.scenario_loader import ZDUTestScenario
+from tests.zdu.framework.config import ZDUTestConfig
+from tests.zdu.framework.runner import ZDUReport, ZDUTestRunner
+from tests.zdu.framework.scenario_loader import ScenarioLoader, ZDUTestScenario
 from utilities.domains import Domain
 
 # The tests in this module depend on the ``zdu_report`` session fixture,
@@ -16,7 +17,7 @@ from utilities.domains import Domain
 # invokes this file directly.
 #
 # The dedicated daily workflow (.github/workflows/zdu-e2e-daily.yml)
-# drives the E2E via the CLI entry point (`python -m tests.zdu`), NOT
+# drives the E2E via the CLI entry point (`python -m tests.zdu.framework`), NOT
 # pytest, so it does not need this module at all. Gate the whole module
 # behind ZDU_E2E_ENABLED so it only runs when explicitly opted in.
 # The fast, side-effect-free unit tests under tests/unit/zdu/ are
@@ -32,6 +33,33 @@ pytestmark = [
     ),
     pytest.mark.domain(Domain.PLATFORM),
 ]
+
+
+@pytest.fixture(scope="session")
+def zdu_config() -> ZDUTestConfig:
+    return ZDUTestConfig.from_env()
+
+
+@pytest.fixture(scope="session")
+def zdu_scenarios() -> list[ZDUTestScenario]:
+    return ScenarioLoader().load()
+
+
+@pytest.fixture(scope="session")
+def zdu_report(
+    zdu_config: ZDUTestConfig,
+    zdu_scenarios: list[ZDUTestScenario],
+) -> ZDUReport:
+    # Defense-in-depth (in addition to the module-level skipif): requesting
+    # this fixture launches the full, stack-destructive ZDU pipeline.
+    if os.environ.get("ZDU_E2E_ENABLED") not in ("1", "true", "True", "yes"):
+        pytest.skip(
+            "ZDU end-to-end pipeline is destructive (nukes the Compose "
+            "stack). Set ZDU_E2E_ENABLED=1 to run."
+        )
+    runner = ZDUTestRunner(zdu_config, scenarios=zdu_scenarios)
+    return runner.run()
+
 
 # ── Infrastructure phase tests ───────────────────────────────────────────────
 

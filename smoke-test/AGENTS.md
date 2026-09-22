@@ -9,7 +9,8 @@ instance. How to run the suite: `[README.md](README.md)`.
 | --- | --- |
 | `tests/e2e/` | Live GMS pytest (needs quickstart). Default `pytest` / `smoke.sh` collection. |
 | `tests/unit/` | CPU pytest (no stack). `./gradlew :smoke-test:stackFreePytest`. |
-| `tests/zdu/` | ZDU framework + live E2E. Daily workflow: `python -m tests.zdu`. Not in docker pytest. |
+| `tests/zdu/` | ZDU live E2E pytest (`test_zdu_upgrade.py`) and docs. Not in docker pytest. |
+| `tests/zdu/framework/` | ZDU upgrade framework. Daily workflow: `python -m tests.zdu.framework`. |
 | `tests/oauth/` | OAuth IdP smoke. `.github/workflows/oauth-smoke.yml`. Not in docker pytest. |
 | `utilities/` | Shared helpers, not tests. |
 

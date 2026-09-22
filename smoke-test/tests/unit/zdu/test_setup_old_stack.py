@@ -8,10 +8,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.zdu.config import ZDUTestConfig
-from tests.zdu.context import TestContext
-from tests.zdu.phases.base import PhaseResult
-from tests.zdu.phases.setup_old_stack import SetupOldStackPhase
+from tests.zdu.framework.config import ZDUTestConfig
+from tests.zdu.framework.context import TestContext
+from tests.zdu.framework.phases.base import PhaseResult
+from tests.zdu.framework.phases.setup_old_stack import SetupOldStackPhase
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
@@ -185,10 +185,12 @@ class TestRefreshTokenSubprocess:
         cfg.gms_token = "stale-jwt"
 
         with patch(
-            "tests.zdu.phases.setup_old_stack.SetupOldStackPhase._find_datahub_cli",
+            "tests.zdu.framework.phases.setup_old_stack.SetupOldStackPhase._find_datahub_cli",
             return_value="/fake/datahub",
         ):
-            with patch("tests.zdu.phases.setup_old_stack.subprocess.run") as mock_run:
+            with patch(
+                "tests.zdu.framework.phases.setup_old_stack.subprocess.run"
+            ) as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
                 result = setup_phase._refresh_token(cfg)
 
@@ -204,7 +206,7 @@ class TestRefreshTokenSubprocess:
     def test_fails_when_cli_missing(self, setup_phase) -> None:
         cfg = ZDUTestConfig()
         with patch(
-            "tests.zdu.phases.setup_old_stack.SetupOldStackPhase._find_datahub_cli",
+            "tests.zdu.framework.phases.setup_old_stack.SetupOldStackPhase._find_datahub_cli",
             return_value=None,
         ):
             result = setup_phase._refresh_token(cfg)
@@ -214,14 +216,16 @@ class TestRefreshTokenSubprocess:
     def test_fails_when_subprocess_returns_nonzero(self, setup_phase) -> None:
         cfg = ZDUTestConfig()
         with patch(
-            "tests.zdu.phases.setup_old_stack.SetupOldStackPhase._find_datahub_cli",
+            "tests.zdu.framework.phases.setup_old_stack.SetupOldStackPhase._find_datahub_cli",
             return_value="/fake/datahub",
         ):
-            with patch("tests.zdu.phases.setup_old_stack.subprocess.run") as mock_run:
+            with patch(
+                "tests.zdu.framework.phases.setup_old_stack.subprocess.run"
+            ) as mock_run:
                 mock_run.return_value = MagicMock(
                     returncode=1, stdout="", stderr="connection refused"
                 )
-                with patch("tests.zdu.phases.setup_old_stack.time.sleep"):
+                with patch("tests.zdu.framework.phases.setup_old_stack.time.sleep"):
                     result = setup_phase._refresh_token(cfg)
         assert result["status"] == "failed"
         assert "rc=1" in result["error"]
@@ -234,10 +238,12 @@ class TestRefreshTokenSubprocess:
         # datahub init "succeeded" but no .datahubenv written — defensive case.
         cfg = ZDUTestConfig()
         with patch(
-            "tests.zdu.phases.setup_old_stack.SetupOldStackPhase._find_datahub_cli",
+            "tests.zdu.framework.phases.setup_old_stack.SetupOldStackPhase._find_datahub_cli",
             return_value="/fake/datahub",
         ):
-            with patch("tests.zdu.phases.setup_old_stack.subprocess.run") as mock_run:
+            with patch(
+                "tests.zdu.framework.phases.setup_old_stack.subprocess.run"
+            ) as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
                 result = setup_phase._refresh_token(cfg)
         assert result["status"] == "failed"

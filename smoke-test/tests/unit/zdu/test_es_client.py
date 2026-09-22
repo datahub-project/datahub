@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.zdu.es_client import ElasticsearchClient
+from tests.zdu.framework.es_client import ElasticsearchClient
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)

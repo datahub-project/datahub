@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.zdu.docker_compose import DockerComposeClient
+from tests.zdu.framework.docker_compose import DockerComposeClient
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
@@ -25,7 +25,7 @@ class TestRunUpgradeJob:
     def test_env_overrides_become_dash_e_flags(
         self, client: DockerComposeClient
     ) -> None:
-        with patch("tests.zdu.docker_compose.subprocess.Popen") as mock_popen:
+        with patch("tests.zdu.framework.docker_compose.subprocess.Popen") as mock_popen:
             mock_popen.return_value = MagicMock()
             client.run_upgrade_job(
                 env_overrides={"FOO": "bar", "BAZ": "qux"},
@@ -43,7 +43,7 @@ class TestRunUpgradeJob:
     def test_extra_args_appended_after_service(
         self, client: DockerComposeClient
     ) -> None:
-        with patch("tests.zdu.docker_compose.subprocess.Popen") as mock_popen:
+        with patch("tests.zdu.framework.docker_compose.subprocess.Popen") as mock_popen:
             mock_popen.return_value = MagicMock()
             client.run_upgrade_job(
                 env_overrides={},
@@ -56,7 +56,7 @@ class TestRunUpgradeJob:
 
     def test_compose_env_sets_subprocess_env(self, client: DockerComposeClient) -> None:
         # compose_env drives Compose's YAML variable substitution, NOT container env.
-        with patch("tests.zdu.docker_compose.subprocess.Popen") as mock_popen:
+        with patch("tests.zdu.framework.docker_compose.subprocess.Popen") as mock_popen:
             mock_popen.return_value = MagicMock()
             client.run_upgrade_job(
                 env_overrides={"FOO": "bar"},
@@ -75,7 +75,7 @@ class TestRunUpgradeJob:
     ) -> None:
         # compose_env is for Compose substitution, NOT for the container.
         # It must NOT appear as a -e flag in the cmd.
-        with patch("tests.zdu.docker_compose.subprocess.Popen") as mock_popen:
+        with patch("tests.zdu.framework.docker_compose.subprocess.Popen") as mock_popen:
             mock_popen.return_value = MagicMock()
             client.run_upgrade_job(
                 env_overrides={},
@@ -91,7 +91,7 @@ class TestRunUpgradeJob:
         # When compose_env is None (default), Popen should not receive an env=
         # kwarg at all — preserves prior behaviour where Popen inherits the
         # parent's full environment by default.
-        with patch("tests.zdu.docker_compose.subprocess.Popen") as mock_popen:
+        with patch("tests.zdu.framework.docker_compose.subprocess.Popen") as mock_popen:
             mock_popen.return_value = MagicMock()
             client.run_upgrade_job(
                 env_overrides={},
@@ -105,7 +105,7 @@ class TestRecreateService:
     def test_runs_compose_up_d_with_compose_env(
         self, client: DockerComposeClient
     ) -> None:
-        with patch("tests.zdu.docker_compose.subprocess.run") as mock_run:
+        with patch("tests.zdu.framework.docker_compose.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="")
             with patch.object(client, "wait_healthy") as mock_wait:
                 client.recreate_service(
@@ -129,7 +129,7 @@ class TestRecreateService:
     def test_no_compose_env_does_not_pass_env_kwarg(
         self, client: DockerComposeClient
     ) -> None:
-        with patch("tests.zdu.docker_compose.subprocess.run") as mock_run:
+        with patch("tests.zdu.framework.docker_compose.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="")
             with patch.object(client, "wait_healthy"):
                 client.recreate_service(
@@ -148,10 +148,12 @@ class TestRecreateService:
         so the silent 10-30s container restart window is no longer indeterminate
         in the run log.
         """
-        with patch("tests.zdu.docker_compose.subprocess.run") as mock_run:
+        with patch("tests.zdu.framework.docker_compose.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="")
             with patch.object(client, "wait_healthy"):
-                with caplog.at_level("INFO", logger="tests.zdu.docker_compose"):
+                with caplog.at_level(
+                    "INFO", logger="tests.zdu.framework.docker_compose"
+                ):
                     client.recreate_service(
                         service="datahub-gms-debug",
                         compose_env={"DATAHUB_GMS_VERSION": "v1.6.0"},
@@ -174,7 +176,7 @@ class TestRecreateService:
         """
         with patch.object(client, "_run") as mock_ps:
             mock_ps.return_value = MagicMock(stdout="Up (healthy)")
-            with caplog.at_level("INFO", logger="tests.zdu.docker_compose"):
+            with caplog.at_level("INFO", logger="tests.zdu.framework.docker_compose"):
                 client.wait_healthy("datahub-gms-debug", timeout_s=10)
         assert any(
             "Service datahub-gms-debug healthy after" in rec.message
@@ -182,7 +184,7 @@ class TestRecreateService:
         ), f"missing wait_healthy success log in {[r.message for r in caplog.records]}"
 
     def test_failed_up_d_raises(self, client: DockerComposeClient) -> None:
-        with patch("tests.zdu.docker_compose.subprocess.run") as mock_run:
+        with patch("tests.zdu.framework.docker_compose.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=1,
                 stdout="",
@@ -276,7 +278,9 @@ class TestDownAndWipeVolumeQualification:
         # Mock compose down + get_project_name + the per-volume rm subprocess.
         with (
             patch.object(DockerComposeClient, "_run") as mock_run,
-            patch("tests.zdu.docker_compose.subprocess.run") as mock_subprocess_run,
+            patch(
+                "tests.zdu.framework.docker_compose.subprocess.run"
+            ) as mock_subprocess_run,
         ):
             # _run is used by down + get_project_name. Both return success.
             # We don't differentiate calls here; both share the mock.
@@ -307,7 +311,9 @@ class TestDownAndWipeVolumeQualification:
         """
         with (
             patch.object(DockerComposeClient, "_run") as mock_run,
-            patch("tests.zdu.docker_compose.subprocess.run") as mock_subprocess_run,
+            patch(
+                "tests.zdu.framework.docker_compose.subprocess.run"
+            ) as mock_subprocess_run,
         ):
             mock_run.return_value = MagicMock(
                 returncode=0, stdout='{"name": "datahub"}', stderr=""

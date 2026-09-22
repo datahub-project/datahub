@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from tests.zdu.config import ZDUTestConfig
-from tests.zdu.context import TestContext
-from tests.zdu.phases.build_images import BuildImagesPhase
+from tests.zdu.framework.config import ZDUTestConfig
+from tests.zdu.framework.context import TestContext
+from tests.zdu.framework.phases.build_images import BuildImagesPhase
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
@@ -147,7 +147,9 @@ class TestCacheMissLogIsDiagnostic:
             patch.object(phase, "_build_old"),
             patch.object(phase, "_build_new"),
         ):
-            with caplog.at_level("INFO", logger="tests.zdu.phases.build_images"):
+            with caplog.at_level(
+                "INFO", logger="tests.zdu.framework.phases.build_images"
+            ):
                 phase.run(ctx, cfg)
         # Find the cache-MISS log line and assert it names the missing ref.
         miss_lines = [r.message for r in caplog.records if "cache MISS" in r.message]
@@ -170,7 +172,7 @@ class TestCacheMissLogIsDiagnostic:
 
         # First service's OLD ref missing → that ref returned.
         first_repo = next(iter(phase._services_to_build))
-        from tests.zdu.phases.build_images import _SERVICE_TO_DOCKER_REPO
+        from tests.zdu.framework.phases.build_images import _SERVICE_TO_DOCKER_REPO
 
         first_repo_name = _SERVICE_TO_DOCKER_REPO[first_repo]
         expected = f"{first_repo_name}:zdu-old-abc12345"

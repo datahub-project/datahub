@@ -6,9 +6,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.zdu.config import ZDUTestConfig
-from tests.zdu.context import TestContext
-from tests.zdu.phases.prepare_old_stack import PrepareOldStackPhase
+from tests.zdu.framework.config import ZDUTestConfig
+from tests.zdu.framework.context import TestContext
+from tests.zdu.framework.phases.prepare_old_stack import PrepareOldStackPhase
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)

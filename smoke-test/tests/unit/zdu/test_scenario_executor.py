@@ -7,10 +7,13 @@ from typing import cast
 
 import pytest
 
-from tests.zdu.context import TestContext, ValidationResult
-from tests.zdu.scenario_executor import ScenarioTypeExecutor, ScenarioTypeRegistry
-from tests.zdu.scenario_loader import ZDUTestScenario
-from tests.zdu.suite import Suite
+from tests.zdu.framework.context import TestContext, ValidationResult
+from tests.zdu.framework.scenario_executor import (
+    ScenarioTypeExecutor,
+    ScenarioTypeRegistry,
+)
+from tests.zdu.framework.scenario_loader import ZDUTestScenario
+from tests.zdu.framework.suite import Suite
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)

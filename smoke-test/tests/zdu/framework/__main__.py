@@ -4,8 +4,8 @@ import argparse
 import logging
 import sys
 
-from tests.zdu.config import ZDUTestConfig
-from tests.zdu.runner import ZDUTestRunner
+from tests.zdu.framework.config import ZDUTestConfig
+from tests.zdu.framework.runner import ZDUTestRunner
 
 
 def main() -> None:

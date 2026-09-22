@@ -6,7 +6,7 @@ import pathlib
 
 import pytest
 
-from tests.zdu.host_mounts import worktree_mount_env
+from tests.zdu.framework.host_mounts import worktree_mount_env
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)

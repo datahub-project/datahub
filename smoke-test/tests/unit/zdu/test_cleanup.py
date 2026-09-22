@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.zdu.context import PrepareOldStackResult, TestContext
-from tests.zdu.phases.cleanup import CleanupPhase
+from tests.zdu.framework.context import PrepareOldStackResult, TestContext
+from tests.zdu.framework.phases.cleanup import CleanupPhase
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
@@ -125,7 +125,7 @@ class TestZduArtifactFallsBackToRestTag:
         docker.get_all_service_images.return_value = {
             "datahub-gms-debug": "acryldata/datahub-gms:zdu-new-x",
         }
-        from tests.zdu.phases.cleanup import CleanupPhase
+        from tests.zdu.framework.phases.cleanup import CleanupPhase
 
         phase = CleanupPhase(
             docker=docker,
@@ -252,9 +252,9 @@ class TestHealthCheckLogging:
         fake_resp.status = 200
         fake_resp.__enter__ = MagicMock(return_value=fake_resp)
         fake_resp.__exit__ = MagicMock(return_value=False)
-        with caplog.at_level("INFO", logger="tests.zdu.phases.cleanup"):
+        with caplog.at_level("INFO", logger="tests.zdu.framework.phases.cleanup"):
             with patch(
-                "tests.zdu.phases.cleanup.urllib.request.urlopen",
+                "tests.zdu.framework.phases.cleanup.urllib.request.urlopen",
                 return_value=fake_resp,
             ):
                 result = phase.run(ctx)
@@ -283,14 +283,16 @@ class TestHealthCheckLogging:
         # always raise (no healthy response will ever come).
         import urllib.error
 
-        with caplog.at_level("ERROR", logger="tests.zdu.phases.cleanup"):
+        with caplog.at_level("ERROR", logger="tests.zdu.framework.phases.cleanup"):
             with patch(
-                "tests.zdu.phases.cleanup.urllib.request.urlopen",
+                "tests.zdu.framework.phases.cleanup.urllib.request.urlopen",
                 side_effect=urllib.error.URLError("boom"),
             ):
-                with patch("tests.zdu.phases.cleanup.time.sleep", return_value=None):
+                with patch(
+                    "tests.zdu.framework.phases.cleanup.time.sleep", return_value=None
+                ):
                     with patch(
-                        "tests.zdu.phases.cleanup.time.monotonic",
+                        "tests.zdu.framework.phases.cleanup.time.monotonic",
                         side_effect=[0.0, 0.0, 9999.0, 9999.0],
                     ):
                         result = phase.run(ctx)
@@ -304,14 +306,14 @@ class TestZduSkipCleanupEnvVar:
     """The ZDU_SKIP_CLEANUP=1 env var should add 'cleanup' to config.skip_phases."""
 
     def test_skip_cleanup_env_var_appends_to_skip_phases(self, monkeypatch) -> None:
-        from tests.zdu.config import ZDUTestConfig
+        from tests.zdu.framework.config import ZDUTestConfig
 
         monkeypatch.setenv("ZDU_SKIP_CLEANUP", "1")
         cfg = ZDUTestConfig.from_env()
         assert "cleanup" in cfg.skip_phases
 
     def test_no_env_var_means_cleanup_not_skipped(self, monkeypatch) -> None:
-        from tests.zdu.config import ZDUTestConfig
+        from tests.zdu.framework.config import ZDUTestConfig
 
         monkeypatch.delenv("ZDU_SKIP_CLEANUP", raising=False)
         cfg = ZDUTestConfig.from_env()

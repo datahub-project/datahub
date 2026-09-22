@@ -11,10 +11,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tests.zdu.context import SeededEntity, TestContext
-from tests.zdu.scenario_loader import KNOWN_FAILURES, ScenarioExecutor, ScenarioLoader
-from tests.zdu.scenarios import SUITE_N_SCENARIOS, load_scenarios
-from tests.zdu.suite import Suite
+from tests.zdu.framework.context import SeededEntity, TestContext
+from tests.zdu.framework.scenario_loader import (
+    KNOWN_FAILURES,
+    ScenarioExecutor,
+    ScenarioLoader,
+)
+from tests.zdu.framework.scenarios import SUITE_N_SCENARIOS, load_scenarios
+from tests.zdu.framework.suite import Suite
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
@@ -161,7 +165,7 @@ class TestExecutorValidateTakesCtxAndFiltersByTc:
 
 class TestSuiteD:
     def test_load_scenarios_includes_6_suite_d_scenarios(self) -> None:
-        from tests.zdu.scenarios import load_scenarios
+        from tests.zdu.framework.scenarios import load_scenarios
 
         scenarios = load_scenarios()
         suite_d = [s for s in scenarios if s.suite == Suite.D]
@@ -170,7 +174,7 @@ class TestSuiteD:
         assert {s.tc_number for s in suite_d} == set(range(201, 207))
 
     def test_suite_d_scenarios_use_catch_up_scenario_type(self) -> None:
-        from tests.zdu.scenarios import load_scenarios
+        from tests.zdu.framework.scenarios import load_scenarios
 
         scenarios = load_scenarios()
         suite_d = [s for s in scenarios if s.suite == Suite.D]
@@ -178,7 +182,7 @@ class TestSuiteD:
         assert all(s.action == "catch_up" for s in suite_d)
 
     def test_dev_stack_skip_scenarios_have_skip_reason(self) -> None:
-        from tests.zdu.scenarios import load_scenarios
+        from tests.zdu.framework.scenarios import load_scenarios
 
         scenarios = load_scenarios()
         suite_d = [s for s in scenarios if s.suite == Suite.D]
@@ -195,7 +199,7 @@ class TestSuiteD:
 
 class TestAllSuites:
     def test_load_scenarios_returns_combined_list(self) -> None:
-        from tests.zdu.scenarios import load_scenarios
+        from tests.zdu.framework.scenarios import load_scenarios
 
         scenarios = load_scenarios()
         suites_present = {s.suite for s in scenarios}
@@ -206,14 +210,14 @@ class TestAllSuites:
         assert Suite.C in suites_present
 
     def test_suite_c_count(self) -> None:
-        from tests.zdu.scenarios import SUITE_C_SCENARIOS
+        from tests.zdu.framework.scenarios import SUITE_C_SCENARIOS
 
         # Suite C — Concurrent operation (live read/write & swap). 3 codified.
         assert len(SUITE_C_SCENARIOS) == 3
         assert {s.tc_number for s in SUITE_C_SCENARIOS} == set(range(401, 404))
 
     def test_suite_n_count(self) -> None:
-        from tests.zdu.scenarios import (
+        from tests.zdu.framework.scenarios import (
             SUITE_N_SCENARIOS,
             SUITE_N_SWEEP_INVARIANT_SCENARIOS,
         )
@@ -235,14 +239,14 @@ class TestAllSuites:
         assert all_n_tcs == set(range(301, 329))
 
     def test_suite_b_count(self) -> None:
-        from tests.zdu.scenarios import SUITE_B_SCENARIOS
+        from tests.zdu.framework.scenarios import SUITE_B_SCENARIOS
 
         # Suite B — ES Phase 1 reindexing (blocking phase). 9 codified.
         assert len(SUITE_B_SCENARIOS) == 9
         assert {s.tc_number for s in SUITE_B_SCENARIOS} == set(range(101, 110))
 
     def test_total_scenarios_is_sum_of_suites(self) -> None:
-        from tests.zdu.scenarios import load_scenarios
+        from tests.zdu.framework.scenarios import load_scenarios
 
         # 23 N_aspect + 5 N_sweep + 9 B + 6 D + 3 C = 46
         assert len(load_scenarios()) == 46

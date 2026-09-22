@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.zdu.mysql_client import EbeanAspectV2Row, MySQLClient
+from tests.zdu.framework.mysql_client import EbeanAspectV2Row, MySQLClient
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
@@ -27,7 +27,7 @@ def client(cursor: MagicMock) -> Iterator[MySQLClient]:
     """Yield a MySQLClient whose connections always return ``cursor``."""
     conn = MagicMock()
     conn.cursor.return_value = cursor
-    with patch("tests.zdu.mysql_client.pymysql.connect", return_value=conn):
+    with patch("tests.zdu.framework.mysql_client.pymysql.connect", return_value=conn):
         yield MySQLClient(host="h", port=1, user="u", password="p", database="d")
 
 
@@ -155,7 +155,7 @@ class TestFromEnvCredentials:
     """Verify MYSQL_USER / MYSQL_PASSWORD / MYSQL_DATABASE env vars are honored."""
 
     def test_mysql_credentials_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from tests.zdu.config import ZDUTestConfig
+        from tests.zdu.framework.config import ZDUTestConfig
 
         monkeypatch.setenv("MYSQL_USER", "alice")
         monkeypatch.setenv("MYSQL_PASSWORD", "secret")

@@ -24,8 +24,8 @@ them.
 
 ```bash
 # From repo root
-git apply --check smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch
-git apply        smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch
+git apply --check smoke-test/tests/zdu/framework/fixtures/pdl-patches/test-fixtures.patch
+git apply        smoke-test/tests/zdu/framework/fixtures/pdl-patches/test-fixtures.patch
 
 # Regenerate codegen — must run AFTER apply, otherwise the build sees
 # the un-bumped PDL and the mutators reference fields the wrong way.
@@ -33,7 +33,7 @@ git apply        smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch
 
 # Run the ZDU E2E
 cd smoke-test
-DATAHUB_LOCAL_COMMON_ENV=zdu-test.env venv/bin/python -m tests.zdu
+DATAHUB_LOCAL_COMMON_ENV=zdu-test.env venv/bin/python -m tests.zdu.framework
 ```
 
 ## Revert after a local run
@@ -61,7 +61,7 @@ needs to be rebased onto the new baseline:
 ```bash
 # 1. Apply the existing patch to the new master baseline (3-way merge
 #    will succeed for unrelated edits; conflicts only on actual overlap).
-git apply --3way smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch
+git apply --3way smoke-test/tests/zdu/framework/fixtures/pdl-patches/test-fixtures.patch
 
 # 2. Resolve any conflicts in the patched files.
 
@@ -71,7 +71,7 @@ git diff HEAD -- \
   metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl \
   entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/ \
   metadata-service/factories/src/main/java/com/linkedin/gms/factory/plugins/ZduTestMutatorConfiguration.java \
-  > smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch
+  > smoke-test/tests/zdu/framework/fixtures/pdl-patches/test-fixtures.patch
 
 # 4. Revert the working-tree changes (the patch file is now the source
 #    of truth again).

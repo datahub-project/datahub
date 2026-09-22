@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from tests.zdu.catchup_executor import CatchUpScenarioExecutor
-from tests.zdu.context import (
+from tests.zdu.framework.catchup_executor import CatchUpScenarioExecutor
+from tests.zdu.framework.context import (
     IndexState,
     TestContext,
     UpgradeBlockingResult,
     UpgradeNonBlockingResult,
 )
-from tests.zdu.scenario_loader import ZDUTestScenario
-from tests.zdu.suite import Suite
+from tests.zdu.framework.scenario_loader import ZDUTestScenario
+from tests.zdu.framework.suite import Suite
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)

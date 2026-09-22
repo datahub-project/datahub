@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from tests.zdu import upgrade_jar_freshness
-from tests.zdu.upgrade_jar_freshness import ensure_upgrade_jar_fresh
+from tests.zdu.framework.upgrade_jar_freshness import ensure_upgrade_jar_fresh
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)

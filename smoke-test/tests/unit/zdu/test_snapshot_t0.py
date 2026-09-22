@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tests.zdu.context import TestContext
-from tests.zdu.phases.snapshot_t0 import SnapshotT0Phase
+from tests.zdu.framework.context import TestContext
+from tests.zdu.framework.phases.snapshot_t0 import SnapshotT0Phase
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)

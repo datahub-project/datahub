@@ -6,9 +6,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.zdu.config import ZDUTestConfig
-from tests.zdu.context import TestContext
-from tests.zdu.phases.nuke_and_redeploy import NukeAndRedeployPhase
+from tests.zdu.framework.config import ZDUTestConfig
+from tests.zdu.framework.context import TestContext
+from tests.zdu.framework.phases.nuke_and_redeploy import NukeAndRedeployPhase
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
@@ -144,7 +144,7 @@ class TestPartialSecretCapture:
             "DATAHUB_TOKEN_SERVICE_SALT=salt-from-file\n"
         )
         monkeypatch.setattr(
-            "tests.zdu.phases.nuke_and_redeploy._LOCAL_SECRETS_FILE",
+            "tests.zdu.framework.phases.nuke_and_redeploy._LOCAL_SECRETS_FILE",
             fake_secrets,
         )
         phase = NukeAndRedeployPhase(

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.zdu.config import ZDUTestConfig, _resolve_gms_token
+from tests.zdu.framework.config import ZDUTestConfig, _resolve_gms_token
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
@@ -20,7 +20,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 class TestOutputPathsAreRepoRootRelative:
     """G10 — report_path / build_dir must resolve absolute regardless of cwd.
 
-    Running ``cd smoke-test && python -m tests.zdu`` used to produce a
+    Running ``cd smoke-test && python -m tests.zdu.framework`` used to produce a
     nested ``smoke-test/smoke-test/build/...`` path because the defaults
     were cwd-relative strings. Defaults now anchor to _REPO_ROOT.
     """

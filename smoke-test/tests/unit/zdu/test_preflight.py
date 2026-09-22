@@ -8,9 +8,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.zdu.config import ZDUTestConfig
-from tests.zdu.context import TestContext
-from tests.zdu.phases.preflight import PreflightPhase
+from tests.zdu.framework.config import ZDUTestConfig
+from tests.zdu.framework.context import TestContext
+from tests.zdu.framework.phases.preflight import PreflightPhase
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
@@ -51,7 +51,7 @@ class TestAllChecksPass:
         )
         ctx = TestContext()
         with patch(
-            "tests.zdu.phases.preflight.urllib.request.urlopen",
+            "tests.zdu.framework.phases.preflight.urllib.request.urlopen",
             return_value=_ok_urlopen(),
         ):
             result = phase.run(ctx, cfg)
@@ -69,7 +69,7 @@ class TestGmsUnreachable:
         )
         ctx = TestContext()
         with patch(
-            "tests.zdu.phases.preflight.urllib.request.urlopen",
+            "tests.zdu.framework.phases.preflight.urllib.request.urlopen",
             side_effect=urllib.error.URLError("Connection refused"),
         ):
             result = phase.run(ctx, cfg)
@@ -86,7 +86,7 @@ class TestTokenMissing:
         cfg = ZDUTestConfig(gms_token=None, clean_build=False, refresh_token=False)
         ctx = TestContext()
         with patch(
-            "tests.zdu.phases.preflight.urllib.request.urlopen",
+            "tests.zdu.framework.phases.preflight.urllib.request.urlopen",
             return_value=_ok_urlopen(),
         ):
             result = phase.run(ctx, cfg)
@@ -102,7 +102,7 @@ class TestTokenMissing:
         cfg = ZDUTestConfig(gms_token="", clean_build=False, refresh_token=False)
         ctx = TestContext()
         with patch(
-            "tests.zdu.phases.preflight.urllib.request.urlopen",
+            "tests.zdu.framework.phases.preflight.urllib.request.urlopen",
             return_value=_ok_urlopen(),
         ):
             result = phase.run(ctx, cfg)
@@ -120,7 +120,7 @@ class TestAuthzBypassEnvUnset:
         )
         ctx = TestContext()
         with patch(
-            "tests.zdu.phases.preflight.urllib.request.urlopen",
+            "tests.zdu.framework.phases.preflight.urllib.request.urlopen",
             return_value=_ok_urlopen(),
         ):
             result = phase.run(ctx, cfg)
@@ -137,7 +137,7 @@ class TestAuthzBypassEnvUnset:
         )
         ctx = TestContext()
         with patch(
-            "tests.zdu.phases.preflight.urllib.request.urlopen",
+            "tests.zdu.framework.phases.preflight.urllib.request.urlopen",
             return_value=_ok_urlopen(),
         ):
             result = phase.run(ctx, cfg)
@@ -155,7 +155,7 @@ class TestAuthzBypassEnvFileBroken:
         )
         ctx = TestContext()
         with patch(
-            "tests.zdu.phases.preflight.urllib.request.urlopen",
+            "tests.zdu.framework.phases.preflight.urllib.request.urlopen",
             return_value=_ok_urlopen(),
         ):
             result = phase.run(ctx, cfg)
@@ -174,7 +174,7 @@ class TestAuthzBypassEnvFileBroken:
         )
         ctx = TestContext()
         with patch(
-            "tests.zdu.phases.preflight.urllib.request.urlopen",
+            "tests.zdu.framework.phases.preflight.urllib.request.urlopen",
             return_value=_ok_urlopen(),
         ):
             result = phase.run(ctx, cfg)
@@ -194,7 +194,7 @@ class TestMultipleFailuresReportedTogether:
         cfg = ZDUTestConfig(gms_token=None, clean_build=False, refresh_token=False)
         ctx = TestContext()
         with patch(
-            "tests.zdu.phases.preflight.urllib.request.urlopen",
+            "tests.zdu.framework.phases.preflight.urllib.request.urlopen",
             side_effect=urllib.error.URLError("Connection refused"),
         ):
             result = phase.run(ctx, cfg)
@@ -225,7 +225,7 @@ class TestConditionalSkipping:
         ctx = TestContext()
         # urlopen patched to raise — if the check ran, preflight would fail.
         with patch(
-            "tests.zdu.phases.preflight.urllib.request.urlopen",
+            "tests.zdu.framework.phases.preflight.urllib.request.urlopen",
             side_effect=urllib.error.URLError("Connection refused"),
         ):
             result = phase.run(ctx, cfg)
@@ -240,7 +240,7 @@ class TestConditionalSkipping:
         cfg = ZDUTestConfig(gms_token=None, clean_build=False, refresh_token=True)
         ctx = TestContext()
         with patch(
-            "tests.zdu.phases.preflight.urllib.request.urlopen",
+            "tests.zdu.framework.phases.preflight.urllib.request.urlopen",
             return_value=_ok_urlopen(),
         ):
             result = phase.run(ctx, cfg)
@@ -258,7 +258,7 @@ class TestConditionalSkipping:
         cfg = ZDUTestConfig()  # all defaults
         ctx = TestContext()
         with patch(
-            "tests.zdu.phases.preflight.urllib.request.urlopen",
+            "tests.zdu.framework.phases.preflight.urllib.request.urlopen",
             side_effect=urllib.error.URLError("Connection refused"),
         ):
             result = phase.run(ctx, cfg)

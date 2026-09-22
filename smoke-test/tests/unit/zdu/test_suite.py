@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.zdu.suite import Suite, suite_for_tc
+from tests.zdu.framework.suite import Suite, suite_for_tc
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)

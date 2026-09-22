@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from tests.zdu.context import (
+from tests.zdu.framework.context import (
     TestContext,
     UpgradeBlockingReRunResult,
     UpgradeBlockingResult,
 )
-from tests.zdu.phase1_reindex_executor import Phase1ReindexExecutor
-from tests.zdu.scenario_loader import ZDUTestScenario
-from tests.zdu.suite import Suite
+from tests.zdu.framework.phase1_reindex_executor import Phase1ReindexExecutor
+from tests.zdu.framework.scenario_loader import ZDUTestScenario
+from tests.zdu.framework.suite import Suite
 from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.PLATFORM)
@@ -621,7 +621,7 @@ class TestTC106MixedReindex:
 
 class TestTC109DocCountPreservation:
     def _snap(self, **counts: int):
-        from tests.zdu.context import SnapshotT0
+        from tests.zdu.framework.context import SnapshotT0
 
         return SnapshotT0(epoch_ms=0, doc_counts=dict(counts))
 
@@ -682,7 +682,9 @@ class TestParseFlatIndicesState:
     """Smoke tests for the MySQL flat-key parser in upgrade_blocking."""
 
     def test_unflattens_real_stack_shape(self) -> None:
-        from tests.zdu.phases.upgrade_blocking import _parse_flat_indices_state
+        from tests.zdu.framework.phases.upgrade_blocking import (
+            _parse_flat_indices_state,
+        )
 
         flat = {
             "dashboardindex_v2.status": "COMPLETED",
@@ -712,7 +714,9 @@ class TestParseFlatIndicesState:
         assert "taskId" not in out["schemafieldindex_v2"]
 
     def test_skips_top_level_keys_without_dots(self) -> None:
-        from tests.zdu.phases.upgrade_blocking import _parse_flat_indices_state
+        from tests.zdu.framework.phases.upgrade_blocking import (
+            _parse_flat_indices_state,
+        )
 
         flat = {
             "completed": "true",  # spurious top-level — skipped
