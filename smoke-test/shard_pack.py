@@ -130,8 +130,8 @@ def nodeid_to_weight_keys(nodeid: str) -> list[str]:
     """Return candidate weight keys for a pytest nodeid, first match wins.
 
     generate_test_weights.py stores JUnit ``{classname}::{name}``. Class tests
-    therefore look like ``tests.foo.BarTest::test_it``, while function tests
-    look like ``tests.foo::test_it``. The nodeid uses ``::`` before the class
+    therefore look like ``tests.e2e.foo.BarTest::test_it``, while function tests
+    look like ``tests.e2e.foo::test_it``. The nodeid uses ``::`` before the class
     name, so both spellings (and a class-stripped fallback) are tried.
     """
     posix = nodeid.replace("\\", "/")

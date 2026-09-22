@@ -48,24 +48,28 @@ source venv/bin/activate
 export DATAHUB_VERSION=v1.0.0rc3-SNAPSHOT
 export TEST_STRATEGY=pytests
 
-# Run all tests (WARNING: Takes a long time, requires full setup)
+# Run all live-stack tests (WARNING: Takes a long time, requires full setup)
 pytest -vv
 
 # Run specific test file (RECOMMENDED for development)
-pytest test_system_info.py -vv
+pytest tests/e2e/test_system_info.py -vv
 
 # Run specific test method
-pytest test_system_info.py::test_system_info_main_endpoint -vv
+pytest tests/e2e/test_system_info.py::test_system_info_main_endpoint -vv
 
 # Run multiple specific tests
-pytest test_e2e.py::test_healthchecks test_e2e.py::test_gms_usage_fetch -v
+pytest tests/e2e/test_e2e.py::test_healthchecks tests/e2e/test_e2e.py::test_gms_usage_fetch -v
+
+# CPU tests (no DataHub stack)
+./gradlew :smoke-test:stackFreePytest
+# or: pytest tests/unit -vv
 ```
 
 #### Selecting tests by domain
 
 Tests can declare the product domain that owns them with
 `@pytest.mark.domain(...)`, using the `Domain` enum in
-`tests/utilities/domains.py` (`platform`, `observe`, `ingestion`, `ai`,
+`utilities/domains.py` (`platform`, `observe`, `ingestion`, `ai`,
 `catalog`). The `--domain` option then runs only the tests those domains own:
 
 ```bash

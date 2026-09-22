@@ -3,6 +3,18 @@
 Canonical authoring guide for pytest smoke tests against a running DataHub
 instance. How to run the suite: `[README.md](README.md)`.
 
+## Where tests and helpers live
+
+| Path | What goes here |
+| --- | --- |
+| `tests/e2e/` | Live GMS pytest (needs quickstart). Default `pytest` / `smoke.sh` collection. |
+| `tests/unit/` | CPU pytest (no stack). `./gradlew :smoke-test:stackFreePytest`. |
+| `tests/zdu/` | ZDU framework + live E2E. Daily workflow: `python -m tests.zdu`. Not in docker pytest. |
+| `tests/oauth/` | OAuth IdP smoke. `.github/workflows/oauth-smoke.yml`. Not in docker pytest. |
+| `utilities/` | Shared helpers, not tests. |
+
+Do not put `test_*.py` next to helpers in `utilities/`. GMS fixtures live in `tests/e2e/conftest.py` only.
+
 ## When to add smoke tests
 
 These are E2E API tests on a **live GMS** (slow, shared stack, xdist). Prefer a
@@ -19,7 +31,7 @@ no existing coverage, a production regression to keep, or live-stack authz.
   is enough. A negative case belongs here only if it needs GMS (e.g. policy
   deny), not invalid input or combinatorial 4xx/case/whitespace.
 
-Put new tests in `tests/<feature>/`, not `test_e2e.py`. Connector tests are placed in `metadata-ingestion/tests/`. Generic placeholder names only
+Put new tests in `tests/e2e/<feature>/`, not `test_e2e.py`. Connector tests are placed in `metadata-ingestion/tests/`. Generic placeholder names only
 (`my_db.my_schema.events`) — no customer identifiers or ticket IDs.
 
 ## Rules
@@ -39,14 +51,14 @@ Put new tests in `tests/<feature>/`, not `test_e2e.py`. Connector tests are plac
   API. `TestSessionWrapper` already waits on POST/PUT — do not extra-sync unless
   you are asserting search/index.
 - **Auth:** `auth_session` / `graph_client`. Extra users:
-  `make_step_actor_user()`. Config: `tests/utilities/env_vars.py`, not `os.getenv` or
+  `make_step_actor_user()`. Config: `utilities/env_vars.py`, not `os.getenv` or
   `localhost:8080`. GraphQL: `execute_graphql()` (it already checks `data` /
   `errors`) — assert the fields you care about. Ingest:
   `ingest_file_via_rest()`.
 - **Reuse helpers.** Do not copy-paste `addTag` or roll a local `uuid` when  
   `unique_suffix()` exists. Tags/terms/descriptions:  
-  `tests/utilities/metadata_operations.py`.
-- Extra users: `make_step_actor_user()` in `tests/utilities/multi_user.py`,  
+  `utilities/metadata_operations.py`.
+- Extra users: `make_step_actor_user()` in `utilities/multi_user.py`,  
   not a one-off signup.
 - `execute_graphql()` already asserts a non-empty body, `data` is not `None`,
   and no `errors` key, only assert the data that the test requires
@@ -54,7 +66,7 @@ Put new tests in `tests/<feature>/`, not `test_e2e.py`. Connector tests are plac
 ## Markers
 
 ```python
-from tests.utilities.domains import Domain
+from utilities.domains import Domain
 
 pytestmark = pytest.mark.domain(Domain.CATALOG)
 # pytestmark = pytest.mark.domain(Domain.CATALOG, Domain.INGESTION)

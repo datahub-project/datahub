@@ -163,9 +163,9 @@ runs:
             - "metadata-ingestion/src/datahub/ingestion/source/unstructured/embedding_providers/classical.py"
             - "metadata-ingestion/src/datahub/ingestion/source/unstructured/embedding_providers/factory.py"
             - "metadata-ingestion/src/datahub/ingestion/source/unstructured/embedding_providers/base.py"
-            - "smoke-test/tests/semantic/test_local_embedding_provider.py"
-            - "smoke-test/tests/semantic/test_classical_embedding_provider.py"
-            - "smoke-test/tests/semantic/test_semantic_search.py"
+            - "smoke-test/tests/e2e/semantic/test_local_embedding_provider.py"
+            - "smoke-test/tests/e2e/semantic/test_classical_embedding_provider.py"
+            - "smoke-test/tests/e2e/semantic/test_semantic_search.py"
             - ".github/workflows/docker-unified.yml"
             # The semantic/document tests are sensitive to what gets installed --
             # a transitive bump can break document chunking without touching any

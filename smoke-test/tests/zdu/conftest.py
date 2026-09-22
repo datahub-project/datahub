@@ -4,9 +4,9 @@ import os
 
 import pytest
 
-from tests.zdu.framework.config import ZDUTestConfig
-from tests.zdu.framework.runner import ZDUReport, ZDUTestRunner
-from tests.zdu.framework.scenario_loader import ScenarioLoader, ZDUTestScenario
+from tests.zdu.config import ZDUTestConfig
+from tests.zdu.runner import ZDUReport, ZDUTestRunner
+from tests.zdu.scenario_loader import ScenarioLoader, ZDUTestScenario
 
 
 @pytest.fixture(scope="session")

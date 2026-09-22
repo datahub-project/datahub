@@ -3,22 +3,23 @@ import warnings
 
 import pytest
 
-from tests.utilities.domains import Domain
-from tests.zdu.framework.runner import ZDUReport
-from tests.zdu.framework.scenario_loader import ZDUTestScenario
+from tests.zdu.runner import ZDUReport
+from tests.zdu.scenario_loader import ZDUTestScenario
+from utilities.domains import Domain
 
 # The tests in this module depend on the ``zdu_report`` session fixture,
 # which runs the FULL ZDU end-to-end pipeline (builds OLD+NEW Docker
 # images, nukes + redeploys the Compose stack, runs the upgrade job).
 # That is far too heavy + destructive to run inside the regular
-# `pytest tests/` smoke-test batches, which would collect this file by
-# default and wipe the shared smoke-test stack.
+# docker-unified pytest job (`testpaths = tests/e2e`). This tree is
+# outside that collection; the skip is a second guard if someone
+# invokes this file directly.
 #
 # The dedicated daily workflow (.github/workflows/zdu-e2e-daily.yml)
 # drives the E2E via the CLI entry point (`python -m tests.zdu`), NOT
 # pytest, so it does not need this module at all. Gate the whole module
 # behind ZDU_E2E_ENABLED so it only runs when explicitly opted in.
-# The fast, side-effect-free unit tests under tests/zdu/framework/ are
+# The fast, side-effect-free unit tests under tests/unit/zdu/ are
 # unaffected — they don't import this module or the zdu_report fixture.
 pytestmark = [
     pytest.mark.skipif(

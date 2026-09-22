@@ -90,7 +90,7 @@ class ParsePytestFailuresTests(unittest.TestCase):
 
         self.assertEqual(len(failures), 1)
         self.assertEqual(
-            failures[0].name, "tests/foo/test_bar.py::test_it"
+            failures[0].name, "tests/e2e/foo/test_bar.py::test_it"
         )
         self.assertEqual(
             failures[0].custom_properties,
@@ -124,7 +124,7 @@ class SendPostHogEventTests(unittest.TestCase):
     def test_payload_nests_custom_properties_and_keeps_metadata(self) -> None:
         captured: dict = {}
         test = sender.FailedTest(
-            name="tests/foo/test_bar.py::test_it",
+            name="tests/e2e/foo/test_bar.py::test_it",
             test_type="pytest",
             error_message="assert False",
             custom_properties={"domains": ["catalog", "ingestion"]},
@@ -156,7 +156,7 @@ class SendPostHogEventTests(unittest.TestCase):
     def test_payload_omits_custom_properties_when_absent(self) -> None:
         captured: dict = {}
         test = sender.FailedTest(
-            name="tests/foo/test_bar.py::test_it",
+            name="tests/e2e/foo/test_bar.py::test_it",
             test_type="pytest",
         )
         config = sender.PostHogConfig(api_key="phc_test", host="https://app.posthog.com")

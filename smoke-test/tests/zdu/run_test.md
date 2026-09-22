@@ -203,14 +203,14 @@ In either path, the XFAIL TCs that require a real rolling restart (TC-101..107, 
 
 ```bash
 # All 258 framework unit tests
-smoke-test/venv/bin/python -m pytest smoke-test/tests/zdu/framework/
+smoke-test/venv/bin/python -m pytest smoke-test/tests/unit/zdu/
 
 # Specific test file
-smoke-test/venv/bin/python -m pytest smoke-test/tests/zdu/framework/test_catchup_executor.py -v
+smoke-test/venv/bin/python -m pytest smoke-test/tests/unit/zdu/test_catchup_executor.py -v
 
 # Single test
 smoke-test/venv/bin/python -m pytest \
-  smoke-test/tests/zdu/framework/test_phase1_reindex_executor.py::TestTC108StateShape -v
+  smoke-test/tests/unit/zdu/test_phase1_reindex_executor.py::TestTC108StateShape -v
 ```
 
 ### 8. Opt-out of auto-bootJar (skip the ~14s gradle check)

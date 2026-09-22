@@ -16,7 +16,7 @@ SCRIPT = Path(__file__).resolve().parent.parent / "parse_failed_pytest_tests.py"
 COLLECTION_ERROR_XML = """<?xml version="1.0" encoding="utf-8"?>
 <testsuites>
   <testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="0.1">
-    <testcase classname="" name="tests/foo/test_bar.py" time="0">
+    <testcase classname="" name="tests/e2e/foo/test_bar.py" time="0">
       <error message="collection failure">ImportError: cannot import name X</error>
     </testcase>
   </testsuite>
@@ -26,7 +26,7 @@ COLLECTION_ERROR_XML = """<?xml version="1.0" encoding="utf-8"?>
 COLLECTION_ERROR_WITH_NODEID_XML = """<?xml version="1.0" encoding="utf-8"?>
 <testsuites>
   <testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="0.1">
-    <testcase classname="" name="tests/foo/test_bar.py::test_something" time="0">
+    <testcase classname="" name="tests/e2e/foo/test_bar.py::test_something" time="0">
       <error message="collection failure">ImportError: cannot import name X</error>
     </testcase>
   </testsuite>
@@ -37,7 +37,7 @@ MIXED_XML = """<?xml version="1.0" encoding="utf-8"?>
 <testsuites>
   <testsuite name="pytest" errors="1" failures="0" skipped="0" tests="2" time="0.2">
     <testcase classname="tests.ok_module" name="test_ok" time="0.01"/>
-    <testcase classname="" name="tests/foo/test_broken.py" time="0">
+    <testcase classname="" name="tests/e2e/foo/test_broken.py" time="0">
       <error message="collection failure">ImportError: boom</error>
     </testcase>
   </testsuite>
@@ -95,7 +95,7 @@ class ParseFailedModulesTests(unittest.TestCase):
             _write_junit(Path(d), COLLECTION_ERROR_XML)
             self.assertEqual(
                 parser.parse_failed_modules(Path(d)),
-                {"tests/foo/test_bar.py"},
+                {"tests/e2e/foo/test_bar.py"},
             )
 
     def test_collection_error_strips_nodeid_suffix(self) -> None:
@@ -103,7 +103,7 @@ class ParseFailedModulesTests(unittest.TestCase):
             _write_junit(Path(d), COLLECTION_ERROR_WITH_NODEID_XML)
             self.assertEqual(
                 parser.parse_failed_modules(Path(d)),
-                {"tests/foo/test_bar.py"},
+                {"tests/e2e/foo/test_bar.py"},
             )
 
     def test_mixed_pass_and_collection_error(self) -> None:
@@ -111,7 +111,7 @@ class ParseFailedModulesTests(unittest.TestCase):
             _write_junit(Path(d), MIXED_XML)
             self.assertEqual(
                 parser.parse_failed_modules(Path(d)),
-                {"tests/foo/test_broken.py"},
+                {"tests/e2e/foo/test_broken.py"},
             )
 
     def test_class_based_failure_strips_class_name(self) -> None:
@@ -119,7 +119,7 @@ class ParseFailedModulesTests(unittest.TestCase):
             _write_junit(Path(d), CLASS_BASED_FAILURE_XML)
             self.assertEqual(
                 parser.parse_failed_modules(Path(d)),
-                {"tests/my_module.py"},
+                {"tests/e2e/my_module.py"},
             )
 
     def test_all_pass_returns_empty_set(self) -> None:
@@ -172,7 +172,7 @@ class MainExitCodeTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
             self.assertEqual(
                 (Path(d) / "failed.txt").read_text(),
-                "tests/foo/test_bar.py\n",
+                "tests/e2e/foo/test_bar.py\n",
             )
 
     def test_all_pass_exits_all_passed(self) -> None:

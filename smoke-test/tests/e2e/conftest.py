@@ -1,0 +1,579 @@
+import json
+import logging
+import os
+import statistics
+from collections import defaultdict
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Tuple
+
+import pytest
+import requests
+from _pytest.nodes import Item
+from _pytest.skipping import evaluate_skip_marks
+
+from datahub.ingestion.graph.client import (
+    DatahubClientConfig,
+    DataHubGraph,
+    get_default_graph,
+)
+from shard_pack import ModuleShard, loadscope_key, lookup_test_weight, pack_module_plans
+from tests.e2e.test_result_msg import send_message
+from tests.e2e.utils import (
+    TestSessionWrapper,
+    assert_admin_corpuser_info_preserved,
+    delete_urns,
+    delete_urns_from_file,
+    fetch_admin_corpuser_info,
+    get_frontend_session,
+    ingest_file_via_rest,
+    materialize_unique_dataset,
+    wait_for_admin_corpuser_system_bootstrap,
+    wait_for_healthcheck_util,
+    wait_for_writes_to_sync,
+)
+from utilities import env_vars
+from utilities.domains import (
+    ALL_DOMAINS,
+    domains_of,
+    is_selected,
+    junit_user_properties,
+    parse_requested_domains,
+)
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_TEST_WEIGHT = 1.0
+
+# Disable telemetry
+os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
+# Suppress logging manager to prevent I/O errors during pytest teardown
+os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
+
+
+def build_auth_session():
+    """Build an auth session.
+
+    Token-based (preferred for remote instances — no login round-trip):
+        Set DATAHUB_GMS_TOKEN=<pat> and DATAHUB_GMS_URL=<gms-url>.
+        Frontend URL is not required; GraphQL routes through the GMS directly.
+
+    Login-based (default for local dev):
+        Set ADMIN_USERNAME / ADMIN_PASSWORD.
+    """
+    prebuilt_token = os.environ.get("DATAHUB_GMS_TOKEN")
+    if prebuilt_token:
+        logger.info("Token-based auth: using DATAHUB_GMS_TOKEN (skipping login)")
+        return TestSessionWrapper(requests.Session(), prebuilt_token=prebuilt_token)
+
+    wait_for_healthcheck_util(requests)
+    auth_session = TestSessionWrapper(get_frontend_session())
+    # Lag polls always use DATAHUB_GMS_TOKEN (VIEW_SYSTEM_STATUS or
+    # MANAGE_SYSTEM_OPERATIONS). Publish the bootstrap admin PAT here, before
+    # any wait_for_writes_to_sync() call. Restricted-user TestSessionWrappers
+    # must not overwrite this.
+    os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
+    wait_for_admin_corpuser_system_bootstrap(auth_session)
+    return auth_session
+
+
+@pytest.fixture(scope="session", autouse=True)
+def auth_session():
+    auth_session = build_auth_session()
+    os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
+    yield auth_session
+    auth_session.destroy()
+
+
+def build_graph_client(auth_session, openapi_ingestion=False):
+    graph: DataHubGraph = DataHubGraph(
+        config=DatahubClientConfig(
+            server=auth_session.gms_url(),
+            token=auth_session.gms_token(),
+            openapi_ingestion=openapi_ingestion,
+        )
+    )
+    return graph
+
+
+@pytest.fixture(scope="session")
+def graph_client(auth_session) -> DataHubGraph:
+    return build_graph_client(auth_session)
+
+
+@pytest.fixture(scope="session")
+def openapi_graph_client(auth_session) -> DataHubGraph:
+    return build_graph_client(auth_session, openapi_ingestion=True)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def clear_graph_cache():
+    """Clear the get_default_graph LRU cache before each test.
+
+    This ensures that tests using run_datahub_cmd() with custom environment
+    variables get a fresh DataHubGraph instance instead of a cached one with
+    stale credentials.
+    """
+    get_default_graph.cache_clear()
+    yield
+
+
+@pytest.fixture(scope="session")
+def admin_corpuser_info_baseline(auth_session):
+    """Snapshot privileged admin corpUserInfo flags after session bootstrap."""
+    if os.environ.get("DATAHUB_GMS_TOKEN"):
+        return None
+    return fetch_admin_corpuser_info(auth_session)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def verify_admin_corpuser_info_unchanged(
+    auth_session, admin_corpuser_info_baseline, request
+):
+    """Detect tests that overwrite admin corpUserInfo and clear system/support flags."""
+    yield
+    if admin_corpuser_info_baseline is None:
+        return
+    assert_admin_corpuser_info_preserved(
+        auth_session,
+        admin_corpuser_info_baseline,
+        context=request.node.nodeid,
+    )
+
+
+def _ingest_cleanup_data_impl(
+    auth_session,
+    graph_client,
+    data_file: str,
+    test_name: str,
+    to_delete_urns: Optional[List[str]] = None,
+):
+    """Helper for ingesting test data with automatic cleanup.
+
+    Args:
+        auth_session: The authenticated session
+        graph_client: The DataHub graph client
+        data_file: Path to the data file to ingest
+        test_name: Name of the test (for logging)
+        to_delete_urns: URNs to delete after cleanup
+
+    Usage in test files:
+        @pytest.fixture(scope="module", autouse=True)
+        def ingest_cleanup_data(auth_session, graph_client):
+            yield from _ingest_cleanup_data_impl(
+                auth_session, graph_client,
+                "tests/e2e/tags_and_terms/data.json",
+                "tags_and_terms"
+            )
+    """
+    logger.info(f"deleting {test_name} test data for idempotency")
+    delete_urns_from_file(graph_client, data_file)
+    logger.info(f"ingesting {test_name} test data")
+    ingest_file_via_rest(auth_session, data_file)
+    yield
+    logger.info(f"removing {test_name} test data")
+    delete_urns_from_file(graph_client, data_file)
+    if to_delete_urns:
+        delete_urns(graph_client, to_delete_urns)
+        wait_for_writes_to_sync()
+
+
+def _ingest_cleanup_unique_dataset_impl(
+    auth_session,
+    graph_client,
+    data_file: str,
+    test_name: str,
+    dataset_name: str,
+    tmp_dir,
+    platform: str = "kafka",
+    env: str = "PROD",
+):
+    """Like :func:`_ingest_cleanup_data_impl`, but rewrites ``dataset_name`` in
+    ``data_file`` to a run-unique name before ingesting and yields the unique
+    dataset URN. Isolates a file-driven test's dataset so concurrent modules
+    never collide on a shared URN under xdist ``--dist=loadscope``.
+
+    Usage in test files:
+        @pytest.fixture(scope="module", autouse=True)
+        def dataset_urn(auth_session, graph_client, tmp_path_factory):
+            yield from _ingest_cleanup_unique_dataset_impl(
+                auth_session, graph_client,
+                "tests/e2e/tags_and_terms/data.json", "tags_and_terms",
+                "test-tags-terms-sample-kafka", tmp_path_factory.mktemp("data"),
+            )
+    """
+    unique_file, dataset_urn = materialize_unique_dataset(
+        data_file, dataset_name, tmp_dir, platform=platform, env=env
+    )
+    # No pre-ingest idempotency delete (unlike _ingest_cleanup_data_impl): the
+    # URN is freshly unique per run, so nothing pre-exists to clean up.
+    logger.info(f"ingesting {test_name} test data (dataset={dataset_urn})")
+    ingest_file_via_rest(auth_session, unique_file)
+    yield dataset_urn
+    logger.info(f"removing {test_name} test data")
+    delete_urns_from_file(graph_client, unique_file)
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--domain",
+        action="append",
+        default=[],
+        metavar="DOMAIN",
+        help=(
+            "Only run tests owned by this product domain. Repeatable, e.g. "
+            "--domain catalog --domain ingestion. Valid values: "
+            f"{', '.join(sorted(ALL_DOMAINS))}."
+        ),
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    # Validate here rather than during collection: a bad value raised from
+    # pytest_collection_modifyitems surfaces as an INTERNALERROR instead of a
+    # readable usage error.
+    try:
+        parse_requested_domains(config.getoption("--domain"))
+    except ValueError as exc:
+        raise pytest.UsageError(str(exc)) from exc
+
+
+def pytest_runtest_setup(item: Item) -> None:
+    """Copy domain markers into JUnit user_properties for CI / PostHog."""
+    item.user_properties.extend(
+        junit_user_properties(item.get_closest_marker("domain"))
+    )
+
+
+# Test modules this PR touches, from CI. Read once: the environment is fixed for
+# the life of the process.
+_CHANGED_TESTS: List[str] = env_vars.get_smoke_changed_tests()
+_CHANGED_MATCHED: Set[str] = set()
+
+
+def pytest_itemcollected(item: Item) -> None:
+    """Mark tests from modules this PR touches as p0.
+
+    Runs per item during collection, before any ``pytest_collection_modifyitems``
+    hook, so pytest's own ``-m`` deselection then keeps them. This is the
+    marker-injection pattern from pytest's docs, and it is what lets a PR's own
+    new or edited tests run under ``-m p0`` without a second selection mechanism.
+
+    ``_CHANGED_TESTS`` holds repo-relative paths while ``item.fspath`` is
+    absolute, so match by suffix -- the same approach the FILTERED_TESTS retry
+    path uses.
+    """
+    if not _CHANGED_TESTS:
+        return
+    module_path = str(item.fspath)
+    for path in _CHANGED_TESTS:
+        if module_path.endswith(path):
+            _CHANGED_MATCHED.add(path)
+            item.add_marker(pytest.mark.p0)
+            break
+
+
+def _apply_domain_filter(config: pytest.Config, items: List[Item]) -> None:
+    """Deselect tests outside the domains requested with --domain."""
+    requested = parse_requested_domains(config.getoption("--domain"))
+    if not requested:
+        return
+
+    selected: List[Item] = []
+    deselected: List[Item] = []
+    for item in items:
+        declared = domains_of(item.get_closest_marker("domain"))
+        target = selected if is_selected(declared, requested) else deselected
+        target.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    logger.info(
+        "--domain %s: selected %s of %s test(s)",
+        ",".join(sorted(requested)),
+        len(selected),
+        len(items),
+    )
+    items[:] = selected
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """whole test run finishes."""
+    send_message(exitstatus)
+
+
+def load_pytest_test_weights() -> Dict[str, float]:
+    """
+    Load pytest test weights from JSON file.
+
+    Returns:
+        Dictionary mapping test IDs (classname::test_name) to durations in seconds.
+        Returns empty dict if weights file doesn't exist.
+    """
+    weights_file = Path(__file__).resolve().parents[2] / "pytest_test_weights.json"
+
+    if not weights_file.exists():
+        return {}
+
+    try:
+        with open(weights_file) as f:
+            weights_data = json.load(f)
+
+        # Convert to dict: {"test_e2e::test_gms_get_dataset": 262.807, ...}
+        return {
+            item["testId"]: float(item["duration"][:-1])  # Strip 's' suffix
+            for item in weights_data
+        }
+    except Exception as e:
+        logger.warning(f"Warning: Failed to load pytest test weights: {e}")
+        return {}
+
+
+# Collection-time skip/skipif tests never run, so they must not take the median
+# default (or a historical duration) and inflate a batch.
+SKIPPED_TEST_WEIGHT_SECONDS = 0.01
+
+
+def _item_will_be_skipped(item: Item) -> bool:
+    try:
+        return evaluate_skip_marks(item) is not None
+    except Exception:
+        return item.get_closest_marker("skip") is not None
+
+
+def get_pytest_test_weight(
+    item: Item, test_weights: Dict[str, float], default_weight: float
+) -> tuple[float, bool]:
+    """Return (seconds, used_default). used_default is True when the nodeid
+    was missing from pytest_test_weights.json. Collection-time skips use a
+    tiny weight and do not count as missing."""
+    if _item_will_be_skipped(item):
+        return SKIPPED_TEST_WEIGHT_SECONDS, False
+
+    return lookup_test_weight(item.nodeid, test_weights, default_weight)
+
+
+def load_persisted_default_weight() -> Optional[float]:
+    """Load the fallback weight generated alongside the pytest weights."""
+    meta_file = Path(__file__).resolve().parents[2] / "pytest_test_weights_meta.json"
+    if not meta_file.exists():
+        return None
+    try:
+        with open(meta_file) as f:
+            value = float(json.load(f)["defaultTestWeightSeconds"])
+        return value if value > 0 else None
+    except Exception as e:
+        logger.warning(f"Failed to read {meta_file.name}: {e}")
+        return None
+
+
+def compute_default_test_weight(test_weights: Dict[str, float]) -> float:
+    """Return the weight assigned to tests absent from the weights file."""
+    persisted = load_persisted_default_weight()
+    if persisted is not None:
+        return persisted
+    if not test_weights:
+        return DEFAULT_TEST_WEIGHT
+    return statistics.median(test_weights.values())
+
+
+def aggregate_module_weights(
+    items: List[Item], test_weights: Dict[str, float]
+) -> List[Tuple[str, List[Item], float, float]]:
+    """
+    Group test items by xdist loadscope, splitting each scope's weight by phase.
+
+    smoke.sh runs each batch as two pytest invocations: non-mutator tests under
+    xdist ``--dist=loadscope``, then policy mutators serially. Those two buckets
+    are accumulated separately so packing can treat a scope's parallel time as
+    one worker's load and add serial time after phase 1.
+
+    Args:
+        items: List of pytest test items
+        test_weights: Dictionary mapping test IDs to durations
+
+    Returns:
+        List of (loadscope_key, items_in_scope, parallel_seconds, serial_seconds)
+    """
+    default_weight = compute_default_test_weight(test_weights)
+
+    scopes: Dict[str, List[Item]] = defaultdict(list)
+    for item in items:
+        scopes[loadscope_key(item.nodeid)].append(item)
+
+    # Each item's weight is looked up exactly once, here.
+    scope_data = []
+    missing_weight_ids: List[str] = []
+    for scope_key, scope_items in scopes.items():
+        parallel_seconds = 0.0
+        serial_seconds = 0.0
+        for item in scope_items:
+            weight, used_default = get_pytest_test_weight(
+                item, test_weights, default_weight
+            )
+            if used_default:
+                missing_weight_ids.append(item.nodeid)
+            if _is_global_policy_mutator(item):
+                serial_seconds += weight
+            else:
+                parallel_seconds += weight
+
+        scope_data.append((scope_key, scope_items, parallel_seconds, serial_seconds))
+
+    if missing_weight_ids:
+        logger.info(
+            "No recorded duration for %s test(s); packing with %.1fs each. Sample: %s",
+            len(missing_weight_ids),
+            default_weight,
+            ", ".join(missing_weight_ids[:5]),
+        )
+
+    return scope_data
+
+
+def _is_global_policy_mutator(item: Item) -> bool:
+    return item.get_closest_marker("global_policy_mutator") is not None
+
+
+def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
+    """Keep batch assignment stable across smoke.sh's two pytest invocations.
+
+    Batching runs on the full module set first; this filter then selects
+    non-mutators (phase 1) or mutators (phase 2). Unset means run everything
+    (ad-hoc local pytest without smoke.sh).
+    """
+    phase = env_vars.get_smoke_policy_phase()
+    if phase is None:
+        return
+    if phase == "1":
+        items[:] = [item for item in items if not _is_global_policy_mutator(item)]
+        logger.info("SMOKE_POLICY_PHASE=1: running %s non-mutator test(s)", len(items))
+        return
+    if phase == "2":
+        items[:] = [item for item in items if _is_global_policy_mutator(item)]
+        logger.info("SMOKE_POLICY_PHASE=2: running %s mutator test(s)", len(items))
+        return
+    logger.warning("Unknown SMOKE_POLICY_PHASE=%r; running all collected tests", phase)
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(
+    session: pytest.Session, config: pytest.Config, items: List[Item]
+) -> None:
+    # Runs before every early return below, and before the weight-based batching,
+    # so batches are packed from the selected tests only.
+    if _CHANGED_TESTS:
+        unmatched = [p for p in _CHANGED_TESTS if p not in _CHANGED_MATCHED]
+        if unmatched:
+            # Deleted test files land here harmlessly, but so would a change in
+            # the path format CI emits -- which would silently stop a PR's own
+            # tests being marked p0, the exact failure this injection prevents.
+            logger.warning(
+                "SMOKE_CHANGED_TESTS: %s of %s path(s) matched no collected module: %s",
+                len(unmatched),
+                len(_CHANGED_TESTS),
+                ", ".join(sorted(unmatched)[:5]),
+            )
+
+    _apply_domain_filter(config, items)
+
+    # Check if FILTERED_TESTS is set (for retry logic)
+    filtered_tests_file = env_vars.get_filtered_tests_file()
+    if filtered_tests_file:
+        logger.info(f"Reading filtered test modules from {filtered_tests_file}")
+        try:
+            with open(filtered_tests_file) as f:
+                # Read non-empty lines, strip whitespace, ignore comments
+                filtered_modules = set(
+                    line.strip()
+                    for line in f
+                    if line.strip() and not line.strip().startswith("#")
+                )
+
+            logger.info(f"Found {len(filtered_modules)} filtered module(s) to run")
+
+            # Filter items to only those from the specified modules
+            filtered_items = []
+            for item in items:
+                # Get the module path from the item's fspath
+                module_path = str(item.fspath)
+
+                # Check if this item's module is in the filtered list
+                # Need to handle both absolute and relative paths
+                if any(
+                    module_path.endswith(filtered_mod)
+                    for filtered_mod in filtered_modules
+                ):
+                    filtered_items.append(item)
+
+            logger.info(
+                f"RETRY MODE: Running {len(filtered_items)} tests from {len(filtered_modules)} failed module(s)"
+            )
+            items[:] = filtered_items
+            _apply_smoke_policy_phase_filter(items)
+            return
+        except Exception as e:
+            logger.warning(
+                f"Failed to read filtered tests file: {e}. Running all tests.e2e."
+            )
+            # Fall through to normal batching logic
+
+    # Get batch configuration
+    batch_count_env = env_vars.get_batch_count()
+    batch_count = int(batch_count_env)
+    batch_number_env = env_vars.get_batch_number()
+    batch_number = int(batch_number_env)
+
+    if batch_count <= 1:
+        _apply_smoke_policy_phase_filter(items)
+        return
+
+    # Load test weights
+    test_weights = load_pytest_test_weights()
+
+    scope_data = aggregate_module_weights(items, test_weights)
+    items_by_scope: Dict[str, List[Item]] = {}
+    shards: List[ModuleShard] = []
+    for scope_key, scope_items, parallel_seconds, serial_seconds in scope_data:
+        items_by_scope[scope_key] = scope_items
+        shards.append(ModuleShard(scope_key, parallel_seconds, serial_seconds))
+    xdist_workers = env_vars.get_pytest_xdist_workers()
+
+    logger.info(
+        "Batching %s tests from %s scopes across %s batches (xdist_workers=%s)",
+        len(items),
+        len(shards),
+        batch_count,
+        xdist_workers,
+    )
+
+    batch_plans = pack_module_plans(shards, batch_count, xdist_workers)
+    for i, plan in enumerate(batch_plans):
+        test_count = sum(
+            len(items_by_scope[scope_key]) for scope_key in plan.module_paths
+        )
+        logger.info(
+            "Batch %s: predicted_wall=%.1fs phase1_makespan=%.1fs serial=%.1fs "
+            "scopes=%s tests=%s",
+            i,
+            plan.predicted_wall,
+            plan.phase1_makespan,
+            plan.serial_seconds,
+            len(plan.module_paths),
+            test_count,
+        )
+
+    selected_scopes = batch_plans[batch_number].module_paths
+    selected_items = []
+    for scope_key in selected_scopes:
+        selected_items.extend(items_by_scope[scope_key])
+
+    logger.info(
+        "Batch %s: Running %s tests from %s scopes",
+        batch_number,
+        len(selected_items),
+        len(selected_scopes),
+    )
+
+    # Replace items with the filtered list, then apply smoke.sh phase filter
+    items[:] = selected_items
+    _apply_smoke_policy_phase_filter(items)
