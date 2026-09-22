@@ -26,6 +26,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -184,6 +185,80 @@ public class PatchEntityResolverTest {
 
     assertFalse(result.getSuccess());
     verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+  }
+
+  /** The type's own management privilege is enough, matching the dedicated policy mutations. */
+  @Test
+  public void testPatchPolicyAllowedWithManagePoliciesOnly() throws Exception {
+    PatchEntityInput input = createPolicyInput();
+    when(_environment.getArgument("input")).thenReturn(input);
+    setupRegistryMock("dataHubPolicy", "dataHubPolicyInfo");
+    grantOnly(Set.of("MANAGE_POLICIES"));
+    when(_entityService.ingestProposal(any(), any(), any(), eq(false)))
+        .thenReturn(mock(IngestResult.class));
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertTrue(result.getSuccess(), "error=" + result.getError());
+  }
+
+  /** Edit Entity on the target remains sufficient for every entity type, policies included. */
+  @Test
+  public void testPatchPolicyAllowedWithEditEntityOnly() throws Exception {
+    PatchEntityInput input = createPolicyInput();
+    when(_environment.getArgument("input")).thenReturn(input);
+    setupRegistryMock("dataHubPolicy", "dataHubPolicyInfo");
+    grantOnly(Set.of("EDIT_ENTITY"));
+    when(_entityService.ingestProposal(any(), any(), any(), eq(false)))
+        .thenReturn(mock(IngestResult.class));
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertTrue(result.getSuccess(), "error=" + result.getError());
+  }
+
+  @Test
+  public void testPatchPolicyDeniedWithUnrelatedPrivilege() throws Exception {
+    PatchEntityInput input = createPolicyInput();
+    when(_environment.getArgument("input")).thenReturn(input);
+    setupRegistryMock("dataHubPolicy", "dataHubPolicyInfo");
+    grantOnly(Set.of("VIEW_ENTITY_PAGE"));
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertFalse(result.getSuccess());
+    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+  }
+
+  private PatchEntityInput createPolicyInput() {
+    PatchEntityInput input = new PatchEntityInput();
+    input.setUrn("urn:li:dataHubPolicy:test-policy");
+    input.setAspectName("dataHubPolicyInfo");
+    input.setPatch(
+        List.of(createPatchOperation(PatchOperationType.REPLACE, "/description", "\"Updated\"")));
+    return input;
+  }
+
+  private void setupRegistryMock(String entityName, String aspectName) {
+    com.linkedin.metadata.models.EntitySpec mockEntitySpec =
+        mock(com.linkedin.metadata.models.EntitySpec.class);
+    when(_entityRegistry.getEntitySpec(entityName)).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getAspectSpec(aspectName)).thenReturn(mock(AspectSpec.class));
+  }
+
+  /** Answers ALLOW only for the named privileges, DENY for everything else. */
+  private void grantOnly(Set<String> privileges) {
+    when(_operationContext.authorize(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Object privilege = invocation.getArgument(0);
+              return new AuthorizationResult(
+                  null,
+                  privileges.contains(String.valueOf(privilege))
+                      ? AuthorizationResult.Type.ALLOW
+                      : AuthorizationResult.Type.DENY,
+                  "");
+            });
   }
 
   private void allowAll() {
