@@ -178,6 +178,7 @@ export class ApplicationEntity implements Entity<Application> {
                 globalTags={data.tags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
+                parentApplications={data.parentApplications?.applications}
                 entityCount={(data as ApplicationWithChildren)?.children?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
@@ -200,6 +201,7 @@ export class ApplicationEntity implements Entity<Application> {
                 globalTags={data.tags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
+                parentApplications={data.parentApplications?.applications}
                 entityCount={(data as ApplicationWithChildren)?.children?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
                 degree={(result as any).degree}
@@ -218,15 +220,10 @@ export class ApplicationEntity implements Entity<Application> {
         const name = data?.properties?.name;
         const externalUrl = data?.properties?.externalUrl;
         const entityCount = (data as ApplicationWithChildren)?.children?.total || undefined;
-        const parentDomains = {
-            domains: (data?.domain && [data?.domain?.domain]) || [],
-            count: (data?.domain && 1) || 0,
-        };
         return {
             name,
             externalUrl,
             entityCount,
-            parentDomains,
         };
     };
 
