@@ -160,6 +160,11 @@ test.describe('Metrics lineage topologies', () => {
     await expect(lineagePage.editUpstreamLineageButton).toBeVisible();
     await lineagePage.expectEditUpstreamLineageDisabled();
     await lineagePage.expectEditDownstreamLineageEnabled();
+
+    await lineagePage.clickEditDownstreamLineage();
+    await lineagePage.expectCurrentLineageContains(NAMES.ORDERS_CHART);
+    await lineagePage.expectCurrentLineageContains(NAMES.ORDERS_DASHBOARD);
+    await lineagePage.expectCurrentLineageNotContains(NAMES.DOUBLE_REVENUE);
   });
 
   test('metric impact analysis lists chart and dashboard downstream', async () => {
