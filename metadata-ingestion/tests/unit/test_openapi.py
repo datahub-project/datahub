@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import yaml
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.source.openapi import APISource, OpenApiConfig
 from datahub.ingestion.source.openapi_parser import (
     flatten2list,
@@ -1443,6 +1444,31 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         }
         resolved = resolve_schema_references(schema, {})
         self.assertEqual(resolved["enum"], [2, 3])
+
+    def test_merge_allof_disjoint_enum_dropped_keeps_schema_valid(self):
+        # Disjoint enums across allOf members intersect to the empty set. An
+        # empty `enum: []` is invalid per the JSON Schema meta-schema
+        # (minItems 1), so json_schema_util's check_schema rejects the whole
+        # schema and drops every field -- not just the one enum constraint. The
+        # composition is unsatisfiable, so the enum keyword must be dropped and
+        # the rest of the schema must stay extractable.
+        schema = {
+            "type": "object",
+            "properties": {
+                "status": {"allOf": [{"enum": ["a", "b"]}, {"enum": ["c", "d"]}]},
+                "name": {"type": "string"},
+            },
+        }
+        resolved = resolve_schema_references(schema, {})
+        self.assertNotIn("enum", resolved["properties"]["status"])
+        # The whole schema must remain valid for extraction; an empty enum would
+        # raise in check_schema here (swallow_exceptions=False) and drop `name`.
+        fields = list(
+            JsonSchemaTranslator.get_fields_from_schema(
+                resolved, swallow_exceptions=False
+            )
+        )
+        self.assertTrue(any(f.fieldPath.endswith("name") for f in fields))
 
     def test_resolve_schema_references_circular(self):
         """Test that circular references are handled by max_depth limit."""

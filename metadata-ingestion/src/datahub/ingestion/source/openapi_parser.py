@@ -610,16 +610,7 @@ def merge_allof_schemas(
                 dict.fromkeys(existing_required + new_required)
             )
 
-        # enum under allOf is the intersection of the members' allowed values, not
-        # first-wins: allOf[{enum:[1,2,3]},{enum:[2,3,4]}] permits only [2,3].
-        # Membership test (not a set) so unhashable enum values don't raise.
-        new_enum = resolved_allof.get("enum")
-        if isinstance(new_enum, list):
-            existing_enum = merged_schema.get("enum")
-            if isinstance(existing_enum, list):
-                merged_schema["enum"] = [v for v in existing_enum if v in new_enum]
-            else:
-                merged_schema["enum"] = list(new_enum)
+        _merge_allof_enum(merged_schema, resolved_allof)
 
         # Merge other schema attributes (type, format, description, etc.)
         # Only merge if not already present in merged_schema
@@ -676,7 +667,30 @@ def merge_allof_schemas(
             merged_schema, sw_dict, resolving_refs=True, max_depth=max_depth
         )
 
+    # A disjoint enum intersection collapses to []. Emitting `enum: []` is invalid
+    # per the JSON Schema meta-schema (minItems 1), so json_schema_util's
+    # check_schema rejects the whole schema and drops every field -- not just the
+    # enum. The composition is unsatisfiable; drop the keyword so the field stays
+    # typed by its other keywords instead of voiding the entire schema.
+    if merged_schema.get("enum") == []:
+        del merged_schema["enum"]
+
     return merged_schema
+
+
+def _merge_allof_enum(merged_schema: Dict, resolved_allof: Dict) -> None:
+    # enum under allOf is the intersection of the members' allowed values, not
+    # first-wins: allOf[{enum:[1,2,3]},{enum:[2,3,4]}] permits only [2,3].
+    # Membership test (not a set) so unhashable enum values don't raise.
+    new_enum = resolved_allof.get("enum")
+    if not isinstance(new_enum, list):
+        return
+    existing_enum = merged_schema.get("enum")
+    merged_schema["enum"] = (
+        [v for v in existing_enum if v in new_enum]
+        if isinstance(existing_enum, list)
+        else list(new_enum)
+    )
 
 
 def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
