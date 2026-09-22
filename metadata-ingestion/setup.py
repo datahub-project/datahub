@@ -109,7 +109,9 @@ framework_common = {
     # streams) used to supervise ingestion subprocesses in
     # datahub.executor.execution.runner. Previously only available transitively
     # via httpx/openai/starlette; declare it explicitly.
-    "anyio>=3.0.0,<5.0.0",
+    # CVE-2026-64847: process-pool workers can block indefinitely on undrained
+    # stderr; fixed in 4.14.2.
+    "anyio>=4.14.2,<5.0.0",
 }
 
 rest_common = {
