@@ -78,7 +78,6 @@ interface HelperProps {
     externalUrl: string;
 }
 
-// exported for testing only
 function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
     const { t } = useTranslation('entity.shared.containers');
     const { t: tv } = useTranslation('entity.profile.view');
