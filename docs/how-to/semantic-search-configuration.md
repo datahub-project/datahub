@@ -2,6 +2,8 @@
 
 Semantic search lets you find DataHub entities using natural language queries like "customer churn analysis" — even when exact keywords differ.
 
+Semantic search covers document entities (`ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` defaults to `document`); keyword search still covers every entity type. The hosted providers below (OpenAI, AWS Bedrock, Cohere) call an external embedding API with your own account and key, while `onnx` runs a neural model in-process.
+
 ## Prerequisites
 
 1. **OpenSearch 2.17.0+** with k-NN plugin (DataHub ships with `opensearchproject/opensearch:2.19.3`). Elasticsearch is **not** supported.
@@ -176,6 +178,10 @@ datahub ingest -c recipe.yml
 ```
 
 For external document sources (Notion, Confluence, etc.), see the [Notion Source](../generated/ingestion/sources/notion.md) and [DataHub Documents Source](../generated/ingestion/sources/datahub-documents.md) documentation.
+
+## Search V3
+
+With Search V3 writes on (`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED=true`), document embeddings are also written to the V3 document index. Semantic search keeps reading the semantic indices until you set `ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED=true` (or turn Search V2 off), after which it reads the V3 document index instead. The flag is independent of `ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED`, so keyword and semantic reads can move to V3 at different times. Turn it on only after the V3 document index holds your document embeddings.
 
 ## Supported Models
 

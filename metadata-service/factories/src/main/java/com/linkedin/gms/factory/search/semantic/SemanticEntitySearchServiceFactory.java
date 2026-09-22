@@ -42,7 +42,8 @@ public class SemanticEntitySearchServiceFactory {
         searchClusterRegistry.clientFor(SearchComponent.SEMANTIC),
         embeddingProvider,
         mappingsBuilder,
-        modelEmbeddingKey);
+        modelEmbeddingKey,
+        configurationProvider.getElasticSearch().getEntityIndex());
   }
 
   /**
