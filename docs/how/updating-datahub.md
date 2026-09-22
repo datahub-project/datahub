@@ -117,6 +117,8 @@ Requirements:
 
 - **(Logging / Log line format)** The default console/file pattern and the Loki aggregator appender's message pattern for `datahub-frontend`, `datahub-upgrade` (system-update), and GMS (`metadata-service`) no longer include the caller's source line number. Log lines now read `%logger{36} - %msg%n` instead of `%logger{36}:%L - %msg%n`. **Action:** update any log-parsing regex, dashboard, or alert rule that matches on a `logger:lineNumber` token in these services' logs to expect the logger name alone. Deployments with a custom `logback.xml` are unaffected; `mae-consumer` and `mce-consumer` did not include `%L` and are unchanged.
 
+- [#19905](https://github.com/datahub-project/datahub/pull/19905) **(Ingestion / openapi)** The `get_token` recipe field is now a typed object (`request_type: get|post`, `url_complement`) instead of a free-form dict. An unrecognized key, a missing `request_type`/`url_complement`, or a `request_type: get` whose `url_complement` omits the `{username}`/`{password}` placeholders now fails recipe validation instead of failing later (or silently) at ingestion time. `get_token` is also now mutually exclusive with `token`/`bearer_token`. **Action:** none if your recipe already used `get_token: {request_type: ..., url_complement: ...}` with a single auth method (the common case). Fix any recipe that relied on a malformed `get_token` being silently ignored, or that set more than one of `token`/`bearer_token`/`get_token`.
+
 ### Known Issues
 
 ### Potential Downtime
