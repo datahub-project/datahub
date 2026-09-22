@@ -22,7 +22,7 @@ import os
 import re
 import shutil
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -539,7 +539,11 @@ class SubProcessTaskUtil:
         SubProcessTaskUtil._keep_venv_lock_unless_exited(
             venv_ref,
             process,
-            exited=None if process is None else process.returncode is not None,
+            exited=None
+            if process is None
+            else SubProcessTaskUtil._answer_or_assume_alive(
+                lambda: process.returncode is not None
+            ),
         )
 
     @staticmethod
@@ -556,8 +560,42 @@ class SubProcessTaskUtil:
         SubProcessTaskUtil._keep_venv_lock_unless_exited(
             venv_ref,
             process,
-            exited=None if process is None else process.poll() is not None,
+            exited=None
+            if process is None
+            else SubProcessTaskUtil._answer_or_assume_alive(
+                lambda: process.poll() is not None
+            ),
         )
+
+    @staticmethod
+    def _answer_or_assume_alive(probe: Callable[[], bool]) -> bool:
+        """Run a liveness probe, resolving an unanswerable one to "alive".
+
+        The probe is passed in rather than the process, so each wrapper
+        keeps its own statically-typed accessor -- there is no sound runtime
+        test to dispatch on, because tests patch subprocess.Popen and an
+        isinstance check would see a Mock rather than a class. That is the
+        whole reason the two wrappers exist.
+
+        Wrapped because `poll()` re-raises any non-ECHILD OSError from
+        waitpid. Evaluated inline at the call site, that exception was
+        raised while building the `exited=` argument -- outside the handler
+        inside _keep_venv_lock_unless_exited -- so it still replaced an
+        in-flight CancelledError and skipped the rest of the `finally`: no
+        report, no logs, no lock release, no directory removal, and FAILED
+        reported instead of CANCELLED.
+
+        "Unknown" resolves to "may still be alive", the conservative answer
+        everywhere downstream: the lock is kept and exec_out_dir is left.
+        """
+        try:
+            return probe()
+        except Exception:
+            logger.exception(
+                "Cleanup: could not determine whether the child had exited; "
+                "assuming it may still be running"
+            )
+            return False
 
     @staticmethod
     def _keep_venv_lock_unless_exited(

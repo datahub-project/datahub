@@ -928,13 +928,17 @@ async def _acquire_cache_entry(
                 # than built on top of, and if it cannot be removed this key
                 # is unusable until an operator clears it.
                 #
-                # Off the event loop: rmtree of a venv is tens of thousands
-                # of unlinks, and this coroutine's contract is that nothing
-                # in it blocks. flock is per open-file-description, so doing
-                # it on a worker thread changes no lock semantics.
-                if venv_loc.exists() and not await asyncio.to_thread(
-                    _discard_incomplete, venv_loc
-                ):
+                # Deliberately NOT on a worker thread, unlike the eviction
+                # pass below. This deletes the directory THIS coroutine's
+                # lock protects, and awaiting makes the wait cancellable:
+                # a cancellation would unwind into the handler below,
+                # release the flock, and leave the worker still rmtree-ing
+                # while a peer takes the same key and starts `uv venv` into
+                # the directory being deleted. Blocking the loop for one
+                # half-built venv's unlinks is the lesser cost. (Eviction is
+                # safe to thread because each victim is protected by a lock
+                # the worker itself takes and releases.)
+                if venv_loc.exists() and not _discard_incomplete(venv_loc):
                     lock.release()
                     return per_run_fallback()
                 # Eviction runs here and nowhere else: on the build path only,
@@ -973,7 +977,16 @@ async def _acquire_cache_entry(
     # is the lesser evil, and the refresh still happens on the first attempt
     # that finds the entry idle.
     if stale_but_complete and lock.acquire(exclusive=False):
-        if is_venv_complete(venv_loc):
+        # Guarded for the same reason the two branches above are: this sits
+        # ABOVE setup_venv's own try, and is_venv_complete reaches
+        # Path.exists(), which re-raises EACCES -- stranding the hold and
+        # its fd for the life of the process.
+        try:
+            still_there = is_venv_complete(venv_loc)
+        except BaseException:
+            lock.release()
+            raise
+        if still_there:
             touch_last_used(venv_loc)
             logger.info(
                 "venv cache entry %s is past its TTL but in use by another "

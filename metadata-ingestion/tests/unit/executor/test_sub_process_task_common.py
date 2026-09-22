@@ -1119,3 +1119,30 @@ def test_finalizing_stamps_the_entry_as_used_before_letting_go(
         "the max age is evictable the moment it ends"
     )
     venv_ref.lock.release.assert_called_once()
+
+
+def test_a_failing_liveness_probe_does_not_replace_the_exception_in_flight() -> None:
+    """poll() re-raises any non-ECHILD OSError from waitpid.
+
+    Evaluated inline as the `exited=` argument it was raised while BUILDING
+    the call, outside the handler inside _keep_venv_lock_unless_exited -- so
+    it replaced an in-flight CancelledError and skipped the rest of the
+    `finally`: no report, no logs, no lock release, no directory removal,
+    and FAILED reported instead of CANCELLED.
+
+    An unanswerable probe must resolve to "may still be alive", which keeps
+    the lock rather than letting eviction delete a venv still in use.
+    """
+    venv_ref = Mock()
+    venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
+    process = Mock()
+    process.pid = 99
+    process.poll = Mock(side_effect=OSError(errno.EPERM, "waitpid failed"))
+
+    # Must not raise.
+    SubProcessTaskUtil.keep_venv_lock_if_popen_may_be_alive(venv_ref, process)
+
+    assert venv_ref.lock is None, (
+        "an unanswerable liveness probe must be treated as 'may be alive', "
+        "so the lock is retained rather than released"
+    )
