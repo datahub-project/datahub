@@ -1,0 +1,780 @@
+from typing import Callable, Dict, List, Optional
+
+import pytest
+
+import datahub.ingestion.agent.probe_methods as pm
+from datahub.ingestion.agent.probe_methods import (
+    ProbeMethodSpec,
+    ProbeParam,
+    _coerce,
+    _iter_specs,
+    list_probe_methods,
+    probe_method,
+    run_probe_method,
+)
+from datahub.ingestion.agent.sql_gate import SqlScopeError
+
+
+def _spec(fn: Callable) -> ProbeMethodSpec:
+    return getattr(fn, "__probe_command__")  # noqa: B009
+
+
+def test_from_func_derives_params_and_full_docstring():
+    class P:
+        @probe_method()
+        def foreign_keys(self, schema: str, table: str) -> list:
+            """First line of help.
+
+            A second paragraph the agent should also see."""
+            return []
+
+    spec = _spec(P.foreign_keys)
+    assert spec.command == "foreign_keys"
+    assert spec.description.startswith("First line of help.")
+    assert "second paragraph" in spec.description  # FULL docstring, not just line 1
+    assert [(p.name, p.type, p.required) for p in spec.params] == [
+        ("schema", "str", True),
+        ("table", "str", True),
+    ]
+
+
+def test_name_override_and_optional_param():
+    class P:
+        @probe_method(name="topics")
+        def list_topics(self, limit: int = 500) -> list:
+            "List topics."
+            return []
+
+    spec = _spec(P.list_topics)
+    assert spec.command == "topics"
+    assert spec.params[0].name == "limit"
+    assert spec.params[0].type == "int"
+    assert not spec.params[0].required
+    assert spec.params[0].default == 500
+
+
+def test_optional_annotation_is_not_required():
+
+    class P:
+        @probe_method()
+        def m(self, database: Optional[str] = None) -> list:
+            "m"
+            return []
+
+    assert not _spec(P.m).params[0].required
+
+
+def test_missing_docstring_rejected():
+    with pytest.raises(ValueError):
+
+        class P:
+            @probe_method()
+            def m(self, a: str) -> list:
+                return []
+
+
+def test_unsupported_param_type_rejected():
+    with pytest.raises(TypeError):
+
+        class P:
+            @probe_method()
+            def m(self, a: dict) -> list:
+                "m"
+                return []
+
+
+def test_to_dict_shape():
+    class P:
+        @probe_method()
+        def m(self, a: str) -> list:
+            "help"
+            return []
+
+    d = _spec(P.m).to_dict()
+    assert d == {
+        "command": "m",
+        "description": "help",
+        "params": [{"name": "a", "type": "str", "required": True, "default": None}],
+        # Empty because this command takes no container argument. A listing that does
+        # -- tables(schema) -- names it here, and the result carries the value so the
+        # caller need not restate it as --parent.
+        "parent_params": [],
+        # None because this command declares no kind: `probe filter` then needs
+        # the caller to say, which is only true for commands like `sql`.
+        "kind": None,
+    }
+
+
+def test_iter_specs_walks_mro_sorted():
+
+    class Base:
+        @probe_method()
+        def a(self, x: str) -> list:
+            "a"
+            return []
+
+    class Sub(Base):
+        @probe_method()
+        def b(self, y: int = 1) -> list:
+            "b"
+            return []
+
+    assert [c for c, _ in _iter_specs(Sub)] == ["a", "b"]
+
+
+class _FakeProvider:
+    @classmethod
+    def for_config(cls, config):
+        return cls()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+    @probe_method()
+    def foreign_keys(self, schema: str, table: str) -> list:
+        "FKs."
+        return [{"schema": schema, "table": table}]
+
+
+class _FakeConfig:
+    @classmethod
+    def probe_provider_class(cls):
+        return _FakeProvider
+
+    @classmethod
+    def model_validate(cls, d):
+        return cls()
+
+
+def _patch(monkeypatch):
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _FakeProvider)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _FakeConfig)
+    return pm
+
+
+def test_list_probe_methods(monkeypatch):
+    pm = _patch(monkeypatch)
+    assert [s.command for s in pm.list_probe_methods("x")] == ["foreign_keys"]
+
+
+def test_run_probe_method_dispatches_and_coerces(monkeypatch):
+    pm = _patch(monkeypatch)
+    res = pm.run_probe_method("x", {}, "foreign_keys", {"schema": "s", "table": "t"})
+    assert res.result == [{"schema": "s", "table": "t"}]
+    assert res.to_dict()["command"] == "foreign_keys"
+
+
+def test_run_probe_method_missing_required(monkeypatch):
+    pm = _patch(monkeypatch)
+    with pytest.raises(ValueError):
+        pm.run_probe_method("x", {}, "foreign_keys", {"schema": "s"})
+
+
+def test_run_probe_method_unknown_command(monkeypatch):
+    pm = _patch(monkeypatch)
+    with pytest.raises(ValueError):
+        pm.run_probe_method("x", {}, "nope", {})
+
+
+def test_run_probe_method_unknown_param(monkeypatch):
+    pm = _patch(monkeypatch)
+    with pytest.raises(ValueError):
+        pm.run_probe_method(
+            "x", {}, "foreign_keys", {"schema": "s", "table": "t", "z": "1"}
+        )
+
+
+def test_run_probe_method_reports_no_warnings_when_provider_has_none(monkeypatch):
+    # _FakeProvider exposes no `warnings` attribute at all -- the common case,
+    # since most providers have nothing to degrade.
+    pm = _patch(monkeypatch)
+    res = pm.run_probe_method("x", {}, "foreign_keys", {"schema": "s", "table": "t"})
+    assert res.warnings == []
+
+
+class _FakeProviderWithWarnings(_FakeProvider):
+    """A provider that degraded a sub-fetch (see agent.verdicts.ProbeSoftError)
+    and reports it via its own `warnings` attribute -- duck-typed, not part
+    of the ProbeProvider Protocol, since run_probe_method reads it via
+    getattr rather than requiring every provider to declare it."""
+
+    def __init__(self):
+        self.warnings = ["definitions listing returned HTTP 403; treating it as empty."]
+
+
+def test_run_probe_method_surfaces_a_providers_own_warnings(monkeypatch):
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _FakeProviderWithWarnings)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _FakeConfig)
+    res = pm.run_probe_method("x", {}, "foreign_keys", {"schema": "s", "table": "t"})
+    assert res.warnings == [
+        "definitions listing returned HTTP 403; treating it as empty."
+    ]
+
+
+def test_list_probe_methods_unknown_source_raises_value_error():
+    # Exercises the real registry (no config_class_for/_provider_class monkeypatch)
+    # so the KeyError -> ValueError guard in config_class_for is actually hit.
+    with pytest.raises(ValueError):
+        list_probe_methods("definitely_not_a_source")
+
+
+def test_run_probe_method_unknown_source_raises_value_error():
+    with pytest.raises(ValueError):
+        run_probe_method("definitely_not_a_source", {}, "x", {})
+
+
+def test_coerce_int_accepts_native_int_float_and_numeric_string():
+    param = ProbeParam(name="limit", type="int", required=True)
+    assert _coerce(param, 5) == 5
+    assert _coerce(param, 5.0) == 5
+    assert _coerce(param, "7") == 7
+
+
+def test_coerce_bool_from_string():
+    param = ProbeParam(name="flag", type="bool", required=True)
+    assert _coerce(param, "true")
+    assert not _coerce(param, "no")
+
+
+# --- the gate is wired into the execution path, not just importable ----------
+# _enforce_gates and run_probe_method are each covered above and in
+# test_scoped_probe_methods, but nothing exercised them TOGETHER: the call
+# joining them could be deleted and every other test would still pass. These
+# drive a scoped method through run_probe_method so the wiring itself is pinned.
+
+
+class _GatedProvider:
+    """A provider whose sql method declares its raw-SQL parameter."""
+
+    sql_dialect = "postgres"
+    ran: List[str] = []
+
+    @classmethod
+    def for_config(cls, config: object) -> "_GatedProvider":
+        return cls()
+
+    def __enter__(self) -> "_GatedProvider":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        pass
+
+    @probe_method(name="sql", scoped_sql_param="query")
+    def sql(self, query: str) -> Dict[str, object]:
+        """Run a catalog query."""
+        _GatedProvider.ran.append(query)
+        return {"ok": True}
+
+
+class _GatedConfig:
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        return _GatedProvider
+
+    @classmethod
+    def model_validate(cls, d: object) -> "_GatedConfig":
+        return cls()
+
+
+def _patch_gated(monkeypatch):
+
+    _GatedProvider.ran = []
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _GatedProvider)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _GatedConfig)
+    return pm
+
+
+def test_run_probe_method_refuses_a_query_the_gate_rejects(monkeypatch):
+
+    pm = _patch_gated(monkeypatch)
+    with pytest.raises(SqlScopeError):
+        pm.run_probe_method("x", {}, "sql", {"query": "SELECT * FROM public.orders"})
+    # The provider must never have been called: the gate runs before dispatch.
+    assert _GatedProvider.ran == []
+
+
+def test_run_probe_method_admits_a_query_the_gate_allows(monkeypatch):
+    pm = _patch_gated(monkeypatch)
+    query = "SELECT table_name FROM information_schema.tables"
+    result = pm.run_probe_method("x", {}, "sql", {"query": query})
+    assert result.result == {"ok": True}
+    assert _GatedProvider.ran == [query]
+
+
+def test_a_dialect_that_cannot_answer_says_so_instead_of_looking_unreachable(
+    monkeypatch,
+):
+    """An unsupported reflection method must not read as a connection failure.
+
+    SQLAlchemy dialects raise NotImplementedError for reflection they do not support
+    -- table_comment on Trino, MSSQL and ClickHouse among them. Without this branch
+    the exception reaches recipe_cli's catch-all and exits 3, "I could not reach the
+    source", so an agent concludes the source is unreachable and retries. Exit 2 is
+    the truth: the connection was fine, the command was the wrong one to ask for.
+    """
+
+    class _Unsupporting:
+        @classmethod
+        def for_config(cls, config: object) -> "_Unsupporting":
+            return cls()
+
+        def __enter__(self) -> "_Unsupporting":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        @probe_method()
+        def table_comment(self, schema: str, table: str) -> dict:
+            """The table's stored comment, where the dialect has them."""
+            raise NotImplementedError()
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls) -> type:
+            return _Unsupporting
+
+        @classmethod
+        def model_validate(cls, d: object) -> "_Config":
+            return cls()
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Unsupporting)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+
+    with pytest.raises(ValueError, match="does not support the 'table_comment'") as err:
+        pm.run_probe_method("trino", {}, "table_comment", {"schema": "s", "table": "t"})
+    # ValueError is what recipe_cli maps to the user-error exit code; anything else
+    # lands in the catch-all and is reported as a connection problem.
+    assert "reached" in str(err.value)
+
+
+def test_a_failure_recorded_before_a_raise_is_not_discarded(monkeypatch):
+    """The report was only read on the success path.
+
+    A getter can record report.failure() and *then* raise -- Hex's
+    _project_id_or_raise raises ProbeSoftError("no project titled 'x'") after
+    its /projects fetch already failed and was recorded. Reading the report only
+    after a successful return threw that reason away, and ProbeSoftError being a
+    ValueError meant the caller was told at exit 2 to fix a title when the
+    listing had 401'd.
+    """
+    from datahub.ingestion.agent.verdicts import ProbeReadFailed, ProbeSoftError
+
+    class _Report:
+        def __init__(self) -> None:
+            self.failures = ["Listing projects failed: 403 Forbidden"]
+            self.warnings: List[str] = []
+
+    class _Prov:
+        def __init__(self) -> None:
+            self._report = _Report()
+
+        @property
+        def probe_report(self) -> object:
+            return self._report
+
+        def __enter__(self) -> "_Prov":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        @classmethod
+        def for_config(cls, config: object) -> "_Prov":
+            return cls()
+
+        @probe_method(name="projects")
+        def projects(self) -> object:
+            """Records a failure, then raises about the title."""
+            raise ProbeSoftError("no project titled 'x' found in this workspace")
+
+    # monkeypatch, not direct assignment: these are module globals, and
+    # setting them unrestored leaks into every later test in the session.
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Prov)
+    monkeypatch.setattr(
+        pm,
+        "config_class_for",
+        lambda st: type("C", (), {"model_validate": staticmethod(lambda d: None)}),
+    )
+    with pytest.raises(ProbeReadFailed, match="403 Forbidden") as exc_info:
+        pm.run_probe_method("hex", {}, "projects", {})
+    # Not a ValueError, so it maps to exit 3 rather than blaming the argument.
+    assert not isinstance(exc_info.value, ValueError)
+
+
+def test_a_plain_failures_list_recorded_before_a_raise_is_not_discarded(monkeypatch):
+    """The raise path read only probe_report.
+
+    Both shapes are supported -- the success path merges `provider.failures`
+    and `provider.probe_report.failures` -- so a provider using the plain list
+    and then raising had its reason dropped and reached the CLI as a user
+    error (exit 2, "fix your argument") rather than an unreachable source.
+    """
+    from datahub.ingestion.agent.verdicts import ProbeReadFailed, ProbeSoftError
+
+    class _Prov:
+        def __init__(self) -> None:
+            self.failures = ["Listing projects failed: 403 Forbidden"]
+            self.warnings: List[str] = []
+
+        def __enter__(self) -> "_Prov":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        @classmethod
+        def for_config(cls, config: object) -> "_Prov":
+            return cls()
+
+        @probe_method(name="projects")
+        def projects(self) -> object:
+            """Records a failure on the plain list, then raises."""
+            raise ProbeSoftError("no project titled 'x' found in this workspace")
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Prov)
+    monkeypatch.setattr(
+        pm,
+        "config_class_for",
+        lambda st: type("C", (), {"model_validate": staticmethod(lambda d: None)}),
+    )
+    with pytest.raises(ProbeReadFailed, match="403 Forbidden"):
+        pm.run_probe_method("hex", {}, "projects", {})
+
+
+# --- what "required" means -------------------------------------------------
+
+
+def test_optional_says_nullable_and_the_default_says_omittable():
+    """These were conflated: any Optional[...] was advertised required=False,
+    so a parameter with no default was described as omittable and then invoked
+    without it -- TypeError, which recipe_cli maps to exit 2, blaming the
+    caller for input the framework had described as optional."""
+
+    class Provider:
+        @probe_method()
+        def one(self, must: Optional[str]) -> str:
+            """Nullable, but you still have to pass it."""
+            return str(must)
+
+        @probe_method()
+        def two(self, may: Optional[str] = None) -> str:
+            """Nullable and omittable."""
+            return str(may)
+
+    specs = {c: s for c, s in _iter_specs(Provider)}
+    assert {p.name: p.required for p in specs["one"].params} == {"must": True}
+    assert {p.name: p.required for p in specs["two"].params} == {"may": False}
+
+
+def test_a_plain_parameter_with_a_default_is_still_omittable():
+    class Provider:
+        @probe_method()
+        def cmd(self, needed: str, limit: int = 10) -> str:
+            """Two shapes."""
+            return needed
+
+    spec = dict(_iter_specs(Provider))["cmd"]
+    assert {p.name: p.required for p in spec.params} == {
+        "needed": True,
+        "limit": False,
+    }
+
+
+class _UnboundedProvider:
+    """A listing that declares no row_limit_param -- Mode's spaces, Hex's
+    connections and the SQLAlchemy family's columns are all this shape."""
+
+    @classmethod
+    def for_config(cls, config):
+        return cls()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+    @probe_method()
+    def everything(self) -> list:
+        "No row limit declared."
+        return [f"n{i}" for i in range(pm.MAX_PROBE_ITEMS + 25)]
+
+    @probe_method()
+    def everything_keyed(self) -> dict:
+        "No row limit declared, and keyed -- Hex's connections() shape."
+        return {f"k{i}": {"name": f"n{i}"} for i in range(pm.MAX_PROBE_ITEMS + 25)}
+
+
+def test_a_listing_with_no_declared_row_limit_is_still_capped(monkeypatch):
+    """MAX_PROBE_ITEMS calls itself "the most items any probe command may
+    return, whatever the caller asked for", and was wired only to commands
+    declaring row_limit_param. Mode's spaces/reports/datasets/queries, Hex's
+    connections and the SQLAlchemy family's columns/indexes/foreign_keys all
+    returned everything with truncated: false -- and Mode's listings page the
+    whole workspace, so a large one returned every report and called the
+    answer complete.
+    """
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _UnboundedProvider)
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls):
+            return _UnboundedProvider
+
+        @classmethod
+        def model_validate(cls, d):
+            return cls()
+
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+
+    result = pm.run_probe_method("x", {}, "everything", {})
+    assert isinstance(result.result, list)
+    assert len(result.result) == pm.MAX_PROBE_ITEMS
+    assert result.truncated, "a cut-short listing must say so"
+
+
+def test_a_keyed_listing_is_capped_the_same_way(monkeypatch):
+    """The cap was wired to `isinstance(result, list)`, and the branch's own
+    comment names "Hex's connections" as a case it covers -- which it did not,
+    because connections() returns a Dict keyed by connection id. A large
+    workspace therefore returned every connection and reported
+    truncated: false, which is the exact claim the cap exists to stop.
+    """
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _UnboundedProvider)
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls):
+            return _UnboundedProvider
+
+        @classmethod
+        def model_validate(cls, d):
+            return cls()
+
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+
+    result = pm.run_probe_method("x", {}, "everything_keyed", {})
+    assert isinstance(result.result, dict)
+    assert len(result.result) == pm.MAX_PROBE_ITEMS
+    assert result.truncated, "a cut-short mapping must say so"
+    # Insertion order is the fetch order, so the kept half is the first half
+    # rather than an arbitrary sample.
+    assert "k0" in result.result and f"k{pm.MAX_PROBE_ITEMS + 24}" not in result.result
+
+
+def test_a_self_shaped_result_survives_every_framework_bound(monkeypatch):
+    """`shapes_own_result` is one flag read at four decision points.
+
+    A reviewer called that out: it is checked in _bounded_kwargs and in
+    three branches of run_probe_method, so a second self-shaping command has
+    to satisfy all four and getting one wrong is silent. `sql` is the only
+    such command today, so that coordination currently rests on one caller.
+
+    Rather than infer a result-policy abstraction from a single case, this
+    pins the contract the second such command will need.
+
+    What it actually covers, checked by mutating each branch rather than
+    assumed: mirroring `truncated` up from the envelope IS load-bearing --
+    disabling that branch fails this test, and without it a `sql` result cut
+    short reads as complete at the one field a caller looks at. The
+    MAX_PROBE_ITEMS fallback's flag check is NOT load-bearing here and the
+    first version of this docstring wrongly claimed it was: that branch
+    treats a bare dict as a keyed listing and clips it to N keys, but an
+    envelope has a handful of keys and never approaches the cap. It is
+    defensive, and worth keeping as such -- a future envelope built as a
+    mapping of many entries would need it.
+    """
+
+    class _Provider:
+        def __enter__(self) -> "_Provider":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        @pm.probe_method(name="enveloped", shapes_own_result=True)
+        def enveloped(self, limit: int = 50) -> Dict[str, object]:
+            """A command that builds its own envelope."""
+            # Deliberately more rows than the framework cap: bounding is the
+            # command's job when it shapes its own result.
+            return {
+                "columns": ["c"],
+                "rows": [[i] for i in range(pm.MAX_PROBE_ITEMS + 50)],
+                "truncated": True,
+            }
+
+        @classmethod
+        def for_config(cls, config: object) -> "_Provider":
+            return cls()
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls) -> type:
+            return _Provider
+
+        @classmethod
+        def model_validate(cls, d: object) -> "_Config":
+            return cls()
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Provider)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+
+    result = pm.run_probe_method("x", {}, "enveloped", {"limit": "10"})
+
+    assert isinstance(result.result, dict)
+    # The envelope is intact -- not clipped to MAX_PROBE_ITEMS keys.
+    assert sorted(result.result) == ["columns", "rows", "truncated"]
+    # And its contents are the command's, not the framework's.
+    assert len(result.result["rows"]) == pm.MAX_PROBE_ITEMS + 50
+    # Truncation is mirrored up from the envelope rather than recomputed, so
+    # a caller reads one field whichever kind of command answered.
+    assert result.truncated
+
+
+def test_a_limit_the_cli_passes_as_a_string_still_truncates(monkeypatch):
+    """The CLI hands every param over as a string, and truncation read the
+    RAW kwargs.
+
+    `--limit 2` arrives as "2", which failed the int check, so the whole
+    truncation path went dormant: run_probe_method's own comment records the
+    live result -- limit reported as 3 and truncated false, for a listing
+    that had been cut off at 2. The fix reads the limit back from the
+    COERCED dict, and nothing pinned it.
+    """
+
+    class _Provider:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return None
+
+        @pm.probe_method(row_limit_param="limit")
+        def things(self, limit: int = 50) -> List[str]:
+            """Every thing."""
+            return [f"t{i}" for i in range(limit)]
+
+        @classmethod
+        def for_config(cls, config):
+            return cls()
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Provider)
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls):
+            return _Provider
+
+        @classmethod
+        def model_validate(cls, d):
+            return cls()
+
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+
+    # Exactly what the CLI passes: a string, not an int.
+    result = pm.run_probe_method("x", {}, "things", {"limit": "2"})
+
+    assert result.result == ["t0", "t1"], result.result
+    assert result.truncated, (
+        "a string limit left truncation dormant, so a cut-short listing "
+        "reported itself complete"
+    )
+
+
+def test_a_short_listing_with_no_row_limit_is_not_marked_truncated(monkeypatch):
+    """The control -- a cap that always reports truncated is no better than
+    one that never does."""
+
+    class _Short(_UnboundedProvider):
+        @probe_method()
+        def everything(self) -> list:
+            "Short."
+            return ["a", "b"]
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Short)
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls):
+            return _Short
+
+        @classmethod
+        def model_validate(cls, d):
+            return cls()
+
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+
+    result = pm.run_probe_method("x", {}, "everything", {})
+    assert result.result == ["a", "b"]
+    assert not result.truncated
+
+
+def test_discovery_survives_a_recipe_that_does_not_validate_yet():
+    """`probe methods` is the agent's first call on a recipe it is still writing.
+
+    list_probe_methods takes the config only to ask a CLASSMETHOD
+    (probe_kind_overrides) which kind a per-recipe command reports -- its own
+    docstring says "Still connection-free". Building the config to ask that
+    question made an incomplete recipe fail the whole command: a postgres
+    recipe missing host_port exited 2 with no methods listed, so the agent
+    could not discover the commands that would tell it what to fix.
+
+    The kinds degrade to the un-overridden ones, which is what a caller
+    passing no config gets anyway.
+    """
+    complete = {
+        "host_port": "h:5432",
+        "username": "u",
+        "password": "p",
+        "database": "d",
+    }
+    full = list_probe_methods("postgres", config_dict=complete)
+    partial = list_probe_methods("postgres", config_dict={"username": "u"})
+    none_given = list_probe_methods("postgres")
+
+    def kinds(specs):
+        return {spec.command: spec.kind for spec in specs}
+
+    assert [s.command for s in partial] == [s.command for s in full]
+    assert [s.command for s in partial] == [s.command for s in none_given]
+
+    # The commands above cannot catch a kind regression: probe_kind_overrides
+    # only ever changes `kind`, so the three lists are identical by
+    # construction and this test would pass with the degrade broken.
+    #
+    # The kinds are where the behaviour is. An incomplete recipe degrades to
+    # exactly what passing no config gives...
+    assert kinds(partial) == kinds(none_given)
+    # ...and that really is a degrade rather than two connectors agreeing on
+    # None by accident: a complete postgres recipe resolves `containers` to
+    # Schema, which is the override the incomplete one cannot ask for.
+    assert kinds(full)["containers"] == "Schema"
+    assert kinds(partial)["containers"] is None
+    # Everything not driven by the config is unaffected either way, so the
+    # degrade is scoped to the per-recipe answer and does not flatten the
+    # class-level kinds.
+    assert kinds(full)["tables"] == "Table"
+    assert kinds(partial)["tables"] == "Table"
+
+
+@pytest.mark.parametrize(
+    "source_type", ["my.module:Class", "a.b.c", "x:y:z", "definitely_not_a_source"]
+)
+def test_an_unresolvable_source_type_is_a_user_error(source_type):
+    """DataHub takes a dotted import path as a source type, so a typo in one
+    is user input -- and it surfaced as ModuleNotFoundError("No module named
+    'my'"), which is not in the CLI's _USER_ERRORS and so exits as an
+    internal failure. An agent reads that as "retry", when the answer is
+    "fix the name".
+
+    A registered-but-broken plugin stays an internal error: that is the
+    deployment's problem, not the caller's.
+    """
+    with pytest.raises(ValueError):
+        pm.config_class_for(source_type)

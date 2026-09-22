@@ -13,25 +13,14 @@
 # limitations under the License.
 
 import asyncio
-import json
 import logging
-import os
 import subprocess
 import sys
 from collections import deque
-from pathlib import Path
-
-import yaml
 
 from datahub.executor.common.config import ConfigModel
 from datahub.executor.context.execution_context import ExecutionContext
 from datahub.executor.context.executor_context import ExecutorContext
-from datahub.executor.execution.runner import (
-    LogHolder,
-    SubprocessRunner,
-    VenvConfig,
-    setup_venv,
-)
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
     SubProcessTaskUtil,
@@ -69,42 +58,21 @@ class SubProcessTestConnectionTask(Task):
         self.ctx = ctx
 
     async def execute(self, args: dict, ctx: ExecutionContext) -> None:
-        exec_id = ctx.exec_id  # The unique execution id.
-
-        exec_out_dir = f"{self.tmp_dir}/{exec_id}"
-
-        # 0. Validate arguments
+        exec_out_dir = f"{self.tmp_dir}/{ctx.exec_id}"
         validated_args = SubProcessTestConnectionTaskArgs.model_validate(args)
+        report_out_file: str = f"{exec_out_dir}/connection_report.json"
 
-        # 1. Resolve the recipe and secrets (secrets stay in memory)
-        recipe, secret_values = SubProcessTaskUtil._resolve_recipe(
-            validated_args.recipe, execution_ctx=ctx, executor_ctx=self.ctx
+        # Recipe resolution, venv, subprocess env and stdin envelope are the
+        # skeleton every recipe task shares; SubProcessTaskUtil owns it so the
+        # copies cannot drift apart again.
+        prepared = await SubProcessTaskUtil.prepare_recipe_run(
+            validated_args,
+            execution_ctx=ctx,
+            executor_ctx=self.ctx,
+            exec_out_dir=exec_out_dir,
+            envelope_extra={"__report_out_file__": report_out_file},
         )
-        plugin: str = SubProcessTaskUtil._get_plugin_from_recipe(recipe)
 
-        # 2. Prepare or resolve venv
-        venv_config = VenvConfig(
-            version=validated_args.version,
-            main_plugin=plugin,
-            extra_pip_requirements=validated_args.extra_pip_requirements,
-            extra_pip_plugins=validated_args.extra_pip_plugins,
-            extra_env_vars=validated_args.extra_env_vars,
-        )
-        user_env_secrets = SubProcessTaskUtil.subprocess_env_secrets(validated_args)
-
-        venv_setup_logs = LogHolder()
-        venv_runner = SubprocessRunner(logs=venv_setup_logs)
-        try:
-            venv_ref = await setup_venv(
-                venv_config=venv_config,
-                runner=venv_runner,
-                tmp_dir=Path(exec_out_dir),
-            )
-        except Exception as e:
-            error_msg = SubProcessTaskUtil.format_subprocess_error(e)
-            raise TaskError(f"Failed to set up virtual environment: {error_msg}") from e
-
-        # 3. Spin off subprocess to run the test-connection script with venv path
         # Invoked with this interpreter rather than by bare name off PATH: the wrapper
         # must run in the executor's own environment (it then activates the per-run
         # target venv itself). By absolute path rather than -m: see
@@ -112,35 +80,15 @@ class SubProcessTestConnectionTask(Task):
         command_script: str = resolve_wrapper_script(
             "datahub.executor.wrappers.run_test_connection"
         )
-        Path(exec_out_dir).mkdir(0o755, parents=True, exist_ok=True)
-        report_out_file: str = f"{exec_out_dir}/connection_report.json"
         stdout_lines: deque = deque(maxlen=SubProcessTaskUtil.MAX_LOG_LINES)
-
-        # Prepare environment for subprocess
-        subprocess_env = {
-            **validated_args.get_combined_env_vars(),
-            "VENV_PATH": str(venv_ref.venv_loc),
-            "DATAHUB_ENABLE_SECRET_MASKING": "true",
-        }
-
-        # Build stdin envelope in datahub-compatible format.
-        # All envelope keys use dunder prefix to distinguish from recipe content.
-        # Per-run values only, never the whole registry; recipe values win on collision.
-        stdin_envelope = json.dumps(
-            {
-                "__recipe_yaml__": yaml.dump(recipe),
-                "__secrets__": {**user_env_secrets, **secret_values},
-                "__report_out_file__": report_out_file,
-            }
-        )
 
         ingest_process = subprocess.Popen(
             [
                 sys.executable,
                 command_script,
-                str(venv_ref.venv_loc),
+                str(prepared.venv_ref.venv_loc),
             ],
-            env=subprocess_env,
+            env=prepared.subprocess_env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -149,7 +97,7 @@ class SubProcessTestConnectionTask(Task):
 
         # Write envelope to stdin and close
         assert ingest_process.stdin is not None
-        ingest_process.stdin.write(stdin_envelope)
+        ingest_process.stdin.write(prepared.stdin_envelope)
         ingest_process.stdin.close()
 
         masking_filter = SecretMaskingFilter()
@@ -172,22 +120,13 @@ class SubProcessTestConnectionTask(Task):
             raise
 
         finally:
-            if os.path.exists(report_out_file):
-                with open(report_out_file) as structured_report_fp:
-                    report_content = structured_report_fp.read()
-                    ctx.get_report().set_structured_report(
-                        masking_filter.mask_text(report_content)
-                    )
-
-            # Whole-buffer mask: covers multi-line secrets that the per-line masking cannot.
-            ctx.get_report().set_logs(
-                masking_filter.mask_text(
-                    SubProcessTaskUtil._format_log_lines(stdout_lines)
-                )
+            SubProcessTaskUtil.finalize_task_output(
+                report_out_file,
+                exec_out_dir,
+                stdout_lines,
+                ctx,
+                masking_filter=masking_filter,
             )
-
-            # Cleanup execution directory
-            SubProcessTaskUtil._remove_directory(exec_out_dir)
 
         if return_code != 0:
             # Failed

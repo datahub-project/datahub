@@ -1,6 +1,7 @@
 # This import verifies that the dependencies are available.
 import logging
 import re
+import ssl
 from collections import OrderedDict
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -19,7 +20,7 @@ from typing import (
 import pymysql  # noqa: F401
 from pydantic import model_validator
 from pydantic.fields import Field
-from sqlalchemy import create_engine, event, inspect, text, util
+from sqlalchemy import create_engine, inspect, text, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
@@ -44,17 +45,15 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import (
-    AwsConnectionConfig,
     RDSIAMTokenManager,
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.sql.rds_iam import RDSIAMConnectionMixin
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
-from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.models import (
     BaseProcedure,
 )
@@ -193,7 +192,7 @@ class MySQLUsageSource(StrEnum):
     GENERAL_LOG = "general_log"
 
 
-class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
+class MySQLConnectionConfig(RDSIAMConnectionMixin):
     # defaults
     host_port: str = Field(default="localhost:3306", description="MySQL host URL.")
     scheme: HiddenFromDocs[str] = "mysql+pymysql"
@@ -205,13 +204,60 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
         "Options are 'PASSWORD' (default) for standard username/password authentication, "
         "or 'AWS_IAM' for AWS RDS IAM authentication.",
     )
-    aws_config: AwsConnectionConfig = Field(
-        default_factory=AwsConnectionConfig,
-        description="AWS configuration for RDS IAM authentication (only used when auth_mode is AWS_IAM). "
-        "Provides full control over AWS credentials, region, profiles, role assumption, retry logic, and proxy settings. "
-        "If not explicitly configured, boto3 will automatically use the default credential chain and region from "
-        "environment variables (AWS_DEFAULT_REGION, AWS_REGION), AWS config files (~/.aws/config), or IAM role metadata.",
-    )
+
+    def rds_iam_enabled(self) -> bool:
+        return self.auth_mode == MySQLAuthMode.AWS_IAM
+
+    def rds_iam_default_port(self) -> int:
+        return 3306
+
+    def apply_rds_iam_ssl(self, cparams: Dict[str, Any]) -> None:
+        # PyMySQL requires SSL to be enabled for RDS IAM authentication.
+        # Preserve any existing SSL configuration, otherwise enable with default
+        # settings. The {"ssl": True} dict is a workaround to make PyMySQL
+        # recognize that SSL should be enabled, since the library requires a
+        # truthy value in the ssl parameter. See
+        # https://pymysql.readthedocs.io/en/latest/modules/connections.html#pymysql.connections.Connection
+        cparams["ssl"] = cparams.get("ssl") or {"ssl": True}
+
+    def rds_iam_tls_is_verified(self, cparams: Dict[str, Any]) -> bool:
+        """Mirrors PyMySQL's own _create_ssl_ctx, which is the only thing
+        that decides this.
+
+        An earlier version asked whether `ca` OR `ca_certs` was set. PyMySQL
+        reads `ca` and `capath` and has never read `ca_certs`, so that
+        accepted a key the driver ignores: a recipe using it got no warning
+        AND no verification, which is worse than no warning at all. It also
+        missed `capath`, which does enable verification.
+
+        Reimplemented rather than inferred, because the rules are not
+        obvious: a CA turns on CERT_REQUIRED and check_hostname, but either
+        can be explicitly turned back off in the same dict.
+        """
+        ssl_opts = cparams.get("ssl")
+        if isinstance(ssl_opts, ssl.SSLContext):
+            # A caller can hand PyMySQL a ready context; ask it directly.
+            return ssl_opts.check_hostname and ssl_opts.verify_mode == ssl.CERT_REQUIRED
+        if not isinstance(ssl_opts, dict):
+            return False
+        # hasnoca: no trust anchor, so CERT_NONE and no hostname check.
+        if ssl_opts.get("ca") is None and ssl_opts.get("capath") is None:
+            return False
+        if not ssl_opts.get("check_hostname", True):
+            return False
+        verify_mode = ssl_opts.get("verify_mode")
+        if verify_mode is None:
+            return True  # CERT_REQUIRED, because a CA is present
+        if isinstance(verify_mode, bool):
+            return verify_mode
+        return str(verify_mode).lower() in ("required", "1", "true", "yes")
+
+    def rds_iam_tls_hint(self) -> str:
+        return (
+            "set options.connect_args.ssl.ca (or ssl.capath) to the RDS CA "
+            "bundle path (https://truststore.pki.rds.amazonaws.com/); note "
+            "PyMySQL ignores ssl.ca_certs"
+        )
 
 
 class MySQLProfilingConfig(GEProfilingConfig):
@@ -255,6 +301,12 @@ class MySQLProfilingConfig(GEProfilingConfig):
 
 
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
+    def probe_prepare_engine(self, engine: Any) -> None:
+        # Without this, an AWS_IAM recipe cannot be probed at all: the password
+        # is a token injected per connection, so a bare create_engine() has no
+        # credential to connect with.
+        self.install_rds_iam_auth(engine)
+
     profiling: MySQLProfilingConfig = Field(
         default_factory=MySQLProfilingConfig,
         description="Configuration for profiling tables.",
@@ -350,7 +402,6 @@ class MySQLSource(TwoTierSQLAlchemySource):
         super().__init__(config, ctx, self.get_platform())
 
         self._discovered_lower_cache: Optional[Set[str]] = None
-        self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
         # Guardrail cache populated by add_profile_metadata's information_schema sweep
         # and consumed by generate_profile_candidates / is_dataset_eligible_for_profiling.
         # Kept on the source (not on the shared ProfileMetadata) so sql_common.py stays
@@ -371,20 +422,13 @@ class MySQLSource(TwoTierSQLAlchemySource):
         self._table_rows_available: bool = False
         # dataset_name -> "row" | "size": set while filtering, consumed to attribute skips.
         self._guardrail_skip: Dict[str, str] = {}
-        if config.auth_mode == MySQLAuthMode.AWS_IAM:
-            hostname, port = parse_host_port(config.host_port, default_port=3306)
-            if port is None:
-                raise ValueError("Port must be specified for RDS IAM authentication")
-
-            if not config.username:
-                raise ValueError("username is required for RDS IAM authentication")
-
-            self._rds_iam_token_manager = RDSIAMTokenManager(
-                endpoint=hostname,
-                username=config.username,
-                port=port,
-                aws_config=config.aws_config,
-            )
+        # Built by the config, not here, so `datahub recipe probe` gets the same
+        # token manager off the same object -- see RDSIAMConnectionMixin. Called
+        # eagerly so a recipe that asks for IAM without a port or username still
+        # fails at construction, as it did when this block lived here.
+        self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = (
+            config.rds_iam_token_manager()
+        )
 
     def get_platform(self):
         return "mysql"
@@ -441,28 +485,20 @@ class MySQLSource(TwoTierSQLAlchemySource):
             context=formatted,
         )
 
-    def _setup_rds_iam_event_listener(
-        self, engine: "Engine", database_name: Optional[str] = None
-    ) -> None:
-        """Setup SQLAlchemy event listener to inject RDS IAM tokens."""
-        if not (
-            self.config.auth_mode == MySQLAuthMode.AWS_IAM
-            and self._rds_iam_token_manager
-        ):
-            return
+    def _setup_rds_iam_event_listener(self, engine: "Engine") -> None:
+        """Inject RDS IAM tokens on this engine's connections.
 
-        def do_connect_listener(_dialect, _conn_rec, _cargs, cparams):
-            if not self._rds_iam_token_manager:
-                raise RuntimeError("RDS IAM Token Manager is not initialized")
-            cparams["password"] = self._rds_iam_token_manager.get_token()
-            # PyMySQL requires SSL to be enabled for RDS IAM authentication.
-            # Preserve any existing SSL configuration, otherwise enable with default settings.
-            # The {"ssl": True} dict is a workaround to make PyMySQL recognize that SSL
-            # should be enabled, since the library requires a truthy value in the ssl parameter.
-            # See https://pymysql.readthedocs.io/en/latest/modules/connections.html#pymysql.connections.Connection
-            cparams["ssl"] = cparams.get("ssl") or {"ssl": True}
+        One line, because the implementation is on the config: the probe builds
+        its own engines and can only reach setup that lives there.
 
-        event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
+        It used to take a `database_name` the body never read, passed by the
+        per-database call site. A parameter that does nothing reads as a
+        per-database token and there is no such thing -- the token is scoped
+        to host, port and user, so every engine against the same instance
+        wants the same setup. Dropped rather than documented, since the
+        comment explaining it was the only thing keeping it true.
+        """
+        self.config.install_rds_iam_auth(engine)
 
     def get_inspectors(self):
         url = self.config.get_sql_alchemy_url()
@@ -492,7 +528,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
             # connections (QueuePool accepts it). PR #18319 fixes the mirror-image case where the
             # same injected option breaks the NullPool usage engine — same root cause.
             db_engine = create_engine(db_url, **self.config.options)
-            self._setup_rds_iam_event_listener(db_engine, database_name=db)
+            self._setup_rds_iam_event_listener(db_engine)
             try:
                 with db_engine.connect() as conn:
                     inspector = inspect(conn)

@@ -131,6 +131,77 @@ class DorisConfig(MySQLConfig):
         description="Not applicable for Doris.",
     )
 
+    def probe_sql_alchemy_url(self) -> str:
+        """The URL the PROBE should dial, which is not the default one.
+
+        Ingestion always passes `current_db` explicitly, and for an external
+        catalog it passes the QUALIFIED `catalog.database` that Doris expects
+        over the MySQL protocol (see _qualified_database). A caller that
+        passes nothing got the bare database instead and therefore landed in
+        the session's default catalog -- the internal one -- reading a
+        different `sales` than ingestion reads.
+
+        The probe is such a caller: sqlalchemy_probe builds its engine from
+        `config.get_sql_alchemy_url()`. So `containers`, and every verdict
+        derived from that connection, described the wrong catalog. That is
+        the probe/ingestion divergence this stage exists to remove, arriving
+        through the connection rather than through the identifier.
+
+        Scoped to the probe rather than defaulted on get_sql_alchemy_url().
+        The first version defaulted it, on the reasoning that any caller
+        naming no database wants this recipe's catalog. That over-reached:
+        MySQLSource._usage_connection calls get_sql_alchemy_url() bare, and
+        DorisSource inherits it with no override while include_usage_statistics
+        lives on MySQLConfig -- so a Doris recipe with a catalog and usage
+        enabled had its usage connection silently moved to a different
+        catalog by a change meant for the probe.
+
+        A hook the probe asks for keeps the blast radius at the probe. Every
+        other caller gets exactly what it got before.
+        """
+        if not self.database:
+            return self.get_sql_alchemy_url()
+        return self.get_sql_alchemy_url(
+            current_db=self._qualified_database_name(self.database)
+        )
+
+    def _qualified_database_name(self, database: str) -> str:
+        """`catalog.database` for an external catalog, the bare name otherwise.
+
+        The config-side twin of DorisSource._qualified_database, which cannot
+        be reused here: it reads the SOURCE's detected session catalog, and
+        a config has no session. Same rule, same internal-catalog exception.
+        """
+        if self.catalog and self.catalog != DORIS_INTERNAL_CATALOG:
+            return f"{self.catalog}.{database}"
+        return database
+
+    def probe_normalize_container(self, name: str) -> str:
+        """A listed database in the spelling ingestion matches on.
+
+        Which spelling the SQLAlchemy Inspector returns on an
+        external-catalog connection is not settled: ingestion enumerates
+        with SHOW DATABASES after SWITCH, never through the Inspector, so
+        the connector does not answer it -- though _short_database_name
+        exists to strip a `catalog.` prefix, so some Doris path does return
+        qualified names.
+
+        Normalizing rather than accepting both spellings, which is what this
+        did first. Accepting both fixed the filtering and broke what came
+        after it: `containers` would emit whichever spelling the server
+        used, a caller passes that back as --parent, and get_identifier
+        builds `catalog.database.table` while ingestion matches
+        `database.table`. A listing carrying both spellings would also
+        report one database twice.
+
+        Ingestion strips the prefix (_short_database_name, get_db_name), so
+        the probe reports the stripped form too and the pin needs only one
+        spelling.
+        """
+        if self.catalog and name.startswith(f"{self.catalog}."):
+            return name[len(self.catalog) + 1 :]
+        return name
+
     @model_validator(mode="after")
     def _split_catalog_from_database(self) -> "DorisConfig":
         if self.database and "." in self.database:

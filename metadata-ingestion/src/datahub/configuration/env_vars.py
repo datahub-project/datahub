@@ -395,6 +395,66 @@ def get_disable_secret_masking() -> bool:
     return os.getenv("DATAHUB_DISABLE_SECRET_MASKING", "").lower() in ("true", "1")
 
 
+def get_disable_agent_probe_raw_access() -> bool:
+    """
+    Refuse the recipe probe's raw passthrough commands (`sql`, `api`).
+
+    For an operator who does not want an agent issuing its own queries or API
+    calls against a source at all. It withholds only the commands that take a
+    caller-supplied query or path.
+
+    On most connectors the typed listings keep working, so recipe diagnosis
+    still functions -- this said so unconditionally and was wrong about the
+    two that matter most. Snowflake and BigQuery expose `sql` as their ONLY
+    probe command, so setting this withholds their probe entirely. The
+    refusal message names what is left for the connector in hand rather than
+    promising something in general.
+
+    An environment variable rather than a recipe field because the agent authors
+    the recipe: a field there would let it grant itself the access. Set it where
+    the probe runs (the ingestion executor).
+    """
+    return os.getenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "").lower() in ("true", "1")
+
+
+def get_probe_disabled() -> bool:
+    """Whether the probe may open a connection to the source at all.
+
+    The wider switch. DATAHUB_PROBE_DISABLE_RAW_ACCESS withholds the
+    caller-supplied `sql` and `api` passthroughs and leaves every typed
+    listing live -- which is the right granularity for "no arbitrary
+    queries" and the wrong one for "this agent does not touch my source".
+    Those listings still authenticate and still return metadata.
+
+    This refuses every `probe run <command>`, typed listing as much as
+    passthrough. Enforced in run_probe_method, the one function every probe
+    command funnels through, so it covers commands that do not exist yet.
+
+    SCOPE, stated precisely because a security control that promises more
+    than it delivers is worse than none: `recipe test-connection` is NOT
+    gated. It opens a connection and authenticates, but it is not a probe
+    command -- it predates the probe group and verifying that a recipe's
+    credentials work is a different act from reading the source's metadata.
+    An earlier version of this docstring listed it as covered, which was
+    left behind when the gate on it was removed. If the requirement is
+    "this process must not reach the source at all", this switch alone does
+    not give you that.
+
+    Deliberately not everything. `recipe describe`, `recipe scaffold`,
+    `recipe validate`, `probe methods` and `probe filter` need no
+    connection -- they read the connector's own declarations and judge names
+    the caller already has. Disabling those too would stop an agent learning
+    what a recipe needs or checking one it has written, which is work that
+    never reaches the source. The line is the connection, not the feature.
+
+    An environment variable rather than a recipe field, for the same reason
+    as the switch above: the agent authors the recipe, so a field there
+    would let it grant itself the access. Set it where the probe runs (the
+    ingestion executor).
+    """
+    return os.getenv("DATAHUB_PROBE_DISABLED", "").lower() in ("true", "1")
+
+
 # ============================================================================
 # Data Processing Configuration
 # ============================================================================

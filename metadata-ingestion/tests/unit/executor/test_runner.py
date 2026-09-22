@@ -1043,6 +1043,46 @@ class TestSetupVenvConstraints:
             SecretRegistry.reset_instance()
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
+    async def test_setup_venv_masks_the_value_the_venv_actually_uses(
+        self, _find_uv, temp_dir, monkeypatch
+    ):
+        """extra_env_vars wins when building the venv, so it must be masked too.
+
+        Registration read os.environ while the venv was built with
+        {**os.environ, **extra_env_vars}, so an overridden name had its
+        AMBIENT value masked and its EFFECTIVE value -- the one pip actually
+        received, and the one a failing index URL echoes back -- masked
+        nowhere. The envelope cannot cover it either: subprocess_env_secrets
+        excludes overridden names on purpose, to keep get_combined_env_vars
+        precedence in the child.
+        """
+        SecretRegistry.reset_instance()
+        monkeypatch.setenv("VENV_PIP_TOKEN", "ambient-token-value")
+        config = VenvConfig(
+            version="0.12.1",
+            main_plugin="snowflake",
+            extra_pip_requirements=[
+                "pkg @ https://user:${VENV_PIP_TOKEN}@example.com/simple"
+            ],
+            extra_env_vars={"VENV_PIP_TOKEN": "override-token-value"},
+        )
+        runner = SubprocessRunner()
+        mock = AsyncMock(side_effect=self._mock_execute)
+
+        try:
+            with patch.object(runner, "execute", mock):
+                await setup_venv(config, runner, temp_dir)
+
+            # get_all_secrets maps each maskable RENDERING to its name, and
+            # the registry keeps MAX_SECRET_VERSIONS per name, so both the
+            # ambient and the effective value stay maskable at once.
+            maskable = SecretRegistry.get_instance().get_all_secrets()
+            assert "override-token-value" in maskable, sorted(maskable)
+            assert "ambient-token-value" in maskable, sorted(maskable)
+        finally:
+            SecretRegistry.reset_instance()
+
+    @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
     async def test_custom_requirements_file_skips_pass2(self, _find_uv, temp_dir):
         """When requirements_file is provided (e.g. an upstream caller
         generates its own), pass 2 must be skipped — the caller owns the full
