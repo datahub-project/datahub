@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union, cast
@@ -87,18 +88,23 @@ def _unwrap_avro_json(obj: object) -> object:
     return obj
 
 
+AVRO_BYTES_ENCODING = os.environ.get("DATAHUB_AVRO_BYTES_ENCODING", "latin-1")
+
+
 def _fix_avro_bytes(obj: object) -> object:
     """Convert Avro ``bytes`` fields from str to ``bytes``.
 
-    The Avro JSON encoder writes ``bytes`` as plain strings, but the Python
-    SDK's ``from_obj`` expects ``bytes``.  Heuristic: a ``value`` key next to a
-    ``contentType`` key is a GenericAspect.
+    The Avro JSON encoder maps each byte to a Unicode code point in U+0000–U+00FF
+    (i.e. Latin-1).  Using ``latin-1`` reverses that mapping exactly.  ``utf-8``
+    would double-encode any non-ASCII byte (0x80-0xFF).
+
+    Override with ``DATAHUB_AVRO_BYTES_ENCODING`` if the upstream encoding changes.
     """
     if isinstance(obj, dict):
         result = {}
         for k, v in obj.items():
             if k == "value" and isinstance(v, str) and "contentType" in obj:
-                result[k] = v.encode("utf-8")
+                result[k] = v.encode(AVRO_BYTES_ENCODING)
             else:
                 result[k] = _fix_avro_bytes(v)
         return result

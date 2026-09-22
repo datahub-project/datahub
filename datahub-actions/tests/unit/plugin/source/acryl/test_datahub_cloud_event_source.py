@@ -22,8 +22,11 @@ from datahub_actions.plugin.source.acryl.constants import (
 
 # Import your source + config classes from the correct module path.
 from datahub_actions.plugin.source.acryl.datahub_cloud_event_source import (
+    AVRO_BYTES_ENCODING,
     DataHubEventSource,
     DataHubEventsSourceConfig,
+    _fix_avro_bytes,
+    _unwrap_avro_json,
     build_metadata_change_log_event,
 )
 from datahub_actions.plugin.source.acryl.datahub_cloud_events_ack_manager import (
@@ -529,3 +532,225 @@ def test_build_metadata_change_log_event() -> None:
     assert event.entityType == "dataset"
     assert event.aspectName == "datasetProfile"
     assert event.changeType == "UPSERT"
+
+
+# ---------------------------------------------------------------------------
+# Tests for _unwrap_avro_json
+# ---------------------------------------------------------------------------
+
+
+class TestUnwrapAvroJson:
+    def test_primitive_string_union(self) -> None:
+        assert _unwrap_avro_json({"string": "hello"}) == "hello"
+
+    def test_primitive_int_union(self) -> None:
+        assert _unwrap_avro_json({"int": 42}) == 42
+
+    def test_primitive_boolean_union(self) -> None:
+        assert _unwrap_avro_json({"boolean": True}) is True
+
+    def test_null_union(self) -> None:
+        assert _unwrap_avro_json({"null": None}) is None
+
+    def test_bytes_union(self) -> None:
+        assert _unwrap_avro_json({"bytes": "raw"}) == "raw"
+
+    def test_qualified_record_name(self) -> None:
+        inner = {"field1": "a", "field2": "b"}
+        wrapped = {"com.linkedin.pegasus2avro.mxe.GenericAspect": inner}
+        assert _unwrap_avro_json(wrapped) == inner
+
+    def test_map_union(self) -> None:
+        wrapped = {"map": {"k1": {"string": "v1"}, "k2": {"string": "v2"}}}
+        assert _unwrap_avro_json(wrapped) == {"k1": "v1", "k2": "v2"}
+
+    def test_multi_key_dict_passthrough(self) -> None:
+        d = {"entityType": "dataset", "aspectName": "ownership"}
+        assert _unwrap_avro_json(d) == d
+
+    def test_nested_unwrapping(self) -> None:
+        obj = {
+            "entityType": {"string": "dataset"},
+            "aspect": {
+                "com.linkedin.pegasus2avro.mxe.GenericAspect": {
+                    "value": {"bytes": "data"},
+                    "contentType": {"string": "application/json"},
+                }
+            },
+            "previousAspectValue": {"null": None},
+        }
+        expected = {
+            "entityType": "dataset",
+            "aspect": {"value": "data", "contentType": "application/json"},
+            "previousAspectValue": None,
+        }
+        assert _unwrap_avro_json(obj) == expected
+
+    def test_list_elements_unwrapped(self) -> None:
+        assert _unwrap_avro_json([{"string": "a"}, {"int": 1}]) == ["a", 1]
+
+    def test_plain_values_passthrough(self) -> None:
+        assert _unwrap_avro_json("hello") == "hello"
+        assert _unwrap_avro_json(42) == 42
+        assert _unwrap_avro_json(None) is None
+
+
+# ---------------------------------------------------------------------------
+# Tests for _fix_avro_bytes
+# ---------------------------------------------------------------------------
+
+
+class TestFixAvroBytes:
+    def test_converts_value_next_to_content_type(self) -> None:
+        obj = {"value": "hello", "contentType": "application/json"}
+        result = _fix_avro_bytes(obj)
+        assert result["value"] == b"hello"
+        assert result["contentType"] == "application/json"
+
+    def test_skips_value_without_content_type(self) -> None:
+        obj = {"value": "hello", "other": "field"}
+        result = _fix_avro_bytes(obj)
+        assert result["value"] == "hello"  # stays str
+
+    def test_recursive_into_nested_dicts(self) -> None:
+        obj = {
+            "aspect": {
+                "value": '{"tags":[]}',
+                "contentType": "application/json",
+            }
+        }
+        result = _fix_avro_bytes(obj)
+        assert isinstance(result["aspect"]["value"], bytes)
+
+    def test_recursive_into_lists(self) -> None:
+        obj = [{"value": "data", "contentType": "application/json"}]
+        result = _fix_avro_bytes(obj)
+        assert result[0]["value"] == b"data"
+
+    def test_non_string_value_unchanged(self) -> None:
+        obj = {"value": 42, "contentType": "application/json"}
+        result = _fix_avro_bytes(obj)
+        assert result["value"] == 42
+
+    def test_default_encoding_is_latin1(self) -> None:
+        assert AVRO_BYTES_ENCODING == "latin-1"
+
+    def test_latin1_correctly_roundtrips_non_ascii_bytes(self) -> None:
+        """Avro JsonEncoder maps each byte to a Unicode code point 0x00–0xFF.
+        latin-1 reverses that mapping exactly. This test simulates an aspect
+        value containing UTF-8 encoded 'é' (bytes 0xC3 0xA9) as the Avro
+        JsonEncoder would emit it."""
+        original_bytes = "é".encode("utf-8")  # b'\xc3\xa9'
+        # Avro JSON encoding: each byte becomes a char with that code point
+        avro_json_str = original_bytes.decode("latin-1")  # '\xc3\xa9' (2 chars)
+
+        obj = {"value": avro_json_str, "contentType": "application/json"}
+        result = _fix_avro_bytes(obj)
+
+        assert result["value"] == original_bytes
+
+    def test_utf8_would_corrupt_non_ascii_bytes(self) -> None:
+        """Prove that utf-8 encoding double-encodes non-ASCII Avro bytes."""
+        original_bytes = "é".encode("utf-8")  # b'\xc3\xa9'
+        avro_json_str = original_bytes.decode("latin-1")  # '\xc3\xa9'
+
+        # utf-8 encodes U+00C3 as 2 bytes (0xC3 0x83) and U+00A9 as 2 bytes
+        # (0xC2 0xA9), producing 4 bytes instead of the original 2
+        wrong_bytes = avro_json_str.encode("utf-8")
+
+        assert wrong_bytes != original_bytes
+        assert len(wrong_bytes) == 4  # double-encoded
+        assert len(original_bytes) == 2
+
+    def test_ascii_content_identical_for_both_encodings(self) -> None:
+        """For ASCII-only payloads, latin-1 and utf-8 produce the same bytes."""
+        ascii_str = '{"tags":["pii"]}'
+        assert ascii_str.encode("latin-1") == ascii_str.encode("utf-8")
+
+        obj = {"value": ascii_str, "contentType": "application/json"}
+        result = _fix_avro_bytes(obj)
+        assert result["value"] == ascii_str.encode("utf-8")
+
+    def test_env_var_override(self) -> None:
+        """DATAHUB_AVRO_BYTES_ENCODING env var can override the encoding."""
+        with patch(
+            "datahub_actions.plugin.source.acryl.datahub_cloud_event_source.AVRO_BYTES_ENCODING",
+            "utf-8",
+        ):
+            obj = {"value": "hello", "contentType": "application/json"}
+            result = _fix_avro_bytes(obj)
+            assert result["value"] == b"hello"
+
+
+# ---------------------------------------------------------------------------
+# Integration: Avro-wrapped MCL round-trips through build_metadata_change_log_event
+# ---------------------------------------------------------------------------
+
+
+def test_build_mcl_event_from_avro_wrapped_json() -> None:
+    """An MCL with Avro JSON union wrappers parses correctly."""
+    avro_wrapped = {
+        "entityType": {"string": "dataset"},
+        "entityUrn": {"string": "urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)"},
+        "changeType": {"string": "UPSERT"},
+        "aspectName": {"string": "globalTags"},
+        "aspect": {
+            "com.linkedin.pegasus2avro.mxe.GenericAspect": {
+                "value": '{"tags":[{"tag":"urn:li:tag:pii"}]}',
+                "contentType": {"string": "application/json"},
+            }
+        },
+        "previousAspectValue": {"null": None},
+        "previousSystemMetadata": {"null": None},
+        "systemMetadata": {
+            "com.linkedin.pegasus2avro.mxe.SystemMetadata": {
+                "lastObserved": {"long": 1651516475595},
+                "runId": {"string": "test-run"},
+            }
+        },
+        "created": {
+            "com.linkedin.pegasus2avro.common.AuditStamp": {
+                "time": {"long": 1651516475594},
+                "actor": {"string": "urn:li:corpuser:datahub"},
+            }
+        },
+    }
+    msg = ExternalEvent(contentType="application/json", value=json.dumps(avro_wrapped))
+    event = build_metadata_change_log_event(msg)
+    assert isinstance(event, MetadataChangeLogEvent)
+    assert event.entityType == "dataset"
+    assert event.aspectName == "globalTags"
+
+
+def test_handle_pe_with_avro_wrapped_event() -> None:
+    """Platform events with Avro union wrappers parse correctly."""
+    avro_wrapped = {
+        "header": {
+            "com.linkedin.pegasus2avro.event.EventHeader": {
+                "timestampMillis": {"long": 1737170481713}
+            }
+        },
+        "name": {"string": "entityChangeEvent"},
+        "payload": {
+            "com.linkedin.pegasus2avro.mxe.GenericAspect": {
+                "value": json.dumps(
+                    {
+                        "auditStamp": {
+                            "actor": "urn:li:corpuser:test",
+                            "time": 1737170481713,
+                        },
+                        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)",
+                        "entityType": "dataset",
+                        "category": "TAG",
+                        "operation": "ADD",
+                        "version": 0,
+                    }
+                ),
+                "contentType": {"string": "application/json"},
+            }
+        },
+    }
+    msg = ExternalEvent(contentType="application/json", value=json.dumps(avro_wrapped))
+    envelopes = list(DataHubEventSource.handle_pe(msg))
+    assert len(envelopes) == 1
+    assert envelopes[0].event_type == ENTITY_CHANGE_EVENT_V1_TYPE
