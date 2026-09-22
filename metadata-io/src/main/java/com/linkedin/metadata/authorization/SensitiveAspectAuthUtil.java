@@ -68,7 +68,11 @@ public final class SensitiveAspectAuthUtil {
     return allowed;
   }
 
-  /** Remove sensitive aspects the actor may not read from an enveloped entity response. */
+  /**
+   * Remove sensitive aspects the actor may not read from an enveloped entity response. The input is
+   * never mutated: the service may cache or share the instance, and a later caller holding the
+   * privilege must still see the aspect. Returns the same instance when nothing is filtered.
+   */
   @Nullable
   public static EntityResponse omitUnauthorizedAspects(
       @Nonnull OperationContext opContext, @Nullable EntityResponse response) {
@@ -87,15 +91,29 @@ public final class SensitiveAspectAuthUtil {
                 allowed.put(name, aspect);
               }
             });
-    response.setAspects(allowed);
-    return response;
+    if (allowed.size() == response.getAspects().size()) {
+      return response;
+    }
+    try {
+      EntityResponse filtered = response.clone();
+      filtered.setAspects(allowed);
+      return filtered;
+    } catch (CloneNotSupportedException e) {
+      throw new IllegalStateException("Failed to copy entity response", e);
+    }
   }
 
+  /**
+   * Map form of {@link #omitUnauthorizedAspects(OperationContext, EntityResponse)}; returns a new
+   * map.
+   */
   @Nonnull
   public static Map<Urn, EntityResponse> omitUnauthorizedAspects(
       @Nonnull OperationContext opContext, @Nonnull Map<Urn, EntityResponse> responses) {
-    responses.forEach((urn, response) -> omitUnauthorizedAspects(opContext, response));
-    return responses;
+    Map<Urn, EntityResponse> filtered = new LinkedHashMap<>();
+    responses.forEach(
+        (urn, response) -> filtered.put(urn, omitUnauthorizedAspects(opContext, response)));
+    return filtered;
   }
 
   private static boolean hasSensitiveAspects(@Nullable String entityName) {

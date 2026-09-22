@@ -133,6 +133,11 @@ public class SensitiveAspectAuthUtilTest {
             opContext, new LinkedHashMap<>(Map.of(USER_URN, response)));
 
     assertEquals(filtered.get(USER_URN).getAspects().keySet(), Set.of(CORP_USER_INFO_ASPECT_NAME));
+    // The service's instance is left intact for callers that may legitimately read the aspect.
+    assertEquals(
+        response.getAspects().keySet(),
+        Set.of(CORP_USER_INFO_ASPECT_NAME, CORP_USER_CREDENTIALS_ASPECT_NAME));
+    assertEquals(filtered.get(USER_URN).getUrn(), USER_URN);
   }
 
   @Test
