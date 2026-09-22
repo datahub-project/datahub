@@ -1998,6 +1998,13 @@ constraint-dependencies = [
     # CVE-2026-59890: floored at lock time, not in base_requirements (Airflow
     # constraint files pin setuptools, so a base floor breaks those installs).
     "setuptools>=83.0.0",
+    # pip: CVE-2026-3219, CVE-2026-6357 (fixed in 26.1); CVE-2026-8643 (path traversal
+    # via entry point names, fixed in 26.1.2); CVE-2026-13346 (URL path decoded twice
+    # when determining a link filename, fixed in 26.2). setup.py declares a bare "pip"
+    # (no upper bound: pip is a system tool), so the floor is enforced here at lock time
+    # and mirrored in docker/snippets/ingestion/constraints.txt. The resolved pin ships
+    # as datahub/constraints.txt and constrains every executor-built venv.
+    "pip>=26.2",
 ]
 
 [tool.ruff]

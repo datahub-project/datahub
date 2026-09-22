@@ -18,6 +18,7 @@ constraints = [
     { name = "authlib", specifier = ">=1.6.11,<2.0.0" },
     { name = "idna", specifier = ">=3.15,<4.0.0" },
     { name = "jaraco-context", specifier = ">=6.1.0,<7" },
+    { name = "pip", specifier = ">=26.2" },
     { name = "pyjwt", specifier = ">=2.13.0,<3.0.0" },
     { name = "pypdf", specifier = ">=6.10.2" },
     { name = "setuptools", specifier = ">=83.0.0" },

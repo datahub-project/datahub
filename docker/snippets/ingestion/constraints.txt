@@ -45,8 +45,11 @@ pyarrow>=23.0.1
 # Docker minimum; airflow-plugin accepts older filelock from Airflow 2.7.3+ constraints for compatibility.
 filelock>=3.20.3
 nbconvert>=7.17.0
-# pip: CVE-2026-3219, CVE-2026-6357 (fixed in 26.1); CVE-2026-13346 — the URL path was
-# decoded twice when determining a link filename; fixed in 26.2.
+# pip: CVE-2026-3219, CVE-2026-6357 (fixed in 26.1); CVE-2026-8643 — path traversal via
+# console_scripts/gui_scripts entry point names; fixed in 26.1.2; CVE-2026-13346 — the URL
+# path was decoded twice when determining a link filename; fixed in 26.2. Previous floor
+# here was >=26.0, which allowed all four. Mirrored in metadata-ingestion/pyproject.toml
+# [tool.uv] constraint-dependencies so the shipped lock agrees.
 pip>=26.2
 wheel>=0.46.2
 flask>=3.1.3
