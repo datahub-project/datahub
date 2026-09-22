@@ -50,7 +50,7 @@ def _response(status_code: int, payload: dict) -> MagicMock:
 class TestCursorPagination:
     def test_follows_cursor_across_multiple_pages_and_stops_when_absent(
         self, client: LangfuseClient, mock_session: MagicMock
-    ):
+    ) -> None:
         mock_session.get.side_effect = [
             _response(
                 200, {"data": [{"id": "1"}, {"id": "2"}], "meta": {"cursor": "abc"}}
@@ -68,7 +68,7 @@ class TestCursorPagination:
 
     def test_stops_immediately_when_first_page_has_no_cursor(
         self, client: LangfuseClient, mock_session: MagicMock
-    ):
+    ) -> None:
         mock_session.get.return_value = _response(
             200, {"data": [{"id": "1"}], "meta": {}}
         )
@@ -82,7 +82,7 @@ class TestCursorPagination:
 class TestPagePagination:
     def test_follows_pages_until_total_pages_reached(
         self, client: LangfuseClient, mock_session: MagicMock
-    ):
+    ) -> None:
         mock_session.get.side_effect = [
             _response(
                 200,
@@ -101,7 +101,7 @@ class TestPagePagination:
 
     def test_stops_when_page_returns_no_items(
         self, client: LangfuseClient, mock_session: MagicMock
-    ):
+    ) -> None:
         mock_session.get.return_value = _response(200, {"data": [], "meta": {}})
 
         items = list(client._iter_page_paginated("/api/public/v2/prompts", {}))
@@ -111,15 +111,15 @@ class TestPagePagination:
 
 
 class TestCleanParams:
-    def test_booleans_are_lowercased_strings(self):
+    def test_booleans_are_lowercased_strings(self) -> None:
         cleaned = LangfuseClient._clean_params({"isRootObservation": True, "x": False})
         assert cleaned == {"isRootObservation": "true", "x": "false"}
 
-    def test_none_values_are_dropped(self):
+    def test_none_values_are_dropped(self) -> None:
         cleaned = LangfuseClient._clean_params({"a": None, "b": "keep"})
         assert cleaned == {"b": "keep"}
 
-    def test_datetimes_are_isoformatted(self):
+    def test_datetimes_are_isoformatted(self) -> None:
         dt = datetime(2026, 1, 1, tzinfo=timezone.utc)
         cleaned = LangfuseClient._clean_params({"fromStartTime": dt})
         assert cleaned["fromStartTime"] == dt.isoformat()
@@ -128,7 +128,7 @@ class TestCleanParams:
 class TestAuthentication:
     def test_401_raises_langfuse_authentication_error(
         self, client: LangfuseClient, mock_session: MagicMock
-    ):
+    ) -> None:
         mock_session.get.return_value = _response(
             401, {"message": "No authorization header"}
         )
@@ -138,7 +138,7 @@ class TestAuthentication:
 
     def test_get_project_raises_when_no_projects_returned(
         self, client: LangfuseClient, mock_session: MagicMock
-    ):
+    ) -> None:
         mock_session.get.return_value = _response(200, {"data": []})
 
         with pytest.raises(LangfuseAuthenticationError):
@@ -150,7 +150,7 @@ class TestMalformedRecordIsolation:
 
     def test_observation_missing_required_field_is_skipped_not_fatal(
         self, client: LangfuseClient, mock_session: MagicMock
-    ):
+    ) -> None:
         mock_session.get.return_value = _response(
             200,
             {
@@ -170,7 +170,7 @@ class TestMalformedRecordIsolation:
 
     def test_score_missing_required_field_is_skipped_not_fatal(
         self, client: LangfuseClient, mock_session: MagicMock
-    ):
+    ) -> None:
         mock_session.get.return_value = _response(
             200,
             {
