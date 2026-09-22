@@ -100,26 +100,32 @@ def test_original_parser_runs_outside_datahub_scope(sql_parser_env):
     assert DATAHUB_SQL_PARSING_RESULT_KEY in result.run_facets
 
 
-def test_original_parser_runs_connectionless_inside_datahub_scope(sql_parser_env):
-    """DataHub's pass must not re-run OpenLineage's information_schema lookups.
+def test_original_parser_skipped_inside_datahub_scope(sql_parser_env):
+    """DataHub's pass must not re-run the provider parser at all.
 
-    The parser still runs so its table list is preserved, but with
-    ``use_connection=False`` it resolves tables from the parse tree instead of
-    querying the warehouse.
+    Its only warehouse-touching work is the provider parser, and DataHub takes its
+    URNs from its own SQL-parsing facet, which is dialect- and quote-aware.
     """
     with datahub_extraction_scope():
         _call_patched_parser()
 
-    assert sql_parser_env.call_count == 1
-    assert sql_parser_env.call_args.kwargs["use_connection"] is False
+    assert sql_parser_env.call_count == 0
 
 
-def test_datahub_scope_preserves_provider_iolets_and_adds_facet(sql_parser_env):
-    """Lineage coverage must not shrink: keep OpenLineage's tables and add the facet."""
+def test_datahub_scope_returns_facet_without_provider_iolets(sql_parser_env):
+    """URNs come from the DataHub facet alone.
+
+    Reconstructing the warehouse's stored casing from a parse tree is not possible:
+    the parser strips quotes, so `FROM MySchema.MyTable` and `FROM "MySchema"."MyTable"`
+    are indistinguishable while needing opposite folding on a case-folding database.
+    The listener reads in_tables/out_tables from this facet, which is produced by a
+    dialect- and quote-aware parser, so no reconstruction is attempted.
+    """
     with datahub_extraction_scope():
         result = _call_patched_parser()
 
-    assert [d.name for d in result.inputs] == ["db.sch.src"]
+    assert result.inputs == []
+    assert result.outputs == []
     assert DATAHUB_SQL_PARSING_RESULT_KEY in result.run_facets
 
 
@@ -330,85 +336,7 @@ class TestPassCountBaseline:
         finally:
             patcher.unpatch()
 
-        # Four parses, but only the provider's two reach the warehouse -- exactly
-        # what the provider alone would have done.
-        warehouse_passes = [
-            c for c in sql_parser_env.call_args_list if c.kwargs["use_connection"]
-        ]
-        assert sql_parser_env.call_count == 4
-        assert len(warehouse_passes) == 2
+        # Two passes, not four: exactly what the provider alone would have done.
+        assert sql_parser_env.call_count == 2
+        assert all(c.kwargs["use_connection"] for c in sql_parser_env.call_args_list)
         hook.get_openlineage_database_specific_lineage.assert_called_once()
-
-
-class TestConnectionlessNameCasing:
-    """Connectionless naming must match what the connection-backed path produced.
-
-    With ``use_connection=False`` the provider names datasets from the parse tree --
-    identifiers exactly as written in the SQL. The connection-backed path names them
-    from ``information_schema``, i.e. as the database stores them. ``from_table_meta``
-    upper-cases for databases declaring ``is_uppercase_names`` but does not fold for
-    the rest, so mixed-case SQL against a case-folding database would otherwise gain a
-    differently-cased duplicate URN.
-    """
-
-    @staticmethod
-    def _env(database_info: Any, fake_parse_result: Any) -> Any:
-        original = mock.MagicMock(
-            return_value=_sql_parser_patch.OperatorLineage(
-                inputs=[Dataset(namespace="pg://h", name="db.Other.SrcTbl")],
-                outputs=[Dataset(namespace="pg://h", name="db.MySchema.MyTable")],
-                job_facets={},
-                run_facets={},
-            )
-        )
-        config = SimpleNamespace(
-            disable_openlineage_plugin=False,
-            enable_multi_statement_sql_parsing=False,
-        )
-        return original, config, database_info
-
-    @pytest.mark.parametrize(
-        "is_uppercase,expected_input",
-        [
-            (False, "db.other.srctbl"),
-            (True, "db.Other.SrcTbl"),
-        ],
-        ids=["case_folding_db_is_normalized", "uppercase_db_left_alone"],
-    )
-    def test_iolets_match_connection_backed_casing(
-        self, fake_parse_result, is_uppercase, expected_input
-    ):
-        database_info = SimpleNamespace(
-            scheme="postgres",
-            database="db",
-            is_uppercase_names=is_uppercase,
-            normalize_name_method=str.lower,
-        )
-        original, config, _ = self._env(database_info, fake_parse_result)
-
-        with (
-            mock.patch.object(
-                _sql_parser_patch, "_original_sql_parser_method", original
-            ),
-            mock.patch(
-                f"{_PATCH_MOD}.parse_sql_with_datahub", return_value=fake_parse_result
-            ),
-            mock.patch(
-                "datahub_airflow_plugin._config.get_lineage_config", return_value=config
-            ),
-            mock.patch(
-                "datahub_airflow_plugin.datahub_listener.get_airflow_plugin_listener",
-                return_value=None,
-            ),
-            mock.patch(f"{_PATCH_MOD}.get_configured_env", return_value="PROD"),
-            datahub_extraction_scope(),
-        ):
-            result = _sql_parser_patch._datahub_generate_openlineage_metadata_from_sql(
-                self=SimpleNamespace(dialect="postgres", default_schema="public"),
-                sql="insert into MySchema.MyTable select * from Other.SrcTbl",
-                hook=mock.MagicMock(),
-                database_info=cast(dict, database_info),
-            )
-
-        assert result is not None
-        assert [d.name for d in result.inputs] == [expected_input]
