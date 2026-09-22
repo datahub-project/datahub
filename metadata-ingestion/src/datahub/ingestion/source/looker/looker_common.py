@@ -1681,6 +1681,8 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     explores_skipped_for_usage: LossySet[str] = dataclasses_field(
         default_factory=LossySet
     )
+    # field_usage rows missing a model/explore/field dimension
+    explore_field_usage_rows_dropped: int = 0
 
     stage_latency: List[StageLatency] = dataclasses_field(default_factory=list)
     _looker_explore_registry: Optional[LookerExploreRegistry] = None

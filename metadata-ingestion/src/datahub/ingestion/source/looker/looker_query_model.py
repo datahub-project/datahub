@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, cast
+from typing import Dict, List, Optional, cast
 
 from looker_sdk.sdk.api40.models import WriteQuery
 
@@ -12,6 +12,7 @@ class LookerModel(StrEnum):
 
 class LookerExplore(StrEnum):
     HISTORY = "history"
+    FIELD_USAGE = "field_usage"
 
 
 class LookerView(StrEnum):
@@ -22,6 +23,7 @@ class LookerView(StrEnum):
     # against, including the model and the explore (Looker calls the explore
     # the query's `view`).
     QUERY = "query"
+    FIELD_USAGE = "field_usage"
 
 
 class LookerField(StrEnum):
@@ -33,7 +35,9 @@ class LookerField(StrEnum):
     COUNT = "count"
     MODEL = "model"
     VIEW = "view"
-    FIELDS = "fields"
+    EXPLORE = "explore"
+    FIELD = "field"
+    TIMES_USED = "times_used"
 
 
 class ViewField(StrEnum):
@@ -67,9 +71,18 @@ class QueryViewField(ViewField):
     # LookML view). Together with `query.model` it identifies the explore.
     QUERY_MODEL = f"{LookerView.QUERY}.{LookerField.MODEL}"
     QUERY_VIEW = f"{LookerView.QUERY}.{LookerField.VIEW}"
-    # System Activity's list of fully-qualified `view.field` names each query
-    # referenced.  Returned as a single delimited string (not an array).
-    QUERY_FIELDS = f"{LookerView.QUERY}.{LookerField.FIELDS}"
+
+
+class FieldUsageViewField(ViewField):
+    """Fields from the ``field_usage`` explore in System Activity.
+
+    This explore provides pre-aggregated, lifetime per-field usage counts
+    without the row-limit truncation issues of the History explore."""
+
+    FIELD_USAGE_MODEL = f"{LookerView.FIELD_USAGE}.{LookerField.MODEL}"
+    FIELD_USAGE_EXPLORE = f"{LookerView.FIELD_USAGE}.{LookerField.EXPLORE}"
+    FIELD_USAGE_FIELD = f"{LookerView.FIELD_USAGE}.{LookerField.FIELD}"
+    FIELD_USAGE_TIMES_USED = f"{LookerView.FIELD_USAGE}.{LookerField.TIMES_USED}"
 
 
 @dataclass
@@ -79,6 +92,7 @@ class LookerQuery:
     fields: List[ViewField]
     # Check looker documentation for possible values https://docs.looker.com/reference/filter-expressions
     filters: Dict[ViewField, str] = field(default_factory=dict)
+    limit: Optional[str] = None
 
     def to_write_query(self) -> WriteQuery:
         return WriteQuery(
@@ -90,4 +104,5 @@ class LookerQuery:
                 if self.filters is not None
                 else {}
             ),
+            limit=self.limit,
         )
