@@ -98,11 +98,10 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
       result.setJson(json);
     } else if (filter != null) {
       try {
-        // Convert Filter to JSON predicate if not already stored
         String generatedJson = FilterConverter.convertFilterToJsonPredicate(filter);
         result.setJson(generatedJson);
       } catch (Exception e) {
-        log.warn("Failed to convert view filter to json predicate", e);
+        log.error("Failed to generate json representation for view filter.", e);
       }
     }
 

@@ -136,7 +136,7 @@ public class ViewUtils {
     }
 
     // Fall back to legacy operator+filters format
-    if (input.getOperator() != null && input.getFilters() != null) {
+    if (input.getOperator() != null && input.getFilters() != null && !input.getFilters().isEmpty()) {
       if (LogicalOperator.AND.equals(input.getOperator())) {
         return buildAndFilter(input.getFilters(), aspectRetriever);
       } else {
@@ -144,7 +144,16 @@ public class ViewUtils {
       }
     }
 
-    // If neither format is provided, return an empty filter
+    // Validate: if operator or filters are provided, both must be present and non-empty
+    boolean hasOperator = input.getOperator() != null;
+    boolean hasFilters = input.getFilters() != null && !input.getFilters().isEmpty();
+
+    if ((hasOperator || hasFilters) && !(hasOperator && hasFilters)) {
+      throw new IllegalArgumentException(
+          "Invalid filter input: operator and filters must both be provided together and filters cannot be empty");
+    }
+
+    // Both formats missing or empty - return an empty filter
     return new Filter().setOr(new ConjunctiveCriterionArray(ImmutableList.of()));
   }
 

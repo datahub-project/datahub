@@ -13218,13 +13218,13 @@ A DataHub View Filter. Note that
 """
 type DataHubViewFilter {
   """
-  DEPRECATED: Use json instead to preserve full nesting.
+  Deprecated: Use json instead to preserve full nesting.
   The operator used to combine the filters.
   """
   operator: LogicalOperator!
 
   """
-  DEPRECATED: Use json instead to preserve full nesting.
+  Deprecated: Use json instead to preserve full nesting.
   A set of filters combined using the operator. If left empty, then no filters will be applied.
   """
   filters: [FacetFilter!]!
@@ -13352,20 +13352,19 @@ Input required for creating a DataHub View Definition
 """
 input DataHubViewFilterInput {
   """
-  DEPRECATED: Use orFilters instead.
+  Deprecated: Use orFilters instead.
   The operator used to combine the filters.
   """
   operator: LogicalOperator
 
   """
-  DEPRECATED: Use orFilters instead.
+  Deprecated: Use orFilters instead.
   A set of filters combined via an operator. If left empty, then no filters will be applied.
   """
   filters: [FacetFilterInput!]
 
   """
   A list of disjunctive criterion for the filter. (or operation to combine filters).
-  Each AndFilterInput is an AND group, and the list represents OR between them.
   This is the preferred format for new views.
   """
   orFilters: [AndFilterInput!]

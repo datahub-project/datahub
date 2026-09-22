@@ -1,4 +1,4 @@
-import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
+import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
 import { DataHubViewFilter, DataHubViewType, EntityType, LogicalOperator } from '@types';
 
@@ -14,6 +14,11 @@ export const DEFAULT_BUILDER_STATE = {
         filter: {
             operator: LogicalOperator.And,
             filters: [],
+        },
+        logicalPredicate: {
+            type: 'logical' as const,
+            operator: LogicalOperatorType.AND,
+            operands: [{ type: 'property' as const }],
         },
     },
 } as ViewBuilderState;
