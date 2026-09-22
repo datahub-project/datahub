@@ -3,7 +3,17 @@ import threading
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 from urllib.parse import parse_qs, urlparse
 
 import boto3
@@ -278,7 +288,12 @@ class AwsConnectionConfig(ConfigModel):
     _s3_client_cache: Dict[Optional[Union[bool, str]], "S3Client"] = PrivateAttr(
         default_factory=dict
     )
-    _s3_client_lock: threading.Lock = PrivateAttr(default_factory=threading.Lock)
+    # Class-level, not a PrivateAttr: a threading.Lock cannot be deep-copied, and
+    # dbt's config validators run copy.deepcopy over the recipe values (see
+    # DBTCommonConfig / DBTCloudConfig), so a per-instance lock would break
+    # DBTCoreConfig(aws_connection=AwsConnectionConfig(...)). One shared lock only
+    # serializes the brief, one-time client construction across configs.
+    _s3_client_lock: ClassVar[threading.Lock] = threading.Lock()
 
     aws_access_key_id: Optional[str] = Field(
         default=None,

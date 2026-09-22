@@ -86,10 +86,13 @@ def _register_gcs_oauth_before_send(
     for op in _GCS_OAUTH_S3_OPERATIONS:
         # unique_id makes re-registration a no-op: get_s3_client() memoizes the
         # client, so repeated calls would otherwise stack duplicate handlers.
-        # This leans on botocore's documented contract that a handler registered
-        # with an existing unique_id replaces rather than stacks (HierarchicalEmitter
-        # dedupes by unique_id); if that guarantee is unwanted, register once at
-        # client-creation time instead.
+        # botocore's HierarchicalEmitter keeps the FIRST handler registered under a
+        # given unique_id and skips later duplicate registrations, so this closure's
+        # captured credentials are frozen at first registration. That is fine here:
+        # _gcs_oauth_credentials is set once before the first get_s3_client() call
+        # and refreshed in place on the same Credentials object. Reassigning
+        # _gcs_oauth_credentials after the client is cached would silently keep using
+        # the stale creds; register once at client-creation time if that ever changes.
         client.meta.events.register(
             f"before-send.s3.{op}", inject_bearer, unique_id=f"datahub-gcs-oauth-{op}"
         )

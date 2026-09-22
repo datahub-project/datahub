@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 from unittest.mock import MagicMock, patch
@@ -615,6 +616,19 @@ class TestAwsCommon:
             client1 = config.get_s3_client()
             assert config.get_s3_client() is client1
             assert mock_get_session.call_count == 1
+
+    def test_config_is_deepcopyable(self):
+        """
+        dbt's config validators run copy.deepcopy over the recipe values, so an
+        AwsConnectionConfig passed as an already-built object must survive it. A
+        threading.Lock kept as instance state is not deep-copyable, which is why the
+        client-construction lock lives on the class rather than on the instance.
+        """
+        config = AwsConnectionConfig(aws_region="us-east-1")
+        # Mirrors DBTCoreConfig(aws_connection=AwsConnectionConfig(...)), whose
+        # validator does values = deepcopy(values).
+        copied = copy.deepcopy({"aws_connection": config})["aws_connection"]
+        assert copied.aws_region == "us-east-1"
 
     @mock_aws
     def test_role_assumption_without_caching_before_fix(self):
