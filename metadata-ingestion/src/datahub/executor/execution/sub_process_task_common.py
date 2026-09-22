@@ -775,6 +775,17 @@ class SubProcessTaskUtil:
         except Exception:
             logger.exception("Failed to set logs on execution report")
 
+        # Stamp the entry as used NOW, before letting go of it. The hit path
+        # already touched it when the task STARTED, and eviction is LRU, so
+        # without this an entry's recorded age is really "age since the run
+        # began" -- an ingestion that runs longer than
+        # DATAHUB_VENV_CACHE_MAX_AGE_HOURS would be eligible for age eviction
+        # the moment it stops, despite having been in continuous use the
+        # whole time. Only the lock kept it alive during the run.
+        # touch_last_used swallows its own OSError, so this cannot raise here.
+        if venv_ref is not None and venv_ref.lock is not None:
+            venv_utils.touch_last_used(Path(venv_ref.venv_loc))
+
         # Before the directory removal and guarded like it: the shared lock on
         # a cached venv is what keeps eviction from deleting it mid-run, so it
         # has to be let go of here or the entry becomes immortal and the cache

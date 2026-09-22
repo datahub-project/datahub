@@ -2374,6 +2374,74 @@ class TestVenvCacheInSetupVenv:
         )
         assert second.venv_loc.exists(), "the fallback venv was never built"
 
+    async def test_a_continuously_reused_entry_outlives_an_idle_one(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Eviction is LRU, so reuse must actually move the entry's position.
+
+        The end-to-end property the two halves imply but neither proves:
+        touch_last_used firing on the hit path, and eviction ordering by that
+        marker, have to add up to "the venv you keep using is the one that
+        survives". Without the touch, the busiest entry keeps its original
+        timestamp and is evicted ahead of one nothing has opened since.
+
+        Note the shape: the eviction pass runs on the BUILD path only, so a
+        third distinct key is what triggers it. A cache taking nothing but
+        hits never trims, which is deliberate -- it keeps the hit path down
+        to one flock and one stat.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        # 1, not 2: the pass runs BEFORE the new venv is created, so it sees
+        # only the entries already on disk. With two present and a limit of
+        # two there is nothing to trim, and the test would prove nothing.
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_MAX_ENTRIES", "1")
+
+        async def build(exec_dir: str, index: str) -> VenvReference:
+            ref = await self._setup_with_env_vars(
+                tmp_path / exec_dir,
+                "0.15.0.1",
+                self._mock_execute(),
+                {"PIP_INDEX_URL": index},
+            )
+            assert ref.lock is not None
+            ref.lock.release()
+            return ref
+
+        busy = await build("exec-1", "https://busy.example/simple")
+        idle = await build("exec-2", "https://idle.example/simple")
+        assert busy.venv_loc != idle.venv_loc
+
+        # Backdate both so neither is protected by mere recency, and make the
+        # BUSY one the older of the two -- on creation order it would go first.
+        for loc, age in ((busy.venv_loc, 10_000), (idle.venv_loc, 9_000)):
+            stamp = time.time() - age
+            os.utime(loc / venv_utils.LAST_USED_MARKER, (stamp, stamp))
+
+        # Use the busy entry. This is a hit, so it evicts nothing -- it only
+        # advances the marker.
+        reused = await self._setup_with_env_vars(
+            tmp_path / "exec-3",
+            "0.15.0.1",
+            self._mock_execute(),
+            {"PIP_INDEX_URL": "https://busy.example/simple"},
+        )
+        assert reused.venv_loc == busy.venv_loc, "the reuse was not a cache hit"
+        assert reused.lock is not None
+        reused.lock.release()
+
+        # A third key has to be BUILT, which is what runs the eviction pass.
+        third = await build("exec-4", "https://third.example/simple")
+
+        assert third.venv_loc.exists()
+        assert busy.venv_loc.exists(), (
+            "eviction removed the venv that was just reused; reuse is not "
+            "advancing the last-used marker"
+        )
+        assert not idle.venv_loc.exists(), (
+            "the idle entry survived, so eviction never ran and this test "
+            "proves nothing"
+        )
+
     async def test_a_build_that_loses_its_downgrade_retakes_the_shared_lock(
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

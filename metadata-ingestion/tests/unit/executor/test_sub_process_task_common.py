@@ -8,14 +8,18 @@ import errno
 import inspect
 import json
 import os
+import pathlib
 import subprocess
 import tempfile
+import time
+from collections import deque
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 from pydantic import ValidationError
 
+from datahub.executor.execution import venv_utils
 from datahub.executor.execution.runner import LogHolder
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
@@ -23,6 +27,7 @@ from datahub.executor.execution.sub_process_task_common import (
     unprotectable_disclosed_values,
 )
 from datahub.executor.execution.task import TaskError
+from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
 
 
@@ -1076,3 +1081,41 @@ def test_finalize_without_a_venv_ref_is_unchanged(tmp_path: Path) -> None:
     )
 
     assert not exec_dir.exists()
+
+
+def test_finalizing_stamps_the_entry_as_used_before_letting_go(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A long run must not look idle the moment it ends.
+
+    The hit path touches the marker when the task STARTS, and eviction is
+    LRU, so the recorded age is really "age since this run began". An
+    ingestion running longer than DATAHUB_VENV_CACHE_MAX_AGE_HOURS would
+    therefore become eligible for age eviction the instant it finishes,
+    having been in continuous use the entire time -- only the shared lock
+    kept it alive, and finalize is where that lock goes away.
+    """
+    venv_loc = tmp_path / "venv-demo-data-abc123"
+    venv_loc.mkdir()
+    venv_utils.touch_last_used(venv_loc)
+    # As if the run had been going for three hours.
+    began = time.time() - 3 * 3600
+    os.utime(venv_loc / venv_utils.LAST_USED_MARKER, (began, began))
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = str(venv_loc)
+
+    SubProcessTaskUtil.finalize_task_output(
+        str(tmp_path / "absent-report.json"),
+        str(tmp_path / "exec-out"),
+        deque(),
+        Mock(),
+        masking_filter=SecretMaskingFilter(),
+        venv_ref=venv_ref,
+    )
+
+    assert venv_utils.last_used_at(venv_loc) > began + 3000, (
+        "the entry still records when the run started, so a run longer than "
+        "the max age is evictable the moment it ends"
+    )
+    venv_ref.lock.release.assert_called_once()
