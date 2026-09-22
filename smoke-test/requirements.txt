@@ -21,8 +21,8 @@ ruff==0.11.7
 types-requests>=2.28.11.6,<=2.31.0.3
 types-PyYAML
 requests>=2.32.4,<3.0.0
-# Missing numpy requirement in 8.0.0
-deepdiff!=8.0.0
+# CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+deepdiff>=8.6.2,<9.0.0
 opensearch-py==2.6.0
 
 python-dotenv==1.0.1

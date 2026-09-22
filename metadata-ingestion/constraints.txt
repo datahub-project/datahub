@@ -311,7 +311,7 @@ db-dtypes==1.5.0
     # via acryl-datahub
 decorator==5.2.1
     # via gssapi
-deepdiff==8.6.1
+deepdiff==8.6.2
     # via acryl-datahub
 deepmerge==2.0
     # via acryl-datahub

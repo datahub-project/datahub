@@ -65,7 +65,8 @@ dev_requirements = {
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "tox",
-    "deepdiff",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    "deepdiff>=8.6.2,<9.0.0",
     "requests-mock",
     "freezegun",
     "jsonpickle",
