@@ -142,10 +142,18 @@ cache growing into a pod eviction if the entry count is set higher than the volu
 
 A venv in use by a running task is never evicted.
 
-**Staleness.** A pinned `version` names one immutable build, so its entry never expires. `latest`
-and dev-build wheel URLs are moving targets, so their entries are rebuilt once they are older than
+**Staleness.** An entry expires only if something in it can resolve differently tomorrow. That is
+the case when `version` is `latest` or a dev-build wheel URL, **or** when any
+`extra_pip_requirements` entry (or a line in a `requirements_file`) is not pinned to an exact
+version — `some-lib` and `some-lib>=1.0` can both change under a cache key built from the
+requirement string, so a pinned `version` alone does not make the venv immutable. A direct URL
+counts as unpinned too, because the artifact behind an address can be republished.
+
+Entries that can move are rebuilt once they are older than
 `DATAHUB_VENV_CACHE_LATEST_TTL_HOURS` — measured from when the venv was **built**, not when it was
-last used, so a busy entry still expires on schedule. Without that bound, a long-lived pod would
+last used, so a busy entry still expires on schedule. An entry whose `version` and every
+requirement are exactly pinned never expires, because rebuilding it could only produce the same
+bytes. Without that bound, a long-lived pod would
 serve the build it resolved on the day it started for the rest of its life. Lower the TTL if you
 ship connector fixes and need pods to pick them up sooner; pin `version` if a run must control its
 CLI version exactly.

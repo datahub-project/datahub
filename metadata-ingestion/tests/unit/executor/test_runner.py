@@ -2320,6 +2320,110 @@ class TestVenvCacheInSetupVenv:
             "an hour-old `latest` venv was rebuilt inside its TTL"
         )
 
+    async def _setup_with_reqs(
+        self,
+        tmp_path: pathlib.Path,
+        version: str,
+        mock: AsyncMock,
+        reqs: list[str],
+        requirements_file: Optional[pathlib.Path] = None,
+    ) -> VenvReference:
+        runner = SubprocessRunner(LogHolder())
+        with patch.object(runner, "execute", mock):
+            return await setup_venv(
+                VenvConfig(
+                    version=version,
+                    main_plugin="snowflake",
+                    extra_pip_requirements=reqs,
+                    requirements_file=requirements_file,
+                ),
+                runner,
+                tmp_path,
+            )
+
+    @pytest.mark.parametrize(
+        ("reqs", "expires"),
+        [
+            pytest.param(["some-lib"], True, id="bare-name"),
+            pytest.param(["some-lib>=1.0"], True, id="lower-bound"),
+            pytest.param(["some-lib~=1.0"], True, id="compatible-release"),
+            pytest.param(["pkg @ https://host.example/p.whl"], True, id="direct-url"),
+            pytest.param(["some-lib==1.2.3"], False, id="exact-pin"),
+            pytest.param(["a==1.0", "b==2.0"], False, id="several-exact-pins"),
+        ],
+    )
+    async def test_an_unpinned_extra_requirement_makes_the_entry_expire(
+        self,
+        reqs: list[str],
+        expires: bool,
+        tmp_path: pathlib.Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A pinned CLI version does not make the whole venv immutable.
+
+        get_stable_venv_name hashes the requirement STRING, not what it
+        resolves to, so `extra_pip_requirements: ["some-lib"]` keeps one key
+        forever while the package behind it moves. With the TTL keyed only
+        on `version`, the pod served day-one's resolution for its whole life
+        -- and a daily schedule keeps last_used fresh, so the age rule never
+        fires either.
+
+        A direct URL counts as unpinned for the same reason the PR treats a
+        dev-build wheel URL as moving: the artifact behind an address can be
+        republished.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_LATEST_TTL_HOURS", "24")
+
+        first = await self._setup_with_reqs(
+            tmp_path / "exec-1", "0.15.0.1", self._mock_execute(), reqs
+        )
+        assert first.lock is not None
+        first.lock.release()
+        self._age_the_build(first.venv_loc, seconds=60 * 60 * 25)
+
+        second = self._mock_execute()
+        again = await self._setup_with_reqs(
+            tmp_path / "exec-2", "0.15.0.1", second, reqs
+        )
+        if again.lock is not None:
+            again.lock.release()
+
+        rebuilt = bool([c for c in second.call_args_list if "install" in c[0][0]])
+        assert rebuilt is expires, (
+            f"reqs={reqs}: expected expires={expires}, got rebuilt={rebuilt}"
+        )
+
+    async def test_an_unpinned_requirements_file_makes_the_entry_expire(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Same reasoning, different input. A requirements_file is installed
+        verbatim, so an unpinned line in it moves exactly like an unpinned
+        extra_pip_requirement."""
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_LATEST_TTL_HOURS", "24")
+
+        reqs_file = tmp_path / "reqs.txt"
+        reqs_file.write_text("# a comment\npinned==1.0\nloose-lib\n")
+
+        first = await self._setup_with_reqs(
+            tmp_path / "exec-1", "0.15.0.1", self._mock_execute(), [], reqs_file
+        )
+        assert first.lock is not None
+        first.lock.release()
+        self._age_the_build(first.venv_loc, seconds=60 * 60 * 25)
+
+        second = self._mock_execute()
+        again = await self._setup_with_reqs(
+            tmp_path / "exec-2", "0.15.0.1", second, [], reqs_file
+        )
+        if again.lock is not None:
+            again.lock.release()
+
+        assert [c for c in second.call_args_list if "install" in c[0][0]], (
+            "a venv built from an unpinned requirements file never expires"
+        )
+
     async def test_a_pinned_version_never_expires(
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

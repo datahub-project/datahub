@@ -28,6 +28,7 @@ from expandvars import (
     UnboundVariable,
     expand as _expandvars_expand,
 )
+from packaging.requirements import InvalidRequirement, Requirement
 
 # TODO: promote to a public config_loader helper.
 from datahub.configuration.config_loader import _extract_env_var_names
@@ -676,14 +677,76 @@ class _CacheEntry:
     ready: bool
 
 
-def _is_moving_version(version: str) -> bool:
-    """Whether this version can resolve to different bytes tomorrow.
+def _is_pinned_requirement(req: str) -> bool:
+    """Whether this requirement names one immutable artifact.
 
-    Exactly the set _node_local_stable_name makes cacheable beyond a pin:
-    `latest`, and dev-build wheel URLs. A pinned version names one immutable
-    build, so it is never moving and never expires.
+    Only an exact-version pin does. A direct URL does NOT: the artifact
+    behind an address can be republished, which is the same reason
+    _node_local_stable_name treats a dev-build wheel URL as a moving target.
+
+    An unparseable requirement counts as unpinned. Being wrong that way costs
+    a periodic rebuild; being wrong the other way freezes the entry for the
+    pod's life.
     """
-    return version == VENV_VERSION_LATEST or version.startswith(("http://", "https://"))
+    try:
+        parsed = Requirement(req)
+    except InvalidRequirement:
+        return False
+    if parsed.url:
+        return False
+    return any(spec.operator in ("==", "===") for spec in parsed.specifier)
+
+
+def _requirements_file_is_pinned(path: pathlib.Path) -> bool:
+    """Whether every line of a requirements file names an immutable artifact.
+
+    Unreadable counts as unpinned, for the same reason an unparseable
+    requirement does.
+    """
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return False
+    for raw in lines:
+        line = raw.split("#", 1)[0].strip()
+        if not line or line.startswith("-"):
+            # Blank, comment, or a pip flag (-r, --index-url). A nested -r
+            # is not followed, so treat any flag line as unpinnable.
+            if line.startswith("-"):
+                return False
+            continue
+        if not _is_pinned_requirement(line):
+            return False
+    return True
+
+
+def _resolves_to_moving_target(
+    venv_config: VenvConfig, expanded_pip_reqs: list[str]
+) -> bool:
+    """Whether this venv's contents can differ tomorrow under the same key.
+
+    The cache key is built from requirement STRINGS, not from what they
+    resolve to, so "immutable" has to be judged on the strings.
+
+    `version` alone is not enough, and that was the gap: a pinned CLI
+    version with `extra_pip_requirements: ["some-lib"]` produced a stable
+    name and no TTL, so the pod served day-one's resolution of that
+    dependency for its whole life -- and a daily schedule keeps the
+    last-used marker fresh, so the age-based eviction never fired either.
+    Before this cache existed, a stable-named venv still lived under the
+    per-execution directory and was rebuilt every run, so nothing was frozen.
+
+    The common case -- no extra requirements -- is unchanged: the answer
+    still comes down to `version`.
+    """
+    version = venv_config.version
+    if version == VENV_VERSION_LATEST or version.startswith(("http://", "https://")):
+        return True
+    if any(not _is_pinned_requirement(req) for req in expanded_pip_reqs):
+        return True
+    if venv_config.requirements_file is not None:
+        return not _requirements_file_is_pinned(venv_config.requirements_file)
+    return False
 
 
 def _is_fresh_hit(venv_loc: pathlib.Path, *, moving: bool) -> bool:
@@ -1230,7 +1293,10 @@ async def setup_venv(
 
     venv_name, cacheable = _name_dynamic_venv(venv_config, expanded_pip_reqs)
     entry = await _acquire_cache_entry(
-        venv_name, tmp_dir, cacheable, moving=_is_moving_version(venv_config.version)
+        venv_name,
+        tmp_dir,
+        cacheable,
+        moving=_resolves_to_moving_target(venv_config, expanded_pip_reqs),
     )
     venv_loc, lock, cacheable = entry.venv_loc, entry.lock, entry.cacheable
 
