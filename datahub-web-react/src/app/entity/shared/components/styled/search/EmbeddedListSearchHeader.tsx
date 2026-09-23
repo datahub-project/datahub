@@ -77,7 +77,7 @@ export default function EmbeddedListSearchHeader({
                     </Button>
                     <SearchAndDownloadContainer>
                         <SearchBar
-                            data-testid="embedded-search-bar"
+                            dataTestId="embedded-search-bar"
                             initialQuery=""
                             placeholderText={placeholderText || t('embeddedListSearch.searchPlaceholder')}
                             suggestions={[]}
