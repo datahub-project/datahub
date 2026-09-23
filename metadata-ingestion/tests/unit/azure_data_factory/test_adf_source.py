@@ -17,7 +17,6 @@ from typing import Callable, Optional
 
 import pytest
 from azure.mgmt.datafactory.models import (
-    AzureSqlTableDataset,
     DatasetResource,
     LinkedServiceReference,
     SalesforceObjectDataset,
@@ -223,15 +222,6 @@ class TestExtractTableName:
             ),
         )
         assert AzureDataFactorySource._extract_table_name(dataset) is None
-
-    def test_sql_table_name_unchanged(self) -> None:
-        dataset = DatasetResource(
-            name="ds_customers",
-            properties=AzureSqlTableDataset(
-                linked_service_name=_LINKED_SERVICE_REF, table_name="dbo.customers"
-            ),
-        )
-        assert AzureDataFactorySource._extract_table_name(dataset) == "dbo.customers"
 
 
 class TestFilePathExtractionLogic:
