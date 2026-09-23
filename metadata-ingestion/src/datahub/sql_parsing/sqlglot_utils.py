@@ -82,16 +82,14 @@ _TSQL_DIGIT_TEMP_TABLE = re.compile(
     re.VERBOSE | re.DOTALL,
 )
 
+# SQL Server DMVs can prefix query text with a parameter declaration header,
+# which is metadata rather than executable T-SQL.
 _TSQL_PARAM_HEADER = re.compile(
     r"""
-    ^\s*\(
-        \s* @[\w$]+ \s+ [A-Za-z_][\w$]* 
+    ^\s*\(\s* @[\w$]+ \s+ [A-Za-z_][\w$]*
         (?:\s*\([^)]*\))?
-        (?:
-            \s*,\s* @[\w$]+ \s+ [A-Za-z_][\w$]* (?:\s*\([^)]*\))?
-        )* 
-        \s*
-    \)[ \t]*
+        (?:\s*,\s* @[\w$]+ \s+ [A-Za-z_][\w$]* (?:\s*\([^)]*\))?)*
+    \s*\)[ \t]*
     """,
     re.VERBOSE,
 )
@@ -202,7 +200,6 @@ def parse_statement(
             logger.debug("Sanitized T-SQL temp tables: %s -> %s", sql, sanitized)
         sql = sanitized
 
-    print("DEBUG SANITIZED SQL:", repr(sql))
     return _parse_statement(sql, dialect).copy()
 
 
