@@ -2,6 +2,7 @@ package com.linkedin.metadata.timeline.eventgenerator;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Documentation;
@@ -443,9 +444,9 @@ public class DocumentationChangeEventGeneratorTest extends AbstractTestNGSpringC
     assertEquals(actual.size(), 1);
     String serialized = (String) actual.get(0).getParameters().get("sourceDetails");
     assertNotNull(serialized);
-    assert serialized.contains("origin");
-    assert serialized.contains("propagation_depth");
-    assert serialized.contains("urn:li:schemaField:(urn:li:dataset:upstream,col)");
+    assertTrue(serialized.contains("origin"));
+    assertTrue(serialized.contains("propagation_depth"));
+    assertTrue(serialized.contains("urn:li:schemaField:(urn:li:dataset:upstream,col)"));
   }
 
   @Test
@@ -494,7 +495,7 @@ public class DocumentationChangeEventGeneratorTest extends AbstractTestNGSpringC
 
     assertEquals(actual.size(), 1);
     String serialized = (String) actual.get(0).getParameters().get("sourceDetails");
-    assert serialized.contains("propagation_depth");
-    assert serialized.contains("via");
+    assertTrue(serialized.contains("propagation_depth"));
+    assertTrue(serialized.contains("via"));
   }
 }
