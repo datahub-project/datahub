@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -13,6 +14,7 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;
@@ -21,6 +23,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.mockito.ArgumentCaptor;
+import org.opensearch.index.query.QueryBuilders;
 import org.testng.annotations.Test;
 
 public class Es8SearchKnnTest {
@@ -208,5 +211,45 @@ public class Es8SearchKnnTest {
 
     assertEquals(response.hits().size(), 1, "Only hits with non-empty ids should be returned");
     assertEquals(response.hits().get(0).id(), "urn:li:dataset:abc");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void searchKnnAcceptsFilterBuiltWithOpenSearchQueryBuilders() throws IOException {
+    ElasticsearchClient mockClient = mock(ElasticsearchClient.class);
+    HitsMetadata<Map> hitsMetadata = mock(HitsMetadata.class);
+    when(hitsMetadata.hits()).thenReturn(List.of());
+    SearchResponse<Map> mockResponse = mock(SearchResponse.class);
+    when(mockResponse.hits()).thenReturn(hitsMetadata);
+    when(mockClient.search(any(SearchRequest.class), eq(Map.class))).thenReturn(mockResponse);
+
+    // Semantic search builds its filter with OpenSearch query builders, whose serialization carries
+    // bool.adjust_pure_negative at every level; the strict kNN body parse rejected it
+    Map<String, Object> filter =
+        new ObjectMapper()
+            .readValue(
+                QueryBuilders.boolQuery()
+                    .must(
+                        QueryBuilders.boolQuery()
+                            .should(QueryBuilders.termQuery("urn", "urn:li:dataset:abc")))
+                    .mustNot(QueryBuilders.termQuery("removed", true))
+                    .toString(),
+                Map.class);
+    KnnSearchRequest request =
+        KnnSearchRequest.builder()
+            .indexName("dataset_semantic_v1")
+            .vectorField("embeddings.gemini_embedding_001.chunks.vector")
+            .queryVector(new float[] {0.1f, 0.2f, 0.3f})
+            .k(5)
+            .filter(filter)
+            .build();
+
+    Es8SearchClientShim.forTest(mockClient).searchKnn(OP_CONTEXT, request);
+
+    ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockClient).search(captor.capture(), eq(Map.class));
+    String sent = captor.getValue().toString();
+    assertTrue(sent.contains("urn:li:dataset:abc"), sent);
+    assertTrue(sent.contains("must_not"), sent);
   }
 }

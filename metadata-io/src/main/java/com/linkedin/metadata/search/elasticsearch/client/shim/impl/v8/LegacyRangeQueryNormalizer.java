@@ -17,8 +17,9 @@ import javax.annotation.Nonnull;
  *       include_upper}) are rewritten to {@code gte}/{@code gt}/{@code lte}/{@code lt}, which ES
  *       8.18+ deprecates in the legacy form.
  *   <li>{@code bool} queries carry {@code adjust_pure_negative}, an internal Lucene default the ES
- *       8 typed {@code BoolQuery} model does not expose. It is stripped; ES 8 applies the same
- *       default ({@code true}) internally, so removal is behavior-preserving.
+ *       8 typed {@code BoolQuery} model does not expose. It is stripped when {@code true}, the
+ *       default ES 8 applies internally, so removal is behavior-preserving. A {@code false} is
+ *       kept, so a strict parse fails loudly instead of widening a pure {@code must_not}.
  * </ul>
  */
 public final class LegacyRangeQueryNormalizer {
@@ -53,7 +54,10 @@ public final class LegacyRangeQueryNormalizer {
                 });
       }
       if (objectNode.has("bool") && objectNode.get("bool").isObject()) {
-        ((ObjectNode) objectNode.get("bool")).remove(ADJUST_PURE_NEGATIVE);
+        ObjectNode boolNode = (ObjectNode) objectNode.get("bool");
+        if (boolNode.path(ADJUST_PURE_NEGATIVE).asBoolean(false)) {
+          boolNode.remove(ADJUST_PURE_NEGATIVE);
+        }
       }
       objectNode.properties().forEach(entry -> normalizeNode(entry.getValue()));
     } else if (node.isArray()) {

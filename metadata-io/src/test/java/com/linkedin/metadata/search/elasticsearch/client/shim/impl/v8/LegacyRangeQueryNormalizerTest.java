@@ -130,6 +130,17 @@ public class LegacyRangeQueryNormalizerTest {
     assertFalse(normalized.contains(ADJUST_PURE_NEGATIVE));
   }
 
+  @Test
+  public void testKeepsAdjustPureNegativeFalse() throws Exception {
+    // Only the default true is safe to drop; false changes what a pure must_not matches
+    String legacy =
+        "{\"bool\":{\"must_not\":[{\"term\":{\"a\":\"b\"}}],\"adjust_pure_negative\":false}}";
+
+    String normalized = LegacyRangeQueryNormalizer.normalize(legacy, objectMapper);
+
+    assertTrue(normalized.contains("\"adjust_pure_negative\":false"), normalized);
+  }
+
   /**
    * Reproduces the filtered kNN semantic-search failure on Elasticsearch 8 backends. The deeply
    * nested bool filter DataHub builds via OpenSearch query builders is parsed as a SearchRequest
