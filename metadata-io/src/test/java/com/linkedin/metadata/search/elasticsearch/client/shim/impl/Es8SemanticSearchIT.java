@@ -256,6 +256,47 @@ public class Es8SemanticSearchIT {
         List.of("urn:doc:8", "urn:doc:9"));
   }
 
+  /**
+   * Entity-type filters reach the kNN clause as {@code _index} terms. They must still pick the
+   * requested index when a search spans several, even though the other index holds nearer
+   * documents.
+   */
+  @Test(groups = "es8-semantic")
+  public void testSearchKnnFiltersOnIndexInsideKnn() throws Exception {
+    for (String index : List.of("doc_near_semantic", "doc_far_semantic")) {
+      shim.createSemanticIndex(
+          SemanticIndexSpec.builder()
+              .indexName(index)
+              .modelKey("gemini_embedding_001")
+              .vectorDimension(4)
+              .build());
+      float offset = index.equals("doc_near_semantic") ? 0.0f : 1.0f;
+      for (int i = 0; i < 3; i++) {
+        shim.indexEmbeddings(
+            OP_CONTEXT,
+            new EmbeddingBatch(
+                index,
+                "urn:" + index + ":" + i,
+                "gemini_embedding_001",
+                List.of(
+                    new EmbeddingBatch.Chunk(
+                        new float[] {1.0f, offset + 0.1f * i, 0.0f, 0.0f},
+                        "doc " + i,
+                        0,
+                        0,
+                        5,
+                        1))));
+      }
+      shim.getNativeClient().indices().refresh(r -> r.index(index));
+    }
+
+    assertEquals(
+        filteredKnnIds(
+            "doc_near_semantic,doc_far_semantic",
+            QueryBuilders.termsQuery("_index", "doc_far_semantic")),
+        List.of("urn:doc_far_semantic:0", "urn:doc_far_semantic:1"));
+  }
+
   private List<String> filteredKnnIds(String indexName, QueryBuilder filterQuery) throws Exception {
     @SuppressWarnings("unchecked")
     Map<String, Object> filter = objectMapper.readValue(filterQuery.toString(), Map.class);

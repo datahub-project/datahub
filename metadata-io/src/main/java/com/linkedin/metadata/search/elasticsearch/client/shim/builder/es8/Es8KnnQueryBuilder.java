@@ -20,9 +20,10 @@ public final class Es8KnnQueryBuilder {
     knnInner.put("query_vector", req.queryVector());
     knnInner.put("k", req.k());
     knnInner.put("num_candidates", req.numCandidates());
-    // A filter inside the kNN clause is applied to the parent documents of the nested vectors, so
-    // it pre-filters on root fields (entityType, platform, urn and the like): the nearest-neighbour
-    // search only considers matching documents instead of dropping non-matches from the top k.
+    // Inside the kNN clause Elasticsearch applies a filter on root fields (entityType, platform,
+    // urn and the like) to the parent documents of the nested vectors, before the search, so only
+    // matching documents are considered instead of non-matches being dropped from the top k.
+    // (From 9.2, a filter on the nested chunk fields applies to the chunks instead.)
     req.filter().ifPresent(f -> knnInner.put("filter", f));
 
     Map<String, Object> nested = new LinkedHashMap<>();
