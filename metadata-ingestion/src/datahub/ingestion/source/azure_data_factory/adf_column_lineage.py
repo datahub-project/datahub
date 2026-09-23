@@ -13,12 +13,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable, Optional, Protocol, runtime_checkable
 
-from datahub.metadata.schema_classes import (
-    FineGrainedLineageClass,
-    FineGrainedLineageDownstreamTypeClass,
-    FineGrainedLineageUpstreamTypeClass,
+from datahub.ingestion.source.azure.copy_translator import (
+    TABULAR_TRANSLATOR,
+    get_translator_type,
+    make_copy_fine_grained_lineage,
+    parse_translator_mappings,
 )
-from datahub.metadata.urns import SchemaFieldUrn
+from datahub.metadata.schema_classes import FineGrainedLineageClass
 from datahub.sdk._shared import DatasetUrnOrStr
 
 logger = logging.getLogger(__name__)
@@ -182,7 +183,7 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         # try auto-mapping inference
         if not lineages:
             translator_type = self._get_translator_type(translator)
-            if translator_type == "TabularTranslator":
+            if translator_type == TABULAR_TRANSLATOR:
                 lineages = self._infer_auto_mappings(
                     source_urn, sink_urn, source_schema
                 )
@@ -217,7 +218,7 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
 
     def _get_translator_type(self, translator: dict[str, Any]) -> Optional[str]:
         """Get the translator type from the translator configuration."""
-        return translator.get("type") or translator.get("translatorType")
+        return get_translator_type(translator)
 
     def _create_fine_grained_lineage(
         self,
@@ -227,15 +228,8 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         sink_column: str,
     ) -> FineGrainedLineageClass:
         """Create a FineGrainedLineageClass for a single column mapping."""
-        upstream_field_urn = SchemaFieldUrn(source_urn, source_column)
-        downstream_field_urn = SchemaFieldUrn(sink_urn, sink_column)
-
-        return FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-            upstreams=[str(upstream_field_urn.urn())],
-            downstreams=[str(downstream_field_urn.urn())],
-            transformOperation="COPY",
+        return make_copy_fine_grained_lineage(
+            source_urn, source_column, sink_urn, sink_column
         )
 
     def _parse_translator(
@@ -244,72 +238,17 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         source_urn: str,
         sink_urn: str,
     ) -> list[FineGrainedLineageClass]:
-        """Parse column mappings from translator configuration.
+        """Parse explicit column mappings from translator configuration.
 
-        Handles both legacy dict format and current list format.
+        Handles both the legacy columnMappings format and the current
+        mappings list format (see ``parse_translator_mappings``).
         """
-        # Mode 1: Legacy dictionary format - columnMappings: {src: sink}
-        column_mappings = translator.get("columnMappings")
-        if column_mappings and isinstance(column_mappings, dict):
-            return self._parse_dict_format(column_mappings, source_urn, sink_urn)
-
-        # Mode 2: Current list format - mappings: [{source: {name}, sink: {name}}]
-        mappings_list = translator.get("mappings")
-        if mappings_list and isinstance(mappings_list, list):
-            return self._parse_list_format(mappings_list, source_urn, sink_urn)
-
-        return []
-
-    def _parse_dict_format(
-        self,
-        column_mappings: dict[str, str],
-        source_urn: str,
-        sink_urn: str,
-    ) -> list[FineGrainedLineageClass]:
-        """Parse legacy dictionary format: {source_col: sink_col}."""
-        lineages: list[FineGrainedLineageClass] = []
-        for source_col, sink_col in column_mappings.items():
-            # Skip empty column names
-            if not source_col or not sink_col:
-                continue
-            lineages.append(
-                self._create_fine_grained_lineage(
-                    source_urn, str(source_col), sink_urn, str(sink_col)
-                )
+        return [
+            self._create_fine_grained_lineage(
+                source_urn, mapping.source_column, sink_urn, mapping.sink_column
             )
-        return lineages
-
-    def _parse_list_format(
-        self,
-        mappings_list: list[dict[str, Any]],
-        source_urn: str,
-        sink_urn: str,
-    ) -> list[FineGrainedLineageClass]:
-        """Parse current list format: [{source: {name}, sink: {name}}]."""
-        lineages: list[FineGrainedLineageClass] = []
-        for mapping in mappings_list:
-            if not isinstance(mapping, dict):
-                continue
-
-            source_info = mapping.get("source", {})
-            sink_info = mapping.get("sink", {})
-
-            if not isinstance(source_info, dict) or not isinstance(sink_info, dict):
-                continue
-
-            source_col = source_info.get("name")
-            sink_col = sink_info.get("name")
-
-            # Skip empty column names
-            if not source_col or not sink_col:
-                continue
-
-            lineages.append(
-                self._create_fine_grained_lineage(
-                    source_urn, str(source_col), sink_urn, str(sink_col)
-                )
-            )
-        return lineages
+            for mapping in parse_translator_mappings(translator)
+        ]
 
     def _infer_auto_mappings(
         self,
