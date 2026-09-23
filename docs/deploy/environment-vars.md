@@ -1101,6 +1101,21 @@ The following environment variables are used in the codebase but may not be expl
 | `OTEL_LOGS_EXPORTER`    | `none`  | OpenTelemetry logs exporter    | GMS, MAE Consumer, MCE Consumer, PE Consumer |
 | `OTEL_PROPAGATORS`      | `null`  | OpenTelemetry propagators      | GMS, MAE Consumer, MCE Consumer, PE Consumer |
 
+### Request Attribution (OpenTelemetry span attributes)
+
+Opt-in, all off by default. When enabled, GMS writes per-request `datahub.*` attributes to the
+request's OpenTelemetry span (OpenSearch and Postgres call counts and wall time, GraphQL page-size
+arguments, Postgres backend pids, timeout marker) so store load can be attributed to a DataHub
+actor and operation without joining child spans. Requires traces to be exported
+(`OTEL_TRACES_EXPORTER`).
+
+| Environment Variable                                   | Default | Description                                                                                                                                                                                        | Components |
+| ------------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `TELEMETRY_REQUEST_ATTRIBUTION_ENABLED`                | `false` | Master switch: create the per-request accumulator and write `datahub.es.*`, `datahub.pg.*`, `datahub.request.*` span attributes; also continue an inbound W3C `traceparent` header                | GMS        |
+| `TELEMETRY_REQUEST_ATTRIBUTION_OPENSEARCH_OPAQUE_ID`   | `false` | Send `X-Opaque-Id: trace=<id>\|actor=<urn>\|req=<operation>\|n=<call>` on OpenSearch search-side requests so the search slow log, tasks API and Query Insights name the caller                     | GMS        |
+| `TELEMETRY_REQUEST_ATTRIBUTION_POSTGRES_ACTOR_COMMENT` | `false` | Prefix every prepared SQL statement issued inside a request with `/*datahub_actor='<urn>',datahub_op='<operation>'*/` so the Postgres statement log and `pg_stat_activity` name the actor. Writes actor urns into the database log | GMS        |
+| `TELEMETRY_REQUEST_ATTRIBUTION_START_MARKER`           | `false` | Emit a zero-length `datahub.request.start` span at request start on API paths so a backend can list in-flight requests by actor                                                                     | GMS        |
+
 ### Secret Service Configuration
 
 | Environment Variable                  | Default          | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Components |

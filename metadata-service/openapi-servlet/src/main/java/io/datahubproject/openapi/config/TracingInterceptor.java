@@ -79,11 +79,13 @@ public class TracingInterceptor implements AsyncHandlerInterceptor {
 
     if (tracer != null) {
       String spanName = request.getMethod() + " " + request.getRequestURI();
-      // Continue an inbound W3C trace (traceparent/tracestate) when the caller sent one, so the
+      // With request attribution on, continue an inbound W3C trace (traceparent/tracestate) so the
       // ingress, frontend and GMS share a trace id even without the OpenTelemetry Java agent.
       Context parent =
-          W3CTraceContextPropagator.getInstance()
-              .extract(Context.current(), request, SERVLET_HEADER_GETTER);
+          attribution != null && attribution.isEnabled()
+              ? W3CTraceContextPropagator.getInstance()
+                  .extract(Context.current(), request, SERVLET_HEADER_GETTER)
+              : Context.current();
       Span span =
           tracer
               .spanBuilder(spanName)
