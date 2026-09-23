@@ -395,20 +395,45 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   }
 
   /**
-   * Refuses semantic reads on a Search V3 cluster running OpenSearch 2. Its k-NN pre-filter ignores
-   * fields under an underscore-prefixed object, and V3 keeps every aspect field under {@code
-   * _aspects}, so facet and View filters would silently return no results.
+   * Refuses semantic reads on a Search V3 cluster that would silently drop facet and View filters.
+   * See {@link #supportsV3SemanticFilters}. Only queries the cluster when the flag is on.
    */
   public static void requireSupportedV3Engine(
-      @Nullable EntityIndexConfiguration entityIndex, @Nullable SearchEngineType v3EngineType) {
+      @Nullable EntityIndexConfiguration entityIndex, @Nonnull SearchClientShim<?> v3Client) {
     if (shouldReadSemanticV3(entityIndex)
         && entityIndex.getSemanticSearch() != null
         && entityIndex.getSemanticSearch().isEnabled()
-        && v3EngineType == SearchEngineType.OPENSEARCH_2) {
+        && !supportsV3SemanticFilters(v3Client)) {
       throw new IllegalStateException(
-          "elasticsearch.entityIndex.v3.semanticReadEnabled needs OpenSearch 3 or Elasticsearch"
-              + " 8.18+ on the Search V3 cluster: OpenSearch 2 k-NN pre-filters ignore the V3"
-              + " _aspects fields that facet and View filters use");
+          "elasticsearch.entityIndex.v3.semanticReadEnabled needs OpenSearch 3.5+ or Elasticsearch"
+              + " 8.18+ on the Search V3 cluster: earlier OpenSearch k-NN pre-filters ignore the"
+              + " V3 _aspects fields that facet and View filters use");
+    }
+  }
+
+  /**
+   * False for OpenSearch before 3.5, whose k-NN plugin runs a nested query's pre-filter in the
+   * nested scope for fields under an underscore-prefixed object. V3 keeps every aspect field under
+   * {@code _aspects}, so such filters match nothing there. Elasticsearch applies them.
+   */
+  public static boolean supportsV3SemanticFilters(@Nonnull SearchClientShim<?> client) {
+    SearchEngineType engineType = client.getEngineType();
+    if (engineType == null || !engineType.isOpenSearch()) {
+      return true;
+    }
+    String version;
+    try {
+      version = client.getEngineVersion();
+    } catch (IOException e) {
+      return false;
+    }
+    String[] parts = version == null ? new String[0] : version.split("\\.");
+    try {
+      int major = Integer.parseInt(parts[0]);
+      int minor = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+      return major > 3 || (major == 3 && minor >= 5);
+    } catch (RuntimeException e) {
+      return false;
     }
   }
 
@@ -463,7 +488,15 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   @Nonnull
   private static Filter toV3Filter(@Nonnull OperationContext opContext, @Nonnull Filter filter) {
     if (filter.getOr() == null) {
-      return filter;
+      if (filter.getCriteria() == null) {
+        return filter;
+      }
+      // Deprecated single-conjunction form
+      filter =
+          new Filter()
+              .setOr(
+                  new ConjunctiveCriterionArray(
+                      new ConjunctiveCriterion().setAnd(filter.getCriteria())));
     }
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     ConjunctiveCriterionArray or = new ConjunctiveCriterionArray();

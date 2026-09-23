@@ -42,7 +42,7 @@ public class SemanticEntitySearchServiceFactory {
     EntityIndexConfiguration entityIndex =
         configurationProvider.getElasticSearch().getEntityIndex();
     SemanticEntitySearchService.requireSupportedV3Engine(
-        entityIndex, searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3).getEngineType());
+        entityIndex, searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3));
     return new SemanticEntitySearchService(
         searchClusterRegistry.clientFor(SearchComponent.SEMANTIC),
         embeddingProvider,

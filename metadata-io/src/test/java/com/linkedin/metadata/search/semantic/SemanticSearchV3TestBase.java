@@ -30,7 +30,6 @@ import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -158,11 +157,11 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
 
   @Test
   public void testAspectFieldFilterMatchesV3Documents() {
-    if (getSearchClient().getEngineType() == SearchEngineType.OPENSEARCH_2) {
+    if (!SemanticEntitySearchService.supportsV3SemanticFilters(getSearchClient())) {
       throw new SkipException(
-          "GMS refuses V3 semantic reads on OpenSearch 2, whose k-NN plugin does not apply nested"
-              + " pre-filters to fields under an underscore-prefixed object such as V3's _aspects;"
-              + " this test builds the service directly");
+          "DataHub refuses V3 semantic reads on OpenSearch before 3.5, whose k-NN pre-filters"
+              + " ignore fields under an underscore-prefixed object such as V3's _aspects; this"
+              + " test builds the service directly");
     }
     // URN and keyword fields have no .keyword subfield on V3, unlike the V2 indices
     SearchResult byDomain =

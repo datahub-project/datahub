@@ -468,19 +468,32 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
-  public void testRequireSupportedV3EngineRejectsOpenSearch2() {
+  public void testRequireSupportedV3EngineChecksOpenSearchVersion() throws IOException {
     assertThrows(
         IllegalStateException.class,
         () ->
             SemanticEntitySearchService.requireSupportedV3Engine(
-                entityIndex(true, true), SearchEngineType.OPENSEARCH_2));
+                entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_2, "2.19.3")));
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            SemanticEntitySearchService.requireSupportedV3Engine(
+                entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "3.4.0")));
     SemanticEntitySearchService.requireSupportedV3Engine(
-        entityIndex(true, true), SearchEngineType.OPENSEARCH_3);
+        entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "3.5.0"));
     SemanticEntitySearchService.requireSupportedV3Engine(
-        entityIndex(true, true), SearchEngineType.ELASTICSEARCH_9);
+        entityIndex(true, true), shimFor(SearchEngineType.ELASTICSEARCH_9, "9.1.5"));
     // Without the V3 semantic read flag OpenSearch 2 keeps serving semantic search from V2
     SemanticEntitySearchService.requireSupportedV3Engine(
-        entityIndex(true, false), SearchEngineType.OPENSEARCH_2);
+        entityIndex(true, false), shimFor(SearchEngineType.OPENSEARCH_2, "2.19.3"));
+  }
+
+  private static SearchClientShim<?> shimFor(SearchEngineType engineType, String version)
+      throws IOException {
+    SearchClientShim<?> shim = mock(SearchClientShim.class);
+    when(shim.getEngineType()).thenReturn(engineType);
+    when(shim.getEngineVersion()).thenReturn(version);
+    return shim;
   }
 
   @Test

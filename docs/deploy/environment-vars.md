@@ -515,8 +515,8 @@ one cluster or split them. Reading V3 still requires V3 writes to be enabled
 routing V3 to a second cluster does not by itself change which family is read. Semantic (kNN)
 search has its own read flag, `ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED` (default
 `false`): with V3 writes on, it reads document vectors from the V3 document index on the Search V3
-cluster instead of the semantic indices, independent of the keyword read flag. It needs OpenSearch 3
-or Elasticsearch 8.18+ on the Search V3 cluster; GMS refuses to start with it on OpenSearch 2.
+cluster instead of the semantic indices, independent of the keyword read flag. It needs OpenSearch
+3.5+ or Elasticsearch 8.18+ on the Search V3 cluster; services given it refuse to start on older OpenSearch.
 
 #### MAE consumer (`metadata-jobs/mae-consumer-job`)
 
