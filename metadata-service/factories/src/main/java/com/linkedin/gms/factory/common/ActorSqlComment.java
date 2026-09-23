@@ -10,7 +10,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
-import java.sql.Statement;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -29,9 +28,10 @@ import lombok.extern.slf4j.Slf4j;
  * driver's server-side prepared-statement cache still converges to a bounded set of texts. The
  * OpenTelemetry agent's sqlcommenter, when also enabled, adds its own trace comment independently.
  *
- * <p>Implemented as dynamic proxies over the Ebean pool, its connections and their statements. Off
- * (the default) means no proxy at all; on, each JDBC call pays one reflective dispatch. Statements
- * issued outside a request (consumers, bootstrap) pass through unchanged.
+ * <p>Implemented as a dynamic proxy over the Ebean pool that hands out {@link CommentingConnection}
+ * wrappers. Off (the default) means no wrapper at all; on, each statement pays one string
+ * concatenation. Statements issued outside a request (consumers, bootstrap) pass through unchanged.
+ * Only prepared statements are rewritten; Ebean issues everything through them.
  */
 @Slf4j
 public final class ActorSqlComment {
@@ -74,52 +74,7 @@ public final class ActorSqlComment {
 
   @Nonnull
   static Connection wrapConnection(@Nonnull Connection c) {
-    return (Connection)
-        Proxy.newProxyInstance(
-            ActorSqlComment.class.getClassLoader(),
-            new Class<?>[] {Connection.class},
-            new Delegating(c) {
-              @Override
-              Object[] before(Method m, Object[] args) {
-                String n = m.getName();
-                if ((n.equals("prepareStatement")
-                        || n.equals("prepareCall")
-                        || n.equals("nativeSQL"))
-                    && args != null
-                    && args.length > 0
-                    && args[0] instanceof String) {
-                  args[0] = prefix((String) args[0]);
-                }
-                return args;
-              }
-
-              @Override
-              Object after(Method m, Object result) {
-                return result instanceof Statement && m.getName().equals("createStatement")
-                    ? wrapStatement((Statement) result)
-                    : result;
-              }
-            });
-  }
-
-  @Nonnull
-  static Statement wrapStatement(@Nonnull Statement s) {
-    return (Statement)
-        Proxy.newProxyInstance(
-            ActorSqlComment.class.getClassLoader(),
-            new Class<?>[] {Statement.class},
-            new Delegating(s) {
-              @Override
-              Object[] before(Method m, Object[] args) {
-                if (args != null
-                    && args.length > 0
-                    && args[0] instanceof String
-                    && (m.getName().startsWith("execute") || m.getName().equals("addBatch"))) {
-                  args[0] = prefix((String) args[0]);
-                }
-                return args;
-              }
-            });
+    return new CommentingConnection(c);
   }
 
   /** {@code sql} with the actor comment prepended, or unchanged when no request is in scope. */
