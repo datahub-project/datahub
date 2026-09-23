@@ -357,6 +357,7 @@ class ViewField:
     description: str
     field_type: ViewFieldType
     project_name: Optional[str] = None
+    source_file: Optional[str] = None
     view_name: Optional[str] = None
     is_primary_key: bool = False
     tags: List[str] = dataclasses_field(default_factory=list)
@@ -521,15 +522,151 @@ class ExploreUpstreamViewField:
         )
 
 
+def _is_imported_source_file(source_file: Optional[str]) -> bool:
+    return extract_project_from_imported_file_path(source_file) is not None
+
+
+def _is_local_source_file(source_file: Optional[str]) -> bool:
+    return source_file is not None and not _is_imported_source_file(source_file)
+
+
+@dataclass
+class _ViewFieldSource:
+    view_name: str
+    source_file: Optional[str]
+    can_veto: bool
+
+
+@dataclass
+class _ViewLocation:
+    imported_project: Optional[str]
+    file_path: Optional[str]
+
+
+def _resolve_one_view(
+    view_name: str,
+    sources: List[_ViewFieldSource],
+    reporter: SourceReport,
+) -> _ViewLocation:
+    """
+    Classify a view from its field source_files. Three states, not two:
+
+    - imported_projects/X/... is evidence the view lives in project X
+    - a local path on a schema field is evidence it lives in the explore project
+    - source_file=None is no information and must not veto an imported mapping
+
+    Parameters set can_veto=False: an imported parameter is still evidence, but a
+    missing or local parameter path is not proof the view is defined locally.
+
+    Cross-project includes emit the view entity under include.project, so an
+    all-imported view must keep that project. Project and file path are taken
+    from the same class so they cannot disagree.
+    """
+    local_paths: List[str] = [
+        source.source_file
+        for source in sources
+        if source.can_veto
+        and source.source_file is not None
+        and _is_local_source_file(source.source_file)
+    ]
+    imported_sources: List[_ViewFieldSource] = [
+        source
+        for source in sources
+        if source.source_file is not None
+        and _is_imported_source_file(source.source_file)
+    ]
+
+    if local_paths:
+        first_path = local_paths[0]
+        if len(set(local_paths)) > 1:
+            reporter.warning(
+                title="Conflicting View File Paths",
+                message="View has fields with different source_file paths.",
+                context=f"View: {view_name}, using: {first_path}",
+            )
+        return _ViewLocation(imported_project=None, file_path=first_path)
+
+    if imported_sources:
+        imported_projects: List[str] = []
+        for source in imported_sources:
+            project = extract_project_from_imported_file_path(source.source_file)
+            assert project is not None
+            imported_projects.append(project)
+        first_project = imported_projects[0]
+        if len(set(imported_projects)) > 1:
+            reporter.warning(
+                title="Conflicting Imported View Projects",
+                message="View has fields from different imported projects.",
+                context=f"View: {view_name}, using: {first_project}",
+            )
+        imported_paths: List[str] = [
+            source.source_file
+            for source in imported_sources
+            if source.source_file is not None
+            and extract_project_from_imported_file_path(source.source_file)
+            == first_project
+        ]
+        first_path = imported_paths[0]
+        if len(set(imported_paths)) > 1:
+            reporter.warning(
+                title="Conflicting View File Paths",
+                message="View has fields with different source_file paths.",
+                context=f"View: {view_name}, using: {first_path}",
+            )
+        return _ViewLocation(imported_project=first_project, file_path=first_path)
+
+    other_paths: List[str] = [
+        source.source_file for source in sources if source.source_file is not None
+    ]
+    return _ViewLocation(
+        imported_project=None,
+        file_path=other_paths[0] if other_paths else None,
+    )
+
+
+def resolve_view_locations(
+    view_names: Iterable[str],
+    schema_fields: Sequence[LookmlModelExploreField],
+    parameter_fields: Sequence[LookmlModelExploreField],
+    reporter: SourceReport,
+) -> Dict[str, _ViewLocation]:
+    sources_by_view: Dict[str, List[_ViewFieldSource]] = {}
+
+    def _add(
+        fields: Sequence[LookmlModelExploreField],
+        can_veto: bool,
+    ) -> None:
+        for field in fields:
+            field_view_name = (
+                LookerUtil.extract_view_name_from_lookml_model_explore_field(field)
+            )
+            if field_view_name is None:
+                continue
+            sources_by_view.setdefault(field_view_name, []).append(
+                _ViewFieldSource(
+                    view_name=field_view_name,
+                    source_file=field.source_file,
+                    can_veto=can_veto,
+                )
+            )
+
+    _add(schema_fields, can_veto=True)
+    _add(parameter_fields, can_veto=False)
+
+    return {
+        view_name: _resolve_one_view(
+            view_name, sources_by_view.get(view_name, []), reporter
+        )
+        for view_name in view_names
+    }
+
+
 def create_view_project_map(
     view_fields: List[ViewField], reporter: SourceReport
 ) -> Dict[str, str]:
     """
     Each view in a model has unique name.
     Use this function in scope of a model.
-
-    Args:
-        view_fields: List of ViewField objects
     """
     fields_by_view: Dict[str, List[ViewField]] = {}
     for view_field in view_fields:
@@ -539,26 +676,17 @@ def create_view_project_map(
 
     view_project_map: Dict[str, str] = {}
     for view_name, fields in fields_by_view.items():
-        if any(field.project_name is None for field in fields):
-            # A local source_file means the view is defined in the explore project; inherited
-            # imported fields must not re-home it. Cross-project includes emit the view entity
-            # under the imported project (include.project), so only all-imported views belong here.
-            continue
-
-        first_project = fields[0].project_name
-        assert first_project is not None
-        for field in fields[1:]:
-            if field.project_name != first_project:
-                reporter.warning(
-                    title="Conflicting Imported View Projects",
-                    message=(
-                        f"View '{view_name}' has fields from different imported projects; "
-                        f"using '{first_project}'."
-                    ),
-                    log=False,
-                )
-                break
-        view_project_map[view_name] = first_project
+        sources = [
+            _ViewFieldSource(
+                view_name=view_name,
+                source_file=field.source_file,
+                can_veto=True,
+            )
+            for field in fields
+        ]
+        location = _resolve_one_view(view_name, sources, reporter)
+        if location.imported_project is not None:
+            view_project_map[view_name] = location.imported_project
 
     return view_project_map
 
@@ -583,50 +711,20 @@ def get_view_file_path(
         logger.debug(f"Failed to find view({view_name}) file-path")
         return None
 
-    local_fields: List[LookmlModelExploreField] = [
-        field
-        for field in matching_fields
-        if field.source_file is not None
-        and not field.source_file.startswith(IMPORTED_PROJECTS_PREFIX)
-    ]
-    preferred_fields = local_fields if local_fields else matching_fields
-    first_path = preferred_fields[0].source_file
-    unique_paths = {
-        field.source_file for field in preferred_fields if field.source_file is not None
-    }
-    if len(unique_paths) > 1:
-        reporter.warning(
-            title="Conflicting View File Paths",
-            message=(
-                f"View '{view_name}' has fields with different source_file paths; "
-                f"using '{first_path}'."
-            ),
-            log=False,
-        )
-
-    logger.debug(f"Found view({view_name}) file-path {first_path}")
-    return first_path
-
-
-def create_upstream_views_file_path_map(
-    view_names: Set[str],
-    lkml_fields: List[LookmlModelExploreField],
-    reporter: SourceReport,
-) -> Dict[str, Optional[str]]:
-    """
-    Create a map of view-name v/s view file path, so that later we can fetch view's file path via view-name
-    """
-
-    upstream_views_file_path: Dict[str, Optional[str]] = {}
-
-    for view_name in view_names:
-        file_path: Optional[str] = get_view_file_path(
-            lkml_fields=lkml_fields, view_name=view_name, reporter=reporter
-        )
-
-        upstream_views_file_path[view_name] = file_path
-
-    return upstream_views_file_path
+    location = _resolve_one_view(
+        view_name,
+        [
+            _ViewFieldSource(
+                view_name=view_name,
+                source_file=field.source_file,
+                can_veto=True,
+            )
+            for field in matching_fields
+        ],
+        reporter,
+    )
+    logger.debug(f"Found view({view_name}) file-path {location.file_path}")
+    return location.file_path
 
 
 def explore_field_set_to_lkml_fields(
@@ -1167,9 +1265,6 @@ class LookerExplore:
             explore = client.lookml_model_explore(model, explore_name)
 
             views: Set[str] = set()
-            lkml_fields: List[LookmlModelExploreField] = (
-                explore_field_set_to_lkml_fields(explore)
-            )
 
             if explore.view_name is not None and explore.view_name != explore.name:
                 # explore is not named after a view and is instead using a from field, which is modeled as view_name.
@@ -1255,6 +1350,7 @@ class LookerExplore:
                                     project_name=extract_project_from_imported_file_path(
                                         dim_field.source_file
                                     ),
+                                    source_file=dim_field.source_file,
                                     view_name=LookerUtil.extract_view_name_from_lookml_model_explore_field(
                                         dim_field
                                     ),
@@ -1294,6 +1390,7 @@ class LookerExplore:
                                     project_name=extract_project_from_imported_file_path(
                                         measure_field.source_file
                                     ),
+                                    source_file=measure_field.source_file,
                                     view_name=LookerUtil.extract_view_name_from_lookml_model_explore_field(
                                         measure_field
                                     ),
@@ -1307,47 +1404,34 @@ class LookerExplore:
                                 )
                             )
 
-            # Parameters are not schema fields. An imported parameter still
-            # carries imported_projects/ evidence, but a missing or local
-            # parameter source_file must not veto that — it is not proof the
-            # view is defined in the explore project.
-            project_map_fields: List[ViewField] = list(view_fields)
-            if explore.fields is not None and explore.fields.parameters is not None:
-                for field in explore.fields.parameters:
-                    field_view_name = (
-                        LookerUtil.extract_view_name_from_lookml_model_explore_field(
-                            field
-                        )
-                    )
-                    project_name = extract_project_from_imported_file_path(
-                        field.source_file
-                    )
-                    if field_view_name is None or project_name is None:
-                        continue
-                    project_map_fields.append(
-                        ViewField(
-                            name=field.name or "",
-                            label=None,
-                            type=field.type if field.type is not None else "",
-                            description="",
-                            field_type=ViewFieldType.UNKNOWN,
-                            project_name=project_name,
-                            view_name=field_view_name,
-                        )
-                    )
-            view_project_map: Dict[str, str] = create_view_project_map(
-                project_map_fields, reporter
+            schema_fields: List[LookmlModelExploreField] = []
+            parameter_fields: List[LookmlModelExploreField] = []
+            if explore.fields is not None:
+                if explore.fields.dimensions is not None:
+                    schema_fields.extend(explore.fields.dimensions)
+                if explore.fields.measures is not None:
+                    schema_fields.extend(explore.fields.measures)
+                if explore.fields.parameters is not None:
+                    parameter_fields.extend(explore.fields.parameters)
+
+            view_locations = resolve_view_locations(
+                view_names=views,
+                schema_fields=schema_fields,
+                parameter_fields=parameter_fields,
+                reporter=reporter,
             )
+            view_project_map: Dict[str, str] = {
+                view_name: location.imported_project
+                for view_name, location in view_locations.items()
+                if location.imported_project is not None
+            }
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
-            upstream_views_file_path: Dict[str, Optional[str]] = (
-                create_upstream_views_file_path_map(
-                    lkml_fields=lkml_fields,
-                    view_names=views,
-                    reporter=reporter,
-                )
-            )
+            upstream_views_file_path: Dict[str, Optional[str]] = {
+                view_name: location.file_path
+                for view_name, location in view_locations.items()
+            }
             if upstream_views_file_path:
                 logger.debug(f"views and their file-paths: {upstream_views_file_path}")
 
