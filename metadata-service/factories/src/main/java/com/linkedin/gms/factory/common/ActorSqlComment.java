@@ -49,11 +49,22 @@ public final class ActorSqlComment {
       @Nonnull String poolName,
       @Nonnull DataSourceConfig config,
       boolean enabled) {
+    install(serverConfig, poolName, enabled, () -> DataSourceFactory.create(poolName, config));
+  }
+
+  /**
+   * Same as {@link #install(DatabaseConfig, String, DataSourceConfig, boolean)} with the pool built
+   * by {@code poolFactory}.
+   */
+  static void install(
+      @Nonnull DatabaseConfig serverConfig,
+      @Nonnull String poolName,
+      boolean enabled,
+      @Nonnull java.util.function.Supplier<DataSourcePool> poolFactory) {
     if (!enabled) {
       return;
     }
-    DataSourcePool pool = DataSourceFactory.create(poolName, config);
-    serverConfig.setDataSource(wrap(pool));
+    serverConfig.setDataSource(wrap(poolFactory.get()));
     log.info("Ebean pool {}: SQL actor comments enabled", poolName);
   }
 
@@ -64,12 +75,7 @@ public final class ActorSqlComment {
         Proxy.newProxyInstance(
             ActorSqlComment.class.getClassLoader(),
             new Class<?>[] {DataSourcePool.class},
-            new Delegating(pool) {
-              @Override
-              Object after(Method m, Object result) {
-                return result instanceof Connection ? wrapConnection((Connection) result) : result;
-              }
-            });
+            new PoolHandler(pool));
   }
 
   @Nonnull
@@ -108,26 +114,19 @@ public final class ActorSqlComment {
     return s.replace("*/", "").replace("/*", "").replace('\'', '_').replace('\n', ' ');
   }
 
-  /** Reflective delegate with before/after hooks; unwraps target exceptions. */
-  private abstract static class Delegating implements InvocationHandler {
-    private final Object target;
+  /** Delegates every pool call; connections handed out are wrapped. Unwraps target exceptions. */
+  private static final class PoolHandler implements InvocationHandler {
+    private final DataSourcePool target;
 
-    Delegating(Object target) {
+    PoolHandler(DataSourcePool target) {
       this.target = target;
-    }
-
-    Object[] before(Method m, Object[] args) {
-      return args;
-    }
-
-    Object after(Method m, Object result) {
-      return result;
     }
 
     @Override
     public Object invoke(Object proxy, Method m, Object[] args) throws Throwable {
       try {
-        return after(m, m.invoke(target, before(m, args)));
+        Object result = m.invoke(target, args);
+        return result instanceof Connection ? wrapConnection((Connection) result) : result;
       } catch (InvocationTargetException e) {
         throw e.getCause();
       }

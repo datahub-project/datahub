@@ -32,7 +32,7 @@ public class TracingInterceptor implements AsyncHandlerInterceptor {
   @Nullable private final Tracer tracer;
   @Nullable private final TextMapPropagator propagator;
 
-  private static final TextMapGetter<HttpServletRequest> HTTP_GETTER =
+  static final TextMapGetter<HttpServletRequest> HTTP_GETTER =
       new TextMapGetter<>() {
         @Override
         public Iterable<String> keys(HttpServletRequest request) {

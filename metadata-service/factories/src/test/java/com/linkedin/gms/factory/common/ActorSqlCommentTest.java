@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertTrue;
 
 import io.datahubproject.metadata.context.RequestStats;
 import io.ebean.datasource.DataSourcePool;
@@ -79,5 +80,77 @@ public class ActorSqlCommentTest {
       return;
     }
     throw new AssertionError("expected SQLException");
+  }
+
+  @Test
+  public void installIsNoOpWhenDisabledAndWrapsWhenEnabled() {
+    io.ebean.config.DatabaseConfig cfg = new io.ebean.config.DatabaseConfig();
+    ActorSqlComment.install(cfg, "p", false, () -> mock(DataSourcePool.class));
+    assertNull(cfg.getDataSource());
+    DataSourcePool pool = mock(DataSourcePool.class);
+    ActorSqlComment.install(cfg, "p", true, () -> pool);
+    assertTrue(cfg.getDataSource() instanceof DataSourcePool);
+    // the public overload with a real DataSourceConfig is a no-op when disabled
+    ActorSqlComment.install(
+        new io.ebean.config.DatabaseConfig(),
+        "q",
+        new io.ebean.datasource.DataSourceConfig(),
+        false);
+  }
+
+  @Test
+  public void poolProxyPassesNonConnectionResultsThrough() throws SQLException {
+    DataSourcePool pool = mock(DataSourcePool.class);
+    when(pool.name()).thenReturn("main");
+    assertEquals(ActorSqlComment.wrap(pool).name(), "main");
+  }
+
+  @Test
+  public void commentingConnectionDelegatesEveryMethod() throws Exception {
+    Connection delegate = mock(Connection.class, org.mockito.Mockito.RETURNS_DEFAULTS);
+    CommentingConnection wrapper = new CommentingConnection(delegate);
+    assertSame(wrapper.delegate(), delegate);
+    for (java.lang.reflect.Method m : Connection.class.getMethods()) {
+      if (m.isDefault() || java.lang.reflect.Modifier.isStatic(m.getModifiers())) {
+        continue;
+      }
+      Object[] args =
+          java.util.Arrays.stream(m.getParameterTypes()).map(ActorSqlCommentTest::sample).toArray();
+      m.invoke(wrapper, args);
+      java.lang.reflect.Method target =
+          Connection.class.getMethod(m.getName(), m.getParameterTypes());
+      // the SQL-taking methods are verified separately (they rewrite the first argument)
+      if (!(args.length > 0 && args[0] instanceof String && isSqlMethod(m.getName()))) {
+        target.invoke(org.mockito.Mockito.verify(delegate), args);
+      }
+    }
+    // Wrapper semantics
+    assertSame(wrapper.unwrap(CommentingConnection.class), wrapper);
+    assertTrue(wrapper.isWrapperFor(Connection.class));
+    wrapper.unwrap(Comparable.class);
+    org.mockito.Mockito.verify(delegate).unwrap(Comparable.class);
+  }
+
+  private static boolean isSqlMethod(String name) {
+    return name.equals("prepareStatement")
+        || name.equals("prepareCall")
+        || name.equals("nativeSQL");
+  }
+
+  private static Object sample(Class<?> t) {
+    if (t == String.class) return "select 1";
+    if (t == int.class) return 0;
+    if (t == boolean.class) return false;
+    if (t == int[].class) return new int[0];
+    if (t == String[].class) return new String[0];
+    if (t == Class.class) return Runnable.class;
+    if (t == java.util.Properties.class) return new java.util.Properties();
+    if (t == java.util.Map.class) return new java.util.HashMap<>();
+    if (t == java.util.concurrent.Executor.class)
+      return (java.util.concurrent.Executor) Runnable::run;
+    if (t == java.sql.Savepoint.class) return mock(java.sql.Savepoint.class);
+    if (t == java.sql.ShardingKey.class) return mock(java.sql.ShardingKey.class);
+    if (t == Object[].class) return new Object[0];
+    return null;
   }
 }
