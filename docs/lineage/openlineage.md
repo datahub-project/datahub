@@ -105,7 +105,7 @@ The DataHub OpenLineage integration can be configured using environment variable
 | `DATAHUB_OPENLINEAGE_USE_PATCH`                                | `datahub.openlineage.use-patch`                                | Boolean | `false` | Whether to use patch operations for lineage/incremental lineage                                                                 |
 | `DATAHUB_OPENLINEAGE_FILE_PARTITION_REGEXP_PATTERN`            | `datahub.openlineage.file-partition-regexp-pattern`            | String  | `null`  | Regular expression pattern for file partition detection                                                                         |
 | `DATAHUB_OPENLINEAGE_DOMAINS`                                  | `datahub.openlineage.domains`                                  | List    | `empty` | Comma-separated domain URNs (`urn:li:domain:<id>`) attached to the DataFlow and DataJob                                         |
-| `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_ENABLED`                   | `datahub.openlineage.fabric-onelake-enabled`                   | Boolean | `true`  | Map Microsoft Fabric OneLake table paths to `fabric-onelake` URNs (see [Microsoft Fabric (OneLake)](#microsoft-fabric-onelake)) |
+| `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_ENABLED`                   | `datahub.openlineage.fabric-onelake-enabled`                   | Boolean | `false` | Map Fabric OneLake table paths to `fabric-onelake` URNs (opt-in; see [Microsoft Fabric (OneLake)](#microsoft-fabric-onelake))   |
 | `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_CONVERT_URNS_TO_LOWERCASE` | `datahub.openlineage.fabric-onelake-convert-urns-to-lowercase` | Boolean | `false` | Lowercase schema and table in `fabric-onelake` URNs; match the connector's `convert_urns_to_lowercase`                          |
 | `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_PLATFORM_INSTANCE`         | `datahub.openlineage.fabric-onelake-platform-instance`         | String  | `null`  | Platform instance for `fabric-onelake` URNs; match the connector's `platform_instance`                                          |
 | `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_ITEM_IDS`                  | `datahub.openlineage.fabric-onelake-item-ids`                  | String  | `null`  | Comma-separated `<workspaceName>/<itemName>.<ItemType>=<workspaceGUID>/<itemGUID>` entries for friendly-name OneLake paths      |
@@ -217,7 +217,10 @@ spark.openlineage.transport.auth.apiKey  <datahub-access-token>
 spark.openlineage.namespace              fabric
 ```
 
-DataHub maps OneLake **table** paths to the `fabric-onelake` platform. It uses the same name the
+By default, OneLake paths are handled like any other ABFS path: tables land on `abs` path URNs (or
+on the Spark catalog symlink, for example `hive.<lakehouse>.<table>`). Set
+`DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_ENABLED=true` to map OneLake **table** paths to the
+`fabric-onelake` platform instead. It uses the same name the
 [Fabric OneLake source](https://docs.datahub.com/docs/generated/ingestion/sources/fabric-onelake)
 uses, so runtime lineage attaches to the tables that source ingests:
 
@@ -229,15 +232,25 @@ urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,<workspaceGUID>.<itemGUID>.<s
 - Workspace and item GUIDs are lowercased. Schema and table keep their case unless
   `fabric-onelake-convert-urns-to-lowercase` is set. Set it if the connector runs with
   `convert_urns_to_lowercase: true`.
+- If the connector uses a `platform_instance`, set `fabric-onelake-platform-instance` to the same
+  value. `common-dataset-platform-instance` is **not** applied to `fabric-onelake` URNs.
 - Global (`onelake.dfs|blob.fabric.microsoft.com`), regional (`<region>-onelake...`),
   `[<region>-]api.onelake.fabric.microsoft.com` and workspace private-link hosts are recognized.
 - A Delta table's location is more specific than its Spark catalog symlink, so the location wins.
   Without this, a symlink like `hive.<lakehouse>.<table>` would take over.
+- `_delta_log`, `key=value` partition folders and data files below a table are ignored. Other
+  shapes under `Tables/` aren't mapped and stay `abs` (logged once as a warning).
 - Paths outside `Tables/` (for example `Files/`) aren't tables and stay on the `abs` platform.
 - Friendly-name paths carry no GUIDs. They stay `abs` unless you add them to
   `fabric-onelake-item-ids`, for example
-  `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_ITEM_IDS=Sales/bronze.Lakehouse=<wsGUID>/<itemGUID>`.
-- Set `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_ENABLED=false` to go back to the previous `abs` URNs.
+  `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_ITEM_IDS=Sales/bronze.Lakehouse=<wsGUID>/<itemGUID>`. Names
+  are matched case-insensitively and in decoded form (`My%20Workspace` matches `My Workspace`).
+  Entries are comma-separated, so names containing commas can't be mapped. Malformed entries are
+  skipped with a warning at startup. Unmapped friendly-name tables are logged once as a warning.
+- When enabled, the mapping takes precedence over `path_spec_list` for OneLake `Tables/` paths.
+- Enabling the mapping changes the URNs of OneLake tables that were previously captured as `abs`
+  or `hive` datasets. New lineage lands on the `fabric-onelake` URNs; the old entities and their
+  lineage are not migrated. Soft-delete them if you no longer need them.
 
 The same options exist in the [Spark agent](https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage#configuration-instructions-microsoft-fabric)
 as `spark.datahub.metadata.dataset.fabricOneLake.*`.
