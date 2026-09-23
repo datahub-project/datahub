@@ -1448,4 +1448,125 @@ public class OpenLineageEventToDatahubTest {
           dataset.getUrn().toString());
     }
   }
+
+  private static final String FABRIC_WS = "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0";
+  private static final String FABRIC_BRONZE = "11112222-3333-4444-5555-666677778888";
+  private static final String FABRIC_SILVER = "aaaabbbb-cccc-dddd-eeee-ffff00001111";
+
+  private DatahubJob convertFabricEvent(String sparkConf) throws IOException, URISyntaxException {
+    DatahubOpenlineageConfig conf =
+        SparkConfigParser.sparkConfigToDatahubOpenlineageConf(
+            ConfigFactory.parseString(sparkConf), new SparkAppContext());
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/fabric_onelake_merge.json"),
+            StandardCharsets.UTF_8);
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    return OpenLineageToDataHub.convertRunEventToJob(runEvent, conf);
+  }
+
+  @Test
+  public void testFabricOneLakeTablesMapToFabricOneLakeUrns()
+      throws IOException, URISyntaxException {
+    DatahubJob datahubJob = convertFabricEvent("metadata.dataset.env = \"DEV\"");
+
+    String bronze =
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+            + FABRIC_WS
+            + "."
+            + FABRIC_BRONZE
+            + ".dbo.customers,DEV)";
+    String silver =
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+            + FABRIC_WS
+            + "."
+            + FABRIC_SILVER
+            + ".dbo.customers,DEV)";
+    String files =
+        "urn:li:dataset:(urn:li:dataPlatform:abs,"
+            + FABRIC_WS
+            + "@onelake.dfs.fabric.microsoft.com/"
+            + FABRIC_BRONZE
+            + "/Files/raw/customers_updates,DEV)";
+
+    assertEquals(
+        java.util.Set.of(bronze, files),
+        datahubJob.getInSet().stream()
+            .map(d -> d.getUrn().toString())
+            .collect(java.util.stream.Collectors.toSet()));
+    assertEquals(1, datahubJob.getOutSet().size());
+    DatahubDataset output = datahubJob.getOutSet().iterator().next();
+    assertEquals(silver, output.getUrn().toString());
+
+    // Column-level lineage references the same fabric-onelake URNs.
+    List<FineGrainedLineage> fgl =
+        Objects.requireNonNull(output.getLineage().getFineGrainedLineages());
+    assertEquals(4, fgl.size());
+    for (FineGrainedLineage entry : fgl) {
+      assertTrue(
+          entry.getUpstreams().get(0).toString().startsWith("urn:li:schemaField:(" + bronze),
+          entry.getUpstreams().toString());
+      assertTrue(
+          entry.getDownstreams().get(0).toString().startsWith("urn:li:schemaField:(" + silver),
+          entry.getDownstreams().toString());
+    }
+  }
+
+  @Test
+  public void testFabricOneLakeSparkConfOptions() throws IOException, URISyntaxException {
+    DatahubJob datahubJob =
+        convertFabricEvent(
+            "metadata.dataset.fabricOneLake.platformInstance = \"tenant_a\"\n"
+                + "metadata.dataset.fabricOneLake.convertUrnsToLowercase = \"true\"");
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,tenant_a."
+            + FABRIC_WS
+            + "."
+            + FABRIC_SILVER
+            + ".dbo.customers,PROD)",
+        datahubJob.getOutSet().iterator().next().getUrn().toString());
+
+    // Opt-out restores the previous abs path URNs (the catalog symlink then wins, as before).
+    DatahubJob disabled = convertFabricEvent("metadata.dataset.fabricOneLake.enabled = \"false\"");
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:hive,silver_lh.dbo.customers,PROD)",
+        disabled.getOutSet().iterator().next().getUrn().toString());
+  }
+
+  @Test
+  public void testFabricOneLakeItemIdsSparkConf() {
+    DatahubOpenlineageConfig conf =
+        SparkConfigParser.sparkConfigToDatahubOpenlineageConf(
+            ConfigFactory.parseString(
+                "metadata.dataset.fabricOneLake.itemIds = \"Sales/bronze.Lakehouse="
+                    + FABRIC_WS
+                    + "/"
+                    + FABRIC_BRONZE
+                    + ",Sales/silver.Lakehouse="
+                    + FABRIC_WS
+                    + "/"
+                    + FABRIC_SILVER
+                    + "\""),
+            new SparkAppContext());
+    assertEquals(2, conf.getFabricOneLakeItemIds().size());
+    assertEquals(
+        FABRIC_WS + "/" + FABRIC_SILVER,
+        conf.getFabricOneLakeItemIds().get("Sales/silver.Lakehouse"));
+    assertTrue(conf.isFabricOneLakeEnabled());
+    assertTrue(!conf.isFabricOneLakeConvertUrnsToLowercase());
+
+    OpenLineage ol = new OpenLineage(URI.create("https://test"));
+    OpenLineage.InputDataset dataset =
+        ol.newInputDatasetBuilder()
+            .namespace("abfss://Sales@onelake.dfs.fabric.microsoft.com")
+            .name("/silver.Lakehouse/Tables/dbo/customers")
+            .build();
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+            + FABRIC_WS
+            + "."
+            + FABRIC_SILVER
+            + ".dbo.customers,PROD)",
+        OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(dataset, conf).get().toString());
+  }
 }

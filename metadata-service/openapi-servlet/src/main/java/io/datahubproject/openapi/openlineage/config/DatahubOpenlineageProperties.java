@@ -28,6 +28,16 @@ public class DatahubOpenlineageProperties {
   // Dataset path configuration
   private String filePartitionRegexpPattern;
 
+  // Microsoft Fabric OneLake: map OneLake table paths to fabric-onelake connector URNs
+  private boolean fabricOnelakeEnabled = true;
+  // Mirrors the fabric-onelake source's convert_urns_to_lowercase (schema + table).
+  private boolean fabricOnelakeConvertUrnsToLowercase = false;
+  // Mirrors the fabric-onelake source's platform_instance.
+  private String fabricOnelakePlatformInstance;
+  // Comma-separated <workspaceName>/<itemName>.<ItemType>=<workspaceGUID>/<itemGUID> entries for
+  // friendly-name OneLake paths, which carry no GUIDs.
+  private String fabricOnelakeItemIds;
+
   // Metadata ingestion configuration
   private boolean materializeDataset = true;
   private boolean includeSchemaMetadata = true;

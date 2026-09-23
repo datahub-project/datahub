@@ -57,6 +57,7 @@ import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
 import io.datahubproject.openlineage.dataset.DatahubDataset;
 import io.datahubproject.openlineage.dataset.DatahubJob;
+import io.datahubproject.openlineage.dataset.FabricOneLakePath;
 import io.datahubproject.openlineage.dataset.HdfsPathDataset;
 import io.datahubproject.openlineage.dataset.HdfsPlatform;
 import io.datahubproject.openlineage.dataset.PathSpec;
@@ -166,12 +167,25 @@ public class OpenLineageToDataHub {
       }
       Optional<DatasetUrn> symlinkedUrn =
           getDatasetUrnFromOlDataset(namespace, datasetName, connectionKey, mappingConfig);
-      if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {
-        mappingConfig
-            .getUrnAliases()
-            .put(originalUrn.get().toString(), symlinkedUrn.get().toString());
+      if (originalUrn.isPresent() && isFabricOneLakeUrn(originalUrn.get())) {
+        // A OneLake table location already resolves to the fabric-onelake connector's URN, which
+        // is more specific than the catalog symlink (the Spark session catalog would otherwise map
+        // it to e.g. hive.<lakehouse>.<table>). Keep the location URN and alias the symlinked one
+        // to it, so datasets only seen through their catalog name resolve to the same entity.
+        if (symlinkedUrn.isPresent() && !symlinkedUrn.get().equals(originalUrn.get())) {
+          mappingConfig
+              .getUrnAliases()
+              .put(symlinkedUrn.get().toString(), originalUrn.get().toString());
+        }
+        datahubUrn = originalUrn;
+      } else {
+        if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {
+          mappingConfig
+              .getUrnAliases()
+              .put(originalUrn.get().toString(), symlinkedUrn.get().toString());
+        }
+        datahubUrn = symlinkedUrn;
       }
-      datahubUrn = symlinkedUrn;
     } else {
       datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
     }
@@ -193,6 +207,10 @@ public class OpenLineageToDataHub {
     }
 
     return datahubUrn;
+  }
+
+  private static boolean isFabricOneLakeUrn(DatasetUrn urn) {
+    return FabricOneLakePath.PLATFORM.equals(urn.getPlatformEntity().getPlatformNameEntity());
   }
 
   private static Optional<DatasetUrn> getDatasetUrnFromOlDataset(

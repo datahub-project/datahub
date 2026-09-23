@@ -6,6 +6,7 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -58,6 +59,22 @@ public class HdfsPathDataset extends SparkDataset {
     String platform;
     try {
       platform = getPlatform(pathUri);
+
+      // Microsoft Fabric OneLake tables resolve to the fabric-onelake connector's URNs. The raw
+      // path (used by callers for path transformations) is left untouched.
+      Optional<String> oneLakeName = FabricOneLakePath.toDatasetName(path, datahubConf);
+      if (oneLakeName.isPresent()) {
+        String platformInstance =
+            datahubConf.getFabricOneLakePlatformInstance() != null
+                ? datahubConf.getFabricOneLakePlatformInstance()
+                : datahubConf.getCommonDatasetPlatformInstance();
+        return new HdfsPathDataset(
+            FabricOneLakePath.PLATFORM,
+            oneLakeName.get(),
+            platformInstance,
+            datahubConf.getFabricType(),
+            pathUri);
+      }
 
       if (datahubConf.getPathSpecs() == null) {
         log.info("No path_spec_list configuration found for platform {}.", platform);

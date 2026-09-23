@@ -50,6 +50,22 @@ public class DatahubOpenlineageConfig {
   @Builder.Default
   private final Map<String, ConnectionInstanceDetail> connectionInstanceMap = new HashMap<>();
 
+  // Microsoft Fabric OneLake: map OneLake table paths (abfss://...@onelake.dfs.fabric.microsoft.com
+  // /<item>/Tables/[<schema>/]<table>) to the fabric-onelake platform using the same dataset name
+  // as the fabric-onelake ingestion source (<workspaceGUID>.<itemGUID>.<schema>.<table>), instead
+  // of an abs path dataset. Other OneLake paths (e.g. /Files/) stay on abs.
+  @Builder.Default private final boolean fabricOneLakeEnabled = true;
+  // Mirrors the fabric-onelake source's convert_urns_to_lowercase: lowercases schema and table.
+  // Workspace/item GUIDs are always lowercased (the Fabric REST API returns them lowercase).
+  @Builder.Default private final boolean fabricOneLakeConvertUrnsToLowercase = false;
+  // Mirrors the fabric-onelake source's platform_instance. Falls back to
+  // commonDatasetPlatformInstance when unset.
+  @Builder.Default private final String fabricOneLakePlatformInstance = null;
+  // Friendly-name paths (<workspaceName>@.../<itemName>.<ItemType>/Tables/...) carry no GUIDs.
+  // Maps "<workspaceName>/<itemName>.<ItemType>" (case-insensitive) to
+  // "<workspaceGUID>/<itemGUID>" so those paths can be mapped too; unmapped ones stay on abs.
+  @Builder.Default private final Map<String, String> fabricOneLakeItemIds = new HashMap<>();
+
   // Metadata ingestion configuration
   private final boolean materializeDataset;
   private final boolean includeSchemaMetadata;

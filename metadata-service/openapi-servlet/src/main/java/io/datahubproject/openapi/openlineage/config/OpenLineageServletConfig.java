@@ -3,6 +3,8 @@ package io.datahubproject.openapi.openlineage.config;
 import com.linkedin.common.FabricType;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.dataset.FabricOneLakePath;
+import java.util.HashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -60,6 +62,11 @@ public class OpenLineageServletConfig {
             .fabricType(fabricType)
             .orchestrator(properties.getOrchestrator())
             .domains(properties.getDomains())
+            .fabricOneLakeEnabled(properties.isFabricOnelakeEnabled())
+            .fabricOneLakeConvertUrnsToLowercase(properties.isFabricOnelakeConvertUrnsToLowercase())
+            .fabricOneLakePlatformInstance(properties.getFabricOnelakePlatformInstance())
+            .fabricOneLakeItemIds(
+                new HashMap<>(FabricOneLakePath.parseItemIds(properties.getFabricOnelakeItemIds())))
             .parentJobUrn(null)
             .build();
     log.info("Starting OpenLineage Endpoint with config: {}", datahubOpenlineageConfig);
