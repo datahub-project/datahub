@@ -121,7 +121,7 @@ per-execution directory.
 | **`DATAHUB_VENV_CACHE_ENABLED`**          | **`false`** restores a freshly built venv per run (default **`true`**). See the note below about reclaiming what the cache already wrote.               |
 | **`DATAHUB_VENV_CACHE_PATH`**             | Cache root (default **`<tmp_dir>/_venv_cache`**, i.e. **`/tmp/datahub/ingest/_venv_cache`**).                                                           |
 | **`DATAHUB_VENV_CACHE_MAX_ENTRIES`**      | How many venvs to keep (default **`10`**). Least-recently-used entries are removed once the cache exceeds it.                                           |
-| **`DATAHUB_VENV_CACHE_MAX_AGE_HOURS`**    | Drop an entry nothing has used in this long, whatever the count (default **`24`**).                                                                     |
+| **`DATAHUB_VENV_CACHE_MAX_AGE_HOURS`**    | Drop an entry nothing has used in this long, whatever the count (default **`36`**).                                                                     |
 | **`DATAHUB_VENV_CACHE_LATEST_TTL_HOURS`** | How long a venv built from a **moving** version (`latest`, or a dev-build wheel URL) is reused before being rebuilt and re-resolved (default **`24`**). |
 
 The cache is bounded by **entry count and age, not by bytes**. Sizing it in bytes would mean

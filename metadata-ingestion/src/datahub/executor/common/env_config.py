@@ -86,7 +86,11 @@ DEFAULT_VENV_CACHE_MAX_ENTRIES = 10
 
 # Drop an entry nothing has used in this long, even when the cache is under
 # its entry count. Bounds the cache on a pod that runs one recipe for weeks.
-DEFAULT_VENV_CACHE_MAX_AGE_HOURS = 24
+# 36 rather than 24: the marker is stamped when a run ENDS, so a daily
+# schedule's next run lands just under 24h later, and any start-time drift
+# longer than one run would otherwise evict the entry right before it is
+# needed -- a rebuild every day for the most common schedule there is.
+DEFAULT_VENV_CACHE_MAX_AGE_HOURS = 36
 
 # How long a venv built from a MOVING version -- `latest`, or a dev-build
 # branch alias -- may be served before it is rebuilt. Unlike the two above
