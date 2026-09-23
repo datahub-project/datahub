@@ -32,6 +32,7 @@ import com.linkedin.metadata.search.utils.SearchResultUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
@@ -45,6 +46,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -135,6 +137,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private final String vectorField;
   @Nullable private final EntityIndexConfiguration entityIndexConfiguration;
   private final Set<String> warnedSharedIndexEntities = ConcurrentHashMap.newKeySet();
+  private final AtomicBoolean warnedOpenSearch2Filters = new AtomicBoolean();
 
   /**
    * Constructs a semantic entity search service with the default model embedding key.
@@ -300,7 +303,10 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             ? ESUtils.buildFilterMap(
                 // Use the new method that delegates to buildFilterQuery
                 transformedFilters, // Use transformed filters instead of raw postFilters
-                false, // not timeseries
+                // The timeseries flag drops the .keyword suffix, which V3 needs: its keyword and
+                // URN fields have no such subfield, and its text fields are keyword-typed too. The
+                // flag's other effect, the rewrite context, is unused with an empty rewrite chain.
+                readV3,
                 searchableFieldTypes,
                 opContext,
                 queryFilterRewriteChain)
@@ -324,6 +330,15 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     // Search V3 cluster, which may differ from the semantic component's cluster.
     SearchClientShim<?> client =
         readV3 ? SearchClients.forComponent(opContext, SearchComponent.SEARCH_V3) : searchClient;
+    if (readV3
+        && finalFilterMap != null
+        && client.getEngineType() == SearchEngineType.OPENSEARCH_2
+        && warnedOpenSearch2Filters.compareAndSet(false, true)) {
+      log.warn(
+          "Filtered semantic search on Search V3 runs on OpenSearch 2, whose k-NN pre-filter does not"
+              + " match fields under _aspects (domains, owners, tags and similar); use OpenSearch 3"
+              + " or Elasticsearch 8.18+ for filtered V3 semantic search");
+    }
     List<SearchEntity> hits =
         executeKnn(
             opContext,

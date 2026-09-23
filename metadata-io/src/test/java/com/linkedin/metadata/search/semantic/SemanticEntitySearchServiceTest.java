@@ -544,6 +544,34 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
+  public void testV3SemanticReadFiltersKeywordFieldsWithoutKeywordSuffix() throws IOException {
+    SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
+    stubSearchV3Cluster();
+    stubEntitySpec("document", null);
+    when(mockIndexConvention.getEntityIndexNameV3(mockOpContext, "document"))
+        .thenReturn("documentindex_v3");
+    when(v3SearchClientShim.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(new KnnSearchResponse(List.of()));
+
+    v3Service.search(
+        mockOpContext,
+        List.of("document"),
+        TEST_QUERY,
+        createTestFilter("domains", "urn:li:domain:engineering"),
+        null,
+        0,
+        10);
+
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
+    // V3 maps keyword and URN fields without the .keyword subfield V2 filters target
+    String filter = requestCaptor.getValue().filter().orElseThrow().toString();
+    assertTrue(filter.contains("domains=[urn:li:domain:engineering]"), filter);
+    assertFalse(filter.contains("domains.keyword"), filter);
+  }
+
+  @Test
   public void testV3EntityTypeFilterKeepsNegationAndUnknownValues() throws IOException {
     SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
     stubSearchV3Cluster();

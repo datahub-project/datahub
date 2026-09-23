@@ -16,9 +16,6 @@
             <package name="com.linkedin.metadata.search.elasticsearch.client.shim.builder.*"/>
             <!-- Container-free in-memory queue store tests. -->
             <package name="com.linkedin.metadata.queue.inmemory"/>
-            <!-- Container-free semantic search unit tests; their default home (testOther) is
-                 unwired. The package's IT class is @Test(enabled = false). -->
-            <package name="com.linkedin.metadata.search.semantic"/>
         </packages>
     </test>
 </suite>

@@ -30,6 +30,7 @@ import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -43,6 +44,9 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.opensearch.client.Request;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
@@ -56,13 +60,18 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
   private static final String MODEL_KEY = "test_model";
   private static final String NEAR_URN = "urn:li:document:near";
   private static final String FAR_URN = "urn:li:document:far";
+  private static final String DOMAIN_URN = "urn:li:domain:engineering";
   private static final ObjectMapper MAPPER = new ObjectMapper();
+
+  private SemanticEntitySearchService service;
+  private OperationContext opContext;
+  private String backingIndex;
 
   @Nonnull
   protected abstract SearchClientShim<?> getSearchClient();
 
-  @Test
-  public void testSemanticSearchReadsDocumentVectorsFromV3Index() throws IOException {
+  @BeforeClass
+  public void setUpV3Index() throws IOException {
     SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
     semanticSearch.setEnabled(true);
     semanticSearch.setEnabledEntities(Set.of("document"));
@@ -85,66 +94,81 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
             new ConfiguredIndexPrefixResolver("semanticv3"),
             entityIndex);
-    OperationContext opContext =
+    opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
             SearchContext.builder()
                 .indexConvention(indexConvention)
                 .searchClusterAccess(SearchClusterAccess.fixed(getSearchClient()))
                 .build());
     String alias = indexConvention.getEntityIndexNameV3(opContext, "document");
-    String backingIndex = alias + "_1";
+    backingIndex = alias + "_1";
 
     createIndex(backingIndex, alias, semanticSearch);
-    try {
-      indexDocument(alias, NEAR_URN, new float[] {1f, 0f, 0f, 0f});
-      indexDocument(alias, FAR_URN, new float[] {0f, 1f, 0f, 0f});
-      lowLevel("POST", "/" + alias + "/_refresh", null);
+    indexDocument(alias, NEAR_URN, new float[] {1f, 0f, 0f, 0f}, DOMAIN_URN);
+    indexDocument(alias, FAR_URN, new float[] {0f, 1f, 0f, 0f}, null);
+    lowLevel("POST", "/" + alias + "/_refresh", null);
 
-      EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
-      when(embeddingProvider.embed(anyString(), any(), any(EmbeddingTaskType.class)))
-          .thenReturn(new float[] {1f, 0f, 0f, 0f});
-      SemanticEntitySearchService service =
-          new SemanticEntitySearchService(
-              getSearchClient(),
-              embeddingProvider,
-              new NoOpMappingsBuilder(),
-              MODEL_KEY,
-              entityIndex);
+    EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
+    when(embeddingProvider.embed(anyString(), any(), any(EmbeddingTaskType.class)))
+        .thenReturn(new float[] {1f, 0f, 0f, 0f});
+    service =
+        new SemanticEntitySearchService(
+            getSearchClient(),
+            embeddingProvider,
+            new NoOpMappingsBuilder(),
+            MODEL_KEY,
+            entityIndex);
+  }
 
-      SearchResult ranked =
-          service.search(opContext, List.of("document"), "query", null, null, 0, 10);
-      assertEquals(urns(ranked), List.of(NEAR_URN, FAR_URN));
-
-      // Root-field filters still apply to kNN on V3 documents
-      SearchResult filtered =
-          service.search(
-              opContext, List.of("document"), "query", filter("urn", FAR_URN), null, 0, 10);
-      assertEquals(urns(filtered), List.of(FAR_URN));
-
-      // Entity-type filters in the GraphQL enum form match through the alias
-      SearchResult byType =
-          service.search(
-              opContext,
-              List.of("document"),
-              "query",
-              filter("_entityType", "DOCUMENT"),
-              null,
-              0,
-              10);
-      assertEquals(urns(byType), List.of(NEAR_URN, FAR_URN));
-      SearchResult otherType =
-          service.search(
-              opContext,
-              List.of("document"),
-              "query",
-              filter("_entityType", "DATASET"),
-              null,
-              0,
-              10);
-      assertTrue(otherType.getEntities().isEmpty(), urns(otherType).toString());
-    } finally {
+  @AfterClass(alwaysRun = true)
+  public void deleteV3Index() throws IOException {
+    if (backingIndex != null) {
       lowLevel("DELETE", "/" + backingIndex, null);
     }
+  }
+
+  @Test
+  public void testSemanticSearchReadsDocumentVectorsFromV3Index() {
+    SearchResult ranked =
+        service.search(opContext, List.of("document"), "query", null, null, 0, 10);
+    assertEquals(urns(ranked), List.of(NEAR_URN, FAR_URN));
+
+    // Root-field filters still apply to kNN on V3 documents
+    SearchResult filtered =
+        service.search(
+            opContext, List.of("document"), "query", filter("urn", FAR_URN), null, 0, 10);
+    assertEquals(urns(filtered), List.of(FAR_URN));
+
+    // Entity-type filters in the GraphQL enum form match through the alias
+    SearchResult byType =
+        service.search(
+            opContext,
+            List.of("document"),
+            "query",
+            filter("_entityType", "DOCUMENT"),
+            null,
+            0,
+            10);
+    assertEquals(urns(byType), List.of(NEAR_URN, FAR_URN));
+    SearchResult otherType =
+        service.search(
+            opContext, List.of("document"), "query", filter("_entityType", "DATASET"), null, 0, 10);
+    assertTrue(otherType.getEntities().isEmpty(), urns(otherType).toString());
+  }
+
+  @Test
+  public void testAspectFieldFilterMatchesV3Documents() {
+    if (getSearchClient().getEngineType() == SearchEngineType.OPENSEARCH_2) {
+      throw new SkipException(
+          "The OpenSearch 2 k-NN plugin does not apply nested pre-filters to fields under an"
+              + " underscore-prefixed object such as V3's _aspects; OpenSearch 3 and Elasticsearch"
+              + " do");
+    }
+    // URN and keyword fields have no .keyword subfield on V3, unlike the V2 indices
+    SearchResult byDomain =
+        service.search(
+            opContext, List.of("document"), "query", filter("domains", DOMAIN_URN), null, 0, 10);
+    assertEquals(urns(byDomain), List.of(NEAR_URN));
   }
 
   private void createIndex(
@@ -158,6 +182,18 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
                 .extraRootProperties("document"));
     properties.put("urn", Map.of("type", "keyword"));
     properties.put("_entityType", Map.of("type", "keyword"));
+    // A URN field the way the V3 mappings builder lays it out: keyword under _aspects, reached
+    // through a root alias
+    properties.put(
+        "_aspects",
+        Map.of(
+            "properties",
+            Map.of(
+                "domains",
+                Map.of(
+                    "properties",
+                    Map.of("domains", Map.of("type", "keyword", "ignore_above", 255))))));
+    properties.put("domains", Map.of("type", "alias", "path", "_aspects.domains.domains"));
     Map<String, Object> indexSettings = new HashMap<>();
     indexSettings.put("number_of_shards", 1);
     indexSettings.put("number_of_replicas", 0);
@@ -176,16 +212,18 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
     lowLevel("PUT", "/" + backingIndex, body);
   }
 
-  private void indexDocument(String index, String urn, float[] vector) throws IOException {
+  private void indexDocument(String index, String urn, float[] vector, String domain)
+      throws IOException {
     Map<String, Object> chunk = Map.of("vector", vector, "text", urn, "position", 0);
-    Map<String, Object> document =
-        Map.of(
-            "urn",
-            urn,
-            "_entityType",
-            "document",
-            SemanticEmbeddingMappings.EMBEDDINGS_FIELD,
-            Map.of(MODEL_KEY, Map.of("chunks", List.of(chunk))));
+    Map<String, Object> document = new HashMap<>();
+    document.put("urn", urn);
+    document.put("_entityType", "document");
+    document.put(
+        SemanticEmbeddingMappings.EMBEDDINGS_FIELD,
+        Map.of(MODEL_KEY, Map.of("chunks", List.of(chunk))));
+    if (domain != null) {
+      document.put("_aspects", Map.of("domains", Map.of("domains", List.of(domain))));
+    }
     lowLevel("PUT", "/" + index + "/_doc/" + urn.hashCode(), document);
   }
 
