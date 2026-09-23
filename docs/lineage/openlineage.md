@@ -238,6 +238,9 @@ urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,<workspaceGUID>.<itemGUID>.<s
   `[<region>-]api.onelake.fabric.microsoft.com` and workspace private-link hosts are recognized.
 - A Delta table's location is more specific than its Spark catalog symlink, so the location wins.
   Without this, a symlink like `hive.<lakehouse>.<table>` would take over.
+- The event's schema facet is not written to `fabric-onelake` datasets, even with
+  `include-schema-metadata`. The Fabric OneLake source owns their schema, and the facet is Spark's
+  read schema (a Delta `MERGE` scan reports only the join key and the `_metadata` pseudo-column).
 - `_delta_log`, `key=value` partition folders and data files below a table are ignored. Other
   shapes under `Tables/` aren't mapped and stay `abs` (logged once as a warning).
 - Paths outside `Tables/` (for example `Files/`) aren't tables and stay on the `abs` platform.
@@ -254,6 +257,12 @@ urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,<workspaceGUID>.<itemGUID>.<s
 - Enabling the mapping changes the URNs of OneLake tables that were previously captured as `abs`
   or `hive` datasets. New lineage lands on the `fabric-onelake` URNs; the old entities and their
   lineage are not migrated. Soft-delete them if you no longer need them.
+
+Verified against events from the `openlineage-spark_2.12` 1.26.0 listener bundled with Fabric
+Runtime 1.3 (not registered by default; add it with `spark.extraListeners`). Those events carry no
+catalog symlinks. `MERGE INTO` events list no inputs: the source table appears only in the output's
+column lineage, so the job gets column-level lineage but no input dataset edge.
+`saveAsTable`/`CREATE OR REPLACE TABLE ... AS SELECT` events carry table-level lineage only.
 
 The same options exist in the [Spark agent](https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage#configuration-instructions-microsoft-fabric)
 as `spark.datahub.metadata.dataset.fabricOneLake.*`.

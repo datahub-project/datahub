@@ -210,6 +210,17 @@ public class OpenLineageToDataHub {
     return FabricOneLakePath.PLATFORM.equals(urn.getPlatformEntity().getPlatformNameEntity());
   }
 
+  /**
+   * Whether the event's schema facet may be emitted as the dataset's schemaMetadata. Not for
+   * fabric-onelake URNs: they are the entities the Fabric OneLake source ingests, which owns their
+   * schema. The facet is the Spark read/write schema, not the table's: e.g. a Delta MERGE scan of
+   * the target reports only the join key plus the {@code _metadata} pseudo-column, which would
+   * replace the ingested columns.
+   */
+  private static boolean isSchemaFromEventAllowed(DatasetUrn urn) {
+    return !isFabricOneLakeUrn(urn);
+  }
+
   private static Optional<DatasetUrn> getDatasetUrnFromOlDataset(
       String namespace,
       String datasetName,
@@ -1318,7 +1329,7 @@ public class OpenLineageToDataHub {
       if (datasetUrn.isPresent()) {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
         builder.urn(datasetUrn.get());
-        if (datahubConf.isMaterializeDataset()) {
+        if (datahubConf.isMaterializeDataset() && isSchemaFromEventAllowed(datasetUrn.get())) {
           builder.schemaMetadata(getSchemaMetadata(input, datahubConf));
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
@@ -1348,7 +1359,7 @@ public class OpenLineageToDataHub {
       if (datasetUrn.isPresent()) {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
         builder.urn(datasetUrn.get());
-        if (datahubConf.isMaterializeDataset()) {
+        if (datahubConf.isMaterializeDataset() && isSchemaFromEventAllowed(datasetUrn.get())) {
           builder.schemaMetadata(getSchemaMetadata(output, datahubConf));
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {

@@ -210,6 +210,9 @@ the `fabric-onelake` platform instead. It uses the same dataset name as the
   match `env` with `spark.datahub.metadata.dataset.env`.
 - The OneLake location takes precedence over the Spark catalog symlink. Without this, a symlink
   like `hive.<lakehouse>.<table>` would take over.
+- With `include_schema_metadata`, the Spark schema is not written to `fabric-onelake` datasets. The
+  Fabric OneLake source owns their schema, and Spark's read schema can be partial (for example a
+  Delta `MERGE` scan).
 - Friendly-name paths (`abfss://<workspaceName>@onelake.../<lakehouseName>.Lakehouse/Tables/...`)
   contain no GUIDs. Map them with `fabricOneLake.itemIds`, or they stay on `abs` (logged once as a
   warning). Names match case-insensitively and in decoded form; entries are comma-separated, so
