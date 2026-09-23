@@ -53,6 +53,9 @@ gcp_sm_common = {
 
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
+    # Floor stays Airflow-satisfiable: 3.0.x/3.1.x constraints pin click==8.2.1,
+    # 3.2.x pins 8.3.1. CVE-2026-7246 (>=8.3.3) is applied at lock time via
+    # pyproject [tool.uv] constraint-dependencies.
     "click>=7.1.2,!=8.2.0,<9.0.0",
     "click-default-group<2.0.0",
     "PyYAML<7.0.0",
@@ -109,7 +112,11 @@ framework_common = {
     # streams) used to supervise ingestion subprocesses in
     # datahub.executor.execution.runner. Previously only available transitively
     # via httpx/openai/starlette; declare it explicitly.
-    "anyio>=3.0.0,<5.0.0",
+    # Floor 4.10.0 — the highest the airflow-plugin CI tolerates (Airflow 3.0.x
+    # constraints pin anyio==4.10.0; 3.1.x pins 4.11.0; 3.2.x pins 4.13.0).
+    # CVE-2026-64847 (>=4.14.2) is applied at lock time via pyproject
+    # [tool.uv] constraint-dependencies.
+    "anyio>=4.10.0,<5.0.0",
 }
 
 rest_common = {
@@ -982,8 +989,9 @@ test_api_requirements = {
     # Current pytest is pinned in constraints.txt / uv.lock for the standalone dev venv.
     "pytest>=6.2.2,<10.0.0",
     "pytest-timeout<3.0.0",
-    # Missing numpy requirement in 8.0.0
-    "deepdiff!=8.0.0,<9.0.0",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    # 8.0.0 is also excluded (missing numpy requirement).
+    "deepdiff>=8.6.2,<9.0.0",
     "orderly-set!=5.4.0,<6.0.0",  # 5.4.0 uses invalid types on older Python versions
     "PyYAML<7.0.0",
     "pytest-docker>=1.1.0,<4.0.0",
