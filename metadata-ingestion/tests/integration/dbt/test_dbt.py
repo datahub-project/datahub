@@ -1,6 +1,5 @@
 import dataclasses
 import json
-import shutil
 from dataclasses import dataclass
 from os import PathLike
 from typing import Any, Dict, List, Union
@@ -389,28 +388,20 @@ def test_dbt_ingest(
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_multi_project_glob(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
-    projects_root = tmp_path / "projects"
-    # project_a and project_b must be genuinely distinct dbt projects (different
-    # unique_id namespaces), not two dbt-version variants of one fixture project.
-    # Nodes that share a unique_id are a cross-project collision, which the collision
-    # checks deliberately resolve by dropping contenders - so same-namespace fixtures
-    # would exercise collision handling here instead of fan-out, and this golden would
-    # prove nothing about ingesting two projects together.
-    for project, manifest_file, catalog_file in [
-        ("project_a", "sample_dbt_manifest_1.json", "sample_dbt_catalog_1.json"),
-        ("project_b", "jaffle_shop_manifest.json", "jaffle_shop_catalog.json"),
-    ]:
-        project_dir = projects_root / project
-        project_dir.mkdir(parents=True)
-        shutil.copy(test_resources_dir / manifest_file, project_dir / "manifest.json")
-        shutil.copy(test_resources_dir / catalog_file, project_dir / "catalog.json")
-
+    # Two small hand-authored projects under multi_project/, on distinct package
+    # names and dbt versions. Distinct unique_id namespaces matter: nodes that share
+    # a unique_id are a cross-project collision, which the collision checks resolve
+    # by dropping contenders, so same-namespace fixtures would exercise collision
+    # handling here instead of fan-out. Kept deliberately small: this golden pins
+    # the multi-project facts (both projects in one run, per-project artifact
+    # provenance, sibling catalogs resolved beside each manifest) rather than
+    # re-pinning two full fixture projects that have their own goldens.
     config = DbtTestConfig(
         "dbt-multi-project-glob",
         "dbt_test_multi_project_glob.json",
         "dbt_test_multi_project_glob_golden.json",
         source_config_modifiers={
-            "manifest_path": f"{projects_root}/*/manifest.json",
+            "manifest_path": f"{test_resources_dir}/multi_project/*/manifest.json",
             "catalog_path": None,
             "sources_path": None,
         },

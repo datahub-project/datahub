@@ -1,0 +1,120 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json",
+    "dbt_version": "1.7.3",
+    "generated_at": "2024-02-20T08:00:00.000000Z",
+    "invocation_id": "invocation-project_b",
+    "adapter_type": "postgres",
+    "project_name": "project_b"
+  },
+  "nodes": {
+    "model.project_b.customers": {
+      "unique_id": "model.project_b.customers",
+      "name": "customers",
+      "alias": "customers",
+      "database": "analytics_db",
+      "schema": "crm",
+      "resource_type": "model",
+      "package_name": "project_b",
+      "path": "customers.sql",
+      "original_file_path": "models/customers.sql",
+      "config": {
+        "materialized": "table",
+        "tags": [],
+        "meta": {}
+      },
+      "description": "Customers model of project_b.",
+      "columns": {
+        "id": {
+          "name": "id",
+          "description": "Customer id.",
+          "data_type": "integer",
+          "meta": {},
+          "tags": []
+        },
+        "email": {
+          "name": "email",
+          "description": "Customer email.",
+          "data_type": "text",
+          "meta": {},
+          "tags": []
+        }
+      },
+      "meta": {},
+      "tags": [],
+      "depends_on": {
+        "nodes": [],
+        "macros": []
+      },
+      "compiled": true,
+      "compiled_code": "select 1",
+      "raw_code": "select 1",
+      "language": "sql",
+      "checksum": {
+        "name": "sha256",
+        "checksum": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    "model.project_b.customer_stats": {
+      "unique_id": "model.project_b.customer_stats",
+      "name": "customer_stats",
+      "alias": "customer_stats",
+      "database": "analytics_db",
+      "schema": "crm",
+      "resource_type": "model",
+      "package_name": "project_b",
+      "path": "customer_stats.sql",
+      "original_file_path": "models/customer_stats.sql",
+      "config": {
+        "materialized": "table",
+        "tags": [],
+        "meta": {}
+      },
+      "description": "Customer stats model of project_b.",
+      "columns": {
+        "customer_id": {
+          "name": "customer_id",
+          "description": "Customer id.",
+          "data_type": "integer",
+          "meta": {},
+          "tags": []
+        },
+        "order_count": {
+          "name": "order_count",
+          "description": "Orders placed.",
+          "data_type": "bigint",
+          "meta": {},
+          "tags": []
+        }
+      },
+      "meta": {},
+      "tags": [],
+      "depends_on": {
+        "nodes": [
+          "model.project_b.customers"
+        ],
+        "macros": []
+      },
+      "compiled": true,
+      "compiled_code": "select id as customer_id, 0 as order_count from \"analytics_db\".\"crm\".\"customers\"",
+      "raw_code": "select id as customer_id, 0 as order_count from \"analytics_db\".\"crm\".\"customers\"",
+      "language": "sql",
+      "checksum": {
+        "name": "sha256",
+        "checksum": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  },
+  "sources": {},
+  "macros": {},
+  "docs": {},
+  "exposures": {},
+  "metrics": {},
+  "groups": {},
+  "selectors": {},
+  "disabled": {},
+  "parent_map": {},
+  "child_map": {},
+  "semantic_models": {},
+  "saved_queries": {}
+}

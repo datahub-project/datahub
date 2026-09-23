@@ -1,7 +1,7 @@
 import json
 import pathlib
 import threading
-from typing import Any, Dict, List, NoReturn, Optional
+from typing import Any, Dict, List, NoReturn, Optional, Set
 from unittest import mock
 
 import dateutil.parser
@@ -43,13 +43,6 @@ def test_expand_glob_path_returns_sorted_local_matches(tmp_path: pathlib.Path) -
         f"{tmp_path}/a.json",
         f"{tmp_path}/b.json",
         f"{tmp_path}/c.json",
-    ]
-
-
-def test_expand_glob_path_passes_through_non_glob_path() -> None:
-    source = _make_source()
-    assert source._expand_glob_path("s3://bucket/project/manifest.json") == [
-        "s3://bucket/project/manifest.json"
     ]
 
 
@@ -131,42 +124,51 @@ def test_expand_run_results_paths_preserves_config_order(
     ]
 
 
-def test_globbed_manifest_rejects_explicit_catalog_path() -> None:
-    with pytest.raises(ValueError, match="catalog_path"):
-        DBTCoreConfig(
-            manifest_path="s3://bucket/*/manifest.json",
-            catalog_path="s3://bucket/project_a/catalog.json",
+@pytest.mark.parametrize(
+    "manifest_path, sibling, accepted",
+    [
+        (
+            "s3://bucket/*/manifest.json",
+            {"catalog_path": "s3://bucket/project_a/catalog.json"},
+            False,
+        ),
+        (
+            "s3://bucket/*/manifest.json",
+            {"sources_path": "s3://bucket/project_a/sources.json"},
+            False,
+        ),
+        ("s3://bucket/*/manifest.json", {}, True),
+        (
+            "/data/project_a/manifest.json",
+            {"catalog_path": "/data/project_a/catalog.json"},
+            True,
+        ),
+    ],
+)
+def test_explicit_sibling_paths_are_rejected_only_alongside_a_glob(
+    manifest_path: str, sibling: Dict[str, Any], accepted: bool
+) -> None:
+    """A globbed manifest_path reads catalog.json/sources.json from each match's own
+    directory, so an explicit sibling path alongside it is a config error, while a
+    literal manifest_path still pairs with one."""
+
+    def build() -> DBTCoreConfig:
+        return DBTCoreConfig(
+            manifest_path=manifest_path,
             target_platform="postgres",
-            aws_connection={"aws_region": "us-east-1"},
+            aws_connection=(
+                {"aws_region": "us-east-1"}
+                if manifest_path.startswith("s3://")
+                else None
+            ),
+            **sibling,
         )
 
-
-def test_globbed_manifest_rejects_explicit_sources_path() -> None:
-    with pytest.raises(ValueError, match="sources_path"):
-        DBTCoreConfig(
-            manifest_path="s3://bucket/*/manifest.json",
-            sources_path="s3://bucket/project_a/sources.json",
-            target_platform="postgres",
-            aws_connection={"aws_region": "us-east-1"},
-        )
-
-
-def test_globbed_manifest_alone_is_accepted() -> None:
-    config = DBTCoreConfig(
-        manifest_path="s3://bucket/*/manifest.json",
-        target_platform="postgres",
-        aws_connection={"aws_region": "us-east-1"},
-    )
-    assert config.catalog_path is None
-
-
-def test_non_glob_manifest_still_accepts_explicit_catalog_path() -> None:
-    config = DBTCoreConfig(
-        manifest_path="/tmp/project_a/manifest.json",
-        catalog_path="/tmp/project_a/catalog.json",
-        target_platform="postgres",
-    )
-    assert config.catalog_path == "/tmp/project_a/catalog.json"
+    if accepted:
+        assert build().catalog_path == sibling.get("catalog_path")
+    else:
+        with pytest.raises(ValueError, match=next(iter(sibling))):
+            build()
 
 
 def test_test_connection_expands_globbed_manifest_path(
@@ -237,32 +239,6 @@ def test_test_connection_reports_object_store_failure_detail() -> None:
     # A genuine zero-match reads differently - see
     # test_test_connection_reports_glob_matching_nothing.
     assert "matched no files" not in failure_reason
-
-
-def test_test_connection_non_glob_path_unchanged(tmp_path: pathlib.Path) -> None:
-    """The historical single-manifest behaviour must be untouched: a good path is
-    capable, a missing one is not."""
-    _write_project(
-        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
-    )
-
-    ok = DBTCoreSource.test_connection(
-        {
-            "manifest_path": f"{tmp_path}/project_a/manifest.json",
-            "target_platform": "postgres",
-        }
-    )
-    assert ok.basic_connectivity is not None
-    assert ok.basic_connectivity.capable, ok.basic_connectivity.failure_reason
-
-    missing = DBTCoreSource.test_connection(
-        {
-            "manifest_path": f"{tmp_path}/project_a/nope.json",
-            "target_platform": "postgres",
-        }
-    )
-    assert missing.basic_connectivity is not None
-    assert not missing.basic_connectivity.capable
 
 
 def _write_project(
@@ -349,6 +325,35 @@ def _write_project(
         (project_dir / "catalog.json").write_text(json.dumps(catalog))
 
 
+def _write_run_results(path: pathlib.Path, unique_id: str, invocation_id: str) -> None:
+    """Write a minimal run_results.json with one successful execution of unique_id."""
+    path.write_text(
+        json.dumps(
+            {
+                "metadata": {
+                    "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+                    "dbt_version": "1.8.0",
+                    "generated_at": "2026-01-02T00:00:00.000000Z",
+                    "invocation_id": invocation_id,
+                },
+                "results": [
+                    {
+                        "status": "success",
+                        "unique_id": unique_id,
+                        "timing": [
+                            {
+                                "name": "execute",
+                                "started_at": "2026-01-02T00:00:00.000000Z",
+                                "completed_at": "2026-01-02T00:00:05.000000Z",
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+    )
+
+
 def test_glob_fans_out_over_multiple_projects(tmp_path: pathlib.Path) -> None:
     _write_project(
         tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
@@ -390,18 +395,6 @@ def test_manifest_glob_matching_nothing_is_a_failure(tmp_path: pathlib.Path) -> 
     )
 
 
-def test_glob_stamps_per_project_provenance(tmp_path: pathlib.Path) -> None:
-    _write_project(
-        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
-    )
-    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-
-    nodes = source.load_nodes()
-
-    assert nodes[0].artifact_props["manifest_version"] == "1.8.0"
-    assert nodes[0].artifact_props["manifest_adapter"] == "postgres"
-
-
 @pytest.mark.parametrize("glob_mode", [True, False])
 def test_manifest_path_is_a_node_field_not_a_custom_property(
     tmp_path: pathlib.Path, glob_mode: bool
@@ -424,38 +417,28 @@ def test_manifest_path_is_a_node_field_not_a_custom_property(
     assert "manifest_path" not in nodes[0].artifact_props
 
 
-def test_glob_stamps_semantic_model_provenance(tmp_path: pathlib.Path) -> None:
-    """Semantic-model nodes must carry per-project artifact provenance too, not just
-    regular model nodes - they are built on a separate code path from the manifest's
-    semantic_models section."""
+def test_glob_stamps_per_project_provenance_on_every_node(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Every node carries its own project's artifact provenance. Semantic models are
+    built on a separate code path from the manifest's semantic_models section, so
+    they are checked alongside a regular model."""
     _write_project(
         tmp_path,
         "project_a",
-        [],
+        [{"name": "orders", "database": "db", "schema": "sch_a"}],
         semantic_models={
-            "semantic_model.project_a.order_metrics": {
-                "name": "order_metrics",
-                "description": "",
-                "node_relation": {"database": "db", "schema": "sch_a"},
-                "depends_on": {"nodes": []},
-                "entities": [],
-                "dimensions": [],
-                "measures": [{"name": "count", "agg": "count", "description": ""}],
-                "tags": [],
-                "meta": {},
-            }
+            "semantic_model.project_a.order_metrics": _semantic_model(
+                "semantic_model.project_a.order_metrics", "order_metrics", "db", "sch_a"
+            )
         },
     )
+    nodes = _make_source(manifest_path=f"{tmp_path}/*/manifest.json").load_nodes()
 
-    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes = source.load_nodes()
-
-    semantic_model_nodes = [
-        node for node in nodes if node.node_type == "semantic_model"
-    ]
-    assert len(semantic_model_nodes) == 1
-    assert semantic_model_nodes[0].artifact_props["manifest_version"] == "1.8.0"
-    assert semantic_model_nodes[0].artifact_props["manifest_adapter"] == "postgres"
+    assert {node.node_type for node in nodes} == {"model", "semantic_model"}
+    for node in nodes:
+        assert node.artifact_props["manifest_version"] == "1.8.0"
+        assert node.artifact_props["manifest_adapter"] == "postgres"
 
 
 def test_glob_missing_sibling_artifacts_warns_and_continues(
@@ -632,27 +615,6 @@ def test_glob_query_timestamps_come_from_each_projects_own_manifest(
     assert source.report.query_timestamps_fallback_used is False
 
 
-def test_non_glob_query_timestamp_still_uses_the_single_manifest(
-    tmp_path: pathlib.Path,
-) -> None:
-    """Backward compatibility: single-project runs resolve the same timestamp they
-    always did, and still never hit the now() fallback."""
-    _write_project(
-        tmp_path,
-        "project_a",
-        [{"name": "orders", "database": "db", "schema": "sch_a"}],
-        generated_at="2019-03-04T05:06:07.000000Z",
-    )
-
-    source = _make_source(manifest_path=f"{tmp_path}/project_a/manifest.json")
-    nodes = source.load_nodes()
-
-    assert source._get_query_timestamp(nodes[0]) == datetime_to_ts_millis(
-        dateutil.parser.parse("2019-03-04T05:06:07.000000Z")
-    )
-    assert source.report.query_timestamps_fallback_used is False
-
-
 def test_query_timestamp_falls_back_to_report_manifest_info(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -673,6 +635,31 @@ def test_query_timestamp_falls_back_to_report_manifest_info(
         dateutil.parser.parse("2018-07-08T09:10:11.000000Z")
     )
     assert source.report.query_timestamps_fallback_used is False
+
+
+def test_unparseable_manifest_timestamps_share_one_fallback(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Nodes whose manifest generated_at cannot be parsed all get one now() for the
+    run and the report flags the fallback, so Query aspects stay mutually consistent
+    within a run instead of each node churning its own timestamp."""
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "a", "database": "db", "schema": "sch_a"}],
+        generated_at="not-a-timestamp",
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "b", "database": "db", "schema": "sch_b"}],
+        generated_at="also-not-a-timestamp",
+    )
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes = source.load_nodes()
+
+    assert len({source._get_query_timestamp(node) for node in nodes}) == 1
+    assert source.report.query_timestamps_fallback_used is True
 
 
 def test_corrupt_manifest_is_a_failure_and_other_projects_still_load(
@@ -728,6 +715,24 @@ def test_non_glob_corrupt_manifest_raises_instead_of_reporting_failure(
 
     assert source.report.manifests_failed == 0
     assert not source.report.failures
+
+
+def test_non_glob_missing_explicit_catalog_path_still_raises(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Only glob-derived sibling guesses are optional. An explicitly configured
+    catalog_path that cannot be read is a misconfiguration, and single-project mode
+    must keep failing on it: degraded to a warning, a typo in catalog_path would
+    silently produce a run with no schema metadata."""
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+    source = _make_source(
+        manifest_path=f"{tmp_path}/project_a/manifest.json",
+        catalog_path=f"{tmp_path}/project_a/nope.json",
+    )
+    with pytest.raises(FileNotFoundError):
+        source.load_nodes()
 
 
 def test_memory_error_propagates_instead_of_being_skipped(
@@ -837,6 +842,115 @@ def test_prefetch_windows_submission_when_an_early_group_is_slow() -> None:
 
     assert not consumer.is_alive()
     assert yielded == [f"uri-{i}" for i in range(n)]
+
+
+def test_object_store_glob_fans_out_over_uri_matches(tmp_path: pathlib.Path) -> None:
+    """Drive the advertised s3:// shape through expansion, sibling URIs and prefetch.
+
+    Every other fan-out test uses local paths. Here glob expansion returns two
+    object-store manifests and read_file_as_bytes serves bytes by URI, pinning that
+    sibling artifacts are derived as URIs beside each manifest, that the prefetch
+    pool rather than the main thread performs every read (_load_artifact_json
+    silently falls back to a direct read for a URI that was not prefetched, so a
+    node-set comparison alone cannot tell), and that a missing-key error code is
+    reported as definite absence rather than an ambiguous failure.
+    """
+    projects = ["project_a", "project_b"]
+    for name in projects:
+        _write_project(
+            tmp_path,
+            name,
+            [{"name": f"m_{name}", "database": "db", "schema": name}],
+            catalog_generated_at="2026-01-01T00:00:00.000000Z",
+        )
+    objects = {
+        f"s3://bucket/{name}/{artifact}": (tmp_path / name / artifact).read_bytes()
+        for name in projects
+        for artifact in ["manifest.json", "catalog.json"]
+    }
+    del objects["s3://bucket/project_b/catalog.json"]  # never ran `dbt docs generate`
+    requested: List[str] = []
+    reader_threads: Set[str] = set()
+
+    def fake_read(uri: str, *args: Any, **kwargs: Any) -> bytes:
+        requested.append(uri)
+        reader_threads.add(threading.current_thread().name)
+        if uri not in objects:
+            cause = Exception("NoSuchKey")
+            cause.response = {"Error": {"Code": "NoSuchKey"}}  # type: ignore[attr-defined]
+            raise ValueError(f"Failed to read {uri} from object store") from cause
+        return objects[uri]
+
+    source = _make_source(
+        manifest_path="s3://bucket/*/manifest.json",
+        aws_connection={"aws_region": "us-east-1"},
+    )
+    with (
+        mock.patch.object(
+            dbt_core_module,
+            "expand_object_store_glob",
+            return_value=[
+                "s3://bucket/project_b/manifest.json",
+                "s3://bucket/project_a/manifest.json",
+            ],
+        ),
+        mock.patch.object(dbt_core_module, "read_file_as_bytes", side_effect=fake_read),
+    ):
+        nodes = source.load_nodes()
+
+    assert {node.dbt_name for node in nodes} == {
+        "model.project_a.m_project_a",
+        "model.project_b.m_project_b",
+    }
+    assert source.report.manifest_paths_expanded == [
+        "s3://bucket/project_a/manifest.json",
+        "s3://bucket/project_b/manifest.json",
+    ]
+    assert "s3://bucket/project_a/catalog.json" in requested
+    assert "s3://bucket/project_b/sources.json" in requested
+    assert "MainThread" not in reader_threads
+    titles = {w.title for w in source.report.warnings}
+    assert "No catalog file found for project" in titles
+    assert "Could not read catalog file for project" not in titles
+
+
+def _object_store_error(
+    code: Optional[str] = None,
+    status: Optional[int] = None,
+    with_response: bool = True,
+) -> ValueError:
+    """Mimic read_file_as_bytes: a generic ValueError whose __cause__ is the client error."""
+    cause = Exception("client error")
+    if with_response:
+        response: Dict[str, Any] = {}
+        if code is not None:
+            response["Error"] = {"Code": code}
+        if status is not None:
+            response["ResponseMetadata"] = {"HTTPStatusCode": status}
+        cause.response = response  # type: ignore[attr-defined]
+    err = ValueError("Failed to read s3://bucket/key from object store")
+    err.__cause__ = cause
+    return err
+
+
+@pytest.mark.parametrize(
+    "err, missing",
+    [
+        (FileNotFoundError(2, "No such file or directory"), True),
+        (_object_store_error(code="NoSuchKey"), True),
+        (_object_store_error(code="NotFound"), True),
+        # S3-compatible stores may report only the status, with no error code.
+        (_object_store_error(status=404), True),
+        (_object_store_error(code="AccessDenied", status=403), False),
+        (_object_store_error(with_response=False), False),
+        (ValueError("no cause at all"), False),
+        (None, False),
+    ],
+)
+def test_is_missing_file_error_classification(
+    err: Optional[BaseException], missing: bool
+) -> None:
+    assert dbt_core_module._is_missing_file_error(err) is missing
 
 
 def test_ambiguous_sibling_read_failure_does_not_assert_absence(
@@ -1016,20 +1130,25 @@ def test_object_store_not_found_code_reported_as_definite_absence(
     assert "Could not read sources file for project" not in titles
 
 
+@pytest.mark.parametrize("resource_type", ["model", "seed", "snapshot"])
 def test_cross_project_collision_fails_and_drops_all_contenders(
-    tmp_path: pathlib.Path,
+    tmp_path: pathlib.Path, resource_type: str
 ) -> None:
-    # Both projects materialise db.shared.orders -> identical URN.
-    _write_project(
-        tmp_path,
-        "project_a",
-        [{"name": "orders", "database": "db", "schema": "shared"}],
-    )
-    _write_project(
-        tmp_path,
-        "project_b",
-        [{"name": "orders", "database": "db", "schema": "shared"}],
-    )
+    # Both projects materialise db.shared.orders -> identical URN. Seeds and
+    # snapshots exist in the target platform too, so they collide like models.
+    for project in ["project_a", "project_b"]:
+        _write_project(
+            tmp_path,
+            project,
+            [
+                {
+                    "name": "orders",
+                    "database": "db",
+                    "schema": "shared",
+                    "resource_type": resource_type,
+                }
+            ],
+        )
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
     nodes = source._check_duplicate_models(source.load_nodes())
@@ -1037,46 +1156,9 @@ def test_cross_project_collision_fails_and_drops_all_contenders(
     assert nodes == []
     # Counts colliding entities, not colliding keys.
     assert source.report.duplicate_models_detected == 2
-    failures_by_title = {f.title: f for f in source.report.failures}
-    assert "Duplicate model names across dbt projects" in failures_by_title
-
-
-def test_cross_project_seed_collision_fails(tmp_path: pathlib.Path) -> None:
-    # Same trap, but on a seed rather than a model: exists_in_target_platform is
-    # true for seeds too, so two projects seeding the same relation collide on
-    # the same dataset URN exactly like two models would.
-    _write_project(
-        tmp_path,
-        "project_a",
-        [
-            {
-                "name": "lookup",
-                "database": "db",
-                "schema": "shared",
-                "resource_type": "seed",
-            }
-        ],
-    )
-    _write_project(
-        tmp_path,
-        "project_b",
-        [
-            {
-                "name": "lookup",
-                "database": "db",
-                "schema": "shared",
-                "resource_type": "seed",
-            }
-        ],
-    )
-
-    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes = source._check_duplicate_models(source.load_nodes())
-
-    assert nodes == []
-    assert source.report.duplicate_models_detected == 2
-    failures_by_title = {f.title: f for f in source.report.failures}
-    assert "Duplicate model names across dbt projects" in failures_by_title
+    assert "Duplicate model names across dbt projects" in {
+        f.title for f in source.report.failures
+    }
 
 
 def _semantic_model(
@@ -1346,29 +1428,34 @@ def test_cross_project_collision_drop_mode_keeps_lowest_dbt_name(
 
     assert [node.dbt_name for node in nodes] == ["model.aaa_pkg.orders"]
     assert source.report.duplicate_models_detected == 2
-    warnings_by_title = {w.title: w for w in source.report.warnings}
-    warning = warnings_by_title["Duplicate model names across dbt projects"]
-    assert any("keeping model.aaa_pkg.orders" in entry for entry in warning.context)
+    assert "Duplicate model names across dbt projects" in {
+        w.title for w in source.report.warnings
+    }
 
 
-def test_drop_mode_rewires_exposure_depends_on_to_the_survivor(
+def test_drop_mode_rewires_dependents_to_the_survivor(
     tmp_path: pathlib.Path,
 ) -> None:
-    """An exposure depending on a dropped contender must follow the survivor.
+    """Anything depending on a dropped contender must follow the survivor.
 
-    keep-first mode rewired node.upstream_nodes but not DBTExposure.depends_on,
-    which holds the same dbt_name keys and is resolved the same way to build
-    exposure lineage - so the exposure silently lost the edge instead of pointing
-    at the retained node, whose URN is identical.
+    Both node.upstream_nodes and DBTExposure.depends_on hold dbt_name keys that are
+    resolved through the same map to build lineage. Keep-first mode once rewired the
+    former but not the latter, so exposures silently lost the edge instead of
+    pointing at the retained node, whose URN is identical. Both are pinned here:
+    this is the property that makes fail_on_cross_project_collisions=False safe.
     """
     # project_a's model loses the tie-break (its package name sorts last), and
-    # project_a is also where the exposure lives - so the exposure's dependency is
+    # project_a is also where the dependents live - so both dependencies are
     # exactly the dropped contender.
     _write_project(
         tmp_path,
         "project_a",
-        [{"name": "orders", "database": "db", "schema": "shared"}],
+        [
+            {"name": "orders", "database": "db", "schema": "shared"},
+            {"name": "orders_summary", "database": "db", "schema": "sch_a"},
+        ],
         package_name="zzz_pkg",
+        depends_on={"orders_summary": ["model.zzz_pkg.orders"]},
         exposures={
             "exposure.zzz_pkg.dashboard": {
                 "name": "dashboard_a",
@@ -1393,48 +1480,57 @@ def test_drop_mode_rewires_exposure_depends_on_to_the_survivor(
         for e in source.load_exposures()
         if e.unique_id == "exposure.zzz_pkg.dashboard"
     )
-    # Precondition: the exposure points at the contender that is about to be dropped.
+    summary = next(n for n in all_nodes if n.name == "orders_summary")
+    # Precondition: both dependents point at the contender about to be dropped.
     assert exposure.depends_on == ["model.zzz_pkg.orders"]
+    assert summary.upstream_nodes == ["model.zzz_pkg.orders"]
 
     kept = source._check_duplicate_models(all_nodes)
 
-    assert [node.dbt_name for node in kept] == ["model.aaa_pkg.orders"]
+    assert {node.dbt_name for node in kept} == {
+        "model.aaa_pkg.orders",
+        "model.zzz_pkg.orders_summary",
+    }
+    assert summary.upstream_nodes == ["model.aaa_pkg.orders"]
     assert exposure.depends_on == ["model.aaa_pkg.orders"]
 
 
-def test_distinct_schemas_do_not_collide(tmp_path: pathlib.Path) -> None:
+def test_distinct_relations_and_package_names_do_not_collide(
+    tmp_path: pathlib.Path,
+) -> None:
     _write_project(
         tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
     )
     _write_project(
         tmp_path, "project_b", [{"name": "orders", "database": "db", "schema": "sch_b"}]
     )
-
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    nodes = source._check_duplicate_models(source.load_nodes())
+    all_nodes = source.load_nodes()
 
+    assert len(source._check_duplicate_models(all_nodes)) == 2
+    nodes, _ = source._check_duplicate_unique_ids(all_nodes, source.load_exposures())
     assert len(nodes) == 2
     assert source.report.duplicate_models_detected == 0
+    assert source.report.duplicate_node_unique_ids_detected == 0
 
 
-def test_duplicate_unique_id_across_projects_fails_and_drops_all_contenders(
+def test_duplicate_unique_ids_across_projects_fail_and_drop_all_contenders(
     tmp_path: pathlib.Path,
 ) -> None:
     # Two projects scaffolded from the same template, package name never renamed:
-    # both models resolve to model.shared_pkg.orders, even though they target
-    # different tables (so this is not also a target-table collision).
-    _write_project(
-        tmp_path,
-        "project_a",
-        [{"name": "orders", "database": "db", "schema": "sch_a"}],
-        package_name="shared_pkg",
-    )
-    _write_project(
-        tmp_path,
-        "project_b",
-        [{"name": "orders", "database": "db", "schema": "sch_b"}],
-        package_name="shared_pkg",
-    )
+    # both models resolve to model.shared_pkg.orders (different target tables, so
+    # this is not also a target-table collision) and both exposures to
+    # exposure.shared_pkg.dashboard, whose get_urn collides the same way.
+    for project, schema in [("project_a", "sch_a"), ("project_b", "sch_b")]:
+        _write_project(
+            tmp_path,
+            project,
+            [{"name": "orders", "database": "db", "schema": schema}],
+            package_name="shared_pkg",
+            exposures={
+                "exposure.shared_pkg.dashboard": {"name": f"dashboard_{schema}"}
+            },
+        )
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
     all_nodes = source.load_nodes()
@@ -1443,7 +1539,9 @@ def test_duplicate_unique_id_across_projects_fails_and_drops_all_contenders(
     )
 
     assert nodes == []
+    assert exposures == []
     assert source.report.duplicate_node_unique_ids_detected == 2
+    assert source.report.duplicate_exposure_unique_ids_detected == 2
     failures_by_title = {f.title: f for f in source.report.failures}
     failure = failures_by_title["Duplicate dbt unique_id across projects"]
     # An operator with many colliding projects needs the actual directories, not
@@ -1453,24 +1551,23 @@ def test_duplicate_unique_id_across_projects_fails_and_drops_all_contenders(
     assert any(manifest_a in entry and manifest_b in entry for entry in failure.context)
 
 
-def test_duplicate_unique_id_drop_mode_keeps_first_loaded(
+def test_duplicate_unique_ids_drop_mode_keeps_first_loaded(
     tmp_path: pathlib.Path,
 ) -> None:
-    # The surviving node's own attributes deliberately sort last: project_a wins
-    # only because its manifest path sorts first, so this fixture pins the
-    # documented rule rather than passing under any ordering.
-    _write_project(
-        tmp_path,
-        "project_a",
-        [{"name": "orders", "database": "db", "schema": "sch_z"}],
-        package_name="shared_pkg",
-    )
-    _write_project(
-        tmp_path,
-        "project_z",
-        [{"name": "orders", "database": "db", "schema": "sch_a"}],
-        package_name="shared_pkg",
-    )
+    # The survivors' own attributes deliberately sort last: project_a wins only
+    # because its manifest path sorts first, so this fixture pins the documented
+    # rule rather than passing under any ordering.
+    for project, schema, dashboard in [
+        ("project_a", "sch_z", "dashboard_zeta"),
+        ("project_z", "sch_a", "dashboard_alpha"),
+    ]:
+        _write_project(
+            tmp_path,
+            project,
+            [{"name": "orders", "database": "db", "schema": schema}],
+            package_name="shared_pkg",
+            exposures={"exposure.shared_pkg.dashboard": {"name": dashboard}},
+        )
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
@@ -1482,13 +1579,14 @@ def test_duplicate_unique_id_drop_mode_keeps_first_loaded(
     )
 
     # Manifests are loaded in sorted path order, so project_a is "first loaded".
-    assert len(nodes) == 1
-    assert nodes[0].schema == "sch_z"
+    assert [node.schema for node in nodes] == ["sch_z"]
+    assert [e.name for e in exposures] == ["dashboard_zeta"]
     assert source.report.duplicate_node_unique_ids_detected == 2
+    assert source.report.duplicate_exposure_unique_ids_detected == 2
     warnings_by_title = {w.title: w for w in source.report.warnings}
     warning = warnings_by_title["Duplicate dbt unique_id across projects"]
     manifest_a = f"{tmp_path}/project_a/manifest.json"
-    assert any(f"keeping {manifest_a}" in entry for entry in warning.context)
+    assert any(manifest_a in entry for entry in warning.context)
 
 
 def test_duplicate_unique_id_drop_mode_keeps_the_survivors_run_results(
@@ -1517,31 +1615,7 @@ def test_duplicate_unique_id_drop_mode_keeps_the_survivors_run_results(
         package_name="shared_pkg",
     )
     run_results_path = tmp_path / "run_results.json"
-    run_results_path.write_text(
-        json.dumps(
-            {
-                "metadata": {
-                    "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
-                    "dbt_version": "1.8.0",
-                    "generated_at": "2026-01-02T00:00:00.000000Z",
-                    "invocation_id": "invocation-run",
-                },
-                "results": [
-                    {
-                        "status": "success",
-                        "unique_id": "model.shared_pkg.orders",
-                        "timing": [
-                            {
-                                "name": "execute",
-                                "started_at": "2026-01-02T00:00:00.000000Z",
-                                "completed_at": "2026-01-02T00:00:05.000000Z",
-                            }
-                        ],
-                    }
-                ],
-            }
-        )
-    )
+    _write_run_results(run_results_path, "model.shared_pkg.orders", "invocation-run")
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
@@ -1563,154 +1637,65 @@ def test_duplicate_unique_id_drop_mode_keeps_the_survivors_run_results(
     assert nodes[0].model_performances[0].run_id == "invocation-run"
 
 
-def test_duplicate_exposure_unique_id_across_projects_fails(
+@pytest.mark.parametrize(
+    "model_a, model_b, config, collides",
+    [
+        # Snowflake projects commonly write uppercase relation names; with
+        # convert_urns_to_lowercase two relations differing only in case share one URN.
+        (
+            {"name": "ORDERS", "database": "DB", "schema": "SHARED"},
+            {"name": "orders", "database": "db", "schema": "shared"},
+            {"convert_urns_to_lowercase": True},
+            True,
+        ),
+        (
+            {"name": "ORDERS", "database": "DB", "schema": "SHARED"},
+            {"name": "orders", "database": "db", "schema": "shared"},
+            {"convert_urns_to_lowercase": False},
+            False,
+        ),
+        # include_database_name=False drops the database from the URN, folding two
+        # relations that differ only by database into one.
+        (
+            {"name": "orders", "database": "analytics", "schema": "core"},
+            {"name": "orders", "database": "staging", "schema": "core"},
+            {"include_database_name": False},
+            True,
+        ),
+        (
+            {"name": "orders", "database": "analytics", "schema": "core"},
+            {"name": "orders", "database": "staging", "schema": "core"},
+            {},
+            False,
+        ),
+    ],
+)
+def test_collisions_are_detected_on_the_built_urn_not_the_raw_relation(
     tmp_path: pathlib.Path,
+    model_a: Dict[str, str],
+    model_b: Dict[str, str],
+    config: Dict[str, Any],
+    collides: bool,
 ) -> None:
-    # Same collision, but on an exposure: both projects declare an exposure
-    # under the same unique_id (shared package name), so DBTExposure.get_urn
-    # would collide the same way DBTNode.get_urn does for models.
-    _write_project(
-        tmp_path,
-        "project_a",
-        [{"name": "orders_a", "database": "db", "schema": "sch_a"}],
-        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_a"}},
-    )
-    _write_project(
-        tmp_path,
-        "project_b",
-        [{"name": "orders_b", "database": "db", "schema": "sch_b"}],
-        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_b"}},
-    )
+    """Grouping happens on the URN DataHub builds, so URN-time folding (case, or a
+    dropped database segment) is a collision, and its absence is not. Note that
+    convert_urns_to_lowercase defaults to True, so case folding must be switched
+    off explicitly for two case-differing relations to stay distinct."""
+    _write_project(tmp_path, "project_a", [model_a])
+    _write_project(tmp_path, "project_b", [model_b])
 
-    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json", **config)
     all_nodes = source.load_nodes()
-    nodes, exposures = source._check_duplicate_unique_ids(
-        all_nodes, source.load_exposures()
-    )
+    if source.config.convert_urns_to_lowercase:
+        # get_workunits_internal sets this flag on every node before the collision
+        # check runs; mirror that here since this test calls the check directly.
+        for node in all_nodes:
+            node.convert_urns_to_lowercase = True
 
-    assert exposures == []
-    assert len(nodes) == 2  # the models themselves don't collide
-    assert source.report.duplicate_exposure_unique_ids_detected == 2
-    failures_by_title = {f.title: f for f in source.report.failures}
-    failure = failures_by_title["Duplicate dbt unique_id across projects"]
-    manifest_a = f"{tmp_path}/project_a/manifest.json"
-    manifest_b = f"{tmp_path}/project_b/manifest.json"
-    assert any(manifest_a in entry and manifest_b in entry for entry in failure.context)
+    kept = source._check_duplicate_models(all_nodes)
 
-
-def test_duplicate_exposure_unique_id_drop_mode_keeps_first_loaded(
-    tmp_path: pathlib.Path,
-) -> None:
-    # As above, the surviving exposure's name sorts last, so only manifest-path
-    # order selects it.
-    _write_project(
-        tmp_path,
-        "project_a",
-        [{"name": "orders_a", "database": "db", "schema": "sch_a"}],
-        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_zeta"}},
-    )
-    _write_project(
-        tmp_path,
-        "project_z",
-        [{"name": "orders_b", "database": "db", "schema": "sch_b"}],
-        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_alpha"}},
-    )
-
-    source = _make_source(
-        manifest_path=f"{tmp_path}/*/manifest.json",
-        fail_on_cross_project_collisions=False,
-    )
-    all_nodes = source.load_nodes()
-    nodes, exposures = source._check_duplicate_unique_ids(
-        all_nodes, source.load_exposures()
-    )
-
-    # Manifests are loaded in sorted path order, so project_a's exposure is
-    # "first loaded" and survives.
-    assert [e.name for e in exposures] == ["dashboard_zeta"]
-    assert source.report.duplicate_exposure_unique_ids_detected == 2
-    warnings_by_title = {w.title: w for w in source.report.warnings}
-    warning = warnings_by_title["Duplicate dbt unique_id across projects"]
-    manifest_a = f"{tmp_path}/project_a/manifest.json"
-    assert any(f"keeping {manifest_a}" in entry for entry in warning.context)
-
-
-def test_distinct_package_names_do_not_collide_on_unique_id(
-    tmp_path: pathlib.Path,
-) -> None:
-    _write_project(
-        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
-    )
-    _write_project(
-        tmp_path, "project_b", [{"name": "orders", "database": "db", "schema": "sch_b"}]
-    )
-
-    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-    all_nodes = source.load_nodes()
-    nodes, exposures = source._check_duplicate_unique_ids(
-        all_nodes, source.load_exposures()
-    )
-
-    assert len(nodes) == 2
-    assert source.report.duplicate_node_unique_ids_detected == 0
-
-
-def test_case_only_collision_detected_when_urns_are_lowercased(
-    tmp_path: pathlib.Path,
-) -> None:
-    """Two projects whose relation names differ only in case still share one URN.
-
-    convert_urns_to_lowercase folds the case when the URN is built, so grouping on
-    the raw database.schema.name would miss this collision and let the two projects
-    silently clobber each other's aspects - which is exactly what the check exists
-    to prevent. Snowflake dbt projects commonly write uppercase relation names,
-    which is why the option exists at all.
-    """
-    _write_project(
-        tmp_path,
-        "project_a",
-        [{"name": "ORDERS", "database": "DB", "schema": "SHARED"}],
-    )
-    _write_project(
-        tmp_path,
-        "project_b",
-        [{"name": "orders", "database": "db", "schema": "shared"}],
-    )
-
-    source = _make_source(
-        manifest_path=f"{tmp_path}/*/manifest.json",
-        convert_urns_to_lowercase=True,
-    )
-    all_nodes = source.load_nodes()
-    # get_workunits_internal sets this flag on every node before the collision
-    # check runs; mirror that here since this test calls the check directly.
-    for node in all_nodes:
-        node.convert_urns_to_lowercase = True
-
-    assert source._check_duplicate_models(all_nodes) == []
-    assert source.report.duplicate_models_detected == 2
-
-
-def test_case_only_collision_not_reported_without_lowercasing(
-    tmp_path: pathlib.Path,
-) -> None:
-    """Without convert_urns_to_lowercase the two relations really are distinct URNs,
-    so the same fixture must not fail the run."""
-    _write_project(
-        tmp_path,
-        "project_a",
-        [{"name": "ORDERS", "database": "DB", "schema": "SHARED"}],
-    )
-    _write_project(
-        tmp_path,
-        "project_b",
-        [{"name": "orders", "database": "db", "schema": "shared"}],
-    )
-
-    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
-
-    assert len(source._check_duplicate_models(source.load_nodes())) == 2
-    assert source.report.duplicate_models_detected == 0
+    assert len(kept) == (0 if collides else 2)
+    assert source.report.duplicate_models_detected == (2 if collides else 0)
 
 
 def test_collision_emits_nothing_for_colliding_urn_end_to_end(
@@ -1895,9 +1880,16 @@ def test_exposure_collision_ignored_when_exposures_are_disabled(
     assert source.report.duplicate_exposure_unique_ids_detected is None
 
 
-def test_artifact_read_concurrency_matches_sequential_results(
+def test_artifact_read_concurrency_matches_sequential_results_off_the_main_thread(
     tmp_path: pathlib.Path,
 ) -> None:
+    """Prefetch must not change what is loaded, and it must actually do the reading.
+
+    _load_artifact_json falls back to a direct read for any URI that was not
+    prefetched, so a prefetch that silently served nothing would still produce
+    identical nodes. The thread check closes that hole: with prefetch active no
+    artifact - manifest, sibling or run_results - may be read on the main thread.
+    """
     for i in range(5):
         _write_project(
             tmp_path,
@@ -1905,14 +1897,30 @@ def test_artifact_read_concurrency_matches_sequential_results(
             [{"name": f"model_{i}", "database": "db", "schema": f"sch_{i}"}],
             catalog_generated_at="2026-01-01T00:00:00.000000Z",
         )
+    for i in range(2):
+        _write_run_results(
+            tmp_path / f"run_results_{i}.json",
+            f"model.project_{i}.model_{i}",
+            f"invocation-{i}",
+        )
+    config: Dict[str, Any] = {
+        "manifest_path": f"{tmp_path}/*/manifest.json",
+        "run_results_paths": [f"{tmp_path}/run_results_*.json"],
+    }
+    sequential = _make_source(**config, artifact_read_concurrency=1).load_nodes()
 
-    sequential = _make_source(
-        manifest_path=f"{tmp_path}/*/manifest.json", artifact_read_concurrency=1
-    ).load_nodes()
-    parallel_source = _make_source(
-        manifest_path=f"{tmp_path}/*/manifest.json", artifact_read_concurrency=4
-    )
-    parallel = parallel_source.load_nodes()
+    parallel_source = _make_source(**config, artifact_read_concurrency=4)
+    real_read = dbt_core_module.read_file_as_bytes
+    reader_threads: Set[str] = set()
+
+    def recording_read(uri: str, *args: Any, **kwargs: Any) -> bytes:
+        reader_threads.add(threading.current_thread().name)
+        return real_read(uri, *args, **kwargs)
+
+    with mock.patch.object(
+        dbt_core_module, "read_file_as_bytes", side_effect=recording_read
+    ):
+        parallel = parallel_source.load_nodes()
 
     # Same nodes in the same order: prefetch must not reorder project processing.
     assert [node.dbt_name for node in parallel] == [
@@ -1920,6 +1928,15 @@ def test_artifact_read_concurrency_matches_sequential_results(
     ]
     assert parallel_source.report.manifests_loaded == 5
     assert parallel_source.report.manifests_failed == 0
+    assert "MainThread" not in reader_threads
+    assert {
+        node.dbt_name: [p.run_id for p in node.model_performances]
+        for node in parallel
+        if node.model_performances
+    } == {
+        "model.project_0.model_0": ["invocation-0"],
+        "model.project_1.model_1": ["invocation-1"],
+    }
 
 
 def test_artifact_read_concurrency_replays_fetch_errors_per_project(
