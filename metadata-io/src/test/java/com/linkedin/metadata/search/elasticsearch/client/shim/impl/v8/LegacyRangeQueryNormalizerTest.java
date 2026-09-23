@@ -139,6 +139,9 @@ public class LegacyRangeQueryNormalizerTest {
     String normalized = LegacyRangeQueryNormalizer.normalize(legacy, objectMapper);
 
     assertTrue(normalized.contains("\"adjust_pure_negative\":false"), normalized);
+    expectThrows(
+        JsonpMappingException.class,
+        () -> parseSearchBodyWithElasticsearch8("{\"query\":" + normalized + "}"));
   }
 
   /**

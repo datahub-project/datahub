@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static com.linkedin.metadata.utils.CriterionUtils.buildIsNotNullCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -15,6 +17,13 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;
@@ -251,5 +260,58 @@ public class Es8SearchKnnTest {
     String sent = captor.getValue().toString();
     assertTrue(sent.contains("urn:li:dataset:abc"), sent);
     assertTrue(sent.contains("must_not"), sent);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void searchKnnAcceptsFilterShapesSemanticSearchBuilds() throws IOException {
+    ElasticsearchClient mockClient = mock(ElasticsearchClient.class);
+    HitsMetadata<Map> hitsMetadata = mock(HitsMetadata.class);
+    when(hitsMetadata.hits()).thenReturn(List.of());
+    SearchResponse<Map> mockResponse = mock(SearchResponse.class);
+    when(mockResponse.hits()).thenReturn(hitsMetadata);
+    when(mockClient.search(any(SearchRequest.class), eq(Map.class))).thenReturn(mockResponse);
+
+    // What the semantic search filter builder emits: terms, a case-insensitive wildcard, a legacy
+    // range, a negated term and an exists check, across two disjuncts (minimum_should_match)
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform",
+                                    Condition.EQUAL,
+                                    "urn:li:dataPlatform:notion",
+                                    "urn:li:dataPlatform:confluence"),
+                                buildCriterion("name", Condition.CONTAIN, "revenue"),
+                                buildCriterion(
+                                    "lastModifiedAt", Condition.GREATER_THAN, "1700000000000"),
+                                buildCriterion("removed", Condition.EQUAL, true, "true"),
+                                buildIsNotNullCriterion("description"))),
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion("urn", Condition.EQUAL, "urn:li:document:a")))));
+    Map<String, Object> filterMap =
+        ESUtils.buildFilterMap(filter, false, Map.of(), OP_CONTEXT, QueryFilterRewriteChain.EMPTY);
+    KnnSearchRequest request =
+        KnnSearchRequest.builder()
+            .indexName("dataset_semantic_v1")
+            .vectorField("embeddings.gemini_embedding_001.chunks.vector")
+            .queryVector(new float[] {0.1f, 0.2f, 0.3f})
+            .k(5)
+            .filter(filterMap)
+            .build();
+
+    Es8SearchClientShim.forTest(mockClient).searchKnn(OP_CONTEXT, request);
+
+    ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockClient).search(captor.capture(), eq(Map.class));
+    String sent = captor.getValue().toString();
+    assertTrue(sent.contains("revenue"), sent);
+    assertTrue(sent.contains("1700000000000"), sent);
   }
 }
