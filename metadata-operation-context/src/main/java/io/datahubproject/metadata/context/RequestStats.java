@@ -226,6 +226,16 @@ public final class RequestStats {
     return dbNanos.get();
   }
 
+  @Nullable
+  public String getActorUrn() {
+    return actorUrn;
+  }
+
+  @Nullable
+  public String getRequestId() {
+    return requestId;
+  }
+
   @Nonnull
   public Set<Long> getBackendPids() {
     return backendPids;

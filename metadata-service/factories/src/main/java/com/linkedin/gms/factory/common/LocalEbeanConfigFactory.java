@@ -90,6 +90,9 @@ public class LocalEbeanConfigFactory {
   @Qualifier("defaultAwsCredentialsProvider")
   private AwsCredentialsProvider defaultAwsCredentialsProvider;
 
+  @Value("${telemetry.requestAttribution.postgresActorComment:false}")
+  private boolean postgresActorComment;
+
   public static DataSourcePoolListener getListenerToTrackCounts(
       MetricUtils metricUtils, String metricName) {
     final String counterName = "ebeans_connection_pool_size_" + metricName;
@@ -177,6 +180,7 @@ public class LocalEbeanConfigFactory {
     serverConfig.setDdlGenerate(ebeanAutoCreate);
     serverConfig.setDdlRun(ebeanAutoCreate);
     customizers.forEach(customizer -> customizer.customize(serverConfig));
+    ActorSqlComment.install(serverConfig, "gmsEbeanDatabaseConfig", config, postgresActorComment);
     return serverConfig;
   }
 
