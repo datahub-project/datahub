@@ -12,7 +12,11 @@ from datahub.ingestion.source.fabric.common.models import (
     FabricWorkspace,
     WorkspaceKey,
 )
-from datahub.ingestion.source.fabric.onelake.models import FabricLakehouse
+from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
+from datahub.ingestion.source.fabric.onelake.models import (
+    FabricLakehouse,
+    FabricWarehouse,
+)
 from datahub.ingestion.source.fabric.onelake.source import (
     PLATFORM,
     FabricOneLakeSource,
@@ -218,4 +222,28 @@ def test_failing_lakehouse_does_not_skip_the_next_one() -> None:
     ]
     assert len(warnings) == 1
     assert any("broken_lh" in c for c in warnings[0].context)
+    source.close()
+
+
+def test_item_listing_failure_is_the_reported_unresolved_cause() -> None:
+    source = _make_source()
+    warehouse = FabricWarehouse(
+        id="wh-1", name="gold_wh", workspace_id=_WORKSPACE.id, type="Warehouse"
+    )
+    with (
+        patch.object(
+            OneLakeClient, "list_lakehouses", side_effect=RuntimeError("HTTP 500")
+        ),
+        patch.object(OneLakeClient, "list_warehouses", return_value=[warehouse]),
+    ):
+        lakehouses, warehouses = source._list_workspace_items(_WORKSPACE)
+
+    assert lakehouses is None
+    assert warehouses == [warehouse]
+    assert any(w.title == "Failed to List Lakehouses" for w in source.report.warnings)
+    # The warehouse is still indexed; a lakehouse reference is a miss whose
+    # reason points at the failed listing, not at a missing item.
+    assert source.item_catalog.resolve_item(_WORKSPACE.id, "gold_wh").item is not None
+    reason = source.item_catalog.resolve_item(_WORKSPACE.id, "silver_lh").reason
+    assert reason is not None and "listing" in reason
     source.close()

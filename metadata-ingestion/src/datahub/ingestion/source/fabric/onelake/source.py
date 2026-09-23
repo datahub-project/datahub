@@ -30,6 +30,7 @@ if TYPE_CHECKING:
         SchemaExtractionClient,
     )
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -378,11 +379,8 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         for mcp in _iter_isolated(
             self.aggregator.gen_metadata(), on_error=drain_errors.append
         ):
-            filtered_mcp = drop_unresolved_references(
-                mcp, self.schema_resolver.unresolved_urns
-            )
+            filtered_mcp = self._drop_unresolved_references(mcp)
             if filtered_mcp is None:
-                self.report.num_lineage_aspects_dropped_unresolved += 1
                 continue
             yield filtered_mcp.as_workunit()
             emitted += 1
@@ -422,6 +420,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             try:
                 lakehouses = list(self.client.list_lakehouses(workspace.id))
             except Exception as e:
+                self.item_catalog.mark_listing_failed(workspace.id)
                 self.report.warning(
                     title="Failed to List Lakehouses",
                     message="Unable to retrieve lakehouses from workspace.",
@@ -435,6 +434,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             try:
                 warehouses = list(self.client.list_warehouses(workspace.id))
             except Exception as e:
+                self.item_catalog.mark_listing_failed(workspace.id)
                 self.report.warning(
                     title="Failed to List Warehouses",
                     message="Unable to retrieve warehouses from workspace.",
@@ -448,6 +448,19 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             self.report.num_items_indexed_for_name_resolution += 1
 
         return lakehouses, warehouses
+
+    def _drop_unresolved_references(
+        self, mcp: MetadataChangeProposalWrapper
+    ) -> Optional[MetadataChangeProposalWrapper]:
+        """Strip unresolved cross-item references from an aggregator MCP and
+        count what was dropped. ``None`` means the whole aspect is dropped."""
+        result = drop_unresolved_references(mcp, self.schema_resolver.unresolved_urns)
+        self.report.num_lineage_upstreams_dropped_unresolved += (
+            result.num_upstreams_dropped
+        )
+        if result.mcp is None:
+            self.report.num_lineage_aspects_dropped_unresolved += 1
+        return result.mcp
 
     def _process_workspace(
         self,

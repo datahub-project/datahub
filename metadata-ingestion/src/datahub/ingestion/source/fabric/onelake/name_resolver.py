@@ -50,6 +50,9 @@ if TYPE_CHECKING:
         FabricOneLakeSourceReport,
     )
 
+# Fabric addresses a table with at most 4 parts: `workspace.item.schema.table`.
+_MAX_FABRIC_NAME_PARTS = 4
+
 logger = logging.getLogger(__name__)
 
 
@@ -98,6 +101,9 @@ class FabricItemCatalog:
     )
     _items_by_id: Dict[str, Dict[str, FabricItemRef]] = field(default_factory=dict)
     _default_dbs: Set[str] = field(default_factory=set)
+    # Workspaces whose lakehouse / warehouse listing failed: their index is
+    # incomplete, so a miss there must not be reported as "item not found".
+    _incomplete_workspaces: Set[str] = field(default_factory=set)
 
     def add_workspace(self, workspace_id: str, workspace_name: str) -> None:
         self._workspace_ids[workspace_id.casefold()] = workspace_id
@@ -122,6 +128,9 @@ class FabricItemCatalog:
             by_name.append(ref)
         self._items_by_id.setdefault(ws_key, {})[item_id.casefold()] = ref
         self._default_dbs.add(ref.default_db.casefold())
+
+    def mark_listing_failed(self, workspace_id: str) -> None:
+        self._incomplete_workspaces.add(workspace_id.casefold())
 
     @property
     def num_items(self) -> int:
@@ -150,6 +159,10 @@ class FabricItemCatalog:
             return _Resolution(item=by_id[key])
         candidates = self._items_by_name.get(ws_key, {}).get(key, [])
         if not candidates:
+            if ws_key in self._incomplete_workspaces:
+                return _Resolution(
+                    reason="item not found; listing the workspace's items failed"
+                )
             return _Resolution(reason="item not found in workspace")
         if len(candidates) > 1:
             return _Resolution(reason="item display name is ambiguous in workspace")
@@ -220,14 +233,22 @@ class FabricOneLakeSchemaResolver(SchemaResolver):
     def _resolve_fabric_table(self, table: _TableName) -> Tuple[_TableName, bool]:
         """Return the (possibly rewritten) table name and whether it is unresolved."""
         parts = table.parts
-        if parts and len(parts) == 4:
+        if parts and len(parts) == _MAX_FABRIC_NAME_PARTS:
             workspace_token, item_token, schema, table_name = parts
             return self._resolve_four_part(
                 table, workspace_token, item_token, schema, table_name
             )
-        if parts and len(parts) > 4:
-            # e.g. a linked-server style name; not a Fabric item reference.
-            return table, False
+        if parts and len(parts) > _MAX_FABRIC_NAME_PARTS:
+            # e.g. a linked-server style name. It can never match a GUID-keyed
+            # Fabric dataset, so treat it as unresolved rather than emitting a
+            # dangling URN.
+            self._record(
+                self._scope_workspace_id,
+                parts,
+                None,
+                "more than 4 name parts; not a Fabric item reference",
+            )
+            return table, True
 
         database = table.database
         if not database or self.catalog.is_item_default_db(database):
@@ -289,8 +310,12 @@ class FabricOneLakeSchemaResolver(SchemaResolver):
         reason: Optional[str],
     ) -> None:
         # get_urn_for_table is called several times per table (case variants),
-        # so count and warn once per (workspace scope, reference).
-        key = (scope_workspace_id, reference)
+        # so count and warn once per (workspace scope, reference). Tokens are
+        # normalized so `[Silver_LH]` and `silver_lh` are one reference.
+        key = (
+            scope_workspace_id,
+            tuple(_normalize_token(token) for token in reference),
+        )
         if key in self._seen_references:
             return
         self._seen_references.add(key)
@@ -328,7 +353,10 @@ class FabricSqlParsingAggregator(SqlParsingAggregator):
     """
 
     def __init__(
-        self, *, schema_resolver: FabricOneLakeSchemaResolver, **kwargs: Any
+        self,
+        *,
+        schema_resolver: FabricOneLakeSchemaResolver,
+        **kwargs: Any,
     ) -> None:
         super().__init__(schema_resolver=schema_resolver, **kwargs)
         self._fabric_resolver = schema_resolver
@@ -360,20 +388,33 @@ def _dataset_of(urn: str) -> str:
     return urn
 
 
+@dataclass(frozen=True)
+class UnresolvedReferenceFilterResult:
+    """Outcome of :func:`drop_unresolved_references` for one MCP."""
+
+    # ``None`` when nothing meaningful is left in the aspect.
+    mcp: Optional[MetadataChangeProposalWrapper]
+    # Dataset-level upstream edges removed from an ``upstreamLineage`` aspect.
+    num_upstreams_dropped: int = 0
+
+
 def drop_unresolved_references(
     mcp: MetadataChangeProposalWrapper, unresolved_urns: Set[str]
-) -> Optional[MetadataChangeProposalWrapper]:
+) -> UnresolvedReferenceFilterResult:
     """Strip unresolved cross-item URNs from lineage / query-subject aspects.
 
-    Returns ``None`` when nothing meaningful is left in the aspect. Usage and
-    operation aspects are already filtered by the aggregator's
-    ``is_allowed_table`` hook; upstream lists are not, hence this pass.
+    Table- and column-level lineage are filtered with the same URN set, so no
+    schemaField URN can re-create a dangling dataset. Usage and operation aspects
+    are already filtered by the aggregator's ``is_allowed_table`` hook (which
+    also skips lineage *for* an unresolved downstream); upstream lists are not,
+    hence this pass.
     """
     if not unresolved_urns:
-        return mcp
+        return UnresolvedReferenceFilterResult(mcp=mcp)
     aspect = mcp.aspect
     if isinstance(aspect, UpstreamLineageClass):
         upstreams = [u for u in aspect.upstreams if u.dataset not in unresolved_urns]
+        num_upstreams_dropped = len(aspect.upstreams) - len(upstreams)
         fine_grained = []
         for fgl in aspect.fineGrainedLineages or []:
             kept = [
@@ -382,21 +423,21 @@ def drop_unresolved_references(
             if kept or not fgl.upstreams:
                 fgl.upstreams = kept
                 fine_grained.append(fgl)
-        if len(upstreams) == len(aspect.upstreams) and len(fine_grained) == len(
+        if num_upstreams_dropped == 0 and len(fine_grained) == len(
             aspect.fineGrainedLineages or []
         ):
-            return mcp
+            return UnresolvedReferenceFilterResult(mcp=mcp)
         if not upstreams:
-            return None
+            return UnresolvedReferenceFilterResult(
+                mcp=None, num_upstreams_dropped=num_upstreams_dropped
+            )
         aspect.upstreams = upstreams
         aspect.fineGrainedLineages = fine_grained or None
-        return mcp
+        return UnresolvedReferenceFilterResult(
+            mcp=mcp, num_upstreams_dropped=num_upstreams_dropped
+        )
     if isinstance(aspect, QuerySubjectsClass):
-        subjects = [
+        aspect.subjects = [
             s for s in aspect.subjects if _dataset_of(s.entity) not in unresolved_urns
         ]
-        if len(subjects) == len(aspect.subjects):
-            return mcp
-        aspect.subjects = subjects
-        return mcp
-    return mcp
+    return UnresolvedReferenceFilterResult(mcp=mcp)

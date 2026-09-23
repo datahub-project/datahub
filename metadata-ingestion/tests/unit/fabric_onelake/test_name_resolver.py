@@ -17,6 +17,7 @@ from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceRe
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     OperationClass,
+    QuerySubjectsClass,
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import SchemaFieldUrn
@@ -53,6 +54,7 @@ def _catalog() -> FabricItemCatalog:
 def _make_aggregator(
     platform_instance: Optional[str] = None,
     generate_usage: bool = False,
+    generate_queries: bool = False,
 ) -> Tuple[
     FabricSqlParsingAggregator, FabricOneLakeSchemaResolver, FabricOneLakeSourceReport
 ]:
@@ -71,7 +73,8 @@ def _make_aggregator(
         platform_instance=platform_instance,
         env="PROD",
         generate_lineage=True,
-        generate_queries=False,
+        generate_queries=generate_queries,
+        generate_query_subject_fields=generate_queries,
         generate_usage_statistics=generate_usage,
         generate_operations=generate_usage,
         usage_config=FabricUsageConfig() if generate_usage else None,
@@ -86,7 +89,7 @@ def _drain(
     """Drain the aggregator like the source does; return aspects by entity URN."""
     out: Dict[str, List[object]] = {}
     for mcp in aggregator.gen_metadata():
-        filtered = drop_unresolved_references(mcp, resolver.unresolved_urns)
+        filtered = drop_unresolved_references(mcp, resolver.unresolved_urns).mcp
         if filtered is None:
             continue
         assert filtered.entityUrn is not None
@@ -337,3 +340,86 @@ def test_observed_queries_resolve_cross_item_with_column_lineage() -> None:
         )
     assert not any("missing_lh" in urn for urn in aspects)
     assert report.num_cross_item_references_unresolved == 1
+
+
+def test_more_than_four_part_names_are_unresolved() -> None:
+    """A 5-part (linked-server style) name can never match a GUID-keyed
+    dataset, so it is dropped and reported instead of emitted as a dangling URN."""
+    lineage, resolver, report = _upstreams_of_view(
+        "SELECT c.id, r.region_name FROM silver_lh.dbo.customers AS c "
+        "JOIN srv.[Shared Data].ref_lh.dbo.regions AS r ON c.id = r.id"
+    )
+    assert _upstream_datasets(lineage) == [
+        _urn(f"{WS_ANALYTICS}.lh-silver.dbo.customers")
+    ]
+    assert report.num_cross_item_references_unresolved == 1
+    assert any("srv" in urn for urn in resolver.unresolved_urns)
+
+
+def test_quoting_and_case_variants_count_as_one_reference() -> None:
+    lineage, _, report = _upstreams_of_view(
+        "SELECT a.id FROM silver_lh.dbo.customers AS a "
+        "JOIN [Silver_LH].[dbo].[customers] AS b ON a.id = b.id"
+    )
+    assert _upstream_datasets(lineage) == [
+        _urn(f"{WS_ANALYTICS}.lh-silver.dbo.customers")
+    ]
+    assert report.num_cross_item_references_resolved == 1
+
+
+def test_unresolved_downstream_gets_no_lineage_or_operation() -> None:
+    """INSERT into an unknown item: nothing is emitted *for* the phantom
+    dataset, and it is stripped from the query's subjects."""
+    aggregator, resolver, report = _make_aggregator(
+        generate_usage=True, generate_queries=True
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="INSERT INTO missing_lh.dbo.scores (id) "
+            "SELECT customer_id FROM dbo.customer_totals",
+            timestamp=QUERY_TS,
+            default_db=GOLD_DB,
+            default_schema="dbo",
+        )
+    )
+    aspects = _drain(aggregator, resolver)
+    aggregator.close()
+
+    phantom = _urn("missing_lh.dbo.scores")
+    assert phantom in resolver.unresolved_urns
+    assert phantom not in aspects
+    subjects = [
+        subject.entity
+        for per_entity in aspects.values()
+        for aspect in per_entity
+        if isinstance(aspect, QuerySubjectsClass)
+        for subject in aspect.subjects
+    ]
+    assert subjects, "the query itself is still emitted"
+    assert not any("missing_lh" in subject for subject in subjects)
+    assert report.num_cross_item_references_unresolved == 1
+
+
+def test_drop_counts_stripped_upstreams() -> None:
+    aggregator, resolver, _ = _make_aggregator()
+    view_urn = _urn(f"{GOLD_DB}.dbo.v_test")
+    aggregator.add_view_definition(
+        view_urn=view_urn,
+        view_definition="SELECT c.id, x.score FROM silver_lh.dbo.customers AS c "
+        "JOIN missing_lh.dbo.scores AS x ON c.id = x.id",
+        default_db=GOLD_DB,
+        default_schema="dbo",
+    )
+    results = [
+        drop_unresolved_references(mcp, resolver.unresolved_urns)
+        for mcp in aggregator.gen_metadata()
+    ]
+    aggregator.close()
+
+    lineage_results = [
+        r
+        for r in results
+        if r.mcp is not None and isinstance(r.mcp.aspect, UpstreamLineageClass)
+    ]
+    assert len(lineage_results) == 1
+    assert lineage_results[0].num_upstreams_dropped == 1

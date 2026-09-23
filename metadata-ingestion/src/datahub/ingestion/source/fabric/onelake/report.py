@@ -64,6 +64,10 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     num_items_indexed_for_name_resolution: int = 0
     num_cross_item_references_resolved: int = 0
     num_cross_item_references_unresolved: int = 0
+    # Upstream edges stripped from lineage aspects because they point at an
+    # unresolved reference, and lineage aspects dropped entirely because every
+    # upstream was unresolved.
+    num_lineage_upstreams_dropped_unresolved: int = 0
     num_lineage_aspects_dropped_unresolved: int = 0
 
     # API metrics (can be populated from FabricClientReport)
