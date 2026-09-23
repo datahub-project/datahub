@@ -542,8 +542,12 @@ unstructured_lib = {
     # partitioning, so document chunking silently produces nothing (zero documents
     # indexed, exit 0). See https://github.com/nltk/nltk/issues/3730.
     # Upstream reverted the hook: inisec.py ships in 3.10.1 only and is absent from
-    # 3.10.2 onwards, so this excludes just that release rather than capping.
-    "nltk!=3.10.1",
+    # 3.10.2 onwards, so 3.10.1 was excluded rather than capped.
+    # >=3.10.3 now supersedes that exclusion and additionally clears CVE-2026-62384,
+    # CVE-2026-71513, CVE-2026-72818, CVE-2026-78680, CVE-2026-78681, CVE-2026-78682,
+    # CVE-2026-79657, CVE-2026-79674, CVE-2026-79675, CVE-2026-79676 and CVE-2026-80206,
+    # all fixed in 3.10.3.
+    "nltk>=3.10.3",
     # Embedding support for semantic search
     *embedding_common,
 }

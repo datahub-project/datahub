@@ -99,3 +99,10 @@ soupsieve>=2.9.0
 # torch: CVE-2025-3001 (fixed 2.10.0), CVE-2025-3000 (fixed 2.13.0). pytorch-lightning only
 # requires torch>=2.1.0 (no upper bound), so this is compatible. Cap major until reviewed.
 torch>=2.13.0,<3.0.0
+# nltk: CVE-2026-62384, CVE-2026-71513, CVE-2026-72818, CVE-2026-78680,
+# CVE-2026-78681, CVE-2026-78682, CVE-2026-79657, CVE-2026-79674,
+# CVE-2026-79675, CVE-2026-79676, CVE-2026-80206; all fixed in 3.10.3.
+# Mirrors the setup.py floor so image builds pick it up without waiting for an
+# acryl-datahub release. Note CVE-2026-81726 has no fixed release yet (3.10.3 is
+# the latest and upstream's advisory reads "Not yet patched"), so it is not cleared here.
+nltk>=3.10.3

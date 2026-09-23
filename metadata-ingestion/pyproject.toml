@@ -252,7 +252,7 @@ confluence = [
     "graphql-core>=3.0.0,<4.0.0",
     "jsonpath-ng==1.7.0",
     "markdownify>=0.14.1,<2.0.0",
-    "nltk!=3.10.1",
+    "nltk>=3.10.3",
     "unstructured-ingest[confluence]==1.4.28",
     "unstructured[md]==0.24.1",
 ]
@@ -297,7 +297,7 @@ datahub-documents = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "nltk!=3.10.1",
+    "nltk>=3.10.3",
     "unstructured-ingest==1.4.28",
     "unstructured[md]==0.24.1",
 ]
@@ -761,7 +761,7 @@ notion = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "nltk!=3.10.1",
+    "nltk>=3.10.3",
     "unstructured-ingest[notion]==1.4.28",
     "unstructured[md]==0.24.1",
 ]
@@ -1143,7 +1143,7 @@ unstructured = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "nltk!=3.10.1",
+    "nltk>=3.10.3",
     "unstructured-ingest==1.4.28",
     "unstructured[md]==0.24.1",
 ]
@@ -1374,7 +1374,7 @@ dev = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "nltk!=3.10.1",
+    "nltk>=3.10.3",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
@@ -1567,7 +1567,7 @@ docs = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "nltk!=3.10.1",
+    "nltk>=3.10.3",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
