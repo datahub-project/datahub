@@ -28,8 +28,9 @@ class FabricDataFactorySourceConfig(
     This connector extracts metadata from Microsoft Fabric Data Factory items:
     - Workspaces as Containers
     - Data Pipelines as DataFlows with Activities as DataJobs
-    - Copy Jobs as DataFlows with dataset-level lineage
-    - Dataflow Gen2 as DataFlows (metadata only)
+    - Pipeline and activity runs as DataProcessInstances
+
+    Standalone Copy Job and Dataflow Gen2 items are not ingested yet.
     """
 
     # Azure Authentication
