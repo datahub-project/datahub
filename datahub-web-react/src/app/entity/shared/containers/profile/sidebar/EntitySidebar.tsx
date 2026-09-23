@@ -4,7 +4,6 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import LastIngested from '@app/entity/shared/containers/profile/sidebar/LastIngested';
 import { EntitySidebarSection } from '@app/entity/shared/types';
 
@@ -13,7 +12,7 @@ const ContentContainer = styled.div`
 
     & > div {
         &:not(:first-child) {
-            border-top: 1px solid ${ANTD_GRAY[4]};
+            border-top: 1px solid ${(props) => props.theme.colors.border};
         }
         padding-top: 20px;
         margin-bottom: 20px;
@@ -21,19 +20,19 @@ const ContentContainer = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 2px;
-        background: #f2f2f2;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
     &::-webkit-scrollbar-thumb {
-        background: #cccccc;
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+        -webkit-box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
 `;
 
 const LastIngestedSection = styled.div`
     padding: 12px 0 12px 0;
     margin-bottom: 0;
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const LoadingWrapper = styled.div`
@@ -78,9 +77,7 @@ export const EntitySidebar = <T,>({ sidebarSections, topSection, loading }: Prop
             )}
             <ContentContainer>
                 {sidebarSections?.map((section) => {
-                    if (section.display?.visible(entityData, baseEntity) !== true) {
-                        return null;
-                    }
+                    if (section.display?.visible(entityData, baseEntity) !== true) return null;
                     return <section.component key={`${section.component}`} properties={section.properties} />;
                 })}
             </ContentContainer>

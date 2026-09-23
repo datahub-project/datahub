@@ -1,6 +1,7 @@
 import { green, orange, red } from '@ant-design/colors';
 import { QuestionCircleOutlined } from '@ant-design/icons';
-import { Image, Popover } from 'antd';
+import { Popover } from '@components';
+import { Image } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
