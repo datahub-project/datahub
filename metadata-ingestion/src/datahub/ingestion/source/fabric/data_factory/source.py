@@ -311,7 +311,9 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
     def _build_column_lineage_extractor(self) -> CopyActivityColumnLineageExtractor:
         columns_resolver = None
         if self.ctx.graph is not None:
-            columns_resolver = DataHubDatasetColumnsResolver(self.ctx.graph).get_columns
+            columns_resolver = DataHubDatasetColumnsResolver(
+                self.ctx.graph, self.report
+            ).get_columns
         else:
             self.report.info(
                 title="Column Lineage Schema Lookup Unavailable",

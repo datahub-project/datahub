@@ -390,10 +390,17 @@ class CopyActivityLineageExtractor:
 
 
 class DataHubDatasetColumnsResolver:
-    """Looks up dataset columns from schemaMetadata in the DataHub graph."""
+    """Looks up dataset columns from schemaMetadata in the DataHub graph.
 
-    def __init__(self, graph: DataHubGraph) -> None:
+    Results (including misses and failures) are cached per dataset URN, so
+    each dataset is fetched at most once per run.
+    """
+
+    def __init__(
+        self, graph: DataHubGraph, report: FabricDataFactorySourceReport
+    ) -> None:
         self._graph = graph
+        self._report = report
         self._cache: Dict[str, Optional[DatasetColumns]] = {}
 
     def get_columns(self, dataset_urn: str) -> Optional[DatasetColumns]:
@@ -407,7 +414,16 @@ class DataHubDatasetColumnsResolver:
                     field_paths=[f.fieldPath for f in schema.fields]
                 )
         except Exception as e:
-            logger.debug("Failed to fetch schemaMetadata for %s: %s", dataset_urn, e)
+            self._report.report_column_lineage_schema_lookup_failed()
+            self._report.warning(
+                title="Column Lineage Schema Lookup Failed",
+                message="Could not read the dataset's schemaMetadata from DataHub. "
+                "Copy activities using this dataset without explicit column "
+                "mappings get no column-level lineage.",
+                context=dataset_urn,
+                exc=e,
+                log=False,
+            )
         self._cache[dataset_urn] = columns
         return columns
 
@@ -445,13 +461,13 @@ class CopyActivityColumnLineageExtractor:
         translator = type_props.get(TRANSLATOR_KEY)
 
         if translator is not None and not isinstance(translator, dict):
-            self._report.report_column_lineage_unsupported_translator()
+            self._report.report_column_lineage_unsupported_translator(activity_key)
             return []
 
         translator_type = get_translator_type(translator) if translator else None
         if translator_type == EXPRESSION_TYPE:
             # Mappings supplied at runtime via dynamic content.
-            self._report.report_column_lineage_dynamic_translator()
+            self._report.report_column_lineage_dynamic_translator(activity_key)
             return []
 
         configured = count_configured_mappings(translator) if translator else 0
@@ -472,7 +488,7 @@ class CopyActivityColumnLineageExtractor:
             return lineages
 
         if translator_type not in (None, TABULAR_TRANSLATOR):
-            self._report.report_column_lineage_unsupported_translator()
+            self._report.report_column_lineage_unsupported_translator(activity_key)
             return []
 
         return self._build_auto_mapped(
@@ -544,16 +560,21 @@ class CopyActivityColumnLineageExtractor:
             return []
 
         lineages: List[FineGrainedLineageClass] = []
+        unmatched = 0
         for source_field in source_columns.field_paths:
             sink_field = sink_columns.lookup(source_field)
             if sink_field is None:
+                # Not copied by the default by-name mapping.
+                unmatched += 1
                 continue
             lineages.append(
                 make_copy_fine_grained_lineage(
                     input_urn, source_field, output_urn, sink_field
                 )
             )
-        self._report.report_column_lineage_auto_mapped(len(lineages))
+        self._report.report_column_lineage_auto_mapped(
+            len(lineages), num_unmatched_columns=unmatched
+        )
         return lineages
 
     def _get_columns(

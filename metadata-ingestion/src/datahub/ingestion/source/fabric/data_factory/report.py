@@ -52,8 +52,14 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
     # Explicit mapping entries that are not name-based (e.g. ordinal-only),
     # dropped from activities whose other mappings were emitted.
     column_lineage_mappings_skipped: int = 0
+    # Source columns with no same-named sink column under by-name mapping.
+    column_lineage_unmatched_columns: int = 0
     column_lineage_skipped_dynamic_translator: int = 0
     column_lineage_skipped_unsupported_translator: int = 0
+    column_lineage_skipped_translator_details: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    column_lineage_schema_lookup_failed: int = 0
     column_lineage_failed: int = 0
 
     # Client report
@@ -102,9 +108,12 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
         self.column_lineage_skipped_unresolvable_mappings += 1
         self.column_lineage_skipped_unresolvable_mappings_details.append(activity_key)
 
-    def report_column_lineage_auto_mapped(self, num_edges: int) -> None:
+    def report_column_lineage_auto_mapped(
+        self, num_edges: int, num_unmatched_columns: int = 0
+    ) -> None:
         self.column_lineage_activities_auto_mapped += 1
         self.column_lineage_extracted += num_edges
+        self.column_lineage_unmatched_columns += num_unmatched_columns
 
     def report_column_lineage_auto_created_sink(self, num_edges: int) -> None:
         self.column_lineage_activities_auto_created_sink += 1
@@ -114,11 +123,20 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
         self.column_lineage_skipped_no_schema += 1
         self.column_lineage_skipped_no_schema_details.append(activity_key)
 
-    def report_column_lineage_dynamic_translator(self) -> None:
+    def report_column_lineage_dynamic_translator(self, activity_key: str) -> None:
         self.column_lineage_skipped_dynamic_translator += 1
+        self.column_lineage_skipped_translator_details.append(
+            f"{activity_key} (dynamic)"
+        )
 
-    def report_column_lineage_unsupported_translator(self) -> None:
+    def report_column_lineage_unsupported_translator(self, activity_key: str) -> None:
         self.column_lineage_skipped_unsupported_translator += 1
+        self.column_lineage_skipped_translator_details.append(
+            f"{activity_key} (unsupported)"
+        )
+
+    def report_column_lineage_schema_lookup_failed(self) -> None:
+        self.column_lineage_schema_lookup_failed += 1
 
     def report_column_lineage_failed(self) -> None:
         self.column_lineage_failed += 1

@@ -223,6 +223,8 @@ class TestAutoMapping:
         assert _pairs(lineages) == [("id", "ID"), ("Name", "name"), ("email", "email")]
         assert report.column_lineage_activities_auto_mapped == 1
         assert report.column_lineage_extracted == 3
+        # created_at has no same-named sink column.
+        assert report.column_lineage_unmatched_columns == 1
 
     def test_uses_inline_dataset_schema(self) -> None:
         lookups, resolve = _resolver({SINK_URN: ["id", "email"]})
@@ -368,6 +370,9 @@ class TestUnsupportedTranslators:
         # Runtime mappings are unknown, so no by-name fallback either.
         assert _extract(extractor, activity) == []
         assert report.column_lineage_skipped_dynamic_translator == 1
+        assert list(report.column_lineage_skipped_translator_details) == [
+            f"{ACTIVITY_KEY} (dynamic)"
+        ]
 
     @pytest.mark.parametrize(
         "translator", [{"type": "SomeOtherTranslator"}, "not-a-dict"]
@@ -402,11 +407,12 @@ def _schema(*field_paths: str) -> SchemaMetadataClass:
 
 class TestDataHubDatasetColumnsResolver:
     def test_resolves_and_caches(self) -> None:
+        report = FabricDataFactorySourceReport()
         graph = MagicMock()
         graph.get_schema_metadata.return_value = _schema(
             "id", "[version=2.0].[type=string].Email"
         )
-        resolver = DataHubDatasetColumnsResolver(graph)
+        resolver = DataHubDatasetColumnsResolver(graph, report)
 
         columns = resolver.get_columns(SOURCE_URN)
         assert columns is not None
@@ -416,12 +422,28 @@ class TestDataHubDatasetColumnsResolver:
         assert resolver.get_columns(SOURCE_URN) is columns
         graph.get_schema_metadata.assert_called_once_with(SOURCE_URN)
 
-    def test_missing_schema_and_errors_return_none(self) -> None:
+    def test_missing_schema_returns_none_without_warning(self) -> None:
+        report = FabricDataFactorySourceReport()
         graph = MagicMock()
-        graph.get_schema_metadata.side_effect = [None, RuntimeError("boom")]
-        resolver = DataHubDatasetColumnsResolver(graph)
+        graph.get_schema_metadata.return_value = None
+        resolver = DataHubDatasetColumnsResolver(graph, report)
         assert resolver.get_columns(SOURCE_URN) is None
+        assert report.column_lineage_schema_lookup_failed == 0
+        assert len(report.warnings) == 0
+
+    def test_lookup_error_is_reported_and_cached(self) -> None:
+        report = FabricDataFactorySourceReport()
+        graph = MagicMock()
+        graph.get_schema_metadata.side_effect = RuntimeError("401 Unauthorized")
+        resolver = DataHubDatasetColumnsResolver(graph, report)
         assert resolver.get_columns(SINK_URN) is None
+        assert resolver.get_columns(SINK_URN) is None
+        graph.get_schema_metadata.assert_called_once_with(SINK_URN)
+        assert report.column_lineage_schema_lookup_failed == 1
+        warnings = list(report.warnings)
+        assert len(warnings) == 1
+        assert warnings[0].title == "Column Lineage Schema Lookup Failed"
+        assert warnings[0].context[0].startswith(SINK_URN)
 
 
 class TestSourceWiring:
