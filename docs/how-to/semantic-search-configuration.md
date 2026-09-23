@@ -4,7 +4,7 @@ Semantic search lets you find DataHub entities using natural language queries li
 
 ## Prerequisites
 
-1. **OpenSearch 2.17.0+** with k-NN plugin (DataHub ships with `opensearchproject/opensearch:2.19.3`). Elasticsearch is **not** supported.
+1. **OpenSearch 2.17.0+** with k-NN plugin (DataHub ships with `opensearchproject/opensearch:2.19.3`), or **Elasticsearch 8.18+**. On Elasticsearch, filters apply after the nearest-neighbour search, to roughly the nearest 1.2 times the requested page of results, so a selective filter can return few or no results where OpenSearch returns a full page.
 2. **An API key** for your chosen embedding provider (see table below). The in-process `onnx` provider needs a local model download instead of a key. The `classical` provider below needs neither, but it is a CI and smoke-test provider, not semantic search.
 
 ## How to Configure Semantic Search
@@ -192,12 +192,13 @@ For external document sources (Notion, Confluence, etc.), see the [Notion Source
 
 ## Troubleshooting
 
-| Symptom                                         | Fix                                                                                                                        |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| "Semantic search is disabled or not configured" | Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` and restart GMS                                                        |
-| "Invalid API key provided"                      | Check your API key is set correctly in the GMS environment                                                                 |
-| "Dimension mismatch: expected 3072, got 1024"   | Update `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match your model                                                       |
-| "meant for CI, smoke tests and quickstarts"     | The `classical` provider needs `CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true`; for a local neural provider use `onnx` |
+| Symptom                                            | Fix                                                                                                                        |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| "Elasticsearch 8.18+ required for semantic search" | Upgrade the cluster to Elasticsearch 8.18 or newer, or turn semantic search off                                            |
+| "Semantic search is disabled or not configured"    | Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` and restart GMS                                                        |
+| "Invalid API key provided"                         | Check your API key is set correctly in the GMS environment                                                                 |
+| "Dimension mismatch: expected 3072, got 1024"      | Update `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match your model                                                       |
+| "meant for CI, smoke tests and quickstarts"        | The `classical` provider needs `CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true`; for a local neural provider use `onnx` |
 
 ## Further Reading
 
