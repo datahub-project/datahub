@@ -156,6 +156,48 @@ class TestExplicitMappings:
             ("email", "Email"),
         ]
 
+    def test_ordinal_only_mappings_do_not_fall_back_to_by_name(self) -> None:
+        """Ordinal mappings are applied by Fabric, not by-name matching."""
+        report = FabricDataFactorySourceReport()
+        lookups, resolve = _resolver(
+            {SOURCE_URN: ["Prop_0", "Prop_1"], SINK_URN: ["Prop_0", "email"]}
+        )
+        extractor = CopyActivityColumnLineageExtractor(
+            report=report, columns_resolver=resolve
+        )
+        activity = _copy_activity(
+            translator={
+                "type": "TabularTranslator",
+                "mappings": [
+                    {"source": {"ordinal": 1}, "sink": {"name": "id"}},
+                    {"source": {"ordinal": 2}, "sink": {"name": "email"}},
+                ],
+            }
+        )
+        assert _extract(extractor, activity) == []
+        assert report.column_lineage_skipped_unresolvable_mappings == 1
+        assert list(report.column_lineage_skipped_unresolvable_mappings_details) == [
+            ACTIVITY_KEY
+        ]
+        assert report.column_lineage_activities_auto_mapped == 0
+        lookups.assert_not_called()
+
+    def test_partially_ordinal_mappings_count_dropped_entries(self) -> None:
+        report = FabricDataFactorySourceReport()
+        extractor = CopyActivityColumnLineageExtractor(report=report)
+        activity = _copy_activity(
+            translator={
+                "type": "TabularTranslator",
+                "mappings": [
+                    {"source": {"ordinal": 1}, "sink": {"name": "id"}},
+                    {"source": {"name": "email"}, "sink": {"name": "email"}},
+                ],
+            }
+        )
+        assert _pairs(_extract(extractor, activity)) == [("email", "email")]
+        assert report.column_lineage_activities_explicit == 1
+        assert report.column_lineage_mappings_skipped == 1
+
 
 class TestAutoMapping:
     @pytest.mark.parametrize(

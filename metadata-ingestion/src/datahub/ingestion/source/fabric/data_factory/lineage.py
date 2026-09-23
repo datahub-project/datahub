@@ -6,6 +6,7 @@ from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM
 from datahub.ingestion.source.azure.copy_translator import (
     TABULAR_TRANSLATOR,
     CopyColumnMapping,
+    count_configured_mappings,
     get_translator_type,
     make_copy_fine_grained_lineage,
     parse_translator_mappings,
@@ -453,12 +454,21 @@ class CopyActivityColumnLineageExtractor:
             self._report.report_column_lineage_dynamic_translator()
             return []
 
-        explicit = parse_translator_mappings(translator) if translator else []
-        if explicit:
+        configured = count_configured_mappings(translator) if translator else 0
+        if translator and configured:
+            explicit = parse_translator_mappings(translator)
+            if not explicit:
+                # e.g. ordinal-only mappings: Fabric applies those rather than
+                # the default by-name mapping, so falling back to by-name
+                # matching would emit wrong column lineage.
+                self._report.report_column_lineage_unresolvable_mappings(activity_key)
+                return []
             lineages = self._build_explicit(
                 explicit, input_urn, output_urn, source_ds, sink_ds
             )
-            self._report.report_column_lineage_explicit(len(lineages))
+            self._report.report_column_lineage_explicit(
+                len(lineages), num_skipped_mappings=configured - len(explicit)
+            )
             return lineages
 
         if translator_type not in (None, TABULAR_TRANSLATOR):

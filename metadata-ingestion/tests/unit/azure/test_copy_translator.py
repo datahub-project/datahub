@@ -4,6 +4,7 @@ import pytest
 
 from datahub.ingestion.source.azure.copy_translator import (
     CopyColumnMapping,
+    count_configured_mappings,
     get_translator_type,
     make_copy_fine_grained_lineage,
     parse_translator_mappings,
@@ -125,6 +126,37 @@ def test_parse_translator_mappings(
     translator: Dict[str, Any], expected: List[CopyColumnMapping]
 ) -> None:
     assert parse_translator_mappings(translator) == expected
+
+
+@pytest.mark.parametrize(
+    "translator, expected",
+    [
+        pytest.param(
+            {
+                "type": "TabularTranslator",
+                "mappings": [
+                    {"source": {"ordinal": 1}, "sink": {"name": "id"}},
+                    {"source": {"ordinal": 2}, "sink": {"name": "email"}},
+                ],
+            },
+            2,
+            id="ordinal_only_mappings_still_count",
+        ),
+        pytest.param(
+            {"columnMappings": "a: b, c: d,", "mappings": [{}]},
+            2,
+            id="legacy_string_wins_and_ignores_empty_pairs",
+        ),
+        pytest.param({"columnMappings": {"a": "b"}}, 1, id="legacy_dict"),
+        pytest.param(
+            {"type": "TabularTranslator", "mappings": []}, 0, id="empty_mappings"
+        ),
+        pytest.param({"type": "TabularTranslator"}, 0, id="default_mapping"),
+    ],
+)
+def test_count_configured_mappings(translator: Dict[str, Any], expected: int) -> None:
+    """Non-name-based entries count as configured, so no by-name fallback."""
+    assert count_configured_mappings(translator) == expected
 
 
 def test_make_copy_fine_grained_lineage() -> None:

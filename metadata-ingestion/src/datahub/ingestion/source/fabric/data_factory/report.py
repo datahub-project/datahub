@@ -45,6 +45,13 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
     column_lineage_skipped_no_schema_details: LossyList[str] = field(
         default_factory=LossyList
     )
+    column_lineage_skipped_unresolvable_mappings: int = 0
+    column_lineage_skipped_unresolvable_mappings_details: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    # Explicit mapping entries that are not name-based (e.g. ordinal-only),
+    # dropped from activities whose other mappings were emitted.
+    column_lineage_mappings_skipped: int = 0
     column_lineage_skipped_dynamic_translator: int = 0
     column_lineage_skipped_unsupported_translator: int = 0
     column_lineage_failed: int = 0
@@ -84,9 +91,16 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
         current = self.unmapped_connection_types.get(connection_type, 0)
         self.unmapped_connection_types[connection_type] = current + 1
 
-    def report_column_lineage_explicit(self, num_edges: int) -> None:
+    def report_column_lineage_explicit(
+        self, num_edges: int, num_skipped_mappings: int = 0
+    ) -> None:
         self.column_lineage_activities_explicit += 1
         self.column_lineage_extracted += num_edges
+        self.column_lineage_mappings_skipped += num_skipped_mappings
+
+    def report_column_lineage_unresolvable_mappings(self, activity_key: str) -> None:
+        self.column_lineage_skipped_unresolvable_mappings += 1
+        self.column_lineage_skipped_unresolvable_mappings_details.append(activity_key)
 
     def report_column_lineage_auto_mapped(self, num_edges: int) -> None:
         self.column_lineage_activities_auto_mapped += 1

@@ -15,6 +15,7 @@ from typing import Any, Callable, Optional, Protocol, runtime_checkable
 
 from datahub.ingestion.source.azure.copy_translator import (
     TABULAR_TRANSLATOR,
+    count_configured_mappings,
     get_translator_type,
     make_copy_fine_grained_lineage,
     parse_translator_mappings,
@@ -179,16 +180,26 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         # Extract mappings based on translator format
         lineages = self._parse_translator(translator, source_urn, sink_urn)
 
-        # If no explicit mappings found but translator is TabularTranslator,
-        # try auto-mapping inference
-        if not lineages:
-            translator_type = self._get_translator_type(translator)
-            if translator_type == TABULAR_TRANSLATOR:
-                lineages = self._infer_auto_mappings(
-                    source_urn, sink_urn, source_schema
-                )
+        if lineages:
+            return lineages
 
-        return lineages
+        if count_configured_mappings(translator):
+            # Explicit mappings exist but none is name-based (e.g. ordinal-only
+            # mappings for header-less delimited text). ADF applies those, not
+            # the default by-name mapping, so inferring identity edges here
+            # would emit wrong column lineage.
+            logger.warning(
+                f"Copy Activity '{activity.name}' has explicit column mappings "
+                "that are not name-based (e.g. ordinal); column-level lineage "
+                "is not extracted for it."
+            )
+            return []
+
+        # No explicit mappings: a TabularTranslator maps columns by name.
+        if self._get_translator_type(translator) == TABULAR_TRANSLATOR:
+            return self._infer_auto_mappings(source_urn, sink_urn, source_schema)
+
+        return []
 
     def _get_translator(self, activity: ActivityProtocol) -> Optional[dict[str, Any]]:
         """Get the translator configuration from the activity.

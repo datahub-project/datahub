@@ -783,6 +783,32 @@ class TestCopyActivityColumnLineageExtractor:
 
         assert lineages == []
 
+    def test_no_inference_for_ordinal_only_mappings(self) -> None:
+        """Ordinal mappings are applied by ADF; identity edges would be wrong."""
+        extractor = CopyActivityColumnLineageExtractor()
+        activity = MockActivity(
+            translator={
+                "type": "TabularTranslator",
+                "mappings": [
+                    {"source": {"ordinal": 1}, "sink": {"name": "id"}},
+                    {"source": {"ordinal": 2}, "sink": {"name": "email"}},
+                ],
+            },
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,src,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,dest,PROD)"
+        source_schema = DatasetSchemaInfo(columns=["Prop_0", "Prop_1"])
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver({source_urn: source_schema}),
+        )
+
+        assert lineages == []
+
 
 class TestSourceDatasetSchemaExtraction:
     """Tests for dataset schema extraction logic.

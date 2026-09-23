@@ -66,6 +66,30 @@ def parse_translator_mappings(translator: Dict[str, Any]) -> List[CopyColumnMapp
     return []
 
 
+def count_configured_mappings(translator: Dict[str, Any]) -> int:
+    """Count the explicit mapping entries configured on a Copy translator.
+
+    Unlike ``parse_translator_mappings``, this also counts entries that cannot
+    become a named column pair (e.g. ordinal-only mappings for header-less
+    delimited text). A non-zero count means the copy does NOT use the default
+    by-name mapping, so callers must not fall back to by-name inference.
+    Follows the same legacy-first precedence as ``parse_translator_mappings``.
+    """
+    column_mappings = translator.get(_COLUMN_MAPPINGS_KEY)
+    if isinstance(column_mappings, dict) and column_mappings:
+        return len(column_mappings)
+    if isinstance(column_mappings, str) and column_mappings.strip():
+        return sum(
+            1 for pair in column_mappings.split(_LEGACY_PAIR_SEPARATOR) if pair.strip()
+        )
+
+    mappings = translator.get(_MAPPINGS_KEY)
+    if isinstance(mappings, list):
+        return len(mappings)
+
+    return 0
+
+
 def make_copy_fine_grained_lineage(
     source_urn: str,
     source_column: str,
