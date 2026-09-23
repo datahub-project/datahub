@@ -351,6 +351,15 @@ class TestTheCustomSqlDrainIsGuardedToo:
         assert self._drain_aspect(source, chart_urn, None) is None
         assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
 
+    def test_a_refused_drain_aspect_is_not_counted_as_emitted(self) -> None:
+        source = _make_source()
+        chart_urn = _chart_urn(CHART_ELEMENT_ID)
+        self._drain_aspect(source, chart_urn, "col")
+        self._drain_aspect(source, chart_urn, None)
+
+        assert source.reporter.workbook_customsql_upstream_emitted == 1
+        assert source.reporter.workbook_customsql_column_lineage_emitted == 1
+
     def test_a_refused_drain_aspect_is_not_yielded(self) -> None:
         source = _make_source()
         chart_urn = _chart_urn(CHART_ELEMENT_ID)
