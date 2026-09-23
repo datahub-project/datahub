@@ -12,7 +12,8 @@ import styled, { useTheme } from 'styled-components';
 
 import { StructuredPopover } from '@components/components/StructuredPopover';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { SimpleCopyLinkMenuItem } from '@app/shared/share/v2/items/CopyLinkMenuItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -79,6 +80,12 @@ interface Props {
     open: boolean;
 }
 
+const VersionLabelCell = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+`;
+
 export default function VersionsDrawer({ versionSetUrn, open }: Props) {
     const { t } = useTranslation('entity.shared.versioning');
     const { t: tc } = useTranslation('common.actions');
@@ -86,6 +93,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
     const { setDrawer } = useEntityContext();
+    const { urn: entityProfileUrn } = useEntityData();
 
     const columns = [
         {
@@ -136,13 +144,17 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                         ],
                     },
                 ],
+                searchFlags: { includeHiddenLifecycleStages: true },
             },
         },
     });
 
     const tableData = data?.versionSet?.versionsSearch?.searchResults?.map((version) => {
         const { urn, type } = version.entity;
-        const versionProperties = entityRegistry.getGenericEntityProperties(type, version.entity)?.versionProperties;
+        const genericProps = entityRegistry.getGenericEntityProperties(type, version.entity);
+        const versionProperties = genericProps?.versionProperties;
+        const status = genericProps?.status;
+        const isViewing = urn === entityProfileUrn;
         const items: ItemType[] = [
             {
                 key: 'COPY',
@@ -164,12 +176,20 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
         return {
             urn,
             label: (
-                /* eslint-disable i18next/no-literal-string -- (untranslated-text) programmatic placeholder token, not natural-language UI */
-                <VersionPill
-                    label={versionProperties?.version?.versionTag || '<unlabeled>'}
-                    isLatest={versionProperties?.isLatest}
-                />
-                /* eslint-enable i18next/no-literal-string */
+                <VersionLabelCell>
+                    {/* eslint-disable i18next/no-literal-string -- (untranslated-text) programmatic placeholder token, not natural-language UI */}
+                    <VersionPill
+                        label={versionProperties?.version?.versionTag || '<unlabeled>'}
+                        isLatest={versionProperties?.isLatest}
+                    />
+                    {/* eslint-enable i18next/no-literal-string */}
+                    <LifecycleStageBadge lifecycleStage={status?.lifecycleStage} />
+                    {isViewing && (
+                        <Text size="md" color="gray" colorLevel={1800} weight="semiBold">
+                            {t('viewing')}
+                        </Text>
+                    )}
+                </VersionLabelCell>
             ),
             comment: <Typography.Text ellipsis={{ tooltip: true }}>{versionProperties?.comment}</Typography.Text>,
             createdAt: (
