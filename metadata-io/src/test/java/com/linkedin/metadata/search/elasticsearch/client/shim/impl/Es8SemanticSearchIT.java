@@ -210,6 +210,53 @@ public class Es8SemanticSearchIT {
         List.of("urn:doc:2"));
   }
 
+  /**
+   * A selective filter must pre-filter: with k=2 over ten documents, the two nearest documents that
+   * match are returned even though neither is among the two nearest overall. Applying the filter
+   * after the kNN step would return nothing here.
+   */
+  @Test(groups = "es8-semantic")
+  public void testSearchKnnPreFiltersBeforeTopK() throws Exception {
+    shim.createSemanticIndex(
+        SemanticIndexSpec.builder()
+            .indexName("doc_prefilter_semantic")
+            .modelKey("gemini_embedding_001")
+            .vectorDimension(4)
+            .build());
+    for (int i = 0; i < 10; i++) {
+      shim.indexEmbeddings(
+          OP_CONTEXT,
+          new EmbeddingBatch(
+              "doc_prefilter_semantic",
+              "urn:doc:" + i,
+              "gemini_embedding_001",
+              List.of(
+                  new EmbeddingBatch.Chunk(
+                      new float[] {1.0f, 0.3f * i, 0.0f, 0.0f}, "doc " + i, 0, 0, 5, 1))));
+    }
+    shim.getNativeClient().indices().refresh(r -> r.index("doc_prefilter_semantic"));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> filter =
+        objectMapper.readValue(
+            QueryBuilders.termsQuery("urn", "urn:doc:7", "urn:doc:8", "urn:doc:9").toString(),
+            Map.class);
+    KnnSearchResponse out =
+        shim.searchKnn(
+            OP_CONTEXT,
+            KnnSearchRequest.builder()
+                .indexName("doc_prefilter_semantic")
+                .vectorField("embeddings.gemini_embedding_001.chunks.vector")
+                .queryVector(new float[] {1.0f, 0.0f, 0.0f, 0.0f})
+                .k(2)
+                .filter(filter)
+                .build());
+
+    assertEquals(
+        out.hits().stream().map(KnnSearchResponse.Hit::id).toList(),
+        List.of("urn:doc:7", "urn:doc:8"));
+  }
+
   private List<String> filteredKnnIds(QueryBuilder filterQuery) throws Exception {
     @SuppressWarnings("unchecked")
     Map<String, Object> filter = objectMapper.readValue(filterQuery.toString(), Map.class);
