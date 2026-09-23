@@ -81,8 +81,8 @@ export default function useGetDataForProfile<T>({
             Object.keys(dataPossiblyCombinedWithSiblings).length > 0 &&
             getDataForEntityType({
                 data: {
-                    ...formsData?.entity,
                     ...dataPossiblyCombinedWithSiblings[Object.keys(dataPossiblyCombinedWithSiblings)[0]],
+                    ...(formsData?.entity && 'forms' in formsData.entity ? { forms: formsData.entity.forms } : {}),
                 },
                 entityType,
                 getOverrideProperties,

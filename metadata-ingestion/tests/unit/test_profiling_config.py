@@ -6,8 +6,8 @@ import textwrap
 import pytest
 
 from datahub.configuration.common import ConfigurationWarning
-from datahub.ingestion.source.ge_profiling_config import (
-    GEProfilingConfig,
+from datahub.ingestion.source.profiling.config import (
+    ProfilingConfig,
     ProfilingIsolationLevel,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
@@ -16,12 +16,12 @@ from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
 
 
 def test_profile_table_level_only():
-    config = GEProfilingConfig.model_validate(
+    config = ProfilingConfig.model_validate(
         {"enabled": True, "profile_table_level_only": True}
     )
     assert config.any_field_level_metrics_enabled() is False
 
-    config = GEProfilingConfig.model_validate(
+    config = ProfilingConfig.model_validate(
         {
             "enabled": True,
             "profile_table_level_only": True,
@@ -36,7 +36,7 @@ def test_profile_table_level_only_fails_with_field_metric_enabled():
         ValueError,
         match="Cannot enable field-level metrics if profile_table_level_only is set",
     ):
-        GEProfilingConfig.model_validate(
+        ProfilingConfig.model_validate(
             {
                 "enabled": True,
                 "profile_table_level_only": True,
@@ -50,14 +50,14 @@ def test_profiling_method_field_removed() -> None:
     # SQLAlchemy is the only SQL profiler; recipes that still set `method` are
     # accepted (the field is dropped) with a deprecation warning.
     with pytest.warns(ConfigurationWarning, match="method was removed"):
-        config = GEProfilingConfig.model_validate({"enabled": True, "method": "ge"})
+        config = ProfilingConfig.model_validate({"enabled": True, "method": "ge"})
     assert not hasattr(config, "method")
 
 
 def test_profiling_isolation_level_default_is_none():
     # Unset by default: nothing is set on the profiling connection, so one
     # transaction spans the whole table profile.
-    config = GEProfilingConfig.model_validate({"enabled": True})
+    config = ProfilingConfig.model_validate({"enabled": True})
     assert config.profiling_isolation_level is None
 
 
@@ -66,25 +66,25 @@ def test_profiling_isolation_level_normalizes_case_and_underscores():
     # at config-parse time while still matching the SQL standard names with
     # spaces.
     assert (
-        GEProfilingConfig.model_validate(
+        ProfilingConfig.model_validate(
             {"enabled": True, "profiling_isolation_level": "autocommit"}
         ).profiling_isolation_level
         is ProfilingIsolationLevel.AUTOCOMMIT
     )
     assert (
-        GEProfilingConfig.model_validate(
+        ProfilingConfig.model_validate(
             {"enabled": True, "profiling_isolation_level": "read_committed"}
         ).profiling_isolation_level
         is ProfilingIsolationLevel.READ_COMMITTED
     )
     assert (
-        GEProfilingConfig.model_validate(
+        ProfilingConfig.model_validate(
             {"enabled": True, "profiling_isolation_level": "read committed"}
         ).profiling_isolation_level
         is ProfilingIsolationLevel.READ_COMMITTED
     )
     assert (
-        GEProfilingConfig.model_validate(
+        ProfilingConfig.model_validate(
             {"enabled": True, "profiling_isolation_level": "REPEATABLE_READ"}
         ).profiling_isolation_level
         is ProfilingIsolationLevel.REPEATABLE_READ
@@ -94,7 +94,7 @@ def test_profiling_isolation_level_normalizes_case_and_underscores():
 def test_profiling_isolation_level_empty_string_is_none():
     # Empty/whitespace normalizes to None, i.e. leave the connection alone.
     assert (
-        GEProfilingConfig.model_validate(
+        ProfilingConfig.model_validate(
             {"enabled": True, "profiling_isolation_level": "  "}
         ).profiling_isolation_level
         is None
@@ -104,7 +104,7 @@ def test_profiling_isolation_level_empty_string_is_none():
 def test_profiling_isolation_level_rejects_unknown_value():
     # The enum prevents typos at config-parse time.
     with pytest.raises(ValueError):
-        GEProfilingConfig.model_validate(
+        ProfilingConfig.model_validate(
             {"enabled": True, "profiling_isolation_level": "BOGUS"}
         )
 
@@ -112,20 +112,20 @@ def test_profiling_isolation_level_rejects_unknown_value():
 def test_profiling_isolation_level_json_schema_has_default():
     # docs_config_table.py gates the "Default:" line on `"default" in json_props`.
     # Field(default=None) emits that key; default_factory does not.
-    schema = GEProfilingConfig.model_json_schema()
+    schema = ProfilingConfig.model_json_schema()
     assert "default" in schema["properties"]["profiling_isolation_level"]
 
 
 def test_max_distinct_per_statement_default_matches_combiner_constant() -> None:
     # Drift guard: the config duplicates the literal rather than importing
     # the combiner, so the two must be kept in lockstep.
-    config = GEProfilingConfig()
+    config = ProfilingConfig()
     assert config.max_distinct_per_statement == DEFAULT_MAX_DISTINCT_PER_STATEMENT
 
 
 def test_flatten_is_off_by_default() -> None:
     # The flag ships off. Flipping the default is a separate, deliberate PR.
-    assert GEProfilingConfig().query_combiner_flatten_enabled is False
+    assert ProfilingConfig().query_combiner_flatten_enabled is False
 
 
 def test_flatten_without_query_combiner_warns_but_does_not_raise(
@@ -133,20 +133,20 @@ def test_flatten_without_query_combiner_warns_but_does_not_raise(
 ) -> None:
     # Warn rather than raise: turning the combiner off is a legitimate way
     # to troubleshoot a run.
-    config = GEProfilingConfig.model_validate(
+    config = ProfilingConfig.model_validate(
         {"query_combiner_enabled": False, "query_combiner_flatten_enabled": True}
     )
     assert config.query_combiner_flatten_enabled
 
     with caplog.at_level(logging.WARNING):
-        GEProfilingConfig.model_validate(
+        ProfilingConfig.model_validate(
             {"query_combiner_enabled": False, "query_combiner_flatten_enabled": True}
         )
     assert any("has no effect" in r.message for r in caplog.records)
 
 
-def test_ge_profiling_and_kafka_config_import_without_sqlalchemy_or_greenlet() -> None:
-    # kafka, cassandra, and excel configs import ge_profiling_config at module
+def test_profiling_and_kafka_config_import_without_sqlalchemy_or_greenlet() -> None:
+    # kafka, cassandra, and excel configs import the profiling config at module
     # scope, and none of those extras ship sqlalchemy. Importing either module
     # must not pull sqlalchemy or greenlet at module scope. Running in a
     # subprocess gives a cold interpreter — what a `pip install
@@ -170,7 +170,7 @@ def test_ge_profiling_and_kafka_config_import_without_sqlalchemy_or_greenlet() -
 
         sys.meta_path.insert(0, _BlockFinder())
 
-        import datahub.ingestion.source.ge_profiling_config  # noqa: F401
+        import datahub.ingestion.source.profiling.config  # noqa: F401
         import datahub.ingestion.source.kafka.kafka_config  # noqa: F401
 
         for blocked in ("sqlalchemy", "greenlet"):
