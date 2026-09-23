@@ -484,6 +484,45 @@ class TestSalesforceCopySource:
         ]
 
 
+class TestWarehouseCopySink:
+    """Fabric Warehouse sinks resolve to the same OneLake URN as the Warehouse type."""
+
+    @pytest.mark.parametrize("linked_service_type", ["Warehouse", "DataWarehouse"])
+    def test_warehouse_linked_service_variants(self, linked_service_type: str) -> None:
+        extractor = CopyActivityLineageExtractor(
+            connections_cache={}, report=FabricDataFactorySourceReport(), env="PROD"
+        )
+        activity = _make_activity(
+            type_properties={
+                "sink": {
+                    "type": "DataWarehouseSink",
+                    "datasetSettings": {
+                        "type": "DataWarehouseTable",
+                        "typeProperties": {"schema": "sales", "table": "orders"},
+                        "schema": [],
+                        "linkedService": {
+                            "name": "SalesWarehouse",
+                            "properties": {
+                                "type": linked_service_type,
+                                "typeProperties": {
+                                    "artifactId": ARTIFACT_ID,
+                                    "endpoint": "example.datawarehouse.fabric.microsoft.com",
+                                    "workspaceId": WS_ID,
+                                },
+                            },
+                        },
+                    },
+                },
+            }
+        )
+        _, outputs = extractor.extract_lineage(activity, WS_ID)
+        assert outputs == [
+            "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+            f"{WS_ID}.{ARTIFACT_ID}.sales.orders,PROD)"
+        ]
+        assert not extractor._report.unmapped_connection_types
+
+
 class TestFindRootActivity:
     def test_single_root(self) -> None:
         activities = [

@@ -12,6 +12,9 @@ FABRIC_CONNECTION_PLATFORM_MAP: Dict[str, str] = {
     # --- Fabric OneLake (data-bearing items ingested by the OneLake connector) ---
     "Lakehouse": "fabric-onelake",
     "Warehouse": "fabric-onelake",
+    # Pipeline JSON for a Fabric Warehouse sink/source uses linkedService type
+    # "DataWarehouse" (dataset type "DataWarehouseTable", sink "DataWarehouseSink").
+    "DataWarehouse": "fabric-onelake",
     "FabricSql": "fabric-onelake",
     "DataLake": "fabric-onelake",
     "SqlAnalyticsEndpoint": "fabric-onelake",
