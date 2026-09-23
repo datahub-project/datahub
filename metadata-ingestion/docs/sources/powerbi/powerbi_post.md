@@ -100,6 +100,15 @@ Column-level lineage for DirectLake tables is controlled by `extract_column_leve
 
 If the upstream schema cannot be read, edges are emitted only for columns with an explicit `sourceColumn`, and the other columns are listed in the ingestion report. Table-level lineage is not affected.
 
+##### Renamed DirectLake columns (`extract_directlake_source_columns_from_definition`)
+
+The admin scan does not return `sourceColumn` for DirectLake columns, so a column renamed in the semantic model (for example `Customer Name` bound to the Delta column `CustomerName`) gets no column-level edge by default. Set `extract_directlake_source_columns_from_definition: true` (off by default) to read each DirectLake semantic model's definition with the Fabric [Get Semantic Model Definition](https://learn.microsoft.com/en-us/rest/api/fabric/semanticmodel/items/get-semantic-model-definition) API in TMDL format, and take each column's `sourceColumn` from it. A `sourceColumn` already present in the scan response is kept. The resolved name is still matched against the upstream OneLake schema in DataHub before an edge is emitted; without an upstream schema, the definition's `sourceColumn` is used as an explicit binding.
+
+- One `getDefinition` call is made per DirectLake semantic model; other models are not called. It is a long-running operation, polled until it finishes or `directlake_definition_timeout` seconds (default 120) pass.
+- Requirements: `extract_column_level_lineage: true`, the `COMMERCIAL` environment, the tenant setting `Service principals can call Fabric Public APIs` (see the prerequisites above), and **read and write** permission on each semantic model for the service principal, which Microsoft requires for this API (for example the Contributor, Member, or Admin workspace role). The API is blocked for semantic models with an encrypted sensitivity label.
+- If a definition cannot be read (permission denied, timeout, failed operation) or one of its tables cannot be parsed, the ingestion report shows a warning and those columns fall back to name matching. Table-level lineage is not affected.
+- Report counters: `directlake_definitions_fetched`, `directlake_definition_failures`, `directlake_definition_parse_failures`, and `directlake_source_columns_from_definition`.
+
 `convert_lineage_urns_to_lowercase` (on by default) lowercases only the dataset part of upstream URNs. The upstream schema lookup uses that URN, so it must match how Fabric OneLake was ingested. If you ingest Fabric OneLake without `convert_urns_to_lowercase`, table names with uppercase letters will not match unless you also set `convert_lineage_urns_to_lowercase: false` here.
 
 Use `server_to_platform_instance` keyed by the Fabric workspace ID to set the `platform_instance` / `env` of the OneLake upstreams so they match your Fabric OneLake ingestion.
