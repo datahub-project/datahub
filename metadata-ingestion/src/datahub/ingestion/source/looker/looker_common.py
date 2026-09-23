@@ -656,11 +656,22 @@ def resolve_view_locations(
     _add(schema_fields, can_veto=True)
     _add(parameter_fields, can_veto=False)
 
+    # Explore/join views stay in the result even with no fields. Field-extracted
+    # names — original_view for extends parents — must also be classified:
+    # _form_field_name looks them up, and they are often absent from views.
+    names_to_resolve: List[str] = []
+    seen: Set[str] = set()
+    for view_name in list(view_names) + list(sources_by_view.keys()):
+        if view_name in seen:
+            continue
+        seen.add(view_name)
+        names_to_resolve.append(view_name)
+
     return {
         view_name: _resolve_one_view(
             view_name, sources_by_view.get(view_name, []), reporter
         )
-        for view_name in view_names
+        for view_name in names_to_resolve
     }
 
 

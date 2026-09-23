@@ -394,6 +394,27 @@ class TestResolveViewLocations:
             == "imported_projects/hub/views/hub_view.view.lkml"
         )
 
+    def test_extends_parent_original_view_is_classified(self) -> None:
+        reporter = SourceReport()
+        parent_path = "imported_projects/hub/views/parent_view.view.lkml"
+        locations = resolve_view_locations(
+            view_names=["hub_view"],
+            schema_fields=[
+                LookmlModelExploreField(
+                    name="hub_view.col_a",
+                    type="string",
+                    view="hub_view",
+                    original_view="parent_view",
+                    source_file=parent_path,
+                )
+            ],
+            parameter_fields=[],
+            reporter=reporter,
+        )
+        assert locations["hub_view"].imported_project is None
+        assert locations["parent_view"].imported_project == "hub"
+        assert locations["parent_view"].file_path == parent_path
+
 
 class TestFromApiImportedViewProject:
     def _from_api(
@@ -590,3 +611,30 @@ class TestFromApiImportedViewProject:
         assert warning.message == "View has fields from different imported projects."
         assert "hub_view" in str(warning.context)
         assert "hub" in str(warning.context)
+
+    def test_extends_parent_keeps_imported_project_for_column_lineage(self) -> None:
+        parent_path = "imported_projects/hub/views/parent_view.view.lkml"
+        explore = self._from_api(
+            dimensions=[
+                LookmlModelExploreField(
+                    name="hub_view.col_a",
+                    type="string",
+                    view="hub_view",
+                    original_view="parent_view",
+                    source_file=parent_path,
+                )
+            ],
+            parameters=[],
+        )
+        assert explore.upstream_views is not None
+        assert explore.upstream_views[0].include == "hub_view"
+        assert explore.upstream_views[0].project == BASE_PROJECT_NAME
+        assert explore.upstream_views_file_path is not None
+        assert explore.upstream_views_file_path["parent_view"] == parent_path
+        assert explore.fields is not None
+        assert len(explore.fields) == 1
+        assert explore.fields[0].upstream_fields
+        column_urn = explore.fields[0].upstream_fields[0].table
+        assert "hub.view.parent_view" in column_urn
+        assert "spoke.view.parent_view" not in column_urn
+        assert explore.fields[0].upstream_fields[0].column == "col_a"
