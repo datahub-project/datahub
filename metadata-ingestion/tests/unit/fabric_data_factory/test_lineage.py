@@ -7,6 +7,8 @@ table name extraction, and cross-pipeline lineage.
 
 from typing import Any, Dict, List, Optional
 
+import pytest
+
 from datahub.ingestion.source.fabric.common.models import FabricConnection
 from datahub.ingestion.source.fabric.data_factory.lineage import (
     CopyActivityLineageExtractor,
@@ -225,6 +227,29 @@ class TestExtractTableName:
     def test_empty_returns_none(self) -> None:
         assert CopyActivityLineageExtractor._extract_table_name({}) is None
 
+    def test_salesforce_object_api_name(self) -> None:
+        result = CopyActivityLineageExtractor._extract_table_name(
+            {"objectApiName": "Account"}
+        )
+        assert result == "Account"
+
+    def test_table_takes_precedence_over_object_api_name(self) -> None:
+        result = CopyActivityLineageExtractor._extract_table_name(
+            {"table": "customers", "objectApiName": "Account"}
+        )
+        assert result == "customers"
+
+    def test_parameterized_object_api_name_is_ignored(self) -> None:
+        result = CopyActivityLineageExtractor._extract_table_name(
+            {
+                "objectApiName": {
+                    "value": "@pipeline().parameters.obj",
+                    "type": "Expression",
+                }
+            }
+        )
+        assert result is None
+
 
 class TestExtractFilePath:
     def test_container_folder_file(self) -> None:
@@ -418,6 +443,45 @@ class TestCopyExtractLineage:
         inputs, outputs = extractor.extract_lineage(activity, WS_ID)
         assert len(inputs) == 1
         assert len(outputs) == 1
+
+
+class TestSalesforceCopySource:
+    """Salesforce-family sources resolve to the salesforce connector's URN."""
+
+    @pytest.mark.parametrize(
+        "connection_type, dataset_type",
+        [
+            ("Salesforce", "SalesforceObject"),
+            ("SalesforceV2", "SalesforceV2Object"),
+            ("SalesforceServiceCloud", "SalesforceServiceCloudObject"),
+            ("SalesforceServiceCloudV2", "SalesforceServiceCloudV2Object"),
+        ],
+    )
+    def test_object_api_name_resolves_to_salesforce_urn(
+        self, connection_type: str, dataset_type: str
+    ) -> None:
+        conn = _make_connection("conn-sfdc", "CRM", connection_type)
+        extractor = CopyActivityLineageExtractor(
+            connections_cache={"conn-sfdc": conn},
+            report=FabricDataFactorySourceReport(),
+            env="PROD",
+        )
+        activity = _make_activity(
+            type_properties={
+                "source": {
+                    "type": "SalesforceV2Source",
+                    "datasetSettings": {
+                        "type": dataset_type,
+                        "externalReferences": {"connection": "conn-sfdc"},
+                        "typeProperties": {"objectApiName": "Opportunity__c"},
+                    },
+                },
+            }
+        )
+        inputs, _ = extractor.extract_lineage(activity, WS_ID)
+        assert inputs == [
+            "urn:li:dataset:(urn:li:dataPlatform:salesforce,Opportunity__c,PROD)"
+        ]
 
 
 class TestFindRootActivity:

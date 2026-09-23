@@ -278,11 +278,18 @@ class CopyActivityLineageExtractor:
     def _extract_table_name(
         ds_type_properties: Dict[str, Any],
     ) -> Optional[str]:
-        """Extract a qualified table or file path from datasetSettings."""
+        """Extract a qualified table, object, or file path from datasetSettings."""
         schema = ds_type_properties.get("schema")
         table = ds_type_properties.get("table")
         if table:
             return f"{schema}.{table}" if schema else table
+
+        # Salesforce-family datasets (SalesforceObject, SalesforceV2Object,
+        # SalesforceServiceCloud(V2)Object) identify the sObject by its API
+        # name, which is also the dataset name used by the salesforce connector.
+        object_api_name = ds_type_properties.get("objectApiName")
+        if isinstance(object_api_name, str) and object_api_name:
+            return object_api_name
 
         location = ds_type_properties.get("location") or {}
         return CopyActivityLineageExtractor._extract_file_path(location)
