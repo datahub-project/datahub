@@ -39,10 +39,14 @@ def _copy_activity(
     translator: Optional[Any] = None,
     source_schema: Optional[List[Dict[str, Any]]] = None,
     sink_schema: Optional[List[Dict[str, Any]]] = None,
+    table_option: Optional[str] = None,
 ) -> PipelineActivity:
+    sink: Dict[str, Any] = {"datasetSettings": {"schema": sink_schema or []}}
+    if table_option is not None:
+        sink["tableOption"] = table_option
     type_properties: Dict[str, Any] = {
         "source": {"datasetSettings": {"schema": source_schema or []}},
-        "sink": {"datasetSettings": {"schema": sink_schema or []}},
+        "sink": sink,
     }
     if translator is not None:
         type_properties["translator"] = translator
@@ -223,6 +227,86 @@ class TestAutoMapping:
         report = FabricDataFactorySourceReport()
         extractor = CopyActivityColumnLineageExtractor(report=report)
         assert _extract(extractor, _copy_activity()) == []
+        assert report.column_lineage_skipped_no_schema == 1
+
+
+class TestAutoCreateSink:
+    @pytest.mark.parametrize(
+        "translator",
+        [None, {"type": "TabularTranslator", "typeConversion": True}],
+        ids=["no_translator", "tabular_without_mappings"],
+    )
+    def test_sink_columns_taken_from_source(
+        self, translator: Optional[Dict[str, Any]]
+    ) -> None:
+        report = FabricDataFactorySourceReport()
+        _, resolve = _resolver(
+            {SOURCE_URN: ["id", "[version=2.0].[type=string].email"]}
+        )
+        extractor = CopyActivityColumnLineageExtractor(
+            report=report, columns_resolver=resolve
+        )
+        activity = _copy_activity(translator=translator, table_option="autoCreate")
+        lineages = _extract(extractor, activity)
+        assert [fgl.downstreams for fgl in lineages] == [
+            [f"urn:li:schemaField:({SINK_URN},id)"],
+            [f"urn:li:schemaField:({SINK_URN},email)"],
+        ]
+        assert report.column_lineage_activities_auto_created_sink == 1
+        assert report.column_lineage_activities_auto_mapped == 0
+        assert report.column_lineage_skipped_no_schema == 0
+        assert report.column_lineage_extracted == 2
+
+    def test_known_sink_schema_still_matched_by_name(self) -> None:
+        """autoCreate only creates a missing table; an existing one wins."""
+        report = FabricDataFactorySourceReport()
+        _, resolve = _resolver(
+            {SOURCE_URN: ["id", "email"], SINK_URN: ["ID", "loaded_at"]}
+        )
+        extractor = CopyActivityColumnLineageExtractor(
+            report=report, columns_resolver=resolve
+        )
+        lineages = _extract(extractor, _copy_activity(table_option="autoCreate"))
+        assert _pairs(lineages) == [("id", "ID")]
+        assert report.column_lineage_activities_auto_mapped == 1
+        assert report.column_lineage_activities_auto_created_sink == 0
+
+    def test_requires_source_schema(self) -> None:
+        report = FabricDataFactorySourceReport()
+        _, resolve = _resolver({})
+        extractor = CopyActivityColumnLineageExtractor(
+            report=report, columns_resolver=resolve
+        )
+        assert _extract(extractor, _copy_activity(table_option="autoCreate")) == []
+        assert report.column_lineage_skipped_no_schema == 1
+        assert report.column_lineage_activities_auto_created_sink == 0
+
+    def test_explicit_mappings_take_precedence(self) -> None:
+        report = FabricDataFactorySourceReport()
+        _, resolve = _resolver({SOURCE_URN: ["id", "email"]})
+        extractor = CopyActivityColumnLineageExtractor(
+            report=report, columns_resolver=resolve
+        )
+        activity = _copy_activity(
+            translator={
+                "type": "TabularTranslator",
+                "mappings": [{"source": {"name": "id"}, "sink": {"name": "cid"}}],
+            },
+            table_option="autoCreate",
+        )
+        assert _pairs(_extract(extractor, activity)) == [("id", "cid")]
+        assert report.column_lineage_activities_auto_created_sink == 0
+
+    @pytest.mark.parametrize("table_option", [None, "none"])
+    def test_other_table_options_need_sink_schema(
+        self, table_option: Optional[str]
+    ) -> None:
+        report = FabricDataFactorySourceReport()
+        _, resolve = _resolver({SOURCE_URN: ["id", "email"]})
+        extractor = CopyActivityColumnLineageExtractor(
+            report=report, columns_resolver=resolve
+        )
+        assert _extract(extractor, _copy_activity(table_option=table_option)) == []
         assert report.column_lineage_skipped_no_schema == 1
 
 

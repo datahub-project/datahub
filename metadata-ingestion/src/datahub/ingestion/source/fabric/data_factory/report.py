@@ -40,6 +40,7 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
     column_lineage_extracted: int = 0
     column_lineage_activities_explicit: int = 0
     column_lineage_activities_auto_mapped: int = 0
+    column_lineage_activities_auto_created_sink: int = 0
     column_lineage_skipped_no_schema: int = 0
     column_lineage_skipped_no_schema_details: LossyList[str] = field(
         default_factory=LossyList
@@ -89,6 +90,10 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
 
     def report_column_lineage_auto_mapped(self, num_edges: int) -> None:
         self.column_lineage_activities_auto_mapped += 1
+        self.column_lineage_extracted += num_edges
+
+    def report_column_lineage_auto_created_sink(self, num_edges: int) -> None:
+        self.column_lineage_activities_auto_created_sink += 1
         self.column_lineage_extracted += num_edges
 
     def report_column_lineage_no_schema(self, activity_key: str) -> None:

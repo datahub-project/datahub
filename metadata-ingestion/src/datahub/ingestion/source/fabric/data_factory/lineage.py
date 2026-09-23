@@ -30,6 +30,7 @@ from datahub.ingestion.source.fabric.data_factory.report import (
 )
 from datahub.metadata.schema_classes import FineGrainedLineageClass
 from datahub.metadata.urns import DatasetUrn
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,8 @@ DATASET_SCHEMA_KEY = "schema"
 DATASET_COLUMN_NAME_KEY = "name"
 TRANSLATOR_KEY = "translator"
 EXPRESSION_TYPE = "Expression"
+SINK_TABLE_OPTION_KEY = "tableOption"
+SINK_TABLE_OPTION_AUTO_CREATE = "autoCreate"
 WORKSPACE_ID_KEY = "workspaceId"
 # Placeholder Fabric writes for items living in the pipeline's own workspace.
 SAME_WORKSPACE_PLACEHOLDER_ID = "00000000-0000-0000-0000-000000000000"
@@ -48,16 +51,35 @@ SAME_WORKSPACE_PLACEHOLDER_ID = "00000000-0000-0000-0000-000000000000"
 DatasetColumnsResolver = Callable[[str], Optional[DatasetColumns]]
 
 
+def get_copy_sink(type_properties: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the sink block of a Copy activity (``sink`` or ``destination``)."""
+    for key in COPY_SINK_KEYS:
+        sink = type_properties.get(key)
+        if isinstance(sink, dict) and sink:
+            return sink
+    return {}
+
+
+def is_auto_create_sink(sink: Dict[str, Any]) -> bool:
+    """Whether the Copy sink creates the destination table from the source schema.
+
+    Set as ``sink.tableOption: "autoCreate"`` (e.g. DataWarehouseSink,
+    AzureSqlSink, SqlServerSink); the table is created only if it does not
+    already exist.
+    """
+    table_option = sink.get(SINK_TABLE_OPTION_KEY)
+    return (
+        isinstance(table_option, str)
+        and table_option.lower() == SINK_TABLE_OPTION_AUTO_CREATE.lower()
+    )
+
+
 def get_copy_dataset_settings(
     type_properties: Dict[str, Any],
 ) -> tuple[Dict[str, Any], Dict[str, Any]]:
     """Return the (source, sink) datasetSettings of a Copy activity."""
     source = type_properties.get(COPY_SOURCE_KEY) or {}
-    sink: Dict[str, Any] = {}
-    for key in COPY_SINK_KEYS:
-        sink = type_properties.get(key) or {}
-        if sink:
-            break
+    sink = get_copy_sink(type_properties)
     return (
         source.get(DATASET_SETTINGS_KEY) or {},
         sink.get(DATASET_SETTINGS_KEY) or {},
@@ -397,7 +419,9 @@ class CopyActivityColumnLineageExtractor:
     casing when that schema is known. Without explicit mappings, a
     ``TabularTranslator`` (or no translator) maps columns by name; that is
     only reproduced when both source and sink columns are known, from the
-    inline datasetSettings ``schema`` or from DataHub. Nothing is guessed.
+    inline datasetSettings ``schema`` or from DataHub. The exception is an
+    ``autoCreate`` sink with unknown columns: it is created from the source
+    schema, so sink columns are taken to equal the known source columns.
     """
 
     def __init__(
@@ -442,7 +466,12 @@ class CopyActivityColumnLineageExtractor:
             return []
 
         return self._build_auto_mapped(
-            activity_key, input_urn, output_urn, source_ds, sink_ds
+            activity_key,
+            input_urn,
+            output_urn,
+            source_ds,
+            sink_ds,
+            auto_create_sink=is_auto_create_sink(get_copy_sink(type_props)),
         )
 
     def _build_explicit(
@@ -472,11 +501,29 @@ class CopyActivityColumnLineageExtractor:
         output_urn: str,
         source_ds: Dict[str, Any],
         sink_ds: Dict[str, Any],
+        auto_create_sink: bool,
     ) -> List[FineGrainedLineageClass]:
         source_columns = self._get_columns(input_urn, source_ds)
         sink_columns = (
             self._get_columns(output_urn, sink_ds) if source_columns else None
         )
+        if source_columns and not sink_columns and auto_create_sink:
+            # The sink table is created from the source schema, so its
+            # columns are the source columns (as in the ADF connector).
+            created_sink_lineages = [
+                make_copy_fine_grained_lineage(
+                    input_urn,
+                    source_field,
+                    output_urn,
+                    get_simple_field_path_from_v2_field_path(source_field),
+                )
+                for source_field in source_columns.field_paths
+            ]
+            self._report.report_column_lineage_auto_created_sink(
+                len(created_sink_lineages)
+            )
+            return created_sink_lineages
+
         if not source_columns or not sink_columns:
             logger.debug(
                 "Skipping by-name column mapping for activity '%s': "

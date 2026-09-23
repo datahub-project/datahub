@@ -83,7 +83,9 @@ class FabricDataFactorySourceConfig(
             "column lineage is only emitted when both source and sink schemas are "
             "known, either from the activity's inline dataset schema or from "
             "schemaMetadata already in DataHub (looked up via the pipeline's "
-            "DataHub graph connection, e.g. a datahub-rest sink or datahub_api)."
+            "DataHub graph connection, e.g. a datahub-rest sink or datahub_api). "
+            "For sinks with tableOption 'autoCreate' whose schema is unknown, the "
+            "sink columns are taken to equal the known source columns."
         ),
     )
 
