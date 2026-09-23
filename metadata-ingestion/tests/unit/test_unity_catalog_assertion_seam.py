@@ -89,6 +89,7 @@ def test_run_event_failure_carries_severity_and_counts():
     assert ev.result.type == AssertionResultTypeClass.FAILURE
     assert ev.result.severity == AssertionResultSeverityClass.HIGH
     assert ev.result.rowCount == 1000 and ev.result.unexpectedCount == 5
+    assert ev.result.actualAggValue == 99.5
 
 
 def test_run_event_warning_stays_success_with_flag():
@@ -103,6 +104,30 @@ def test_run_event_warning_stays_success_with_flag():
     assert mcp.aspect.result.type == AssertionResultTypeClass.SUCCESS
     assert mcp.aspect.result.nativeResults["warning"] == "true"
     assert mcp.aspect.result.severity is None  # severity only on FAILURE
+
+
+def test_severity_ignored_on_non_failure():
+    mcp = build_assertion_run_event(
+        assertion_urn="urn:li:assertion:abc",
+        dataset_urn=DATASET,
+        run_id="r",
+        timestamp_millis=1,
+        status="SUCCESS",
+        severity="HIGH",
+    )
+    # Severity passed but status != FAILURE -> gate drops it, not just an unset default.
+    assert mcp.aspect.result.severity is None
+
+
+def test_run_event_init_status():
+    mcp = build_assertion_run_event(
+        assertion_urn="urn:li:assertion:abc",
+        dataset_urn=DATASET,
+        run_id="r",
+        timestamp_millis=1,
+        status="INIT",
+    )
+    assert mcp.aspect.result.type == AssertionResultTypeClass.INIT
 
 
 def test_run_event_error_records_type_and_message():
