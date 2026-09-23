@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
@@ -13,8 +14,10 @@ import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Map;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
+import org.opensearch.index.query.QueryBuilders;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.SkipException;
@@ -37,6 +40,7 @@ public class Es8SemanticSearchIT {
 
   private ElasticsearchContainer container;
   private Es8SearchClientShim shim;
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
   private static final OperationContext OP_CONTEXT =
       TestOperationContexts.systemContextNoSearchAuthorization();
@@ -148,5 +152,57 @@ public class Es8SemanticSearchIT {
           msg.contains("dim") || msg.contains("vector"),
           "Exception should mention dimension or vector mismatch; got: " + expected.getMessage());
     }
+  }
+
+  /**
+   * DataHub's semantic kNN filters are nested OpenSearch bool queries whose serialization emits
+   * {@code adjust_pure_negative} at every level. Before the fix, {@code searchKnn}'s strict {@code
+   * SearchRequest#withJson} parse rejected that field, so any filtered semantic search failed on
+   * Elasticsearch 8. This drives {@code searchKnn} end-to-end against ES 8.18 with such a filter
+   * and asserts it no longer throws.
+   */
+  @Test(groups = "es8-semantic")
+  public void testSearchKnnWithLegacyBoolFilterDoesNotThrow() throws Exception {
+    SemanticIndexSpec spec =
+        SemanticIndexSpec.builder()
+            .indexName("doc_filter_semantic")
+            .modelKey("gemini_embedding_001")
+            .vectorDimension(4)
+            .build();
+    shim.createSemanticIndex(spec);
+
+    shim.indexEmbeddings(
+        OP_CONTEXT,
+        new EmbeddingBatch(
+            "doc_filter_semantic",
+            "urn:doc:1",
+            "gemini_embedding_001",
+            List.of(
+                new EmbeddingBatch.Chunk(
+                    new float[] {0.9f, 0.1f, 0.0f, 0.0f}, "alpha", 0, 0, 5, 1))));
+    shim.getNativeClient().indices().refresh(r -> r.index("doc_filter_semantic"));
+
+    // Nested OpenSearch bool filter, the shape semantic search builds: its serialization carries
+    // adjust_pure_negative, which the ES 8 typed parser rejects unless searchKnn normalizes it.
+    String legacyBoolFilter =
+        QueryBuilders.boolQuery()
+            .must(QueryBuilders.boolQuery().should(QueryBuilders.termQuery("urn", "urn:doc:1")))
+            .toString();
+    @SuppressWarnings("unchecked")
+    Map<String, Object> filter = objectMapper.readValue(legacyBoolFilter, Map.class);
+
+    KnnSearchResponse out =
+        shim.searchKnn(
+            OP_CONTEXT,
+            KnnSearchRequest.builder()
+                .indexName("doc_filter_semantic")
+                .vectorField("embeddings.gemini_embedding_001.chunks.vector")
+                .queryVector(new float[] {0.95f, 0.0f, 0.0f, 0.0f})
+                .k(2)
+                .filter(filter)
+                .build());
+
+    assertNotNull(
+        out, "searchKnn must not throw for a legacy bool filter carrying adjust_pure_negative");
   }
 }

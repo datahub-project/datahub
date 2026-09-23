@@ -5,10 +5,13 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.StringReader;
 import org.opensearch.index.query.QueryBuilders;
 import org.testng.annotations.Test;
 
 public class LegacyRangeQueryNormalizerTest {
+
+  private static final String ADJUST_PURE_NEGATIVE = "adjust_pure_negative";
 
   private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -104,5 +107,67 @@ public class LegacyRangeQueryNormalizerTest {
     String normalized = LegacyRangeQueryNormalizer.normalize(legacy, objectMapper);
 
     assertEquals(objectMapper.readTree(legacy), objectMapper.readTree(normalized));
+  }
+
+  @Test
+  public void testStripsAdjustPureNegativeAtEveryNestingLevel() throws Exception {
+    String legacy =
+        QueryBuilders.boolQuery()
+            .filter(
+                QueryBuilders.boolQuery()
+                    .must(
+                        QueryBuilders.boolQuery()
+                            .should(QueryBuilders.termQuery("entityType", "dataset"))
+                            .should(QueryBuilders.existsQuery("removed"))))
+            .toString();
+    // OpenSearch's bool builder always serializes this internal Lucene default at every level.
+    assertTrue(legacy.contains(ADJUST_PURE_NEGATIVE));
+
+    String normalized = LegacyRangeQueryNormalizer.normalize(legacy, objectMapper);
+
+    assertFalse(normalized.contains(ADJUST_PURE_NEGATIVE));
+  }
+
+  /**
+   * Reproduces the filtered kNN semantic-search failure on Elasticsearch 8 backends. The deeply
+   * nested bool filter DataHub builds via OpenSearch query builders is parsed as a SearchRequest
+   * body through the ES 8 typed client's single-arg {@code withJson(Reader)}, whose strict default
+   * mapper rejects the unknown {@code adjust_pure_negative} field — exactly how {@code
+   * Es8SearchClientShim#searchKnn} parses its body. Parsing (not string absence) is what proves the
+   * fix and that no other legacy field trips the strict parser. (The regular search path uses the
+   * two-arg {@code withJson(parser, JacksonJsonpMapper)} form, which is lenient — so this bug only
+   * surfaces on the kNN path.)
+   */
+  @Test
+  public void testNormalizedNestedBoolParsesWithElasticsearch8TypedClient() throws Exception {
+    String body =
+        "{\"query\":"
+            + QueryBuilders.boolQuery()
+                .filter(
+                    QueryBuilders.boolQuery()
+                        .must(
+                            QueryBuilders.boolQuery()
+                                .should(QueryBuilders.termQuery("entityType", "dataset"))
+                                .should(QueryBuilders.existsQuery("removed"))))
+                .toString()
+            + "}";
+
+    // Raw body is rejected by the ES 8 typed parser on adjust_pure_negative, as searchKnn saw it
+    boolean rawRejected = false;
+    try {
+      parseSearchBodyWithElasticsearch8(body);
+    } catch (Exception e) {
+      rawRejected = true;
+    }
+    assertTrue(rawRejected, "Expected raw OpenSearch bool JSON to be rejected by the ES 8 parser");
+
+    // After normalization the same body parses without error.
+    parseSearchBodyWithElasticsearch8(LegacyRangeQueryNormalizer.normalize(body, objectMapper));
+  }
+
+  /** Mirrors {@code Es8SearchClientShim#searchKnn}'s single-arg strict body parse. */
+  private void parseSearchBodyWithElasticsearch8(String bodyJson) {
+    co.elastic.clients.elasticsearch.core.SearchRequest.of(
+        b -> b.withJson(new StringReader(bodyJson)));
   }
 }
