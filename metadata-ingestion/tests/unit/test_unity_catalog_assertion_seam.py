@@ -5,6 +5,7 @@ from datahub.ingestion.source.unity.assertion import (
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionSourceTypeClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionTypeClass,
@@ -61,4 +62,4 @@ def test_build_custom_assertion_info_multi_column_and_structured():
     assert info.customAssertion.fields == [field_a, field_b]
     assert info.customAssertion.field == field_a  # first, for single-field UI compat
     assert info.customAssertion.nativeType == "uniqueness"
-    assert info.source is not None  # EXTERNAL source populated
+    assert info.source.type == AssertionSourceTypeClass.EXTERNAL

@@ -16,10 +16,6 @@ from datahub.metadata.schema_classes import (
     CustomAssertionInfoClass,
 )
 
-# Shared by the run-event builder, status/operator helpers, and governance-table
-# extractor added in later tasks of this seam.
-DATABRICKS_PLATFORM = "databricks"
-
 
 @dataclass
 class StdAssertion:
