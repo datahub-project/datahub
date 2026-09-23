@@ -61,6 +61,11 @@ from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
 )
+from datahub.ingestion.source.mode_api_types import (
+    ModeChart,
+    ModeQuery,
+    ModeReport,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -326,6 +331,7 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     dataset_get_api_called: int = 0
     query_get_api_called: int = 0
     chart_get_api_called: int = 0
+    report_detail_get_api_called: int = 0
     process_memory_used_mb: float = 0
     # Thread-safe cumulative timing accumulators (seconds).
     # Protected by _lock. These track time spent in worker threads.
@@ -337,6 +343,9 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     num_queries_processed: int = 0
     num_charts_processed: int = 0
     chart_api_calls_skipped: int = 0
+    # Reports whose chart_count says charts exist. Compared against
+    # num_charts_processed to detect charts going missing wholesale.
+    num_reports_expecting_charts: int = 0
     # PerfTimer is NOT thread-safe. These timers must only be used from the
     # main thread (e.g., in _get_space_name_and_tokens, _get_reports,
     # _get_datasets), never from threaded _process_report workers.
@@ -478,7 +487,7 @@ class ModeSource(StatefulIngestionSourceBase):
         ]
 
     def _browse_path_query(
-        self, space_token: str, report_info: dict
+        self, space_token: str, report_info: ModeReport
     ) -> List[BrowsePathEntryClass]:
         dashboard_urn = self._dashboard_urn(report_info)
         return [
@@ -487,7 +496,7 @@ class ModeSource(StatefulIngestionSourceBase):
         ]
 
     def _browse_path_chart(
-        self, space_token: str, report_info: dict, query_info: dict
+        self, space_token: str, report_info: ModeReport, query_info: ModeQuery
     ) -> List[BrowsePathEntryClass]:
         query_urn = self.get_dataset_urn_from_query(query_info)
         return [
@@ -495,8 +504,8 @@ class ModeSource(StatefulIngestionSourceBase):
             BrowsePathEntryClass(id=query_urn, urn=query_urn),
         ]
 
-    def _dashboard_urn(self, report_info: dict) -> str:
-        return builder.make_dashboard_urn(self.platform, str(report_info.get("id", "")))
+    def _dashboard_urn(self, report_info: ModeReport) -> str:
+        return builder.make_dashboard_urn(self.platform, str((report_info.id or "")))
 
     @staticmethod
     def _parse_timestamp_ms(ts_str: Optional[str]) -> int:
@@ -504,37 +513,73 @@ class ModeSource(StatefulIngestionSourceBase):
             return int(dp.parse(ts_str).timestamp() * 1000)
         return int(datetime.now(tz=timezone.utc).timestamp() * 1000)
 
-    def _parse_last_run_at(self, report_info: dict) -> Optional[int]:
+    def _parse_last_run_at(self, report_info: ModeReport) -> Optional[int]:
         # Mode queries are refreshed, and that timestamp is reflected correctly here.
         # However, datasets are synced, and that's captured by the sync timestamps.
         # However, this is probably accurate enough for now.
         last_refreshed_ts = None
-        last_refreshed_ts_str = report_info.get("last_run_at")
+        last_refreshed_ts_str = report_info.last_run_at
         if last_refreshed_ts_str:
             last_refreshed_ts = int(dp.parse(last_refreshed_ts_str).timestamp() * 1000)
 
         return last_refreshed_ts
 
+    def _imported_datasets(self, report_info: ModeReport) -> List[dict]:
+        """The reusable Mode datasets a report imports.
+
+        The reports listing may send a ``has_imported_datasets`` boolean
+        instead of the ``imported_datasets`` array, which then has to come
+        from the single-report endpoint. Only an explicit ``False`` means
+        "imports nothing"; anything else falls back to the detail call.
+        """
+        imported = report_info.imported_datasets
+        if imported is not None:
+            return imported
+        if report_info.has_imported_datasets is False:
+            return []
+
+        report_token = report_info.token
+        if not report_token:
+            return []
+        try:
+            detail = self._get_request_json(
+                f"{self.workspace_uri}/reports/{report_token}"
+            )
+            with self.report._lock:
+                self.report.report_detail_get_api_called += 1
+        except HTTPError as http_error:
+            if _is_http_404(http_error):
+                self.report.warning(
+                    title="Report Not Found",
+                    message="Unable to resolve the reports's imported datasets; "
+                    "the report may have been recently deleted.",
+                    context=f"Report Token: {report_token}",
+                    log=False,
+                )
+                return []
+            raise
+        return detail.get("imported_datasets") or []
+
     def construct_dashboard(
-        self, space_token: str, report_info: dict, chart_urns: List[str]
+        self, space_token: str, report_info: ModeReport, chart_urns: List[str]
     ) -> Optional[Tuple[DashboardSnapshot, MetadataChangeProposalWrapper]]:
-        report_token = report_info.get("token", "")
-        # logger.debug(f"Processing report {report_info.get('name', '')}: {report_info}")
+        report_token = report_info.token or ""
+        # logger.debug(f"Processing report {(report_info.name or '')}: {report_info}")
 
         if not report_token:
             self.report.warning(
                 title="Missing Report Token",
                 message="Report token is missing",
-                context=f"report_id={report_info.get('id', '')}",
+                context=f"report_id={(report_info.id or '')}",
                 log=False,
             )
             return None
 
-        if not report_info.get("id"):
+        if not report_info.id:
             self.report.warning(
                 title="Missing Report ID",
                 message="Report id is missing",
-                context=f"report_token={report_info.get('token', '')}",
+                context=f"report_token={(report_info.token or '')}",
                 log=False,
             )
             return None
@@ -545,25 +590,25 @@ class ModeSource(StatefulIngestionSourceBase):
             aspects=[],
         )
 
-        title = report_info.get("name", "")
-        description = report_info.get("description", "")
+        title = report_info.name or ""
+        description = report_info.description or ""
         last_modified = ChangeAuditStamps()
 
         # Creator + created ts.
         creator = self._get_creator(
-            report_info.get("_links", {}).get("creator", {}).get("href", "")
+            (report_info._links or {}).get("creator", {}).get("href", "")
         )
         if creator:
             creator_actor = builder.make_user_urn(creator)
-            created_ts = self._parse_timestamp_ms(report_info.get("created_at"))
+            created_ts = self._parse_timestamp_ms(report_info.created_at)
             last_modified.created = AuditStamp(time=created_ts, actor=creator_actor)
 
         # Last modified ts.
-        last_modified_ts_str = report_info.get("last_saved_at")
+        last_modified_ts_str = report_info.last_saved_at
         if not last_modified_ts_str:
             # Sometimes mode returns null for last_saved_at.
             # In that case, we use the edited_at timestamp instead.
-            last_modified_ts_str = report_info.get("edited_at")
+            last_modified_ts_str = report_info.edited_at
         if last_modified_ts_str:
             modified_ts = int(dp.parse(last_modified_ts_str).timestamp() * 1000)
             last_modified.lastModified = AuditStamp(
@@ -575,17 +620,19 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Datasets
         datasets = []
-        for imported_dataset_name in report_info.get("imported_datasets", []):
+        for imported_dataset_name in self._imported_datasets(report_info):
             try:
-                mode_dataset = self._get_request_json(
-                    f"{self.workspace_uri}/reports/{imported_dataset_name.get('token')}"
+                mode_dataset = ModeReport.from_api(
+                    self._get_request_json(
+                        f"{self.workspace_uri}/reports/{imported_dataset_name.get('token')}"
+                    )
                 )
             except HTTPError as http_error:
                 if _is_http_404(http_error):
                     self.report.warning(
                         title="Report Not Found",
                         message="Referenced report for reusable dataset was not found.",
-                        context=f"Report: {report_info.get('id')}, "
+                        context=f"Report: {report_info.id}, "
                         f"Imported Dataset Report: {imported_dataset_name.get('token')}",
                         log=False,
                     )
@@ -595,7 +642,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
             dataset_urn = builder.make_dataset_urn_with_platform_instance(
                 self.platform,
-                str(mode_dataset.get("id")),
+                str(mode_dataset.id),
                 platform_instance=None,
                 env=self.config.env,
             )
@@ -619,7 +666,7 @@ class ModeSource(StatefulIngestionSourceBase):
             paths=[
                 f"/mode/{self.config.workspace}/"
                 f"{space_name}/"
-                f"{title if title else report_info.get('id', '')}"
+                f"{title if title else (report_info.id or '')}"
             ]
         )
         dashboard_snapshot.aspects.append(browse_path)
@@ -635,7 +682,7 @@ class ModeSource(StatefulIngestionSourceBase):
         # Ownership
         ownership = self._get_ownership(
             self._get_creator(
-                report_info.get("_links", {}).get("creator", {}).get("href", "")
+                (report_info._links or {}).get("creator", {}).get("href", "")
             )
         )
         if ownership is not None:
@@ -1070,18 +1117,20 @@ class ModeSource(StatefulIngestionSourceBase):
     def get_custom_props_from_dict(self, obj: dict, keys: List[str]) -> Optional[dict]:
         return {key: str(obj[key]) for key in keys if obj.get(key)} or None
 
-    def get_dataset_urn_from_query(self, query_data: dict) -> str:
+    def get_dataset_urn_from_query(
+        self, query_data: Union[ModeQuery, ModeReport]
+    ) -> str:
         return builder.make_dataset_urn_with_platform_instance(
             platform=self.platform,
-            name=str(query_data.get("id")),
+            name=str(query_data.id),
             platform_instance=None,
             env=self.config.env,
         )
 
-    def get_query_instance_urn_from_query(self, query_data: dict) -> str:
-        id = query_data.get("id")
-        last_run_id = query_data.get("last_run_id")
-        data_source_id = query_data.get("data_source_id")
+    def get_query_instance_urn_from_query(self, query_data: ModeQuery) -> str:
+        id = query_data.id
+        last_run_id = query_data.last_run_id
+        data_source_id = query_data.data_source_id
         return QueryUrn(f"{id}.{data_source_id}.{last_run_id}").urn()
 
     def set_field_tags(self, fields: List[SchemaFieldClass]) -> None:
@@ -1147,9 +1196,9 @@ class ModeSource(StatefulIngestionSourceBase):
     def construct_query_or_dataset(
         self,
         report_token: str,
-        query_data: dict,
+        query_data: ModeQuery,
         space_token: str,
-        report_info: dict,
+        report_info: ModeReport,
         is_mode_dataset: bool,
     ) -> Iterable[MetadataWorkUnit]:
         query_urn = (
@@ -1158,7 +1207,7 @@ class ModeSource(StatefulIngestionSourceBase):
             else self.get_dataset_urn_from_query(report_info)
         )
 
-        query_token = query_data.get("token")
+        query_token = query_data.token
 
         externalUrl = (
             f"{self.config.connect_uri}/{self.config.workspace}/datasets/{report_token}"
@@ -1167,11 +1216,11 @@ class ModeSource(StatefulIngestionSourceBase):
         )
 
         dataset_props = DatasetPropertiesClass(
-            name=report_info.get("name") if is_mode_dataset else query_data.get("name"),
+            name=report_info.name if is_mode_dataset else query_data.name,
             description=None,
             externalUrl=externalUrl,
             customProperties=self.get_custom_props_from_dict(
-                query_data,
+                query_data.raw,
                 [
                     "id",
                     "created_at",
@@ -1179,7 +1228,6 @@ class ModeSource(StatefulIngestionSourceBase):
                     "last_run_id",
                     "data_source_id",
                     "explorations_count",
-                    "chart_count",
                     "report_imports_count",
                     "dbt_metric_id",
                 ],
@@ -1192,7 +1240,7 @@ class ModeSource(StatefulIngestionSourceBase):
             ).as_workunit()
         )
 
-        if raw_query := query_data.get("raw_query"):
+        if raw_query := query_data.raw_query:
             yield MetadataChangeProposalWrapper(
                 entityUrn=query_urn,
                 aspect=ViewPropertiesClass(
@@ -1234,7 +1282,7 @@ class ModeSource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
-        data_source_id = query_data.get("data_source_id")
+        data_source_id = query_data.data_source_id
         if data_source_id is None:
             logger.debug(
                 f"No data_source_id for report {report_token} query {query_token}, skipping lineage"
@@ -1247,7 +1295,7 @@ class ModeSource(StatefulIngestionSourceBase):
         if upstream_warehouse_platform is None:
             return
 
-        query = query_data.get("raw_query")
+        query = query_data.raw_query
         if not query:
             logger.warning(
                 f"No raw_query found for report {report_token} query {query_token}, skipping lineage"
@@ -1348,7 +1396,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
         operation = OperationClass(
             operationType=OperationTypeClass.UPDATE,
-            lastUpdatedTimestamp=self._parse_timestamp_ms(query_data.get("updated_at")),
+            lastUpdatedTimestamp=self._parse_timestamp_ms(query_data.updated_at),
             timestampMillis=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
         )
 
@@ -1358,17 +1406,17 @@ class ModeSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
         creator = self._get_creator(
-            query_data.get("_links", {}).get("creator", {}).get("href", "")
+            (query_data._links or {}).get("creator", {}).get("href", "")
         )
         modified_actor = builder.make_user_urn(
             creator if creator is not None else "unknown"
         )
 
-        created_ts = self._parse_timestamp_ms(query_data.get("created_at"))
-        modified_ts = self._parse_timestamp_ms(query_data.get("updated_at"))
+        created_ts = self._parse_timestamp_ms(query_data.created_at)
+        modified_ts = self._parse_timestamp_ms(query_data.updated_at)
 
         query_instance_urn = self.get_query_instance_urn_from_query(query_data)
-        value = query_data.get("raw_query")
+        value = query_data.raw_query
         if value:
             query_properties = QueryPropertiesClass(
                 statement=QueryStatementClass(
@@ -1386,7 +1434,10 @@ class ModeSource(StatefulIngestionSourceBase):
             ).as_workunit()
 
     def get_upstream_lineage_for_parsed_sql(
-        self, query_urn: str, query_data: dict, parsed_query_object: SqlParsingResult
+        self,
+        query_urn: str,
+        query_data: ModeQuery,
+        parsed_query_object: SqlParsingResult,
     ) -> Iterable[MetadataWorkUnit]:
         if parsed_query_object is None:
             logger.info(f"Failed to extract lineage from datasource {query_urn}")
@@ -1469,12 +1520,12 @@ class ModeSource(StatefulIngestionSourceBase):
     def get_input_fields(
         self,
         chart_urn: str,
-        chart_data: Dict,
+        chart_data: ModeChart,
         chart_fields: Dict[str, SchemaFieldClass],
         query_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         # TODO: Identify which fields are used as X, Y, filters, etc and tag them accordingly.
-        fields = self.get_formula_columns(chart_data)
+        fields = self.get_formula_columns(chart_data.raw)
 
         input_fields = []
 
@@ -1510,15 +1561,15 @@ class ModeSource(StatefulIngestionSourceBase):
     def construct_chart_from_api_data(
         self,
         index: int,
-        chart_data: dict,
+        chart_data: ModeChart,
         chart_fields: Dict[str, SchemaFieldClass],
-        query: dict,
+        query: ModeQuery,
         space_token: str,
-        report_info: dict,
+        report_info: ModeReport,
         query_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-        # logger.debug(f"Processing chart {chart_data.get('token', '')}: {chart_data}")
-        chart_urn = builder.make_chart_urn(self.platform, chart_data.get("token", ""))
+        # logger.debug(f"Processing chart {(chart_data.token or '')}: {chart_data}")
+        chart_urn = builder.make_chart_urn(self.platform, (chart_data.token or ""))
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[],
@@ -1526,12 +1577,12 @@ class ModeSource(StatefulIngestionSourceBase):
 
         last_modified = ChangeAuditStamps()
         creator = self._get_creator(
-            chart_data.get("_links", {}).get("creator", {}).get("href", "")
+            (chart_data._links or {}).get("creator", {}).get("href", "")
         )
         if creator is not None:
             modified_actor = builder.make_user_urn(creator)
-            created_ts = self._parse_timestamp_ms(chart_data.get("created_at"))
-            modified_ts = self._parse_timestamp_ms(chart_data.get("updated_at"))
+            created_ts = self._parse_timestamp_ms(chart_data.created_at)
+            modified_ts = self._parse_timestamp_ms(chart_data.updated_at)
             last_modified = ChangeAuditStamps(
                 created=AuditStamp(time=created_ts, actor=modified_actor),
                 lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
@@ -1541,15 +1592,15 @@ class ModeSource(StatefulIngestionSourceBase):
         last_refreshed_ts = self._parse_last_run_at(report_info)
 
         chart_detail = (
-            chart_data.get("view", {})
-            if len(chart_data.get("view", {})) != 0
-            else chart_data.get("view_vegas", {})
+            (chart_data.view or {})
+            if len((chart_data.view or {})) != 0
+            else (chart_data.view_vegas or {})
         )
 
         mode_chart_type = chart_detail.get("chartType", "") or chart_detail.get(
             "selectedChart", ""
         )
-        chart_type = self._get_chart_type(chart_data.get("token", ""), mode_chart_type)
+        chart_type = self._get_chart_type((chart_data.token or ""), mode_chart_type)
         description = (
             chart_detail.get("description")
             or chart_detail.get("chartDescription")
@@ -1577,7 +1628,7 @@ class ModeSource(StatefulIngestionSourceBase):
             lastModified=last_modified,
             lastRefreshed=last_refreshed_ts,
             # The links href starts with a slash already.
-            chartUrl=f"{self.config.connect_uri}{chart_data.get('_links', {}).get('report_viz_web', {}).get('href', '')}",
+            chartUrl=f"{self.config.connect_uri}{(chart_data._links or {}).get('report_viz_web', {}).get('href', '')}",
             inputs=[query_urn],
             customProperties=custom_properties,
             inputEdges=[],
@@ -1594,7 +1645,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Browse Path
         space_name = self.space_tokens[space_token]
-        report_name = report_info.get("name", report_info.get("token", "unknown"))
+        report_name = report_info.name or report_info.token or "unknown"
         path = f"/mode/{self.config.workspace}/{space_name}/{report_name}/{query_name}/{title}"
         browse_path = BrowsePathsClass(paths=[path])
         chart_snapshot.aspects.append(browse_path)
@@ -1610,7 +1661,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Query
         chart_query = ChartQueryClass(
-            rawQuery=query.get("raw_query", ""),
+            rawQuery=(query.raw_query or ""),
             type=ChartQueryTypeClass.SQL,
         )
         chart_snapshot.aspects.append(chart_query)
@@ -1618,7 +1669,7 @@ class ModeSource(StatefulIngestionSourceBase):
         # Ownership
         ownership = self._get_ownership(
             self._get_creator(
-                chart_data.get("_links", {}).get("creator", {}).get("href", "")
+                (chart_data._links or {}).get("creator", {}).get("href", "")
             )
         )
         if ownership is not None:
@@ -1627,7 +1678,7 @@ class ModeSource(StatefulIngestionSourceBase):
         mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
         yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
-    def _get_reports(self, space_token: str) -> Iterator[List[dict]]:
+    def _get_reports(self, space_token: str) -> Iterator[List[ModeReport]]:
         try:
             with self.report.report_get_timer:
                 for reports_page in self._get_paged_request_json(
@@ -1639,16 +1690,13 @@ class ModeSource(StatefulIngestionSourceBase):
                     logger.debug(
                         f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
                     )
+                    reports = [ModeReport.from_api(r) for r in reports_page]
                     if self.config.exclude_archived:
                         logger.debug(
                             f"Excluding archived reports since exclude_archived: {self.config.exclude_archived}"
                         )
-                        reports_page = [
-                            report
-                            for report in reports_page
-                            if not report.get("archived", False)
-                        ]
-                    yield reports_page
+                        reports = [r for r in reports if not r.archived]
+                    yield reports
         except ModeRequestError as e:
             if _is_http_404(e):
                 self.report.warning(
@@ -1664,7 +1712,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     context=f"Space Token: {space_token}, Error: {str(e)}",
                 )
 
-    def _get_datasets(self, space_token: str) -> Iterator[List[dict]]:
+    def _get_datasets(self, space_token: str) -> Iterator[List[ModeReport]]:
         try:
             with self.report.dataset_get_timer:
                 for dataset_page in self._get_paged_request_json(
@@ -1676,7 +1724,8 @@ class ModeSource(StatefulIngestionSourceBase):
                     logger.debug(
                         f"Read {len(dataset_page)} datasets records from workspace {self.workspace_uri} space {space_token}"
                     )
-                    yield dataset_page
+                    # Mode returns datasets as report objects.
+                    yield [ModeReport.from_api(d) for d in dataset_page]
         except ModeRequestError as e:
             if _is_http_404(e):
                 self.report.warning(
@@ -1694,7 +1743,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
 
-    def _get_queries(self, report_token: str) -> List[dict]:
+    def _get_queries(self, report_token: str) -> List[ModeQuery]:
         start = time.perf_counter()
         try:
             # This endpoint does not handle pagination properly
@@ -1706,7 +1755,10 @@ class ModeSource(StatefulIngestionSourceBase):
             logger.debug(
                 f"Read {len(queries)} queries records from workspace {self.workspace_uri} report {report_token}"
             )
-            return queries.get("_embedded", {}).get("queries", [])
+            return [
+                ModeQuery.from_api(q)
+                for q in queries.get("_embedded", {}).get("queries", [])
+            ]
         except ModeRequestError as e:
             if _is_http_404(e):
                 self.report.warning(
@@ -1727,7 +1779,7 @@ class ModeSource(StatefulIngestionSourceBase):
             with self.report._lock:
                 self.report.query_api_total_sec += elapsed
 
-    def _get_charts(self, report_token: str, query_token: str) -> List[dict]:
+    def _get_charts(self, report_token: str, query_token: str) -> List[ModeChart]:
         start = time.perf_counter()
         try:
             # This endpoint does not handle pagination properly
@@ -1739,7 +1791,10 @@ class ModeSource(StatefulIngestionSourceBase):
             logger.debug(
                 f"Read {len(charts)} charts records from workspace {self.workspace_uri} report {report_token} query {query_token}"
             )
-            return charts.get("_embedded", {}).get("charts", [])
+            return [
+                ModeChart.from_api(c)
+                for c in charts.get("_embedded", {}).get("charts", [])
+            ]
         except ModeRequestError as e:
             if _is_http_404(e):
                 self.report.warning(
@@ -1799,7 +1854,12 @@ class ModeSource(StatefulIngestionSourceBase):
                     return {}
 
                 response.raise_for_status()
-                return response.json()
+                response_json = response.json()
+                # Payload shape varies by workspace and API version, and a
+                # read of a field Mode omits fails silently, so the response
+                # is worth having. Lazy %s args: rendered only when enabled.
+                logger.debug("Mode API response for %s: %s", url, response_json)
+                return response_json
             except HTTPError as http_error:
                 error_response = http_error.response
                 if error_response is None:
@@ -1872,11 +1932,11 @@ class ModeSource(StatefulIngestionSourceBase):
     def _process_report(
         self,
         space_token: str,
-        report: dict,
+        report: ModeReport,
     ) -> Iterable[MetadataWorkUnit]:
         """Process a single report: queries, dashboard, and charts."""
-        report_token = report.get("token", "")
-        report_name = report.get("name", "")
+        report_token = report.token or ""
+        report_name = report.name or ""
         logger.debug(f"Report: name: {report_name} token: {report_token}")
 
         report_start = time.perf_counter()
@@ -1921,10 +1981,10 @@ class ModeSource(StatefulIngestionSourceBase):
                 )
 
     def _process_dataset(
-        self, space_token: str, dataset: dict
+        self, space_token: str, dataset: ModeReport
     ) -> Iterable[MetadataWorkUnit]:
         """Process a single dataset: queries and lineage."""
-        dataset_token = dataset.get("token", "")
+        dataset_token = dataset.token or ""
         try:
             queries = self._get_queries(dataset_token)
             for query in queries:
@@ -1950,17 +2010,26 @@ class ModeSource(StatefulIngestionSourceBase):
     def _process_report_inner(
         self,
         space_token: str,
-        report: dict,
+        report: ModeReport,
     ) -> Iterable[MetadataWorkUnit]:
-        report_token = report.get("token", "")
+        report_token = report.token or ""
         space_container_key = self.gen_space_key(space_token)
 
         queries = self._get_queries(report_token)
         with self.report._lock:
             self.report.num_queries_processed += len(queries)
+
+        # Only an explicit zero suppresses the per-query chart calls; a
+        # missing count means unknown, and skipping on it drops every chart
+        # and with them all report->query lineage.
+        expected_chart_count = report.chart_count
+        report_has_no_charts = expected_chart_count == 0
+        if isinstance(expected_chart_count, int) and expected_chart_count > 0:
+            with self.report._lock:
+                self.report.num_reports_expecting_charts += 1
         chart_urns: List[str] = []
         query_chart_data: List[
-            Tuple[dict, Dict[str, SchemaFieldClass], List[dict]]
+            Tuple[ModeQuery, Dict[str, SchemaFieldClass], List[ModeChart]]
         ] = []
 
         for query in queries:
@@ -1981,20 +2050,16 @@ class ModeSource(StatefulIngestionSourceBase):
                         chart_fields.setdefault(field.fieldPath, field)
                 yield wu
 
-            # Gate on chart_count (published charts), not explorations_count
-            # (private user analyses), to avoid silently dropping report charts.
-            if query.get("chart_count", 0) == 0:
-                charts: List[dict] = []
+            if report_has_no_charts:
+                charts: List[ModeChart] = []
                 with self.report._lock:
                     self.report.chart_api_calls_skipped += 1
             else:
-                charts = self._get_charts(report_token, query.get("token", ""))
+                charts = self._get_charts(report_token, (query.token or ""))
             with self.report._lock:
                 self.report.num_charts_processed += len(charts)
             for chart in charts:
-                chart_urn = builder.make_chart_urn(
-                    self.platform, chart.get("token", "")
-                )
+                chart_urn = builder.make_chart_urn(self.platform, (chart.token or ""))
                 chart_urns.append(chart_urn)
             query_chart_data.append((query, chart_fields, charts))
 
@@ -2025,7 +2090,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
             usage_statistics = DashboardUsageStatisticsClass(
                 timestampMillis=round(datetime.now().timestamp() * 1000),
-                viewsCount=report.get("view_count", 0),
+                viewsCount=(report.view_count or 0),
             )
 
             yield MetadataChangeProposalWrapper(
@@ -2036,7 +2101,7 @@ class ModeSource(StatefulIngestionSourceBase):
             if self.config.ingest_embed_url is True:
                 yield self.create_embed_aspect_mcp(
                     entity_urn=dashboard_snapshot_from_report.urn,
-                    embed_url=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report.get('token')}/embed",
+                    embed_url=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report.token}/embed",
                 ).as_workunit()
 
             yield MetadataWorkUnit(id=dashboard_snapshot_from_report.urn, mce=mce)
@@ -2050,14 +2115,14 @@ class ModeSource(StatefulIngestionSourceBase):
                     query,
                     space_token=space_token,
                     report_info=report,
-                    query_name=query.get("name", query.get("token", "unknown")),
+                    query_name=query.name or query.token or "unknown",
                 )
 
     def _collect_space_work_items(
         self, space_token: str, space_name: str
     ) -> Tuple[
-        List[Tuple[str, dict]],
-        List[Tuple[str, dict]],
+        List[Tuple[str, ModeReport]],
+        List[Tuple[str, ModeReport]],
         List[MetadataWorkUnit],
     ]:
         """Collect report and dataset work items for a space.
@@ -2066,17 +2131,17 @@ class ModeSource(StatefulIngestionSourceBase):
         """
         container_wus = list(self.construct_space_container(space_token, space_name))
 
-        report_args: List[Tuple[str, dict]] = []
+        report_args: List[Tuple[str, ModeReport]] = []
         for report_page in self._get_reports(space_token):
             for report in report_page:
-                report_name = report.get("name") or report.get("token", "unknown")
+                report_name = report.name or report.token or "unknown"
                 if not self.config.report_pattern.allowed(report_name):
                     self.report.report_dropped_report(report_name)
                     logger.debug(f"Skipping report {report_name} due to report_pattern")
                     continue
                 report_args.append((space_token, report))
 
-        dataset_args: List[Tuple[str, dict]] = []
+        dataset_args: List[Tuple[str, ModeReport]] = []
         for dataset_page in self._get_datasets(space_token):
             for dataset in dataset_page:
                 dataset_args.append((space_token, dataset))
@@ -2090,8 +2155,8 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Phase 1: Emit space containers and collect all work items
-        all_report_args: List[Tuple[str, dict]] = []
-        all_dataset_args: List[Tuple[str, dict]] = []
+        all_report_args: List[Tuple[str, ModeReport]] = []
+        all_dataset_args: List[Tuple[str, ModeReport]] = []
         for space_token, space_name in self.space_tokens.items():
             report_args, dataset_args, container_wus = self._collect_space_work_items(
                 space_token, space_name
@@ -2124,6 +2189,33 @@ class ModeSource(StatefulIngestionSourceBase):
 
         memory_used = self._get_process_memory()
         self.report.process_memory_used_mb = round(memory_used["rss"], 2)
+        self._warn_if_no_charts_extracted()
+
+    def _warn_if_no_charts_extracted(self) -> None:
+        """Mode said these reports have charts but none were ingested.
+
+        Keyed on reports claiming charts rather than on query counts, so a
+        workspace whose reports genuinely have none stays quiet.
+        """
+        if (
+            self.report.num_reports_expecting_charts > 0
+            and self.report.num_charts_processed == 0
+        ):
+            self.report.warning(
+                title="No Charts Extracted from Any Report",
+                message="Mode reported that these reports have charts, but none "
+                "were extracted. "
+                "Dashboards will have no charts and no lineage to their queries, "
+                "and charts ingested by previous runs may be soft-deleted by "
+                "stateful ingestion. Re-run with debug logging enabled to inspect "
+                "the Mode API responses for these reports.",
+                context=f"workspace={self.config.workspace}, "
+                f"reports_processed={self.report.num_reports_processed}, "
+                f"reports_expecting_charts={self.report.num_reports_expecting_charts}, "
+                f"queries_processed={self.report.num_queries_processed}, "
+                f"chart_api_calls_skipped={self.report.chart_api_calls_skipped}, "
+                f"chart_get_api_called={self.report.chart_get_api_called}",
+            )
 
     def get_report(self) -> SourceReport:
         return self.report
