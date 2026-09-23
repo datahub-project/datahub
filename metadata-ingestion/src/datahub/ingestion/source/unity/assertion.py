@@ -9,12 +9,29 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionResultClass,
+    AssertionResultSeverityClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
+    AssertionRunStatusClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionStdParametersClass,
     AssertionTypeClass,
     CustomAssertionInfoClass,
 )
+
+_RESULT_TYPE = {
+    "SUCCESS": AssertionResultTypeClass.SUCCESS,
+    "FAILURE": AssertionResultTypeClass.FAILURE,
+    "ERROR": AssertionResultTypeClass.ERROR,
+    "INIT": AssertionResultTypeClass.INIT,
+}
+_SEVERITY = {
+    "LOW": AssertionResultSeverityClass.LOW,
+    "MEDIUM": AssertionResultSeverityClass.MEDIUM,
+    "HIGH": AssertionResultSeverityClass.HIGH,
+}
 
 
 @dataclass
@@ -68,3 +85,59 @@ def build_custom_assertion_info(
         ),
     )
     return MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=info)
+
+
+def build_assertion_run_event(
+    *,
+    assertion_urn: str,
+    dataset_urn: str,
+    run_id: str,
+    timestamp_millis: int,
+    status: str,
+    warning: bool = False,
+    severity: Optional[str] = None,
+    actual_value: Optional[float] = None,
+    row_count: Optional[int] = None,
+    missing_count: Optional[int] = None,
+    unexpected_count: Optional[int] = None,
+    external_url: Optional[str] = None,
+    error_type: Optional[str] = None,
+    error_message: Optional[str] = None,
+    native_results: Optional[Dict[str, str]] = None,
+) -> MetadataChangeProposalWrapper:
+    result_type = _RESULT_TYPE[status]
+    native: Dict[str, str] = dict(native_results or {})
+    # Warning policy in ONE place: a non-blocking warning stays SUCCESS + a flag.
+    if warning and result_type == AssertionResultTypeClass.SUCCESS:
+        native["warning"] = "true"
+    if result_type == AssertionResultTypeClass.ERROR:
+        # Structured AssertionResultError shape varies by version; native_results is
+        # always safe and renders in the UI. Upgrade to result.error if desired later.
+        if error_type:
+            native["error_type"] = error_type
+        if error_message:
+            native["error_message"] = error_message
+    run_severity = (
+        _SEVERITY.get(severity)
+        if (severity and result_type == AssertionResultTypeClass.FAILURE)
+        else None
+    )
+    result = AssertionResultClass(
+        type=result_type,
+        severity=run_severity,
+        actualAggValue=actual_value,
+        rowCount=row_count,
+        missingCount=missing_count,
+        unexpectedCount=unexpected_count,
+        externalUrl=external_url,
+        nativeResults=native or None,
+    )
+    run_event = AssertionRunEventClass(
+        timestampMillis=timestamp_millis,
+        runId=run_id,
+        asserteeUrn=dataset_urn,
+        assertionUrn=assertion_urn,
+        status=AssertionRunStatusClass.COMPLETE,
+        result=result,
+    )
+    return MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=run_event)

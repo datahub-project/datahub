@@ -1,10 +1,15 @@
 from datahub.ingestion.source.unity.assertion import (
     StdAssertion,
+    build_assertion_run_event,
     build_custom_assertion_info,
     make_urn,
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionResultSeverityClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
+    AssertionRunStatusClass,
     AssertionSourceTypeClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
@@ -63,3 +68,54 @@ def test_build_custom_assertion_info_multi_column_and_structured():
     assert info.customAssertion.field == field_a  # first, for single-field UI compat
     assert info.customAssertion.nativeType == "uniqueness"
     assert info.source.type == AssertionSourceTypeClass.EXTERNAL
+
+
+def test_run_event_failure_carries_severity_and_counts():
+    mcp = build_assertion_run_event(
+        assertion_urn="urn:li:assertion:abc",
+        dataset_urn=DATASET,
+        run_id="run-1",
+        timestamp_millis=1000,
+        status="FAILURE",
+        severity="HIGH",
+        actual_value=99.5,
+        row_count=1000,
+        unexpected_count=5,
+    )
+    ev = mcp.aspect
+    assert isinstance(ev, AssertionRunEventClass)
+    assert ev.status == AssertionRunStatusClass.COMPLETE
+    assert ev.runId == "run-1" and ev.asserteeUrn == DATASET
+    assert ev.result.type == AssertionResultTypeClass.FAILURE
+    assert ev.result.severity == AssertionResultSeverityClass.HIGH
+    assert ev.result.rowCount == 1000 and ev.result.unexpectedCount == 5
+
+
+def test_run_event_warning_stays_success_with_flag():
+    mcp = build_assertion_run_event(
+        assertion_urn="urn:li:assertion:abc",
+        dataset_urn=DATASET,
+        run_id="r",
+        timestamp_millis=1,
+        status="SUCCESS",
+        warning=True,
+    )
+    assert mcp.aspect.result.type == AssertionResultTypeClass.SUCCESS
+    assert mcp.aspect.result.nativeResults["warning"] == "true"
+    assert mcp.aspect.result.severity is None  # severity only on FAILURE
+
+
+def test_run_event_error_records_type_and_message():
+    mcp = build_assertion_run_event(
+        assertion_urn="urn:li:assertion:abc",
+        dataset_urn=DATASET,
+        run_id="r",
+        timestamp_millis=1,
+        status="ERROR",
+        error_type="QUERY_TIMEOUT",
+        error_message="engine exceeded 30s",
+    )
+    res = mcp.aspect.result
+    assert res.type == AssertionResultTypeClass.ERROR
+    assert res.nativeResults["error_type"] == "QUERY_TIMEOUT"
+    assert res.nativeResults["error_message"] == "engine exceeded 30s"
