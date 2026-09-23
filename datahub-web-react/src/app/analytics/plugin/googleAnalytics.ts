@@ -32,6 +32,7 @@ if (isEnabled) {
         ...googleAnalyticsPlugin,
         track: ({ payload, config, instance }) => {
             const modifiedProperties = {
+                ...(payload.properties || {}),
                 label: getLabelFromEvent(payload.properties as Event),
                 category: 'UserActions',
             };
