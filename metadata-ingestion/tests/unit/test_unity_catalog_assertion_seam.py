@@ -2,7 +2,9 @@ from datahub.ingestion.source.unity.assertion import (
     StdAssertion,
     build_assertion_run_event,
     build_custom_assertion_info,
+    build_status,
     make_urn,
+    map_operator,
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -15,6 +17,7 @@ from datahub.metadata.schema_classes import (
     AssertionStdOperatorClass,
     AssertionTypeClass,
     DatasetAssertionScopeClass,
+    StatusClass,
 )
 
 DATASET = (
@@ -144,3 +147,34 @@ def test_run_event_error_records_type_and_message():
     assert res.type == AssertionResultTypeClass.ERROR
     assert res.nativeResults["error_type"] == "QUERY_TIMEOUT"
     assert res.nativeResults["error_message"] == "engine exceeded 30s"
+
+
+def test_build_status_retire_and_reactivate():
+    assert build_status("urn:li:assertion:a", active=False).aspect == StatusClass(
+        removed=True
+    )
+    assert build_status("urn:li:assertion:a", active=True).aspect == StatusClass(
+        removed=False
+    )
+
+
+def test_map_operator_structured_cases():
+    nn = map_operator("NOT_NULL", scope=DatasetAssertionScopeClass.DATASET_COLUMN)
+    assert nn.operator == AssertionStdOperatorClass.NOT_NULL
+
+    # DatasetAssertionScopeClass has no bare DATASET value in this schema version
+    # (only DATASET_COLUMN/_ROWS/_SCHEMA/_STORAGE_SIZE/UNKNOWN); DATASET_ROWS fits
+    # this table-level BETWEEN case.
+    between = map_operator(
+        "BETWEEN", min_v=10, max_v=1000, scope=DatasetAssertionScopeClass.DATASET_ROWS
+    )
+    assert between.operator == AssertionStdOperatorClass.BETWEEN
+    assert between.parameters is not None
+
+
+def test_map_operator_native_fallback():
+    custom = map_operator(
+        "SOME_CUSTOM_SQL_CHECK", scope=DatasetAssertionScopeClass.DATASET_ROWS
+    )
+    assert custom.operator == AssertionStdOperatorClass._NATIVE_
+    assert custom.aggregation == AssertionStdAggregationClass._NATIVE_

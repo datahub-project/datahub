@@ -16,9 +16,12 @@ from datahub.metadata.schema_classes import (
     AssertionRunStatusClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
+    AssertionStdParameterClass,
     AssertionStdParametersClass,
+    AssertionStdParameterTypeClass,
     AssertionTypeClass,
     CustomAssertionInfoClass,
+    StatusClass,
 )
 
 _RESULT_TYPE = {
@@ -141,3 +144,62 @@ def build_assertion_run_event(
         result=result,
     )
     return MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=run_event)
+
+
+def build_status(assertion_urn: str, active: bool) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(
+        entityUrn=assertion_urn, aspect=StatusClass(removed=not active)
+    )
+
+
+def _num(value: float) -> AssertionStdParameterClass:
+    return AssertionStdParameterClass(
+        value=str(value), type=AssertionStdParameterTypeClass.NUMBER
+    )
+
+
+def map_operator(
+    native_op: str,
+    min_v: Optional[float] = None,
+    max_v: Optional[float] = None,
+    value: Optional[float] = None,
+    *,
+    scope: str,
+) -> StdAssertion:
+    # Structured where clean (shape mirrors dbt _DBT_TEST_NAME_TO_ASSERTION_MAP); native
+    # otherwise. `scope` is a pass-through supplied by the caller, never hardcoded here.
+    op = (native_op or "").upper()
+    if op == "NOT_NULL":
+        return StdAssertion(
+            scope=scope,
+            operator=AssertionStdOperatorClass.NOT_NULL,
+            aggregation=AssertionStdAggregationClass.IDENTITY,
+        )
+    if op == "UNIQUE":
+        return StdAssertion(
+            scope=scope,
+            operator=AssertionStdOperatorClass.EQUAL_TO,
+            aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,
+            parameters=AssertionStdParametersClass(value=_num(1.0)),
+        )
+    if op == "BETWEEN" and min_v is not None and max_v is not None:
+        return StdAssertion(
+            scope=scope,
+            operator=AssertionStdOperatorClass.BETWEEN,
+            aggregation=AssertionStdAggregationClass.IDENTITY,
+            parameters=AssertionStdParametersClass(
+                minValue=_num(min_v), maxValue=_num(max_v)
+            ),
+        )
+    if op in ("GREATER_THAN", "LESS_THAN", "EQUAL_TO") and value is not None:
+        return StdAssertion(
+            scope=scope,
+            operator=getattr(AssertionStdOperatorClass, op),
+            aggregation=AssertionStdAggregationClass.IDENTITY,
+            parameters=AssertionStdParametersClass(value=_num(value)),
+        )
+    return StdAssertion(
+        scope=scope,
+        operator=AssertionStdOperatorClass._NATIVE_,
+        aggregation=AssertionStdAggregationClass._NATIVE_,
+    )
