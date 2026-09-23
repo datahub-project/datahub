@@ -1581,4 +1581,107 @@ public class OpenLineageEventToDatahubTest {
             + ".dbo.customers,PROD)",
         OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(dataset, conf).get().toString());
   }
+
+  /**
+   * Replays the events captured from a Fabric Runtime 1.3 notebook (bundled openlineage-spark
+   * 1.26.0; see FabricOneLakeRuntimeEventsTest in openlineage-converter) the way the agent emits
+   * them by default: each event converted, then coalesced into one DataJob per application.
+   */
+  @Test
+  public void testFabricRuntimeNotebookEventsCoalesced() throws Exception {
+    Config config =
+        ConfigFactory.parseString(
+            "metadata.dataset.fabricOneLake.enabled = true\n"
+                + "metadata.dataset.materialize = true\n"
+                + "metadata.dataset.include_schema_metadata = true");
+    SparkLineageConf sparkLineageConf =
+        SparkLineageConf.toSparkLineageConf(config, new SparkAppContext(), null);
+    io.openlineage.spark.api.SparkOpenLineageConfig olConfig =
+        new io.openlineage.spark.api.SparkOpenLineageConfig();
+    olConfig.setTransportConfig(new io.openlineage.client.transports.ConsoleConfig());
+    DatahubEventEmitter emitter = new DatahubEventEmitter(olConfig, "test");
+    emitter.setConfig(sparkLineageConf);
+
+    String events =
+        IOUtils.toString(
+            Objects.requireNonNull(
+                this.getClass()
+                    .getResourceAsStream("/ol_events/fabric_runtime_notebook_events.jsonl")),
+            StandardCharsets.UTF_8);
+    int count = 0;
+    for (String line : events.split("\n")) {
+      if (!line.isBlank()) {
+        emitter.convertOpenLineageRunEventToDatahubJob(
+            OpenLineageClientUtils.runEventFromJson(line));
+        count++;
+      }
+    }
+    assertEquals(12, count);
+
+    String ws = FABRIC_WS + ".";
+    String bronzeCustomers = fabricUrn(ws + FABRIC_BRONZE + ".dbo.customers");
+    String bronzeOrders = fabricUrn(ws + FABRIC_BRONZE + ".dbo.orders");
+    String silverCustomers = fabricUrn(ws + FABRIC_SILVER + ".dbo.customers");
+    String silverTotals = fabricUrn(ws + FABRIC_SILVER + ".dbo.customer_totals");
+
+    List<MetadataChangeProposal> mcps = emitter.generateCoalescedMcps();
+    MetadataChangeProposal inputOutput =
+        mcps.stream()
+            .filter(mcp -> "dataJobInputOutput".equals(mcp.getAspectName()))
+            .reduce((first, second) -> second)
+            .orElseThrow();
+    assertEquals(
+        "urn:li:dataJob:(urn:li:dataFlow:(spark,"
+            + "nb_bronze_to_silver_00000000_1111_4222_8333_444444444444,fabric-test-workspace),"
+            + "nb_bronze_to_silver_00000000_1111_4222_8333_444444444444)",
+        inputOutput.getEntityUrn().toString());
+    com.linkedin.datajob.DataJobInputOutput io =
+        com.datahub.util.RecordUtils.toRecordTemplate(
+            com.linkedin.datajob.DataJobInputOutput.class,
+            inputOutput.getAspect().getValue().asString(StandardCharsets.UTF_8));
+    assertEquals(
+        java.util.Set.of(bronzeCustomers, bronzeOrders, silverCustomers),
+        Objects.requireNonNull(io.getInputDatasetEdges()).stream()
+            .map(e -> e.getDestinationUrn().toString())
+            .collect(java.util.stream.Collectors.toSet()));
+    assertEquals(
+        java.util.Set.of(silverCustomers, silverTotals),
+        Objects.requireNonNull(io.getOutputDatasetEdges()).stream()
+            .map(e -> e.getDestinationUrn().toString())
+            .collect(java.util.stream.Collectors.toSet()));
+    // Column lineage comes from the MERGE event only: bronze.customers -> silver.customers.
+    List<FineGrainedLineage> fgl = Objects.requireNonNull(io.getFineGrainedLineages());
+    assertEquals(4, fgl.size());
+    for (FineGrainedLineage entry : fgl) {
+      assertTrue(
+          entry.getUpstreams().stream()
+              .anyMatch(u -> u.toString().startsWith("urn:li:schemaField:(" + bronzeCustomers)),
+          entry.toString());
+      assertEquals(1, entry.getDownstreams().size(), "downstreams of " + entry.getDownstreams());
+      assertTrue(
+          entry
+              .getDownstreams()
+              .get(0)
+              .toString()
+              .startsWith("urn:li:schemaField:(" + silverCustomers));
+    }
+    // fabric-onelake datasets are materialized but their schema is left to the Fabric OneLake
+    // source.
+    assertTrue(
+        mcps.stream()
+            .anyMatch(
+                mcp ->
+                    "datasetKey".equals(mcp.getAspectName())
+                        && silverTotals.equals(mcp.getEntityUrn().toString())));
+    assertTrue(
+        mcps.stream()
+            .noneMatch(
+                mcp ->
+                    "schemaMetadata".equals(mcp.getAspectName())
+                        && mcp.getEntityUrn().toString().contains("fabric-onelake")));
+  }
+
+  private static String fabricUrn(String name) {
+    return "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake," + name + ",PROD)";
+  }
 }
