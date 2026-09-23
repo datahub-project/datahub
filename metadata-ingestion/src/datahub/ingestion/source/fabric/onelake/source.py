@@ -56,6 +56,12 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricView,
     FabricWarehouse,
 )
+from datahub.ingestion.source.fabric.onelake.name_resolver import (
+    FabricItemCatalog,
+    FabricOneLakeSchemaResolver,
+    FabricSqlParsingAggregator,
+    drop_unresolved_references,
+)
 from datahub.ingestion.source.fabric.onelake.report import (
     FabricOneLakeClientReport,
     FabricOneLakeSourceReport,
@@ -67,10 +73,10 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 logger = logging.getLogger(__name__)
 
@@ -185,11 +191,30 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # the usage toggle; usage flags below decide what gets emitted.
         usage_enabled = config.usage.include_usage_statistics
         queries_enabled = usage_enabled and config.usage.include_queries
-        self.aggregator = SqlParsingAggregator(
+        # Display-name -> GUID index of ingested workspaces / items, filled before
+        # any item is processed so that cross-item (`item.schema.table`) and
+        # cross-workspace (`workspace.item.schema.table`) SQL references resolve
+        # to real dataset URNs regardless of processing order.
+        self.item_catalog = FabricItemCatalog()
+        self.schema_resolver = FabricOneLakeSchemaResolver(
+            catalog=self.item_catalog,
+            report=self.report,
             platform=PLATFORM,
             platform_instance=config.platform_instance,
             env=config.env,
             graph=ctx.graph,
+        )
+        self.aggregator = FabricSqlParsingAggregator(
+            schema_resolver=self.schema_resolver,
+            platform=PLATFORM,
+            platform_instance=config.platform_instance,
+            env=config.env,
+            graph=ctx.graph,
+            # Unresolvable cross-item references are excluded from usage and
+            # operations; lineage upstreams are stripped at drain time.
+            is_allowed_table=lambda name: (
+                not self.schema_resolver.is_unresolved_name(name)
+            ),
             generate_lineage=True,
             generate_queries=queries_enabled,
             generate_query_subject_fields=queries_enabled,
@@ -242,6 +267,8 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     def close(self) -> None:
         self.client.close()
         self.aggregator.close()
+        # Passed in explicitly, so the aggregator does not own/close it.
+        self.schema_resolver.close()
         super().close()
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
@@ -271,6 +298,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             # List all workspaces
             workspaces = list(self.client.list_workspaces())
 
+            allowed_workspaces: list[FabricWorkspace] = []
             for workspace in workspaces:
                 self.report.report_api_call()
 
@@ -278,7 +306,17 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 if not self.config.workspace_pattern.allowed(workspace.name):
                     self.report.report_workspace_filtered(workspace.name)
                     continue
+                allowed_workspaces.append(workspace)
 
+            # List items of every ingested workspace up front: usage queries are
+            # parsed as each item is processed, so the name index must already
+            # know every item they might reference.
+            workspace_items = {
+                workspace.id: self._list_workspace_items(workspace)
+                for workspace in allowed_workspaces
+            }
+
+            for workspace in allowed_workspaces:
                 self.report.report_workspace_scanned()
                 logger.info(f"Processing workspace: {workspace.name} ({workspace.id})")
 
@@ -290,7 +328,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     )
 
                     # Process items (lakehouses and warehouses)
-                    yield from self._process_workspace_items(workspace)
+                    lakehouses, warehouses = workspace_items[workspace.id]
+                    yield from self._process_workspace_items(
+                        workspace, lakehouses, warehouses
+                    )
 
                 except Exception as e:
                     self.report.warning(
@@ -320,7 +361,13 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         emitted = 0
         try:
             for mcp in self.aggregator.gen_metadata():
-                yield mcp.as_workunit()
+                filtered_mcp = drop_unresolved_references(
+                    mcp, self.schema_resolver.unresolved_urns
+                )
+                if filtered_mcp is None:
+                    self.report.num_lineage_aspects_dropped_unresolved += 1
+                    continue
+                yield filtered_mcp.as_workunit()
                 emitted += 1
             aggregator_drain_succeeded = True
             logger.info(f"SQL aggregator drained: emitted {emitted} MCPs")
@@ -341,24 +388,21 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         ):
             self.usage_extractor.update_state_on_success()
 
-    def _process_workspace_items(
+    def _list_workspace_items(
         self, workspace: FabricWorkspace
-    ) -> Iterable[Union[Container, Dataset]]:
-        """Process lakehouses and warehouses within a workspace."""
-        # Process lakehouses
+    ) -> tuple[Optional[list[FabricLakehouse]], Optional[list[FabricWarehouse]]]:
+        """List a workspace's lakehouses / warehouses and index them for SQL
+        name resolution. ``None`` means the listing failed (already reported).
+
+        Items are indexed before the item patterns are applied: a view may
+        reference a filtered-out item, and its GUID URN is still correct.
+        """
+        self.item_catalog.add_workspace(workspace.id, workspace.name)
+
+        lakehouses: Optional[list[FabricLakehouse]] = None
         if self.config.extract_lakehouses:
             try:
-                for lakehouse in self.client.list_lakehouses(workspace.id):
-                    # Filter lakehouses
-                    if not self.config.lakehouse_pattern.allowed(lakehouse.name):
-                        self.report.report_lakehouse_filtered(lakehouse.name)
-                        continue
-
-                    self.report.report_lakehouse_scanned()
-                    logger.info(
-                        f"Processing lakehouse: {lakehouse.name} ({lakehouse.id})"
-                    )
-                    yield from self._process_lakehouse(workspace, lakehouse)
+                lakehouses = list(self.client.list_lakehouses(workspace.id))
             except Exception as e:
                 self.report.warning(
                     title="Failed to List Lakehouses",
@@ -368,20 +412,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     log=False,
                 )
 
-        # Process warehouses
+        warehouses: Optional[list[FabricWarehouse]] = None
         if self.config.extract_warehouses:
             try:
-                for warehouse in self.client.list_warehouses(workspace.id):
-                    # Filter warehouses
-                    if not self.config.warehouse_pattern.allowed(warehouse.name):
-                        self.report.report_warehouse_filtered(warehouse.name)
-                        continue
-
-                    self.report.report_warehouse_scanned()
-                    logger.info(
-                        f"Processing warehouse: {warehouse.name} ({warehouse.id})"
-                    )
-                    yield from self._process_warehouse(workspace, warehouse)
+                warehouses = list(self.client.list_warehouses(workspace.id))
             except Exception as e:
                 self.report.warning(
                     title="Failed to List Warehouses",
@@ -390,6 +424,57 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     exc=e,
                     log=False,
                 )
+
+        for item in [*(lakehouses or []), *(warehouses or [])]:
+            self.item_catalog.add_item(workspace.id, item.id, item.name, item.type)
+            self.report.num_items_indexed_for_name_resolution += 1
+
+        return lakehouses, warehouses
+
+    def _process_workspace_items(
+        self,
+        workspace: FabricWorkspace,
+        lakehouses: Optional[list[FabricLakehouse]],
+        warehouses: Optional[list[FabricWarehouse]],
+    ) -> Iterable[Union[Container, Dataset]]:
+        """Process lakehouses and warehouses within a workspace."""
+        try:
+            for lakehouse in lakehouses or []:
+                # Filter lakehouses
+                if not self.config.lakehouse_pattern.allowed(lakehouse.name):
+                    self.report.report_lakehouse_filtered(lakehouse.name)
+                    continue
+
+                self.report.report_lakehouse_scanned()
+                logger.info(f"Processing lakehouse: {lakehouse.name} ({lakehouse.id})")
+                yield from self._process_lakehouse(workspace, lakehouse)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to Process Lakehouses",
+                message="Error processing lakehouses in workspace.",
+                context=f"workspace={workspace.name}",
+                exc=e,
+                log=False,
+            )
+
+        try:
+            for warehouse in warehouses or []:
+                # Filter warehouses
+                if not self.config.warehouse_pattern.allowed(warehouse.name):
+                    self.report.report_warehouse_filtered(warehouse.name)
+                    continue
+
+                self.report.report_warehouse_scanned()
+                logger.info(f"Processing warehouse: {warehouse.name} ({warehouse.id})")
+                yield from self._process_warehouse(workspace, warehouse)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to Process Warehouses",
+                message="Error processing warehouses in workspace.",
+                context=f"workspace={workspace.name}",
+                exc=e,
+                log=False,
+            )
 
     def _process_lakehouse(
         self, workspace: FabricWorkspace, lakehouse: FabricLakehouse
@@ -714,8 +799,17 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             schema=schema_fields,
             subtype=DatasetSubTypes.TABLE,
         )
+        self._register_schema(dataset)
 
         yield dataset
+
+    def _register_schema(self, dataset: Dataset) -> None:
+        """Make the dataset's columns known to the SQL parser, so view / query
+        lineage (including cross-item references and ``SELECT *``) gets
+        column-level lineage with full confidence."""
+        schema_metadata = dataset._get_aspect(SchemaMetadataClass)
+        if schema_metadata is not None:
+            self.aggregator.register_schema(dataset.urn, schema_metadata)
 
     def _create_schema_client(
         self,
@@ -974,6 +1068,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             view_definition=view.view_definition,
             parse_view_lineage=False,
         )
+        self._register_schema(dataset)
 
         yield dataset
 

@@ -5,6 +5,7 @@ produces the expected metadata events.
 """
 
 import json
+import re
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -745,6 +746,319 @@ def test_fabric_onelake_schema_pattern_filters_schemas() -> None:
             ]
             assert not schema_containers, (
                 "staging schema container should not be emitted when denied by schema_pattern"
+            )
+
+    finally:
+        Path(output_file).unlink(missing_ok=True)
+
+
+# Cross-item lineage fixtures: one "analytics" workspace with a bronze / silver
+# lakehouse and a gold warehouse, plus a "shared" workspace that also has a
+# lakehouse named `silver_lh` (to prove 3-part names resolve within the
+# referencing workspace) and a reference lakehouse reached via a 4-part name.
+_ANALYTICS_WS = FabricWorkspace(id="ws-analytics", name="Analytics")
+_SHARED_WS = FabricWorkspace(id="ws-shared", name="Shared Data")
+
+_LAKEHOUSES = {
+    "ws-analytics": [
+        FabricLakehouse(
+            id="lh-bronze",
+            name="bronze_lh",
+            workspace_id="ws-analytics",
+            type="Lakehouse",
+        ),
+        FabricLakehouse(
+            id="lh-silver",
+            name="silver_lh",
+            workspace_id="ws-analytics",
+            type="Lakehouse",
+        ),
+    ],
+    "ws-shared": [
+        FabricLakehouse(
+            id="lh-shared-silver",
+            name="silver_lh",
+            workspace_id="ws-shared",
+            type="Lakehouse",
+        ),
+        FabricLakehouse(
+            id="lh-ref", name="ref_lh", workspace_id="ws-shared", type="Lakehouse"
+        ),
+    ],
+}
+_WAREHOUSES = {
+    "ws-analytics": [
+        FabricWarehouse(
+            id="wh-gold", name="gold_wh", workspace_id="ws-analytics", type="Warehouse"
+        ),
+    ],
+    "ws-shared": [],
+}
+_TABLES = {
+    "lh-bronze": [("raw_orders", ["order_id", "customer_id", "amount"])],
+    "lh-silver": [("customers", ["customer_id", "name", "region_id"])],
+    "lh-shared-silver": [("customers", ["customer_id", "name", "region_id"])],
+    "lh-ref": [("regions", ["region_id", "region_name"])],
+    "wh-gold": [
+        ("customer_totals", ["customer_id", "total_amount"]),
+        ("customer_snapshot", ["customer_id", "name"]),
+    ],
+}
+_GOLD_VIEWS = [
+    # 3-part reference to another item in the same workspace.
+    (
+        "v_customers",
+        "CREATE VIEW dbo.v_customers AS "
+        "SELECT c.customer_id, c.name FROM silver_lh.dbo.customers AS c",
+        ["customer_id", "name"],
+    ),
+    # Bracketed identifiers, mixed case, and a join across two items.
+    (
+        "v_customer_orders",
+        "CREATE VIEW [dbo].[v_customer_orders] AS "
+        "SELECT c.customer_id, c.name, o.amount "
+        "FROM [silver_lh].[dbo].[customers] AS c "
+        "JOIN [Bronze_LH].[dbo].[raw_orders] AS o ON c.customer_id = o.customer_id",
+        ["customer_id", "name", "amount"],
+    ),
+    # 4-part reference into another ingested workspace.
+    (
+        "v_customer_regions",
+        "CREATE VIEW dbo.v_customer_regions AS "
+        "SELECT c.customer_id, r.region_name "
+        "FROM silver_lh.dbo.customers AS c "
+        "JOIN [Shared Data].[ref_lh].[dbo].[regions] AS r ON c.region_id = r.region_id",
+        ["customer_id", "region_name"],
+    ),
+    # SELECT * across items: columns come from the registered upstream schema.
+    (
+        "v_customers_all",
+        "CREATE VIEW dbo.v_customers_all AS SELECT * FROM silver_lh.dbo.customers",
+        ["customer_id", "name", "region_id"],
+    ),
+    # Unknown item: its upstream is dropped (with a warning), the known one kept.
+    (
+        "v_partial",
+        "CREATE VIEW dbo.v_partial AS "
+        "SELECT c.customer_id, x.score "
+        "FROM silver_lh.dbo.customers AS c "
+        "JOIN missing_lh.dbo.scores AS x ON c.customer_id = x.customer_id",
+        ["customer_id", "score"],
+    ),
+]
+_GOLD_QUERIES = [
+    (
+        "INSERT",
+        "INSERT INTO dbo.customer_totals (customer_id, total_amount) "
+        "SELECT o.customer_id, SUM(o.amount) FROM bronze_lh.dbo.raw_orders AS o "
+        "GROUP BY o.customer_id",
+    ),
+    (
+        "CREATE TABLE AS SELECT",
+        "CREATE TABLE dbo.customer_snapshot AS "
+        "SELECT customer_id, name FROM silver_lh.dbo.customers",
+    ),
+    # 4-part reference into a workspace that is processed *after* this one:
+    # only resolvable because all items are indexed before any is processed.
+    (
+        "SELECT",
+        "SELECT r.region_name FROM [Shared Data].[ref_lh].[dbo].[regions] AS r",
+    ),
+    ("SELECT", "SELECT * FROM missing_lh.dbo.scores"),
+]
+
+
+def _cross_item_tables(workspace_id: str, item_id: str) -> list[FabricTable]:
+    return [
+        FabricTable(
+            name=name, schema_name="dbo", item_id=item_id, workspace_id=workspace_id
+        )
+        for name, _ in _TABLES.get(item_id, [])
+    ]
+
+
+def _cross_item_schema_map(
+    self: FabricOneLakeSource,
+    schema_client: object,
+    workspace: FabricWorkspace,
+    item_id: str,
+    item_type: str,
+) -> dict[tuple[str, str], list[FabricColumn]]:
+    schema_map = {
+        ("dbo", name): [
+            FabricColumn(name=col, data_type="varchar", is_nullable=True)
+            for col in cols
+        ]
+        for name, cols in _TABLES.get(item_id, [])
+    }
+    if item_id == "wh-gold":
+        for view_name, _, cols in _GOLD_VIEWS:
+            schema_map[("dbo", view_name)] = [
+                FabricColumn(name=col, data_type="varchar", is_nullable=True)
+                for col in cols
+            ]
+    return schema_map
+
+
+def _cross_item_schema_client(
+    self: FabricOneLakeSource,
+    workspace: FabricWorkspace,
+    item_id: str,
+    item_type: str,
+    item_display_name: str,
+) -> MagicMock:
+    client = MagicMock()
+    if item_id == "wh-gold":
+        client.get_all_views.return_value = [
+            FabricView(
+                name=name,
+                schema_name="dbo",
+                item_id=item_id,
+                workspace_id=workspace.id,
+                view_definition=definition,
+            )
+            for name, definition, _ in _GOLD_VIEWS
+        ]
+        client.stream_usage_history.return_value = iter(
+            FabricQueryInsightsRow(
+                start_time=FROZEN_TIME - timedelta(hours=2, minutes=i),
+                statement_type=statement_type,
+                login_name="etl@example.com",
+                row_count=10,
+                status="Succeeded",
+                command=command,
+            )
+            for i, (statement_type, command) in enumerate(_GOLD_QUERIES)
+        )
+    else:
+        client.get_all_views.return_value = []
+        client.stream_usage_history.return_value = iter([])
+    return client
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_fabric_onelake_cross_item_lineage(pytestconfig: pytest.Config) -> None:
+    """3-part / 4-part display-name references resolve to GUID-keyed URNs.
+
+    Covers views in a Warehouse reading other items in the same workspace
+    (plain and bracketed), a 4-part reference into another ingested workspace,
+    an unknown item (dropped, with a warning), and Warehouse INSERT...SELECT /
+    CTAS observed queries that read other items (table + column lineage).
+    """
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        output_file = tmp.name
+
+    try:
+        with (
+            patch.object(
+                OneLakeClient,
+                "list_workspaces",
+                return_value=[_ANALYTICS_WS, _SHARED_WS],
+            ),
+            patch.object(
+                OneLakeClient,
+                "list_lakehouses",
+                side_effect=lambda workspace_id: _LAKEHOUSES[workspace_id],
+            ),
+            patch.object(
+                OneLakeClient,
+                "list_warehouses",
+                side_effect=lambda workspace_id: _WAREHOUSES[workspace_id],
+            ),
+            patch.object(
+                OneLakeClient,
+                "list_lakehouse_tables",
+                side_effect=_cross_item_tables,
+            ),
+            patch.object(
+                OneLakeClient,
+                "list_warehouse_tables",
+                side_effect=_cross_item_tables,
+            ),
+            patch.object(
+                FabricOneLakeSource,
+                "_create_schema_client",
+                autospec=True,
+                side_effect=_cross_item_schema_client,
+            ),
+            patch.object(
+                FabricOneLakeSource,
+                "_fetch_schema_map",
+                autospec=True,
+                side_effect=_cross_item_schema_map,
+            ),
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "fabric-onelake",
+                        "config": {
+                            "credential": {
+                                "authentication_method": "service_principal",
+                                "client_id": "test-client",
+                                "client_secret": "test-secret",
+                                "tenant_id": "test-tenant",
+                            },
+                            "usage": {
+                                "include_usage_statistics": True,
+                                "include_operational_stats": True,
+                            },
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": output_file},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+            source = pipeline.source
+            assert isinstance(source, FabricOneLakeSource)
+            # `missing_lh.dbo.scores` (view + query) is one distinct reference.
+            assert source.report.num_cross_item_references_unresolved == 1
+            assert source.report.num_cross_item_references_resolved > 0
+            assert any(
+                w.title == "Unresolved Cross-Item SQL Reference"
+                for w in source.report.warnings
+            )
+
+            # No dangling display-name URNs anywhere in the output (query text
+            # still shows the SQL exactly as written).
+            emitted_urns = set(
+                re.findall(
+                    r"urn:li:dataset:\(urn:li:dataPlatform:fabric-onelake,([^,]+),",
+                    Path(output_file).read_text(),
+                )
+            )
+            assert emitted_urns
+            events = json.loads(Path(output_file).read_text())
+            usage_urns = {
+                e["entityUrn"]
+                for e in events
+                if e.get("aspectName") == "datasetUsageStatistics"
+            }
+            assert (
+                "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+                "ws-shared.lh-ref.dbo.regions,PROD)"
+            ) in usage_urns
+            assert all(
+                name.startswith(("ws-analytics.", "ws-shared."))
+                for name in emitted_urns
+            ), emitted_urns
+
+            golden_path = (
+                Path(__file__).parent
+                / "golden"
+                / "test_fabric_onelake_cross_item_lineage_golden.json"
+            )
+            mce_helpers.check_golden_file(
+                pytestconfig,
+                output_path=output_file,
+                golden_path=str(golden_path),
             )
 
     finally:

@@ -264,7 +264,25 @@ source:
 1. **Discovery**: The connector queries `INFORMATION_SCHEMA.VIEWS` on the SQL Analytics Endpoint to list views and capture their definitions.
 2. **Filtering**: Each view is matched against `view_pattern` using the `schema.view_name` form.
 3. **Schema**: Column metadata is reused from the same `INFORMATION_SCHEMA.COLUMNS` query that powers table schema extraction — no extra queries per view.
-4. **Lineage**: View definitions are passed to the SQL parsing aggregator to derive view → upstream table lineage. View URNs and upstream table URNs are resolved within the same workspace and item.
+4. **Lineage**: View definitions are passed to the SQL parsing aggregator to derive table- and column-level view → upstream lineage. Unqualified and `schema.table` references resolve to the view's own item; `item.schema.table` and `workspace.item.schema.table` references resolve to other items — see [Cross-Item and Cross-Workspace Lineage](#cross-item-and-cross-workspace-lineage).
+
+#### Cross-Item and Cross-Workspace Lineage
+
+Fabric SQL lets a view or query reference tables in other Lakehouses / Warehouses by **display name**, while DataHub dataset URNs are keyed by GUIDs (`<workspaceId>.<itemId>.<schema>.<table>`). The connector translates display names to GUIDs so lineage lands on the real datasets, for both view definitions and observed queries from `queryinsights` (e.g. Warehouse `INSERT ... SELECT` or `CREATE TABLE ... AS SELECT` that read a Lakehouse):
+
+| Reference in SQL                                           | Resolved against                                    |
+| ---------------------------------------------------------- | --------------------------------------------------- |
+| `customers`, `dbo.customers`                               | The item that owns the view / ran the query         |
+| `silver_lh.dbo.customers`, `[Silver_LH].[dbo].[customers]` | An item named `silver_lh` in the **same workspace** |
+| `[Shared Data].[ref_lh].[dbo].[regions]` (4-part)          | Item `ref_lh` in the workspace named `Shared Data`  |
+
+- Item and workspace names are matched case-insensitively, with or without `[...]` / `"..."` quoting. Item and workspace GUIDs are accepted in place of names.
+- The name index is built from the Lakehouse / Warehouse listing of every workspace allowed by `workspace_pattern`, before any item is processed. Items excluded by `lakehouse_pattern` / `warehouse_pattern` are still indexed, so references to them resolve to their (GUID-based) URNs.
+- Column-level lineage is produced for cross-item references. Column metadata of ingested tables and views is registered with the SQL parser, so `SELECT *` expands and lineage confidence is high when the referenced item's columns were extracted.
+- The original SQL text is kept unchanged in view definitions and Query entities.
+- A 3-part name is only looked up in the referencing workspace, so identically named items in other workspaces (e.g. dev / test / prod workspaces) do not collide.
+
+A reference that cannot be resolved — the item or workspace is not ingested, does not exist, or its name is ambiguous (e.g. two items with the same display name in one workspace) — is **skipped** instead of producing a dangling URN: it is removed from lineage, usage, and query subjects, and an `Unresolved Cross-Item SQL Reference` warning with the reference and workspace is added to the ingestion report. The report also counts `num_cross_item_references_resolved` / `num_cross_item_references_unresolved`.
 
 #### Usage Statistics
 
@@ -353,6 +371,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
   - Table count limits in very large databases
 - **Graceful Degradation**: If schema extraction fails for a table, the table will still be ingested without column metadata (no ingestion failure)
 - **View Extraction Requires SQL Endpoint**: Views are only discovered through the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, or if the endpoint is unreachable for a given Lakehouse/Warehouse, views in that item will not be ingested.
+- **Cross-Item References Require the Referenced Workspace**: `item.schema.table` and `workspace.item.schema.table` references resolve only to Lakehouses / Warehouses in workspaces ingested by the same recipe (allowed by `workspace_pattern`). References to other workspaces, to other item types (e.g. SQL databases, mirrored databases), are not resolved and are reported as warnings. A table that is a OneLake shortcut resolves to the shortcut table in the referencing item, not to the shortcut's target. With `platform_instance`, all resolved URNs use the recipe's platform instance.
 - **Usage Statistics Retention**: Fabric `queryinsights` retains query history for only **30 days**. Older usage cannot be backfilled, regardless of the configured `usage.start_time`.
 - **Usage Statistics Requires SQL Endpoint**: Usage extraction reads `queryinsights.exec_requests_history` over the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `usage.include_usage_statistics=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, usage for that item is skipped without failing the run.
 
