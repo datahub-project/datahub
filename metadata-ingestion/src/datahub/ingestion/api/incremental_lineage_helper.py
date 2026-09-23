@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Any, Callable, List, Optional
 
 from pydantic.fields import Field
 
@@ -9,13 +9,16 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     DashboardInfoClass,
+    DataJobInputOutputClass,
     FineGrainedLineageClass,
     SystemMetadataClass,
     UpstreamLineageClass,
 )
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
+from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +35,90 @@ def convert_upstream_lineage_to_patch(
         patch_builder.add_fine_grained_upstream_lineage(fine_upstream)
     mcp = next(iter(patch_builder.build()))
     return MetadataWorkUnit(id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp)
+
+
+def datajob_lineage_is_empty(aspect: DataJobInputOutputClass) -> bool:
+    """True when the aspect carries no lineage in any of its fields.
+
+    Keep in step with the converter below: an aspect judged non-empty here must
+    produce a patch there.
+    """
+    return not any(
+        (
+            aspect.inputDatasets,
+            aspect.outputDatasets,
+            aspect.inputDatajobs,
+            aspect.inputDatasetEdges,
+            aspect.outputDatasetEdges,
+            aspect.inputDatajobEdges,
+            aspect.inputDatasetFields,
+            aspect.outputDatasetFields,
+            aspect.fineGrainedLineages,
+        )
+    )
+
+
+def convert_datajob_input_output_to_patch(
+    urn: str,
+    aspect: DataJobInputOutputClass,
+    system_metadata: Optional[SystemMetadataClass],
+) -> List[MetadataWorkUnit]:
+    """Convert a full dataJobInputOutput aspect into additive patches.
+
+    An upsert replaces the `*Edges` fields, which is where DataHub stores lineage
+    added by hand, so re-stating the aspect deletes the user's edges.
+
+    The patch writes those `*Edges` fields; an upsert writes the plain arrays. The
+    server-side template does not cover the deprecated plain arrays, so entries left
+    there by earlier non-patch runs persist.
+
+    Returns one work unit per MCP: usually one, but `build()` also groups by array
+    primary key, so callers must not assume it.
+    """
+    patch_builder = DataJobPatchBuilder(urn, system_metadata)
+
+    def _add(add: Callable[[Any], object], edge: Any, kind: str) -> None:
+        try:
+            add(edge)
+        except (ValueError, InvalidUrnError):
+            # A bad URN costs its own edge, not the aspect. Both types are needed:
+            # InvalidUrnError does not subclass ValueError.
+            logger.warning("Skipping %s edge %s on %s", kind, edge, urn)
+
+    for dataset_urn in aspect.inputDatasets or []:
+        _add(patch_builder.add_input_dataset, dataset_urn, "input dataset")
+    for dataset_urn in aspect.outputDatasets or []:
+        _add(patch_builder.add_output_dataset, dataset_urn, "output dataset")
+    for datajob_urn in aspect.inputDatajobs or []:
+        _add(patch_builder.add_input_datajob, datajob_urn, "input datajob")
+    # The builder takes an Edge directly, so a caller that already populates these
+    # keeps its lineage and its audit stamps.
+    for edge in aspect.inputDatasetEdges or []:
+        _add(patch_builder.add_input_dataset, edge, "input dataset")
+    for edge in aspect.outputDatasetEdges or []:
+        _add(patch_builder.add_output_dataset, edge, "output dataset")
+    for edge in aspect.inputDatajobEdges or []:
+        _add(patch_builder.add_input_datajob, edge, "input datajob")
+    for field_urn in aspect.inputDatasetFields or []:
+        _add(patch_builder.add_input_dataset_field, field_urn, "input dataset field")
+    for field_urn in aspect.outputDatasetFields or []:
+        _add(patch_builder.add_output_dataset_field, field_urn, "output dataset field")
+    for fine_upstream in aspect.fineGrainedLineages or []:
+        try:
+            patch_builder.add_fine_grained_lineage(fine_upstream)
+        except TypeError:
+            # The patch path keys on a single downstream, so a multi-downstream entry
+            # can't be expressed. Drop it rather than lose the whole aspect.
+            logger.warning(
+                "Skipping column lineage for %s: a patch needs exactly one downstream, got %d",
+                urn,
+                len(fine_upstream.downstreams or []),
+            )
+
+    return [
+        MetadataWorkUnit(id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp)
+        for mcp in patch_builder.build()
+    ]
 
 
 def convert_chart_info_to_patch(

@@ -4,6 +4,7 @@ from typing import Callable, Iterable, Iterator, List, Optional, Set
 
 from datahub.emitter.mce_builder import dataset_urn_to_key
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.incremental_lineage_helper import datajob_lineage_is_empty
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
@@ -362,8 +363,10 @@ class MSSQLAliasFilter:
                     filtered_downstream_aliases,
                 )
 
-                # Skip aspect only if BOTH inputs and outputs are empty
-                if not aspect.inputDatasets and not aspect.outputDatasets:
+                # Every lineage field counts, not just the dataset arrays, so a body
+                # that only calls other procedures keeps its `inputDatajobs`. Shares
+                # the source's emptiness test, so nothing kept here is dropped later.
+                if datajob_lineage_is_empty(aspect):
                     logger.warning(
                         "Skipping lineage for %s: all tables were filtered",
                         procedure_name,
