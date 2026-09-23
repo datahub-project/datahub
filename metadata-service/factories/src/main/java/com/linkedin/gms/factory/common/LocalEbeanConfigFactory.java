@@ -198,6 +198,13 @@ public class LocalEbeanConfigFactory {
 
     private PgBackendPid() {}
 
+    /** Test hook: forget a previous failure so the lookup is attempted again. */
+    static void reset() {
+      SUPPORTED.set(true);
+      pgConnection = null;
+      getBackendPid = null;
+    }
+
     static long of(Connection connection) {
       if (!SUPPORTED.get() || connection == null) {
         return -1L;

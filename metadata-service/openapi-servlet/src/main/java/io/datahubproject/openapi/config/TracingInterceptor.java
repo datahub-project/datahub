@@ -32,8 +32,9 @@ public class TracingInterceptor implements AsyncHandlerInterceptor {
 
   @Nullable private final Tracer tracer;
   @Nullable private final RequestAttributionConfiguration attribution;
+  private final boolean traceContinuation;
 
-  private static final TextMapGetter<HttpServletRequest> SERVLET_HEADER_GETTER =
+  static final TextMapGetter<HttpServletRequest> SERVLET_HEADER_GETTER =
       new TextMapGetter<>() {
         @Override
         public Iterable<String> keys(HttpServletRequest carrier) {
@@ -60,6 +61,10 @@ public class TracingInterceptor implements AsyncHandlerInterceptor {
         configurationProvider != null && configurationProvider.getTelemetry() != null
             ? configurationProvider.getTelemetry().getRequestAttribution()
             : null;
+    this.traceContinuation =
+        configurationProvider != null
+            && configurationProvider.getTelemetry() != null
+            && configurationProvider.getTelemetry().isTraceContinuation();
   }
 
   @Override
@@ -79,10 +84,11 @@ public class TracingInterceptor implements AsyncHandlerInterceptor {
 
     if (tracer != null) {
       String spanName = request.getMethod() + " " + request.getRequestURI();
-      // With request attribution on, continue an inbound W3C trace (traceparent/tracestate) so the
-      // ingress, frontend and GMS share a trace id even without the OpenTelemetry Java agent.
+      // With telemetry.traceContinuation on, continue an inbound W3C trace (traceparent/tracestate)
+      // so the ingress, frontend and GMS share a trace id even without the OpenTelemetry Java
+      // agent.
       Context parent =
-          attribution != null && attribution.isEnabled()
+          traceContinuation
               ? W3CTraceContextPropagator.getInstance()
                   .extract(Context.current(), request, SERVLET_HEADER_GETTER)
               : Context.current();
