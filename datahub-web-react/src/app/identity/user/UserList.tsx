@@ -49,6 +49,10 @@ const UserPaginationContainer = styled.div`
     justify-content: center;
 `;
 
+const StyledPagination = styled(Pagination)`
+    margin: 8px 0;
+`;
+
 export const UserList = () => {
     const { t } = useTranslation('entity.identity');
     const entityRegistry = useEntityRegistry();
@@ -174,8 +178,7 @@ export const UserList = () => {
                     )}
                 />
                 <UserPaginationContainer>
-                    <Pagination
-                        style={{ margin: 40 }}
+                    <StyledPagination
                         current={page}
                         pageSize={pageSize}
                         total={totalUsers}
