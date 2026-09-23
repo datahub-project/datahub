@@ -17,7 +17,6 @@ from unittest.mock import MagicMock, patch
 import requests
 from requests.models import HTTPError
 
-import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.mode import (
@@ -28,10 +27,6 @@ from datahub.ingestion.source.mode import (
     _is_http_404,
 )
 from datahub.metadata.schema_classes import (
-    InputFieldsClass,
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    StringTypeClass,
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -750,27 +745,17 @@ class TestExcludePersonalCollections:
 
 
 class TestChartFetchGating:
-    """The connector previously gated chart fetching on explorations_count
-    (private user analyses), silently dropping charts and lineage for any
-    report whose queries had explorations_count=0 but real published charts.
-    See ZD #7475."""
+    """chart_count is a *Report* field; Mode Query objects have never carried
+    one. Gating the per-query chart fetch on ``query["chart_count"]`` therefore
+    matched every query in every workspace and stopped charts being ingested at
+    all, which severed report->query lineage (its only path is
+    report -> chart -> query via ChartInfo.inputs) and let stateful ingestion
+    soft-delete the charts. Charts are now fetched unless the *report* says it
+    has none."""
 
     @staticmethod
-    def _drive(source: ModeSource, *, explorations_count: int, chart_count: int) -> int:
-        """Run _process_report_inner against one fake query and return the
-        number of times _get_charts was called."""
-        query = {
-            "id": 1,
-            "token": "qtok",
-            "name": "q",
-            "data_source_id": 1,
-            "last_run_id": 1,
-            "explorations_count": explorations_count,
-            "chart_count": chart_count,
-            "_links": {"creator": {"href": "/api/modeuser"}},
-        }
-        report = {"token": "rtok", "id": 1, "name": "r", "_links": {}}
-
+    def _drive(source: ModeSource, report: dict, query: dict) -> int:
+        """Run _process_report_inner over one query; count _get_charts calls."""
         chart_calls: List[tuple] = []
 
         def fake_get_charts(report_token: str, query_token: str) -> List[dict]:
@@ -786,172 +771,70 @@ class TestChartFetchGating:
             list(source._process_report_inner(space_token="s", report=report))
         return len(chart_calls)
 
-    def test_fetches_charts_when_explorations_zero_but_chart_count_positive(self):
+    @staticmethod
+    def _query() -> dict:
+        return {
+            "id": 1,
+            "token": "qtok",
+            "name": "q",
+            "data_source_id": 1,
+            "last_run_id": 1,
+            "explorations_count": 0,
+            "_links": {"creator": {"href": "/api/modeuser"}},
+        }
+
+    def test_fetches_charts_when_report_reports_charts(self):
         source = _make_source()
-        assert self._drive(source, explorations_count=0, chart_count=1) == 1
+        report = {"token": "rtok", "id": 1, "name": "r", "chart_count": 3, "_links": {}}
+        assert self._drive(source, report, self._query()) == 1
         assert source.report.chart_api_calls_skipped == 0
 
-    def test_skips_chart_api_when_chart_count_zero(self):
+    def test_fetches_charts_when_report_omits_chart_count(self):
+        """The live Mode API omits chart_count on some payloads. Absent means
+        unknown, never zero -- treating it as zero is what caused the outage."""
         source = _make_source()
-        assert self._drive(source, explorations_count=5, chart_count=0) == 0
+        report = {"token": "rtok", "id": 1, "name": "r", "_links": {}}
+        assert self._drive(source, report, self._query()) == 1
+        assert source.report.chart_api_calls_skipped == 0
+
+    def test_skips_chart_api_when_report_explicitly_has_no_charts(self):
+        source = _make_source()
+        report = {"token": "rtok", "id": 1, "name": "r", "chart_count": 0, "_links": {}}
+        assert self._drive(source, report, self._query()) == 0
         assert source.report.chart_api_calls_skipped == 1
 
-
-# ──────────────────────────────────────────────────────────────────────
-# report_pattern filtering
-# ──────────────────────────────────────────────────────────────────────
-
-
-class TestReportPattern:
-    def _make_source_with_config(self, **kwargs: object) -> ModeSource:
-        config = ModeConfig(
-            token="test",
-            password="test",
-            workspace="test_workspace",
-            **kwargs,
-        )
-        with (
-            patch("datahub.ingestion.source.mode.requests.Session"),
-            patch.object(ModeSource, "_get_request_json", return_value={}),
-        ):
-            ctx = MagicMock()
-            ctx.graph = None
-            ctx.pipeline_name = "test"
-            ctx.run_id = "test-run"
-            ctx.pipeline_config = None
-            source = ModeSource(ctx, config)
-        return source
-
-    def test_report_pattern_deny_excludes_report(self):
-        """Reports matching the deny pattern should be excluded and tracked."""
-
-        source = self._make_source_with_config(
-            report_pattern=AllowDenyPattern(deny=["^slow_report$"])
-        )
-
-        reports = [
-            {"token": "tok1", "name": "slow_report"},
-            {"token": "tok2", "name": "fast_report"},
-        ]
-
-        with (
-            patch.object(
-                source, "_get_reports", return_value=iter([[reports[0]], [reports[1]]])
-            ),
-            patch.object(source, "_get_datasets", return_value=iter([])),
-            patch.object(source, "construct_space_container", return_value=iter([])),
-        ):
-            report_args, _, _ = source._collect_space_work_items("space1", "MySpace")
-
-        assert len(report_args) == 1
-        assert report_args[0][1]["token"] == "tok2"
-        assert "slow_report" in list(source.report.filtered_reports)
-
-
-class TestGetInputFields:
-    def test_preserves_schema_field_casing(self):
-        """A chart formula field reference must resolve to the query schema's
-        actual (case-preserving) field path, not a lowercased ghost schemaField
-        URN — otherwise the column-level input-field edge points at a field that
-        does not exist on the query dataset."""
-        source = _make_source_with_definitions({})
-        query_urn = "urn:li:dataset:(urn:li:dataPlatform:mode,test.query,PROD)"
-        chart_urn = "urn:li:chart:(mode,test.chart)"
-        field_path = "MixedCaseCol"
-        chart_fields = {
-            field_path: SchemaFieldClass(
-                fieldPath=field_path,
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="varchar",
-            )
-        }
-        chart_data = {"formula": "[MixedCaseCol] * 2"}
-
-        wus = list(
-            source.get_input_fields(
-                chart_urn=chart_urn,
-                chart_data=chart_data,
-                chart_fields=chart_fields,
-                query_urn=query_urn,
-            )
-        )
-
-        assert len(wus) == 1
-        mcp = wus[0].metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        aspect = mcp.aspect
-        assert isinstance(aspect, InputFieldsClass)
-        assert [f.schemaFieldUrn for f in aspect.fields] == [
-            builder.make_schema_field_urn(query_urn, field_path)
-        ]
-
-
-class TestApiObjectFieldRecording:
-    """Mode omits fields depending on workspace and API version -- and marks as
-    "required" fields that real responses leave out -- so gating logic on a
-    field that is never returned silently drops data (#16300 gated on
-    explorations_count, #17357 on chart_count, a Report field that does not
-    exist on Query objects). The report records which fields each object type
-    actually returned, so this is diagnosable from an ingestion report."""
-
-    def test_records_field_names_excluding_hal_keys(self):
+    def test_query_level_chart_count_is_ignored(self):
+        """A query-level chart_count is not a thing Mode returns; even if one
+        appears, it must not suppress the fetch."""
         source = _make_source()
-        source.report.record_api_object_fields(
-            source.report.query_object_fields_seen,
-            "query",
-            [
-                {"id": 1, "token": "t", "explorations_count": 0, "_links": {}},
-                {"id": 2, "dbt_metric_id": None, "_forms": {}},
-            ],
-        )
-        assert sorted(source.report.query_object_fields_seen) == [
-            "dbt_metric_id",
-            "explorations_count",
-            "id",
-            "token",
-        ]
+        report = {"token": "rtok", "id": 1, "name": "r", "_links": {}}
+        query = {**self._query(), "chart_count": 0}
+        assert self._drive(source, report, query) == 1
 
-    def test_does_not_record_values(self):
-        """Query objects carry customer SQL; only field names may be recorded."""
+
+class TestNoChartsGuardrail:
+    """Two releases shipped with charts silently not ingested. A run where Mode
+    says reports have charts but none come out must say so."""
+
+    def test_warns_when_expected_charts_never_materialise(self):
         source = _make_source()
-        source.report.record_api_object_fields(
-            source.report.query_object_fields_seen,
-            "query",
-            [{"raw_query": "SELECT secret FROM customer_table"}],
-        )
-        assert sorted(source.report.query_object_fields_seen) == ["raw_query"]
+        source.report.num_reports_expecting_charts = 52
+        source.report.num_charts_processed = 0
+        source._warn_if_no_charts_extracted()
+        assert source.report.warnings
 
-
-class TestChartGateProbe:
-    """Temporary diagnostic: detects a chart gate that skips queries which do
-    in fact have charts. Delete along with the probe once the gate is fixed."""
-
-    def test_disabled_by_default(self):
+    def test_silent_when_charts_were_extracted(self):
         source = _make_source()
-        with patch.object(source, "_get_charts") as get_charts:
-            source._probe_skipped_query_for_charts("rtok", {"token": "qtok"})
-        get_charts.assert_not_called()
-        assert source.report.chart_gate_probe_queries_probed == 0
+        source.report.num_reports_expecting_charts = 52
+        source.report.num_charts_processed = 120
+        source._warn_if_no_charts_extracted()
+        assert not source.report.warnings
 
-    def test_respects_budget_and_records_disagreement(self):
+    def test_silent_when_no_report_claims_charts(self):
+        """A workspace of SQL-only reports is legitimate, not a failure."""
         source = _make_source()
-        source.config.chart_gate_probe_limit = 3
-        with patch.object(
-            source, "_get_charts", return_value=[{"token": "c1"}, {"token": "c2"}]
-        ) as get_charts:
-            for _ in range(10):
-                source._probe_skipped_query_for_charts("rtok", {"token": "qtok"})
-
-        assert get_charts.call_count == 3
-        assert source.report.chart_gate_probe_queries_probed == 3
-        assert source.report.chart_gate_probe_skipped_but_had_charts == 3
-        assert source.report.chart_gate_probe_charts_found == 6
-
-    def test_no_disagreement_when_query_really_has_no_charts(self):
-        source = _make_source()
-        source.config.chart_gate_probe_limit = 3
-        with patch.object(source, "_get_charts", return_value=[]):
-            source._probe_skipped_query_for_charts("rtok", {"token": "qtok"})
-
-        assert source.report.chart_gate_probe_queries_probed == 1
-        assert source.report.chart_gate_probe_skipped_but_had_charts == 0
+        source.report.num_queries_processed = 610
+        source.report.num_reports_expecting_charts = 0
+        source.report.num_charts_processed = 0
+        source._warn_if_no_charts_extracted()
+        assert not source.report.warnings

@@ -128,7 +128,7 @@ from datahub.sql_parsing.sqlglot_utils import (
     parse_statements_and_pick,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.lossy_collections import LossyList, LossySet
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache
@@ -261,15 +261,6 @@ class ModeConfig(
         default=False, description="Exclude archived reports"
     )
 
-    chart_gate_probe_limit: HiddenFromDocs[int] = Field(
-        default=0,
-        ge=0,
-        description="Diagnostic only. Number of queries for which the connector "
-        "additionally calls the charts API even though the chart gate decided to "
-        "skip it, to detect a gate that is silently dropping real charts. The "
-        "fetched charts are discarded; only counters are recorded.",
-    )
-
     max_threads: int = Field(
         default=1,
         ge=1,
@@ -346,24 +337,9 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     num_queries_processed: int = 0
     num_charts_processed: int = 0
     chart_api_calls_skipped: int = 0
-    # Diagnostic probe (see ModeConfig.chart_gate_probe_limit).
-    chart_gate_probe_queries_probed: int = 0
-    chart_gate_probe_skipped_but_had_charts: int = 0
-    chart_gate_probe_charts_found: int = 0
-    # Which field names the Mode API actually returned for each object type.
-    # Mode omits fields depending on workspace and API version -- and documents
-    # as "required" fields that real responses leave out -- so gating logic on a
-    # field that is never returned silently drops data. That is how #16300
-    # (explorations_count) and #17357 (chart_count) broke chart ingestion.
-    # max_elements is well above the real field count (a report object already
-    # has ~37) so nothing is sampled away. Field *names* only: query objects
-    # carry customer SQL.
-    query_object_fields_seen: LossySet[str] = dataclasses.field(
-        default_factory=lambda: LossySet(max_elements=100)
-    )
-    report_object_fields_seen: LossySet[str] = dataclasses.field(
-        default_factory=lambda: LossySet(max_elements=100)
-    )
+    # Reports whose chart_count says charts exist. Compared against
+    # num_charts_processed to detect charts going missing wholesale.
+    num_reports_expecting_charts: int = 0
     # PerfTimer is NOT thread-safe. These timers must only be used from the
     # main thread (e.g., in _get_space_name_and_tokens, _get_reports,
     # _get_datasets), never from threaded _process_report workers.
@@ -374,27 +350,6 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     # which mutate LossyList/LossyDict with multi-step non-atomic operations,
     # and counter increments from worker threads.
     _lock: threading.Lock = dataclasses.field(default_factory=threading.Lock)
-
-    def record_api_object_fields(
-        self, seen: LossySet[str], object_type: str, objects: Iterable[dict]
-    ) -> None:
-        """Track which field names Mode actually returns for an object type.
-
-        Only field names are recorded -- never values, since query objects
-        carry customer SQL (``raw_query``) and asset names.
-        """
-        new_fields = set()
-        with self._lock:
-            for obj in objects:
-                for key in obj:
-                    if not key.startswith("_") and key not in seen:
-                        seen.add(key)
-                        new_fields.add(key)
-        if new_fields:
-            logger.debug(
-                f"Mode {object_type} object fields newly observed: {sorted(new_fields)} "
-                f"(all seen so far: {sorted(seen)})"
-            )
 
     def report_dropped_space(self, ent_name: str) -> None:
         with self._lock:
@@ -1227,7 +1182,6 @@ class ModeSource(StatefulIngestionSourceBase):
                     "last_run_id",
                     "data_source_id",
                     "explorations_count",
-                    "chart_count",
                     "report_imports_count",
                     "dbt_metric_id",
                 ],
@@ -1687,9 +1641,6 @@ class ModeSource(StatefulIngestionSourceBase):
                     logger.debug(
                         f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
                     )
-                    self.report.record_api_object_fields(
-                        self.report.report_object_fields_seen, "report", reports_page
-                    )
                     if self.config.exclude_archived:
                         logger.debug(
                             f"Excluding archived reports since exclude_archived: {self.config.exclude_archived}"
@@ -1754,14 +1705,10 @@ class ModeSource(StatefulIngestionSourceBase):
             )
             with self.report._lock:
                 self.report.query_get_api_called += 1
-            query_objects = queries.get("_embedded", {}).get("queries", [])
             logger.debug(
                 f"Read {len(queries)} queries records from workspace {self.workspace_uri} report {report_token}"
             )
-            self.report.record_api_object_fields(
-                self.report.query_object_fields_seen, "query", query_objects
-            )
-            return query_objects
+            return queries.get("_embedded", {}).get("queries", [])
         except ModeRequestError as e:
             if _is_http_404(e):
                 self.report.warning(
@@ -1781,32 +1728,6 @@ class ModeSource(StatefulIngestionSourceBase):
             elapsed = time.perf_counter() - start
             with self.report._lock:
                 self.report.query_api_total_sec += elapsed
-
-    def _probe_skipped_query_for_charts(self, report_token: str, query: dict) -> None:
-        """Diagnostic: does a query the chart gate skipped actually have charts?
-
-        Temporary instrumentation. The fetched charts are discarded, so
-        enabling the probe cannot change what is ingested -- it only costs a
-        bounded number of extra API calls and records counters.
-        """
-        limit = self.config.chart_gate_probe_limit
-        if limit <= 0:
-            return
-        with self.report._lock:
-            if self.report.chart_gate_probe_queries_probed >= limit:
-                return
-            self.report.chart_gate_probe_queries_probed += 1
-
-        charts = self._get_charts(report_token, query.get("token", ""))
-        if charts:
-            logger.debug(
-                f"Chart gate probe: query {query.get('token')} in report "
-                f"{report_token} was skipped but the charts API returned "
-                f"{len(charts)} chart(s)."
-            )
-            with self.report._lock:
-                self.report.chart_gate_probe_skipped_but_had_charts += 1
-                self.report.chart_gate_probe_charts_found += len(charts)
 
     def _get_charts(self, report_token: str, query_token: str) -> List[dict]:
         start = time.perf_counter()
@@ -1880,7 +1801,13 @@ class ModeSource(StatefulIngestionSourceBase):
                     return {}
 
                 response.raise_for_status()
-                return response.json()
+                response_json = response.json()
+                # Mode's payload shape varies by workspace and API version, and
+                # gating logic on a field it does not return fails silently, so
+                # the raw response is worth having when diagnosing. Lazy %s
+                # args: nothing is rendered unless debug logging is enabled.
+                logger.debug("Mode API response for %s: %s", url, response_json)
+                return response_json
             except HTTPError as http_error:
                 error_response = http_error.response
                 if error_response is None:
@@ -2039,6 +1966,20 @@ class ModeSource(StatefulIngestionSourceBase):
         queries = self._get_queries(report_token)
         with self.report._lock:
             self.report.num_queries_processed += len(queries)
+
+        # Skip the per-query chart API calls only when Mode explicitly reports
+        # that this report has no charts. chart_count is a *report* field --
+        # query objects have never carried one -- so reading it off a query
+        # matched every query and stopped charts being ingested at all. That
+        # severs report->query lineage, whose only path is
+        # report -> chart -> query via ChartInfo.inputs, and lets stateful
+        # ingestion soft-delete the charts. A missing count means "unknown",
+        # never "none". https://mode.com/developer/api-reference/analytics/reports/
+        expected_chart_count = report.get("chart_count")
+        report_has_no_charts = expected_chart_count == 0
+        if isinstance(expected_chart_count, int) and expected_chart_count > 0:
+            with self.report._lock:
+                self.report.num_reports_expecting_charts += 1
         chart_urns: List[str] = []
         query_chart_data: List[
             Tuple[dict, Dict[str, SchemaFieldClass], List[dict]]
@@ -2062,13 +2003,10 @@ class ModeSource(StatefulIngestionSourceBase):
                         chart_fields.setdefault(field.fieldPath, field)
                 yield wu
 
-            # Gate on chart_count (published charts), not explorations_count
-            # (private user analyses), to avoid silently dropping report charts.
-            if query.get("chart_count", 0) == 0:
+            if report_has_no_charts:
                 charts: List[dict] = []
                 with self.report._lock:
                     self.report.chart_api_calls_skipped += 1
-                self._probe_skipped_query_for_charts(report_token, query)
             else:
                 charts = self._get_charts(report_token, query.get("token", ""))
             with self.report._lock:
@@ -2206,6 +2144,38 @@ class ModeSource(StatefulIngestionSourceBase):
 
         memory_used = self._get_process_memory()
         self.report.process_memory_used_mb = round(memory_used["rss"], 2)
+        self._warn_if_no_charts_extracted()
+
+    def _warn_if_no_charts_extracted(self) -> None:
+        """Mode said reports have charts, but we ingested none of them.
+
+        Report->query lineage exists only via report -> chart -> query, so zero
+        charts means every dashboard is orphaned from its queries and stateful
+        ingestion will soft-delete the charts ingested by previous runs. This
+        went unnoticed for two releases; it should never be silent again.
+
+        Keyed on reports whose chart_count is positive rather than on queries,
+        so a workspace whose reports genuinely have no charts stays quiet.
+        """
+        if (
+            self.report.num_reports_expecting_charts > 0
+            and self.report.num_charts_processed == 0
+        ):
+            self.report.warning(
+                title="No Charts Extracted from Any Report",
+                message="Mode reported that these reports have charts, but none "
+                "were extracted. "
+                "Dashboards will have no charts and no lineage to their queries, "
+                "and charts ingested by previous runs may be soft-deleted by "
+                "stateful ingestion. Re-run with debug logging enabled to inspect "
+                "the Mode API responses for these reports.",
+                context=f"workspace={self.config.workspace}, "
+                f"reports_processed={self.report.num_reports_processed}, "
+                f"reports_expecting_charts={self.report.num_reports_expecting_charts}, "
+                f"queries_processed={self.report.num_queries_processed}, "
+                f"chart_api_calls_skipped={self.report.chart_api_calls_skipped}, "
+                f"chart_get_api_called={self.report.chart_get_api_called}",
+            )
 
     def get_report(self) -> SourceReport:
         return self.report
