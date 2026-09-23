@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.opensearch;
+package com.linkedin.metadata.search.elasticsearch;
 
 import com.linkedin.metadata.search.semantic.SemanticSearchV3TestBase;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -9,10 +9,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 
 @Import({
-  OpenSearchSuite.class,
+  ElasticSearchSuite.class,
   SearchCommonTestConfiguration.class,
   SearchTestContainerConfiguration.class
 })
-public class SemanticSearchV3OpenSearchTest extends SemanticSearchV3TestBase {
+public class SemanticSearchV3ElasticSearchTest extends SemanticSearchV3TestBase {
   @Getter @Autowired private SearchClientShim<?> searchClient;
 }

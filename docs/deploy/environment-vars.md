@@ -515,8 +515,7 @@ one cluster or split them. Reading V3 still requires V3 writes to be enabled
 routing V3 to a second cluster does not by itself change which family is read. Semantic (kNN)
 search has its own read flag, `ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED` (default
 `false`): with V3 writes on, it reads document vectors from the V3 document index on the Search V3
-cluster instead of the semantic indices, independent of the keyword read flag. With V2 turned off,
-semantic search reads V3 without the flag, since the semantic indices are no longer written.
+cluster instead of the semantic indices, independent of the keyword read flag.
 
 #### MAE consumer (`metadata-jobs/mae-consumer-job`)
 

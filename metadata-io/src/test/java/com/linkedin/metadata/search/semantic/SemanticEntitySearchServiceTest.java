@@ -460,17 +460,15 @@ public class SemanticEntitySearchServiceTest {
   public void testShouldReadSemanticV3() {
     assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(null));
     // V3 off: the flag alone never moves reads
-    assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(true, false, true)));
+    assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(false, true)));
     // Dual-write without the flag stays on the V2 semantic indices
-    assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(true, true, false)));
-    assertTrue(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(true, true, true)));
-    // V2 off: the V2 semantic indices are no longer written, so V3 is the only source
-    assertTrue(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(false, true, false)));
+    assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(true, false)));
+    assertTrue(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(true, true)));
   }
 
   @Test
   public void testKeywordReadAloneKeepsSemanticSearchOnV2() throws IOException {
-    EntityIndexConfiguration config = entityIndex(true, true, false);
+    EntityIndexConfiguration config = entityIndex(true, false);
     config.getV3().setKeywordReadEnabled(true);
     SemanticEntitySearchService keywordCutOver = serviceWith(config);
     setupMockKnnResponse(
@@ -486,7 +484,7 @@ public class SemanticEntitySearchServiceTest {
 
   @Test
   public void testV3SemanticReadSearchesDocumentV3IndexOnSearchV3Cluster() throws IOException {
-    SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true, true));
+    SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
     stubSearchV3Cluster();
     stubEntitySpec("document", null);
     stubEntitySpec("dataset", null);
@@ -518,7 +516,7 @@ public class SemanticEntitySearchServiceTest {
 
   @Test
   public void testV3SemanticReadMapsEntityTypeFilterToV3Index() throws IOException {
-    SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true, true));
+    SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
     stubSearchV3Cluster();
     stubEntitySpec("document", null);
     when(mockIndexConvention.getEntityIndexNameV3(mockOpContext, "document"))
@@ -546,8 +544,40 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
+  public void testV3EntityTypeFilterKeepsNegationAndUnknownValues() throws IOException {
+    SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
+    stubSearchV3Cluster();
+    stubEntitySpec("document", null);
+    when(mockIndexConvention.getEntityIndexNameV3(mockOpContext, "document"))
+        .thenReturn("documentindex_v3");
+    when(v3SearchClientShim.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(new KnnSearchResponse(List.of()));
+    Criterion criterion =
+        new Criterion()
+            .setField("_entityType")
+            .setCondition(Condition.EQUAL)
+            .setNegated(true)
+            .setValues(new StringArray(List.of("DOCUMENT", "NOTATYPE")));
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion().setAnd(new CriterionArray(criterion))));
+
+    v3Service.search(mockOpContext, List.of("document"), TEST_QUERY, filter, null, 0, 10);
+
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
+    String built = requestCaptor.getValue().filter().orElseThrow().toString();
+    // Unknown types keep their value, so they match nothing, as on V2
+    assertTrue(built.contains("must_not"), built);
+    assertTrue(built.contains("_index=[documentindex_v3, NOTATYPE]"), built);
+  }
+
+  @Test
   public void testV3SemanticReadWithoutVectorIndicesReturnsEmpty() throws IOException {
-    SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true, true));
+    SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
     // A shared search-group index (the consolidated layout) is keyed by the group, which is not a
     // semantic-enabled entity, so it carries no embeddings mapping and is not a kNN target.
     stubEntitySpec("document", "primary");
@@ -602,15 +632,15 @@ public class SemanticEntitySearchServiceTest {
     return filter;
   }
 
-  /** V2/V3 flags plus semantic search enabled for documents, like the OSS defaults. */
+  /** V3 flags on top of V2 plus semantic search enabled for documents, like the OSS defaults. */
   private static EntityIndexConfiguration entityIndex(
-      boolean v2Enabled, boolean v3Enabled, boolean semanticReadEnabled) {
+      boolean v3Enabled, boolean semanticReadEnabled) {
     SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
     semanticSearch.setEnabled(true);
     semanticSearch.setEnabledEntities(Set.of("document"));
     semanticSearch.setModels(Map.of("text_embedding_3_large", new ModelEmbeddingConfig()));
     return EntityIndexConfiguration.builder()
-        .v2(EntityIndexVersionConfiguration.builder().enabled(v2Enabled).build())
+        .v2(EntityIndexVersionConfiguration.builder().enabled(true).build())
         .v3(
             EntityIndexVersionConfiguration.builder()
                 .enabled(v3Enabled)

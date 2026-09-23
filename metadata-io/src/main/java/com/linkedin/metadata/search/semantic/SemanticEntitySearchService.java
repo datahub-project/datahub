@@ -106,9 +106,9 @@ import lombok.extern.slf4j.Slf4j;
  * available), and extraFields (stringified copy of {@code _source}).
  *
  * <p>Index selection: by default kNN runs against the V2 semantic indices ({@code
- * <entity>index_v2_semantic}). When Search V3 is on and semantic reads are cut over ({@code
- * semanticReadEnabled}, or V2 turned off), it runs against the V3 entity indices whose mappings
- * carry the same {@code embeddings} field (document entities by default) on the Search V3 cluster.
+ * <entity>index_v2_semantic}). When Search V3 is on and {@code semanticReadEnabled} is set, it runs
+ * against the V3 entity indices whose mappings carry the same {@code embeddings} field (document
+ * entities by default) on the Search V3 cluster.
  *
  * <p>Matched fields/highlighting are not set in semantic mode v1. The keyword path derives {@code
  * matchedFields} from highlight fragments, but we do not request highlighting for semantic queries
@@ -379,25 +379,22 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   }
 
   /**
-   * True when kNN reads V3 entity indices instead of the V2 semantic indices: V3 is on and either
-   * {@code semanticReadEnabled} is set (dual-write cutover) or V2 is off, in which case the V2
-   * semantic indices are no longer written.
+   * True when kNN reads V3 entity indices instead of the V2 semantic indices: V3 is on and {@code
+   * semanticReadEnabled} is set. Semantic search itself requires V2 to stay enabled, so there is no
+   * V2-off case to handle here.
    */
   static boolean shouldReadSemanticV3(@Nullable EntityIndexConfiguration entityIndex) {
-    if (entityIndex == null || entityIndex.getV3() == null || !entityIndex.getV3().isEnabled()) {
-      return false;
-    }
-    if (entityIndex.getV3().isSemanticReadEnabled()) {
-      return true;
-    }
-    return entityIndex.getV2() == null || !entityIndex.getV2().isEnabled();
+    return entityIndex != null
+        && entityIndex.getV3() != null
+        && entityIndex.getV3().isEnabled()
+        && entityIndex.getV3().isSemanticReadEnabled();
   }
 
   /**
    * V3 entity indices that can serve kNN for {@code entityNames}: entity-named indices of
-   * semantic-enabled entity types, the only V3 indices that get the {@code embeddings} mapping and
-   * lifted vectors. With the default {@code enabledEntities} that leaves {@code documentindex_v3}.
-   * Entity types in a shared search-group index are skipped.
+   * semantic-enabled entity types, the only V3 indices that get the {@code embeddings} mapping.
+   * With the default {@code enabledEntities} that leaves {@code documentindex_v3}. Entity types in
+   * a shared search-group index are skipped.
    */
   @Nonnull
   private List<String> v3SemanticIndices(
@@ -411,7 +408,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       try {
         entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
       } catch (Exception e) {
-        log.warn("Skipping unknown entity type {} for semantic search", entityName, e);
+        log.warn("Skipping unknown entity type {} for semantic search", entityName);
         continue;
       }
       if (!SemanticEmbeddingMappings.isEnabledForEntity(semanticConfig, entitySpec.getName())) {
