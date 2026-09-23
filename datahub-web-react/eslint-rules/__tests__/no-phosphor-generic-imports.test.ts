@@ -1,6 +1,7 @@
-import tsParser from '@typescript-eslint/parser';
 import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
+
+import tsParser from '@typescript-eslint/parser';
 
 // The rule is a CommonJS module (loaded by ESLint via eslint-plugin-rulesdir).
 import rule from '../no-phosphor-generic-imports.js';
@@ -46,11 +47,11 @@ describe('no-phosphor-generic-imports', () => {
             // Dynamic imports with strings
             "const icon = await import('@phosphor-icons/react/dist/csr');",
             // Dynamic imports with backticks (template literals)
-            "const icon = await import(`@phosphor-icons/react/dist`);",
+            'const icon = await import(`@phosphor-icons/react/dist`);',
             // CommonJS with strings
             "const { Icon } = require('@phosphor-icons/react/dist');",
             // CommonJS with backticks
-            "const { Icon } = require(`@phosphor-icons/react`);",
+            'const { Icon } = require(`@phosphor-icons/react`);',
             // Overly broad paths that shouldn't match /dist/lib/types pattern
             "import { Icon } from '@phosphor-icons/react/dist/lib/types-old';",
         ])('flags %s', (code) => {
@@ -79,7 +80,7 @@ describe('no-phosphor-generic-imports', () => {
             "import { Icon as PhosphorIcon } from '@phosphor-icons/react/dist/lib/types';",
             "import type { Icon } from '@phosphor-icons/react/dist/lib/types';",
             // Specific icon imports with template literals in dynamic imports (allowed)
-            "const CheckCircle = import(`@phosphor-icons/react/dist/csr/CheckCircle`);",
+            'const CheckCircle = import(`@phosphor-icons/react/dist/csr/CheckCircle`);',
             // Non-phosphor imports
             "import { Button } from '@components';",
             "import { useState } from 'react';",

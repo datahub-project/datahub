@@ -1,6 +1,7 @@
-import tsParser from '@typescript-eslint/parser';
 import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
+
+import tsParser from '@typescript-eslint/parser';
 
 // The rule is a CommonJS module (loaded by ESLint via eslint-plugin-rulesdir).
 import rule from '../no-hardcoded-colors.js';
@@ -22,19 +23,26 @@ function lint(code: string): string[] {
 const stylesRead = (key: string) => `const C = styled.div\`x: \${(p) => p.theme.styles['${key}']};\`;`;
 
 describe('no-hardcoded-colors: theme.styles surface', () => {
-    // The whole color-bearing surface is banned (the legacy color on-ramp), so it flows through tokens.
+    // The whole color-bearing surface is banned, not just the four legacy brand keys.
     it.each([
-        'primary-color',
-        'primary-color-dark',
-        'primary-color-light',
         'layout-header-color',
         'body-background',
         'border-color-base',
+        'homepage-background-upper-fade',
+        'homepage-background-lower-fade',
+        'homepage-text-color',
         'box-shadow',
         'box-shadow-hover',
         'box-shadow-navbar-redesign',
-        'highlight-color',
         'highlight-border-color',
+        'divider-color',
+        'disabled-color',
+        'text-color',
+        // original brand keys still banned
+        'primary-color',
+        'primary-color-dark',
+        'primary-color-light',
+        'highlight-color',
     ])('bans theme.styles[%s]', (key) => {
         const msgs = lint(stylesRead(key));
         expect(msgs).toHaveLength(1);
