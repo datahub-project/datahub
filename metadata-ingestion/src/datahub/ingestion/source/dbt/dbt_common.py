@@ -747,11 +747,13 @@ class DBTCommonConfig(
     fail_on_cross_project_collisions: bool = Field(
         default=True,
         description="When enabled, a cross-project identity collision is reported as a failure and none of the "
-        "colliding entities are emitted. This covers two cases that only arise when ingesting multiple dbt "
-        "projects together (see manifest_path), since dbt guarantees uniqueness within a single project: (1) a "
+        "colliding entities are emitted. This covers two cases that normally only arise when ingesting multiple "
+        "dbt projects together (see manifest_path), since dbt guarantees uniqueness within a single project: (1) a "
         "model that resolves to the same target-platform table as a model in another project, and (2) a node or "
         "exposure whose dbt-assigned unique_id collides with another one, typically because two projects share a "
-        "dbt package name. Note that a reported failure also suppresses stale-entity soft-deletion for the "
+        "dbt package name. A single project can still hit case (1) when URN building folds distinct relations "
+        "into one, for example with convert_urns_to_lowercase or include_database_name: false. Note that a "
+        "reported failure also suppresses stale-entity soft-deletion for the "
         "entire run, across all projects, since the stale-entity-removal handler skips soft-deletion whenever "
         "the source reports any failure. That is deliberately the safe direction - nothing gets wrongly deleted "
         "- and it applies pressure to fix the underlying dbt naming collision. Set to False to instead keep one "
@@ -2327,7 +2329,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self.report.duplicate_models_detected = 0
         drop: Set[str] = set()
         rewire: Dict[str, str] = {}  # loser dbt_name -> winner dbt_name
-        for urn, group in sorted(by_urn.items()):
+        # Only contested URNs need a deterministic order; sorting every URN would
+        # make a single-project estate, which has none, pay for it on every run.
+        for urn, group in sorted(
+            (urn, group) for urn, group in by_urn.items() if len(group) >= 2
+        ):
             # Sorted so neither the winner nor the reported order depends on
             # manifest load order.
             group.sort(key=lambda node: node.dbt_name)
@@ -2354,8 +2360,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     title="Duplicate model names across dbt projects",
                     message="Multiple dbt nodes materialize to the same table in "
                     "the target platform, so they would share one "
-                    "URN and overwrite each other. None of them were emitted. Fix the "
-                    "dbt projects so that each materializes to a distinct relation.",
+                    "URN and overwrite each other. None of them were emitted, and "
+                    "nodes downstream of them lose that upstream lineage edge for "
+                    "this run. Fix the dbt projects so that each materializes to a "
+                    "distinct relation.",
                     context=context,
                 )
                 drop.update(node.dbt_name for node in group)
@@ -2499,9 +2507,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         """
         drop: Set[int] = set()
         colliding = 0
-        for unique_id, contenders in sorted(by_unique_id.items()):
-            if len(contenders) < 2:
-                continue
+        for unique_id, contenders in sorted(
+            (uid, items) for uid, items in by_unique_id.items() if len(items) >= 2
+        ):
             colliding += len(contenders)
             paths = [item.manifest_path or "<unknown manifest>" for item in contenders]
             context = f"{unique_id} is claimed by {kind}s from: " + ", ".join(paths)
@@ -2510,8 +2518,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     title="Duplicate dbt unique_id across projects",
                     message="Multiple dbt entities share one dbt-assigned "
                     "unique_id, which is also the key used to resolve lineage "
-                    "between dbt projects. None of them were emitted. Fix the "
-                    "dbt projects so each package name is unique.",
+                    "between dbt projects. None of them were emitted, and nodes "
+                    "downstream of them lose that upstream lineage edge for this "
+                    "run. Fix the dbt projects so each package name is unique.",
                     context=context,
                 )
                 drop.update(id(item) for item in contenders)

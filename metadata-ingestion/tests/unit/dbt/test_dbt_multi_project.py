@@ -1948,3 +1948,27 @@ def test_artifact_read_concurrency_replays_fetch_errors_per_project(
     }
     assert source.report.manifests_loaded == 2
     assert source.report.manifests_failed == 1
+
+
+def test_prefetched_bytes_are_released_when_a_project_fails(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A project that fails mid-load must not pin its unconsumed artifact bytes.
+
+    Prefetch hands load_nodes every artifact of a project before the manifest is
+    parsed. When the manifest fails, catalog.json - the largest dbt artifact - is
+    never consumed, and its bytes would otherwise stay referenced for the source's
+    lifetime, through the whole emit phase.
+    """
+    for name in ["project_a", "project_b"]:
+        _write_project(
+            tmp_path, name, [{"name": f"m_{name}", "database": "db", "schema": name}]
+        )
+    (tmp_path / "project_b" / "manifest.json").write_text("{not json")
+    (tmp_path / "project_b" / "catalog.json").write_text('{"nodes": {}}')
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    source.load_nodes()
+
+    assert source.report.manifests_failed == 1
+    assert source._prefetched_artifacts == {}

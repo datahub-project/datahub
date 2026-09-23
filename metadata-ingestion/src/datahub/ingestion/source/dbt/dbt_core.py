@@ -1048,8 +1048,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             except MemoryError:
                 # Exhausted memory is systemic, not a per-file failure to capture and
                 # replay: let it propagate so .result() re-raises it on the main thread
-                # and load_nodes fails fast, instead of the sibling workers reading yet
-                # more objects into an already-exhausted process.
+                # and load_nodes fails instead of skipping the project. Groups already
+                # in flight still finish their reads (the executor waits for them on
+                # exit), but no further groups are started.
                 raise
             except Exception as e:
                 fetched[uri] = e
@@ -1474,6 +1475,11 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     exc=e,
                 )
                 continue
+            finally:
+                # A project that failed before consuming every artifact would
+                # otherwise pin its leftover bytes (catalog.json is the largest dbt
+                # artifact) for the source's lifetime, through the whole emit phase.
+                self._prefetched_artifacts = {}
 
             all_nodes.extend(project_nodes)
 
