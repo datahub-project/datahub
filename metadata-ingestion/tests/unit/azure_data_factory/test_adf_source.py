@@ -16,6 +16,15 @@ We do NOT test:
 from typing import Callable, Optional
 
 import pytest
+from azure.mgmt.datafactory.models import (
+    AzureSqlTableDataset,
+    DatasetResource,
+    LinkedServiceReference,
+    SalesforceObjectDataset,
+    SalesforceServiceCloudObjectDataset,
+    SalesforceServiceCloudV2ObjectDataset,
+    SalesforceV2ObjectDataset,
+)
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
@@ -25,6 +34,7 @@ from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
 )
 from datahub.ingestion.source.azure_data_factory.adf_source import (
     ACTIVITY_SUBTYPE_MAP,
+    AzureDataFactorySource,
 )
 from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
@@ -177,6 +187,51 @@ class TestTableNameExtractionLogic:
         table = type_props.get("table", "")
         result = f"{schema}.{table}" if schema and table else table or schema
         assert result == "orders"
+
+
+_LINKED_SERVICE_REF = LinkedServiceReference(
+    type="LinkedServiceReference", reference_name="ls"
+)
+
+
+class TestExtractTableName:
+    @pytest.mark.parametrize(
+        "dataset_class",
+        [
+            SalesforceObjectDataset,
+            SalesforceV2ObjectDataset,
+            SalesforceServiceCloudObjectDataset,
+            SalesforceServiceCloudV2ObjectDataset,
+        ],
+    )
+    def test_salesforce_object_api_name(self, dataset_class: type) -> None:
+        """Salesforce datasets resolve to the sObject name, not the ADF dataset name."""
+        dataset = DatasetResource(
+            name="ds_crm_opportunities",
+            properties=dataset_class(
+                linked_service_name=_LINKED_SERVICE_REF,
+                object_api_name="Opportunity__c",
+            ),
+        )
+        assert AzureDataFactorySource._extract_table_name(dataset) == "Opportunity__c"
+
+    def test_salesforce_without_object_api_name_returns_none(self) -> None:
+        dataset = DatasetResource(
+            name="ds_crm",
+            properties=SalesforceV2ObjectDataset(
+                linked_service_name=_LINKED_SERVICE_REF
+            ),
+        )
+        assert AzureDataFactorySource._extract_table_name(dataset) is None
+
+    def test_sql_table_name_unchanged(self) -> None:
+        dataset = DatasetResource(
+            name="ds_customers",
+            properties=AzureSqlTableDataset(
+                linked_service_name=_LINKED_SERVICE_REF, table_name="dbo.customers"
+            ),
+        )
+        assert AzureDataFactorySource._extract_table_name(dataset) == "dbo.customers"
 
 
 class TestFilePathExtractionLogic:
