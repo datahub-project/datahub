@@ -214,6 +214,11 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         # when emitting the child activity's DataJobInputOutput to merge the edge in.
         self._cross_pipeline_edges: dict[str, list[str]] = {}
 
+        # Built in get_workunits_internal when column lineage is enabled.
+        self._copy_column_lineage_extractor: Optional[
+            CopyActivityColumnLineageExtractor
+        ] = None
+
     @classmethod
     def create(
         cls, config_dict: dict, ctx: PipelineContext
@@ -562,9 +567,6 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     else None,
                 )
                 datajob._set_container(workspace_key)
-
-                yield datajob
-                self.report.report_activity_scanned()
             except Exception as e:
                 self.report.warning(
                     title="Failed to Emit Activity",
@@ -574,6 +576,12 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     exc=e,
                     log=False,
                 )
+                continue
+
+            # Yield outside the try so downstream (consumer) errors are not
+            # misreported as activity processing failures.
+            yield datajob
+            self.report.report_activity_scanned()
 
     def _resolve_upstream_edges(
         self,
@@ -673,8 +681,10 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         output_urns: list[str],
     ) -> list[FineGrainedLineageClass]:
         """Extract column lineage for a Copy activity with resolved source and sink."""
+        extractor = self._copy_column_lineage_extractor
         if (
-            activity.type != "Copy"
+            extractor is None
+            or activity.type != "Copy"
             or not self.config.include_lineage
             or not self.config.include_column_lineage
             or not input_urns
@@ -683,7 +693,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             return []
         activity_key = f"{pipeline_item.name}.{activity.name}"
         try:
-            return self._copy_column_lineage_extractor.extract_column_lineage(
+            return extractor.extract_column_lineage(
                 activity=activity,
                 input_urn=input_urns[0],
                 output_urn=output_urns[0],

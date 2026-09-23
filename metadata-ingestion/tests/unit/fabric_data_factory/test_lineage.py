@@ -385,7 +385,10 @@ class TestResolveOnelakeUrn:
         assert result is not None
         assert f"{WS_ID}.{ARTIFACT_ID}.dbo.customers" in result
 
-    def test_explicit_other_workspace_id_is_kept(self) -> None:
+    @pytest.mark.parametrize(
+        "configured_ws", ["ws-other-workspace", "  ws-other-workspace  "]
+    )
+    def test_explicit_other_workspace_id_is_kept(self, configured_ws: str) -> None:
         other_ws = "ws-other-workspace"
         ds = {
             "linkedService": {
@@ -393,7 +396,7 @@ class TestResolveOnelakeUrn:
                     "type": "Lakehouse",
                     "typeProperties": {
                         "artifactId": ARTIFACT_ID,
-                        "workspaceId": other_ws,
+                        "workspaceId": configured_ws,
                     },
                 },
             },

@@ -343,11 +343,10 @@ class CopyActivityLineageExtractor:
         """
         for type_properties in type_properties_candidates:
             workspace_id = type_properties.get(WORKSPACE_ID_KEY)
-            if (
-                isinstance(workspace_id, str)
-                and workspace_id.strip()
-                and workspace_id.strip() != SAME_WORKSPACE_PLACEHOLDER_ID
-            ):
+            if not isinstance(workspace_id, str):
+                continue
+            workspace_id = workspace_id.strip()
+            if workspace_id and workspace_id != SAME_WORKSPACE_PLACEHOLDER_ID:
                 return workspace_id
         return pipeline_workspace_id
 

@@ -1,12 +1,23 @@
 """Unit tests for Fabric Data Factory source helper functions.
 
-Tests _parse_iso_to_millis and URL builders.
+Tests _parse_iso_to_millis, URL builders, and activity emission error isolation.
 """
 
+from typing import Generator, Union, cast
+
+import pytest
+
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.fabric.common.models import FabricItem
+from datahub.ingestion.source.fabric.common.utils import make_workspace_key
+from datahub.ingestion.source.fabric.data_factory.models import PipelineActivity
 from datahub.ingestion.source.fabric.data_factory.source import (
     FabricDataFactorySource,
     _parse_iso_to_millis,
 )
+from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.entity import Entity
 
 
 class TestParseIsoToMillis:
@@ -48,3 +59,51 @@ class TestGetPipelineRunUrl:
             "/monitoring/workspaces/ws-123"
             "/pipelines/pl-456/run-789"
         )
+
+
+class TestEmitPipelineActivities:
+    WORKSPACE_ID = "ws-1"
+    PIPELINE_ID = "pl-1"
+
+    def _emit(self) -> Generator[Union[MetadataWorkUnit, Entity], None, None]:
+        source = FabricDataFactorySource.create(
+            {
+                "credential": {
+                    "authentication_method": "service_principal",
+                    "client_id": "test-client",
+                    "client_secret": "test-secret",
+                    "tenant_id": "test-tenant",
+                },
+            },
+            PipelineContext(run_id="fabric-df-emit-activities"),
+        )
+        self.source = source
+        source._pipeline_activities_cache[(self.WORKSPACE_ID, self.PIPELINE_ID)] = [
+            PipelineActivity(name=name, type="Wait") for name in ("First", "Second")
+        ]
+        workspace_key = make_workspace_key(self.WORKSPACE_ID, None, "PROD")
+        dataflow = DataFlow(
+            platform="fabric-data-factory",
+            name=f"{self.WORKSPACE_ID}.{self.PIPELINE_ID}",
+            parent_container=workspace_key,
+        )
+        pipeline_item = FabricItem(
+            id=self.PIPELINE_ID,
+            name="etl",
+            type="DataPipeline",
+            workspace_id=self.WORKSPACE_ID,
+        )
+        return cast(
+            Generator[Union[MetadataWorkUnit, Entity], None, None],
+            source._emit_pipeline_activities(
+                pipeline_item, dataflow, workspace_key, {}
+            ),
+        )
+
+    def test_consumer_error_is_not_reported_as_activity_failure(self) -> None:
+        """An error raised into the generator by its consumer must propagate."""
+        emitted = self._emit()
+        next(emitted)
+        with pytest.raises(RuntimeError, match="sink failed"):
+            emitted.throw(RuntimeError("sink failed"))
+        assert len(self.source.report.warnings) == 0
