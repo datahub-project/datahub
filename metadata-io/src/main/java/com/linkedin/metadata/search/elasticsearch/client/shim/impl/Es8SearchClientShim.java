@@ -1950,7 +1950,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                 jacksonJsonpMapper));
   }
 
-  /** Normalizes legacy OpenSearch HLRC JSON (queries, rescores, aggregations) for ES 8.18+. */
+  /**
+   * Normalizes legacy OpenSearch HLRC JSON (queries, rescores, aggregations, kNN bodies) for ES
+   * 8.18+.
+   */
   private String normalizeQueryJson(String jsonString) {
     try {
       return LegacyRangeQueryNormalizer.normalize(jsonString, objectMapper);
