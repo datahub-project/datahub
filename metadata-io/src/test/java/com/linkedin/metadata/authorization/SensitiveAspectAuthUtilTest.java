@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
@@ -17,6 +18,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -133,10 +135,14 @@ public class SensitiveAspectAuthUtilTest {
             opContext, new LinkedHashMap<>(Map.of(USER_URN, response)));
 
     assertEquals(filtered.get(USER_URN).getAspects().keySet(), Set.of(CORP_USER_INFO_ASPECT_NAME));
+    assertNotSame(filtered.get(USER_URN), response);
     // The service's instance is left intact for callers that may legitimately read the aspect.
     assertEquals(
         response.getAspects().keySet(),
         Set.of(CORP_USER_INFO_ASPECT_NAME, CORP_USER_CREDENTIALS_ASPECT_NAME));
+    assertTrue(
+        ((DataMap) response.data().get("aspects"))
+            .containsKey(CORP_USER_CREDENTIALS_ASPECT_NAME));
     assertEquals(filtered.get(USER_URN).getUrn(), USER_URN);
   }
 

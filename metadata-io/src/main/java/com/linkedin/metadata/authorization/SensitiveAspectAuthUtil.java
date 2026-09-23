@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.CORP_USER_CREDENTIALS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 
 import com.datahub.authorization.AuthUtil;
+import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -95,7 +96,8 @@ public final class SensitiveAspectAuthUtil {
       return response;
     }
     try {
-      EntityResponse filtered = response.clone();
+      EntityResponse filtered =
+          RecordUtils.toRecordTemplate(EntityResponse.class, response.data().copy());
       filtered.setAspects(allowed);
       return filtered;
     } catch (CloneNotSupportedException e) {
