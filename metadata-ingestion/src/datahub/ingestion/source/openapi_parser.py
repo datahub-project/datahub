@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Literal, Optional, Tuple
 
 import requests
 import yaml
@@ -401,12 +401,27 @@ def extract_fields(
             return [], {}
 
 
+_REQUEST_TIMEOUT_SECONDS = 30
+
+
+def _join_url(base: str, path: str) -> str:
+    # Docs/recipes often omit a trailing slash on url and a leading slash on
+    # swagger_file; naive concatenation would produce a broken host+path join.
+    if not path:
+        return base
+    if base.endswith("/") and path.startswith("/"):
+        return f"{base}{path[1:]}"
+    if not base.endswith("/") and not path.startswith("/"):
+        return f"{base}/{path}"
+    return f"{base}{path}"
+
+
 def get_tok(
     url: str,
     username: str = "",
     password: str = "",
     tok_url: str = "",
-    method: str = "post",
+    method: Literal["get", "post"] = "post",
     proxies: Optional[dict] = None,
     verify_ssl: bool = True,
 ) -> str:
@@ -414,30 +429,74 @@ def get_tok(
     Trying to post username/password to get auth.
     """
     token = ""
-    url4req = url + tok_url
+    url4req = _join_url(url, tok_url)
+    timeout = _REQUEST_TIMEOUT_SECONDS
+    # NOTE: for method="get" the caller substitutes the raw username/password into
+    # url4req before calling get_tok. Any exception raised below must not embed
+    # url4req/response body (e.g. via a raw `requests` exception), since report.failure
+    # renders exception messages verbatim in the ingestion report UI.
     if method == "post":
         # this will make a POST call with username and password
         data = {"username": username, "password": password, "maxDuration": True}
-        # url2post = url + "api/authenticate/"
-        response = requests.post(url4req, proxies=proxies, json=data, verify=verify_ssl)
+        try:
+            response = requests.post(
+                url4req,
+                proxies=proxies,
+                json=data,
+                verify=verify_ssl,
+                timeout=timeout,
+            )
+        except requests.exceptions.RequestException as e:
+            # from None (not from e): the requests exception message often
+            # embeds the request URL, which for method="get" carries the
+            # substituted password; chaining it as __cause__ would still leak
+            # through exc_info-based DEBUG logging even though report.failure
+            # only renders str(exc) for the top-level exception.
+            raise ValueError(
+                f"Failed to request token from OpenAPI endpoint ({type(e).__name__})"
+            ) from None
         if response.status_code == 200:
-            cont = json.loads(response.content)
-            if "token" in cont:  # other authentication scheme
-                token = cont["token"]
-            else:  # works only for bearer authentication scheme
-                token = f"Bearer {cont['tokens']['access']}"
+            try:
+                cont = json.loads(response.content)
+                if "token" in cont:  # other authentication scheme
+                    token = cont["token"]
+                else:  # works only for bearer authentication scheme
+                    token = f"Bearer {cont['tokens']['access']}"
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                raise ValueError(
+                    f"Unexpected token response shape (status {response.status_code})"
+                ) from e
     elif method == "get":
         # this will make a GET call with username and password
-        response = requests.get(url4req, verify=verify_ssl)
+        try:
+            response = requests.get(
+                url4req, proxies=proxies, verify=verify_ssl, timeout=timeout
+            )
+        except requests.exceptions.RequestException as e:
+            # from None (not from e): the requests exception message often
+            # embeds the request URL, which for method="get" carries the
+            # substituted password; chaining it as __cause__ would still leak
+            # through exc_info-based DEBUG logging even though report.failure
+            # only renders str(exc) for the top-level exception.
+            raise ValueError(
+                f"Failed to request token from OpenAPI endpoint ({type(e).__name__})"
+            ) from None
         if response.status_code == 200:
-            cont = json.loads(response.content)
-            token = cont["token"]
+            try:
+                cont = json.loads(response.content)
+                token = cont["token"]
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                raise ValueError(
+                    f"Unexpected token response shape (status {response.status_code})"
+                ) from e
     else:
         raise ValueError(f"Method unrecognised: {method}")
     if token != "":
         return token
     else:
-        raise Exception(f"Unable to get a valid token: {response.text}")
+        raise Exception(
+            f"Unable to get a valid token: received status {response.status_code}"
+        )
 
 
 def set_metadata(
