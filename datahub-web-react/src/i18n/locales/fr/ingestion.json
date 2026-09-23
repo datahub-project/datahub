@@ -47,6 +47,7 @@
     "executions.someHidden": "Certaines exécutions peuvent être masquées",
     "executions.summaryAborted": "Le job d'ingestion a été interrompu suite au redémarrage du worker.",
     "executions.summaryCancelled": "L'ingestion a été annulée.",
+    "executions.summaryDuplicate": "Le Job d'Ingestion a été annulé car une ou plusieurs autres instances de ce Job existent déjà.",
     "executions.summaryFailure": "L'ingestion n'a pas pu se terminer, ou s'est terminée avec des erreurs.",
     "executions.summaryRollbackFailed": "Le rollback de l'ingestion a échoué.",
     "executions.summaryRolledBack": "L'ingestion a fait l'objet d'un rollback.",

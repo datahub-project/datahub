@@ -46,6 +46,7 @@
     "executions.someHidden": "部分執行紀錄可能已隱藏",
     "executions.summaryAborted": "資料擷取工作因工作程序重新啟動而中止。",
     "executions.summaryCancelled": "資料擷取已取消。",
+    "executions.summaryDuplicate": "資料擷取工作已取消，因為此工作的另一個執行個體已存在。",
     "executions.summaryFailure": "資料擷取未能完成，或完成時發生錯誤。",
     "executions.summaryRollbackFailed": "資料擷取復原失敗。",
     "executions.summaryRolledBack": "資料擷取已復原。",
