@@ -1,6 +1,7 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -16,13 +17,12 @@ const ParentNodesWrapper = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     align-items: center;
-    margin-bottom: 3px;
     overflow: hidden;
+    line-height: 22px;
 `;
 
 const ParentNode = styled(Typography.Text)<{ color?: string }>`
-    margin-left: 4px;
-    color: ${(props) => (props.color ? props.color : props.theme.colors.textTertiary)};
+    color: ${(props) => props.color || props.theme.colors.textTertiary};
 `;
 
 const ArrowWrapper = styled.span`

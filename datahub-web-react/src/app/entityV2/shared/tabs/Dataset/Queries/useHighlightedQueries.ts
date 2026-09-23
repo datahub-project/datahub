@@ -20,6 +20,7 @@ export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText }: Pro
     const { sortField, sortOrder } = sorting;
 
     const entityFilter = getQueryEntitiesFilter(entityUrn, siblingUrn);
+
     const {
         data: highlightedQueriesData,
         client,

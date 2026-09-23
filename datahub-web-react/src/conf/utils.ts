@@ -10,9 +10,9 @@
 import { Location } from 'history';
 
 export const getRedirectUrl = (newRoutes: { [key: string]: string }, location: Location) => {
-    let newPathname = `${location.pathname}${location.search}`;
+    let newPathname = `${location.pathname}`;
     if (!newRoutes) {
-        return newPathname;
+        return `${newPathname}${location.search}`;
     }
 
     // eslint-disable-next-line no-restricted-syntax

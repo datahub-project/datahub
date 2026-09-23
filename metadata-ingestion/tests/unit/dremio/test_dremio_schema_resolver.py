@@ -3,6 +3,7 @@ import sqlglot
 
 from datahub.ingestion.source.dremio.dremio_source import DremioSchemaResolver
 from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing.sqlglot_lineage import _table_name_from_sqlglot_table
 
 
 class TestDremioSchemaResolver:
@@ -193,7 +194,7 @@ class TestDremioSchemaResolverWithSQLGlot:
         """Helper to parse a table reference from SQL using SQLGlot."""
         parsed = sqlglot.parse_one(sql, dialect="dremio")
         for table in parsed.find_all(sqlglot.exp.Table):
-            return _TableName.from_sqlglot_table(table)
+            return _table_name_from_sqlglot_table(table, None)
         raise ValueError(f"No table found in SQL: {sql}")
 
     @pytest.mark.parametrize(
@@ -262,7 +263,6 @@ class TestDremioSchemaResolverWithSQLGlot:
         table = self._parse_table_from_sql(sql)
 
         qualified_table = table.qualified(
-            dialect=sqlglot.Dialect.get_or_raise("dremio"),
             default_db="dremio",
             default_schema=None,
         )
@@ -287,7 +287,7 @@ class TestDremioSchemaResolverWithSQLGlot:
 
         parsed_tables = []
         for table in parsed.find_all(sqlglot.exp.Table):
-            parsed_tables.append(_TableName.from_sqlglot_table(table))
+            parsed_tables.append(_table_name_from_sqlglot_table(table, None))
 
         assert len(parsed_tables) == 2
 
@@ -315,7 +315,7 @@ class TestDremioSchemaResolverWithSQLGlot:
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table = tables[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
         urn = resolver.get_urn_for_table(table_name)
 
         # Verify the full hierarchy is preserved
@@ -350,7 +350,7 @@ class TestDremioSchemaResolverWithSQLGlot:
         sql = "SELECT * FROM MySpace.folder1.folder2.folder3.table"
         parsed = sqlglot.parse_one(sql, dialect="dremio")
         tables = list(parsed.find_all(sqlglot.exp.Table))
-        table_name = _TableName.from_sqlglot_table(tables[0])
+        table_name = _table_name_from_sqlglot_table(tables[0], None)
 
         # Verify SQLGlot correctly populates parts for unquoted identifiers
         assert table_name.parts is not None

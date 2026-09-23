@@ -139,7 +139,7 @@ class TestGenerateAllUdfs:
             assert f"CREATE OR REPLACE FUNCTION {function_name}" in udf_sql
             assert "RETURNS VARIANT" in udf_sql
             assert "LANGUAGE PYTHON" in udf_sql
-            assert "RUNTIME_VERSION = '3.10'" in udf_sql
+            assert "RUNTIME_VERSION = '3.11'" in udf_sql
             assert "PACKAGES = ('datahub-agent-context==1.4.0.5')" in udf_sql
             assert (
                 "SECRETS = ('datahub_url_secret' = datahub_url, 'datahub_token_secret' = datahub_token)"

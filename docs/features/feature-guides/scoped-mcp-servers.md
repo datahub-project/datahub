@@ -55,7 +55,101 @@ _Screenshot: MCP Servers management page (default + scoped servers, master switc
 5. Copy the **Connection URL** shown in the form (for example, `https://<tenant>.acryl.io/mcp/finance`).
 6. Save.
 
-Point MCP clients at that URL using the same auth patterns as the [default managed MCP server](./mcp.md).
+## Connect a Client to a Scoped Server
+
+Only the URL differs from the default server. Transport and auth are the same.
+
+:::caution Use your tenant URL, not `mcp.datahub.com`
+`https://mcp.datahub.com/mcp` always resolves to your tenant's **default** server; you cannot select a scoped one through it. Use the **Connection URL** from **Settings → AI → MCP Servers** instead, for example `https://<tenant>.acryl.io/mcp/finance`.
+:::
+
+Copy that URL rather than assembling it by hand, then follow the steps for your client below.
+
+<details>
+  <summary>Claude (web and desktop)</summary>
+
+1. Open **Customize → Connectors**.
+2. Click **+**, then **Add custom connector**.
+3. **Name**: identify the scope, e.g. `DataHub — Finance`. You may run several side by side.
+4. **Remote MCP server URL**: the scoped Connection URL.
+5. Leave **Advanced settings** empty. DataHub registers the client via DCR.
+6. Click **Add**, then **Connect**, and sign in to DataHub.
+
+The URL identifies the tenant, so Claude won't ask for a DataHub domain.
+
+On **Team and Enterprise**, an owner adds the connector under **Organization settings → Connectors**; members then connect it individually from **Customize → Connectors**.
+
+</details>
+
+<details>
+  <summary>Claude Code</summary>
+
+```bash
+claude mcp add --transport http datahub-finance https://<tenant>.acryl.io/mcp/finance
+```
+
+The first tool call returns `401`. Run `/mcp`, select the server, and choose **Authenticate**. Name each server distinctly (`datahub-finance`, `datahub-sales`) so they can coexist.
+
+</details>
+
+<details>
+  <summary>Cursor</summary>
+
+Add an entry to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "datahub-finance": {
+      "url": "https://<tenant>.acryl.io/mcp/finance"
+    }
+  }
+}
+```
+
+Save, then finish the OAuth flow in your browser.
+
+</details>
+
+<details>
+  <summary>Personal access token (service accounts, unattended agents)</summary>
+
+For clients that can't do OAuth:
+
+```json
+{
+  "mcpServers": {
+    "datahub-finance": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://<tenant>.acryl.io/mcp/finance",
+        "--header",
+        "Authorization: Bearer <token>"
+      ]
+    }
+  }
+}
+```
+
+See [Service Accounts for Agentic Workflows](./mcp.md#service-accounts-for-agentic-workflows) to provision the token.
+
+</details>
+
+## Scoping Is Not Access Control
+
+A scoped View changes what an agent surfaces by default. It does not revoke anyone's access: the same user can still query outside the scope through the default server, the UI, or the API.
+
+If users must be prevented from reading data outside the scope, use [view policies](../../authorization/policies.md) to restrict what they can see, and treat the scoped server as an ergonomics layer on top.
+
+## Handling Missing Context
+
+**Custom instructions** are where you tell an agent how to behave when the tools return nothing. By default it may fall back on general knowledge; where a wrong answer is worse than no answer, say so explicitly:
+
+> You answer questions only from the finance context available through these tools. If the tools return no relevant assets, documents, or queries for a question, say that you do not have the context to answer it and suggest who to ask. Never answer from prior knowledge or infer values that the tools did not return.
+
+This is guidance, not a guarantee. Test it with questions you expect to fall outside the scope before rolling the server out.
 
 ## Edit an MCP Server
 
@@ -72,4 +166,5 @@ You can also:
 
 ## Next steps
 
-- Configure your client connection and auth: [DataHub MCP Server](./mcp.md)
+- Client setup and auth: [DataHub MCP Server](./mcp.md)
+- Restricting what users can read: [Policies](../../authorization/policies.md)

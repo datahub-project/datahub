@@ -1,17 +1,16 @@
-import { Button, DatePicker, Loader, Modal, SimpleSelect, TextArea, toast } from '@components';
-import React, { useEffect, useState } from 'react';
+import { Button, DatePicker, DatePickerVariant, Loader, Modal, TextArea, toast } from '@components';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
-import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { getRawFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@app/entityV2/schemaField/utils';
+import SelectColumnReplacementModal from '@app/entityV2/shared/EntityDropdown/SelectColumnReplacementModal';
 import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
-import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
-import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
-import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
+import { getEntityTypeFromEntityUrn, getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
 import { decommissionTimeToSeconds } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import type { Dayjs } from '@utils/dayjs';
@@ -19,7 +18,7 @@ import dayjs from '@utils/dayjs';
 
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
-import { Deprecation, Entity, ResourceRefInput, SubResourceType } from '@types';
+import { Deprecation, Entity, EntityType, ResourceRefInput, SubResourceType } from '@types';
 
 type DeprecationModalResult = {
     note?: string | null;
@@ -68,8 +67,6 @@ export const UpdateDeprecationModal = ({
     const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcf } = useTranslation('common.feedback');
-    const { entityWithSchema } = useGetEntityWithSchema();
-    const schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
     const entityRegistry = useEntityRegistry();
     const isEditMode = !!initialDeprecation;
 
@@ -84,14 +81,48 @@ export const UpdateDeprecationModal = ({
 
     const isDeprecatingFields =
         !!resourceRefs && resourceRefs.length > 0 && resourceRefs[0].subResourceType === SubResourceType.DatasetField;
-    const resourceFromWhichReplacementIsSelected = resourceRefs?.[0]?.resourceUrn;
+    const deprecatedFieldTableUrn = resourceRefs?.[0]?.resourceUrn;
+    // Datasets and glossary terms both carry columns, and a replacement is only offered from the
+    // same kind of parent, so the picker follows whatever the deprecated column hangs off.
+    const deprecatedFieldParentType =
+        (deprecatedFieldTableUrn && getEntityTypeFromEntityUrn(deprecatedFieldTableUrn, entityRegistry)) ||
+        EntityType.Dataset;
+    const replacementColumnUrn =
+        isDeprecatingFields && replacementUrn?.startsWith(SCHEMA_FIELD_PREFIX) ? replacementUrn : undefined;
 
+    // Both lookups here feed a display name and nothing else, so neither asks for the lineage counts
+    // or the sibling search that getEntities would otherwise resolve.
     const { data: replacementData, loading: replacementLoading } = useGetEntitiesQuery({
         variables: {
             urns: [replacementUrn || ''],
+            skipLineage: true,
+            skipSiblingsSearch: true,
         },
         skip: !replacementUrn || replacementUrn?.startsWith(SCHEMA_FIELD_PREFIX),
     });
+
+    // The table holding the replacement column, which may differ from the deprecated column's own.
+    const replacementColumnTableUrn = replacementColumnUrn
+        ? getSourceUrnFromSchemaFieldUrn(replacementColumnUrn)
+        : undefined;
+
+    const { data: replacementColumnTableData } = useGetEntitiesQuery({
+        variables: {
+            urns: [replacementColumnTableUrn || ''],
+            skipLineage: true,
+            skipSiblingsSearch: true,
+        },
+        skip: !replacementColumnTableUrn,
+    });
+    const replacementColumnTable = replacementColumnTableData?.entities?.[0];
+
+    // A bare field path is ambiguous now that the replacement can live in any table, so name both.
+    const replacementColumnLabel = useMemo(() => {
+        if (!replacementColumnUrn) return '';
+        const fieldPath = getV1FieldPathFromSchemaFieldUrn(replacementColumnUrn);
+        if (!replacementColumnTable) return fieldPath;
+        return `${entityRegistry.getDisplayName(replacementColumnTable.type, replacementColumnTable)}.${fieldPath}`;
+    }, [replacementColumnUrn, replacementColumnTable, entityRegistry]);
 
     useEffect(() => {
         const nextValues = getInitialFormValues(initialDeprecation);
@@ -99,6 +130,15 @@ export const UpdateDeprecationModal = ({
         setDecommissionTime(nextValues.decommissionTime);
         setReplacementUrn(nextValues.replacementUrn);
     }, [initialDeprecation]);
+
+    // The entity query above is skipped for schemaField urns, so a column replacement has to be
+    // assembled from what the picker already knows. Anything else — including an asset replacement
+    // an existing field deprecation may carry — is reported as the entity that was fetched.
+    const replacementEntity: Entity | null = useMemo(() => {
+        if (!replacementUrn) return null;
+        if (replacementColumnUrn) return { urn: replacementColumnUrn, type: EntityType.SchemaField };
+        return replacementData?.entities?.[0] ?? null;
+    }, [replacementColumnUrn, replacementUrn, replacementData]);
 
     const handleSubmit = async () => {
         toast.loading(tcf('updating'));
@@ -138,7 +178,7 @@ export const UpdateDeprecationModal = ({
         refetch?.({
             note: note || null,
             decommissionTime: decommissionTime ? decommissionTime.unix() * 1000 : null,
-            replacement: replacementData?.entities?.[0] ?? null,
+            replacement: replacementEntity,
         });
         onClose();
     };
@@ -175,6 +215,7 @@ export const UpdateDeprecationModal = ({
                     placeholder={t('deprecation.decommissionDateLabel')}
                     value={decommissionTime}
                     onChange={(v) => setDecommissionTime(v)}
+                    variant={DatePickerVariant.EditableInput}
                 />
 
                 {isReplacementModalVisible && !isDeprecatingFields && (
@@ -195,38 +236,18 @@ export const UpdateDeprecationModal = ({
                     />
                 )}
                 {isReplacementModalVisible && isDeprecatingFields && (
-                    <Modal
-                        title={t('deprecation.selectReplacement')}
+                    <SelectColumnReplacementModal
+                        parentEntityType={deprecatedFieldParentType}
+                        initialTableUrn={replacementColumnTableUrn ?? deprecatedFieldTableUrn}
+                        initialFieldPath={
+                            replacementColumnUrn ? getRawFieldPathFromSchemaFieldUrn(replacementColumnUrn) : undefined
+                        }
+                        onSave={(nextReplacementUrn) => {
+                            setReplacementUrn(nextReplacementUrn);
+                            setIsReplacementModalVisible(false);
+                        }}
                         onCancel={() => setIsReplacementModalVisible(false)}
-                        buttons={[
-                            {
-                                text: tc('cancel'),
-                                variant: 'text',
-                                onClick: () => setIsReplacementModalVisible(false),
-                            },
-                            {
-                                text: tc('save'),
-                                onClick: () => setIsReplacementModalVisible(false),
-                            },
-                        ]}
-                    >
-                        <SimpleSelect
-                            placeholder={t('deprecation.selectReplacement')}
-                            options={
-                                schemaMetadata?.fields?.map((field: any) => ({
-                                    value: field.fieldPath,
-                                    label: downgradeV2FieldPath(field.fieldPath),
-                                })) || []
-                            }
-                            onUpdate={(vals) => {
-                                if (vals.length > 0) {
-                                    setReplacementUrn(
-                                        generateSchemaFieldUrn(vals[0], resourceFromWhichReplacementIsSelected || ''),
-                                    );
-                                }
-                            }}
-                        />
-                    </Modal>
+                    />
                 )}
 
                 <ReplacementControls>
@@ -237,13 +258,22 @@ export const UpdateDeprecationModal = ({
                             entity={replacementData?.entities?.[0] as any}
                         />
                     )}
-                    {replacementUrn && isDeprecatingFields && (
-                        <Button variant="text" onClick={() => setIsReplacementModalVisible(true)}>
-                            {getV1FieldPathFromSchemaFieldUrn(replacementUrn)}
+                    {!!replacementColumnUrn && (
+                        <Button
+                            variant="text"
+                            onClick={() => setIsReplacementModalVisible(true)}
+                            data-testid="edit-replacement"
+                        >
+                            {replacementColumnLabel}
                         </Button>
                     )}
                     {!replacementUrn && (
-                        <Button variant="secondary" size="sm" onClick={() => setIsReplacementModalVisible(true)}>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setIsReplacementModalVisible(true)}
+                            data-testid="select-replacement"
+                        >
                             {t('deprecation.selectReplacement')}
                         </Button>
                     )}

@@ -85,6 +85,7 @@ def _create_default_sink_pipeline(auth_session, monkeypatch, default_sink, data_
     )
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "default_sink,expected_sink_type",
     [("rest", "datahub-rest"), ("kafka", "datahub-kafka")],

@@ -20,7 +20,11 @@ from .token_utils import (
     wait_for_user_in_list,
 )
 
-pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.domain(Domain.PLATFORM),
+    pytest.mark.p0,
+]
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"

@@ -9,7 +9,6 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_MESSAGES_PER_TOPIC,
@@ -19,6 +18,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     OffsetResetStrategy,
     SamplingStrategy,
 )
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -26,7 +26,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
-from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
+from datahub.masking.secret_registry import SecretRegistry
 
 
 class SchemaResolutionFallback(ConfigModel):
@@ -49,7 +49,7 @@ class SchemaResolutionFallback(ConfigModel):
     )
 
 
-class ProfilerConfig(GEProfilingConfig):
+class ProfilerConfig(ProfilingConfig):
     max_sample_time_seconds: PositiveInt = Field(
         default=DEFAULT_MAX_SAMPLE_TIME_SECONDS,
         description="Maximum time to spend sampling messages in seconds. Must be positive.",
@@ -186,13 +186,12 @@ class KafkaSourceConfig(
                 catalog.api_secret = SecretStr(secret)
             # _register_secret_fields already ran (it is a mode="after" validator),
             # so credentials inherited here must be registered for redaction by hand.
-            if is_masking_enabled():
-                SecretRegistry.get_instance().register_secrets_batch(
-                    {
-                        "confluent_catalog.api_key": key,
-                        "confluent_catalog.api_secret": secret,
-                    }
-                )
+            SecretRegistry.get_instance().register_secrets_batch(
+                {
+                    "confluent_catalog.api_key": key,
+                    "confluent_catalog.api_secret": secret,
+                }
+            )
 
         catalog.validate_connection()
         return self

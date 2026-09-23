@@ -177,6 +177,7 @@ def unassigned_before_each(auth_session, form_urn):
     wait_for_writes_to_sync()
 
 
+@pytest.mark.p0
 def test_batch_assign_and_remove_form(auth_session, form_urn):
     res_data = _assign(auth_session, form_urn, DATASET_URNS)
     assert res_data["data"]["batchAssignForm"] is True
