@@ -48,6 +48,10 @@ public final class RequestStats {
   public static final AttributeKey<Long> REQUEST_START =
       AttributeKey.longKey("datahub.request.start");
 
+  /** True when the server's async request timeout fired before the handler finished. */
+  public static final AttributeKey<Boolean> REQUEST_TIMEOUT =
+      AttributeKey.booleanKey("datahub.request.timeout");
+
   /** Distinct Postgres backend process ids this request's connections were served by. */
   public static final AttributeKey<List<Long>> PG_BACKEND_PIDS =
       AttributeKey.longArrayKey("datahub.pg.backend_pids");
@@ -65,6 +69,7 @@ public final class RequestStats {
   private final AtomicLong dbCalls = new AtomicLong();
   private final AtomicLong esSeq = new AtomicLong();
   private final Set<Long> backendPids = ConcurrentHashMap.newKeySet();
+  private volatile long timeoutAtNanos;
 
   @Nullable private volatile Span span;
   @Nullable private volatile String actorUrn;
@@ -116,6 +121,26 @@ public final class RequestStats {
     if (pid > 0 && backendPids.size() < MAX_BACKEND_PIDS) {
       backendPids.add(pid);
     }
+  }
+
+  /** Records that the async request timeout fired while the handler was still running. */
+  public void markTimeout() {
+    if (timeoutAtNanos == 0L) {
+      timeoutAtNanos = System.nanoTime();
+    }
+  }
+
+  /** {@code System.nanoTime()} when the timeout fired, or 0 when it did not. */
+  public long getTimeoutAtNanos() {
+    return timeoutAtNanos;
+  }
+
+  /** One-line summary of store usage so far, for log lines: "es=3 calls/120.4 ms, pg=2/5.1 ms". */
+  @Nonnull
+  public String summary() {
+    return String.format(
+        "es=%d calls/%.1f ms, pg=%d borrows/%.1f ms",
+        esCalls.get(), esNanos.get() / 1_000_000.0d, dbCalls.get(), dbNanos.get() / 1_000_000.0d);
   }
 
   /**
@@ -201,6 +226,9 @@ public final class RequestStats {
     }
     if (requestStart != null) {
       target.setAttribute(REQUEST_START, requestStart);
+    }
+    if (timeoutAtNanos != 0L) {
+      target.setAttribute(REQUEST_TIMEOUT, true);
     }
     if (!backendPids.isEmpty()) {
       List<Long> pids = new ArrayList<>(backendPids);
