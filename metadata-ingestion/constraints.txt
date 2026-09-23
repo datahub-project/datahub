@@ -1384,7 +1384,7 @@ snowflake-connector-python==4.4.0 ; python_full_version >= '3.11' and python_ful
     # via
     #   acryl-datahub
     #   snowflake-sqlalchemy
-snowflake-sqlalchemy==1.9.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+snowflake-sqlalchemy==1.11.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 sortedcontainers==2.4.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via

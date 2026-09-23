@@ -99,3 +99,9 @@ soupsieve>=2.9.0
 # torch: CVE-2025-3001 (fixed 2.10.0), CVE-2025-3000 (fixed 2.13.0). pytorch-lightning only
 # requires torch>=2.1.0 (no upper bound), so this is compatible. Cap major until reviewed.
 torch>=2.13.0,<3.0.0
+# snowflake-sqlalchemy: CVE-2026-15736 (SQL injection via MERGE INTO column keys and via
+# literal-rendered DDL bound params; arbitrary local file read from connection params
+# forwarded out of the URL query string); fixed in 1.11.0. Cap major until reviewed: 2.0.x
+# drops SQLAlchemy 1.4 and requires snowflake-connector-python>=5. Mirrors the setup.py
+# floor so image builds pick it up without waiting for an acryl-datahub release.
+snowflake-sqlalchemy>=1.11.0,<2.0.0
