@@ -2358,6 +2358,20 @@ class TestVenvCacheInSetupVenv:
             # prefix semantics, so it really is immutable.
             pytest.param(["some-lib===1.2.3"], False, id="arbitrary-equality"),
             pytest.param(["a==1.0", "b==2.0"], False, id="several-exact-pins"),
+            # An exact pin fixes the version whatever else is ANDed with it,
+            # so an extra bound must not turn it into a moving target.
+            pytest.param(["some-lib==1.2.3,>=1.0"], False, id="exact-pin-with-a-bound"),
+            # Option lines name no artifact, so they cannot be called pinned.
+            # A constraints file is the case that matters: the key sees only
+            # its path, so its contents can change under an unchanged key.
+            pytest.param(
+                ["-c constraints.txt", "some-lib==1.2.3"], True, id="constraints-file"
+            ),
+            pytest.param(
+                ["--extra-index-url https://index.example/simple", "some-lib==1.2.3"],
+                True,
+                id="index-option",
+            ),
         ],
     )
     async def test_an_unpinned_extra_requirement_makes_the_entry_expire(
