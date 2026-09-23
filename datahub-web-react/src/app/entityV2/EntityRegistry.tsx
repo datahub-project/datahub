@@ -310,6 +310,11 @@ export default class EntityRegistry {
         return entity.displayName(data);
     }
 
+    getCreatedTime<T>(type: EntityType, data: T): number | undefined | null {
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
+        return entity.createdTime?.(data);
+    }
+
     getSidebarTabs(type: EntityType): EntitySidebarTab[] {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.getSidebarTabs ? entity.getSidebarTabs() : [];
