@@ -53,8 +53,10 @@ public class DatahubOpenlineageConfig {
   // Microsoft Fabric OneLake: map OneLake table paths (abfss://...@onelake.dfs.fabric.microsoft.com
   // /<item>/Tables/[<schema>/]<table>) to the fabric-onelake platform using the same dataset name
   // as the fabric-onelake ingestion source (<workspaceGUID>.<itemGUID>.<schema>.<table>), instead
-  // of an abs path dataset. Other OneLake paths (e.g. /Files/) stay on abs.
-  @Builder.Default private final boolean fabricOneLakeEnabled = true;
+  // of an abs path dataset. Other OneLake paths (e.g. /Files/) stay on abs. Opt-in: enabling it
+  // re-keys lineage for OneLake tables away from the abs / catalog-symlink (hive) URNs emitted
+  // before, so it must not change existing users' URNs by default.
+  @Builder.Default private final boolean fabricOneLakeEnabled = false;
   // Mirrors the fabric-onelake source's convert_urns_to_lowercase: lowercases schema and table.
   // Workspace/item GUIDs are always lowercased (the Fabric REST API returns them lowercase).
   @Builder.Default private final boolean fabricOneLakeConvertUrnsToLowercase = false;

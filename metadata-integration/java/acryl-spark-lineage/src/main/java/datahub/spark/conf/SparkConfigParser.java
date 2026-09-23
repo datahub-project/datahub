@@ -488,9 +488,13 @@ public class SparkConfigParser {
         && datahubConfig.getBoolean(DATASET_LOWERCASE_URNS);
   }
 
+  /**
+   * Opt-in: mapping OneLake table paths to {@code fabric-onelake} URNs re-keys lineage that was
+   * previously emitted on {@code abs} / catalog-symlink URNs, so it is off unless set.
+   */
   public static boolean isFabricOneLakeEnabled(Config datahubConfig) {
-    return !datahubConfig.hasPath(FABRIC_ONELAKE_ENABLED)
-        || datahubConfig.getBoolean(FABRIC_ONELAKE_ENABLED);
+    return datahubConfig.hasPath(FABRIC_ONELAKE_ENABLED)
+        && datahubConfig.getBoolean(FABRIC_ONELAKE_ENABLED);
   }
 
   public static boolean isFabricOneLakeConvertUrnsToLowercase(Config datahubConfig) {

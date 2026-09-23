@@ -28,8 +28,12 @@ public class DatahubOpenlineageProperties {
   // Dataset path configuration
   private String filePartitionRegexpPattern;
 
-  // Microsoft Fabric OneLake: map OneLake table paths to fabric-onelake connector URNs
-  private boolean fabricOnelakeEnabled = true;
+  // Microsoft Fabric OneLake: map OneLake table paths to fabric-onelake connector URNs. Opt-in,
+  // because enabling it re-keys OneLake table lineage away from the abs / hive URNs used before.
+  // Field names use "Onelake" (not "OneLake") so the relaxed-binding property names are
+  // fabric-onelake-* (DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_*), matching the platform name; the
+  // converter config uses fabricOneLake*.
+  private boolean fabricOnelakeEnabled = false;
   // Mirrors the fabric-onelake source's convert_urns_to_lowercase (schema + table).
   private boolean fabricOnelakeConvertUrnsToLowercase = false;
   // Mirrors the fabric-onelake source's platform_instance.

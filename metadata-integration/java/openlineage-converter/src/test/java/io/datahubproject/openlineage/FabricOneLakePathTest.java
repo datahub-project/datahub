@@ -168,6 +168,16 @@ public class FabricOneLakePathTest {
   }
 
   @Test
+  public void testMappingIsOffByDefault() throws Exception {
+    // Opt-in: without fabricOneLakeEnabled, OneLake table paths keep their previous abs URNs.
+    assertEquals(
+        urn(
+            NAMESPACE + "/" + ITEM + "/Tables/customers",
+            DatahubOpenlineageConfig.builder().build()),
+        absUrn(WS + "@" + HOST + "/" + ITEM + "/Tables/customers"));
+  }
+
+  @Test
   public void testDisabledKeepsAbs() throws Exception {
     DatahubOpenlineageConfig config =
         DatahubOpenlineageConfig.builder().fabricOneLakeEnabled(false).build();

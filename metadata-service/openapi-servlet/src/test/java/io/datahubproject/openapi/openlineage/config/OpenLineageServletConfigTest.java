@@ -362,6 +362,7 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
   @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigBoundProperties.class})
   @TestPropertySource(
       properties = {
+        "datahub.openlineage.fabric-onelake-enabled=true",
         "datahub.openlineage.fabric-onelake-convert-urns-to-lowercase=true",
         "datahub.openlineage.fabric-onelake-platform-instance=tenant_a",
         "datahub.openlineage.fabric-onelake-item-ids="
@@ -387,15 +388,17 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
     }
   }
 
-  /** Fabric OneLake mapping is on by default and can be disabled. */
+  /**
+   * Fabric OneLake mapping is opt-in: with no fabric-onelake properties set it stays off, so
+   * existing deployments keep their abs / hive URNs for OneLake tables.
+   */
   @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigBoundProperties.class})
-  @TestPropertySource(properties = {"datahub.openlineage.fabric-onelake-enabled=false"})
-  public static class BoundFabricOneLakeDisabledTest extends AbstractTestNGSpringContextTests {
+  public static class BoundFabricOneLakeDefaultsTest extends AbstractTestNGSpringContextTests {
 
     @Autowired private RunEventMapper.MappingConfig mappingConfig;
 
     @Test
-    public void testFabricOneLakeDisabled() {
+    public void testFabricOneLakeOffByDefault() {
       DatahubOpenlineageConfig config = mappingConfig.getDatahubConfig();
       assertEquals(config.isFabricOneLakeEnabled(), false);
       assertEquals(config.isFabricOneLakeConvertUrnsToLowercase(), false);

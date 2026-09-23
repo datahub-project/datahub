@@ -1468,7 +1468,10 @@ public class OpenLineageEventToDatahubTest {
   @Test
   public void testFabricOneLakeTablesMapToFabricOneLakeUrns()
       throws IOException, URISyntaxException {
-    DatahubJob datahubJob = convertFabricEvent("metadata.dataset.env = \"DEV\"");
+    DatahubJob datahubJob =
+        convertFabricEvent(
+            "metadata.dataset.fabricOneLake.enabled = \"true\"\n"
+                + "metadata.dataset.env = \"DEV\"");
 
     String bronze =
         "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
@@ -1516,7 +1519,8 @@ public class OpenLineageEventToDatahubTest {
   public void testFabricOneLakeSparkConfOptions() throws IOException, URISyntaxException {
     DatahubJob datahubJob =
         convertFabricEvent(
-            "metadata.dataset.fabricOneLake.platformInstance = \"tenant_a\"\n"
+            "metadata.dataset.fabricOneLake.enabled = \"true\"\n"
+                + "metadata.dataset.fabricOneLake.platformInstance = \"tenant_a\"\n"
                 + "metadata.dataset.fabricOneLake.convertUrnsToLowercase = \"true\"");
     assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,tenant_a."
@@ -1526,11 +1530,17 @@ public class OpenLineageEventToDatahubTest {
             + ".dbo.customers,PROD)",
         datahubJob.getOutSet().iterator().next().getUrn().toString());
 
-    // Opt-out restores the previous abs path URNs (the catalog symlink then wins, as before).
+    // The mapping is opt-in: by default (and when disabled explicitly) the previous URNs are kept
+    // (the catalog symlink wins for tables, Files/ stays on abs).
+    String previousOutput =
+        "urn:li:dataset:(urn:li:dataPlatform:hive,silver_lh.dbo.customers,PROD)";
+    DatahubJob byDefault = convertFabricEvent("metadata.dataset.env = \"PROD\"");
+    assertEquals(previousOutput, byDefault.getOutSet().iterator().next().getUrn().toString());
+    assertTrue(
+        byDefault.getInSet().stream()
+            .noneMatch(d -> d.getUrn().toString().contains("dataPlatform:fabric-onelake")));
     DatahubJob disabled = convertFabricEvent("metadata.dataset.fabricOneLake.enabled = \"false\"");
-    assertEquals(
-        "urn:li:dataset:(urn:li:dataPlatform:hive,silver_lh.dbo.customers,PROD)",
-        disabled.getOutSet().iterator().next().getUrn().toString());
+    assertEquals(previousOutput, disabled.getOutSet().iterator().next().getUrn().toString());
   }
 
   @Test
@@ -1538,7 +1548,8 @@ public class OpenLineageEventToDatahubTest {
     DatahubOpenlineageConfig conf =
         SparkConfigParser.sparkConfigToDatahubOpenlineageConf(
             ConfigFactory.parseString(
-                "metadata.dataset.fabricOneLake.itemIds = \"Sales/bronze.Lakehouse="
+                "metadata.dataset.fabricOneLake.enabled = true\n"
+                    + "metadata.dataset.fabricOneLake.itemIds = \"Sales/bronze.Lakehouse="
                     + FABRIC_WS
                     + "/"
                     + FABRIC_BRONZE
