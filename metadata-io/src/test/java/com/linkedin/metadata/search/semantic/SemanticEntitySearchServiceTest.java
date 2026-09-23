@@ -12,6 +12,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.template.StringArray;
@@ -479,6 +480,14 @@ public class SemanticEntitySearchServiceTest {
         () ->
             SemanticEntitySearchService.requireSupportedV3Engine(
                 entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "3.4.0")));
+    // An unreadable version refuses too, naming the version it got rather than asking for 3.5
+    IllegalStateException unknown =
+        expectThrows(
+            IllegalStateException.class,
+            () ->
+                SemanticEntitySearchService.requireSupportedV3Engine(
+                    entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "unknown")));
+    assertTrue(unknown.getMessage().contains("unknown"), unknown.getMessage());
     SemanticEntitySearchService.requireSupportedV3Engine(
         entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "3.5.0"));
     SemanticEntitySearchService.requireSupportedV3Engine(
@@ -627,6 +636,37 @@ public class SemanticEntitySearchServiceTest {
     String filter = requestCaptor.getValue().filter().orElseThrow().toString();
     assertTrue(filter.contains("platform=[urn:li:dataPlatform:notion]"), filter);
     assertFalse(filter.contains("platform.keyword"), filter);
+  }
+
+  @Test
+  public void testV3SemanticReadRewritesDeprecatedCriteriaForm() throws IOException {
+    SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
+    stubSearchV3Cluster();
+    stubEntitySpec("document", null);
+    when(mockIndexConvention.getEntityIndexNameV3(mockOpContext, "document"))
+        .thenReturn("documentindex_v3");
+    when(v3SearchClientShim.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(new KnnSearchResponse(List.of()));
+    Criterion platform =
+        new Criterion()
+            .setField("platform.keyword")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(List.of("urn:li:dataPlatform:notion")));
+
+    v3Service.search(
+        mockOpContext,
+        List.of("document"),
+        TEST_QUERY,
+        new Filter().setCriteria(new CriterionArray(platform)),
+        null,
+        0,
+        10);
+
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
+    String filter = requestCaptor.getValue().filter().orElseThrow().toString();
+    assertTrue(filter.contains("platform=[urn:li:dataPlatform:notion]"), filter);
   }
 
   @Test

@@ -72,6 +72,8 @@ import lombok.extern.slf4j.Slf4j;
  * <ul>
  *   <li>Elasticsearch 8.x, or OpenSearch 2.17.0+ (for pre-filtering support with nested kNN
  *       vectors)
+ *   <li>Search V3 semantic reads ({@code semanticReadEnabled}): OpenSearch 3.5+ or Elasticsearch
+ *       8.18+ on the Search V3 cluster
  *   <li>Semantic indices with nested vector fields at {@code
  *       embeddings.{modelEmbeddingKey}.chunks.vector}
  * </ul>
@@ -400,14 +402,28 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    */
   public static void requireSupportedV3Engine(
       @Nullable EntityIndexConfiguration entityIndex, @Nonnull SearchClientShim<?> v3Client) {
-    if (shouldReadSemanticV3(entityIndex)
-        && entityIndex.getSemanticSearch() != null
-        && entityIndex.getSemanticSearch().isEnabled()
-        && !supportsV3SemanticFilters(v3Client)) {
+    if (!shouldReadSemanticV3(entityIndex)
+        || entityIndex.getSemanticSearch() == null
+        || !entityIndex.getSemanticSearch().isEnabled()
+        || !isOpenSearch(v3Client)) {
+      return;
+    }
+    String version = engineVersion(v3Client);
+    int[] majorMinor = majorMinor(version);
+    if (majorMinor == null) {
+      throw new IllegalStateException(
+          "elasticsearch.entityIndex.v3.semanticReadEnabled needs OpenSearch 3.5+ on the Search V3"
+              + " cluster, but its version could not be read (got '"
+              + version
+              + "'); grant the cluster:monitor/main permission or turn the flag off");
+    }
+    if (!atLeastOpenSearch35(majorMinor)) {
       throw new IllegalStateException(
           "elasticsearch.entityIndex.v3.semanticReadEnabled needs OpenSearch 3.5+ or Elasticsearch"
-              + " 8.18+ on the Search V3 cluster: earlier OpenSearch k-NN pre-filters ignore the"
-              + " V3 _aspects fields that facet and View filters use");
+              + " 8.18+ on the Search V3 cluster, which runs OpenSearch "
+              + version
+              + ": earlier OpenSearch k-NN pre-filters ignore the V3 _aspects fields that facet and"
+              + " View filters use");
     }
   }
 
@@ -417,24 +433,44 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    * {@code _aspects}, so such filters match nothing there. Elasticsearch applies them.
    */
   public static boolean supportsV3SemanticFilters(@Nonnull SearchClientShim<?> client) {
-    SearchEngineType engineType = client.getEngineType();
-    if (engineType == null || !engineType.isOpenSearch()) {
+    if (!isOpenSearch(client)) {
       return true;
     }
-    String version;
+    int[] majorMinor = majorMinor(engineVersion(client));
+    return majorMinor != null && atLeastOpenSearch35(majorMinor);
+  }
+
+  private static boolean isOpenSearch(@Nonnull SearchClientShim<?> client) {
+    SearchEngineType engineType = client.getEngineType();
+    return engineType != null && engineType.isOpenSearch();
+  }
+
+  @Nullable
+  private static String engineVersion(@Nonnull SearchClientShim<?> client) {
     try {
-      version = client.getEngineVersion();
+      return client.getEngineVersion();
     } catch (IOException e) {
-      return false;
+      return null;
     }
-    String[] parts = version == null ? new String[0] : version.split("\\.");
+  }
+
+  @Nullable
+  private static int[] majorMinor(@Nullable String version) {
+    if (version == null) {
+      return null;
+    }
+    String[] parts = version.split("\\.");
     try {
-      int major = Integer.parseInt(parts[0]);
-      int minor = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
-      return major > 3 || (major == 3 && minor >= 5);
-    } catch (RuntimeException e) {
-      return false;
+      return new int[] {
+        Integer.parseInt(parts[0]), parts.length > 1 ? Integer.parseInt(parts[1]) : 0
+      };
+    } catch (NumberFormatException e) {
+      return null;
     }
+  }
+
+  private static boolean atLeastOpenSearch35(@Nonnull int[] majorMinor) {
+    return majorMinor[0] > 3 || (majorMinor[0] == 3 && majorMinor[1] >= 5);
   }
 
   /**
