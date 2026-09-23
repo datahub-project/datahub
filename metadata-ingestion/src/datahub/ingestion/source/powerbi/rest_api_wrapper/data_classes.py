@@ -174,6 +174,10 @@ class Column:
     columnType: Optional[str] = None
     expression: Optional[str] = None
     description: Optional[str] = None
+    # Physical column name in the upstream source (TMSL ``sourceColumn``). Only
+    # present when the scan payload carries it; used by DirectLake column-level
+    # lineage to follow columns renamed in the semantic model.
+    sourceColumn: Optional[str] = None
     measure_profile: Optional[MeasureProfile] = None
 
 

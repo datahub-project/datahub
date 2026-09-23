@@ -271,6 +271,15 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_external_query_connections_unmapped: int = 0
     m_query_external_query_failures: int = 0
 
+    # DirectLake column-level lineage (PowerBI column -> Fabric OneLake column)
+    directlake_column_lineage_edges: int = 0
+    # Columns mapped via the scan's ``sourceColumn`` (i.e. renamed in the model)
+    directlake_columns_mapped_via_source_column: int = 0
+    # Calculated columns have no physical upstream column; skipped.
+    directlake_calculated_columns_skipped: int = 0
+    # Measures are DAX expressions with no physical upstream column; skipped.
+    directlake_measures_skipped: int = 0
+
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
 
@@ -757,7 +766,8 @@ class PowerBiDashboardSourceConfig(
         description="Whether to extract column level lineage. "
         "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are "
         "enabled. "
-        "Works for M-Query where native SQL is used for transformation.",
+        "Works for M-Query where native SQL is used for transformation, and for "
+        "DirectLake tables (column-to-column lineage to the upstream Fabric OneLake table).",
     )
 
     profile_pattern: AllowDenyPattern = pydantic.Field(

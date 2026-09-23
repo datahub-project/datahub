@@ -228,6 +228,76 @@ class Mapper:
 
         return fine_grained_lineages
 
+    # Scanner ``columnType`` values backed by a physical column in the source.
+    # "Calculated" / "CalculatedTableColumn" are DAX-defined and "RowNumber" is
+    # an engine-internal column; none of them have an upstream OneLake column.
+    _DIRECTLAKE_PHYSICAL_COLUMN_TYPES = frozenset({"Data"})
+
+    def _is_directlake_physical_column(
+        self, column: powerbi_data_classes.Column
+    ) -> bool:
+        if column.expression:
+            return False
+        return (
+            column.columnType is None
+            or column.columnType in self._DIRECTLAKE_PHYSICAL_COLUMN_TYPES
+        )
+
+    def make_directlake_fine_grained_lineage(
+        self,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        upstream_urns: List[str],
+    ) -> List[FineGrainedLineage]:
+        """Map each physical column of a DirectLake table to its OneLake column.
+
+        DirectLake columns are bound 1:1 to a column of the upstream Delta table.
+        The upstream column is ``sourceColumn`` when the scan provides it (the
+        column was renamed in the semantic model), otherwise the PowerBI column
+        name. Calculated columns and measures have no physical upstream and are
+        skipped.
+
+        Column casing is preserved, matching the M-Query path:
+        ``convert_lineage_urns_to_lowercase`` only lowercases the dataset part
+        of the upstream schemaField URN (already applied to ``upstream_urns``).
+        """
+        fine_grained_lineages: List[FineGrainedLineage] = []
+
+        if (
+            self.__config.extract_column_level_lineage is False
+            or self.__config.extract_lineage is False
+        ):
+            return fine_grained_lineages
+
+        if not upstream_urns:
+            return fine_grained_lineages
+
+        for column in table.columns or []:
+            if not self._is_directlake_physical_column(column):
+                self.__reporter.directlake_calculated_columns_skipped += 1
+                continue
+
+            upstream_column = column.sourceColumn or column.name
+            if column.sourceColumn and column.sourceColumn != column.name:
+                self.__reporter.directlake_columns_mapped_via_source_column += 1
+
+            fine_grained_lineages.append(
+                FineGrainedLineage(
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=[builder.make_schema_field_urn(ds_urn, column.name)],
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=[
+                        builder.make_schema_field_urn(upstream_urn, upstream_column)
+                        for upstream_urn in upstream_urns
+                    ],
+                )
+            )
+
+        self.__reporter.directlake_measures_skipped += len(table.measures or [])
+        self.__reporter.directlake_column_lineage_edges += len(fine_grained_lineages)
+
+        return fine_grained_lineages
+
     def extract_directlake_lineage(
         self,
         table: powerbi_data_classes.Table,
@@ -321,11 +391,22 @@ class Mapper:
                 )
             )
 
-        upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+        fine_grained_lineages = self.make_directlake_fine_grained_lineage(
+            table=table,
+            ds_urn=ds_urn,
+            upstream_urns=[upstream.dataset for upstream in upstreams],
+        )
+
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=upstreams,
+            fineGrainedLineages=fine_grained_lineages or None,
+        )
         logger.info(
-            "DirectLake lineage: %s -> %s upstream(s) (artifact: %s, type: %s)",
+            "DirectLake lineage: %s -> %s upstream(s), %s column edge(s) "
+            "(artifact: %s, type: %s)",
             table.full_name,
             len(upstreams),
+            len(fine_grained_lineages),
             artifact.name,
             artifact.artifact_type,
         )

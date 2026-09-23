@@ -1,0 +1,242 @@
+{
+    "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": [
+                {
+                    "id": "D1EC7A4E-0B5E-4C1A-9F7A-6A1E5C0FFEE1",
+                    "isReadOnly": true,
+                    "name": "Sales Analytics",
+                    "type": "Workspace",
+                    "state": "Active"
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": []
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/3F2B8C1D-7E4A-4B6C-9D0E-1A2B3C4D5E6F": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "status": "SUCCEEDED"
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/D1EC7A4E-0B5E-4C1A-9F7A-6A1E5C0FFEE1/datasets/B1C2D3E4-F5A6-4B7C-8D9E-0F1A2B3C4D5E/parameters": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": []
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/D1EC7A4E-0B5E-4C1A-9F7A-6A1E5C0FFEE1/datasets/C2D3E4F5-A6B7-4C8D-9E0F-1A2B3C4D5E6F/parameters": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": []
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/3F2B8C1D-7E4A-4B6C-9D0E-1A2B3C4D5E6F": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "workspaces": [
+                {
+                    "id": "D1EC7A4E-0B5E-4C1A-9F7A-6A1E5C0FFEE1",
+                    "name": "Sales Analytics",
+                    "type": "Workspace",
+                    "state": "Active",
+                    "Lakehouse": [
+                        {
+                            "id": "7A1C2E3F-4B5D-4E6F-8A9B-0C1D2E3F4A5B",
+                            "name": "SalesLakehouse",
+                            "state": "Active",
+                            "extendedProperties": {},
+                            "relations": []
+                        }
+                    ],
+                    "SQLAnalyticsEndpoint": [
+                        {
+                            "id": "9C8B7A6D-5E4F-4A3B-8C2D-1E0F9A8B7C6D",
+                            "name": "SalesLakehouse",
+                            "state": "Active",
+                            "relations": [
+                                {
+                                    "dependentOnArtifactId": "7A1C2E3F-4B5D-4E6F-8A9B-0C1D2E3F4A5B"
+                                }
+                            ]
+                        }
+                    ],
+                    "warehouses": [
+                        {
+                            "id": "5E6F7A8B-9C0D-4E1F-A2B3-C4D5E6F7A8B9",
+                            "name": "FinanceWarehouse",
+                            "state": "Active",
+                            "relations": []
+                        }
+                    ],
+                    "datasets": [
+                        {
+                            "id": "B1C2D3E4-F5A6-4B7C-8D9E-0F1A2B3C4D5E",
+                            "name": "Sales Model",
+                            "description": "DirectLake semantic model over SalesLakehouse",
+                            "configuredBy": "sales.admin@example.com",
+                            "targetStorageMode": "Abf",
+                            "relations": [
+                                {
+                                    "dependentOnArtifactId": "9C8B7A6D-5E4F-4A3B-8C2D-1E0F9A8B7C6D"
+                                }
+                            ],
+                            "tables": [
+                                {
+                                    "name": "Sales Orders",
+                                    "storageMode": "DirectLake",
+                                    "isHidden": false,
+                                    "source": [
+                                        {
+                                            "expression": "sales_orders",
+                                            "schemaName": "dbo"
+                                        }
+                                    ],
+                                    "columns": [
+                                        {
+                                            "name": "order_id",
+                                            "dataType": "Int64",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        },
+                                        {
+                                            "name": "customer_id",
+                                            "dataType": "Int64",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        },
+                                        {
+                                            "name": "Order Amount",
+                                            "dataType": "Double",
+                                            "isHidden": false,
+                                            "columnType": "Data",
+                                            "sourceColumn": "order_amount"
+                                        },
+                                        {
+                                            "name": "order_date",
+                                            "dataType": "DateTime",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        },
+                                        {
+                                            "name": "Amount With Tax",
+                                            "dataType": "Double",
+                                            "isHidden": false,
+                                            "columnType": "Calculated",
+                                            "expression": "'Sales Orders'[Order Amount] * 1.1"
+                                        }
+                                    ],
+                                    "measures": [
+                                        {
+                                            "name": "Total Sales",
+                                            "expression": "SUM('Sales Orders'[Order Amount])",
+                                            "isHidden": false
+                                        }
+                                    ]
+                                },
+                                {
+                                    "name": "Customers",
+                                    "storageMode": "DirectLake",
+                                    "isHidden": false,
+                                    "source": [
+                                        {
+                                            "expression": "Customers",
+                                            "schemaName": "dbo"
+                                        }
+                                    ],
+                                    "columns": [
+                                        {
+                                            "name": "customer_id",
+                                            "dataType": "Int64",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        },
+                                        {
+                                            "name": "Customer Name",
+                                            "dataType": "String",
+                                            "isHidden": false,
+                                            "columnType": "Data",
+                                            "sourceColumn": "CustomerName"
+                                        },
+                                        {
+                                            "name": "Region",
+                                            "dataType": "String",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "C2D3E4F5-A6B7-4C8D-9E0F-1A2B3C4D5E6F",
+                            "name": "Finance Model",
+                            "description": "DirectLake semantic model over FinanceWarehouse",
+                            "configuredBy": "finance.admin@example.com",
+                            "targetStorageMode": "Abf",
+                            "relations": [
+                                {
+                                    "dependentOnArtifactId": "5E6F7A8B-9C0D-4E1F-A2B3-C4D5E6F7A8B9"
+                                }
+                            ],
+                            "tables": [
+                                {
+                                    "name": "GL Entries",
+                                    "storageMode": "DirectLake",
+                                    "isHidden": false,
+                                    "source": [
+                                        {
+                                            "expression": "gl_entries",
+                                            "schemaName": "finance"
+                                        }
+                                    ],
+                                    "columns": [
+                                        {
+                                            "name": "entry_id",
+                                            "dataType": "Int64",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        },
+                                        {
+                                            "name": "account_code",
+                                            "dataType": "String",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        },
+                                        {
+                                            "name": "amount",
+                                            "dataType": "Decimal",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        }
+                                    ],
+                                    "measures": [
+                                        {
+                                            "name": "Net Amount",
+                                            "expression": "SUM('GL Entries'[amount])",
+                                            "isHidden": false
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ],
+                    "dashboards": [],
+                    "reports": []
+                }
+            ]
+        }
+    }
+}

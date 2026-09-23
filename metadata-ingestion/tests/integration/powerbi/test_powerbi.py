@@ -78,6 +78,9 @@ def scan_init_response(request, context):
         "8F756DE6-26AD-45FF-A201-44276FF1F561": {
             "id": "6147FCEB-7531-4449-8FB6-1F7A5431BF2D",
         },
+        "D1EC7A4E-0B5E-4C1A-9F7A-6A1E5C0FFEE1": {
+            "id": "3F2B8C1D-7E4A-4B6C-9D0E-1A2B3C4D5E6F",
+        },
     }
 
     return w_id_vs_response[workspace_id]
@@ -1523,6 +1526,76 @@ def test_cll_extraction(
         output_path=f"{tmp_path}/powerbi_cll_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_directlake_lineage(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    """DirectLake semantic models over a Lakehouse (via its SQLAnalyticsEndpoint)
+    and a Warehouse emit table- and column-level lineage to Fabric OneLake tables."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        pytestconfig=pytestconfig,
+        request_mock=requests_mock,
+        override_data=read_mock_data(
+            test_resources_dir / "mock_data/directlake_mock_response.json"
+        ),
+    )
+
+    config = default_source_config()
+    del config["workspace_id"]
+    config["workspace_id_pattern"] = {"allow": ["D1EC7A4E-0B5E-4C1A-9F7A-6A1E5C0FFEE1"]}
+
+    output_path = f"{tmp_path}/powerbi_directlake_mces.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **config,
+                    "extract_lineage": True,
+                    "extract_column_level_lineage": True,
+                    "enable_advance_lineage_sql_construct": True,
+                    "native_query_parsing": True,
+                    # Default value: lowercases the upstream dataset part only;
+                    # column names keep their casing.
+                    "convert_lineage_urns_to_lowercase": True,
+                    # The semantic models are not bound to any report/tile.
+                    "extract_independent_datasets": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": output_path},
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_directlake_lineage.json",
+    )
+
+    assert isinstance(pipeline.source, PowerBiDashboardSource)
+    report = pipeline.source.reporter
+    # Sales Orders: 4 physical columns, Customers: 3, GL Entries: 3
+    assert report.directlake_column_lineage_edges == 10
+    assert report.directlake_columns_mapped_via_source_column == 2
+    assert report.directlake_calculated_columns_skipped == 1
+    assert report.directlake_measures_skipped == 2
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
