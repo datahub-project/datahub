@@ -493,6 +493,9 @@ The build uses Gradle (the JDK 25 toolchain is provisioned automatically) and pr
 
 ### Next
 
+- _Dependencies_:
+  - libthrift 0.23.0 → 0.24.0 for CVE-2026-48586 (`TZlibTransport` zip-bomb DoS)
+
 - _Changes_:
   - **OpenLineage upgrade to 1.50.0**: the vendored/shaded OpenLineage classes were refreshed onto the 1.50 upstream base. Iceberg-on-Glue symlink resolution is now provided natively by OpenLineage (since 1.46), so the temporary DataHub Glue-ARN workaround was removed.
   - **Apache Spark 4.x support**: the agent is verified to attach and emit lineage on Apache Spark 4.0.0 (Scala 2.13) via a dedicated compatibility smoke test. Spark 4 requires the Scala 2.13 build of the agent.
