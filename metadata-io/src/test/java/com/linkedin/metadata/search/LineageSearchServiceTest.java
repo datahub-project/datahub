@@ -62,6 +62,7 @@ import com.linkedin.schema.SchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -135,7 +136,7 @@ public class LineageSearchServiceTest {
         GraphServiceConfiguration.builder()
             .limit(
                 LimitConfig.builder()
-                    .results(ResultsLimitConfig.builder().apiDefault(100).build())
+                    .results(ResultsLimitConfig.builder().apiDefault(100).max(1000).build())
                     .build())
             .build();
 
@@ -213,7 +214,7 @@ public class LineageSearchServiceTest {
         GraphServiceConfiguration.builder()
             .limit(
                 LimitConfig.builder()
-                    .results(ResultsLimitConfig.builder().apiDefault(100).build())
+                    .results(ResultsLimitConfig.builder().apiDefault(100).max(1000).build())
                     .build())
             .build();
     when(_graphService.getGraphServiceConfig()).thenReturn(graphServiceConfig);
@@ -1239,6 +1240,25 @@ public class LineageSearchServiceTest {
     return SchemaFieldUtils.generateSchemaFieldUrn(parent, fieldPath);
   }
 
+  private static Urn dataset(String name) {
+    return UrnUtils.getUrn(
+        String.format("urn:li:dataset:(urn:li:dataPlatform:snowflake,%s,PROD)", name));
+  }
+
+  private LineageSearchResult searchLightning(OperationContext opContext, int from, int size) {
+    return _lineageSearchService.searchAcrossLineage(
+        opContext,
+        ORDERS,
+        LineageDirection.DOWNSTREAM,
+        Collections.singletonList(DATASET_ENTITY_NAME),
+        null,
+        1,
+        null,
+        null,
+        from,
+        size);
+  }
+
   private static LineageRelationship relationship(Urn entity) {
     return new LineageRelationship().setEntity(entity).setType("DownstreamOf").setDegree(1);
   }
@@ -1284,6 +1304,30 @@ public class LineageSearchServiceTest {
         .retrieverContext(retrieverContext)
         .build(_operationContext.getSessionAuthentication(), false)
         .withLineageFlags(f -> new LineageFlags().setValidateSchemaFields(mode));
+  }
+
+  private OperationContext contextWithExistence(Map<Urn, Boolean> existsByUrn) {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.entityExists(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> requested = invocation.getArgument(1);
+              Map<Urn, Boolean> response = new HashMap<>();
+              for (Urn urn : requested) {
+                response.put(urn, existsByUrn.getOrDefault(urn, false));
+              }
+              return response;
+            });
+    RetrieverContext retrieverContext =
+        RetrieverContext.builder()
+            .graphRetriever(GraphRetriever.EMPTY)
+            .searchRetriever(SearchRetriever.EMPTY)
+            .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+            .aspectRetriever(aspectRetriever)
+            .build();
+    return _operationContext.toBuilder()
+        .retrieverContext(retrieverContext)
+        .build(_operationContext.getSessionAuthentication(), false);
   }
 
   @Test
@@ -1425,6 +1469,121 @@ public class LineageSearchServiceTest {
 
     assertEquals(result.getLineageSearchPath(), LineageSearchPath.LIGHTNING);
     assertEquals(result.getNumEntities().intValue(), 1);
+  }
+
+  @Test
+  public void testConvertSchemaFieldRelationshipsCopiesAndDedupes() {
+    LineageRelationship first = relationship(column(ORDERS, "order_id"));
+    LineageRelationship second = relationship(column(ORDERS, "amount"));
+    Urn originalUrn = first.getEntity();
+    EntityLineageResult lineageResult =
+        new EntityLineageResult()
+            .setRelationships(new LineageRelationshipArray(first, second, relationship(CUSTOMERS)));
+
+    LineageRelationshipArray converted =
+        _lineageSearchService.convertSchemaFieldRelationships(lineageResult);
+
+    assertEquals(first.getEntity(), originalUrn);
+    assertEquals(converted.size(), 2);
+    assertEquals(converted.get(0).getEntity(), ORDERS);
+    assertEquals(converted.get(1).getEntity(), CUSTOMERS);
+  }
+
+  @Test
+  public void testLightningCompactsMissingUrnsThenPagesWithoutOverlap() throws Exception {
+    List<LineageRelationship> relationships = new ArrayList<>();
+    Map<Urn, Boolean> exists = new HashMap<>();
+    for (int i = 0; i < 10; i++) {
+      Urn ghost = dataset("ghost." + i);
+      relationships.add(relationship(ghost));
+      exists.put(ghost, false);
+    }
+    List<Urn> reals = new ArrayList<>();
+    for (int i = 0; i < 15; i++) {
+      Urn real = dataset("real." + i);
+      relationships.add(relationship(real));
+      exists.put(real, true);
+      reals.add(real);
+    }
+
+    when(_graphService.getImpactLineage(any(), any(), any(LineageGraphFilters.class), anyInt()))
+        .thenReturn(
+            new EntityLineageResult()
+                .setTotal(relationships.size())
+                .setRelationships(new LineageRelationshipArray(relationships)));
+
+    OperationContext opContext = contextWithExistence(exists);
+    long previous = _appConfig.getCache().getSearch().getLineage().getLightningThreshold();
+    _appConfig.getCache().getSearch().getLineage().setLightningThreshold(0);
+    try {
+      LineageSearchResult page1 = searchLightning(opContext, 0, 10);
+      LineageSearchResult page2 = searchLightning(opContext, 10, 10);
+
+      assertEquals(page1.getLineageSearchPath(), LineageSearchPath.LIGHTNING);
+      assertEquals(page1.getNumEntities().intValue(), 15);
+      assertEquals(page1.getEntities().size(), 10);
+      assertEquals(page2.getEntities().size(), 5);
+      assertEquals(page2.getNumEntities().intValue(), 15);
+
+      List<Urn> page1Urns =
+          page1.getEntities().stream()
+              .map(LineageSearchEntity::getEntity)
+              .collect(Collectors.toList());
+      List<Urn> page2Urns =
+          page2.getEntities().stream()
+              .map(LineageSearchEntity::getEntity)
+              .collect(Collectors.toList());
+      assertEquals(page1Urns, reals.subList(0, 10));
+      assertEquals(page2Urns, reals.subList(10, 15));
+      assertTrue(Collections.disjoint(page1Urns, page2Urns));
+    } finally {
+      _appConfig.getCache().getSearch().getLineage().setLightningThreshold(previous);
+    }
+  }
+
+  @Test
+  public void testForceLightningModeKeepsMissingUrns() throws Exception {
+    Urn ghost = dataset("ghost.keep");
+    Urn real = dataset("real.keep");
+    when(_graphService.getImpactLineage(any(), any(), any(LineageGraphFilters.class), anyInt()))
+        .thenReturn(
+            new EntityLineageResult()
+                .setTotal(2)
+                .setRelationships(
+                    new LineageRelationshipArray(relationship(ghost), relationship(real))));
+
+    OperationContext opContext =
+        contextWithExistence(Map.of(ghost, false, real, true))
+            .withLineageFlags(f -> new LineageFlags().setForceLightningMode(true));
+
+    LineageSearchResult result = searchLightning(opContext, 0, 10);
+    assertEquals(result.getLineageSearchPath(), LineageSearchPath.LIGHTNING);
+    assertEquals(result.getNumEntities().intValue(), 2);
+    assertEquals(result.getEntities().size(), 2);
+    assertEquals(result.getEntities().get(0).getEntity(), ghost);
+  }
+
+  @Test
+  public void testLightningFoldsSchemaFieldsToParent() throws Exception {
+    LineageRelationship colA = relationship(column(ORDERS, "a"));
+    LineageRelationship colB = relationship(column(ORDERS, "b"));
+    Urn colAUrn = colA.getEntity();
+    when(_graphService.getImpactLineage(any(), any(), any(LineageGraphFilters.class), anyInt()))
+        .thenReturn(
+            new EntityLineageResult()
+                .setTotal(3)
+                .setRelationships(
+                    new LineageRelationshipArray(colA, colB, relationship(CUSTOMERS))));
+
+    OperationContext opContext =
+        contextWithExistence(Map.of(ORDERS, true, CUSTOMERS, true))
+            .withLineageFlags(f -> new LineageFlags().setForceLightningMode(true));
+
+    LineageSearchResult result = searchLightning(opContext, 0, 10);
+    assertEquals(colA.getEntity(), colAUrn);
+    assertEquals(result.getNumEntities().intValue(), 2);
+    assertEquals(result.getEntities().get(0).getEntity(), ORDERS);
+    assertEquals(result.getEntities().get(1).getEntity(), CUSTOMERS);
   }
 
   @Test

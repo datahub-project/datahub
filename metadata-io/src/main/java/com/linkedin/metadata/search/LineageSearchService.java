@@ -15,7 +15,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.entity.Aspect;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
@@ -45,12 +44,15 @@ import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -250,10 +252,9 @@ public class LineageSearchService {
 
       if (SearchUtils.convertSchemaFieldToDataset(
           finalOpContext.getSearchContext().getSearchFlags())) {
-        // set schemaField relationship entity to be its reference urn
-        LineageRelationshipArray updatedRelationships =
-            convertSchemaFieldRelationships(lineageResult);
-        lineageResult.setRelationships(updatedRelationships);
+        // Copy so the cached graph result keeps its original schemaField URNs
+        lineageResult = copyEntityLineageResult(lineageResult);
+        lineageResult.setRelationships(convertSchemaFieldRelationships(lineageResult));
       }
 
       // Filter hopped result based on the set of entities to return and inputFilters before sending
@@ -281,7 +282,7 @@ public class LineageSearchService {
             dropSchemaFieldsMissingFromParent(finalOpContext, lineageRelationships);
         LineageSearchResult lineageSearchResult =
             getLightningSearchResult(
-                countable, reducedFilters, from, size, new HashSet<>(entities));
+                finalOpContext, countable, reducedFilters, from, size, new HashSet<>(entities));
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug(
               "Lightning Lineage entity result: {}",
@@ -552,9 +553,41 @@ public class LineageSearchService {
       int from,
       @Nullable Integer size,
       Set<String> entityNames) {
+    return getLightningSearchResult(
+        null, lineageRelationships, inputFilters, from, size, entityNames);
+  }
+
+  /**
+   * Pages hydratable graph neighbors. When {@code opContext} is present and lightning is not
+   * forced, missing URNs are dropped before {@code from}/{@code size} so offset pagination cannot
+   * replay an earlier page. {@code total} and aggregations follow that compacted list.
+   */
+  @VisibleForTesting
+  LineageSearchResult getLightningSearchResult(
+      @Nullable OperationContext opContext,
+      List<LineageRelationship> lineageRelationships,
+      Filter inputFilters,
+      int from,
+      @Nullable Integer size,
+      Set<String> entityNames) {
     size = ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), size);
 
-    // Construct result objects
+    List<LineageRelationship> matching = new ArrayList<>();
+    for (LineageRelationship relnship : lineageRelationships) {
+      Urn entityUrn = relnship.getEntity();
+      String entityType = entityUrn.getEntityType();
+      String platform = getPlatform(entityType, entityUrn);
+      String environment = getEnvironment(entityType, entityUrn);
+      if ((entityNames.isEmpty() || entityNames.contains(entityType))
+          && passesLightningCriteria(entityUrn, platform, environment, inputFilters)) {
+        matching.add(relnship);
+      }
+    }
+
+    if (shouldCompactMissingEntities(opContext)) {
+      matching = keepExistingEntities(opContext, matching);
+    }
+
     LineageSearchResult finalResult =
         new LineageSearchResult().setMetadata(new SearchResultMetadata());
     LineageSearchEntityArray lineageSearchEntityArray = new LineageSearchEntityArray();
@@ -568,47 +601,30 @@ public class LineageSearchService {
 
     AggregationMetadataArray aggregationMetadataArray = new AggregationMetadataArray();
 
-    // Aggregations supported by this model
-    // entity type
-    // platform
-    // environment
-    int start = 0;
+    int compactedIndex = 0;
     int numElements = 0;
-    for (LineageRelationship relnship : lineageRelationships) {
+    for (LineageRelationship relnship : matching) {
       Urn entityUrn = relnship.getEntity();
       String entityType = entityUrn.getEntityType();
-
       String platform = getPlatform(entityType, entityUrn);
       String environment = getEnvironment(entityType, entityUrn);
 
-      boolean isNotFiltered =
-          (entityNames.isEmpty() || entityNames.contains(entityType))
-              && passesLightningCriteria(entityUrn, platform, environment, inputFilters);
+      compactedIndex++;
+      if ((compactedIndex > from) && (numElements < size)) {
+        lineageSearchEntityArray.add(
+            new LineageSearchEntity()
+                .setEntity(entityUrn)
+                .setDegree(relnship.getDegree())
+                .setPaths(relnship.getPaths()));
+        numElements++;
+      }
 
-      if (isNotFiltered) {
-        start++;
-        if ((start > from) && (numElements < size)) {
-          lineageSearchEntityArray.add(
-              new LineageSearchEntity()
-                  .setEntity(entityUrn)
-                  .setDegree(relnship.getDegree())
-                  .setPaths(relnship.getPaths()));
-          numElements++;
-        }
-
-        // entityType
-        entityTypeAggregations.compute(entityType, (key, value) -> value == null ? 1L : ++value);
-
-        // platform
-        if (platform != null) {
-          platformTypeAggregations.compute(platform, (key, value) -> value == null ? 1L : ++value);
-        }
-
-        // environment
-        if (environment != null) {
-          environmentAggregations.compute(
-              environment, (key, value) -> value == null ? 1L : ++value);
-        }
+      entityTypeAggregations.compute(entityType, (key, value) -> value == null ? 1L : ++value);
+      if (platform != null) {
+        platformTypeAggregations.compute(platform, (key, value) -> value == null ? 1L : ++value);
+      }
+      if (environment != null) {
+        environmentAggregations.compute(environment, (key, value) -> value == null ? 1L : ++value);
       }
     }
 
@@ -656,8 +672,35 @@ public class LineageSearchService {
     }
     finalResult.setEntities(lineageSearchEntityArray);
     finalResult.getMetadata().setAggregations(aggregationMetadataArray);
-    finalResult.setNumEntities(start);
+    finalResult.setNumEntities(compactedIndex);
     return finalResult.setFrom(from).setPageSize(size);
+  }
+
+  private static boolean shouldCompactMissingEntities(@Nullable OperationContext opContext) {
+    if (opContext == null) {
+      return false;
+    }
+    return !Optional.ofNullable(opContext.getSearchContext().getLineageFlags())
+        .map(LineageFlags::isForceLightningMode)
+        .orElse(false);
+  }
+
+  /**
+   * Drops neighbors the primary store says do not exist. Explicit {@code false} is required so an
+   * empty retriever (tests) does not wipe the page.
+   */
+  private static List<LineageRelationship> keepExistingEntities(
+      @Nonnull OperationContext opContext, List<LineageRelationship> relationships) {
+    if (relationships.isEmpty()) {
+      return relationships;
+    }
+    Set<Urn> urns =
+        relationships.stream().map(LineageRelationship::getEntity).collect(Collectors.toSet());
+    Map<Urn, Boolean> exists =
+        opContext.getRetrieverContext().getAspectRetriever().entityExists(opContext, urns);
+    return relationships.stream()
+        .filter(relationship -> !Boolean.FALSE.equals(exists.get(relationship.getEntity())))
+        .collect(Collectors.toList());
   }
 
   private AggregationMetadata constructAggMetadata(String displayName, String name) {
@@ -708,20 +751,43 @@ public class LineageSearchService {
         .orElse(null);
   }
 
-  // Necessary so we don't filter out schemaField entities and so that we search to get the parent
-  // reference entity
-  private LineageRelationshipArray convertSchemaFieldRelationships(
-      EntityLineageResult lineageResult) {
-    return lineageResult.getRelationships().stream()
-        .map(
-            relationship -> {
-              if (relationship.getEntity().getEntityType().equals("schemaField")) {
-                Urn entity = getSchemaFieldReferenceUrn(relationship.getEntity());
-                relationship.setEntity(entity);
-              }
-              return relationship;
-            })
-        .collect(Collectors.toCollection(LineageRelationshipArray::new));
+  @SneakyThrows
+  private static EntityLineageResult copyEntityLineageResult(EntityLineageResult lineageResult) {
+    return new EntityLineageResult(lineageResult.data().copy());
+  }
+
+  /**
+   * Folds schema fields into their parent dataset without mutating the graph-cache objects, and
+   * dedupes by parent so Lightning does not page the same dataset ten times.
+   */
+  @VisibleForTesting
+  @SneakyThrows
+  LineageRelationshipArray convertSchemaFieldRelationships(EntityLineageResult lineageResult) {
+    LinkedHashMap<Urn, LineageRelationship> byUrn = new LinkedHashMap<>();
+    for (LineageRelationship relationship : lineageResult.getRelationships()) {
+      LineageRelationship copy = new LineageRelationship(relationship.data().copy());
+      copy.setEntity(getSchemaFieldReferenceUrn(copy.getEntity()));
+      LineageRelationship existing = byUrn.get(copy.getEntity());
+      if (existing == null) {
+        byUrn.put(copy.getEntity(), copy);
+      } else {
+        mergePaths(existing, copy);
+      }
+    }
+    return new LineageRelationshipArray(byUrn.values());
+  }
+
+  private static void mergePaths(LineageRelationship into, LineageRelationship from) {
+    if (!from.hasPaths() || from.getPaths().isEmpty()) {
+      return;
+    }
+    UrnArrayArray newPaths =
+        new UrnArrayArray((into.hasPaths() ? into.getPaths().size() : 0) + from.getPaths().size());
+    if (into.hasPaths()) {
+      newPaths.addAll(into.getPaths());
+    }
+    newPaths.addAll(from.getPaths());
+    into.setPaths(newPaths);
   }
 
   private Map<Urn, LineageRelationship> generateUrnToRelationshipMap(
@@ -850,16 +916,8 @@ public class LineageSearchService {
         .reduce(x -> false, Predicate::or);
   }
 
-  private Urn getSchemaFieldReferenceUrn(Urn urn) {
-    if (urn.getEntityType().equals(Constants.SCHEMA_FIELD_ENTITY_NAME)) {
-      try {
-        // Get the dataset urn referenced inside the schemaField urn
-        return Urn.createFromString(urn.getId());
-      } catch (Exception e) {
-        log.error("Invalid destination urn: {}", urn.getId(), e);
-      }
-    }
-    return urn;
+  private static Urn getSchemaFieldReferenceUrn(Urn urn) {
+    return SchemaFieldUtils.parseSchemaFieldUrn(urn).map(Pair::getFirst).orElse(urn);
   }
 
   private List<LineageRelationship> filterRelationships(
@@ -1020,10 +1078,8 @@ public class LineageSearchService {
         }
       }
 
-      // set schemaField relationship entity to be its reference urn
-      LineageRelationshipArray updatedRelationships =
-          convertSchemaFieldRelationships(lineageResult);
-      lineageResult.setRelationships(updatedRelationships);
+      lineageResult = copyEntityLineageResult(lineageResult);
+      lineageResult.setRelationships(convertSchemaFieldRelationships(lineageResult));
 
       // Filter hopped result based on the set of entities to return and inputFilters before sending
       // to search
