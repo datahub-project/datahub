@@ -456,7 +456,6 @@ fragment nonRecursiveDatasetFields on Dataset {
             value
         }
         externalUrl
-        created
         lastModified {
             time
             actor
