@@ -11,6 +11,7 @@ import pytest
 import time_machine
 
 from datahub.ingestion.api.source import StructuredLogLevel
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.powerbi.config import (
     Constant,
@@ -26,6 +27,13 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Report,
     ReportType,
     Workspace,
+)
+from datahub.metadata.schema_classes import (
+    OtherSchemaClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
 )
 from datahub.testing import mce_helpers
 from tests.test_helpers import test_connection_helpers
@@ -1539,7 +1547,13 @@ def test_directlake_lineage(
     requests_mock: Any,
 ) -> None:
     """DirectLake semantic models over a Lakehouse (via its SQLAnalyticsEndpoint)
-    and a Warehouse emit table- and column-level lineage to Fabric OneLake tables."""
+    and a Warehouse emit table- and column-level lineage to Fabric OneLake tables.
+
+    Column edges are verified against the OneLake schemas served by the DataHub
+    graph: the engine's RowNumber column, calculated columns and a column renamed
+    without a ``sourceColumn`` binding get no edge; a lowercased OneLake schema
+    (Fabric OneLake ``convert_urns_to_lowercase``) is matched case-insensitively.
+    """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(
@@ -1580,6 +1594,56 @@ def test_directlake_lineage(
         }
     )
 
+    workspace = "d1ec7a4e-0b5e-4c1a-9f7a-6a1e5c0ffee1"
+    lakehouse = "7a1c2e3f-4b5d-4e6f-8a9b-0c1d2e3f4a5b"
+    warehouse = "5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a8b9"
+    onelake_schemas = {
+        f"{workspace}.{lakehouse}.dbo.sales_orders": [
+            "order_id",
+            "customer_id",
+            "order_amount",
+            "order_date",
+        ],
+        # As emitted by Fabric OneLake with convert_urns_to_lowercase: true
+        f"{workspace}.{lakehouse}.dbo.customers": [
+            "customer_id",
+            "customername",
+            "region",
+        ],
+        # "Posting Date" is a rename of posting_date with no sourceColumn
+        f"{workspace}.{warehouse}.finance.gl_entries": [
+            "entry_id",
+            "account_code",
+            "amount",
+            "posting_date",
+        ],
+    }
+    schemas_by_urn = {
+        f"urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,{name},PROD)": (
+            SchemaMetadataClass(
+                schemaName=name,
+                platform="urn:li:dataPlatform:fabric-onelake",
+                version=0,
+                hash="",
+                platformSchema=OtherSchemaClass(rawSchema=""),
+                fields=[
+                    SchemaFieldClass(
+                        fieldPath=field_path,
+                        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                        nativeDataType="varchar",
+                    )
+                    for field_path in field_paths
+                ],
+            )
+        )
+        for name, field_paths in onelake_schemas.items()
+    }
+    graph = MagicMock(spec=DataHubGraph)
+    graph.get_aspect.side_effect = lambda entity_urn, aspect_type: schemas_by_urn.get(
+        entity_urn
+    )
+    pipeline.ctx.graph = graph
+
     pipeline.run()
     pipeline.raise_from_status()
 
@@ -1591,11 +1655,15 @@ def test_directlake_lineage(
 
     assert isinstance(pipeline.source, PowerBiDashboardSource)
     report = pipeline.source.reporter
-    # Sales Orders: 4 physical columns, Customers: 3, GL Entries: 3
+    # Sales Orders: 4 verified columns, Customers: 3, GL Entries: 3 of 4
     assert report.directlake_column_lineage_edges == 10
     assert report.directlake_columns_mapped_via_source_column == 2
-    assert report.directlake_calculated_columns_skipped == 1
+    # Sales Orders: RowNumber + "Amount With Tax"
+    assert report.directlake_non_physical_columns_skipped == 2
     assert report.directlake_measures_skipped == 2
+    assert report.directlake_columns_not_in_upstream_schema == 1
+    assert report.directlake_columns_skipped_unverified == 0
+    assert graph.get_aspect.call_count == 3
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

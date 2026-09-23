@@ -1,10 +1,12 @@
 """Unit tests for PowerBI DirectLake lineage extraction."""
 
-from typing import Any, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
+from unittest.mock import MagicMock
 
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -24,6 +26,11 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 )
 from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
+    OtherSchemaClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
     UpstreamLineageClass,
 )
 
@@ -508,7 +515,35 @@ def _field_urn(dataset_urn: str, column: str) -> str:
     return f"urn:li:schemaField:({dataset_urn},{column})"
 
 
+def _schema(*field_paths: str) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="upstream",
+        platform="urn:li:dataPlatform:fabric-onelake",
+        version=0,
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=field_path,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="varchar",
+            )
+            for field_path in field_paths
+        ],
+    )
+
+
+def _graph(schemas: Dict[str, SchemaMetadataClass]) -> MagicMock:
+    """A DataHub graph that serves the given upstream schemas (None otherwise)."""
+    graph = MagicMock(spec=DataHubGraph)
+    graph.get_aspect.side_effect = lambda entity_urn, aspect_type: schemas.get(
+        entity_urn
+    )
+    return graph
+
+
 def _make_mapper(
+    graph: Optional[MagicMock] = None,
     **config_overrides: Any,
 ) -> Tuple[Mapper, PowerBiDashboardSourceReport]:
     config = PowerBiDashboardSourceConfig(
@@ -519,7 +554,7 @@ def _make_mapper(
     )
     reporter = PowerBiDashboardSourceReport()
     mapper = Mapper(
-        ctx=PipelineContext(run_id="test-run-id"),
+        ctx=PipelineContext(run_id="test-run-id", graph=graph),
         config=config,
         reporter=reporter,
         dataplatform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
@@ -529,12 +564,28 @@ def _make_mapper(
     return mapper, reporter
 
 
-def _fgls(mapper: Mapper, table: Table, workspace: Workspace) -> UpstreamLineageClass:
+def _lineage(
+    mapper: Mapper, table: Table, workspace: Workspace
+) -> UpstreamLineageClass:
     mcps = mapper.extract_directlake_lineage(table, DS_URN, workspace)
     assert len(mcps) == 1
     aspect = mcps[0].aspect
     assert isinstance(aspect, UpstreamLineageClass)
     return aspect
+
+
+def _edges(aspect: UpstreamLineageClass) -> Dict[str, List[str]]:
+    """Downstream field URN -> upstream field URNs."""
+    assert aspect.fineGrainedLineages is not None
+    edges: Dict[str, List[str]] = {}
+    for fgl in aspect.fineGrainedLineages:
+        assert fgl.downstreams is not None and len(fgl.downstreams) == 1
+        edges[fgl.downstreams[0]] = list(fgl.upstreams or [])
+    return edges
+
+
+def _info_titles(report: PowerBiDashboardSourceReport) -> List[Optional[str]]:
+    return [entry.title for entry in report.infos]
 
 
 class TestDirectLakeColumnLineage:
@@ -554,12 +605,14 @@ class TestDirectLakeColumnLineage:
             measures=measures,
         )
 
-    def test_column_lineage_uses_column_name(self) -> None:
-        mapper, report = _make_mapper()
+    def test_columns_verified_against_upstream_schema(self) -> None:
+        mapper, report = _make_mapper(
+            graph=_graph({UPSTREAM_URN: _schema("order_id", "amount")})
+        )
         workspace = self.helper.create_workspace_with_artifact()
         table = self._table([_column("order_id"), _column("amount")])
 
-        aspect = _fgls(mapper, table, workspace)
+        aspect = _lineage(mapper, table, workspace)
 
         assert aspect.fineGrainedLineages == [
             FineGrainedLineageClass(
@@ -576,9 +629,34 @@ class TestDirectLakeColumnLineage:
             ),
         ]
         assert report.directlake_column_lineage_edges == 2
+        assert report.directlake_columns_not_in_upstream_schema == 0
+        assert report.directlake_columns_skipped_unverified == 0
 
-    def test_renamed_column_uses_source_column(self) -> None:
-        mapper, report = _make_mapper()
+    def test_renamed_column_without_source_column_is_not_guessed(self) -> None:
+        """The scan does not document the physical binding of a renamed column,
+        so a name that is not in the upstream schema gets no edge."""
+        mapper, report = _make_mapper(
+            graph=_graph({UPSTREAM_URN: _schema("order_id", "order_amount")})
+        )
+        workspace = self.helper.create_workspace_with_artifact()
+        table = self._table([_column("order_id"), _column("Order Amount")])
+
+        aspect = _lineage(mapper, table, workspace)
+
+        assert _edges(aspect) == {
+            _field_urn(DS_URN, "order_id"): [_field_urn(UPSTREAM_URN, "order_id")]
+        }
+        assert report.directlake_columns_not_in_upstream_schema == 1
+        assert report.directlake_column_lineage_edges == 1
+        assert _info_titles(report) == [
+            "DirectLake column lineage skipped: column not in upstream schema"
+        ]
+        assert list(report.infos[0].context) == [f"{table.full_name}: Order Amount"]
+
+    def test_source_column_follows_rename(self) -> None:
+        mapper, report = _make_mapper(
+            graph=_graph({UPSTREAM_URN: _schema("order_amount", "customer_id")})
+        )
         workspace = self.helper.create_workspace_with_artifact()
         table = self._table(
             [
@@ -588,29 +666,126 @@ class TestDirectLakeColumnLineage:
             ]
         )
 
-        aspect = _fgls(mapper, table, workspace)
+        aspect = _lineage(mapper, table, workspace)
 
-        assert aspect.fineGrainedLineages is not None
-        edges = {
-            tuple(fgl.downstreams or []): fgl.upstreams
-            for fgl in aspect.fineGrainedLineages
-        }
-        assert edges == {
-            (_field_urn(DS_URN, "Order Amount"),): [
+        assert _edges(aspect) == {
+            _field_urn(DS_URN, "Order Amount"): [
                 _field_urn(UPSTREAM_URN, "order_amount")
             ],
-            (_field_urn(DS_URN, "customer_id"),): [
+            _field_urn(DS_URN, "customer_id"): [
                 _field_urn(UPSTREAM_URN, "customer_id")
             ],
         }
         assert report.directlake_columns_mapped_via_source_column == 1
 
-    def test_measures_and_calculated_columns_skipped(self) -> None:
-        mapper, report = _make_mapper()
+    def test_case_insensitive_match_uses_upstream_casing(self) -> None:
+        """Fabric OneLake lowercases field paths under convert_urns_to_lowercase;
+        the edge must point at the field path the upstream actually has."""
+        mapper, report = _make_mapper(
+            graph=_graph({UPSTREAM_URN: _schema("customername", "Region")})
+        )
+        workspace = self.helper.create_workspace_with_artifact()
+        table = self._table(
+            [
+                _column("Customer Name", source_column="CustomerName"),
+                _column("Region"),
+            ]
+        )
+
+        aspect = _lineage(mapper, table, workspace)
+
+        assert _edges(aspect) == {
+            _field_urn(DS_URN, "Customer Name"): [
+                _field_urn(UPSTREAM_URN, "customername")
+            ],
+            _field_urn(DS_URN, "Region"): [_field_urn(UPSTREAM_URN, "Region")],
+        }
+
+    def test_ambiguous_case_insensitive_match_prefers_exact_or_skips(self) -> None:
+        mapper, report = _make_mapper(
+            graph=_graph({UPSTREAM_URN: _schema("Code", "code", "Id", "ID")})
+        )
+        workspace = self.helper.create_workspace_with_artifact()
+        table = self._table([_column("code"), _column("id")])
+
+        aspect = _lineage(mapper, table, workspace)
+
+        assert _edges(aspect) == {
+            _field_urn(DS_URN, "code"): [_field_urn(UPSTREAM_URN, "code")]
+        }
+        assert report.directlake_columns_not_in_upstream_schema == 1
+
+    @pytest.mark.parametrize(
+        "graph",
+        [
+            pytest.param(None, id="no_graph"),
+            pytest.param(_graph({}), id="upstream_schema_not_in_datahub"),
+        ],
+    )
+    def test_unverifiable_upstream_emits_only_source_column_bindings(
+        self, graph: Optional[MagicMock]
+    ) -> None:
+        mapper, report = _make_mapper(graph=graph)
+        workspace = self.helper.create_workspace_with_artifact()
+        table = self._table(
+            [
+                _column("order_id"),
+                _column("Order Amount", source_column="order_amount"),
+            ]
+        )
+
+        aspect = _lineage(mapper, table, workspace)
+
+        # Table-level lineage is unaffected
+        assert [u.dataset for u in aspect.upstreams] == [UPSTREAM_URN]
+        assert _edges(aspect) == {
+            _field_urn(DS_URN, "Order Amount"): [
+                _field_urn(UPSTREAM_URN, "order_amount")
+            ]
+        }
+        assert report.directlake_columns_skipped_unverified == 1
+        assert report.directlake_columns_not_in_upstream_schema == 0
+        assert _info_titles(report) == [
+            "DirectLake column lineage skipped: upstream schema unavailable"
+        ]
+
+    def test_upstream_schema_lookup_failure_is_reported(self) -> None:
+        graph = MagicMock(spec=DataHubGraph)
+        graph.get_aspect.side_effect = ConnectionError("GMS unreachable")
+        mapper, report = _make_mapper(graph=graph)
+        workspace = self.helper.create_workspace_with_artifact()
+        table = self._table([_column("order_id")])
+
+        aspect = _lineage(mapper, table, workspace)
+
+        assert aspect.fineGrainedLineages is None
+        assert [u.dataset for u in aspect.upstreams] == [UPSTREAM_URN]
+        assert [w.title for w in report.warnings] == [
+            "DirectLake upstream schema lookup failed"
+        ]
+        assert report.directlake_columns_skipped_unverified == 1
+
+    def test_upstream_schema_fetched_once_per_upstream(self) -> None:
+        graph = _graph({UPSTREAM_URN: _schema("order_id")})
+        mapper, report = _make_mapper(graph=graph)
+        workspace = self.helper.create_workspace_with_artifact()
+
+        for _ in range(3):
+            _lineage(mapper, self._table([_column("order_id")]), workspace)
+
+        assert graph.get_aspect.call_count == 1
+        assert report.directlake_column_lineage_edges == 3
+
+    def test_non_physical_columns_and_measures_skipped(self) -> None:
+        mapper, report = _make_mapper(
+            graph=_graph({UPSTREAM_URN: _schema("order_id", "amount")})
+        )
         workspace = self.helper.create_workspace_with_artifact()
         table = self._table(
             columns=[
                 _column("order_id"),
+                # columnType casing varies across payloads
+                _column("amount", column_type="DATA"),
                 _column(
                     "amount_with_tax",
                     column_type="Calculated",
@@ -618,93 +793,116 @@ class TestDirectLakeColumnLineage:
                 ),
                 # Expression without columnType is also treated as calculated
                 _column("margin", column_type=None, expression="[amount] - [cost]"),
-                _column("RowNumber-2662979B", column_type="RowNumber"),
+                # The scanner reports the engine's row-number column without a
+                # columnType (see the Admin GetScanResult sample response).
+                _column(
+                    "RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61",
+                    column_type=None,
+                    data_type="Int64",
+                ),
             ],
             measures=[
                 Measure(name="Total Sales", expression="SUM([amount])", isHidden=False)
             ],
         )
 
-        aspect = _fgls(mapper, table, workspace)
+        aspect = _lineage(mapper, table, workspace)
 
-        assert aspect.fineGrainedLineages is not None
-        assert [fgl.downstreams for fgl in aspect.fineGrainedLineages] == [
-            [_field_urn(DS_URN, "order_id")]
+        assert list(_edges(aspect)) == [
+            _field_urn(DS_URN, "order_id"),
+            _field_urn(DS_URN, "amount"),
         ]
-        assert report.directlake_calculated_columns_skipped == 3
+        assert report.directlake_non_physical_columns_skipped == 3
         assert report.directlake_measures_skipped == 1
-        assert report.directlake_column_lineage_edges == 1
+        assert report.directlake_column_lineage_edges == 2
+        assert report.directlake_columns_not_in_upstream_schema == 0
 
     def test_column_without_column_type_is_physical(self) -> None:
-        mapper, report = _make_mapper()
         """Older scan payloads omit columnType; a plain column is still physical."""
+        mapper, report = _make_mapper(graph=_graph({UPSTREAM_URN: _schema("order_id")}))
         workspace = self.helper.create_workspace_with_artifact()
         table = self._table([_column("order_id", column_type=None)])
 
-        aspect = _fgls(mapper, table, workspace)
+        aspect = _lineage(mapper, table, workspace)
 
-        assert aspect.fineGrainedLineages is not None
-        assert len(aspect.fineGrainedLineages) == 1
+        assert list(_edges(aspect)) == [_field_urn(DS_URN, "order_id")]
 
     def test_column_lineage_disabled_by_flag(self) -> None:
-        mapper, report = _make_mapper(extract_column_level_lineage=False)
+        graph = _graph({UPSTREAM_URN: _schema("order_id")})
+        mapper, report = _make_mapper(graph=graph, extract_column_level_lineage=False)
         workspace = self.helper.create_workspace_with_artifact()
         table = self._table([_column("order_id")])
 
-        aspect = _fgls(mapper, table, workspace)
+        aspect = _lineage(mapper, table, workspace)
 
-        # Table-level lineage is still emitted
+        # Table-level lineage is still emitted, without touching the graph
         assert [u.dataset for u in aspect.upstreams] == [UPSTREAM_URN]
         assert aspect.fineGrainedLineages is None
         assert report.directlake_column_lineage_edges == 0
+        graph.get_aspect.assert_not_called()
 
     def test_no_columns_emits_table_lineage_only(self) -> None:
-        mapper, report = _make_mapper()
+        graph = _graph({UPSTREAM_URN: _schema("order_id")})
+        mapper, report = _make_mapper(graph=graph)
         workspace = self.helper.create_workspace_with_artifact()
         table = self._table(columns=None)
 
-        aspect = _fgls(mapper, table, workspace)
+        aspect = _lineage(mapper, table, workspace)
 
         assert len(aspect.upstreams) == 1
         assert aspect.fineGrainedLineages is None
+        graph.get_aspect.assert_not_called()
 
     def test_lowercase_applies_to_dataset_not_column(self) -> None:
-        mapper, report = _make_mapper()
         """convert_lineage_urns_to_lowercase (default True) lowercases only the
         dataset part of the upstream schemaField URN, like the M-Query path."""
+        mapper, report = _make_mapper(
+            graph=_graph({UPSTREAM_URN: _schema("CustomerName")})
+        )
         workspace = self.helper.create_workspace_with_artifact()
         table = self._table(
             [_column("Customer Name", source_column="CustomerName")],
             source_expression="Sales_Orders",
         )
 
-        aspect = _fgls(mapper, table, workspace)
+        aspect = _lineage(mapper, table, workspace)
 
         assert aspect.upstreams[0].dataset == UPSTREAM_URN
-        assert aspect.fineGrainedLineages is not None
-        assert aspect.fineGrainedLineages[0].upstreams == [
-            _field_urn(UPSTREAM_URN, "CustomerName")
-        ]
+        assert _edges(aspect) == {
+            _field_urn(DS_URN, "Customer Name"): [
+                _field_urn(UPSTREAM_URN, "CustomerName")
+            ]
+        }
 
     def test_lowercase_disabled_preserves_dataset_case(self) -> None:
-        mapper, report = _make_mapper(convert_lineage_urns_to_lowercase=False)
+        mixed_case_urn = UPSTREAM_URN.replace("sales_orders", "Sales_Orders")
+        mapper, report = _make_mapper(
+            graph=_graph({mixed_case_urn: _schema("OrderId")}),
+            convert_lineage_urns_to_lowercase=False,
+        )
         workspace = self.helper.create_workspace_with_artifact()
         table = self._table([_column("OrderId")], source_expression="Sales_Orders")
 
-        aspect = _fgls(mapper, table, workspace)
+        aspect = _lineage(mapper, table, workspace)
 
-        mixed_case_urn = UPSTREAM_URN.replace("sales_orders", "Sales_Orders")
         assert aspect.upstreams[0].dataset == mixed_case_urn
-        assert aspect.fineGrainedLineages is not None
-        assert aspect.fineGrainedLineages[0].upstreams == [
-            _field_urn(mixed_case_urn, "OrderId")
-        ]
+        assert _edges(aspect) == {
+            _field_urn(DS_URN, "OrderId"): [_field_urn(mixed_case_urn, "OrderId")]
+        }
 
-    def test_sqlanalyticsendpoint_multiple_items_fan_out_per_column(self) -> None:
-        mapper, report = _make_mapper()
-        """Each column maps to the same column in every resolved physical item."""
+    def test_sqlanalyticsendpoint_multiple_items_verified_per_upstream(self) -> None:
+        """A column maps to every resolved physical item whose schema has it."""
         lakehouse_2 = "3b0b3ece-6269-49d9-c183-46e95f5c5847"
         endpoint_id = "e199683a-5e30-43e9-a054-c6319ab16398"
+        upstream_2 = UPSTREAM_URN.replace(LAKEHOUSE_ID, lakehouse_2)
+        mapper, report = _make_mapper(
+            graph=_graph(
+                {
+                    UPSTREAM_URN: _schema("order_id", "amount"),
+                    upstream_2: _schema("order_id"),
+                }
+            )
+        )
         workspace = self.helper.create_workspace_with_artifacts(
             {
                 LAKEHOUSE_ID: FabricArtifact(
@@ -731,14 +929,16 @@ class TestDirectLakeColumnLineage:
         table = self.helper.create_directlake_table(
             dependent_artifact_id=endpoint_id,
             source_expression="sales_orders",
-            columns=[_column("order_id")],
+            columns=[_column("order_id"), _column("amount")],
         )
 
-        aspect = _fgls(mapper, table, workspace)
+        aspect = _lineage(mapper, table, workspace)
 
-        assert aspect.fineGrainedLineages is not None
-        assert len(aspect.fineGrainedLineages) == 1
-        assert aspect.fineGrainedLineages[0].upstreams == [
-            _field_urn(UPSTREAM_URN, "order_id"),
-            _field_urn(UPSTREAM_URN.replace(LAKEHOUSE_ID, lakehouse_2), "order_id"),
-        ]
+        assert _edges(aspect) == {
+            _field_urn(DS_URN, "order_id"): [
+                _field_urn(UPSTREAM_URN, "order_id"),
+                _field_urn(upstream_2, "order_id"),
+            ],
+            # Only the lakehouse whose schema has the column is an upstream
+            _field_urn(DS_URN, "amount"): [_field_urn(UPSTREAM_URN, "amount")],
+        }

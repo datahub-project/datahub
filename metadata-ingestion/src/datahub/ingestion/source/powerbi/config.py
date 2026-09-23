@@ -275,10 +275,17 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     directlake_column_lineage_edges: int = 0
     # Columns mapped via the scan's ``sourceColumn`` (i.e. renamed in the model)
     directlake_columns_mapped_via_source_column: int = 0
-    # Calculated columns have no physical upstream column; skipped.
-    directlake_calculated_columns_skipped: int = 0
+    # Calculated columns and the engine's RowNumber column have no physical
+    # upstream column; skipped.
+    directlake_non_physical_columns_skipped: int = 0
     # Measures are DAX expressions with no physical upstream column; skipped.
     directlake_measures_skipped: int = 0
+    # Physical columns absent from the upstream OneLake schema in DataHub
+    # (typically renamed in the semantic model); skipped rather than guessed.
+    directlake_columns_not_in_upstream_schema: int = 0
+    # Physical columns whose upstream OneLake schema is not available in DataHub
+    # and that carry no explicit ``sourceColumn``; skipped rather than guessed.
+    directlake_columns_skipped_unverified: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -767,7 +774,9 @@ class PowerBiDashboardSourceConfig(
         "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are "
         "enabled. "
         "Works for M-Query where native SQL is used for transformation, and for "
-        "DirectLake tables (column-to-column lineage to the upstream Fabric OneLake table).",
+        "DirectLake tables (column-to-column lineage to the upstream Fabric OneLake table, "
+        "emitted only for columns verified against the OneLake schema in DataHub or bound "
+        "by an explicit `sourceColumn`).",
     )
 
     profile_pattern: AllowDenyPattern = pydantic.Field(

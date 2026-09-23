@@ -43,6 +43,18 @@
             },
             "fields": [
                 {
+                    "fieldPath": "RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "order_id",
                     "nullable": false,
                     "type": {
@@ -268,7 +280,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,d1ec7a4e-0b5e-4c1a-9f7a-6a1e5c0ffee1.7a1c2e3f-4b5d-4e6f-8a9b-0c1d2e3f4a5b.dbo.customers,PROD),CustomerName)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,d1ec7a4e-0b5e-4c1a-9f7a-6a1e5c0ffee1.7a1c2e3f-4b5d-4e6f-8a9b-0c1d2e3f4a5b.dbo.customers,PROD),customername)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -279,7 +291,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,d1ec7a4e-0b5e-4c1a-9f7a-6a1e5c0ffee1.7a1c2e3f-4b5d-4e6f-8a9b-0c1d2e3f4a5b.dbo.customers,PROD),Region)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,d1ec7a4e-0b5e-4c1a-9f7a-6a1e5c0ffee1.7a1c2e3f-4b5d-4e6f-8a9b-0c1d2e3f4a5b.dbo.customers,PROD),region)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -767,6 +779,18 @@
                         }
                     },
                     "nativeDataType": "Decimal",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Posting Date",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DateTime",
                     "recursive": false,
                     "isPartOfKey": false
                 },

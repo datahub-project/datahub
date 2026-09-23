@@ -106,6 +106,11 @@
                                     ],
                                     "columns": [
                                         {
+                                            "name": "RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61",
+                                            "dataType": "Int64",
+                                            "isHidden": true
+                                        },
+                                        {
                                             "name": "order_id",
                                             "dataType": "Int64",
                                             "isHidden": false,
@@ -218,6 +223,12 @@
                                         {
                                             "name": "amount",
                                             "dataType": "Decimal",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        },
+                                        {
+                                            "name": "Posting Date",
+                                            "dataType": "DateTime",
                                             "isHidden": false,
                                             "columnType": "Data"
                                         }

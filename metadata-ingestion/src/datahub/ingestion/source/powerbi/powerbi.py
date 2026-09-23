@@ -6,7 +6,7 @@
 import functools
 import logging
 from datetime import datetime
-from typing import Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
 
@@ -135,6 +135,10 @@ class Mapper:
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
         self.workspace_key: Optional[ContainerKey] = None
+        # Upstream OneLake URN -> its schema field paths keyed by lowercased path
+        # (None when not available in DataHub). One entry per distinct DirectLake
+        # upstream table, so bounded by the number of lakehouse/warehouse tables.
+        self._onelake_field_paths_cache: Dict[str, Optional[Dict[str, List[str]]]] = {}
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -228,20 +232,92 @@ class Mapper:
 
         return fine_grained_lineages
 
-    # Scanner ``columnType`` values backed by a physical column in the source.
-    # "Calculated" / "CalculatedTableColumn" are DAX-defined and "RowNumber" is
-    # an engine-internal column; none of them have an upstream OneLake column.
-    _DIRECTLAKE_PHYSICAL_COLUMN_TYPES = frozenset({"Data"})
+    # Scanner ``columnType`` value (compared case-insensitively) backed by a
+    # physical column in the source. "Calculated" / "CalculatedTableColumn" are
+    # DAX-defined; neither has an upstream OneLake column.
+    _DIRECTLAKE_PHYSICAL_COLUMN_TYPE = "data"
+    # Every table carries an engine-internal ``RowNumber-<GUID>`` column. The
+    # scanner reports it as a plain hidden column without ``columnType``, so it
+    # must be recognised by name; it has no upstream OneLake column.
+    _DIRECTLAKE_ROW_NUMBER_PREFIX = "RowNumber-"
 
+    @classmethod
     def _is_directlake_physical_column(
-        self, column: powerbi_data_classes.Column
+        cls, column: powerbi_data_classes.Column
     ) -> bool:
         if column.expression:
             return False
+        if column.name.startswith(cls._DIRECTLAKE_ROW_NUMBER_PREFIX):
+            return False
         return (
             column.columnType is None
-            or column.columnType in self._DIRECTLAKE_PHYSICAL_COLUMN_TYPES
+            or column.columnType.lower() == cls._DIRECTLAKE_PHYSICAL_COLUMN_TYPE
         )
+
+    def _get_onelake_field_paths(
+        self, upstream_urn: str
+    ) -> Optional[Dict[str, List[str]]]:
+        """Field paths of an upstream OneLake table, keyed by lowercased path.
+
+        Read from DataHub (the table's ``schemaMetadata`` as emitted by the
+        Fabric OneLake source) and cached per URN. Returns None when there is no
+        graph connection or the upstream has no schema in DataHub, meaning the
+        upstream columns cannot be verified.
+        """
+        if upstream_urn in self._onelake_field_paths_cache:
+            return self._onelake_field_paths_cache[upstream_urn]
+
+        field_paths: Optional[Dict[str, List[str]]] = None
+        graph = self.__ctx.graph
+        if graph is not None:
+            schema: Optional[SchemaMetadataClass] = None
+            try:
+                schema = graph.get_aspect(
+                    entity_urn=upstream_urn, aspect_type=SchemaMetadataClass
+                )
+            except Exception as e:
+                self.__reporter.warning(
+                    title="DirectLake upstream schema lookup failed",
+                    message="Could not read the Fabric OneLake table schema from "
+                    "DataHub, so column-level lineage is only emitted for columns "
+                    "with an explicit sourceColumn binding.",
+                    context=upstream_urn,
+                    exc=e,
+                )
+            if schema is not None:
+                field_paths = {}
+                for field in schema.fields:
+                    field_paths.setdefault(field.fieldPath.lower(), []).append(
+                        field.fieldPath
+                    )
+
+        self._onelake_field_paths_cache[upstream_urn] = field_paths
+        return field_paths
+
+    @staticmethod
+    def _resolve_directlake_upstream_column(
+        column: powerbi_data_classes.Column,
+        field_paths: Optional[Dict[str, List[str]]],
+    ) -> Optional[str]:
+        """The upstream OneLake field path of a DirectLake column, if verifiable.
+
+        With the upstream schema known, the candidate name (``sourceColumn`` or
+        the column name) must exist in it; an exact match wins, otherwise a
+        unique case-insensitive match yields the upstream's own casing (Fabric
+        OneLake lowercases field paths under ``convert_urns_to_lowercase``).
+        Without the upstream schema, only an explicit ``sourceColumn`` binding is
+        trusted: the Power BI column name may be a rename of the Delta column.
+        """
+        if field_paths is None:
+            return column.sourceColumn
+
+        candidate = column.sourceColumn or column.name
+        matches = field_paths.get(candidate.lower(), [])
+        if candidate in matches:
+            return candidate
+        if len(matches) == 1:
+            return matches[0]
+        return None
 
     def make_directlake_fine_grained_lineage(
         self,
@@ -251,13 +327,15 @@ class Mapper:
     ) -> List[FineGrainedLineage]:
         """Map each physical column of a DirectLake table to its OneLake column.
 
-        DirectLake columns are bound 1:1 to a column of the upstream Delta table.
-        The upstream column is ``sourceColumn`` when the scan provides it (the
-        column was renamed in the semantic model), otherwise the PowerBI column
-        name. Calculated columns and measures have no physical upstream and are
-        skipped.
+        DirectLake columns are bound 1:1 to a column of the upstream Delta table,
+        but the admin scan does not document the binding: a column renamed in
+        the semantic model carries only its new name. To avoid edges to columns
+        that do not exist, an edge is emitted only when the upstream column is
+        verified against the upstream table's schema in DataHub, or when the
+        scan provides an explicit ``sourceColumn``. Calculated columns, the
+        engine's ``RowNumber`` column and measures have no physical upstream and
+        are skipped. Every skip is counted in the report.
 
-        Column casing is preserved, matching the M-Query path:
         ``convert_lineage_urns_to_lowercase`` only lowercases the dataset part
         of the upstream schemaField URN (already applied to ``upstream_urns``).
         """
@@ -272,12 +350,45 @@ class Mapper:
         if not upstream_urns:
             return fine_grained_lineages
 
+        physical_columns: List[powerbi_data_classes.Column] = []
         for column in table.columns or []:
-            if not self._is_directlake_physical_column(column):
-                self.__reporter.directlake_calculated_columns_skipped += 1
+            if self._is_directlake_physical_column(column):
+                physical_columns.append(column)
+            else:
+                self.__reporter.directlake_non_physical_columns_skipped += 1
+        self.__reporter.directlake_measures_skipped += len(table.measures or [])
+
+        if not physical_columns:
+            return fine_grained_lineages
+
+        field_paths_by_upstream = {
+            upstream_urn: self._get_onelake_field_paths(upstream_urn)
+            for upstream_urn in upstream_urns
+        }
+        any_upstream_schema_known = any(
+            field_paths is not None for field_paths in field_paths_by_upstream.values()
+        )
+
+        unverified_columns: List[str] = []
+        missing_columns: List[str] = []
+        for column in physical_columns:
+            upstream_fields: List[str] = []
+            for upstream_urn, field_paths in field_paths_by_upstream.items():
+                upstream_column = self._resolve_directlake_upstream_column(
+                    column, field_paths
+                )
+                if upstream_column is not None:
+                    upstream_fields.append(
+                        builder.make_schema_field_urn(upstream_urn, upstream_column)
+                    )
+
+            if not upstream_fields:
+                if any_upstream_schema_known:
+                    missing_columns.append(column.name)
+                else:
+                    unverified_columns.append(column.name)
                 continue
 
-            upstream_column = column.sourceColumn or column.name
             if column.sourceColumn and column.sourceColumn != column.name:
                 self.__reporter.directlake_columns_mapped_via_source_column += 1
 
@@ -286,14 +397,36 @@ class Mapper:
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,
                     downstreams=[builder.make_schema_field_urn(ds_urn, column.name)],
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    upstreams=[
-                        builder.make_schema_field_urn(upstream_urn, upstream_column)
-                        for upstream_urn in upstream_urns
-                    ],
+                    upstreams=upstream_fields,
                 )
             )
 
-        self.__reporter.directlake_measures_skipped += len(table.measures or [])
+        if unverified_columns:
+            self.__reporter.directlake_columns_skipped_unverified += len(
+                unverified_columns
+            )
+            self.__reporter.info(
+                title="DirectLake column lineage skipped: upstream schema unavailable",
+                message="The Fabric OneLake schema of this table's upstream was not "
+                "found in DataHub, so its columns could not be matched and no "
+                "column-level lineage was emitted for them. Ingest Fabric OneLake "
+                "before Power BI and run with a DataHub connection (datahub-rest "
+                "sink or datahub_api).",
+                context=f"{table.full_name}: {', '.join(unverified_columns)}",
+            )
+        if missing_columns:
+            self.__reporter.directlake_columns_not_in_upstream_schema += len(
+                missing_columns
+            )
+            self.__reporter.info(
+                title="DirectLake column lineage skipped: column not in upstream schema",
+                message="These DirectLake columns have no column of the same name in "
+                "the upstream Fabric OneLake table, typically because they were "
+                "renamed in the semantic model. No column-level lineage was "
+                "emitted for them.",
+                context=f"{table.full_name}: {', '.join(missing_columns)}",
+            )
+
         self.__reporter.directlake_column_lineage_edges += len(fine_grained_lineages)
 
         return fine_grained_lineages
