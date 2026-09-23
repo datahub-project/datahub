@@ -629,7 +629,9 @@ def resolve_view_locations(
     schema_fields: Sequence[LookmlModelExploreField],
     parameter_fields: Sequence[LookmlModelExploreField],
     reporter: SourceReport,
+    view_aliases: Optional[Dict[str, str]] = None,
 ) -> Dict[str, _ViewLocation]:
+    aliases = view_aliases or {}
     sources_by_view: Dict[str, List[_ViewFieldSource]] = {}
 
     def _add(
@@ -642,9 +644,10 @@ def resolve_view_locations(
             )
             if field_view_name is None:
                 continue
-            sources_by_view.setdefault(field_view_name, []).append(
+            canonical_view_name = aliases.get(field_view_name, field_view_name)
+            sources_by_view.setdefault(canonical_view_name, []).append(
                 _ViewFieldSource(
-                    view_name=field_view_name,
+                    view_name=canonical_view_name,
                     source_file=field.source_file,
                     can_veto=can_veto,
                 )
@@ -659,97 +662,6 @@ def resolve_view_locations(
         )
         for view_name in view_names
     }
-
-
-def create_view_project_map(
-    view_fields: List[ViewField], reporter: SourceReport
-) -> Dict[str, str]:
-    """
-    Each view in a model has unique name.
-    Use this function in scope of a model.
-    """
-    fields_by_view: Dict[str, List[ViewField]] = {}
-    for view_field in view_fields:
-        if view_field.view_name is None:
-            continue
-        fields_by_view.setdefault(view_field.view_name, []).append(view_field)
-
-    view_project_map: Dict[str, str] = {}
-    for view_name, fields in fields_by_view.items():
-        sources = [
-            _ViewFieldSource(
-                view_name=view_name,
-                source_file=field.source_file,
-                can_veto=True,
-            )
-            for field in fields
-        ]
-        location = _resolve_one_view(view_name, sources, reporter)
-        if location.imported_project is not None:
-            view_project_map[view_name] = location.imported_project
-
-    return view_project_map
-
-
-def get_view_file_path(
-    lkml_fields: List[LookmlModelExploreField],
-    view_name: str,
-    reporter: SourceReport,
-) -> Optional[str]:
-    """
-    Search for the view file path on field, if found then return the file path
-    """
-    logger.debug("Entered")
-
-    matching_fields: List[LookmlModelExploreField] = [
-        field
-        for field in lkml_fields
-        if LookerUtil.extract_view_name_from_lookml_model_explore_field(field)
-        == view_name
-    ]
-    if not matching_fields:
-        logger.debug(f"Failed to find view({view_name}) file-path")
-        return None
-
-    location = _resolve_one_view(
-        view_name,
-        [
-            _ViewFieldSource(
-                view_name=view_name,
-                source_file=field.source_file,
-                can_veto=True,
-            )
-            for field in matching_fields
-        ],
-        reporter,
-    )
-    logger.debug(f"Found view({view_name}) file-path {location.file_path}")
-    return location.file_path
-
-
-def explore_field_set_to_lkml_fields(
-    explore: LookmlModelExplore,
-) -> List[LookmlModelExploreField]:
-    """
-    explore.fields has three variables i.e. dimensions, measures, parameters of same type i.e. LookmlModelExploreField.
-    This method creating a list by adding all field instance to lkml_fields
-    """
-    lkml_fields: List[LookmlModelExploreField] = []
-
-    if explore.fields is None:
-        logger.debug(f"Explore({explore.name}) doesn't have any field")
-        return lkml_fields
-
-    def empty_list(
-        fields: Optional[Sequence[LookmlModelExploreField]],
-    ) -> List[LookmlModelExploreField]:
-        return list(fields) if fields is not None else []
-
-    lkml_fields.extend(empty_list(explore.fields.dimensions))
-    lkml_fields.extend(empty_list(explore.fields.measures))
-    lkml_fields.extend(empty_list(explore.fields.parameters))
-
-    return lkml_fields
 
 
 class LookerUtil:
@@ -1414,24 +1326,39 @@ class LookerExplore:
                 if explore.fields.parameters is not None:
                     parameter_fields.extend(explore.fields.parameters)
 
+            view_aliases: Dict[str, str] = {}
+            if (
+                aliased_explore
+                and explore.name is not None
+                and explore.view_name is not None
+            ):
+                view_aliases[explore.name] = explore.view_name
+
             view_locations = resolve_view_locations(
                 view_names=views,
                 schema_fields=schema_fields,
                 parameter_fields=parameter_fields,
                 reporter=reporter,
+                view_aliases=view_aliases,
             )
             view_project_map: Dict[str, str] = {
                 view_name: location.imported_project
                 for view_name, location in view_locations.items()
                 if location.imported_project is not None
             }
-            if view_project_map:
-                logger.debug(f"views and their projects: {view_project_map}")
-
             upstream_views_file_path: Dict[str, Optional[str]] = {
                 view_name: location.file_path
                 for view_name, location in view_locations.items()
             }
+            for alias, canonical in view_aliases.items():
+                if canonical in view_project_map:
+                    view_project_map[alias] = view_project_map[canonical]
+                if canonical in upstream_views_file_path:
+                    upstream_views_file_path[alias] = upstream_views_file_path[
+                        canonical
+                    ]
+            if view_project_map:
+                logger.debug(f"views and their projects: {view_project_map}")
             if upstream_views_file_path:
                 logger.debug(f"views and their file-paths: {upstream_views_file_path}")
 
