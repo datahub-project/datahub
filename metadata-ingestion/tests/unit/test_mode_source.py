@@ -884,3 +884,74 @@ class TestGetInputFields:
         assert [f.schemaFieldUrn for f in aspect.fields] == [
             builder.make_schema_field_urn(query_urn, field_path)
         ]
+
+
+class TestApiObjectFieldRecording:
+    """Mode omits fields depending on workspace and API version -- and marks as
+    "required" fields that real responses leave out -- so gating logic on a
+    field that is never returned silently drops data (#16300 gated on
+    explorations_count, #17357 on chart_count, a Report field that does not
+    exist on Query objects). The report records which fields each object type
+    actually returned, so this is diagnosable from an ingestion report."""
+
+    def test_records_field_names_excluding_hal_keys(self):
+        source = _make_source()
+        source.report.record_api_object_fields(
+            source.report.query_object_fields_seen,
+            "query",
+            [
+                {"id": 1, "token": "t", "explorations_count": 0, "_links": {}},
+                {"id": 2, "dbt_metric_id": None, "_forms": {}},
+            ],
+        )
+        assert sorted(source.report.query_object_fields_seen) == [
+            "dbt_metric_id",
+            "explorations_count",
+            "id",
+            "token",
+        ]
+
+    def test_does_not_record_values(self):
+        """Query objects carry customer SQL; only field names may be recorded."""
+        source = _make_source()
+        source.report.record_api_object_fields(
+            source.report.query_object_fields_seen,
+            "query",
+            [{"raw_query": "SELECT secret FROM customer_table"}],
+        )
+        assert sorted(source.report.query_object_fields_seen) == ["raw_query"]
+
+
+class TestChartGateProbe:
+    """Temporary diagnostic: detects a chart gate that skips queries which do
+    in fact have charts. Delete along with the probe once the gate is fixed."""
+
+    def test_disabled_by_default(self):
+        source = _make_source()
+        with patch.object(source, "_get_charts") as get_charts:
+            source._probe_skipped_query_for_charts("rtok", {"token": "qtok"})
+        get_charts.assert_not_called()
+        assert source.report.chart_gate_probe_queries_probed == 0
+
+    def test_respects_budget_and_records_disagreement(self):
+        source = _make_source()
+        source.config.chart_gate_probe_limit = 3
+        with patch.object(
+            source, "_get_charts", return_value=[{"token": "c1"}, {"token": "c2"}]
+        ) as get_charts:
+            for _ in range(10):
+                source._probe_skipped_query_for_charts("rtok", {"token": "qtok"})
+
+        assert get_charts.call_count == 3
+        assert source.report.chart_gate_probe_queries_probed == 3
+        assert source.report.chart_gate_probe_skipped_but_had_charts == 3
+        assert source.report.chart_gate_probe_charts_found == 6
+
+    def test_no_disagreement_when_query_really_has_no_charts(self):
+        source = _make_source()
+        source.config.chart_gate_probe_limit = 3
+        with patch.object(source, "_get_charts", return_value=[]):
+            source._probe_skipped_query_for_charts("rtok", {"token": "qtok"})
+
+        assert source.report.chart_gate_probe_queries_probed == 1
+        assert source.report.chart_gate_probe_skipped_but_had_charts == 0
