@@ -9,9 +9,19 @@ This connector extracts metadata from Microsoft Fabric OneLake including:
 - Views as Datasets with view definition and lineage parsed from the view SQL
 """
 
+import functools
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Iterable, Literal, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Generator,
+    Iterable,
+    Literal,
+    Optional,
+    TypeVar,
+    Union,
+)
 
 from typing_extensions import assert_never
 
@@ -82,6 +92,30 @@ logger = logging.getLogger(__name__)
 
 # Platform identifier
 PLATFORM = "fabric-onelake"
+
+_T = TypeVar("_T")
+
+
+def _iter_isolated(
+    items: Iterable[_T], on_error: Callable[[Exception], None]
+) -> Generator[_T, None, None]:
+    """Yield ``items``; an exception raised while *producing* them is passed to
+    ``on_error`` and ends the iteration instead of propagating.
+
+    The ``yield`` sits outside the ``try`` on purpose: an exception raised by the
+    consumer at the yield point (``generator.throw``) propagates unchanged rather
+    than being misreported as a failure of the producer.
+    """
+    iterator = iter(items)
+    while True:
+        try:
+            item = next(iterator)
+        except StopIteration:
+            return
+        except Exception as e:
+            on_error(e)
+            return
+        yield item
 
 
 class LakehouseKey(WorkspaceKey):
@@ -295,59 +329,41 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 )
 
         try:
-            # List all workspaces
             workspaces = list(self.client.list_workspaces())
-
-            allowed_workspaces: list[FabricWorkspace] = []
-            for workspace in workspaces:
-                self.report.report_api_call()
-
-                # Filter workspaces
-                if not self.config.workspace_pattern.allowed(workspace.name):
-                    self.report.report_workspace_filtered(workspace.name)
-                    continue
-                allowed_workspaces.append(workspace)
-
-            # List items of every ingested workspace up front: usage queries are
-            # parsed as each item is processed, so the name index must already
-            # know every item they might reference.
-            workspace_items = {
-                workspace.id: self._list_workspace_items(workspace)
-                for workspace in allowed_workspaces
-            }
-
-            for workspace in allowed_workspaces:
-                self.report.report_workspace_scanned()
-                logger.info(f"Processing workspace: {workspace.name} ({workspace.id})")
-
-                try:
-                    yield from build_workspace_container(
-                        workspace=workspace,
-                        platform_instance=self.config.platform_instance,
-                        env=self.config.env,
-                    )
-
-                    # Process items (lakehouses and warehouses)
-                    lakehouses, warehouses = workspace_items[workspace.id]
-                    yield from self._process_workspace_items(
-                        workspace, lakehouses, warehouses
-                    )
-
-                except Exception as e:
-                    self.report.warning(
-                        title="Failed to Process Workspace",
-                        message="Error processing workspace. Skipping to next.",
-                        context=f"workspace={workspace.name}",
-                        exc=e,
-                        log=False,
-                    )
-
         except Exception as e:
             self.report.failure(
                 title="Failed to List Workspaces",
                 message="Unable to retrieve workspaces from Fabric.",
                 context="",
                 exc=e,
+            )
+            workspaces = []
+
+        allowed_workspaces: list[FabricWorkspace] = []
+        for workspace in workspaces:
+            self.report.report_api_call()
+
+            # Filter workspaces
+            if not self.config.workspace_pattern.allowed(workspace.name):
+                self.report.report_workspace_filtered(workspace.name)
+                continue
+            allowed_workspaces.append(workspace)
+
+        # List items of every ingested workspace up front: usage queries are
+        # parsed as each item is processed, so the name index must already
+        # know every item they might reference.
+        workspace_items = {
+            workspace.id: self._list_workspace_items(workspace)
+            for workspace in allowed_workspaces
+        }
+
+        for workspace in allowed_workspaces:
+            self.report.report_workspace_scanned()
+            logger.info(f"Processing workspace: {workspace.name} ({workspace.id})")
+            lakehouses, warehouses = workspace_items[workspace.id]
+            yield from _iter_isolated(
+                self._process_workspace(workspace, lakehouses, warehouses),
+                on_error=functools.partial(self._report_workspace_failure, workspace),
             )
 
         # Drain the aggregator. Emits view lineage and (when usage is enabled)
@@ -357,27 +373,29 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             "Draining SQL aggregator (view lineage"
             f"{', usage' if self.config.usage.include_usage_statistics and not self._skip_usage_run else ''})"
         )
-        aggregator_drain_succeeded = False
+        drain_errors: list[Exception] = []
         emitted = 0
-        try:
-            for mcp in self.aggregator.gen_metadata():
-                filtered_mcp = drop_unresolved_references(
-                    mcp, self.schema_resolver.unresolved_urns
-                )
-                if filtered_mcp is None:
-                    self.report.num_lineage_aspects_dropped_unresolved += 1
-                    continue
-                yield filtered_mcp.as_workunit()
-                emitted += 1
-            aggregator_drain_succeeded = True
-            logger.info(f"SQL aggregator drained: emitted {emitted} MCPs")
-        except Exception as e:
+        for mcp in _iter_isolated(
+            self.aggregator.gen_metadata(), on_error=drain_errors.append
+        ):
+            filtered_mcp = drop_unresolved_references(
+                mcp, self.schema_resolver.unresolved_urns
+            )
+            if filtered_mcp is None:
+                self.report.num_lineage_aspects_dropped_unresolved += 1
+                continue
+            yield filtered_mcp.as_workunit()
+            emitted += 1
+        aggregator_drain_succeeded = not drain_errors
+        if drain_errors:
             self.report.failure(
                 title="Failed to Generate Lineage / Usage",
                 message="Error draining SQL aggregator for lineage and usage.",
                 context=f"mcps_emitted_before_failure={emitted}",
-                exc=e,
+                exc=drain_errors[0],
             )
+        else:
+            logger.info(f"SQL aggregator drained: emitted {emitted} MCPs")
 
         # Update the usage checkpoint only after a successful drain so a partial
         # run doesn't mark the window as covered.
@@ -431,48 +449,99 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         return lakehouses, warehouses
 
+    def _process_workspace(
+        self,
+        workspace: FabricWorkspace,
+        lakehouses: Optional[list[FabricLakehouse]],
+        warehouses: Optional[list[FabricWarehouse]],
+    ) -> Iterable[Union[Container, Dataset]]:
+        """Emit a workspace container followed by its lakehouses and warehouses."""
+        yield from build_workspace_container(
+            workspace=workspace,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        yield from self._process_workspace_items(workspace, lakehouses, warehouses)
+
     def _process_workspace_items(
         self,
         workspace: FabricWorkspace,
         lakehouses: Optional[list[FabricLakehouse]],
         warehouses: Optional[list[FabricWarehouse]],
     ) -> Iterable[Union[Container, Dataset]]:
-        """Process lakehouses and warehouses within a workspace."""
-        try:
-            for lakehouse in lakehouses or []:
-                # Filter lakehouses
-                if not self.config.lakehouse_pattern.allowed(lakehouse.name):
-                    self.report.report_lakehouse_filtered(lakehouse.name)
-                    continue
+        """Process lakehouses and warehouses within a workspace.
 
-                self.report.report_lakehouse_scanned()
-                logger.info(f"Processing lakehouse: {lakehouse.name} ({lakehouse.id})")
-                yield from self._process_lakehouse(workspace, lakehouse)
-        except Exception as e:
-            self.report.warning(
-                title="Failed to Process Lakehouses",
-                message="Error processing lakehouses in workspace.",
-                context=f"workspace={workspace.name}",
-                exc=e,
-                log=False,
+        Each item is isolated: an error in one is reported and the next item is
+        still processed.
+        """
+        for lakehouse in lakehouses or []:
+            # Filter lakehouses
+            if not self.config.lakehouse_pattern.allowed(lakehouse.name):
+                self.report.report_lakehouse_filtered(lakehouse.name)
+                continue
+
+            self.report.report_lakehouse_scanned()
+            logger.info(f"Processing lakehouse: {lakehouse.name} ({lakehouse.id})")
+            yield from _iter_isolated(
+                self._process_lakehouse(workspace, lakehouse),
+                on_error=functools.partial(
+                    self._report_item_failure, workspace, lakehouse
+                ),
             )
 
-        try:
-            for warehouse in warehouses or []:
-                # Filter warehouses
-                if not self.config.warehouse_pattern.allowed(warehouse.name):
-                    self.report.report_warehouse_filtered(warehouse.name)
-                    continue
+        for warehouse in warehouses or []:
+            # Filter warehouses
+            if not self.config.warehouse_pattern.allowed(warehouse.name):
+                self.report.report_warehouse_filtered(warehouse.name)
+                continue
 
-                self.report.report_warehouse_scanned()
-                logger.info(f"Processing warehouse: {warehouse.name} ({warehouse.id})")
-                yield from self._process_warehouse(workspace, warehouse)
-        except Exception as e:
+            self.report.report_warehouse_scanned()
+            logger.info(f"Processing warehouse: {warehouse.name} ({warehouse.id})")
+            yield from _iter_isolated(
+                self._process_warehouse(workspace, warehouse),
+                on_error=functools.partial(
+                    self._report_item_failure, workspace, warehouse
+                ),
+            )
+
+    def _report_workspace_failure(
+        self, workspace: FabricWorkspace, exc: Exception
+    ) -> None:
+        self.report.warning(
+            title="Failed to Process Workspace",
+            message="Error processing workspace. Skipping to next.",
+            context=f"workspace={workspace.name}",
+            exc=exc,
+            log=False,
+        )
+
+    def _report_item_failure(
+        self,
+        workspace: FabricWorkspace,
+        item: Union[FabricLakehouse, FabricWarehouse],
+        exc: Exception,
+    ) -> None:
+        context = f"workspace={workspace.name}, item={item.name} ({item.id})"
+        if isinstance(item, FabricLakehouse):
             self.report.warning(
-                title="Failed to Process Warehouses",
-                message="Error processing warehouses in workspace.",
-                context=f"workspace={workspace.name}",
-                exc=e,
+                title="Failed to Process Lakehouse",
+                message=(
+                    "Error processing a lakehouse. Its remaining tables, views and "
+                    "usage are missing from this run; other items are still processed."
+                ),
+                context=context,
+                exc=exc,
+                log=False,
+            )
+        else:
+            self.report.warning(
+                title="Failed to Process Warehouse",
+                message=(
+                    "Error processing a warehouse. Its remaining tables, views and "
+                    "usage are missing from this run; other items are still processed."
+                ),
+                context=context,
+                exc=exc,
                 log=False,
             )
 
