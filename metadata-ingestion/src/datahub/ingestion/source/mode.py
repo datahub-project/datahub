@@ -326,6 +326,7 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     dataset_get_api_called: int = 0
     query_get_api_called: int = 0
     chart_get_api_called: int = 0
+    report_detail_get_api_called: int = 0
     process_memory_used_mb: float = 0
     # Thread-safe cumulative timing accumulators (seconds).
     # Protected by _lock. These track time spent in worker threads.
@@ -518,6 +519,45 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return last_refreshed_ts
 
+    def _imported_datasets(self, report_info: dict) -> List[dict]:
+        """The reusable Mode datasets a report imports.
+
+        The reports listing has been observed returning a
+        ``has_imported_datasets`` boolean in place of the documented
+        ``imported_datasets`` array, in which case the array is only available
+        from the single-report endpoint. Only an explicit ``False`` is taken as
+        "this report imports nothing"; any other shape falls back to the detail
+        call, because defaulting an absent field to empty is what silently
+        drops data. https://mode.com/developer/api-reference/analytics/reports/
+        """
+        imported = report_info.get("imported_datasets")
+        if imported is not None:
+            return imported
+        if report_info.get("has_imported_datasets") is False:
+            return []
+
+        report_token = report_info.get("token")
+        if not report_token:
+            return []
+        try:
+            detail = self._get_request_json(
+                f"{self.workspace_uri}/reports/{report_token}"
+            )
+            with self.report._lock:
+                self.report.report_detail_get_api_called += 1
+        except HTTPError as http_error:
+            if _is_http_404(http_error):
+                self.report.warning(
+                    title="Report Not Found",
+                    message="Unable to resolve the reports's imported datasets; "
+                    "the report may have been recently deleted.",
+                    context=f"Report Token: {report_token}",
+                    log=False,
+                )
+                return []
+            raise
+        return detail.get("imported_datasets") or []
+
     def construct_dashboard(
         self, space_token: str, report_info: dict, chart_urns: List[str]
     ) -> Optional[Tuple[DashboardSnapshot, MetadataChangeProposalWrapper]]:
@@ -578,7 +618,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Datasets
         datasets = []
-        for imported_dataset_name in report_info.get("imported_datasets", []):
+        for imported_dataset_name in self._imported_datasets(report_info):
             try:
                 mode_dataset = self._get_request_json(
                     f"{self.workspace_uri}/reports/{imported_dataset_name.get('token')}"

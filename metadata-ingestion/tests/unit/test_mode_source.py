@@ -838,3 +838,81 @@ class TestNoChartsGuardrail:
         source.report.num_charts_processed = 0
         source._warn_if_no_charts_extracted()
         assert not source.report.warnings
+
+
+class TestImportedDatasetsResolution:
+    """The reports listing has been seen returning a has_imported_datasets
+    boolean instead of the documented imported_datasets array, which made
+    DashboardInfo.datasets come out empty for every report."""
+
+    def test_uses_inline_array_without_an_extra_call(self):
+        source = _make_source()
+        report = {"token": "rtok", "imported_datasets": [{"token": "d1"}]}
+        with patch.object(source, "_get_request_json") as get_json:
+            assert source._imported_datasets(report) == [{"token": "d1"}]
+        get_json.assert_not_called()
+
+    def test_inline_empty_array_is_authoritative(self):
+        source = _make_source()
+        report = {"token": "rtok", "imported_datasets": []}
+        with patch.object(source, "_get_request_json") as get_json:
+            assert source._imported_datasets(report) == []
+        get_json.assert_not_called()
+
+    def test_explicit_false_flag_skips_the_detail_call(self):
+        source = _make_source()
+        report = {"token": "rtok", "has_imported_datasets": False}
+        with patch.object(source, "_get_request_json") as get_json:
+            assert source._imported_datasets(report) == []
+        get_json.assert_not_called()
+
+    def test_true_flag_resolves_via_the_detail_endpoint(self):
+        source = _make_source()
+        report = {"token": "rtok", "has_imported_datasets": True}
+        with patch.object(
+            source,
+            "_get_request_json",
+            return_value={"imported_datasets": [{"token": "d1"}, {"token": "d2"}]},
+        ) as get_json:
+            assert source._imported_datasets(report) == [
+                {"token": "d1"},
+                {"token": "d2"},
+            ]
+        assert get_json.call_count == 1
+        assert get_json.call_args[0][0].endswith("/reports/rtok")
+        assert source.report.report_detail_get_api_called == 1
+
+    def test_neither_field_present_still_looks_rather_than_assuming_none(self):
+        """Absent means unknown. Defaulting to empty is the failure mode this
+        whole change exists to remove."""
+        source = _make_source()
+        with patch.object(
+            source, "_get_request_json", return_value={"imported_datasets": [{"t": 1}]}
+        ) as get_json:
+            assert source._imported_datasets({"token": "rtok"}) == [{"t": 1}]
+        assert get_json.call_count == 1
+
+    def test_detail_endpoint_without_the_array_yields_nothing(self):
+        source = _make_source()
+        report = {"token": "rtok", "has_imported_datasets": True}
+        with patch.object(source, "_get_request_json", return_value={"id": 1}):
+            assert source._imported_datasets(report) == []
+
+    def test_missing_report_token_does_not_call_the_api(self):
+        source = _make_source()
+        with patch.object(source, "_get_request_json") as get_json:
+            assert source._imported_datasets({"has_imported_datasets": True}) == []
+        get_json.assert_not_called()
+
+    def test_404_on_the_detail_call_warns_instead_of_raising(self):
+        source = _make_source()
+        report = {"token": "rtok", "has_imported_datasets": True}
+        response = requests.Response()
+        response.status_code = 404
+        with patch.object(
+            source,
+            "_get_request_json",
+            side_effect=HTTPError("404", response=response),
+        ):
+            assert source._imported_datasets(report) == []
+        assert source.report.warnings
