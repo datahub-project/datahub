@@ -1943,6 +1943,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         best = self._chart_best_input_fields.get(chart_urn)
         if best is not None and resolved < best:
             self.reporter.chart_input_fields_regressive_emission_skipped += 1
+            self.reporter.chart_input_fields_regressive_emission_samples.append(
+                f"chart={chart_urn} kept={best} refused={resolved}"
+            )
             logger.debug(
                 "chart %s: refusing InputFields with %d resolved column(s); an "
                 "aspect with %d is already emitted for this URN.",
@@ -4403,7 +4406,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # below are merged into the drain MCP so nothing is silently dropped.
             chart_mcp = self._chart_input_fields_mcp(chart_urn, element_input_fields)
             if chart_mcp is not None:
-                yield chart_mcp.as_workunit()
                 # Stash only what was emitted. Stashing a refused copy would
                 # feed it back through the drain, which is the last word on a
                 # customSQL chart.
@@ -4411,6 +4413,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     self._workbook_customsql_formula_fields[chart_urn] = (
                         element_input_fields
                     )
+                yield chart_mcp.as_workunit()
 
             # Unconditional: within one workbook the page aspect is a union over
             # its charts, and a refusal is about one chart URN. Page ids collide

@@ -17,6 +17,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 
 class Constant:
@@ -214,6 +215,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # chart -- element ids repeat across duplicated workbooks, and the chart URN
     # is built from the element id alone.
     chart_input_fields_regressive_emission_skipped: int = 0
+    # Which charts those were. Capped; the count above is the total. Without it
+    # the names exist only on DEBUG lines, which a default INFO run never wrote.
+    chart_input_fields_regressive_emission_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
     # Workbook-lineage warehouse table index for chart formula resolution.
     # A chart's inputFields[].schemaFieldUrn was resolved against a warehouse

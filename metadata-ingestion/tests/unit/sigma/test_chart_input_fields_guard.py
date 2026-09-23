@@ -160,6 +160,12 @@ class TestADuplicateWorkbookCannotOverwriteRicherLineage:
 
         assert chart_urn not in poor
         assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
+        # The counter alone cannot be acted on; a default INFO run has no logs.
+        assert [
+            s
+            for s in source.reporter.chart_input_fields_regressive_emission_samples
+            if chart_urn in s
+        ]
         # The source element resolves nothing either way, so it is unaffected.
         assert _chart_urn(SOURCE_ELEMENT_ID) in poor
 
@@ -357,22 +363,48 @@ class TestTheCustomSqlDrainIsGuardedToo:
         )
         assert source._rewrite_fgl_downstreams(mcp) is None
 
-    def test_the_drain_skips_a_refused_aspect(self) -> None:
+    def test_the_drain_skips_a_refused_aspect_and_keeps_draining(self) -> None:
+        """A refusal must not abort the rest of the aggregator's drain.
+
+        The drain wraps gen_metadata in `except Exception`, so yielding a
+        refused (None) aspect would raise inside that guard and silently drop
+        every later customSQL chart and DM element on the platform.
+        """
         source = _make_source()
-        chart_urn = _chart_urn(CHART_ELEMENT_ID)
-        source._chart_best_input_fields[chart_urn] = 5
-        source._workbook_customsql_registered_urns.add(chart_urn)
+        refused_urn = _chart_urn(CHART_ELEMENT_ID)
+        source._chart_best_input_fields[refused_urn] = 5
+        source._workbook_customsql_registered_urns.add(refused_urn)
+        healthy_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm-1.other,PROD)"
 
         aggregator = MagicMock()
         aggregator.gen_metadata.return_value = [
             MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
+                entityUrn=refused_urn,
                 aspect=UpstreamLineage(upstreams=[], fineGrainedLineages=None),
-            )
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=healthy_urn,
+                aspect=UpstreamLineage(
+                    upstreams=[
+                        Upstream(
+                            dataset=UPSTREAM_DATASET_URN,
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                    ],
+                    fineGrainedLineages=None,
+                ),
+            ),
         ]
         aggregator.report.views_parse_failures = {}
         aggregator.report.num_views_failed = 0
         source._sql_aggregators = {("snowflake", "inst", None): aggregator}  # type: ignore[dict-item]
 
-        assert list(source._drain_sql_aggregators()) == []
+        emitted = [wu.metadata.entityUrn for wu in source._drain_sql_aggregators()]  # type: ignore[union-attr]
+
+        assert emitted == [healthy_urn]
         assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
+        assert not [
+            title
+            for title in source.reporter.warnings
+            if "aggregator drain failed" in str(title)
+        ]
