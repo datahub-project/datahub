@@ -36,6 +36,18 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
     lineage_failed_details: LossyList[str] = field(default_factory=LossyList)
     unmapped_connection_types: LossyDict[str, int] = field(default_factory=LossyDict)
 
+    # Column-level lineage tracking (Copy activities)
+    column_lineage_extracted: int = 0
+    column_lineage_activities_explicit: int = 0
+    column_lineage_activities_auto_mapped: int = 0
+    column_lineage_skipped_no_schema: int = 0
+    column_lineage_skipped_no_schema_details: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    column_lineage_skipped_dynamic_translator: int = 0
+    column_lineage_skipped_unsupported_translator: int = 0
+    column_lineage_failed: int = 0
+
     # Client report
     client_report: Optional[FabricDataFactoryClientReport] = None
 
@@ -70,3 +82,24 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
     def report_unmapped_connection_type(self, connection_type: str) -> None:
         current = self.unmapped_connection_types.get(connection_type, 0)
         self.unmapped_connection_types[connection_type] = current + 1
+
+    def report_column_lineage_explicit(self, num_edges: int) -> None:
+        self.column_lineage_activities_explicit += 1
+        self.column_lineage_extracted += num_edges
+
+    def report_column_lineage_auto_mapped(self, num_edges: int) -> None:
+        self.column_lineage_activities_auto_mapped += 1
+        self.column_lineage_extracted += num_edges
+
+    def report_column_lineage_no_schema(self, activity_key: str) -> None:
+        self.column_lineage_skipped_no_schema += 1
+        self.column_lineage_skipped_no_schema_details.append(activity_key)
+
+    def report_column_lineage_dynamic_translator(self) -> None:
+        self.column_lineage_skipped_dynamic_translator += 1
+
+    def report_column_lineage_unsupported_translator(self) -> None:
+        self.column_lineage_skipped_unsupported_translator += 1
+
+    def report_column_lineage_failed(self) -> None:
+        self.column_lineage_failed += 1

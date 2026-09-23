@@ -1,7 +1,15 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
+from datahub.ingestion.source.azure.copy_translator import (
+    TABULAR_TRANSLATOR,
+    CopyColumnMapping,
+    get_translator_type,
+    make_copy_fine_grained_lineage,
+    parse_translator_mappings,
+)
 from datahub.ingestion.source.fabric.common.constants import (
     FABRIC_CONNECTION_PLATFORM_MAP,
 )
@@ -13,15 +21,44 @@ from datahub.ingestion.source.fabric.common.urn_generator import (
     make_pipeline_flow_urn,
 )
 from datahub.ingestion.source.fabric.data_factory.models import (
+    DatasetColumns,
     InvokePipelineActivityLineage,
     PipelineActivity,
 )
 from datahub.ingestion.source.fabric.data_factory.report import (
     FabricDataFactorySourceReport,
 )
+from datahub.metadata.schema_classes import FineGrainedLineageClass
 from datahub.metadata.urns import DatasetUrn
 
 logger = logging.getLogger(__name__)
+
+COPY_SOURCE_KEY = "source"
+COPY_SINK_KEYS = ("sink", "destination")
+DATASET_SETTINGS_KEY = "datasetSettings"
+DATASET_SCHEMA_KEY = "schema"
+DATASET_COLUMN_NAME_KEY = "name"
+TRANSLATOR_KEY = "translator"
+EXPRESSION_TYPE = "Expression"
+
+# Resolves a dataset URN to its columns (e.g. from the DataHub graph).
+DatasetColumnsResolver = Callable[[str], Optional[DatasetColumns]]
+
+
+def get_copy_dataset_settings(
+    type_properties: Dict[str, Any],
+) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    """Return the (source, sink) datasetSettings of a Copy activity."""
+    source = type_properties.get(COPY_SOURCE_KEY) or {}
+    sink: Dict[str, Any] = {}
+    for key in COPY_SINK_KEYS:
+        sink = type_properties.get(key) or {}
+        if sink:
+            break
+    return (
+        source.get(DATASET_SETTINGS_KEY) or {},
+        sink.get(DATASET_SETTINGS_KEY) or {},
+    )
 
 
 class CopyActivityLineageExtractor:
@@ -51,12 +88,7 @@ class CopyActivityLineageExtractor:
         workspace_id: str,
     ) -> tuple[List[str], List[str]]:
         """Return (input_urns, output_urns) for a Copy activity."""
-        type_props = activity.type_properties
-        source = type_props.get("source") or {}
-        sink = type_props.get("sink") or type_props.get("destination") or {}
-
-        source_ds = source.get("datasetSettings") or {}
-        sink_ds = sink.get("datasetSettings") or {}
+        source_ds, sink_ds = get_copy_dataset_settings(activity.type_properties)
 
         input_urn = self._resolve_dataset_urn(source_ds, activity, workspace_id)
         output_urn = self._resolve_dataset_urn(sink_ds, activity, workspace_id)
@@ -310,6 +342,171 @@ class CopyActivityLineageExtractor:
         if file_name:
             parts.append(file_name)
         return "/".join(parts) if parts else None
+
+
+class DataHubDatasetColumnsResolver:
+    """Looks up dataset columns from schemaMetadata in the DataHub graph."""
+
+    def __init__(self, graph: DataHubGraph) -> None:
+        self._graph = graph
+        self._cache: Dict[str, Optional[DatasetColumns]] = {}
+
+    def get_columns(self, dataset_urn: str) -> Optional[DatasetColumns]:
+        if dataset_urn in self._cache:
+            return self._cache[dataset_urn]
+        columns: Optional[DatasetColumns] = None
+        try:
+            schema = self._graph.get_schema_metadata(dataset_urn)
+            if schema is not None and schema.fields:
+                columns = DatasetColumns(
+                    field_paths=[f.fieldPath for f in schema.fields]
+                )
+        except Exception as e:
+            logger.debug("Failed to fetch schemaMetadata for %s: %s", dataset_urn, e)
+        self._cache[dataset_urn] = columns
+        return columns
+
+
+class CopyActivityColumnLineageExtractor:
+    """Extracts column-level lineage from Fabric Data Factory Copy activities.
+
+    Explicit translator mappings (``mappings`` / legacy ``columnMappings``)
+    are emitted as-is, with column names normalized to the dataset schema's
+    casing when that schema is known. Without explicit mappings, a
+    ``TabularTranslator`` (or no translator) maps columns by name; that is
+    only reproduced when both source and sink columns are known, from the
+    inline datasetSettings ``schema`` or from DataHub. Nothing is guessed.
+    """
+
+    def __init__(
+        self,
+        report: FabricDataFactorySourceReport,
+        columns_resolver: Optional[DatasetColumnsResolver] = None,
+    ) -> None:
+        self._report = report
+        self._columns_resolver = columns_resolver
+
+    def extract_column_lineage(
+        self,
+        activity: PipelineActivity,
+        input_urn: str,
+        output_urn: str,
+        activity_key: str,
+    ) -> List[FineGrainedLineageClass]:
+        type_props = activity.type_properties
+        source_ds, sink_ds = get_copy_dataset_settings(type_props)
+        translator = type_props.get(TRANSLATOR_KEY)
+
+        if translator is not None and not isinstance(translator, dict):
+            self._report.report_column_lineage_unsupported_translator()
+            return []
+
+        translator_type = get_translator_type(translator) if translator else None
+        if translator_type == EXPRESSION_TYPE:
+            # Mappings supplied at runtime via dynamic content.
+            self._report.report_column_lineage_dynamic_translator()
+            return []
+
+        explicit = parse_translator_mappings(translator) if translator else []
+        if explicit:
+            lineages = self._build_explicit(
+                explicit, input_urn, output_urn, source_ds, sink_ds
+            )
+            self._report.report_column_lineage_explicit(len(lineages))
+            return lineages
+
+        if translator_type not in (None, TABULAR_TRANSLATOR):
+            self._report.report_column_lineage_unsupported_translator()
+            return []
+
+        return self._build_auto_mapped(
+            activity_key, input_urn, output_urn, source_ds, sink_ds
+        )
+
+    def _build_explicit(
+        self,
+        mappings: List[CopyColumnMapping],
+        input_urn: str,
+        output_urn: str,
+        source_ds: Dict[str, Any],
+        sink_ds: Dict[str, Any],
+    ) -> List[FineGrainedLineageClass]:
+        source_columns = self._get_columns(input_urn, source_ds)
+        sink_columns = self._get_columns(output_urn, sink_ds)
+        return [
+            make_copy_fine_grained_lineage(
+                input_urn,
+                self._normalize(mapping.source_column, source_columns),
+                output_urn,
+                self._normalize(mapping.sink_column, sink_columns),
+            )
+            for mapping in mappings
+        ]
+
+    def _build_auto_mapped(
+        self,
+        activity_key: str,
+        input_urn: str,
+        output_urn: str,
+        source_ds: Dict[str, Any],
+        sink_ds: Dict[str, Any],
+    ) -> List[FineGrainedLineageClass]:
+        source_columns = self._get_columns(input_urn, source_ds)
+        sink_columns = (
+            self._get_columns(output_urn, sink_ds) if source_columns else None
+        )
+        if not source_columns or not sink_columns:
+            logger.debug(
+                "Skipping by-name column mapping for activity '%s': "
+                "source or sink schema unavailable",
+                activity_key,
+            )
+            self._report.report_column_lineage_no_schema(activity_key)
+            return []
+
+        lineages: List[FineGrainedLineageClass] = []
+        for source_field in source_columns.field_paths:
+            sink_field = sink_columns.lookup(source_field)
+            if sink_field is None:
+                continue
+            lineages.append(
+                make_copy_fine_grained_lineage(
+                    input_urn, source_field, output_urn, sink_field
+                )
+            )
+        self._report.report_column_lineage_auto_mapped(len(lineages))
+        return lineages
+
+    def _get_columns(
+        self, dataset_urn: str, dataset_settings: Dict[str, Any]
+    ) -> Optional[DatasetColumns]:
+        inline = self._inline_columns(dataset_settings)
+        if inline:
+            return inline
+        if self._columns_resolver is None:
+            return None
+        return self._columns_resolver(dataset_urn)
+
+    @staticmethod
+    def _inline_columns(dataset_settings: Dict[str, Any]) -> Optional[DatasetColumns]:
+        """Columns from the design-time ``schema`` list on datasetSettings."""
+        schema = dataset_settings.get(DATASET_SCHEMA_KEY)
+        if not isinstance(schema, list):
+            return None
+        names: List[str] = []
+        for column in schema:
+            if not isinstance(column, dict):
+                continue
+            name = column.get(DATASET_COLUMN_NAME_KEY)
+            if isinstance(name, str) and name:
+                names.append(name)
+        return DatasetColumns(field_paths=names) if names else None
+
+    @staticmethod
+    def _normalize(column: str, columns: Optional[DatasetColumns]) -> str:
+        if columns is None:
+            return column
+        return columns.lookup(column) or column
 
 
 class InvokePipelineLineageExtractor:

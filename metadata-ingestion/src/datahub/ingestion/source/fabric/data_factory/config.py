@@ -74,6 +74,19 @@ class FabricDataFactorySourceConfig(
         ),
     )
 
+    include_column_lineage: bool = Field(
+        default=True,
+        description=(
+            "Extract column-level lineage from Copy activities. Requires "
+            "include_lineage. Explicit translator column mappings are always used "
+            "when present. For default by-name mapping (no explicit mappings), "
+            "column lineage is only emitted when both source and sink schemas are "
+            "known, either from the activity's inline dataset schema or from "
+            "schemaMetadata already in DataHub (looked up via the pipeline's "
+            "DataHub graph connection, e.g. a datahub-rest sink or datahub_api)."
+        ),
+    )
+
     include_execution_history: bool = Field(
         default=True,
         description=(

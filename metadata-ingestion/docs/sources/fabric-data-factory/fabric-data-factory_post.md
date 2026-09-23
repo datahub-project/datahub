@@ -55,6 +55,18 @@ source:
 
 Without matching `platform_instance` values, lineage will create separate dataset entities instead of connecting to your existing ingested datasets.
 
+##### Column-Level Lineage
+
+For Copy activities whose source and destination both resolve to datasets, the connector also emits column-level lineage (enabled by default, `include_column_lineage: true`). It is derived from the Copy activity's `translator` (the **Mapping** tab in the Fabric UI):
+
+| Mapping configuration                                                                   | Column lineage behavior                                                                                                                                                                                             |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Explicit mappings** (`TabularTranslator.mappings`, or the legacy `columnMappings`)    | One column-to-column edge per mapping. Column names are matched case-insensitively to the dataset schemas in DataHub when available, otherwise emitted as written in the pipeline.                                  |
+| **Default mapping** (no translator, or a `TabularTranslator` without explicit mappings) | Fabric maps columns by name at runtime. The connector reproduces this only when **both** source and destination columns are known, and emits an edge for each column name present on both sides (case-insensitive). |
+| **Dynamic mapping** (translator set via dynamic content / an expression)                | Not extracted, because the mapping is only known at runtime.                                                                                                                                                        |
+
+For default mappings, source and destination columns come from the dataset schema imported into the activity, or otherwise from the `schemaMetadata` of the dataset already in DataHub. The DataHub lookup requires a DataHub graph connection, which is available automatically when using the `datahub-rest` sink (or configure `datahub_api` in the recipe). Ingest the upstream and downstream platforms (e.g. OneLake, Snowflake) before this connector so their schemas are present. When a schema is unavailable, no column lineage is emitted for that activity (it is never guessed) and the activity is counted in the ingestion report under `column_lineage_skipped_no_schema`.
+
 #### Execution History
 
 Pipeline and activity runs are extracted as `DataProcessInstance` entities by default:
@@ -123,7 +135,7 @@ urn:li:dataFlow:(fabric-data-factory,{platform_instance}.{workspace_id}.{pipelin
 - **Lineage scope**: Only Copy and InvokePipeline activities produce dataset or pipeline lineage. Other activity types (Lookup, Wait, ForEach, Script, etc.) are ingested as DataJobs without dataset-level lineage.
 - **InvokePipeline Activity operation types**: Only the `InvokeFabricPipeline` operation type is supported for cross-pipeline lineage. Other operation types (`InvokeAdfPipeline`, `InvokeExternalPipeline`) are not resolved and will be skipped.
 - **Query-based Copy sources**: When a Copy activity uses `sqlReaderQuery` or `sqlReaderStoredProcedureName` instead of a direct table reference, lineage is **not extracted**.
-- **No column-level lineage**: The connector extracts dataset-level lineage only. Column-to-column mappings from Copy activity translator configurations are not extracted.
+- **Column-level lineage scope**: Only Copy activities produce column-level lineage. Default (by-name) mappings require both source and destination schemas to be known (see [Column-Level Lineage](#column-level-lineage)); dynamic (expression-based) mappings are not extracted. Hierarchical (JSON) `path` mappings are emitted as dotted column paths and may not match nested field paths ingested by other connectors.
 - **No Notebook/SparkJobDefinition lineage**: Notebook and SparkJobDefinition activities are ingested as DataJobs but their lineage is not resolved.
 - **Connection resolution**: Unmapped connection types fall back to using the connection type string as the platform name, which may not match your existing DataHub platform names. Use `platform_instance_map` to explicitly map connection names.
 

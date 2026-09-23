@@ -1,6 +1,6 @@
 """Reusable test factory helpers for Fabric Data Factory integration tests."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from datahub.ingestion.source.fabric.common.models import (
     FabricConnection,
@@ -82,18 +82,36 @@ def create_copy_activity(
     sink_settings: Dict[str, Any],
     depends_on: Optional[List[str]] = None,
     description: Optional[str] = None,
+    translator: Optional[Dict[str, Any]] = None,
 ) -> PipelineActivity:
+    type_properties: Dict[str, Any] = {
+        "source": {"datasetSettings": source_settings},
+        "sink": {"datasetSettings": sink_settings},
+    }
+    if translator is not None:
+        type_properties["translator"] = translator
     return PipelineActivity(
         name=name,
         type="Copy",
         description=description,
         state="Active",
         depends_on=_make_depends_on(depends_on),
-        type_properties={
-            "source": {"datasetSettings": source_settings},
-            "sink": {"datasetSettings": sink_settings},
-        },
+        type_properties=type_properties,
     )
+
+
+def create_tabular_translator(
+    column_mappings: List[Tuple[str, str]],
+) -> Dict[str, Any]:
+    """Create a TabularTranslator with explicit source → sink column mappings."""
+    return {
+        "type": "TabularTranslator",
+        "mappings": [
+            {"source": {"name": source_col}, "sink": {"name": sink_col}}
+            for source_col, sink_col in column_mappings
+        ],
+        "typeConversion": True,
+    }
 
 
 def create_lookup_activity(

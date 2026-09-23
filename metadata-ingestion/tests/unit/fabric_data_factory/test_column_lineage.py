@@ -1,0 +1,354 @@
+"""Unit tests for Fabric Data Factory Copy activity column-level lineage."""
+
+from typing import Any, Dict, List, Optional, Tuple
+from unittest.mock import MagicMock
+
+import pytest
+
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.fabric.data_factory.lineage import (
+    CopyActivityColumnLineageExtractor,
+    DataHubDatasetColumnsResolver,
+)
+from datahub.ingestion.source.fabric.data_factory.models import (
+    DatasetColumns,
+    PipelineActivity,
+)
+from datahub.ingestion.source.fabric.data_factory.report import (
+    FabricDataFactorySourceReport,
+)
+from datahub.ingestion.source.fabric.data_factory.source import (
+    FabricDataFactorySource,
+)
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+)
+
+SOURCE_URN = "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.customers,PROD)"
+SINK_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-1.lh-1.sales.customers,PROD)"
+)
+ACTIVITY_KEY = "Sales Analytics.CopyCustomers"
+
+
+def _copy_activity(
+    translator: Optional[Any] = None,
+    source_schema: Optional[List[Dict[str, Any]]] = None,
+    sink_schema: Optional[List[Dict[str, Any]]] = None,
+) -> PipelineActivity:
+    type_properties: Dict[str, Any] = {
+        "source": {"datasetSettings": {"schema": source_schema or []}},
+        "sink": {"datasetSettings": {"schema": sink_schema or []}},
+    }
+    if translator is not None:
+        type_properties["translator"] = translator
+    return PipelineActivity(
+        name="CopyCustomers", type="Copy", type_properties=type_properties
+    )
+
+
+def _resolver(
+    schemas: Dict[str, List[str]],
+) -> Tuple[MagicMock, Any]:
+    lookups = MagicMock()
+
+    def resolve(urn: str) -> Optional[DatasetColumns]:
+        lookups(urn)
+        fields = schemas.get(urn)
+        return DatasetColumns(field_paths=fields) if fields else None
+
+    return lookups, resolve
+
+
+def _pairs(lineages: List[FineGrainedLineageClass]) -> List[Tuple[str, str]]:
+    pairs = []
+    for fgl in lineages:
+        assert fgl.upstreams and fgl.downstreams
+        assert fgl.transformOperation == "COPY"
+        upstream_col = fgl.upstreams[0].rsplit(",", 1)[1].rstrip(")")
+        downstream_col = fgl.downstreams[0].rsplit(",", 1)[1].rstrip(")")
+        assert fgl.upstreams[0].startswith(f"urn:li:schemaField:({SOURCE_URN},")
+        assert fgl.downstreams[0].startswith(f"urn:li:schemaField:({SINK_URN},")
+        pairs.append((upstream_col, downstream_col))
+    return pairs
+
+
+def _extract(
+    extractor: CopyActivityColumnLineageExtractor, activity: PipelineActivity
+) -> List[FineGrainedLineageClass]:
+    return extractor.extract_column_lineage(
+        activity=activity,
+        input_urn=SOURCE_URN,
+        output_urn=SINK_URN,
+        activity_key=ACTIVITY_KEY,
+    )
+
+
+class TestExplicitMappings:
+    def test_mappings_list(self) -> None:
+        report = FabricDataFactorySourceReport()
+        extractor = CopyActivityColumnLineageExtractor(report=report)
+        activity = _copy_activity(
+            translator={
+                "type": "TabularTranslator",
+                "mappings": [
+                    {"source": {"name": "id"}, "sink": {"name": "customer_id"}},
+                    {"source": {"name": "email"}, "sink": {"name": "email"}},
+                ],
+            }
+        )
+        assert _pairs(_extract(extractor, activity)) == [
+            ("id", "customer_id"),
+            ("email", "email"),
+        ]
+        assert report.column_lineage_activities_explicit == 1
+        assert report.column_lineage_extracted == 2
+
+    @pytest.mark.parametrize(
+        "column_mappings",
+        [
+            {"id": "customer_id", "email": "email"},
+            "id: customer_id, email: email",
+        ],
+    )
+    def test_legacy_column_mappings(self, column_mappings: Any) -> None:
+        extractor = CopyActivityColumnLineageExtractor(
+            report=FabricDataFactorySourceReport()
+        )
+        activity = _copy_activity(
+            translator={
+                "type": "TabularTranslator",
+                "columnMappings": column_mappings,
+            }
+        )
+        assert _pairs(_extract(extractor, activity)) == [
+            ("id", "customer_id"),
+            ("email", "email"),
+        ]
+
+    def test_names_normalized_to_known_schema_casing(self) -> None:
+        _, resolve = _resolver(
+            {SOURCE_URN: ["customer_id", "email"], SINK_URN: ["CustomerId"]}
+        )
+        extractor = CopyActivityColumnLineageExtractor(
+            report=FabricDataFactorySourceReport(), columns_resolver=resolve
+        )
+        activity = _copy_activity(
+            translator={
+                "type": "TabularTranslator",
+                "mappings": [
+                    {"source": {"name": "CUSTOMER_ID"}, "sink": {"name": "customerid"}},
+                    # Not in the sink schema: emitted as written.
+                    {"source": {"name": "EMAIL"}, "sink": {"name": "Email"}},
+                ],
+            }
+        )
+        assert _pairs(_extract(extractor, activity)) == [
+            ("customer_id", "CustomerId"),
+            ("email", "Email"),
+        ]
+
+
+class TestAutoMapping:
+    @pytest.mark.parametrize(
+        "translator",
+        [None, {"type": "TabularTranslator", "typeConversion": True}],
+        ids=["no_translator", "tabular_without_mappings"],
+    )
+    def test_maps_by_name_when_both_schemas_known(
+        self, translator: Optional[Dict[str, Any]]
+    ) -> None:
+        report = FabricDataFactorySourceReport()
+        _, resolve = _resolver(
+            {
+                SOURCE_URN: ["id", "Name", "email", "created_at"],
+                SINK_URN: ["ID", "name", "email", "loaded_at"],
+            }
+        )
+        extractor = CopyActivityColumnLineageExtractor(
+            report=report, columns_resolver=resolve
+        )
+        lineages = _extract(extractor, _copy_activity(translator=translator))
+        # Case-insensitive match; unmatched columns on either side are dropped.
+        assert _pairs(lineages) == [("id", "ID"), ("Name", "name"), ("email", "email")]
+        assert report.column_lineage_activities_auto_mapped == 1
+        assert report.column_lineage_extracted == 3
+
+    def test_uses_inline_dataset_schema(self) -> None:
+        lookups, resolve = _resolver({SINK_URN: ["id", "email"]})
+        extractor = CopyActivityColumnLineageExtractor(
+            report=FabricDataFactorySourceReport(), columns_resolver=resolve
+        )
+        activity = _copy_activity(
+            source_schema=[
+                {"name": "id", "type": "int"},
+                {"name": "email", "type": "nvarchar"},
+                {"type": "nvarchar"},
+            ]
+        )
+        assert _pairs(_extract(extractor, activity)) == [
+            ("id", "id"),
+            ("email", "email"),
+        ]
+        # Only the sink needed a DataHub lookup.
+        lookups.assert_called_once_with(SINK_URN)
+
+    @pytest.mark.parametrize(
+        "schemas",
+        [
+            {},
+            {SOURCE_URN: ["id", "email"]},
+            {SINK_URN: ["id", "email"]},
+        ],
+        ids=["no_schemas", "source_only", "sink_only"],
+    )
+    def test_no_lineage_without_both_schemas(
+        self, schemas: Dict[str, List[str]]
+    ) -> None:
+        report = FabricDataFactorySourceReport()
+        _, resolve = _resolver(schemas)
+        extractor = CopyActivityColumnLineageExtractor(
+            report=report, columns_resolver=resolve
+        )
+        assert _extract(extractor, _copy_activity()) == []
+        assert report.column_lineage_skipped_no_schema == 1
+        assert list(report.column_lineage_skipped_no_schema_details) == [ACTIVITY_KEY]
+        assert report.column_lineage_extracted == 0
+
+    def test_no_lineage_without_resolver(self) -> None:
+        report = FabricDataFactorySourceReport()
+        extractor = CopyActivityColumnLineageExtractor(report=report)
+        assert _extract(extractor, _copy_activity()) == []
+        assert report.column_lineage_skipped_no_schema == 1
+
+
+class TestUnsupportedTranslators:
+    def test_dynamic_expression_translator(self) -> None:
+        report = FabricDataFactorySourceReport()
+        _, resolve = _resolver({SOURCE_URN: ["id"], SINK_URN: ["id"]})
+        extractor = CopyActivityColumnLineageExtractor(
+            report=report, columns_resolver=resolve
+        )
+        activity = _copy_activity(
+            translator={
+                "value": "@json(pipeline().parameters.mapping)",
+                "type": "Expression",
+            }
+        )
+        # Runtime mappings are unknown, so no by-name fallback either.
+        assert _extract(extractor, activity) == []
+        assert report.column_lineage_skipped_dynamic_translator == 1
+
+    @pytest.mark.parametrize(
+        "translator", [{"type": "SomeOtherTranslator"}, "not-a-dict"]
+    )
+    def test_unsupported_translator(self, translator: Any) -> None:
+        report = FabricDataFactorySourceReport()
+        _, resolve = _resolver({SOURCE_URN: ["id"], SINK_URN: ["id"]})
+        extractor = CopyActivityColumnLineageExtractor(
+            report=report, columns_resolver=resolve
+        )
+        assert _extract(extractor, _copy_activity(translator=translator)) == []
+        assert report.column_lineage_skipped_unsupported_translator == 1
+
+
+def _schema(*field_paths: str) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="customers",
+        platform="urn:li:dataPlatform:mssql",
+        version=0,
+        hash="",
+        platformSchema=MagicMock(),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=path,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="nvarchar",
+            )
+            for path in field_paths
+        ],
+    )
+
+
+class TestDataHubDatasetColumnsResolver:
+    def test_resolves_and_caches(self) -> None:
+        graph = MagicMock()
+        graph.get_schema_metadata.return_value = _schema(
+            "id", "[version=2.0].[type=string].Email"
+        )
+        resolver = DataHubDatasetColumnsResolver(graph)
+
+        columns = resolver.get_columns(SOURCE_URN)
+        assert columns is not None
+        assert columns.lookup("ID") == "id"
+        # v2 field paths match by their simple name but keep the stored path.
+        assert columns.lookup("email") == "[version=2.0].[type=string].Email"
+        assert resolver.get_columns(SOURCE_URN) is columns
+        graph.get_schema_metadata.assert_called_once_with(SOURCE_URN)
+
+    def test_missing_schema_and_errors_return_none(self) -> None:
+        graph = MagicMock()
+        graph.get_schema_metadata.side_effect = [None, RuntimeError("boom")]
+        resolver = DataHubDatasetColumnsResolver(graph)
+        assert resolver.get_columns(SOURCE_URN) is None
+        assert resolver.get_columns(SINK_URN) is None
+
+
+class TestSourceWiring:
+    CONFIG: Dict[str, Any] = {
+        "credential": {
+            "authentication_method": "service_principal",
+            "client_id": "test-client",
+            "client_secret": "test-secret",
+            "tenant_id": "test-tenant",
+        },
+    }
+
+    def _source(
+        self, graph: Optional[MagicMock], **config: Any
+    ) -> FabricDataFactorySource:
+        ctx = PipelineContext(run_id="fabric-df-column-lineage", graph=graph)
+        return FabricDataFactorySource.create({**self.CONFIG, **config}, ctx)
+
+    def _run(self, source: FabricDataFactorySource) -> List[FineGrainedLineageClass]:
+        source._copy_column_lineage_extractor = source._build_column_lineage_extractor()
+        pipeline_item = MagicMock()
+        pipeline_item.name = "Sales Analytics"
+        return source._extract_copy_column_lineage(
+            _copy_activity(), pipeline_item, [SOURCE_URN], [SINK_URN]
+        )
+
+    def test_auto_mapping_uses_graph_schemas(self) -> None:
+        graph = MagicMock()
+        graph.get_schema_metadata.side_effect = lambda urn: (
+            _schema("id", "email") if urn == SOURCE_URN else _schema("ID", "Email")
+        )
+        source = self._source(graph)
+        assert _pairs(self._run(source)) == [("id", "ID"), ("email", "Email")]
+
+    def test_without_graph_skips_auto_mapping(self) -> None:
+        source = self._source(graph=None)
+        assert self._run(source) == []
+        assert source.report.column_lineage_skipped_no_schema == 1
+
+    def test_disabled_by_config(self) -> None:
+        graph = MagicMock()
+        source = self._source(graph, include_column_lineage=False)
+        assert self._run(source) == []
+        graph.get_schema_metadata.assert_not_called()
+
+    def test_requires_both_datasets(self) -> None:
+        graph = MagicMock()
+        source = self._source(graph)
+        source._copy_column_lineage_extractor = source._build_column_lineage_extractor()
+        assert (
+            source._extract_copy_column_lineage(
+                _copy_activity(), MagicMock(), [SOURCE_URN], []
+            )
+            == []
+        )
+        graph.get_schema_metadata.assert_not_called()
