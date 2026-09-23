@@ -123,6 +123,8 @@ Requirements:
 
 - **(Logging / Log line format)** The default console/file pattern and the Loki aggregator appender's message pattern for `datahub-frontend`, `datahub-upgrade` (system-update), and GMS (`metadata-service`) no longer include the caller's source line number. Log lines now read `%logger{36} - %msg%n` instead of `%logger{36}:%L - %msg%n`. **Action:** update any log-parsing regex, dashboard, or alert rule that matches on a `logger:lineNumber` token in these services' logs to expect the logger name alone. Deployments with a custom `logback.xml` are unaffected; `mae-consumer` and `mce-consumer` did not include `%L` and are unchanged.
 
+- **(GMS / Structured Properties)** Policies that set the experimental `privilegeConstraints` filter to scope **Edit Entity** or **Edit Entity Properties** (today only usable to constrain tag URNs) now also apply that filter to structured-property writes, enforced by `StructuredPropertyPrivilegeConstraintsValidator`. Previously structured-property writes ignored `privilegeConstraints` entirely. Because a tag-URN filter never matches a `urn:li:structuredProperty:...` sub-resource, a policy with `privilegeConstraints` set can now deny structured-property writes that were previously allowed under it. **Action:** before upgrading, review any policy that sets the experimental `privilegeConstraints` field and confirm it should also restrict structured-property writes; if not, add a separate unconstrained policy granting **Edit Entity** / **Edit Entity Properties** for structured properties. Toggle via `metadataChangeProposal.validation.privilegeConstraints.enabled` (default `true`).
+
 ### Known Issues
 
 ### Potential Downtime
