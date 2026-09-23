@@ -1101,20 +1101,22 @@ The following environment variables are used in the codebase but may not be expl
 | `OTEL_LOGS_EXPORTER`    | `none`  | OpenTelemetry logs exporter    | GMS, MAE Consumer, MCE Consumer, PE Consumer |
 | `OTEL_PROPAGATORS`      | `null`  | OpenTelemetry propagators      | GMS, MAE Consumer, MCE Consumer, PE Consumer |
 
-### Request Attribution (OpenTelemetry span attributes)
+### Request Attribution
 
-Opt-in, all off by default. When enabled, GMS writes per-request `datahub.*` attributes to the
-request's OpenTelemetry span (OpenSearch and Postgres call counts and wall time, GraphQL page-size
-arguments, Postgres backend pids, timeout marker) so store load can be attributed to a DataHub
-actor and operation without joining child spans. Requires traces to be exported
-(`OTEL_TRACES_EXPORTER`).
+Opt-in, all off by default. These settings let you see which DataHub user or service account is
+responsible for load on OpenSearch and the database. For each request it handles, GMS records who
+made it, which GraphQL operation it was, and how many OpenSearch and database calls it made and how
+long they took, and puts that record on the request's trace so your monitoring tool can answer
+"who is running the heaviest queries". Two of the flags also stamp the user onto the OpenSearch
+and Postgres requests themselves, so those systems' own logs name the user. Requires traces to be
+exported (`OTEL_TRACES_EXPORTER`).
 
-| Environment Variable                                   | Default | Description                                                                                                                                                                                        | Components |
-| ------------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `TELEMETRY_REQUEST_ATTRIBUTION_ENABLED`                | `false` | Master switch: create the per-request accumulator and write `datahub.es.*`, `datahub.pg.*`, `datahub.request.*` span attributes; also continue an inbound W3C `traceparent` header                | GMS        |
-| `TELEMETRY_REQUEST_ATTRIBUTION_OPENSEARCH_OPAQUE_ID`   | `false` | Send `X-Opaque-Id: trace=<id>\|actor=<urn>\|req=<operation>\|n=<call>` on OpenSearch search-side requests so the search slow log, tasks API and Query Insights name the caller                     | GMS        |
-| `TELEMETRY_REQUEST_ATTRIBUTION_POSTGRES_ACTOR_COMMENT` | `false` | Prefix every prepared SQL statement issued inside a request with `/*datahub_actor='<urn>',datahub_op='<operation>'*/` so the Postgres statement log and `pg_stat_activity` name the actor. Writes actor urns into the database log | GMS        |
-| `TELEMETRY_REQUEST_ATTRIBUTION_START_MARKER`           | `false` | Emit a zero-length `datahub.request.start` span at request start on API paths so a backend can list in-flight requests by actor                                                                     | GMS        |
+| Environment Variable                                   | Default | Description                                                                                                                                                                                                                                              | Components |
+| ------------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `TELEMETRY_REQUEST_ATTRIBUTION_ENABLED`                | `false` | Turn on per-request attribution. Each request's trace records the user, the operation, and how many OpenSearch and database calls it made and how long they took. Also keeps a trace id sent by the load balancer or ingress instead of starting a new one | GMS        |
+| `TELEMETRY_REQUEST_ATTRIBUTION_OPENSEARCH_OPAQUE_ID`   | `false` | Tag every OpenSearch search request with the user, operation and trace id (in the `X-Opaque-Id` header) so OpenSearch's slow log, task list and Query Insights show who ran each query                                                                   | GMS        |
+| `TELEMETRY_REQUEST_ATTRIBUTION_POSTGRES_ACTOR_COMMENT` | `false` | Add a SQL comment naming the user and operation to every database statement a request runs, so the Postgres statement log and `pg_stat_activity` show who ran it. Note: this writes user urns into the database log                                     | GMS        |
+| `TELEMETRY_REQUEST_ATTRIBUTION_START_MARKER`           | `false` | Also record when each API request starts, not just when it ends, so a monitoring tool can list requests that are still running and who started them                                                                                                       | GMS        |
 
 ### Secret Service Configuration
 
