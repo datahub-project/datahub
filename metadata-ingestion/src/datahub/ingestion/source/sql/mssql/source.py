@@ -1,7 +1,7 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Set, Tuple
 
 import sqlalchemy.dialects.mssql
 from pydantic import ValidationInfo, field_validator, model_validator
@@ -11,6 +11,8 @@ from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import (
     DatabaseError,
+    DBAPIError,
+    InterfaceError,
     OperationalError,
     ProgrammingError,
     ResourceClosedError,
@@ -34,7 +36,14 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import StructuredLogLevel
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_datajob_input_output_to_patch,
+    datajob_lineage_is_empty,
+)
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    StructuredLogLevel,
+)
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
@@ -45,6 +54,7 @@ from datahub.ingestion.source.sql.mssql.job_models import (
     MSSQLDataJob,
     MSSQLJob,
     MSSQLProceduresContainer,
+    ProcedureDependencies,
     ProcedureDependency,
     ProcedureLineageStream,
     ProcedureParameter,
@@ -67,7 +77,9 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
     ForeignKeyConstraintClass,
+    MetadataChangeProposalClass,
     SchemaFieldClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
@@ -155,6 +167,28 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
     rf".*\.STAGING_.*_{UUID_REGEX}",  # stitch
     r".*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}",  # great expectations
 ]
+
+# A denial applies to the whole database, so it is worth remembering; every other
+# SQL Server error is per-statement and must not be.
+_PERMISSION_DENIED_ERROR_NUMBERS = frozenset({229, 230, 262, 297, 300})
+# pyodbc and pymssql leave the error number only in the message text, as "(229)" and
+# "(229, b'...')". Requiring the bracket or comma avoids matching row counts.
+_BRACKETED_NUMBER = re.compile(r"\((\d+)[,)]")
+
+
+def _is_permission_denied(exc: DBAPIError) -> bool:
+    """Whether the server refused the statement for lack of permission.
+
+    pytds records the number on the wrapped exception; other drivers do not.
+    """
+    orig = getattr(exc, "orig", None)
+    number = getattr(orig, "msg_no", None) or getattr(orig, "number", None)
+    if isinstance(number, int) and number:
+        return number in _PERMISSION_DENIED_ERROR_NUMBERS
+    return any(
+        int(found) in _PERMISSION_DENIED_ERROR_NUMBERS
+        for found in _BRACKETED_NUMBER.findall(str(orig or exc))
+    )
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
@@ -408,6 +442,8 @@ class SQLServerSource(SQLAlchemySource):
         self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
         self.tsql_alias_cleaner: Optional[MSSQLAliasFilter] = None
         self._discovered_table_cache: Dict[str, bool] = {}
+        # Databases whose sys.sql_expression_dependencies reads have already failed.
+        self._dependency_reads_denied: Set[str] = set()
 
         self.report = SQLSourceReport()
         if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
@@ -1000,21 +1036,59 @@ class SQLServerSource(SQLAlchemySource):
             if procedures:
                 yield from self.construct_flow_workunits(data_flow=data_flow)
             for procedure in procedures:
-                yield from self._process_stored_procedure(conn, procedure)
+                # Only a schema-level handler exists above, so anything escaping here
+                # drops every remaining procedure.
+                try:
+                    yield from self._process_stored_procedure(conn, procedure)
+                except DBAPIError as e:
+                    # A dead connection fails every remaining procedure the same way,
+                    # so stop instead. pytds often leaves connection_invalidated False
+                    # on a disconnect, hence the InterfaceError check.
+                    if e.connection_invalidated or isinstance(e, InterfaceError):
+                        raise
+                    self._report_unprocessed_procedure(procedure, e)
+                # pytds raises socket failures as bare OSErrors. ConnectionError is the
+                # dead socket; a plain OSError is not (a query timeout is one, and it
+                # leaves the connection usable).
+                except ConnectionError:
+                    raise
+                except Exception as e:
+                    self._report_unprocessed_procedure(procedure, e)
+
+    def _report_unprocessed_procedure(
+        self, procedure: StoredProcedure, exc: Exception
+    ) -> None:
+        # A failure, not a warning: StaleEntityRemovalHandler suppresses soft-deletion
+        # only on a reported failure, and a procedure we skipped must not be deleted.
+        self.report.failure(
+            title="Failed to process stored procedure",
+            message=(
+                "The procedure was skipped and its metadata is not up to date. "
+                "Stale-entity removal is suppressed for this run so it is not "
+                "soft-deleted."
+            ),
+            context=procedure.full_name,
+            exc=exc,
+        )
 
     def _process_stored_procedure(
         self, conn: Connection, procedure: StoredProcedure
     ) -> Iterable[MetadataWorkUnit]:
-        upstream = self._get_procedure_upstream(conn, procedure)
-        downstream = self._get_procedure_downstream(conn, procedure)
         data_job = MSSQLDataJob(
             entity=procedure,
         )
         # TODO: because of this upstream and downstream are more dependencies,
         #  can't be used as DataJobInputOutput.
         #  Should be reorganized into lineage.
-        data_job.add_property("procedure_depends_on", str(upstream.as_property))
-        data_job.add_property("depending_on_procedure", str(downstream.as_property))
+        dependencies = self._get_procedure_dependencies(conn, procedure)
+        if dependencies.upstream is not None:
+            data_job.add_property(
+                "procedure_depends_on", str(dependencies.upstream.as_property)
+            )
+        if dependencies.downstream is not None:
+            data_job.add_property(
+                "depending_on_procedure", str(dependencies.downstream.as_property)
+            )
         procedure_definition, procedure_code = self._get_procedure_code(conn, procedure)
         procedure.code = procedure_code
         if procedure_definition:
@@ -1035,6 +1109,95 @@ class SQLServerSource(SQLAlchemySource):
         yield from self.construct_job_workunits(
             data_job,
             include_lineage=False,
+        )
+
+    def _get_procedure_dependencies(
+        self, conn: Connection, procedure: StoredProcedure
+    ) -> ProcedureDependencies:
+        """Read the procedure's catalogue dependencies, each direction independently.
+
+        These queries need VIEW DEFINITION plus SELECT on
+        sys.sql_expression_dependencies, granted to db_owner only by default. Reading
+        the directions separately keeps one denial from discarding the other's result
+        or reporting it as empty. A denial is database-wide, so the first one
+        short-circuits the rest of that database.
+
+        Only a missing SELECT raises. SELECT without VIEW DEFINITION silently filters
+        the rows instead, which is indistinguishable from having no dependencies.
+        """
+        if procedure.db in self._dependency_reads_denied:
+            return ProcedureDependencies(upstream=None, downstream=None)
+
+        upstream = self._read_dependency_stream(
+            lambda: self._get_procedure_upstream(conn, procedure), procedure
+        )
+        # Re-checked between the reads: a denial on the first applies to the second.
+        if procedure.db in self._dependency_reads_denied:
+            return ProcedureDependencies(upstream=upstream, downstream=None)
+
+        return ProcedureDependencies(
+            upstream=upstream,
+            downstream=self._read_dependency_stream(
+                lambda: self._get_procedure_downstream(conn, procedure), procedure
+            ),
+        )
+
+    def _read_dependency_stream(
+        self,
+        read: Callable[[], ProcedureLineageStream],
+        procedure: StoredProcedure,
+    ) -> Optional[ProcedureLineageStream]:
+        try:
+            return read()
+        except DBAPIError as e:
+            # A dropped connection is an OperationalError too, so it would otherwise
+            # read as a permissions problem. pytds reports a disconnect as
+            # ClosedConnectionError (an InterfaceError) without setting
+            # connection_invalidated, so that needs its own check; a permission denial
+            # is never an InterfaceError, so re-raising it is safe.
+            if e.connection_invalidated or isinstance(e, InterfaceError):
+                raise
+            # Only a denial is database-wide. A deadlock or lock timeout on the
+            # catalogue views is an OperationalError too, and caching on that would
+            # drop dependency properties for the whole database over one blip.
+            if _is_permission_denied(e):
+                self._dependency_reads_denied.add(procedure.db)
+                self.report.warning(
+                    title="Permission denied reading stored procedure dependencies",
+                    message=(
+                        "Grant VIEW DEFINITION on the database and SELECT on "
+                        "sys.sql_expression_dependencies to the ingestion principal. "
+                        "Dependency properties are omitted for this database and the "
+                        "queries are skipped for its remaining procedures."
+                    ),
+                    context=procedure.full_name,
+                    exc=e,
+                )
+            else:
+                self._warn_dependency_read_failed(procedure, e)
+            return None
+        # A pytds query timeout is the builtin TimeoutError -- an OSError, not a
+        # pytds.Error -- so SQLAlchemy never wraps it and the handler above cannot see
+        # it. Handled here it costs the dependency properties, like a deadlock on the
+        # same query; left to the per-procedure guard it would cost the procedure.
+        except ConnectionError:
+            raise  # The socket is gone; let the caller stop the schema.
+        except OSError as e:
+            self._warn_dependency_read_failed(procedure, e)
+            return None
+
+    def _warn_dependency_read_failed(
+        self, procedure: StoredProcedure, exc: Exception
+    ) -> None:
+        self.report.warning(
+            title="Unable to read stored procedure dependencies",
+            message=(
+                "Could not query sys.sql_expression_dependencies, so this "
+                "procedure's dependency properties are omitted. Other "
+                "procedures are unaffected."
+            ),
+            context=procedure.full_name,
+            exc=exc,
         )
 
     @staticmethod
@@ -1467,6 +1630,69 @@ class SQLServerSource(SQLAlchemySource):
                         )
                     ):
                         yield workunit
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # Must run after AutoLowercaseUrns and AutoResolveLineageUrns, which need the
+        # typed upsert aspect, and appending is a source's only insertion point. So
+        # the report counts the pre-patch upsert; AutoSystemMetadata.stamp is appended
+        # later still, so patches are stamped.
+        #
+        # The natural home is AutoIncrementalLineageProcessor, which is gated on this
+        # same flag and does exactly this for UpstreamLineageClass. Kept here to bound
+        # the blast radius: moving it would change dataJob lineage for every source
+        # with the flag on.
+        return [
+            *super().get_workunit_processors(),
+            self._convert_procedure_lineage_to_patch,
+        ]
+
+    def _convert_procedure_lineage_to_patch(
+        self, stream: Iterable[MetadataWorkUnit]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Re-emit dataJobInputOutput as a patch when `incremental_lineage` is enabled.
+
+        A full upsert replaces the aspect, dropping the `*Edges` fields that hold
+        manually added lineage; a patch only adds the parsed edges. Opt-in because a
+        patch never removes, so lineage to a dropped table persists.
+        """
+        for workunit in stream:
+            aspect = workunit.get_aspect_of_type(DataJobInputOutputClass)
+            urn = workunit.get_urn()
+            if not (
+                self.config.incremental_lineage
+                and aspect
+                and urn
+                # An MCE can carry other aspects alongside lineage, so converting it
+                # would drop them. Both MCP forms hold one aspect and convert safely;
+                # MSSQL emits wrappers today, but a raw one slipping through would
+                # reinstate the overwrite this exists to prevent. No change-type test
+                # is needed: `try_from_mcpc` deserializes upserts only, so a patch or
+                # delete yields no typed aspect above and never reaches here.
+                and isinstance(
+                    workunit.metadata,
+                    (MetadataChangeProposalWrapper, MetadataChangeProposalClass),
+                )
+            ):
+                yield workunit
+                continue
+
+            if datajob_lineage_is_empty(aspect):
+                # Job steps always emit one of these; an empty upsert would wipe
+                # manual edges, so dropping it is both correct and unremarkable.
+                logger.debug("Skipping empty lineage aspect for %s", urn)
+                continue
+
+            patch_workunits = convert_datajob_input_output_to_patch(
+                urn, aspect, workunit.metadata.systemMetadata
+            )
+            if patch_workunits:
+                yield from patch_workunits
+            else:
+                self.report.warning(
+                    title="Dropped dataJob lineage",
+                    message="No part of the lineage aspect could be expressed as a patch.",
+                    context=urn,
+                )
 
     def _report_procedure_failure(self, procedure_name: str) -> None:
         """Report a stored procedure lineage extraction failure to the aggregator."""
