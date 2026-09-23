@@ -160,9 +160,9 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
   public void testAspectFieldFilterMatchesV3Documents() {
     if (getSearchClient().getEngineType() == SearchEngineType.OPENSEARCH_2) {
       throw new SkipException(
-          "The OpenSearch 2 k-NN plugin does not apply nested pre-filters to fields under an"
-              + " underscore-prefixed object such as V3's _aspects; OpenSearch 3 and Elasticsearch"
-              + " do");
+          "GMS refuses V3 semantic reads on OpenSearch 2, whose k-NN plugin does not apply nested"
+              + " pre-filters to fields under an underscore-prefixed object such as V3's _aspects;"
+              + " this test builds the service directly");
     }
     // URN and keyword fields have no .keyword subfield on V3, unlike the V2 indices
     SearchResult byDomain =

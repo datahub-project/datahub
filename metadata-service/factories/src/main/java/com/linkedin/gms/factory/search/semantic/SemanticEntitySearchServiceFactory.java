@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.search.semantic;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -38,12 +39,16 @@ public class SemanticEntitySearchServiceFactory {
     String modelEmbeddingKey = deriveModelEmbeddingKey();
     log.info("Creating SemanticEntitySearchService with modelEmbeddingKey={}", modelEmbeddingKey);
 
+    EntityIndexConfiguration entityIndex =
+        configurationProvider.getElasticSearch().getEntityIndex();
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex, searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3).getEngineType());
     return new SemanticEntitySearchService(
         searchClusterRegistry.clientFor(SearchComponent.SEMANTIC),
         embeddingProvider,
         mappingsBuilder,
         modelEmbeddingKey,
-        configurationProvider.getElasticSearch().getEntityIndex());
+        entityIndex);
   }
 
   /**

@@ -37,6 +37,7 @@ import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
@@ -467,6 +468,22 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
+  public void testRequireSupportedV3EngineRejectsOpenSearch2() {
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            SemanticEntitySearchService.requireSupportedV3Engine(
+                entityIndex(true, true), SearchEngineType.OPENSEARCH_2));
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex(true, true), SearchEngineType.OPENSEARCH_3);
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex(true, true), SearchEngineType.ELASTICSEARCH_9);
+    // Without the V3 semantic read flag OpenSearch 2 keeps serving semantic search from V2
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex(true, false), SearchEngineType.OPENSEARCH_2);
+  }
+
+  @Test
   public void testKeywordReadAloneKeepsSemanticSearchOnV2() throws IOException {
     EntityIndexConfiguration config = entityIndex(true, false);
     config.getV3().setKeywordReadEnabled(true);
@@ -569,6 +586,34 @@ public class SemanticEntitySearchServiceTest {
     String filter = requestCaptor.getValue().filter().orElseThrow().toString();
     assertTrue(filter.contains("domains=[urn:li:domain:engineering]"), filter);
     assertFalse(filter.contains("domains.keyword"), filter);
+  }
+
+  @Test
+  public void testV3SemanticReadDropsExplicitKeywordSuffix() throws IOException {
+    SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
+    stubSearchV3Cluster();
+    stubEntitySpec("document", null);
+    when(mockIndexConvention.getEntityIndexNameV3(mockOpContext, "document"))
+        .thenReturn("documentindex_v3");
+    when(v3SearchClientShim.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(new KnnSearchResponse(List.of()));
+
+    v3Service.search(
+        mockOpContext,
+        List.of("document"),
+        TEST_QUERY,
+        // The Python SDK's platform filter targets the V2 subfield explicitly
+        createTestFilter("platform.keyword", "urn:li:dataPlatform:notion"),
+        null,
+        0,
+        10);
+
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
+    String filter = requestCaptor.getValue().filter().orElseThrow().toString();
+    assertTrue(filter.contains("platform=[urn:li:dataPlatform:notion]"), filter);
+    assertFalse(filter.contains("platform.keyword"), filter);
   }
 
   @Test
