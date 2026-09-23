@@ -209,6 +209,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Workbooks whose /columns pagination aborted partway through. InputFields
     # for those workbooks may be missing columns that appear after the failure.
     column_formulas_fetch_partial: int = 0
+    # A poorer InputFields aspect was refused because a richer one is already
+    # emitted for the same chart URN. Non-zero means two workbooks claim one
+    # chart -- element ids repeat across duplicated workbooks, and the chart URN
+    # is built from the element id alone.
+    chart_input_fields_regressive_emission_skipped: int = 0
 
     # Workbook-lineage warehouse table index for chart formula resolution.
     # A chart's inputFields[].schemaFieldUrn was resolved against a warehouse

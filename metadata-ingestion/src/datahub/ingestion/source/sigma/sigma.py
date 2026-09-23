@@ -423,6 +423,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Merged at drain time so warehouse-resolved fields supplement
         # (not replace) formula-derived column entries.
         self._workbook_customsql_formula_fields: Dict[str, List[InputFieldClass]] = {}
+        # chart URN -> resolved-field count of the best InputFields emitted for
+        # it so far. See _chart_input_fields_mcp.
+        self._chart_best_input_fields: Dict[str, int] = {}
         # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
         # correlate ``data-model`` lineage entries (keyed by dataModelId) with
         # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
@@ -1898,11 +1901,53 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             customsql_entry,
         )
 
+    @staticmethod
+    def _resolved_field_count(chart_urn: str, fields: List[InputFieldClass]) -> int:
+        """Fields pointing at something other than the chart itself."""
+        self_ref_prefix = f"urn:li:schemaField:({chart_urn},"
+        return sum(
+            1
+            for f in fields
+            if f.schemaFieldUrn and not f.schemaFieldUrn.startswith(self_ref_prefix)
+        )
+
+    def _chart_input_fields_mcp(
+        self, chart_urn: str, fields: List[InputFieldClass]
+    ) -> Optional[MetadataChangeProposalWrapper]:
+        """Build the InputFields MCP, or None if it would replace a richer one.
+
+        Sigma element ids are not unique across workbooks -- a duplicated
+        workbook reuses them -- and a chart URN is built from the element id
+        alone, so several workbooks' charts land on one URN. InputFields is
+        full-replace, so the last emission wins outright, and when that is the
+        poorer copy it destroys correct lineage emitted earlier.
+
+        Keeping the richer aspect does NOT make the URNs correct: two genuinely
+        different charts still share one entity.
+        """
+        resolved = self._resolved_field_count(chart_urn, fields)
+        best = self._chart_best_input_fields.get(chart_urn)
+        if best is not None and resolved < best:
+            self.reporter.chart_input_fields_regressive_emission_skipped += 1
+            logger.debug(
+                "chart %s: refusing InputFields with %d resolved column(s); an "
+                "aspect with %d is already emitted for this URN.",
+                chart_urn,
+                resolved,
+                best,
+            )
+            return None
+        self._chart_best_input_fields[chart_urn] = resolved
+        return MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=InputFieldsClass(fields=fields),
+        )
+
     def _build_workbook_chart_input_fields_mcp(
         self,
         entity_urn: str,
         aspect: UpstreamLineage,
-    ) -> MetadataChangeProposalWrapper:
+    ) -> Optional[MetadataChangeProposalWrapper]:
         """Convert an UpstreamLineage aspect for a workbook chart into InputFields.
 
         Charts do not accept ``upstreamLineage``; this converts the aggregator
@@ -1934,10 +1979,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     and fb.schemaField.fieldPath not in covered_paths
                 ):
                     input_fields.append(fb)
-        return MetadataChangeProposalWrapper(
-            entityUrn=entity_urn,
-            aspect=InputFieldsClass(fields=input_fields),
-        )
+        return self._chart_input_fields_mcp(entity_urn, input_fields)
 
     def _fgl_to_input_fields(
         self, fgls: List[FineGrainedLineageClass]
@@ -1981,7 +2023,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     def _rewrite_fgl_downstreams(
         self, mcp: MetadataChangeProposalWrapper
-    ) -> MetadataChangeProposalWrapper:
+    ) -> Optional[MetadataChangeProposalWrapper]:
         """Rewrite FGL downstream schemaField URNs to use Sigma column names.
 
         The aggregator derives downstream field names from the SQL SELECT list
@@ -1992,6 +2034,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         FGL entries whose downstreams cannot be rewritten are dropped; the
         entity-level ``upstreams`` list on the aspect is always preserved.
+
+        Returns None for a chart whose InputFields would replace a richer
+        aspect -- see ``_chart_input_fields_mcp``.
         """
         aspect = mcp.aspect
         if not isinstance(aspect, UpstreamLineage):
@@ -2117,7 +2162,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         ):
             try:
                 for mcp in aggregator.gen_metadata():
-                    yield self._rewrite_fgl_downstreams(mcp).as_workunit()
+                    rewritten = self._rewrite_fgl_downstreams(mcp)
+                    if rewritten is not None:
+                        yield rewritten.as_workunit()
                 agg_report = aggregator.report
                 fail_urns: Dict[str, Any] = agg_report.views_parse_failures or {}
                 wb_failures = sum(
@@ -4348,11 +4395,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # by _build_workbook_chart_input_fields_mcp; the drain MCP supersedes this
             # one (later in the workunit stream).  The formula-derived fields stashed
             # above are merged into the drain MCP so nothing is silently dropped.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=InputFieldsClass(fields=element_input_fields),
-            ).as_workunit()
+            chart_mcp = self._chart_input_fields_mcp(chart_urn, element_input_fields)
+            if chart_mcp is not None:
+                yield chart_mcp.as_workunit()
 
+            # Unconditional: the dashboard aspect is a union over the page, and
+            # a refusal here is about this chart URN only.
             all_input_fields.extend(element_input_fields)
 
     def _gen_pages_workunit(
@@ -4613,6 +4661,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._customsql_extra_fgls.clear()
         self._workbook_customsql_registered_urns.clear()
         self._workbook_customsql_formula_fields.clear()
+        self._chart_best_input_fields.clear()
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the
