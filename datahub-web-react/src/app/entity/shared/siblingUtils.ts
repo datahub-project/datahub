@@ -340,21 +340,18 @@ const mergeHealth = (
 
             viewedHealthType.add(source.type);
 
-            const { type, status, causes } = source;
+            const { type, status } = source;
 
             const destHealth = destinationArray?.find((dest) => dest.type === type);
             const destStatus = destHealth?.status;
-            const destCauses = destHealth?.causes;
 
             const finalStatus = mergeHealthStatus(destStatus, status);
             const finalMessage = mergeHealthMessage(type, finalStatus);
-            const finalCauses = [...(causes || []), ...(destCauses || [])];
 
             return {
                 type,
                 status: finalStatus,
                 message: finalMessage,
-                causes: finalCauses,
             };
         })
         .filter((health) => health !== null);
