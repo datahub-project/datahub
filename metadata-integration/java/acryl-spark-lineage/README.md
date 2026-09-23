@@ -217,6 +217,9 @@ the `fabric-onelake` platform instead. It uses the same dataset name as the
 - `_delta_log`, `key=value` partition folders and data files below a table are ignored. Other
   shapes under `Tables/` stay on `abs` (logged once as a warning).
 - When enabled, the mapping takes precedence over `path_spec_list` for OneLake `Tables/` paths.
+- The Fabric OneLake source ingests Lakehouse and Warehouse items only. GUID paths don't carry the
+  item type, so `Tables/` paths of other items (for example mirrored databases) also map to
+  `fabric-onelake` URNs that no ingested entity backs.
 - Enabling it changes the URNs of OneLake tables previously captured as `abs` or `hive` datasets.
   The old entities and their lineage are not migrated; soft-delete them if no longer needed.
 - Global, regional (`<region>-onelake.dfs.fabric.microsoft.com`), blob, `api.onelake` and

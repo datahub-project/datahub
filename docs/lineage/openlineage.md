@@ -241,6 +241,9 @@ urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,<workspaceGUID>.<itemGUID>.<s
 - `_delta_log`, `key=value` partition folders and data files below a table are ignored. Other
   shapes under `Tables/` aren't mapped and stay `abs` (logged once as a warning).
 - Paths outside `Tables/` (for example `Files/`) aren't tables and stay on the `abs` platform.
+- The Fabric OneLake source ingests Lakehouse and Warehouse items only. A GUID path doesn't say
+  which item type it points to, so `Tables/` paths of other items (for example mirrored
+  databases) also map to `fabric-onelake` URNs that no ingested entity backs.
 - Friendly-name paths carry no GUIDs. They stay `abs` unless you add them to
   `fabric-onelake-item-ids`, for example
   `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_ITEM_IDS=Sales/bronze.Lakehouse=<wsGUID>/<itemGUID>`. Names
