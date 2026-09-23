@@ -60,8 +60,8 @@ export function convertLogicalPredicateToOrFilters(
         if (!pred.property) return undefined;
 
         // it's a PropertyPredicate
-        // Special handling for is_false: it means NOT exists, so apply negation
-        const operatorIsNegated = isNegated || pred.operator === 'is_false' || pred.operator === 'isfalse';
+        const hasIsFalseOperator = pred.operator === 'is_false' || pred.operator === 'isfalse';
+        const operatorIsNegated = hasIsFalseOperator ? !isNegated : isNegated;
         return [
             {
                 and: [
@@ -69,7 +69,8 @@ export function convertLogicalPredicateToOrFilters(
                         field: pred.property,
                         values: pred.values || [],
                         condition: pred.operator ? mapOperator(pred.operator) : undefined,
-                        ...(operatorIsNegated && { negated: true }),
+                        ...(hasIsFalseOperator && { negated: operatorIsNegated }),
+                        ...(operatorIsNegated && !hasIsFalseOperator && { negated: true }),
                     },
                 ],
             },

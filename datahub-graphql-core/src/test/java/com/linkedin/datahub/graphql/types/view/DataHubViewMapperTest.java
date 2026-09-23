@@ -158,6 +158,7 @@ public class DataHubViewMapperTest {
   @Test
   public void testMapViewWithStoredJson() throws Exception {
     // Test that stored JSON is preserved when mapping a view
+    // For new views (with json), only json should be returned, not operator+filters
     String storedJson = "{\"type\":\"logical\",\"operator\":\"AND\",\"operands\":[]}";
     EntityResponse response = buildViewEntityResponse(storedJson, buildSimpleFilter());
 
@@ -168,11 +169,15 @@ public class DataHubViewMapperTest {
     assertNotNull(result.getDefinition());
     assertNotNull(result.getDefinition().getFilter());
     assertEquals(result.getDefinition().getFilter().getJson(), storedJson);
+    // For new views with json, operator and filters should NOT be set
+    assertNull(result.getDefinition().getFilter().getOperator());
+    assertNull(result.getDefinition().getFilter().getFilters());
   }
 
   @Test
-  public void testMapViewGeneratesJsonFromFilter() throws Exception {
-    // Test that JSON is generated from Filter when not stored
+  public void testMapViewNoJsonForOldViews() throws Exception {
+    // Test that old views (without json field) do not have json generated
+    // Old views only have operator+filters reconstructed for backward compatibility
     EntityResponse response = buildViewEntityResponse(null, buildSimpleFilter());
 
     DataHubView result = DataHubViewMapper.map(null, response);
@@ -180,11 +185,11 @@ public class DataHubViewMapperTest {
     assertNotNull(result);
     assertNotNull(result.getDefinition());
     assertNotNull(result.getDefinition().getFilter());
-    // JSON should be auto-generated from Filter via FilterConverter
-    assertNotNull(result.getDefinition().getFilter().getJson());
-    // Should contain valid JSON structure (starts with { and ends with })
-    String json = result.getDefinition().getFilter().getJson();
-    assertTrue(json.startsWith("{") && json.endsWith("}"), "JSON should be valid");
+    // Old views should NOT have json generated - we can't restore nested structure from flat Filter
+    assertNull(result.getDefinition().getFilter().getJson());
+    // Old views should have operator+filters reconstructed
+    assertNotNull(result.getDefinition().getFilter().getOperator());
+    assertNotNull(result.getDefinition().getFilter().getFilters());
   }
 
   @Test
@@ -205,7 +210,7 @@ public class DataHubViewMapperTest {
 
   @Test
   public void testMapViewWithComplexFilter() throws Exception {
-    // Test with more complex filter structure
+    // Test with more complex filter structure (old view without json field)
     Filter complexFilter = new Filter();
     Criterion criterion1 = new Criterion();
     criterion1.setField("field1");
@@ -231,12 +236,13 @@ public class DataHubViewMapperTest {
     assertNotNull(result.getDefinition().getFilter());
     // Should handle complex filters without errors
     assertNotNull(result.getDefinition().getFilter().getFilters());
-    assertNotNull(result.getDefinition().getFilter().getJson());
+    // Old views should NOT have json generated
+    assertNull(result.getDefinition().getFilter().getJson());
   }
 
   @Test
   public void testMapViewJsonIsStringified() throws Exception {
-    // Test that JSON field contains properly stringified JSON
+    // Test that JSON field contains properly stringified JSON (for new views with json field)
     String storedJson = "{\"type\":\"logical\",\"operator\":\"AND\",\"operands\":[]}";
     EntityResponse response = buildViewEntityResponse(storedJson, buildSimpleFilter());
 
@@ -246,6 +252,9 @@ public class DataHubViewMapperTest {
     assertNotNull(json);
     // Should be a valid JSON string (can be parsed)
     assertTrue(json.startsWith("{") && json.endsWith("}"));
+    // New views with json should NOT have operator+filters reconstructed
+    assertNull(result.getDefinition().getFilter().getOperator());
+    assertNull(result.getDefinition().getFilter().getFilters());
   }
 
   @Test
@@ -287,7 +296,8 @@ public class DataHubViewMapperTest {
 
   @Test
   public void testMapViewPreservesOldFormatFields() throws Exception {
-    // Test that old format fields (operator, filters) are returned alongside json
+    // Test backward compatibility: old views without json should have operator+filters
+    // reconstructed
     EntityResponse response = buildViewEntityResponse(null, buildSimpleFilter());
     DataHubView result = DataHubViewMapper.map(null, response);
 
@@ -295,6 +305,25 @@ public class DataHubViewMapperTest {
     assertNotNull(result.getDefinition().getFilter().getOperator());
     assertNotNull(result.getDefinition().getFilter().getFilters());
     assertTrue(result.getDefinition().getFilter().getFilters().size() > 0);
+    // Old views without json should not have json field set
+    assertNull(result.getDefinition().getFilter().getJson());
+  }
+
+  @Test
+  public void testMapViewJsonOnlyForNewViews() throws Exception {
+    // Test that new views (with json) return ONLY json, not reconstructed operator+filters
+    String storedJson =
+        "{\"type\":\"logical\",\"operator\":\"AND\",\"operands\":[{\"type\":\"property\",\"property\":\"field1\"}]}";
+    EntityResponse response = buildViewEntityResponse(storedJson, buildSimpleFilter());
+
+    DataHubView result = DataHubViewMapper.map(null, response);
+
+    assertNotNull(result.getDefinition().getFilter());
+    // New views should have json set
+    assertEquals(result.getDefinition().getFilter().getJson(), storedJson);
+    // New views should NOT have operator and filters reconstructed
+    assertNull(result.getDefinition().getFilter().getOperator());
+    assertNull(result.getDefinition().getFilter().getFilters());
   }
 
   // Filter Condition Tests

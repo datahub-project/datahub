@@ -13218,21 +13218,20 @@ A DataHub View Filter. Note that
 """
 type DataHubViewFilter {
   """
-  Deprecated: Use json instead to preserve full nesting.
-  The operator used to combine the filters.
+  Deprecated: Only returned for views created before json support.
+  New views will not include this field. Use json instead to preserve full nesting.
   """
-  operator: LogicalOperator!
+  operator: LogicalOperator
 
   """
-  Deprecated: Use json instead to preserve full nesting.
+  Deprecated: Only returned for views created before json support.
+  New views will not include this field. Use json instead to preserve full nesting.
   A set of filters combined using the operator. If left empty, then no filters will be applied.
   """
-  filters: [FacetFilter!]!
+  filters: [FacetFilter!]
 
   """
-  The stringified json representing the logical predicate built in the UI.
-  This is used to restore the full nested structure for editing.
-  Clients should parse this and convert to their own filter representation.
+  The primary format for view filters: stringified json representation of the logical predicate.
   """
   json: String
 }

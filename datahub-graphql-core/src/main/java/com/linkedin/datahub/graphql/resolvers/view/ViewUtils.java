@@ -141,8 +141,11 @@ public class ViewUtils {
         && !input.getFilters().isEmpty()) {
       if (LogicalOperator.AND.equals(input.getOperator())) {
         return buildAndFilter(input.getFilters(), aspectRetriever);
-      } else {
+      } else if (LogicalOperator.OR.equals(input.getOperator())) {
         return buildOrFilter(input.getFilters(), aspectRetriever);
+      } else {
+        throw new IllegalArgumentException(
+            String.format("Unsupported logical operator: %s", input.getOperator()));
       }
     }
 

@@ -347,7 +347,7 @@ describe('Query Builder Utils - convertLogicalPredicateToOrFilters()', () => {
             expect(orFilters?.[0].and?.[0].negated).toBe(true);
         });
 
-        it('should handle NOT of is_false (double negation applies cumulatively)', () => {
+        it('should handle NOT of is_false (double negation cancels out)', () => {
             const predicate: LogicalPredicate = {
                 type: 'logical',
                 operator: LogicalOperatorType.NOT,
@@ -361,11 +361,11 @@ describe('Query Builder Utils - convertLogicalPredicateToOrFilters()', () => {
                 ],
             };
             const orFilters = convertLogicalPredicateToOrFilters(predicate);
-            // NOT(is_false) applies both negations cumulatively
-            // is_false: EXISTS with negated=true
-            // NOT: inverts the negation flag, so negated=true (cumulative)
+            // is_false: EXISTS with negated=true (field does not exist)
+            // NOT(is_false): inverts the negation via XOR logic
+            // Result: EXISTS with negated=false (field exists)
             expect(orFilters?.[0].and?.[0].condition).toBe(FilterOperator.Exists);
-            expect(orFilters?.[0].and?.[0].negated).toBe(true);
+            expect(orFilters?.[0].and?.[0].negated).toBe(false);
         });
 
         it('should handle multiple operands in OR', () => {
@@ -659,20 +659,20 @@ describe('Query Builder Utils - convertLogicalPredicateToOrFilters()', () => {
             expect(orFilters?.[0].and?.[0].negated).toBe(true);
         });
 
-        it('should NOT double-negate when both negation sources apply', () => {
+        it('should XOR negation flags for is_false operator', () => {
             const predicate: PropertyPredicate = {
                 type: 'property',
                 property: 'field',
                 operator: 'is_false',
                 values: [],
             };
-            // is_false applies negation, so this would be double-negation
-            // which our current implementation handles by OR-ing the conditions
+            // is_false flips the negation flag via XOR logic
+            // isNegated=false: negated=true (is_false: field does not exist)
+            // isNegated=true: negated=false (NOT(is_false): field exists)
             const orFilters1 = convertLogicalPredicateToOrFilters(predicate, false);
             const orFilters2 = convertLogicalPredicateToOrFilters(predicate, true);
-            // Both should have negated: true because is_false always applies it
             expect(orFilters1?.[0].and?.[0].negated).toBe(true);
-            expect(orFilters2?.[0].and?.[0].negated).toBe(true);
+            expect(orFilters2?.[0].and?.[0].negated).toBe(false);
         });
 
         it('should preserve negation through nested operators', () => {
