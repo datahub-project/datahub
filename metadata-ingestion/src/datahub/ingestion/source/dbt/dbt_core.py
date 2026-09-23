@@ -2,6 +2,7 @@ import dataclasses
 import json
 import logging
 import os
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union, cast
 from urllib.parse import urlparse
@@ -55,7 +56,6 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     parse_freshness_criteria,
 )
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
-from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -1045,6 +1045,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 fetched[uri] = read_file_as_bytes(
                     uri, self.config.aws_connection, self.config.gcs_connection
                 )
+            except MemoryError:
+                # Exhausted memory is systemic, not a per-file failure to capture and
+                # replay: let it propagate so .result() re-raises it on the main thread
+                # and load_nodes fails fast, instead of the sibling workers reading yet
+                # more objects into an already-exhausted process.
+                raise
             except Exception as e:
                 fetched[uri] = e
         return index, fetched
@@ -1054,23 +1060,25 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
     ) -> Iterator[Dict[str, Union[bytes, Exception]]]:
         """Fetch each group's files on a bounded pool, yielding groups in input order.
 
-        BackpressureAwareExecutor completes out of order, so a small reorder
-        buffer (bounded by its max_pending) restores input order; in-flight raw
-        bytes stay bounded at roughly 2 x concurrency groups.
+        Submission is windowed to at most `concurrency` groups ahead of the
+        consumer and each group is awaited in input order, so the raw bytes held
+        in memory stay bounded at ~concurrency groups. A general out-of-order
+        executor would instead let a slow early group hold every later group's
+        already-fetched bytes in a reorder buffer that grows with the whole run.
         """
-        buffered: Dict[int, Dict[str, Union[bytes, Exception]]] = {}
-        next_index = 0
-        for future in BackpressureAwareExecutor.map(
-            self._fetch_artifact_group,
-            [(index, uris) for index, uris in enumerate(uri_groups)],
-            max_workers=concurrency,
-            max_pending=concurrency,
-        ):
-            index, fetched = future.result()
-            buffered[index] = fetched
-            while next_index in buffered:
-                yield buffered.pop(next_index)
-                next_index += 1
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            in_flight: Dict[int, Future] = {}
+            next_submit = 0
+            for next_index in range(len(uri_groups)):
+                while next_submit < len(uri_groups) and len(in_flight) < concurrency:
+                    in_flight[next_submit] = executor.submit(
+                        self._fetch_artifact_group,
+                        next_submit,
+                        uri_groups[next_submit],
+                    )
+                    next_submit += 1
+                _, fetched = in_flight.pop(next_index).result()
+                yield fetched
 
     def _maybe_prefetch(
         self, uri_groups: List[List[str]], *, enabled: bool
