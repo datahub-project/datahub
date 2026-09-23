@@ -13,6 +13,7 @@ fragment globalTagsFields on GlobalTags {
                 ...deprecationFields
             }
         }
+        context
         associatedUrn
         attribution {
             ...attributionFields
@@ -201,6 +202,7 @@ fragment glossaryTerms on GlossaryTerms {
         actor {
             urn
         }
+        context
         associatedUrn
         attribution {
             ...attributionFields
@@ -454,6 +456,7 @@ fragment nonRecursiveDatasetFields on Dataset {
             value
         }
         externalUrl
+        created
         lastModified {
             time
             actor
@@ -628,7 +631,7 @@ fragment dataJobFields on DataJob {
         ...parentContainersFields
     }
     privileges {
-        canEditLineage
+        ...entityPrivileges
     }
     browsePathV2 {
         ...browsePathV2Fields
@@ -743,8 +746,7 @@ fragment dashboardFields on Dashboard {
         typeNames
     }
     privileges {
-        canEditLineage
-        canEditEmbed
+        ...entityPrivileges
     }
     health {
         ...entityHealth
