@@ -2,6 +2,8 @@
 
 Semantic search lets you find DataHub entities using natural language queries like "customer churn analysis" — even when exact keywords differ.
 
+Semantic search covers document entities (`ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` defaults to `document`); keyword search still covers every entity type. The hosted providers below (OpenAI, AWS Bedrock, Cohere) call an external embedding API with your own credentials, while `onnx` runs a neural model in-process.
+
 ## Prerequisites
 
 1. **OpenSearch 2.17.0+** with k-NN plugin (DataHub ships with `opensearchproject/opensearch:2.19.3`), or **Elasticsearch 8.18+**. On Elasticsearch, filters apply after the nearest-neighbour search, to roughly the nearest 1.2 times the requested page of results, so a selective filter can return few or no results where OpenSearch returns a full page.
@@ -176,6 +178,10 @@ datahub ingest -c recipe.yml
 ```
 
 For external document sources (Notion, Confluence, etc.), see the [Notion Source](../generated/ingestion/sources/notion.md) and [DataHub Documents Source](../generated/ingestion/sources/datahub-documents.md) documentation.
+
+## Search V3
+
+With Search V3 writes on (`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED=true`), document embeddings are also written to the V3 document index. Semantic search keeps reading the semantic indices until you set `ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED=true`, after which it reads the V3 document index instead. The flag is independent of `ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED`, so keyword and semantic reads can move to V3 at different times. Turn it on only after the V3 document index holds your document embeddings: documents embedded before V3 writes were turned on get V3 vectors only once they are re-indexed into V3 (for example with the `RestoreIndices` upgrade job) or re-embedded. To check, count the documents that carry embeddings in each index, running `GET documentindex_v3/_count` and `GET documentindex_v2_semantic/_count` (named `<prefix>_documentindex_v3` and so on if you set an index prefix) with the body `{"query":{"nested":{"path":"embeddings.<model>.chunks","query":{"match_all":{}}}}}`, where `<model>` is your model key (for example `text_embedding_3_large`). The flag needs OpenSearch 3.5+ or Elasticsearch 8.18+ on the Search V3 cluster, and DataHub refuses to start with it on older OpenSearch: before 3.5, OpenSearch k-NN pre-filters ignore fields under the V3 `_aspects` object, which facet and View filters use.
 
 ## Supported Models
 
