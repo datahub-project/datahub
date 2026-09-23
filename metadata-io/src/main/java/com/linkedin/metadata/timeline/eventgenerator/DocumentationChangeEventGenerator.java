@@ -15,6 +15,7 @@ import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
+import com.linkedin.metadata.timeline.data.entity.ChangeEventParameterUtils;
 import jakarta.json.JsonPatch;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -85,6 +86,16 @@ public class DocumentationChangeEventGenerator extends EntityChangeEventGenerato
     return map;
   }
 
+  private static ImmutableMap<String, Object> buildParameters(
+      DocumentationAssociation assoc) {
+    return new ImmutableMap.Builder<String, Object>()
+        .put("documentation", assoc.getDocumentation())
+        .put(
+            "sourceDetails",
+            ChangeEventParameterUtils.serializeSourceDetail(assoc.getAttribution()))
+        .build();
+  }
+
   private static ChangeEvent makeAddChangeEvent(
       DocumentationAssociation assoc, String key, String entityUrn, AuditStamp auditStamp) {
     return ChangeEvent.builder()
@@ -94,7 +105,7 @@ public class DocumentationChangeEventGenerator extends EntityChangeEventGenerato
         .operation(ChangeOperation.ADD)
         .semVerChange(SemanticChangeType.MINOR)
         .description(String.format(DESCRIPTION_ADDED, entityUrn, assoc.getDocumentation()))
-        .parameters(ImmutableMap.of("documentation", assoc.getDocumentation()))
+        .parameters(buildParameters(assoc))
         .auditStamp(auditStamp)
         .build();
   }
@@ -108,7 +119,7 @@ public class DocumentationChangeEventGenerator extends EntityChangeEventGenerato
         .operation(ChangeOperation.REMOVE)
         .semVerChange(SemanticChangeType.MINOR)
         .description(String.format(DESCRIPTION_REMOVED, entityUrn, assoc.getDocumentation()))
-        .parameters(ImmutableMap.of("documentation", assoc.getDocumentation()))
+        .parameters(buildParameters(assoc))
         .auditStamp(auditStamp)
         .build();
   }
@@ -131,7 +142,7 @@ public class DocumentationChangeEventGenerator extends EntityChangeEventGenerato
                 entityUrn,
                 oldAssoc.getDocumentation(),
                 newAssoc.getDocumentation()))
-        .parameters(ImmutableMap.of("documentation", newAssoc.getDocumentation()))
+        .parameters(buildParameters(newAssoc))
         .auditStamp(auditStamp)
         .build();
   }
