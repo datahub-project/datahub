@@ -6,7 +6,17 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import clickhouse_driver
 import clickhouse_sqlalchemy.types as custom_types
@@ -148,6 +158,41 @@ class LineageItem:
             self.dataset_lineage_type = DatasetLineageTypeClass.VIEW
         else:
             self.dataset_lineage_type = DatasetLineageTypeClass.TRANSFORMED
+
+
+class _QueryKey(NamedTuple):
+    """Rows sharing this always parse to the same lineage, so one parse covers all.
+
+    ClickHouse derives normalized_query_hash from the statement text alone, so the
+    same unqualified SQL run against two databases gets the *same* hash while
+    resolving to different tables. The database is here for correctness, not speed.
+    """
+
+    # Optional only because ObservedQuery declares it so; _parse_query_log_row
+    # always sets it or skips the row.
+    query_hash: Optional[str]
+    database: str
+
+
+class _UsageKey(NamedTuple):
+    """The dimensions datasetUsageStatistics is reported along.
+
+    userCounts is per user and the aspect is a timeseries with one entry per
+    bucket, so counts from different users or buckets must not be added together.
+    """
+
+    user: str
+    bucket: Optional[datetime]
+
+
+@dataclass
+class _QueryRun:
+    """One query as run by one user in one bucket, and how often."""
+
+    # The single execution we hand to the parser, standing in for the rest.
+    observed: ObservedQuery
+    # How many executions it stands for, reported as the usage count.
+    count: int
 
 
 class ClickHouseConfig(
@@ -720,9 +765,6 @@ SELECT
     query_kind,
     user,
     event_time,
-    query_duration_ms,
-    read_rows,
-    written_rows,
     current_database,
     normalized_query_hash
 FROM system.query_log
@@ -751,7 +793,6 @@ ORDER BY event_time ASC
 
         try:
             result = engine.execute(text(query))
-            rows = list(result)
         except Exception as e:
             self.report.failure(
                 message="Failed to fetch query log",
@@ -760,25 +801,84 @@ ORDER BY event_time ASC
             )
             return
 
+        # Why collapse rows at all: a scheduled pipeline runs the same statement
+        # over and over with different values. That is one query to the parser but
+        # N different strings to its cache, so the cache misses on nearly every row
+        # and each execution pays for a full parse. Collapsing first turns "parse
+        # once per execution" into "parse once per query", which is the whole cost.
+        #
+        #   by_query[query][usage] -> the query runs to report for that user/bucket
+        #
+        # Two levels because the keys answer different questions: the query decides
+        # what gets parsed, the user and bucket decide where its counts are
+        # reported. Keeping the query on the outside also lets the emit loop below
+        # finish one query before moving on, so the parser's cache stays warm.
+        by_query: Dict[_QueryKey, Dict[_UsageKey, _QueryRun]] = {}
+        num_rows = 0
         num_lineage = 0
         num_usage = 0
-        for row in rows:
+        for row in result:
             row_dict = dict(row._mapping)
             observed_query = self._parse_query_log_row(row_dict)
-            if observed_query:
-                query_kind = row_dict.get("query_kind", "")
-                if query_kind in ("Insert", "Create"):
-                    num_lineage += 1
-                elif query_kind == "Select":
-                    num_usage += 1
-                self._query_log_aggregator.add(observed_query)
+            if not observed_query:
+                continue
 
+            num_rows += 1
+            query_kind = row_dict.get("query_kind", "")
+            if query_kind in ("Insert", "Create"):
+                num_lineage += 1
+            elif query_kind == "Select":
+                num_usage += 1
+
+            query_key, usage_key = self._query_log_keys(observed_query)
+            query_runs_by_usage = by_query.setdefault(query_key, {})
+            query_run = query_runs_by_usage.get(usage_key)
+            if query_run is None:
+                query_runs_by_usage[usage_key] = _QueryRun(
+                    observed=observed_query, count=1
+                )
+            else:
+                query_run.count += 1
+                # Keep the latest execution so lastExecutedAt stays accurate.
+                query_run.observed.timestamp = observed_query.timestamp
+
+        for query_runs_by_usage in by_query.values():
+            # One query still splits across users and buckets. Give every split the
+            # same SQL text so the parser's cache answers all but the first: their
+            # literals differ, but the lineage they produce cannot.
+            shared_sql = next(iter(query_runs_by_usage.values())).observed.query
+            for query_run in query_runs_by_usage.values():
+                query_run.observed.query = shared_sql
+                # The aggregator counts this execution usage_multiplier times, so
+                # the totals match what a row-by-row loop would have produced.
+                query_run.observed.usage_multiplier = query_run.count
+                self._query_log_aggregator.add(query_run.observed)
+
+        # len(by_query), not the number of add() calls: the splits of one query
+        # share a SQL text, so only the first of them reaches the parser.
         logger.info(
             f"Query log processing complete: {num_lineage} lineage queries, "
-            f"{num_usage} usage queries"
+            f"{num_usage} usage queries "
+            f"({num_rows} rows -> {len(by_query)} parsed)"
         )
 
         yield from auto_workunit(self._query_log_aggregator.gen_metadata())
+
+    def _query_log_keys(self, observed: ObservedQuery) -> Tuple[_QueryKey, _UsageKey]:
+        """Which query this row is, and which usage numbers its count belongs to."""
+        query_key = _QueryKey(
+            query_hash=observed.query_hash,
+            database=observed.default_schema or "",
+        )
+        usage_key = _UsageKey(
+            user=str(observed.user or ""),
+            bucket=(
+                get_time_bucket(observed.timestamp, self.config.bucket_duration)
+                if observed.timestamp
+                else None
+            ),
+        )
+        return query_key, usage_key
 
     def _parse_query_log_row(self, row: Dict) -> Optional[ObservedQuery]:
         """Parse a query_log row into an ObservedQuery."""
@@ -800,7 +900,11 @@ ORDER BY event_time ASC
                 # unused catalog slot, over-qualifying to "default.my_db.table".
                 default_db=None,
                 default_schema=row.get("current_database") or None,
-                query_hash=str(row.get("normalized_query_hash", "")),
+                # Required, not optional: system.query_log.normalized_query_hash is
+                # a non-nullable UInt64. A missing key means our own SELECT lost the
+                # column, which the except below reports rather than quietly
+                # collapsing every row into one group.
+                query_hash=str(row["normalized_query_hash"]),
             )
         except Exception as e:
             self.report.warning(

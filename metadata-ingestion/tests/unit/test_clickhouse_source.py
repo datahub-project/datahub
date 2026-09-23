@@ -1,14 +1,19 @@
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Set
 
 import pytest
 from sqlalchemy.engine.url import make_url
 
 import datahub.ingestion.source.sql.clickhouse as clickhouse
+import datahub.sql_parsing.sqlglot_lineage as sqlglot_lineage
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig, ClickHouseSource
 from datahub.ingestion.source.sql.clickhouse_connection import CLICKHOUSE_CLIENT_NAME
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
+    UpstreamLineageClass,
+)
 
 
 def test_clickhouse_uri_https():
@@ -320,3 +325,211 @@ def test_query_log_lineage_does_not_over_qualify(monkeypatch):
     assert [u.dataset for u in aspect.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics_raw.raw_events,PROD)"
     ]
+
+
+def test_query_log_query_only_fetches_columns_it_reads():
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-15T00:00:00Z",
+        }
+    )
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+
+    sql = source._build_query_log_query()
+
+    for unused in ("query_duration_ms", "read_rows", "written_rows"):
+        assert unused not in sql
+
+    for needed in (
+        "query_id",
+        "query_kind",
+        "current_database",
+        "normalized_query_hash",
+    ):
+        assert needed in sql
+
+    assert "event_time >= '2020-04-14 00:00:00'" in sql
+    assert "event_time < '2020-04-15 00:00:00'" in sql
+
+
+def test_query_log_row_without_hash_is_skipped_and_reported():
+    # normalized_query_hash is a non-nullable UInt64, so this only happens if our
+    # own SELECT loses the column. Skipping loudly beats grouping every row
+    # together under a missing key.
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-15T00:00:00Z",
+        }
+    )
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+
+    row: Dict[str, Any] = {
+        "query_id": "q1",
+        "query": "INSERT INTO daily_agg SELECT col_a FROM raw_events",
+        "query_kind": "Insert",
+        "user": "alice",
+        "event_time": datetime(2020, 4, 14, 6, 0, 0, tzinfo=timezone.utc),
+        "current_database": "my_db",
+    }
+
+    assert source._parse_query_log_row(row) is None
+    assert len(source.report.warnings) == 1
+
+    row["normalized_query_hash"] = 12345
+    observed = source._parse_query_log_row(row)
+    assert observed is not None
+    assert observed.query_hash == "12345"
+
+
+def _query_log_source() -> ClickHouseSource:
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "include_usage_statistics": True,
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-16T00:00:00Z",
+        }
+    )
+    return ClickHouseSource(config, PipelineContext(run_id="test"))
+
+
+def _insert_row(
+    *,
+    query_id: str,
+    user: str = "alice",
+    database: str = "my_db",
+    hash_value: Optional[int] = 12345,
+    day: int = 14,
+    literal: str = "a",
+) -> _FakeRow:
+    # Same shape every time; only the literal changes, as in a real query log.
+    return _FakeRow(
+        {
+            "query_id": query_id,
+            "query": (
+                "INSERT INTO daily_agg SELECT col_a FROM raw_events "
+                f"WHERE col_b = '{literal}'"
+            ),
+            "query_kind": "Insert",
+            "user": user,
+            "event_time": datetime(2020, 4, day, 6, 0, 0, tzinfo=timezone.utc),
+            "current_database": database,
+            "normalized_query_hash": hash_value,
+        }
+    )
+
+
+def _usage_for(source: ClickHouseSource, urn: str) -> List[DatasetUsageStatisticsClass]:
+    return [
+        wu.metadata.aspect
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+        and wu.metadata.entityUrn == urn
+    ]
+
+
+def _lineage_urns(source: ClickHouseSource) -> Set[Optional[str]]:
+    return {
+        wu.metadata.entityUrn
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+    }
+
+
+_RAW_EVENTS = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_db.raw_events,PROD)"
+
+
+def test_grouping_preserves_usage_counts(monkeypatch):
+    # If grouping drops the occurrence count, totalSqlQueries silently collapses.
+    source = _query_log_source()
+    rows = [_insert_row(query_id=f"q{i}", literal=str(i)) for i in range(20)]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    assert len(usage) == 1
+    assert usage[0].totalSqlQueries == 20
+
+
+def test_grouping_separates_databases(monkeypatch):
+    # Identical text under two databases shares a hash but resolves to different
+    # tables; merging them would lose one side's lineage entirely.
+    source = _query_log_source()
+    rows = [
+        _insert_row(query_id="q1", database="db_a"),
+        _insert_row(query_id="q2", database="db_b"),
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    assert _lineage_urns(source) == {
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db_a.daily_agg,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db_b.daily_agg,PROD)",
+    }
+
+
+def test_grouping_separates_users(monkeypatch):
+    source = _query_log_source()
+    rows = [_insert_row(query_id=f"a{i}", user="alice") for i in range(3)] + [
+        _insert_row(query_id=f"b{i}", user="bob") for i in range(2)
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    assert len(usage) == 1
+    aspect = usage[0]
+    assert aspect.totalSqlQueries == 5
+    assert aspect.uniqueUserCount == 2
+    assert aspect.userCounts is not None
+    assert {c.user.split(":")[-1]: c.count for c in aspect.userCounts} == {
+        "alice": 3,
+        "bob": 2,
+    }
+
+
+def test_grouping_separates_time_buckets(monkeypatch):
+    # datasetUsageStatistics is a timeseries aspect: one per bucket.
+    source = _query_log_source()
+    rows = [_insert_row(query_id=f"d14-{i}", day=14) for i in range(4)] + [
+        _insert_row(query_id=f"d15-{i}", day=15) for i in range(6)
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    assert sorted(u.totalSqlQueries or 0 for u in usage) == [4, 6]
+
+
+def test_one_parse_per_shape_across_users_and_buckets(monkeypatch):
+    # Handing every batch of a shape the same SQL text is a performance property,
+    # not a correctness one - no output changes if it regresses - so assert the
+    # parse count directly.
+    source = _query_log_source()
+    rows = [
+        # The literal is unique per row, so each batch's first row - the one that
+        # would be parsed without the substitution - carries a different string.
+        _insert_row(
+            query_id=f"{user}-{day}-{i}",
+            user=user,
+            day=day,
+            literal=f"{user}-{day}-{i}",
+        )
+        for user in ("alice", "bob")
+        for day in (14, 15)
+        for i in range(3)
+    ]  # one shape x 2 users x 2 buckets x 3 executions = 12 rows, 4 batches
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    sqlglot_lineage._sqlglot_lineage_cached.cache_clear()
+    list(source._extract_query_log())
+
+    assert sqlglot_lineage._sqlglot_lineage_cached.cache_info().misses == 1
