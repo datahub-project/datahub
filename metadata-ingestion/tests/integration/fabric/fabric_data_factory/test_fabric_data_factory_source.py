@@ -27,6 +27,7 @@ from tests.integration.fabric.fabric_data_factory.test_factories import (
     PIPELINE_ID_A,
     PIPELINE_ID_B,
     PIPELINE_RUN_ID_1,
+    SAME_WORKSPACE_PLACEHOLDER_ID,
     WORKSPACE_ID_1,
     WORKSPACE_ID_2,
     create_activity_run,
@@ -124,7 +125,8 @@ def test_full_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
             ),
             sink_settings=create_lakehouse_dataset_settings(
                 artifact_id=LAKEHOUSE_ARTIFACT_ID,
-                workspace_id=WORKSPACE_ID_1,
+                # Same-workspace placeholder → resolves to WORKSPACE_ID_1
+                workspace_id=SAME_WORKSPACE_PLACEHOLDER_ID,
                 schema="dbo",
                 table="customers",
             ),

@@ -40,6 +40,9 @@ DATASET_SCHEMA_KEY = "schema"
 DATASET_COLUMN_NAME_KEY = "name"
 TRANSLATOR_KEY = "translator"
 EXPRESSION_TYPE = "Expression"
+WORKSPACE_ID_KEY = "workspaceId"
+# Placeholder Fabric writes for items living in the pipeline's own workspace.
+SAME_WORKSPACE_PLACEHOLDER_ID = "00000000-0000-0000-0000-000000000000"
 
 # Resolves a dataset URN to its columns (e.g. from the DataHub graph).
 DatasetColumnsResolver = Callable[[str], Optional[DatasetColumns]]
@@ -277,11 +280,9 @@ class CopyActivityLineageExtractor:
             )
             return None
 
-        resolved_workspace_id: str = (
-            conn_type_props.get("workspaceId")
-            or ls_type_props.get("workspaceId")
-            or ds_type_props.get("workspaceId")
-            or pipeline_workspace_id
+        resolved_workspace_id = self._resolve_item_workspace_id(
+            [conn_type_props, ls_type_props, ds_type_props],
+            pipeline_workspace_id,
         )
 
         # 1. Structured: schema + table
@@ -305,6 +306,27 @@ class CopyActivityLineageExtractor:
             activity.name,
         )
         return None
+
+    @staticmethod
+    def _resolve_item_workspace_id(
+        type_properties_candidates: List[Dict[str, Any]],
+        pipeline_workspace_id: str,
+    ) -> str:
+        """Return the workspace GUID of a referenced Fabric item.
+
+        Exported pipeline JSON references items in the pipeline's own
+        workspace with the all-zero GUID placeholder; that, like a missing or
+        empty value, means "same workspace as the pipeline".
+        """
+        for type_properties in type_properties_candidates:
+            workspace_id = type_properties.get(WORKSPACE_ID_KEY)
+            if (
+                isinstance(workspace_id, str)
+                and workspace_id.strip()
+                and workspace_id.strip() != SAME_WORKSPACE_PLACEHOLDER_ID
+            ):
+                return workspace_id
+        return pipeline_workspace_id
 
     @staticmethod
     def _extract_table_name(

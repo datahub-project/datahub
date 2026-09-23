@@ -337,6 +337,74 @@ class TestResolveOnelakeUrn:
         assert result is not None
         assert pipeline_ws in result
 
+    @pytest.mark.parametrize(
+        "workspace_id",
+        ["00000000-0000-0000-0000-000000000000", "", None],
+        ids=["zero_guid", "empty", "missing"],
+    )
+    def test_same_workspace_references_use_pipeline_workspace(
+        self, workspace_id: Optional[str]
+    ) -> None:
+        pipeline_ws = "ws-pipeline-workspace"
+        ls_type_props: Dict[str, Any] = {
+            "artifactId": ARTIFACT_ID,
+            "rootFolder": "Tables",
+        }
+        if workspace_id is not None:
+            ls_type_props["workspaceId"] = workspace_id
+        ds = {
+            "linkedService": {
+                "name": "SalesLakehouse",
+                "properties": {"type": "Lakehouse", "typeProperties": ls_type_props},
+            },
+            "typeProperties": {"table": "customers"},
+        }
+        result = self.extractor._resolve_onelake_urn(ds, _make_activity(), pipeline_ws)
+        assert result == (
+            "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+            f"{pipeline_ws}.{ARTIFACT_ID}.dbo.customers,PROD)"
+        )
+
+    def test_zero_guid_falls_through_to_other_workspace_id(self) -> None:
+        """A placeholder in one block does not mask a real ID in another."""
+        ds = {
+            "linkedService": {
+                "properties": {
+                    "type": "Lakehouse",
+                    "typeProperties": {
+                        "artifactId": ARTIFACT_ID,
+                        "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    },
+                },
+            },
+            "typeProperties": {"table": "customers", "workspaceId": WS_ID},
+        }
+        result = self.extractor._resolve_onelake_urn(
+            ds, _make_activity(), "ws-pipeline-workspace"
+        )
+        assert result is not None
+        assert f"{WS_ID}.{ARTIFACT_ID}.dbo.customers" in result
+
+    def test_explicit_other_workspace_id_is_kept(self) -> None:
+        other_ws = "ws-other-workspace"
+        ds = {
+            "linkedService": {
+                "properties": {
+                    "type": "Lakehouse",
+                    "typeProperties": {
+                        "artifactId": ARTIFACT_ID,
+                        "workspaceId": other_ws,
+                    },
+                },
+            },
+            "typeProperties": {"schema": "sales", "table": "orders"},
+        }
+        result = self.extractor._resolve_onelake_urn(
+            ds, _make_activity(), "ws-pipeline-workspace"
+        )
+        assert result is not None
+        assert f"{other_ws}.{ARTIFACT_ID}.sales.orders" in result
+
     def test_linked_service_type_properties(self) -> None:
         """linkedService.properties.typeProperties provides artifactId and workspaceId."""
         ds = {
