@@ -29,12 +29,12 @@ const EditorSection = styled.div`
     position: relative;
 `;
 
-const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean }>`
+const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean; $isEmpty?: boolean }>`
     border: none;
     &&& {
         .remirror-editor {
             padding: 0px 0;
-            min-height: 460px;
+            ${(props) => props.$isEmpty && `min-height: 460px;`}
         }
         .remirror-editor.ProseMirror {
             font-size: 15px;
@@ -336,6 +336,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                         hideBorder
                         doNotFocus
                         $hideToolbar={!isEditorFocused}
+                        $isEmpty={!content.trim()}
                         fixedBottomToolbar={isEditorFocused}
                         toolbarStyles={toolbarStyles}
                         uploadFileProps={{
@@ -351,6 +352,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                         readOnly
                         placeholder={t('document.noContentPlaceholder')}
                         hideBorder
+                        $isEmpty={!content.trim()}
                     />
                 )}
             </EditorSection>
