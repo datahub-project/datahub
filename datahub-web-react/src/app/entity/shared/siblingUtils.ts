@@ -18,6 +18,7 @@ import {
     Health,
     HealthStatus,
     HealthStatusType,
+    InstitutionalMemoryMetadata,
     Maybe,
     Operation,
     ScrollResults,
@@ -410,6 +411,44 @@ function structuredPropertiesMerge(isPrimary, key) {
     };
 }
 
+function mergeInstitutionalMemoryElements(
+    destinationArray: Maybe<InstitutionalMemoryMetadata[]> | undefined,
+    sourceArray: Maybe<InstitutionalMemoryMetadata[]> | undefined,
+    _options,
+) {
+    if (!sourceArray?.length) return destinationArray || [];
+
+    // links should be unique by url and label
+    const filteredDestinationArray =
+        destinationArray?.filter(
+            (destinationElement) =>
+                sourceArray.findIndex(
+                    (sourceElement) =>
+                        sourceElement.url === destinationElement.url &&
+                        sourceElement.label === destinationElement.label,
+                ) === -1,
+        ) || [];
+
+    return [...sourceArray, ...filteredDestinationArray];
+}
+
+function institutionalMemoryMerge(isPrimary, key) {
+    if (key === 'elements') {
+        return (secondary, primary) => {
+            return merge(secondary, primary, {
+                arrayMerge: mergeInstitutionalMemoryElements,
+                customMerge: customMerge.bind({}, isPrimary),
+            });
+        };
+    }
+    return (secondary, primary) => {
+        return merge(secondary, primary, {
+            arrayMerge: combineMerge,
+            customMerge: customMerge.bind({}, isPrimary),
+        });
+    };
+}
+
 function customMerge(isPrimary, key) {
     if (key === 'upstream' || key === 'downstream') {
         return (_secondary, primary) => primary;
@@ -496,6 +535,14 @@ function customMerge(isPrimary, key) {
             return merge(secondary, primary, {
                 arrayMerge: getArrayMergeFunction(key),
                 customMerge: customMerge.bind({}, isPrimary),
+            });
+        };
+    }
+    if (key === 'institutionalMemory') {
+        return (secondary, primary) => {
+            return merge(secondary, primary, {
+                arrayMerge: getArrayMergeFunction(key),
+                customMerge: institutionalMemoryMerge.bind({}, isPrimary),
             });
         };
     }
