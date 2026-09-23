@@ -15,7 +15,6 @@ import io.opentelemetry.context.Scope;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 import org.testng.annotations.Test;
 
 public class ActorSqlCommentTest {
@@ -43,10 +42,8 @@ public class ActorSqlCommentTest {
     DataSourcePool pool = mock(DataSourcePool.class);
     Connection conn = mock(Connection.class);
     PreparedStatement ps = mock(PreparedStatement.class);
-    Statement st = mock(Statement.class);
     when(pool.getConnection()).thenReturn(conn);
     when(conn.prepareStatement(anyString())).thenReturn(ps);
-    when(conn.createStatement()).thenReturn(st);
 
     DataSourcePool wrapped = ActorSqlComment.wrap(pool);
     Connection c = wrapped.getConnection();
@@ -55,16 +52,19 @@ public class ActorSqlCommentTest {
     c.prepareStatement("select 1");
     verify(conn).prepareStatement("select 1");
 
-    // inside a request: commented, on both prepared and plain statements
+    // inside a request: commented on prepared statements
     RequestStats s = stats("urn:li:corpuser:jdoe", "getDataset");
     try (Scope ignored = Context.current().with(RequestStats.CONTEXT_KEY, s).makeCurrent()) {
       assertSame(c.prepareStatement("select 2"), ps);
       verify(conn)
           .prepareStatement(
               "/*datahub_actor='urn:li:corpuser:jdoe',datahub_op='getDataset'*/ select 2");
-      c.createStatement().execute("select 3");
-      verify(st)
-          .execute("/*datahub_actor='urn:li:corpuser:jdoe',datahub_op='getDataset'*/ select 3");
+      // plain statements are not rewritten; Ebean uses prepared statements only
+      c.createStatement();
+      verify(conn).createStatement();
+      // the wrapper stays unwrappable for the backend-pid lookup
+      c.isWrapperFor(Runnable.class);
+      verify(conn).isWrapperFor(Runnable.class);
     }
   }
 
