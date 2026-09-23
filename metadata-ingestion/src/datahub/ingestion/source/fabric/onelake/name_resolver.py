@@ -22,7 +22,9 @@ A 3-part name is only meaningful relative to the workspace of the statement
 being parsed, so the resolver is *scoped* to a workspace for the duration of
 each parse. ``FabricSqlParsingAggregator`` sets that scope from the statement's
 ``default_db`` (``<workspaceId>.<itemId>``), which is also part of the parser's
-cache key, so cached parse results stay consistent with the scope.
+cache key, so cached parse results stay consistent with the scope. The scope is
+plain instance state: this relies on the aggregator parsing one statement at a
+time on the calling thread, which is how ``SqlParsingAggregator`` works today.
 """
 
 from __future__ import annotations
@@ -32,13 +34,16 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tuple
 
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.metadata.schema_classes import (
     QuerySubjectsClass,
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import SchemaFieldUrn
-from datahub.sql_parsing.schema_resolver import SchemaResolver, _TableName
+from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
@@ -46,9 +51,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.fabric.onelake.report import (
-        FabricOneLakeSourceReport,
-    )
+    from datahub.ingestion.graph.client import DataHubGraph
 
 # Fabric addresses a table with at most 4 parts: `workspace.item.schema.table`.
 _MAX_FABRIC_NAME_PARTS = 4
@@ -186,10 +189,18 @@ class FabricOneLakeSchemaResolver(SchemaResolver):
         self,
         *,
         catalog: FabricItemCatalog,
-        report: "FabricOneLakeSourceReport",
-        **kwargs: Any,
+        report: FabricOneLakeSourceReport,
+        platform: str,
+        platform_instance: Optional[str] = None,
+        env: str = DEFAULT_ENV,
+        graph: Optional["DataHubGraph"] = None,
     ) -> None:
-        super().__init__(**kwargs)
+        super().__init__(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=graph,
+        )
         self.catalog = catalog
         self._report = report
         self._scope_workspace_id: Optional[str] = None
@@ -199,7 +210,10 @@ class FabricOneLakeSchemaResolver(SchemaResolver):
 
     @contextlib.contextmanager
     def scoped_to_default_db(self, default_db: Optional[str]) -> Iterator[None]:
-        """Scope 3-part name resolution to the workspace of ``default_db``."""
+        """Scope 3-part name resolution to the workspace of ``default_db``.
+
+        Not thread-safe: only one statement may be parsed at a time.
+        """
         previous = self._scope_workspace_id
         self._scope_workspace_id = (
             default_db.split(".", 1)[0] if default_db and "." in default_db else None
@@ -350,12 +364,19 @@ class FabricSqlParsingAggregator(SqlParsingAggregator):
     definitions are parsed lazily in ``gen_metadata`` (after all schemas are
     registered), one ``_process_view_definition`` call per view - the only
     per-view hook the aggregator exposes - so the scope is set there.
+
+    ``_process_view_definition`` is private to ``SqlParsingAggregator``. If it is
+    renamed or stops being called once per view, views are parsed unscoped and
+    every 3-part reference is reported unresolved;
+    ``test_view_parsing_hook_is_scoped`` in the unit tests pins this contract.
     """
 
     def __init__(
         self,
         *,
         schema_resolver: FabricOneLakeSchemaResolver,
+        # Forwarded unchanged to SqlParsingAggregator, whose keyword-only
+        # signature is large and evolves independently of this subclass.
         **kwargs: Any,
     ) -> None:
         super().__init__(schema_resolver=schema_resolver, **kwargs)

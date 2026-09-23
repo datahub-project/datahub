@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
+from unittest.mock import patch
 
 import pytest
 
@@ -21,8 +22,12 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import SchemaFieldUrn
-from datahub.sql_parsing.schema_resolver import _TableName
-from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
+    SqlParsingAggregator,
+    ViewDefinition,
+)
 
 PLATFORM = "fabric-onelake"
 QUERY_TS = datetime(2026, 5, 11, 10, 0, 0, tzinfo=timezone.utc)
@@ -423,3 +428,36 @@ def test_drop_counts_stripped_upstreams() -> None:
     ]
     assert len(lineage_results) == 1
     assert lineage_results[0].num_upstreams_dropped == 1
+
+
+def test_view_parsing_hook_is_scoped() -> None:
+    """Pins the private SqlParsingAggregator hook FabricSqlParsingAggregator
+    overrides: gen_metadata must parse each view through
+    ``_process_view_definition``, with the resolver scoped to that view's
+    workspace. If the aggregator renames or bypasses the hook, this fails
+    instead of every 3-part view reference silently becoming unresolved."""
+    assert hasattr(SqlParsingAggregator, "_process_view_definition")
+
+    aggregator, resolver, _ = _make_aggregator()
+    scopes: List[Optional[str]] = []
+    original = SqlParsingAggregator._process_view_definition
+
+    def spy(
+        self: SqlParsingAggregator, view_urn: str, view_definition: ViewDefinition
+    ) -> None:
+        scopes.append(resolver._scope_workspace_id)
+        original(self, view_urn, view_definition)
+
+    for default_db in (GOLD_DB, f"{WS_SHARED}.lh-ref"):
+        aggregator.add_view_definition(
+            view_urn=_urn(f"{default_db}.dbo.v_test"),
+            view_definition="SELECT id FROM silver_lh.dbo.customers",
+            default_db=default_db,
+            default_schema="dbo",
+        )
+    with patch.object(SqlParsingAggregator, "_process_view_definition", spy):
+        list(aggregator.gen_metadata())
+    aggregator.close()
+
+    assert sorted(s for s in scopes if s is not None) == [WS_ANALYTICS, WS_SHARED]
+    assert resolver._scope_workspace_id is None
