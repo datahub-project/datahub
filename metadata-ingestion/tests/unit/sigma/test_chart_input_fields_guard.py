@@ -7,9 +7,10 @@ resolved fewer columns.
 """
 
 from typing import Dict, List, Optional
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig
 from datahub.ingestion.source.sigma.data_classes import (
@@ -177,7 +178,7 @@ class TestADuplicateWorkbookCannotOverwriteRicherLineage:
         assert source.reporter.chart_input_fields_regressive_emission_skipped == 0
 
     def test_an_equally_good_copy_is_still_emitted(self) -> None:
-        """The customSQL drain re-emits the same chart; it must not be refused."""
+        """Only a strictly poorer copy is refused."""
         source = _make_source()
         chart_urn = _chart_urn(CHART_ELEMENT_ID)
 
@@ -190,7 +191,7 @@ class TestADuplicateWorkbookCannotOverwriteRicherLineage:
         assert source.reporter.chart_input_fields_regressive_emission_skipped == 0
 
     def test_a_refused_chart_still_contributes_to_the_page_aspect(self) -> None:
-        """The dashboard aspect is a union over the page, so it is unaffected."""
+        """Within one workbook the page aspect is a union over its charts."""
         source = _make_source()
         _run_workbook(source, _make_workbook("wb-1", _elements(chart_has_formula=True)))
 
@@ -235,6 +236,68 @@ class TestSelfReferencesAreNotLineage:
             for name in ("a", "b", "c")
         ]
         assert SigmaSource._resolved_field_count(chart_urn, self_refs) == 0
+
+
+class TestTheScoreCountsColumnsNotEntries:
+    """A formula naming several upstream columns emits one entry per reference."""
+
+    def _fields(
+        self, columns_to_reference_counts: Dict[str, int]
+    ) -> List[InputFieldClass]:
+        return [
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(
+                    UPSTREAM_DATASET_URN, f"{column}_{i}"
+                ),
+                schemaField=SchemaFieldClass(
+                    fieldPath=column,
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    nativeDataType="string",
+                ),
+            )
+            for column, refs in columns_to_reference_counts.items()
+            for i in range(refs)
+        ]
+
+    def test_one_column_resolved_four_ways_scores_one(self) -> None:
+        chart_urn = _chart_urn(CHART_ELEMENT_ID)
+        assert SigmaSource._resolved_field_count(chart_urn, self._fields({"a": 4})) == 1
+
+    def test_a_multi_reference_column_cannot_outrank_three_resolved_ones(self) -> None:
+        source = _make_source()
+        chart_urn = _chart_urn(CHART_ELEMENT_ID)
+
+        three = self._fields({"a": 1, "b": 1, "c": 1})
+        assert source._chart_input_fields_mcp(chart_urn, three) is not None
+
+        one_column_four_refs = self._fields({"a": 4})
+        assert source._chart_input_fields_mcp(chart_urn, one_column_four_refs) is None
+        assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
+
+
+class TestARefusedCopyIsNotFedBackThroughTheDrain:
+    def test_the_stash_keeps_the_accepted_copys_fields(self) -> None:
+        source = _make_source()
+        chart_urn = _chart_urn(CHART_ELEMENT_ID)
+        source._workbook_customsql_registered_urns.add(chart_urn)
+
+        _run_workbook(source, _make_workbook("wb-1", _elements(chart_has_formula=True)))
+        stashed_after_accept = source._workbook_customsql_formula_fields[chart_urn]
+
+        _run_workbook(
+            source, _make_workbook("wb-2", _elements(chart_has_formula=False))
+        )
+
+        assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
+        assert (
+            source._workbook_customsql_formula_fields[chart_urn] is stashed_after_accept
+        )
+        assert (
+            SigmaSource._resolved_field_count(
+                chart_urn, source._workbook_customsql_formula_fields[chart_urn]
+            )
+            == 1
+        )
 
 
 class TestTheCustomSqlDrainIsGuardedToo:
@@ -288,10 +351,28 @@ class TestTheCustomSqlDrainIsGuardedToo:
         source._chart_best_input_fields[chart_urn] = 5
         source._workbook_customsql_registered_urns.add(chart_urn)
 
-        from datahub.emitter.mcp import MetadataChangeProposalWrapper
-
         mcp = MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
             aspect=UpstreamLineage(upstreams=[], fineGrainedLineages=None),
         )
         assert source._rewrite_fgl_downstreams(mcp) is None
+
+    def test_the_drain_skips_a_refused_aspect(self) -> None:
+        source = _make_source()
+        chart_urn = _chart_urn(CHART_ELEMENT_ID)
+        source._chart_best_input_fields[chart_urn] = 5
+        source._workbook_customsql_registered_urns.add(chart_urn)
+
+        aggregator = MagicMock()
+        aggregator.gen_metadata.return_value = [
+            MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=UpstreamLineage(upstreams=[], fineGrainedLineages=None),
+            )
+        ]
+        aggregator.report.views_parse_failures = {}
+        aggregator.report.num_views_failed = 0
+        source._sql_aggregators = {("snowflake", "inst", None): aggregator}  # type: ignore[dict-item]
+
+        assert list(source._drain_sql_aggregators()) == []
+        assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
