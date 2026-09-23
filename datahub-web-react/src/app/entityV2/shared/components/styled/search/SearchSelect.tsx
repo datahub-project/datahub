@@ -1,6 +1,6 @@
 import { FilterOutlined } from '@ant-design/icons';
 import { Button, Typography, message } from 'antd';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
