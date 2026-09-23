@@ -1,6 +1,22 @@
 package com.linkedin.metadata.resources.entity;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.testng.Assert.assertEquals;
+
+import com.datahub.authentication.AuthenticationContext;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.identity.CorpUserCredentials;
+import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.parseq.Engine;
+import com.linkedin.parseq.EngineBuilder;
+import com.linkedin.parseq.Task;
+import java.util.concurrent.Executors;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -36,6 +52,91 @@ import java.util.Set;
 import org.testng.annotations.Test;
 
 public class EntityV2ResourceTest {
+
+  private static final Urn USER_URN = UrnUtils.getUrn("urn:li:corpuser:victim");
+
+  /** Grants everything except Manage User Credentials. */
+  private static Authorizer denyManageUserCredentialsAuthorizer() {
+    Authorizer authorizer = mock(Authorizer.class);
+    when(authorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              AuthorizationResult.Type type =
+                  PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE
+                          .getType()
+                          .equals(request.getPrivilege())
+                      ? AuthorizationResult.Type.DENY
+                      : AuthorizationResult.Type.ALLOW;
+              return new AuthorizationResult(request, type, "");
+            });
+    return authorizer;
+  }
+
+  static EntityResponse corpUserResponseWithCredentials(Urn urn) {
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.CORP_USER_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(new CorpUserInfo().setActive(true).data())));
+    aspects.put(
+        Constants.CORP_USER_CREDENTIALS_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setValue(
+                new Aspect(
+                    new CorpUserCredentials().setSalt("salt").setHashedPassword("hash").data())));
+    return new EntityResponse().setUrn(urn).setAspects(aspects);
+  }
+
+  static <T> T awaitTask(Task<T> task) {
+    Engine engine =
+        new EngineBuilder()
+            .setTaskExecutor(Runnable::run)
+            .setTimerScheduler(Executors.newSingleThreadScheduledExecutor())
+            .build();
+    try {
+      engine.blockingRun(task);
+      return task.get();
+    } finally {
+      engine.shutdown();
+    }
+  }
+
+  private static EntityV2Resource resourceForUser(EntityService<?> entityService) {
+    EntityV2Resource resource = new EntityV2Resource();
+    resource.setEntityService(entityService);
+    resource.setAuthorizer(denyManageUserCredentialsAuthorizer());
+    resource.setSystemOperationContext(TestOperationContexts.systemContextNoSearchAuthorization());
+    AuthenticationContext.setAuthentication(
+        new Authentication(new Actor(ActorType.USER, "regular-user"), ""));
+    return resource;
+  }
+
+  @Test
+  public void testGetOmitsCredentialsWithoutManageUserCredentials() throws Exception {
+    EntityService<?> entityService = mock(EntityService.class);
+    when(entityService.getEntityV2(any(), eq("corpuser"), eq(USER_URN), anySet(), anyBoolean()))
+        .thenReturn(corpUserResponseWithCredentials(USER_URN));
+
+    EntityResponse response =
+        awaitTask(resourceForUser(entityService).get(USER_URN.toString(), null, null));
+
+    assertEquals(response.getAspects().keySet(), Set.of(Constants.CORP_USER_INFO_ASPECT_NAME));
+  }
+
+  @Test
+  public void testBatchGetOmitsCredentialsWithoutManageUserCredentials() throws Exception {
+    EntityService<?> entityService = mock(EntityService.class);
+    when(entityService.getEntitiesV2(any(), eq("corpuser"), anySet(), anySet(), anyBoolean()))
+        .thenReturn(Map.of(USER_URN, corpUserResponseWithCredentials(USER_URN)));
+
+    Map<Urn, EntityResponse> responses =
+        awaitTask(
+            resourceForUser(entityService).batchGet(Set.of(USER_URN.toString()), null, null));
+
+    assertEquals(
+        responses.get(USER_URN).getAspects().keySet(),
+        Set.of(Constants.CORP_USER_INFO_ASPECT_NAME));
+  }
 
   private static final Urn QUERY_URN = UrnUtils.getUrn("urn:li:query:auth-test");
   private static final Urn SUBJECT_DATASET =

@@ -1,5 +1,7 @@
 package io.datahubproject.openapi.v3.controller;
 
+import static com.linkedin.metadata.Constants.CORP_USER_CREDENTIALS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
@@ -56,12 +58,15 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.versioning.EntityVersioningServiceFactory;
+import com.linkedin.identity.CorpUserCredentials;
+import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -540,6 +545,101 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
       return authorizerChain;
     }
+  }
+
+  private void denyManageUserCredentialsOnly() {
+    when(authorizerChain.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              AuthorizationResult.Type type =
+                  PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE
+                          .getType()
+                          .equals(request.getPrivilege())
+                      ? AuthorizationResult.Type.DENY
+                      : AuthorizationResult.Type.ALLOW;
+              return new AuthorizationResult(request, type, "");
+            });
+  }
+
+  private void stubCorpUserAspects(Urn userUrn) {
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                userUrn,
+                List.of(
+                    new EnvelopedAspect()
+                        .setName(CORP_USER_INFO_ASPECT_NAME)
+                        .setValue(new Aspect(new CorpUserInfo().setActive(true).data())),
+                    new EnvelopedAspect()
+                        .setName(CORP_USER_CREDENTIALS_ASPECT_NAME)
+                        .setValue(
+                            new Aspect(
+                                new CorpUserCredentials()
+                                    .setSalt("salt")
+                                    .setHashedPassword("hash")
+                                    .data())))));
+  }
+
+  @Test
+  public void testCredentialsAspectDeniedWithoutManageUserCredentials() throws Exception {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:victim");
+    denyManageUserCredentialsOnly();
+    stubCorpUserAspects(userUrn);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(
+                    "/openapi/v3/entity/corpuser/{urn}/corpUserCredentials", userUrn)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden());
+    // Case-insensitive path segments must not bypass the gate.
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(
+                    "/openapi/v3/entity/corpuser/{urn}/corpusercredentials", userUrn)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden());
+    // HEAD shares the gate: existence of credential material is not disclosed either.
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.head(
+                "/openapi/v3/entity/corpuser/{urn}/corpUserCredentials", userUrn))
+        .andExpect(status().isForbidden());
+    verify(mockEntityService, never())
+        .getEnvelopedVersionedAspects(any(OperationContext.class), anyMap(), anyBoolean());
+  }
+
+  @Test
+  public void testCredentialsAspectOmittedFromEntityWithoutManageUserCredentials()
+      throws Exception {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:victim");
+    denyManageUserCredentialsOnly();
+    stubCorpUserAspects(userUrn);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v3/entity/corpuser/{urn}", userUrn)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.urn").value(userUrn.toString()))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.corpUserInfo.value.active").value(true))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.corpUserCredentials").doesNotExist());
+  }
+
+  @Test
+  public void testCredentialsAspectReturnedWithManageUserCredentials() throws Exception {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:victim");
+    stubCorpUserAspects(userUrn);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(
+                    "/openapi/v3/entity/corpuser/{urn}/corpUserCredentials", userUrn)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.value.hashedPassword").value("hash"));
   }
 
   @Test

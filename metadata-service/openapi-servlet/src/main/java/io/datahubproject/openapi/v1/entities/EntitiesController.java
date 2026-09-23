@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -152,8 +153,10 @@ public class EntitiesController {
           UrnResponseMap.builder()
               .responses(
                   MappingUtil.mapServiceResponse(
-                      _entityService.getEntitiesV2(
-                          opContext, entityName, entityUrns, projectedAspects),
+                      SensitiveAspectAuthUtil.omitUnauthorizedAspects(
+                          opContext,
+                          _entityService.getEntitiesV2(
+                              opContext, entityName, entityUrns, projectedAspects)),
                       _objectMapper))
               .build());
     } catch (Exception e) {

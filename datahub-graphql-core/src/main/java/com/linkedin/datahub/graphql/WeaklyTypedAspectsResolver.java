@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.RawAspect;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -107,6 +108,10 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
       final EntitySpec entitySpec = entityRegistry.getEntitySpec(gk.getEntityType());
       final Set<String> aspectsToFetch =
           computeAspectsToFetch(entitySpec, gk.getAspectNames(), gk.isAutoRenderOnly());
+      // Credential-bearing aspects are never returned through the raw aspects field without the
+      // mapped privilege. The typed corpUser path reduces corpUserCredentials to isNativeUser.
+      aspectsToFetch.removeIf(
+          name -> !SensitiveAspectAuthUtil.canReadAspect(opContext, gk.getEntityType(), name));
 
       if (aspectsToFetch.isEmpty()) {
         for (int idx : indices) {
