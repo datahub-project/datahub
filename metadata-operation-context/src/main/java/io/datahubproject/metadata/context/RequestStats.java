@@ -6,10 +6,14 @@ import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.ContextKey;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,6 +48,12 @@ public final class RequestStats {
   public static final AttributeKey<Long> REQUEST_START =
       AttributeKey.longKey("datahub.request.start");
 
+  /** Distinct Postgres backend process ids this request's connections were served by. */
+  public static final AttributeKey<List<Long>> PG_BACKEND_PIDS =
+      AttributeKey.longArrayKey("datahub.pg.backend_pids");
+
+  private static final int MAX_BACKEND_PIDS = 32;
+
   /** Bound on the variables walk so a pathological payload cannot make attribution expensive. */
   private static final int MAX_WALK_NODES = 50_000;
 
@@ -53,6 +63,8 @@ public final class RequestStats {
   private final AtomicLong esCalls = new AtomicLong();
   private final AtomicLong dbNanos = new AtomicLong();
   private final AtomicLong dbCalls = new AtomicLong();
+  private final AtomicLong esSeq = new AtomicLong();
+  private final Set<Long> backendPids = ConcurrentHashMap.newKeySet();
 
   @Nullable private volatile Span span;
   @Nullable private volatile String actorUrn;
@@ -96,9 +108,22 @@ public final class RequestStats {
   }
 
   /**
+   * Notes the Postgres backend process id ({@code pg_stat_activity.pid}, {@code %p} in the log
+   * prefix) that served a borrowed connection, so statements in the server log join to this request
+   * even without the OpenTelemetry agent's sqlcommenter comment.
+   */
+  public void recordDbBackendPid(long pid) {
+    if (pid > 0 && backendPids.size() < MAX_BACKEND_PIDS) {
+      backendPids.add(pid);
+    }
+  }
+
+  /**
    * Value for the OpenSearch {@code X-Opaque-Id} header, or empty when disabled or there is no
-   * valid trace. Format: {@code trace=<traceId>|actor=<urn>|req=<requestId>}. The prefix is chosen
-   * so it can never collide with the {@code version|index|tempIndex} ids used by reindex tasks.
+   * valid trace. Format: {@code trace=<traceId>|actor=<urn>|req=<requestId>|n=<call>}, where {@code
+   * n} counts OpenSearch calls within the request so each slow-log line, task and Query Insights
+   * record joins to one specific call and not just to the request. The prefix is chosen so it can
+   * never collide with the {@code version|index|tempIndex} ids used by reindex tasks.
    */
   @Nonnull
   public Optional<String> opaqueId() {
@@ -116,6 +141,7 @@ public final class RequestStats {
     if (requestId != null) {
       sb.append("|req=").append(requestId);
     }
+    sb.append("|n=").append(esSeq.incrementAndGet());
     return Optional.of(sb.toString());
   }
 
@@ -176,6 +202,11 @@ public final class RequestStats {
     if (requestStart != null) {
       target.setAttribute(REQUEST_START, requestStart);
     }
+    if (!backendPids.isEmpty()) {
+      List<Long> pids = new ArrayList<>(backendPids);
+      pids.sort(null);
+      target.setAttribute(PG_BACKEND_PIDS, pids);
+    }
   }
 
   // Accessors used by tests and by the opaque-id builder.
@@ -193,6 +224,11 @@ public final class RequestStats {
 
   public long getDbNanos() {
     return dbNanos.get();
+  }
+
+  @Nonnull
+  public Set<Long> getBackendPids() {
+    return backendPids;
   }
 
   @Nullable

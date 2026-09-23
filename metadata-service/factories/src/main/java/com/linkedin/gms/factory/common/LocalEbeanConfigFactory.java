@@ -102,6 +102,7 @@ public class LocalEbeanConfigFactory {
       public void onAfterBorrowConnection(Connection connection) {
         if (metricUtils != null) metricUtils.increment(counterName, 1);
         borrowedAt.get()[0] = System.nanoTime();
+        RequestStats.current().ifPresent(s -> s.recordDbBackendPid(PgBackendPid.of(connection)));
       }
 
       @Override
@@ -177,5 +178,43 @@ public class LocalEbeanConfigFactory {
     serverConfig.setDdlRun(ebeanAutoCreate);
     customizers.forEach(customizer -> customizer.customize(serverConfig));
     return serverConfig;
+  }
+
+  /**
+   * Resolves the Postgres backend process id of a pooled connection via the driver's {@code
+   * PGConnection#getBackendPID()}, looked up reflectively because the driver is a runtime-only
+   * dependency and the store may not be Postgres at all. Returns -1 when unavailable, and stops
+   * trying after the first failure so non-Postgres installs pay one lookup per JVM.
+   */
+  static final class PgBackendPid {
+    private static final java.util.concurrent.atomic.AtomicBoolean SUPPORTED =
+        new java.util.concurrent.atomic.AtomicBoolean(true);
+    private static volatile Class<?> pgConnection;
+    private static volatile java.lang.reflect.Method getBackendPid;
+
+    private PgBackendPid() {}
+
+    static long of(Connection connection) {
+      if (!SUPPORTED.get() || connection == null) {
+        return -1L;
+      }
+      try {
+        Class<?> iface = pgConnection;
+        if (iface == null) {
+          iface = Class.forName("org.postgresql.PGConnection");
+          getBackendPid = iface.getMethod("getBackendPID");
+          pgConnection = iface;
+        }
+        if (!connection.isWrapperFor(iface)) {
+          SUPPORTED.set(false);
+          return -1L;
+        }
+        Object pg = connection.unwrap(iface);
+        return ((Number) getBackendPid.invoke(pg)).longValue();
+      } catch (Throwable t) {
+        SUPPORTED.set(false);
+        return -1L;
+      }
+    }
   }
 }

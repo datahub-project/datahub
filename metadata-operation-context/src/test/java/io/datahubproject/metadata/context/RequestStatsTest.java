@@ -77,7 +77,7 @@ public class RequestStatsTest {
     try (Scope ignored = Context.current().with(span).makeCurrent()) {
       assertEquals(
           enabled.opaqueId().get(),
-          "trace=" + TRACE_ID + "|actor=urn:li:corpuser:jdoe|req=searchAcrossEntities");
+          "trace=" + TRACE_ID + "|actor=urn:li:corpuser:jdoe|req=searchAcrossEntities|n=1");
     }
   }
 
