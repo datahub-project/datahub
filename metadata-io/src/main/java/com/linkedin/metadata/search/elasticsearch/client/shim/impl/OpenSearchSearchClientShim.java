@@ -413,7 +413,6 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
     try {
       response = restClient.performRequest(request);
     } catch (ResponseException e) {
-      ShimTelemetry.recordSearch(stats, startNanos);
       int status = e.getResponse().getStatusLine().getStatusCode();
       for (int allowed : allowedErrorStatus) {
         if (status == allowed) {
@@ -421,8 +420,10 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
         }
       }
       throw translateException(e);
+    } finally {
+      // Timed-out and failed round trips count too; they are the ones worth attributing.
+      ShimTelemetry.recordSearch(stats, startNanos);
     }
-    ShimTelemetry.recordSearch(stats, startNanos);
     return parseEntity(response.getEntity(), entityParser);
   }
 
@@ -530,7 +531,10 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
     // RHLC allows 404 here: the body still carries the explain payload with matched=false /
     // missing-doc info; exists mirrors the HTTP status.
     Request request = OpenSearchShimBridge.explain(explainRequest);
-    request.setOptions(options);
+    // Request attribution (off by default): same header and timing as performAndParse.
+    RequestStats stats = RequestStats.current().orElse(null);
+    request.setOptions(ShimTelemetry.withOpaqueId(options, stats));
+    long startNanos = System.nanoTime();
     Response response;
     boolean exists;
     HttpEntity entity;
@@ -545,6 +549,8 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
       } else {
         throw translateException(e);
       }
+    } finally {
+      ShimTelemetry.recordSearch(stats, startNanos);
     }
     final boolean finalExists = exists;
     return parseEntity(entity, parser -> ExplainResponse.fromXContent(parser, finalExists));

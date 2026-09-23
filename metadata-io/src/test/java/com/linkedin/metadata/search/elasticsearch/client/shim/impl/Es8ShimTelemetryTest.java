@@ -110,4 +110,73 @@ public class Es8ShimTelemetryTest {
     // no request in scope and default options: the client is used as-is, no header layer
     verify(client, never()).withTransportOptions(any(TransportOptions.class));
   }
+
+  @Test
+  public void failedRoundTripsAreStillTimed() throws IOException {
+    ElasticsearchClient client = mock(ElasticsearchClient.class);
+    when(client.search(
+            any(co.elastic.clients.elasticsearch.core.SearchRequest.class), eq(JsonNode.class)))
+        .thenThrow(new IOException("search timed out"));
+    when(client.count(any(co.elastic.clients.elasticsearch.core.CountRequest.class)))
+        .thenThrow(new IOException("count timed out"));
+    when(client.explain(
+            any(co.elastic.clients.elasticsearch.core.ExplainRequest.class), eq(JsonNode.class)))
+        .thenThrow(new IOException("explain timed out"));
+    Es8SearchClientShim shim = Es8SearchClientShim.forTest(client);
+    RequestStats stats = new RequestStats(false);
+    SearchRequest search =
+        new SearchRequest("idx")
+            .source(new SearchSourceBuilder().query(QueryBuilders.matchAllQuery()));
+    CountRequest count = new CountRequest("idx").query(QueryBuilders.matchAllQuery());
+    org.opensearch.action.explain.ExplainRequest explain =
+        new org.opensearch.action.explain.ExplainRequest("idx", "doc1")
+            .query(QueryBuilders.matchAllQuery());
+    try (Scope ignored = Context.current().with(RequestStats.CONTEXT_KEY, stats).makeCurrent()) {
+      for (Runnable call :
+          List.<Runnable>of(
+              () -> call(() -> shim.search(OP_CONTEXT, search, RequestOptions.DEFAULT)),
+              () -> call(() -> shim.count(OP_CONTEXT, count, RequestOptions.DEFAULT)),
+              () -> call(() -> shim.explain(OP_CONTEXT, explain, RequestOptions.DEFAULT)))) {
+        call.run();
+      }
+    }
+    assertEquals(stats.getEsCalls(), 3L, "search, count and explain each counted despite failing");
+  }
+
+  private interface Call {
+    Object run() throws IOException;
+  }
+
+  private static void call(Call c) {
+    try {
+      c.run();
+      throw new AssertionError("expected the failure to propagate");
+    } catch (IOException expected) {
+      // attributed, then propagated
+    }
+  }
+
+  @Test
+  public void explainSuccessIsTimed() throws IOException {
+    ElasticsearchClient client = mock(ElasticsearchClient.class);
+    co.elastic.clients.elasticsearch.core.ExplainResponse<JsonNode> response =
+        co.elastic.clients.elasticsearch.core.ExplainResponse.of(
+            b ->
+                b.index("idx")
+                    .id("doc1")
+                    .matched(true)
+                    .explanation(e -> e.value(1.0f).description("d").details(List.of())));
+    when(client.explain(
+            any(co.elastic.clients.elasticsearch.core.ExplainRequest.class), eq(JsonNode.class)))
+        .thenReturn(response);
+    Es8SearchClientShim shim = Es8SearchClientShim.forTest(client);
+    RequestStats stats = new RequestStats(false);
+    org.opensearch.action.explain.ExplainRequest explain =
+        new org.opensearch.action.explain.ExplainRequest("idx", "doc1")
+            .query(QueryBuilders.matchAllQuery());
+    try (Scope ignored = Context.current().with(RequestStats.CONTEXT_KEY, stats).makeCurrent()) {
+      assertTrue(shim.explain(OP_CONTEXT, explain, RequestOptions.DEFAULT).isMatch());
+    }
+    assertEquals(stats.getEsCalls(), 1L);
+  }
 }
