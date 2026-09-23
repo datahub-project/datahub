@@ -141,8 +141,7 @@ public class SensitiveAspectAuthUtilTest {
         response.getAspects().keySet(),
         Set.of(CORP_USER_INFO_ASPECT_NAME, CORP_USER_CREDENTIALS_ASPECT_NAME));
     assertTrue(
-        ((DataMap) response.data().get("aspects"))
-            .containsKey(CORP_USER_CREDENTIALS_ASPECT_NAME));
+        ((DataMap) response.data().get("aspects")).containsKey(CORP_USER_CREDENTIALS_ASPECT_NAME));
     assertEquals(filtered.get(USER_URN).getUrn(), USER_URN);
   }
 
