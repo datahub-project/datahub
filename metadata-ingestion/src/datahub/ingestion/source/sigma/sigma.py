@@ -1970,7 +1970,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Charts do not accept ``upstreamLineage``; this converts the aggregator
         output into the ``inputFields`` aspect that DataHub's chart entity accepts.
         """
-        self.reporter.workbook_customsql_upstream_emitted += 1
         input_fields: List[InputFieldClass] = []
         if aspect.fineGrainedLineages:
             input_fields = self._fgl_to_input_fields(aspect.fineGrainedLineages)
@@ -1981,8 +1980,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 input_fields = self._passthrough_to_input_fields(
                     upstream_urn, col_mapping
                 )
-        if input_fields:
-            self.reporter.workbook_customsql_column_lineage_emitted += 1
+        # Captured before the merge below appends to the same list.
+        has_column_lineage = bool(input_fields)
         fallback_fields = self._workbook_customsql_formula_fields.get(entity_urn, [])
         if fallback_fields:
             covered_paths = {
@@ -1996,7 +1995,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     and fb.schemaField.fieldPath not in covered_paths
                 ):
                     input_fields.append(fb)
-        return self._chart_input_fields_mcp(entity_urn, input_fields)
+        mcp = self._chart_input_fields_mcp(entity_urn, input_fields)
+        # Counted after the guard: a refused aspect is not emitted.
+        if mcp is not None:
+            self.reporter.workbook_customsql_upstream_emitted += 1
+            if has_column_lineage:
+                self.reporter.workbook_customsql_column_lineage_emitted += 1
+        return mcp
 
     def _fgl_to_input_fields(
         self, fgls: List[FineGrainedLineageClass]
