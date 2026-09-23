@@ -2026,9 +2026,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     Map<String, Object> body = Es8KnnQueryBuilder.build(request);
 
     // The kNN body is parsed by the ES8 typed client's strict parser via withJson below, which
-    // bypasses the convertQuery() normalization used on the regular search path. Its root and
-    // nested filters come from OpenSearch query builders whose serialization emits legacy fields
-    // (e.g. bool.adjust_pure_negative) that the typed BoolQuery model rejects, so normalize here.
+    // bypasses the convertQuery() normalization used on the regular search path. Its filter comes
+    // from OpenSearch query builders whose serialization emits legacy fields (e.g.
+    // bool.adjust_pure_negative) that the typed BoolQuery model rejects, so normalize here.
     final String bodyJson = normalizeQueryJson(objectMapper.writeValueAsString(body));
 
     // The ES8 typed client treats a comma-joined index string as a single index name and

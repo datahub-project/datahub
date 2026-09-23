@@ -3,7 +3,9 @@ package com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
+import co.elastic.clients.json.JsonpMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.StringReader;
 import org.opensearch.index.query.QueryBuilders;
@@ -153,13 +155,7 @@ public class LegacyRangeQueryNormalizerTest {
             + "}";
 
     // Raw body is rejected by the ES 8 typed parser on adjust_pure_negative, as searchKnn saw it
-    boolean rawRejected = false;
-    try {
-      parseSearchBodyWithElasticsearch8(body);
-    } catch (Exception e) {
-      rawRejected = true;
-    }
-    assertTrue(rawRejected, "Expected raw OpenSearch bool JSON to be rejected by the ES 8 parser");
+    expectThrows(JsonpMappingException.class, () -> parseSearchBodyWithElasticsearch8(body));
 
     // After normalization the same body parses without error.
     parseSearchBodyWithElasticsearch8(LegacyRangeQueryNormalizer.normalize(body, objectMapper));
