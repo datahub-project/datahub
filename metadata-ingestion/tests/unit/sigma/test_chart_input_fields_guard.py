@@ -404,7 +404,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
         assert emitted == [healthy_urn]
         assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
         assert not [
-            title
-            for title in source.reporter.warnings
-            if "aggregator drain failed" in str(title)
+            entry
+            for entry in source.reporter.warnings
+            if "aggregator drain failed" in (entry.title or "")
         ]
