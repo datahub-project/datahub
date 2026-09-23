@@ -661,6 +661,7 @@ class TestFglRewrite:
             ),
         )
         result = source._rewrite_fgl_downstreams(mcp)
+        assert result is not None
         aspect = cast(UpstreamLineage, result.aspect)
         fgls = aspect.fineGrainedLineages or []
         assert len(fgls) == 1
