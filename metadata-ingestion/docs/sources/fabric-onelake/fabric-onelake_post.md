@@ -277,12 +277,12 @@ Fabric SQL lets a view or query reference tables in other Lakehouses / Warehouse
 | `[Shared Data].[ref_lh].[dbo].[regions]` (4-part)          | Item `ref_lh` in the workspace named `Shared Data`  |
 
 - Item and workspace names are matched case-insensitively, with or without `[...]` / `"..."` quoting. Item and workspace GUIDs are accepted in place of names.
-- The name index is built from the Lakehouse / Warehouse listing of every workspace allowed by `workspace_pattern`, before any item is processed. Items excluded by `lakehouse_pattern` / `warehouse_pattern` are still indexed, so references to them resolve to their (GUID-based) URNs.
+- The name index is built from the Lakehouse / Warehouse listing of every workspace allowed by `workspace_pattern`, before any item is processed. Items excluded by `lakehouse_pattern` / `warehouse_pattern` are still indexed, so references to them resolve to their (GUID-based) URNs. Item types turned off with `extract_lakehouses: false` / `extract_warehouses: false` are not listed, so references to them are not resolved.
 - Column-level lineage is produced for cross-item references. Column metadata of ingested tables and views is registered with the SQL parser, so `SELECT *` expands and lineage confidence is high when the referenced item's columns were extracted.
 - The original SQL text is kept unchanged in view definitions and Query entities.
 - A 3-part name is only looked up in the referencing workspace, so identically named items in other workspaces (e.g. dev / test / prod workspaces) do not collide.
 
-A reference that cannot be resolved — the item or workspace is not ingested, does not exist, or its name is ambiguous (e.g. two items with the same display name in one workspace) — is **skipped** instead of producing a dangling URN: it is removed from lineage, usage, and query subjects, and an `Unresolved Cross-Item SQL Reference` warning with the reference and workspace is added to the ingestion report. The report also counts `num_cross_item_references_resolved` / `num_cross_item_references_unresolved`.
+A reference that cannot be resolved — the item or workspace is not ingested, does not exist, its name is ambiguous (e.g. two items with the same display name in one workspace), listing the workspace's items failed, or the name has more than four parts — is **skipped** instead of producing a dangling URN: it is removed from lineage, usage, operations, and query subjects, and an `Unresolved Cross-Item SQL Reference` warning with the reference, workspace, and reason is added to the ingestion report. The report also counts `num_cross_item_references_resolved` / `num_cross_item_references_unresolved` (distinct references), `num_lineage_upstreams_dropped_unresolved` (upstream edges removed), and `num_lineage_aspects_dropped_unresolved` (lineage aspects dropped because every upstream was unresolved).
 
 #### Usage Statistics
 

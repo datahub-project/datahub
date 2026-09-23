@@ -181,8 +181,17 @@ class WarehouseSchemaKey(WarehouseKey):
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Extracted via SQL parsing of view definitions (when `extract_views` is "
+    "enabled) and of queryinsights queries (when "
+    "`usage.include_usage_statistics` is enabled). Cross-item and "
+    "cross-workspace references resolve to ingested Lakehouses / Warehouses.",
+)
+@capability(
     SourceCapability.LINEAGE_FINE,
-    "Extracted from view definitions via SQL parsing when `extract_views` is enabled",
+    "Extracted via SQL parsing of view definitions (when `extract_views` is "
+    "enabled) and of queryinsights queries (when "
+    "`usage.include_usage_statistics` is enabled)",
 )
 @capability(
     SourceCapability.USAGE_STATS,
