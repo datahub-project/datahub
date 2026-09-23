@@ -148,6 +148,11 @@ fragment nonSiblingDatasetFields on Dataset {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     runs: runs(start: 0, count: 20, direction: OUTGOING) {
         count
