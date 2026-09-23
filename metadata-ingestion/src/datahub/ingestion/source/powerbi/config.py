@@ -286,6 +286,15 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # Physical columns whose upstream OneLake schema is not available in DataHub
     # and that carry no explicit ``sourceColumn``; skipped rather than guessed.
     directlake_columns_skipped_unverified: int = 0
+    # Semantic model definitions (Fabric getDefinition, TMDL) read to resolve
+    # DirectLake ``sourceColumn`` bindings
+    # (extract_directlake_source_columns_from_definition).
+    directlake_definitions_fetched: int = 0
+    directlake_definition_failures: int = 0
+    # Definition table parts that could not be decoded or parsed.
+    directlake_definition_parse_failures: int = 0
+    # DirectLake columns whose ``sourceColumn`` came from the model definition.
+    directlake_source_columns_from_definition: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -779,6 +788,27 @@ class PowerBiDashboardSourceConfig(
         "by an explicit `sourceColumn`).",
     )
 
+    extract_directlake_source_columns_from_definition: bool = pydantic.Field(
+        default=False,
+        description="Read each DirectLake semantic model's definition (Fabric REST API "
+        "`getDefinition`, TMDL format) to resolve the Delta column each DirectLake column "
+        "is bound to (`sourceColumn`). The admin scan does not return this binding, so "
+        "without it a column renamed in the semantic model gets no column-level lineage. "
+        "Makes one extra long-running API call per DirectLake semantic model. Requires "
+        "`extract_column_level_lineage`, the commercial `environment`, the tenant setting "
+        "'Service principals can call Fabric Public APIs', and read and write permission on "
+        "the semantic models (for example the Contributor workspace role). Models whose "
+        "definition cannot be read fall back to name matching and are reported as warnings.",
+    )
+
+    directlake_definition_timeout: int = pydantic.Field(
+        default=120,
+        gt=0,
+        description="Maximum seconds to wait for one semantic model definition "
+        "(`getDefinition` long-running operation) when "
+        "`extract_directlake_source_columns_from_definition` is enabled.",
+    )
+
     profile_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter tables for profiling during ingestion. Note that only tables "
@@ -854,6 +884,24 @@ class PowerBiDashboardSourceConfig(
         if not is_flag_enabled:
             raise ValueError(f"Enable all these flags in recipe: {flags} ")
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_directlake_source_columns_from_definition(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        if not self.extract_directlake_source_columns_from_definition:
+            return self
+        if not self.extract_column_level_lineage:
+            raise ValueError(
+                "extract_directlake_source_columns_from_definition requires "
+                "extract_column_level_lineage to be enabled"
+            )
+        if self.environment != PowerBiEnvironment.COMMERCIAL:
+            raise ValueError(
+                "extract_directlake_source_columns_from_definition is only supported "
+                "for the COMMERCIAL environment"
+            )
         return self
 
     @model_validator(mode="after")

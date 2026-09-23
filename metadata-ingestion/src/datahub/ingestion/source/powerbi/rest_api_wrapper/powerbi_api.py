@@ -33,6 +33,13 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
     RegularAPIResolver,
+    SemanticModelDefinitionError,
+)
+from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
+    TmdlParseError,
+    decode_definition_part,
+    iter_table_parts,
+    parse_tmdl_table,
 )
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
@@ -109,6 +116,14 @@ class PowerBiAPI:
             shared_connection=self._file_backed_conn,
             tablename="dataset_registry",
         )
+
+        # Semantic model id -> {table: {column: sourceColumn}} from its TMDL
+        # definition (None when it could not be read), so each DirectLake model's
+        # definition is requested at most once per run. Only DirectLake models
+        # are cached and the maps hold column names only.
+        self._directlake_source_columns_cache: Dict[
+            str, Optional[Dict[str, Dict[str, str]]]
+        ] = {}
 
     def close(self) -> None:
         self._file_backed_conn.close()
@@ -717,7 +732,117 @@ class PowerBiAPI:
                         self.__config.profile_pattern,
                     )
                 dataset_instance.tables.append(table)
+
+            if self.__config.extract_directlake_source_columns_from_definition:
+                self._apply_directlake_definition(workspace, dataset_instance)
         return dataset_map
+
+    def _get_directlake_source_columns(
+        self, workspace: Workspace, dataset: PowerBIDataset
+    ) -> Optional[Dict[str, Dict[str, str]]]:
+        """``{table: {column: sourceColumn}}`` from the semantic model's TMDL
+        definition, or None when the definition could not be read (reported)."""
+        context = f"workspace={workspace.name} dataset={dataset.name} id={dataset.id}"
+        try:
+            parts = self._get_resolver().get_semantic_model_definition(
+                workspace_id=workspace.id,
+                dataset_id=dataset.id,
+                max_wait_seconds=self.__config.directlake_definition_timeout,
+            )
+        except requests.exceptions.HTTPError as e:
+            self.__reporter.directlake_definition_failures += 1
+            if data_resolver.is_permission_error(e):
+                self.__reporter.warning(
+                    title="DirectLake semantic model definition access denied",
+                    message="Could not read the semantic model definition (Fabric "
+                    "getDefinition), so renamed DirectLake columns get no column-level "
+                    "lineage. The service principal needs read and write permission on "
+                    "the semantic model (e.g. the Contributor workspace role) and the "
+                    "tenant setting 'Service principals can call Fabric Public APIs'.",
+                    context=context,
+                    exc=e,
+                )
+            else:
+                self.__reporter.warning(
+                    title="DirectLake semantic model definition request failed",
+                    message="The Fabric getDefinition request failed; DirectLake "
+                    "columns fall back to name matching.",
+                    context=context,
+                    exc=e,
+                )
+            return None
+        except (
+            requests.exceptions.RequestException,
+            SemanticModelDefinitionError,
+        ) as e:
+            self.__reporter.directlake_definition_failures += 1
+            self.__reporter.warning(
+                title="DirectLake semantic model definition unavailable",
+                message="The Fabric getDefinition operation failed or timed out; "
+                "DirectLake columns fall back to name matching. Increase "
+                "directlake_definition_timeout if this is a timeout.",
+                context=context,
+                exc=e,
+            )
+            return None
+
+        self.__reporter.directlake_definitions_fetched += 1
+        source_columns: Dict[str, Dict[str, str]] = {}
+        for part in iter_table_parts(parts):
+            try:
+                table_name, columns = parse_tmdl_table(decode_definition_part(part))
+            except TmdlParseError as e:
+                self.__reporter.directlake_definition_parse_failures += 1
+                self.__reporter.warning(
+                    title="DirectLake semantic model definition parse failed",
+                    message="A table of the semantic model definition could not be "
+                    "parsed; its DirectLake columns fall back to name matching.",
+                    context=f"{context} part={part.get('path')}",
+                    exc=e,
+                )
+                continue
+            if table_name is not None:
+                source_columns[table_name] = columns
+        return source_columns
+
+    def _apply_directlake_definition(
+        self, workspace: Workspace, dataset: PowerBIDataset
+    ) -> None:
+        """Fill ``Column.sourceColumn`` of DirectLake tables from the model's
+        TMDL definition, where the scan did not provide it. One definition
+        request per DirectLake semantic model; other models are not called."""
+        directlake_tables = [
+            table
+            for table in dataset.tables
+            if table.storage_mode == Constant.DIRECT_LAKE
+        ]
+        if not directlake_tables:
+            return
+
+        if dataset.id not in self._directlake_source_columns_cache:
+            self._directlake_source_columns_cache[dataset.id] = (
+                self._get_directlake_source_columns(workspace, dataset)
+            )
+        source_columns = self._directlake_source_columns_cache[dataset.id]
+        if source_columns is None:
+            return
+
+        for table in directlake_tables:
+            table_columns = source_columns.get(table.name)
+            if table_columns is None:
+                logger.debug(
+                    "Table %s not found in the definition of semantic model %s",
+                    table.name,
+                    dataset.id,
+                )
+                continue
+            for column in table.columns or []:
+                if column.sourceColumn:
+                    continue
+                source_column = table_columns.get(column.name)
+                if source_column:
+                    column.sourceColumn = source_column
+                    self.__reporter.directlake_source_columns_from_definition += 1
 
     def get_app(
         self,

@@ -1,3 +1,4 @@
+import base64
 import datetime
 import json
 import re
@@ -1536,6 +1537,60 @@ def test_cll_extraction(
     )
 
 
+def _directlake_onelake_graph() -> MagicMock:
+    """A DataHub graph serving the Fabric OneLake schemas upstream of
+    directlake_mock_response.json."""
+    workspace = "d1ec7a4e-0b5e-4c1a-9f7a-6a1e5c0ffee1"
+    lakehouse = "7a1c2e3f-4b5d-4e6f-8a9b-0c1d2e3f4a5b"
+    warehouse = "5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a8b9"
+    onelake_schemas = {
+        f"{workspace}.{lakehouse}.dbo.sales_orders": [
+            "order_id",
+            "customer_id",
+            "order_amount",
+            "order_date",
+        ],
+        # As emitted by Fabric OneLake with convert_urns_to_lowercase: true
+        f"{workspace}.{lakehouse}.dbo.customers": [
+            "customer_id",
+            "customername",
+            "region",
+        ],
+        # "Posting Date" is a rename of posting_date with no sourceColumn
+        f"{workspace}.{warehouse}.finance.gl_entries": [
+            "entry_id",
+            "account_code",
+            "amount",
+            "posting_date",
+        ],
+    }
+    schemas_by_urn = {
+        f"urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,{name},PROD)": (
+            SchemaMetadataClass(
+                schemaName=name,
+                platform="urn:li:dataPlatform:fabric-onelake",
+                version=0,
+                hash="",
+                platformSchema=OtherSchemaClass(rawSchema=""),
+                fields=[
+                    SchemaFieldClass(
+                        fieldPath=field_path,
+                        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                        nativeDataType="varchar",
+                    )
+                    for field_path in field_paths
+                ],
+            )
+        )
+        for name, field_paths in onelake_schemas.items()
+    }
+    graph = MagicMock(spec=DataHubGraph)
+    graph.get_aspect.side_effect = lambda entity_urn, aspect_type: schemas_by_urn.get(
+        entity_urn
+    )
+    return graph
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
@@ -1594,54 +1649,7 @@ def test_directlake_lineage(
         }
     )
 
-    workspace = "d1ec7a4e-0b5e-4c1a-9f7a-6a1e5c0ffee1"
-    lakehouse = "7a1c2e3f-4b5d-4e6f-8a9b-0c1d2e3f4a5b"
-    warehouse = "5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a8b9"
-    onelake_schemas = {
-        f"{workspace}.{lakehouse}.dbo.sales_orders": [
-            "order_id",
-            "customer_id",
-            "order_amount",
-            "order_date",
-        ],
-        # As emitted by Fabric OneLake with convert_urns_to_lowercase: true
-        f"{workspace}.{lakehouse}.dbo.customers": [
-            "customer_id",
-            "customername",
-            "region",
-        ],
-        # "Posting Date" is a rename of posting_date with no sourceColumn
-        f"{workspace}.{warehouse}.finance.gl_entries": [
-            "entry_id",
-            "account_code",
-            "amount",
-            "posting_date",
-        ],
-    }
-    schemas_by_urn = {
-        f"urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,{name},PROD)": (
-            SchemaMetadataClass(
-                schemaName=name,
-                platform="urn:li:dataPlatform:fabric-onelake",
-                version=0,
-                hash="",
-                platformSchema=OtherSchemaClass(rawSchema=""),
-                fields=[
-                    SchemaFieldClass(
-                        fieldPath=field_path,
-                        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                        nativeDataType="varchar",
-                    )
-                    for field_path in field_paths
-                ],
-            )
-        )
-        for name, field_paths in onelake_schemas.items()
-    }
-    graph = MagicMock(spec=DataHubGraph)
-    graph.get_aspect.side_effect = lambda entity_urn, aspect_type: schemas_by_urn.get(
-        entity_urn
-    )
+    graph = _directlake_onelake_graph()
     pipeline.ctx.graph = graph
 
     pipeline.run()
@@ -1664,6 +1672,160 @@ def test_directlake_lineage(
     assert report.directlake_columns_not_in_upstream_schema == 1
     assert report.directlake_columns_skipped_unverified == 0
     assert graph.get_aspect.call_count == 3
+
+
+def _tmdl_part(table: str, tmdl: str) -> Dict[str, str]:
+    return {
+        "path": f"definition/tables/{table}.tmdl",
+        "payload": base64.b64encode(tmdl.encode("utf-8")).decode("ascii"),
+        "payloadType": "InlineBase64",
+    }
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_directlake_lineage_source_columns_from_definition(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    """With extract_directlake_source_columns_from_definition, the TMDL definition
+    supplies the sourceColumn the admin scan omits: "Posting Date" (a rename of
+    posting_date with no sourceColumn in the scan) now gets its column edge.
+
+    The Sales Model definition returns immediately (200); the Finance Model
+    definition is a long-running operation (202 -> poll -> result).
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        pytestconfig=pytestconfig,
+        request_mock=requests_mock,
+        override_data=read_mock_data(
+            test_resources_dir / "mock_data/directlake_mock_response.json"
+        ),
+    )
+
+    fabric = "https://api.fabric.microsoft.com/v1"
+    workspace_id = "D1EC7A4E-0B5E-4C1A-9F7A-6A1E5C0FFEE1"
+    sales_model = "B1C2D3E4-F5A6-4B7C-8D9E-0F1A2B3C4D5E"
+    finance_model = "C2D3E4F5-A6B7-4C8D-9E0F-1A2B3C4D5E6F"
+    operation = f"{fabric}/operations/0a1b2c3d-0000-4000-8000-000000000001"
+
+    sales_parts = [
+        _tmdl_part(
+            "Sales Orders",
+            "table 'Sales Orders'\n"
+            "\tcolumn order_id\n\t\tsourceColumn: order_id\n"
+            "\tcolumn customer_id\n\t\tsourceColumn: customer_id\n"
+            "\tcolumn 'Order Amount'\n\t\tsourceColumn: order_amount\n"
+            "\tcolumn order_date\n\t\tsourceColumn: order_date\n"
+            "\tcolumn 'Amount With Tax' = 'Sales Orders'[Order Amount] * 1.1\n"
+            "\tmeasure 'Total Sales' = SUM('Sales Orders'[Order Amount])\n",
+        ),
+        _tmdl_part(
+            "Customers",
+            "table Customers\n"
+            "\tcolumn customer_id\n\t\tsourceColumn: customer_id\n"
+            "\tcolumn 'Customer Name'\n\t\tsourceColumn: CustomerName\n"
+            "\tcolumn Region\n\t\tsourceColumn: region\n",
+        ),
+    ]
+    finance_parts = [
+        _tmdl_part(
+            "GL Entries",
+            "table 'GL Entries'\n"
+            "\tcolumn entry_id\n\t\tsourceColumn: entry_id\n"
+            "\tcolumn account_code\n\t\tsourceColumn: account_code\n"
+            "\tcolumn amount\n\t\tsourceColumn: amount\n"
+            "\tcolumn 'Posting Date'\n\t\tsourceColumn: posting_date\n"
+            "\tmeasure 'Net Amount' = SUM('GL Entries'[amount])\n"
+            "\tpartition 'GL Entries' = entity\n"
+            "\t\tmode: directLake\n"
+            "\t\tsource\n"
+            "\t\t\tentityName: gl_entries\n"
+            "\t\t\tschemaName: finance\n",
+        )
+    ]
+    requests_mock.post(
+        f"{fabric}/workspaces/{workspace_id}/semanticModels/{sales_model}/getDefinition",
+        json={"definition": {"parts": sales_parts}},
+    )
+    requests_mock.post(
+        f"{fabric}/workspaces/{workspace_id}/semanticModels/{finance_model}/getDefinition",
+        status_code=202,
+        headers={"Location": operation, "Retry-After": "1"},
+    )
+    requests_mock.get(
+        operation,
+        [
+            {"json": {"status": "Running"}, "headers": {"Retry-After": "1"}},
+            {
+                "json": {"status": "Succeeded"},
+                "headers": {"Location": f"{operation}/result"},
+            },
+        ],
+    )
+    requests_mock.get(
+        f"{operation}/result", json={"definition": {"parts": finance_parts}}
+    )
+
+    config = default_source_config()
+    del config["workspace_id"]
+    config["workspace_id_pattern"] = {"allow": [workspace_id]}
+
+    output_path = f"{tmp_path}/powerbi_directlake_definition_mces.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **config,
+                    "extract_lineage": True,
+                    "extract_column_level_lineage": True,
+                    "enable_advance_lineage_sql_construct": True,
+                    "native_query_parsing": True,
+                    "convert_lineage_urns_to_lowercase": True,
+                    "extract_independent_datasets": True,
+                    "extract_directlake_source_columns_from_definition": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": output_path},
+            },
+        }
+    )
+    pipeline.ctx.graph = _directlake_onelake_graph()
+
+    with mock.patch(
+        "datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver.sleep"
+    ):
+        pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_directlake_lineage_definition.json",
+    )
+
+    assert isinstance(pipeline.source, PowerBiDashboardSource)
+    report = pipeline.source.reporter
+    assert report.directlake_definitions_fetched == 2
+    assert report.directlake_definition_failures == 0
+    # 3 (Sales Orders; "Order Amount" is already bound by the scan) + 2 (Customers;
+    # "Customer Name" is already bound) + 4 (GL Entries)
+    assert report.directlake_source_columns_from_definition == 9
+    # "Posting Date" now resolves to posting_date.
+    assert report.directlake_column_lineage_edges == 11
+    # "Order Amount", "Customer Name", "Region" (-> region), "Posting Date"
+    assert report.directlake_columns_mapped_via_source_column == 4
+    assert report.directlake_columns_not_in_upstream_schema == 0
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
