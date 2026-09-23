@@ -21,6 +21,7 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.datahubproject.metadata.context.RequestStats;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -404,11 +405,15 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
       @Nonnull CheckedFunction<XContentParser, R, IOException> entityParser,
       int... allowedErrorStatus)
       throws IOException {
-    request.setOptions(options);
+    // Request attribution (off by default): tag the call for OpenSearch-side logs and time it.
+    RequestStats stats = RequestStats.current().orElse(null);
+    request.setOptions(ShimTelemetry.withOpaqueId(options, stats));
+    long startNanos = System.nanoTime();
     Response response;
     try {
       response = restClient.performRequest(request);
     } catch (ResponseException e) {
+      ShimTelemetry.recordSearch(stats, startNanos);
       int status = e.getResponse().getStatusLine().getStatusCode();
       for (int allowed : allowedErrorStatus) {
         if (status == allowed) {
@@ -417,6 +422,7 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
       }
       throw translateException(e);
     }
+    ShimTelemetry.recordSearch(stats, startNanos);
     return parseEntity(response.getEntity(), entityParser);
   }
 
