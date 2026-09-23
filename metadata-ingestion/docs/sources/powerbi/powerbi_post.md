@@ -91,13 +91,20 @@ Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, `Oracl
 Tables in a DirectLake semantic model read Delta tables in a Fabric Lakehouse or Warehouse directly, without an M-Query expression. For these tables the source uses the admin scan response instead of M-Query parsing:
 
 - **Table-level lineage**: the semantic model's `relations[].dependentOnArtifactId` identifies the Lakehouse, Warehouse, or SQL analytics endpoint, and the table's `source[].schemaName` / `source[].expression` identify the upstream table. The upstream is emitted on the `fabric-onelake` platform using the same URN shape as the [Fabric OneLake](https://docs.datahub.com/docs/generated/ingestion/sources/fabric-onelake) source (`{workspaceId}.{itemId}.{schema}.{table}`). A SQL analytics endpoint is resolved to its underlying Lakehouse through the endpoint's `relations`.
-- **Column-level lineage**: each physical column of a DirectLake table is mapped to the column of the same name in the upstream OneLake table. If the scan response includes a `sourceColumn` for a column (the column was renamed in the semantic model), that name is used for the upstream column instead. Calculated columns, which have a DAX `expression` or a `columnType` other than `Data`, and measures have no physical upstream column, so they are skipped.
+- **Column-level lineage**: each physical column of a DirectLake table is mapped to its column in the upstream OneLake table. The admin scan response does not document which Delta column a semantic-model column is bound to, and a column renamed in the model carries only its new name. To avoid edges to columns that do not exist, the source reads the upstream table's schema from DataHub, as ingested by the Fabric OneLake source, and emits an edge only when the column is found there. An exact name match is used first. Otherwise, a unique case-insensitive match is used with the OneLake field's own casing. If the scan response includes a `sourceColumn` for a column, that name is matched instead of the column name. Calculated columns, which have a DAX `expression` or a `columnType` other than `Data`, the engine's hidden `RowNumber-<GUID>` column, and measures have no physical upstream column, so they are skipped.
 
-Column-level lineage for DirectLake tables is controlled by `extract_column_level_lineage` (on by default), which requires `extract_lineage` and the other flags it validates. `convert_lineage_urns_to_lowercase` (on by default) lowercases only the dataset part of upstream URNs. Column names keep their original casing, the same as for M-Query column lineage. If you ingest Fabric OneLake with `convert_urns_to_lowercase: true`, that source also lowercases column field paths. In that case, column-level edges for mixed-case columns will not match the OneLake schema fields, although table-level lineage still resolves.
+Column-level lineage for DirectLake tables is controlled by `extract_column_level_lineage` (on by default), which requires `extract_lineage` and the other flags it validates. To get column-level edges:
+
+- Ingest Fabric OneLake before Power BI, so the upstream table schemas exist in DataHub.
+- Run Power BI ingestion with a DataHub connection, either the `datahub-rest` sink or `datahub_api`.
+
+If the upstream schema cannot be read, edges are emitted only for columns with an explicit `sourceColumn`, and the other columns are listed in the ingestion report. Table-level lineage is not affected.
+
+`convert_lineage_urns_to_lowercase` (on by default) lowercases only the dataset part of upstream URNs. The upstream schema lookup uses that URN, so it must match how Fabric OneLake was ingested. If you ingest Fabric OneLake without `convert_urns_to_lowercase`, table names with uppercase letters will not match unless you also set `convert_lineage_urns_to_lowercase: false` here.
 
 Use `server_to_platform_instance` keyed by the Fabric workspace ID to set the `platform_instance` / `env` of the OneLake upstreams so they match your Fabric OneLake ingestion.
 
-The ingestion report includes `directlake_column_lineage_edges`, `directlake_columns_mapped_via_source_column`, `directlake_calculated_columns_skipped`, and `directlake_measures_skipped`.
+The ingestion report includes `directlake_column_lineage_edges`, `directlake_columns_mapped_via_source_column`, `directlake_columns_not_in_upstream_schema` (typically columns renamed in the model), `directlake_columns_skipped_unverified` (upstream schema not available), `directlake_non_physical_columns_skipped`, and `directlake_measures_skipped`.
 
 #### Oracle TNS Aliases and Inline Native Queries
 
