@@ -558,3 +558,45 @@ def test_the_lock_reaches_the_grandchild_not_just_the_wrapper(
             ],
             capture_output=True,
         )
+
+
+@pytest.mark.parametrize("link", ["hardlink", "symlink"])
+def test_evicting_an_entry_never_touches_the_package_cache_it_links_into(
+    tmp_path: pathlib.Path, link: str
+) -> None:
+    """Removing an entry must drop its links, never the data behind them.
+
+    Under UV_LINK_MODE=hardlink nearly every file in an entry is another name
+    for a file in uv's package cache -- measured on a real Snowflake venv,
+    364 of its 365 MB. Anything that writes to those files on the way out
+    (truncating or overwriting them to "wipe" a venv before deleting it, say)
+    corrupts uv's copy, and with it every other venv on the node and every
+    future build. symlink is uv's other linking mode and must be just as safe:
+    removal has to unlink the link, not follow it.
+    """
+    uv_cache = tmp_path / "uv-cache"
+    uv_cache.mkdir()
+    shared = uv_cache / "module.py"
+    shared.write_text("PAYLOAD = 'shared by every venv'\n")
+
+    root = tmp_path / "_venv_cache"
+    victim = _entry(root, "victim", age_s=10_000)
+    linked = victim / "lib" / "module.py"
+    linked.parent.mkdir(parents=True)
+    if link == "hardlink":
+        os.link(shared, linked)
+    else:
+        linked.symlink_to(shared)
+    links_before = os.stat(shared).st_nlink
+
+    assert evict_stale_entries(root, max_entries=0, max_age_sec=_FOREVER) == 1
+    assert not victim.exists()
+
+    assert shared.read_text() == "PAYLOAD = 'shared by every venv'\n", (
+        "evicting an entry altered a file in the package cache it links into, "
+        "which corrupts every venv built from that cache"
+    )
+    if link == "hardlink":
+        assert os.stat(shared).st_nlink == links_before - 1, (
+            "removal should drop exactly one link and leave the data in place"
+        )
