@@ -1,4 +1,4 @@
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';

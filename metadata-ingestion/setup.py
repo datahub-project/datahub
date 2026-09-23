@@ -53,6 +53,9 @@ gcp_sm_common = {
 
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
+    # Floor stays Airflow-satisfiable: 3.0.x/3.1.x constraints pin click==8.2.1,
+    # 3.2.x pins 8.3.1. CVE-2026-7246 (>=8.3.3) is applied at lock time via
+    # pyproject [tool.uv] constraint-dependencies.
     "click>=7.1.2,!=8.2.0,<9.0.0",
     "click-default-group<2.0.0",
     "PyYAML<7.0.0",
@@ -109,7 +112,11 @@ framework_common = {
     # streams) used to supervise ingestion subprocesses in
     # datahub.executor.execution.runner. Previously only available transitively
     # via httpx/openai/starlette; declare it explicitly.
-    "anyio>=3.0.0,<5.0.0",
+    # Floor 4.10.0 — the highest the airflow-plugin CI tolerates (Airflow 3.0.x
+    # constraints pin anyio==4.10.0; 3.1.x pins 4.11.0; 3.2.x pins 4.13.0).
+    # CVE-2026-64847 (>=4.14.2) is applied at lock time via pyproject
+    # [tool.uv] constraint-dependencies.
+    "anyio>=4.10.0,<5.0.0",
 }
 
 rest_common = {
@@ -189,7 +196,7 @@ pyarrow_common = {
 
 sqlalchemy_lib = {
     # Required for all SQL sources.
-    # <2 held by databricks-sql-connector and great-expectations (sqlalchemy-redshift
+    # <2 held by databricks-sql-connector (sqlalchemy-redshift
     # >=1.0.0 now supports SQLAlchemy 2). Lifting this cap unblocks pkg_resources-free
     # dialect releases (sqlalchemy-redshift, sqlalchemy-cockroachdb), then delete the
     # pkg_resources shim; test_sqlalchemy_stays_below_2_until_shim_removed enforces it.
@@ -297,8 +304,9 @@ snowflake_common = {
     # Original lower bound 1.4.3 was due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     #
     # Upper bound <1.7.4: Version 1.7.4 of snowflake-sqlalchemy introduced a bug that breaks
-    # table column name reflection for non-uppercase table names. While we do not
-    # use this method directly, it is used by great-expectations during profiling.
+    # table column name reflection for non-uppercase table names. The original reason for
+    # this cap was the (now removed) Great Expectations profiler, which relied on that
+    # reflection. Re-validate against the SQLAlchemy profiler before lifting the cap.
     #
     # See: https://github.com/snowflakedb/snowflake-sqlalchemy/compare/v1.7.3...v1.7.4
     #
@@ -791,7 +799,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
-    # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common / GE (urllib3 1.x lock-in).
+    # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common (urllib3 1.x lock-in).
     "redshift-slim": redshift_common
     | usage_common
     | sqlglot_lib
@@ -979,8 +987,9 @@ test_api_requirements = {
     # Current pytest is pinned in constraints.txt / uv.lock for the standalone dev venv.
     "pytest>=6.2.2,<10.0.0",
     "pytest-timeout<3.0.0",
-    # Missing numpy requirement in 8.0.0
-    "deepdiff!=8.0.0,<9.0.0",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    # 8.0.0 is also excluded (missing numpy requirement).
+    "deepdiff>=8.6.2,<9.0.0",
     "orderly-set!=5.4.0,<6.0.0",  # 5.4.0 uses invalid types on older Python versions
     "PyYAML<7.0.0",
     "pytest-docker>=1.1.0,<4.0.0",

@@ -49,7 +49,7 @@ class UnityCatalogSQLGenericTable(BaseTable):
         return self.data_source_format == DataSourceFormat.DELTA
 
 
-class UnityCatalogGEProfiler(GenericProfiler):
+class UnityCatalogProfiler(GenericProfiler):
     profiling_config: UnityCatalogSQLAlchemyProfilerConfig
     report: UnityCatalogReport
 
