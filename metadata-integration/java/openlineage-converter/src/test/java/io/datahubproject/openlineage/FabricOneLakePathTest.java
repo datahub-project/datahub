@@ -24,8 +24,17 @@ public class FabricOneLakePathTest {
   private static final String HOST = "onelake.dfs.fabric.microsoft.com";
   private static final String NAMESPACE = "abfss://" + WS + "@" + HOST;
 
+  /** Builder with the (opt-in) OneLake mapping enabled. */
+  private static DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder enabled() {
+    return DatahubOpenlineageConfig.builder().fabricOneLakeEnabled(true);
+  }
+
   private static DatahubOpenlineageConfig defaultConfig() {
-    return DatahubOpenlineageConfig.builder().fabricType(FabricType.PROD).build();
+    return enabled().fabricType(FabricType.PROD).build();
+  }
+
+  private static String absUrn(String path) {
+    return "urn:li:dataset:(urn:li:dataPlatform:abs," + path + ",PROD)";
   }
 
   private static String urn(String path, DatahubOpenlineageConfig config) throws Exception {
@@ -65,8 +74,7 @@ public class FabricOneLakePathTest {
 
   @Test
   public void testConvertUrnsToLowercase() throws Exception {
-    DatahubOpenlineageConfig config =
-        DatahubOpenlineageConfig.builder().fabricOneLakeConvertUrnsToLowercase(true).build();
+    DatahubOpenlineageConfig config = enabled().fabricOneLakeConvertUrnsToLowercase(true).build();
     assertEquals(
         urn(NAMESPACE + "/" + ITEM + "/Tables/Sales/Customers", config),
         oneLakeUrn(WS + "." + ITEM + ".sales.customers", "PROD"));
@@ -74,8 +82,7 @@ public class FabricOneLakePathTest {
 
   @Test
   public void testGlobalLowerCaseDatasetUrnsIsCompatible() throws Exception {
-    DatahubOpenlineageConfig config =
-        DatahubOpenlineageConfig.builder().lowerCaseDatasetUrns(true).build();
+    DatahubOpenlineageConfig config = enabled().lowerCaseDatasetUrns(true).build();
     OpenLineage.Dataset dataset =
         new OpenLineage(URI.create("https://example.com"))
             .newInputDatasetBuilder()
@@ -101,7 +108,7 @@ public class FabricOneLakePathTest {
   @Test
   public void testEnvAndPlatformInstance() throws Exception {
     DatahubOpenlineageConfig config =
-        DatahubOpenlineageConfig.builder()
+        enabled()
             .fabricType(FabricType.DEV)
             .commonDatasetPlatformInstance("shared")
             .fabricOneLakePlatformInstance("tenant_a")
@@ -110,11 +117,12 @@ public class FabricOneLakePathTest {
         urn(NAMESPACE + "/" + ITEM + "/Tables/customers", config),
         oneLakeUrn("tenant_a." + WS + "." + ITEM + ".dbo.customers", "DEV"));
 
-    DatahubOpenlineageConfig fallback =
-        DatahubOpenlineageConfig.builder().commonDatasetPlatformInstance("shared").build();
+    // The global dataset platform instance belongs to other sources and is not inherited: the
+    // fabric-onelake connector would never emit a "shared."-prefixed name.
+    DatahubOpenlineageConfig common = enabled().commonDatasetPlatformInstance("shared").build();
     assertEquals(
-        urn(NAMESPACE + "/" + ITEM + "/Tables/customers", fallback),
-        oneLakeUrn("shared." + WS + "." + ITEM + ".dbo.customers", "PROD"));
+        urn(NAMESPACE + "/" + ITEM + "/Tables/customers", common),
+        oneLakeUrn(WS + "." + ITEM + ".dbo.customers", "PROD"));
   }
 
   @Test
@@ -189,8 +197,7 @@ public class FabricOneLakePathTest {
         FabricOneLakePath.parseItemIds(
             " Sales/bronze.Lakehouse = " + WS + "/" + ITEM + " , broken-entry ,");
     assertEquals(itemIds, Collections.singletonMap("Sales/bronze.Lakehouse", WS + "/" + ITEM));
-    DatahubOpenlineageConfig config =
-        DatahubOpenlineageConfig.builder().fabricOneLakeItemIds(itemIds).build();
+    DatahubOpenlineageConfig config = enabled().fabricOneLakeItemIds(itemIds).build();
     assertEquals(
         urn("abfss://Sales@" + HOST + "/bronze.Lakehouse/Tables/dbo/customers", config),
         oneLakeUrn(WS + "." + ITEM + ".dbo.customers", "PROD"));
@@ -207,7 +214,7 @@ public class FabricOneLakePathTest {
   @Test
   public void testInvalidMappingValueStaysAbs() throws Exception {
     DatahubOpenlineageConfig config =
-        DatahubOpenlineageConfig.builder()
+        enabled()
             .fabricOneLakeItemIds(Collections.singletonMap("Sales/bronze.Lakehouse", "not-a-guid"))
             .build();
     assertTrue(
@@ -260,12 +267,9 @@ public class FabricOneLakePathTest {
             .get()
             .toString(),
         expected);
-    // the catalog-name URN is aliased to the OneLake URN
-    assertEquals(
-        config
-            .getUrnAliases()
-            .get("urn:li:dataset:(urn:li:dataPlatform:hive,silver_lh.customers,PROD)"),
-        expected);
+    // The catalog-name URN is not aliased: catalog names are only unique per workspace and the
+    // alias map is shared process-wide, so an alias could re-point another workspace's table.
+    assertTrue(config.getUrnAliases().isEmpty(), config.getUrnAliases().toString());
 
     // A non-OneLake location still resolves through the symlink as before.
     OpenLineage.Dataset adls =
@@ -289,5 +293,73 @@ public class FabricOneLakePathTest {
     assertEquals(
         OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(adls, config).get().toString(),
         "urn:li:dataset:(urn:li:dataPlatform:hive,default.customers,PROD)");
+  }
+
+  @Test
+  public void testDataFilesBelowTableAreStripped() throws Exception {
+    // A data-file path must not turn the table folder into a schema ("customers.part-0000...").
+    String expected = oneLakeUrn(WS + "." + ITEM + ".dbo.customers", "PROD");
+    assertEquals(
+        urn(NAMESPACE + "/" + ITEM + "/Tables/customers/part-0000.snappy.parquet", defaultConfig()),
+        expected);
+    assertEquals(
+        urn(
+            NAMESPACE + "/" + ITEM + "/Tables/dbo/customers/region=west/part-0000.parquet",
+            defaultConfig()),
+        expected);
+    // A file directly under Tables/ is not a table.
+    assertFalse(
+        FabricOneLakePath.toDatasetName(
+                URI.create(NAMESPACE + "/" + ITEM + "/Tables/stray.parquet"), defaultConfig())
+            .isPresent());
+  }
+
+  @Test
+  public void testPercentEncodedFriendlyNamesMatchDecodedMapping() throws Exception {
+    DatahubOpenlineageConfig config =
+        enabled()
+            .fabricOneLakeItemIds(
+                FabricOneLakePath.parseItemIds("Sales Team/bronze lh.Lakehouse=" + WS + "/" + ITEM))
+            .build();
+    assertEquals(
+        urn("abfss://Sales%20Team@" + HOST + "/bronze%20lh.Lakehouse/Tables/customers", config),
+        oneLakeUrn(WS + "." + ITEM + ".dbo.customers", "PROD"));
+  }
+
+  @Test
+  public void testParseItemIdsRejectsMalformedAndDuplicateEntries() {
+    String other = "aaaabbbb-cccc-dddd-eeee-ffff00001111";
+    Map<String, String> itemIds =
+        FabricOneLakePath.parseItemIds(
+            String.join(
+                ",",
+                "Sales/bronze.Lakehouse=" + WS.toUpperCase() + "/" + ITEM.toUpperCase(),
+                // duplicate key (case-insensitive): first wins
+                "sales/BRONZE.lakehouse=" + other + "/" + other,
+                // value is not two GUIDs
+                "Sales/silver.Lakehouse=not-a-guid/" + ITEM,
+                "Sales/gold.Lakehouse=" + WS,
+                // key without workspace/item separator
+                "bronze.Lakehouse=" + WS + "/" + ITEM,
+                // missing key / value
+                "=" + WS + "/" + ITEM,
+                "Sales/x.Lakehouse="));
+    // GUIDs are normalized to lowercase, as the fabric-onelake connector emits them.
+    assertEquals(itemIds, Collections.singletonMap("Sales/bronze.Lakehouse", WS + "/" + ITEM));
+    assertTrue(FabricOneLakePath.parseItemIds(null).isEmpty());
+    assertTrue(FabricOneLakePath.parseItemIds("  ").isEmpty());
+  }
+
+  @Test
+  public void testMixedGuidWorkspaceAndFriendlyItemNeedsMapping() throws Exception {
+    // A GUID workspace with a friendly item name is not a documented GUID form; without an itemIds
+    // entry it must not produce a guessed fabric-onelake URN.
+    assertTrue(
+        urn(NAMESPACE + "/bronze.Lakehouse/Tables/customers", defaultConfig())
+            .contains("dataPlatform:abs"));
+    // GUID item with a tolerated .ItemType suffix maps directly.
+    assertEquals(
+        urn(NAMESPACE + "/" + ITEM + ".Lakehouse/Tables/customers", defaultConfig()),
+        oneLakeUrn(WS + "." + ITEM + ".dbo.customers", "PROD"));
   }
 }

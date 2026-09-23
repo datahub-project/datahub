@@ -58,8 +58,8 @@ public class DatahubOpenlineageConfig {
   // Mirrors the fabric-onelake source's convert_urns_to_lowercase: lowercases schema and table.
   // Workspace/item GUIDs are always lowercased (the Fabric REST API returns them lowercase).
   @Builder.Default private final boolean fabricOneLakeConvertUrnsToLowercase = false;
-  // Mirrors the fabric-onelake source's platform_instance. Falls back to
-  // commonDatasetPlatformInstance when unset.
+  // Mirrors the fabric-onelake source's platform_instance. Deliberately does not fall back to
+  // commonDatasetPlatformInstance, which describes other sources' datasets.
   @Builder.Default private final String fabricOneLakePlatformInstance = null;
   // Friendly-name paths (<workspaceName>@.../<itemName>.<ItemType>/Tables/...) carry no GUIDs.
   // Maps "<workspaceName>/<itemName>.<ItemType>" (case-insensitive) to

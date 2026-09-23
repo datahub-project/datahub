@@ -1546,8 +1546,9 @@ public class OpenLineageEventToDatahubTest {
                     + FABRIC_WS
                     + "/"
                     + FABRIC_SILVER
-                    + "\""),
+                    + ",Sales/broken.Lakehouse=not-a-guid\""),
             new SparkAppContext());
+    // The malformed entry is dropped at parse time.
     assertEquals(2, conf.getFabricOneLakeItemIds().size());
     assertEquals(
         FABRIC_WS + "/" + FABRIC_SILVER,

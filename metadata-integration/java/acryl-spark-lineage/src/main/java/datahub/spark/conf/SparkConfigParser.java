@@ -507,7 +507,8 @@ public class SparkConfigParser {
   /**
    * Parses {@code metadata.dataset.fabricOneLake.itemIds}: a comma-separated list of {@code
    * <workspaceName>/<itemName>.<ItemType>=<workspaceGUID>/<itemGUID>} entries used to map
-   * friendly-name OneLake paths to the fabric-onelake connector's GUID-based URNs.
+   * friendly-name OneLake paths to the fabric-onelake connector's GUID-based URNs. Malformed
+   * entries are skipped with a warning (see {@link FabricOneLakePath#parseItemIds(String)}).
    */
   public static Map<String, String> getFabricOneLakeItemIds(Config datahubConfig) {
     if (!datahubConfig.hasPath(FABRIC_ONELAKE_ITEM_IDS)) {

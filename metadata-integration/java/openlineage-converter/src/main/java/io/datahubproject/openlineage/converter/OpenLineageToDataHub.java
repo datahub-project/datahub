@@ -170,13 +170,10 @@ public class OpenLineageToDataHub {
       if (originalUrn.isPresent() && isFabricOneLakeUrn(originalUrn.get())) {
         // A OneLake table location already resolves to the fabric-onelake connector's URN, which
         // is more specific than the catalog symlink (the Spark session catalog would otherwise map
-        // it to e.g. hive.<lakehouse>.<table>). Keep the location URN and alias the symlinked one
-        // to it, so datasets only seen through their catalog name resolve to the same entity.
-        if (symlinkedUrn.isPresent() && !symlinkedUrn.get().equals(originalUrn.get())) {
-          mappingConfig
-              .getUrnAliases()
-              .put(symlinkedUrn.get().toString(), originalUrn.get().toString());
-        }
+        // it to e.g. hive.<lakehouse>.<table>). Keep the location URN. The symlinked URN is
+        // deliberately NOT aliased to it: urnAliases is shared process-wide (e.g. the GMS
+        // endpoint's singleton config), and catalog names like <lakehouse>.<table> are only unique
+        // within a workspace, so such an alias would re-point other workspaces' datasets.
         datahubUrn = originalUrn;
       } else {
         if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {

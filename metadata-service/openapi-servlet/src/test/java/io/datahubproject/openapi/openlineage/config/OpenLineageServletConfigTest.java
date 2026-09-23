@@ -366,7 +366,8 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
         "datahub.openlineage.fabric-onelake-platform-instance=tenant_a",
         "datahub.openlineage.fabric-onelake-item-ids="
             + "Sales/bronze.Lakehouse=0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0/"
-            + "11112222-3333-4444-5555-666677778888"
+            + "11112222-3333-4444-5555-666677778888,"
+            + "Sales/broken.Lakehouse=not-a-guid"
       })
   public static class BoundFabricOneLakeTest extends AbstractTestNGSpringContextTests {
 
@@ -381,6 +382,8 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
       assertEquals(
           config.getFabricOneLakeItemIds().get("Sales/bronze.Lakehouse"),
           "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0/11112222-3333-4444-5555-666677778888");
+      // Malformed entries are dropped when the property is parsed.
+      assertEquals(config.getFabricOneLakeItemIds().size(), 1);
     }
   }
 

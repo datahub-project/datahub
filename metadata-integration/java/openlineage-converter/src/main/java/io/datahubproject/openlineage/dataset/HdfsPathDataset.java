@@ -60,18 +60,17 @@ public class HdfsPathDataset extends SparkDataset {
     try {
       platform = getPlatform(pathUri);
 
-      // Microsoft Fabric OneLake tables resolve to the fabric-onelake connector's URNs. The raw
-      // path (used by callers for path transformations) is left untouched.
+      // Microsoft Fabric OneLake tables resolve to the fabric-onelake connector's URNs (opt-in).
+      // Once enabled this takes precedence over path_spec_list for OneLake Tables/ paths. The raw
+      // path (used by callers for path transformations) is left untouched. Only the dedicated
+      // fabricOneLake platform instance is used: the global dataset platform instance describes
+      // other sources, and inheriting it would yield URNs the fabric-onelake connector never emits.
       Optional<String> oneLakeName = FabricOneLakePath.toDatasetName(path, datahubConf);
       if (oneLakeName.isPresent()) {
-        String platformInstance =
-            datahubConf.getFabricOneLakePlatformInstance() != null
-                ? datahubConf.getFabricOneLakePlatformInstance()
-                : datahubConf.getCommonDatasetPlatformInstance();
         return new HdfsPathDataset(
             FabricOneLakePath.PLATFORM,
             oneLakeName.get(),
-            platformInstance,
+            datahubConf.getFabricOneLakePlatformInstance(),
             datahubConf.getFabricType(),
             pathUri);
       }
