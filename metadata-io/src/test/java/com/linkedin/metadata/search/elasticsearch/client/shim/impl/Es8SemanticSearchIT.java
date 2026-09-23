@@ -30,7 +30,8 @@ import org.testng.annotations.Test;
  * Testcontainers integration test for ES 8.18 semantic search.
  *
  * <p>Brings up a real ES 8.18 container and verifies the createIndex → indexEmbeddings → searchKnn
- * round-trip, plus dimension-mismatch rejection.
+ * round-trip, dimension-mismatch rejection, and filtered kNN with the bool filters semantic search
+ * builds.
  *
  * <p>Requires Docker. When Docker is unavailable the {@code @BeforeClass} method throws {@link
  * SkipException} so the tests are recorded as skipped rather than failed.

@@ -9,8 +9,9 @@ import javax.annotation.Nonnull;
 /**
  * Rewrites legacy OpenSearch {@code QueryBuilder#toString()} JSON into a shape the Elasticsearch 8
  * typed client ({@code co.elastic.clients}) will accept. The ES 8 typed query model is generated
- * from the ES API spec and its parser rejects unknown fields with a hard error, whereas
- * OpenSearch's high-level query builders still emit legacy fields. Two cases are handled:
+ * from the ES API spec. Its strict parse, used for kNN request bodies, rejects unknown fields with
+ * a hard error (the lenient parse on other request paths drops them), whereas OpenSearch's
+ * high-level query builders still emit legacy fields. Two cases are handled:
  *
  * <ul>
  *   <li>Legacy {@code range} bounds ({@code from}/{@code to} with {@code include_lower}/{@code
