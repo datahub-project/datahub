@@ -26,6 +26,7 @@ from datahub.ingestion.source.mode import (
     ModeSource,
     _is_http_404,
 )
+from datahub.ingestion.source.mode_api_types import ModeQuery, ModeReport
 from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
@@ -506,7 +507,7 @@ class TestGetUpstreamLineageForParsedSql:
         wus = list(
             source.get_upstream_lineage_for_parsed_sql(
                 query_urn="urn:li:query:(mode,q1)",
-                query_data={"id": "q1", "last_run_id": "r1", "data_source_id": "ds1"},
+                query_data=ModeQuery(id=1, last_run_id=2, data_source_id=3),
                 parsed_query_object=parsed,
             )
         )
@@ -532,13 +533,13 @@ class TestProcessReportErrorIsolation:
         remaining reports can still be processed."""
         source = _make_source()
 
-        report_ok = {"token": "ok_tok", "name": "OK Report"}
-        report_bad = {"token": "bad_tok", "name": "Bad Report"}
+        report_ok = ModeReport(token="ok_tok", name="OK Report")
+        report_bad = ModeReport(token="bad_tok", name="Bad Report")
 
-        def fake_inner(space_token: str, report: dict) -> Iterator:
-            if report["token"] == "bad_tok":
+        def fake_inner(space_token: str, report: ModeReport) -> Iterator:
+            if report.token == "bad_tok":
                 raise RuntimeError("boom")
-            yield _make_workunit(f"wu-{report['token']}")
+            yield _make_workunit(f"wu-{report.token}")
 
         with patch.object(source, "_process_report_inner", side_effect=fake_inner):
             # Process the bad report first — should not raise
@@ -556,7 +557,7 @@ class TestProcessReportErrorIsolation:
         """Built-in TimeoutError should call report_warning, not report_failure,
         so one timed-out report doesn't mark the whole run as FAILURE."""
         source = _make_source()
-        report = {"token": "tok", "name": "Report"}
+        report = ModeReport(token="tok", name="Report")
 
         def timeout_inner(space_token: str, report: dict) -> Iterator:
             raise TimeoutError("timed out")
@@ -571,7 +572,7 @@ class TestProcessReportErrorIsolation:
     def test_requests_timeout_uses_report_warning_not_failure(self):
         """requests.exceptions.Timeout should also call report_warning."""
         source = _make_source()
-        report = {"token": "tok", "name": "Report"}
+        report = ModeReport(token="tok", name="Report")
 
         def timeout_inner(space_token: str, report: dict) -> Iterator:
             raise requests.exceptions.Timeout("connection timed out")
@@ -586,7 +587,7 @@ class TestProcessReportErrorIsolation:
     def test_non_timeout_error_still_uses_report_failure(self):
         """Non-timeout exceptions should still call report_failure."""
         source = _make_source()
-        report = {"token": "tok", "name": "Report"}
+        report = ModeReport(token="tok", name="Report")
 
         def failing_inner(space_token: str, report: dict) -> Iterator:
             raise ValueError("unexpected error")
@@ -603,7 +604,7 @@ class TestProcessReportErrorIsolation:
         the exception must not escape _process_report — otherwise
         ThreadedIteratorExecutor would kill all workers."""
         source = _make_source()
-        report = {"token": "tok", "name": "Report"}
+        report = ModeReport(token="tok", name="Report")
 
         def exploding_inner(space_token: str, report: dict) -> Iterator:
             raise RuntimeError("inner error")
@@ -633,8 +634,8 @@ class TestDatasetErrorIsolation:
         subsequent datasets from being processed."""
         source = _make_source()
 
-        dataset_good = {"token": "ds_good"}
-        dataset_bad = {"token": "ds_bad"}
+        dataset_good = ModeReport(token="ds_good")
+        dataset_bad = ModeReport(token="ds_bad")
         query = {
             "id": 1,
             "token": "q1",
@@ -754,7 +755,7 @@ class TestChartFetchGating:
     has none."""
 
     @staticmethod
-    def _drive(source: ModeSource, report: dict, query: dict) -> int:
+    def _drive(source: ModeSource, report: ModeReport, query: ModeQuery) -> int:
         """Run _process_report_inner over one query; count _get_charts calls."""
         chart_calls: List[tuple] = []
 
@@ -772,20 +773,20 @@ class TestChartFetchGating:
         return len(chart_calls)
 
     @staticmethod
-    def _query() -> dict:
-        return {
-            "id": 1,
-            "token": "qtok",
-            "name": "q",
-            "data_source_id": 1,
-            "last_run_id": 1,
-            "explorations_count": 0,
-            "_links": {"creator": {"href": "/api/modeuser"}},
-        }
+    def _query() -> ModeQuery:
+        return ModeQuery(
+            id=1,
+            token="qtok",
+            name="q",
+            data_source_id=1,
+            last_run_id=1,
+            explorations_count=0,
+            _links={"creator": {"href": "/api/modeuser"}},
+        )
 
     def test_fetches_charts_when_report_reports_charts(self):
         source = _make_source()
-        report = {"token": "rtok", "id": 1, "name": "r", "chart_count": 3, "_links": {}}
+        report = ModeReport(token="rtok", id=1, name="r", chart_count=3, _links={})
         assert self._drive(source, report, self._query()) == 1
         assert source.report.chart_api_calls_skipped == 0
 
@@ -793,23 +794,25 @@ class TestChartFetchGating:
         """The live Mode API omits chart_count on some payloads. Absent means
         unknown, never zero -- treating it as zero is what caused the outage."""
         source = _make_source()
-        report = {"token": "rtok", "id": 1, "name": "r", "_links": {}}
+        report = ModeReport(token="rtok", id=1, name="r", _links={})
         assert self._drive(source, report, self._query()) == 1
         assert source.report.chart_api_calls_skipped == 0
 
     def test_skips_chart_api_when_report_explicitly_has_no_charts(self):
         source = _make_source()
-        report = {"token": "rtok", "id": 1, "name": "r", "chart_count": 0, "_links": {}}
+        report = ModeReport(token="rtok", id=1, name="r", chart_count=0, _links={})
         assert self._drive(source, report, self._query()) == 0
         assert source.report.chart_api_calls_skipped == 1
 
-    def test_query_level_chart_count_is_ignored(self):
-        """A query-level chart_count is not a thing Mode returns; even if one
-        appears, it must not suppress the fetch."""
-        source = _make_source()
-        report = {"token": "rtok", "id": 1, "name": "r", "_links": {}}
-        query = {**self._query(), "chart_count": 0}
-        assert self._drive(source, report, query) == 1
+    def test_chart_count_is_not_part_of_the_query_contract(self):
+        """ModeQuery deliberately has no chart_count: Mode does not send one,
+        and gating on it is what broke chart ingestion. A payload carrying one
+        anyway is kept in raw but cannot be mistaken for a gating signal."""
+        assert not hasattr(ModeQuery(), "chart_count")
+
+        query = ModeQuery.from_api({"token": "qtok", "chart_count": 0})
+        assert not hasattr(query, "chart_count")
+        assert query.raw["chart_count"] == 0
 
 
 class TestNoChartsGuardrail:
@@ -847,28 +850,28 @@ class TestImportedDatasetsResolution:
 
     def test_uses_inline_array_without_an_extra_call(self):
         source = _make_source()
-        report = {"token": "rtok", "imported_datasets": [{"token": "d1"}]}
+        report = ModeReport(token="rtok", imported_datasets=[{"token": "d1"}])
         with patch.object(source, "_get_request_json") as get_json:
             assert source._imported_datasets(report) == [{"token": "d1"}]
         get_json.assert_not_called()
 
     def test_inline_empty_array_is_authoritative(self):
         source = _make_source()
-        report = {"token": "rtok", "imported_datasets": []}
+        report = ModeReport(token="rtok", imported_datasets=[])
         with patch.object(source, "_get_request_json") as get_json:
             assert source._imported_datasets(report) == []
         get_json.assert_not_called()
 
     def test_explicit_false_flag_skips_the_detail_call(self):
         source = _make_source()
-        report = {"token": "rtok", "has_imported_datasets": False}
+        report = ModeReport(token="rtok", has_imported_datasets=False)
         with patch.object(source, "_get_request_json") as get_json:
             assert source._imported_datasets(report) == []
         get_json.assert_not_called()
 
     def test_true_flag_resolves_via_the_detail_endpoint(self):
         source = _make_source()
-        report = {"token": "rtok", "has_imported_datasets": True}
+        report = ModeReport(token="rtok", has_imported_datasets=True)
         with patch.object(
             source,
             "_get_request_json",
@@ -889,24 +892,26 @@ class TestImportedDatasetsResolution:
         with patch.object(
             source, "_get_request_json", return_value={"imported_datasets": [{"t": 1}]}
         ) as get_json:
-            assert source._imported_datasets({"token": "rtok"}) == [{"t": 1}]
+            assert source._imported_datasets(ModeReport(token="rtok")) == [{"t": 1}]
         assert get_json.call_count == 1
 
     def test_detail_endpoint_without_the_array_yields_nothing(self):
         source = _make_source()
-        report = {"token": "rtok", "has_imported_datasets": True}
+        report = ModeReport(token="rtok", has_imported_datasets=True)
         with patch.object(source, "_get_request_json", return_value={"id": 1}):
             assert source._imported_datasets(report) == []
 
     def test_missing_report_token_does_not_call_the_api(self):
         source = _make_source()
         with patch.object(source, "_get_request_json") as get_json:
-            assert source._imported_datasets({"has_imported_datasets": True}) == []
+            assert (
+                source._imported_datasets(ModeReport(has_imported_datasets=True)) == []
+            )
         get_json.assert_not_called()
 
     def test_404_on_the_detail_call_warns_instead_of_raising(self):
         source = _make_source()
-        report = {"token": "rtok", "has_imported_datasets": True}
+        report = ModeReport(token="rtok", has_imported_datasets=True)
         response = requests.Response()
         response.status_code = 404
         with patch.object(
