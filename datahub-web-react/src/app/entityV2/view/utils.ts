@@ -94,7 +94,7 @@ export const convertViewToBuilderState = (view: DataHubView): ViewBuilderState =
             values: f.values,
             negated: f.negated || undefined,
         }));
-        logicalPredicate = filtersToLogicalPredicate(filter.operator, viewFilters);
+        logicalPredicate = filtersToLogicalPredicate(filter.operator ?? undefined, viewFilters);
     }
 
     return {

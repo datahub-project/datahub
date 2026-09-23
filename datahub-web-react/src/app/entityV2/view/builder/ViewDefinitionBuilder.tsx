@@ -66,7 +66,7 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
             return logicalPredicate;
         }
         const seedFilters = existingFilters.filter((filter) => filter.field !== URN_FILTER_NAME);
-        return seedFilters.length > 0 ? filtersToLogicalPredicate(existingOperator, seedFilters) : null;
+        return seedFilters.length > 0 ? filtersToLogicalPredicate(existingOperator ?? undefined, seedFilters) : null;
     });
 
     // Use a ref to access current state without adding it to effect dependencies
