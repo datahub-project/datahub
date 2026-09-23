@@ -25,6 +25,16 @@ public class RequestAttributionConfiguration {
   private boolean opensearchOpaqueId = false;
 
   /**
+   * Prefix every SQL statement issued while a request is in scope with {@code
+   * /*datahub_actor='<urn>',datahub_op='<operation>'*&#47;} so the database's statement log and
+   * {@code pg_stat_activity} name the DataHub actor directly, with no join. Deliberately excludes
+   * the trace id: the comment varies only by actor and operation, so the driver's
+   * prepared-statement cache still converges. Writes actor urns into the database log; leave off
+   * unless that is wanted.
+   */
+  private boolean postgresActorComment = false;
+
+  /**
    * Emit a zero-length {@code datahub.request.start} span when a request begins, so a backend can
    * show in-flight requests before they complete.
    */
