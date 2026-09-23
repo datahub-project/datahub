@@ -7,12 +7,23 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import javax.annotation.Nonnull;
 
 /**
- * Rewrites legacy OpenSearch {@code RangeQueryBuilder} JSON ({@code from}/{@code to} with {@code
- * include_lower}/{@code include_upper}) into ES 8-compatible bounds ({@code gte}/{@code gt}/{@code
- * lte}/{@code lt}). OpenSearch HLRC {@code QueryBuilder#toString()} still emits the legacy shape,
- * which Elasticsearch 8.18+ deprecates.
+ * Rewrites legacy OpenSearch {@code QueryBuilder#toString()} JSON into a shape the Elasticsearch 8
+ * typed client ({@code co.elastic.clients}) will accept. The ES 8 typed query model is generated
+ * from the ES API spec and its parser rejects unknown fields with a hard error, whereas
+ * OpenSearch's high-level query builders still emit legacy fields. Two cases are handled:
+ *
+ * <ul>
+ *   <li>Legacy {@code range} bounds ({@code from}/{@code to} with {@code include_lower}/{@code
+ *       include_upper}) are rewritten to {@code gte}/{@code gt}/{@code lte}/{@code lt}, which ES
+ *       8.18+ deprecates in the legacy form.
+ *   <li>{@code bool} queries carry {@code adjust_pure_negative}, an internal Lucene default the ES
+ *       8 typed {@code BoolQuery} model does not expose. It is stripped; ES 8 applies the same
+ *       default ({@code true}) internally, so removal is behavior-preserving.
+ * </ul>
  */
 public final class LegacyRangeQueryNormalizer {
+
+  private static final String ADJUST_PURE_NEGATIVE = "adjust_pure_negative";
 
   private LegacyRangeQueryNormalizer() {}
 
@@ -20,11 +31,11 @@ public final class LegacyRangeQueryNormalizer {
   public static String normalize(@Nonnull String queryJson, @Nonnull ObjectMapper objectMapper)
       throws JsonProcessingException {
     JsonNode root = objectMapper.readTree(queryJson);
-    normalizeRangeNodes(root);
+    normalizeNode(root);
     return objectMapper.writeValueAsString(root);
   }
 
-  private static void normalizeRangeNodes(JsonNode node) {
+  private static void normalizeNode(JsonNode node) {
     if (node == null) {
       return;
     }
@@ -41,9 +52,12 @@ public final class LegacyRangeQueryNormalizer {
                   }
                 });
       }
-      objectNode.properties().forEach(entry -> normalizeRangeNodes(entry.getValue()));
+      if (objectNode.has("bool") && objectNode.get("bool").isObject()) {
+        ((ObjectNode) objectNode.get("bool")).remove(ADJUST_PURE_NEGATIVE);
+      }
+      objectNode.properties().forEach(entry -> normalizeNode(entry.getValue()));
     } else if (node.isArray()) {
-      node.forEach(LegacyRangeQueryNormalizer::normalizeRangeNodes);
+      node.forEach(LegacyRangeQueryNormalizer::normalizeNode);
     }
   }
 

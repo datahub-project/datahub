@@ -13,6 +13,7 @@
                  class in these packages that boots its own container. -->
             <package name="com.linkedin.metadata.search.elasticsearch.client.shim"/>
             <package name="com.linkedin.metadata.search.elasticsearch.client.shim.impl"/>
+            <package name="com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8"/>
             <package name="com.linkedin.metadata.search.elasticsearch.client.shim.builder.*"/>
             <!-- Container-free in-memory queue store tests. -->
             <package name="com.linkedin.metadata.queue.inmemory"/>

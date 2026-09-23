@@ -2025,6 +2025,12 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       throws IOException {
     Map<String, Object> body = Es8KnnQueryBuilder.build(request);
 
+    // The kNN body is parsed by the ES8 typed client's strict parser via withJson below, which
+    // bypasses the convertQuery() normalization used on the regular search path. Its root and
+    // nested filters come from OpenSearch query builders whose serialization emits legacy fields
+    // (e.g. bool.adjust_pure_negative) that the typed BoolQuery model rejects, so normalize here.
+    final String bodyJson = normalizeQueryJson(objectMapper.writeValueAsString(body));
+
     // The ES8 typed client treats a comma-joined index string as a single index name and
     // URL-encodes the commas as %2C, breaking multi-entity searches. Split explicitly.
     List<String> indexList = Arrays.asList(request.indexName().split(","));
@@ -2038,7 +2044,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     // Always allow zero-index resolution; semantic search on partial rollouts
                     // may target indices that do not yet exist on every node.
                     .allowNoIndices(true)
-                    .withJson(toJsonReader(body)));
+                    .withJson(new StringReader(bodyJson)));
 
     co.elastic.clients.elasticsearch.core.SearchResponse<Map> resp =
         client.search(searchReq, Map.class);
