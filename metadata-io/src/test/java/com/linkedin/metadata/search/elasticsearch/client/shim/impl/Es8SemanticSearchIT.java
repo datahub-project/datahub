@@ -15,6 +15,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
 import org.opensearch.index.query.QueryBuilder;
@@ -30,8 +31,8 @@ import org.testng.annotations.Test;
  * Testcontainers integration test for ES 8.18 semantic search.
  *
  * <p>Brings up a real ES 8.18 container and verifies the createIndex → indexEmbeddings → searchKnn
- * round-trip, dimension-mismatch rejection, and filtered kNN with the bool filters semantic search
- * builds.
+ * round-trip, dimension-mismatch rejection, filtered kNN with the bool filters semantic search
+ * builds, and that those filters apply before the nearest-neighbour search.
  *
  * <p>Requires Docker. When Docker is unavailable the {@code @BeforeClass} method throws {@link
  * SkipException} so the tests are recorded as skipped rather than failed.
@@ -198,6 +199,7 @@ public class Es8SemanticSearchIT {
     // It selects the document farther from the query vector.
     assertEquals(
         filteredKnnIds(
+            "doc_filter_semantic",
             QueryBuilders.boolQuery()
                 .must(
                     QueryBuilders.boolQuery().should(QueryBuilders.termQuery("urn", "urn:doc:2")))),
@@ -206,6 +208,7 @@ public class Es8SemanticSearchIT {
     // A pure must_not keeps its "everything except" meaning once adjust_pure_negative is dropped
     assertEquals(
         filteredKnnIds(
+            "doc_filter_semantic",
             QueryBuilders.boolQuery().mustNot(QueryBuilders.termQuery("urn", "urn:doc:1"))),
         List.of("urn:doc:2"));
   }
@@ -236,35 +239,31 @@ public class Es8SemanticSearchIT {
     }
     shim.getNativeClient().indices().refresh(r -> r.index("doc_prefilter_semantic"));
 
-    @SuppressWarnings("unchecked")
-    Map<String, Object> filter =
-        objectMapper.readValue(
-            QueryBuilders.termsQuery("urn", "urn:doc:7", "urn:doc:8", "urn:doc:9").toString(),
-            Map.class);
-    KnnSearchResponse out =
-        shim.searchKnn(
-            OP_CONTEXT,
-            KnnSearchRequest.builder()
-                .indexName("doc_prefilter_semantic")
-                .vectorField("embeddings.gemini_embedding_001.chunks.vector")
-                .queryVector(new float[] {1.0f, 0.0f, 0.0f, 0.0f})
-                .k(2)
-                .filter(filter)
-                .build());
-
     assertEquals(
-        out.hits().stream().map(KnnSearchResponse.Hit::id).toList(),
+        filteredKnnIds(
+            "doc_prefilter_semantic",
+            QueryBuilders.termsQuery("urn", "urn:doc:7", "urn:doc:8", "urn:doc:9")),
         List.of("urn:doc:7", "urn:doc:8"));
+
+    // A pure must_not pre-filters too: here it excludes the eight nearest documents
+    assertEquals(
+        filteredKnnIds(
+            "doc_prefilter_semantic",
+            QueryBuilders.boolQuery()
+                .mustNot(
+                    QueryBuilders.termsQuery(
+                        "urn", IntStream.range(0, 8).mapToObj(i -> "urn:doc:" + i).toList()))),
+        List.of("urn:doc:8", "urn:doc:9"));
   }
 
-  private List<String> filteredKnnIds(QueryBuilder filterQuery) throws Exception {
+  private List<String> filteredKnnIds(String indexName, QueryBuilder filterQuery) throws Exception {
     @SuppressWarnings("unchecked")
     Map<String, Object> filter = objectMapper.readValue(filterQuery.toString(), Map.class);
     KnnSearchResponse out =
         shim.searchKnn(
             OP_CONTEXT,
             KnnSearchRequest.builder()
-                .indexName("doc_filter_semantic")
+                .indexName(indexName)
                 .vectorField("embeddings.gemini_embedding_001.chunks.vector")
                 .queryVector(new float[] {0.95f, 0.0f, 0.0f, 0.0f})
                 .k(2)

@@ -209,7 +209,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    * @param opContext operation context (auth, flags, registries)
    * @param entityNames list of entity type names whose semantic indices should be searched
    * @param input raw query text to embed for kNN
-   * @param postFilters optional document-level filters applied inside or after kNN
+   * @param postFilters optional document-level filters, applied inside the kNN clause
    * @param sortCriterion optional sort criterion (semantic v1 typically ignores custom sort)
    * @param from zero-based starting offset for pagination on the ranked candidate list
    * @param pageSize requested number of results per page; when null, defaults are applied
