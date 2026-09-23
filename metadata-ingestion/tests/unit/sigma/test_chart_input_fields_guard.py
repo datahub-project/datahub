@@ -351,6 +351,27 @@ class TestTheCustomSqlDrainIsGuardedToo:
         assert self._drain_aspect(source, chart_urn, None) is None
         assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
 
+    def test_a_fallback_only_drain_is_not_counted_as_column_lineage(self) -> None:
+        """The flag is read before the fallback merge appends to the same list."""
+        source = _make_source()
+        chart_urn = _chart_urn(CHART_ELEMENT_ID)
+        source._workbook_customsql_formula_fields[chart_urn] = [
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(chart_urn, "c"),
+                schemaField=SchemaFieldClass(
+                    fieldPath="c",
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    nativeDataType="string",
+                ),
+            )
+        ]
+
+        aspect = self._drain_aspect(source, chart_urn, None)
+
+        assert aspect is not None and len(aspect.fields) == 1
+        assert source.reporter.workbook_customsql_upstream_emitted == 1
+        assert source.reporter.workbook_customsql_column_lineage_emitted == 0
+
     def test_a_refused_drain_aspect_is_not_counted_as_emitted(self) -> None:
         source = _make_source()
         chart_urn = _chart_urn(CHART_ELEMENT_ID)
