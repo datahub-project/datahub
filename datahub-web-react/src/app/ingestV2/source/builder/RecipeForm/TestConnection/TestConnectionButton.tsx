@@ -13,6 +13,7 @@ import { TestConnectionResult } from '@app/ingestV2/source/builder/RecipeForm/Te
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { yamlToJson } from '@app/ingestV2/source/utils';
 import { Button, Text } from '@src/alchemy-components';
+import { pollingContext } from '@src/apolloPolling';
 
 import {
     useCreateTestConnectionRequestMutation,
@@ -94,9 +95,11 @@ function TestConnectionButton({
         if (requestData && requestData.createTestConnectionRequest) {
             const interval = setInterval(
                 () =>
-                    getIngestionExecutionRequest({
-                        variables: { urn: requestData.createTestConnectionRequest as string },
-                    }),
+                    getIngestionExecutionRequest(
+                        pollingContext({
+                            variables: { urn: requestData.createTestConnectionRequest as string },
+                        }),
+                    ),
                 2000,
             );
             setIsLoading(true);
