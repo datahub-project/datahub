@@ -38,6 +38,7 @@ export const IncidentResolveButton = ({
     const { t } = useTranslation('entity.profile.incident');
     const theme = useTheme();
     const canEditIncidents = privileges?.canEditIncidents || false;
+
     const me = useUserContext();
     const [showResolvePopup, setShowResolvePopup] = useState(false);
     const [incidentResolver, setIncidentResolver] = useState<CorpUser | any>(null);

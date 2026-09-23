@@ -13,6 +13,7 @@ from datahub.sql_parsing.schema_resolver import (
     _TableName,
     match_columns_to_schema,
 )
+from datahub.sql_parsing.sqlglot_lineage import _table_name_from_sqlglot_table
 
 
 def create_default_schema_resolver(urn: str) -> SchemaResolver:
@@ -310,7 +311,7 @@ class TestTableNameParts:
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table = tables[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
 
         assert table_name.parts is not None
         assert len(table_name.parts) == 5
@@ -329,7 +330,7 @@ class TestTableNameParts:
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table = tables[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
 
         assert table_name.parts is not None
         assert len(table_name.parts) == 4
@@ -342,7 +343,7 @@ class TestTableNameParts:
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table = tables[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
 
         assert table_name.parts is not None
         for part in table_name.parts:
@@ -355,7 +356,7 @@ class TestTableNameParts:
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table = tables[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
 
         # Should be able to hash it
         h = hash(table_name)
@@ -402,14 +403,14 @@ class TestTableNameParts:
         parsed2 = parse_one(sql2)
         parsed3 = parse_one(sql3)
 
-        tn1 = _TableName.from_sqlglot_table(
-            list(parsed1.find_all(sqlglot.exp.Table))[0]
+        tn1 = _table_name_from_sqlglot_table(
+            list(parsed1.find_all(sqlglot.exp.Table))[0], None
         )
-        tn2 = _TableName.from_sqlglot_table(
-            list(parsed2.find_all(sqlglot.exp.Table))[0]
+        tn2 = _table_name_from_sqlglot_table(
+            list(parsed2.find_all(sqlglot.exp.Table))[0], None
         )
-        tn3 = _TableName.from_sqlglot_table(
-            list(parsed3.find_all(sqlglot.exp.Table))[0]
+        tn3 = _table_name_from_sqlglot_table(
+            list(parsed3.find_all(sqlglot.exp.Table))[0], None
         )
 
         # Set should deduplicate tn1 and tn3
@@ -497,7 +498,7 @@ class TestTableNameParts:
         parsed = parse_one(sql)
         table = list(parsed.find_all(Table))[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
 
         assert table_name.parts is not None
         assert len(table_name.parts) == 7
@@ -509,7 +510,7 @@ class TestTableNameParts:
         parsed = parse_one(sql)
         table = list(parsed.find_all(Table))[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
 
         assert table_name.parts is not None
         assert "my-source" in table_name.parts
