@@ -9,6 +9,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import config.GracefulShutdownModule;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -127,14 +128,14 @@ public class ApplicationControllerTest {
   @Test
   void buildProxyResult_buffered_returnsResultWithStrictBody() throws Exception {
     Http.Request request = mock(Http.Request.class);
-    HttpResponse<ByteArrayInputStream> apiResponse = mock(HttpResponse.class);
+    HttpResponse<byte[]> apiResponse = mock(HttpResponse.class);
     java.net.http.HttpHeaders responseHeaders = mock(java.net.http.HttpHeaders.class);
 
     when(apiResponse.statusCode()).thenReturn(200);
     when(apiResponse.headers()).thenReturn(responseHeaders);
     when(responseHeaders.firstValue(Http.HeaderNames.CONTENT_TYPE))
         .thenReturn(Optional.of("application/json"));
-    when(apiResponse.body()).thenReturn(new ByteArrayInputStream(new byte[] {1, 2, 3}));
+    when(apiResponse.body()).thenReturn(new byte[] {1, 2, 3});
 
     Result result =
         invokeBuildProxyResult(request, "/api/graphql", Instant.now(), apiResponse, false);
@@ -146,7 +147,7 @@ public class ApplicationControllerTest {
   @Test
   void buildProxyResult_streaming_returnsResultWithStreamedBody() throws Exception {
     Http.Request request = mock(Http.Request.class);
-    HttpResponse<ByteArrayInputStream> apiResponse = mock(HttpResponse.class);
+    HttpResponse<InputStream> apiResponse = mock(HttpResponse.class);
     java.net.http.HttpHeaders responseHeaders = mock(java.net.http.HttpHeaders.class);
 
     when(apiResponse.statusCode()).thenReturn(200);
@@ -166,14 +167,14 @@ public class ApplicationControllerTest {
   @Test
   void buildProxyResult_buffered_omitsContentEncodingSoGzipFilterCanCompress() throws Exception {
     Http.Request request = mock(Http.Request.class);
-    HttpResponse<ByteArrayInputStream> apiResponse = mock(HttpResponse.class);
+    HttpResponse<byte[]> apiResponse = mock(HttpResponse.class);
     java.net.http.HttpHeaders responseHeaders = mock(java.net.http.HttpHeaders.class);
 
     when(apiResponse.statusCode()).thenReturn(200);
     when(apiResponse.headers()).thenReturn(responseHeaders);
     when(responseHeaders.firstValue(Http.HeaderNames.CONTENT_TYPE))
         .thenReturn(Optional.of("application/json"));
-    when(apiResponse.body()).thenReturn(new ByteArrayInputStream(new byte[] {1, 2, 3}));
+    when(apiResponse.body()).thenReturn(new byte[] {1, 2, 3});
 
     Result result =
         invokeBuildProxyResult(request, "/api/v2/graphql", Instant.now(), apiResponse, false);
@@ -209,7 +210,7 @@ public class ApplicationControllerTest {
   @Test
   void buildProxyResult_streaming_setsContentEncodingIdentitySoGzipFilterSkips() throws Exception {
     Http.Request request = mock(Http.Request.class);
-    HttpResponse<ByteArrayInputStream> apiResponse = mock(HttpResponse.class);
+    HttpResponse<InputStream> apiResponse = mock(HttpResponse.class);
     java.net.http.HttpHeaders responseHeaders = mock(java.net.http.HttpHeaders.class);
 
     when(apiResponse.statusCode()).thenReturn(200);
@@ -244,13 +245,13 @@ public class ApplicationControllerTest {
             mock(GracefulShutdownModule.class));
 
     Http.Request request = mock(Http.Request.class);
-    HttpResponse<ByteArrayInputStream> apiResponse = mock(HttpResponse.class);
+    HttpResponse<byte[]> apiResponse = mock(HttpResponse.class);
     java.net.http.HttpHeaders responseHeaders = mock(java.net.http.HttpHeaders.class);
     when(apiResponse.statusCode()).thenReturn(200);
     when(apiResponse.headers()).thenReturn(responseHeaders);
     when(responseHeaders.firstValue(Http.HeaderNames.CONTENT_TYPE))
         .thenReturn(Optional.of("application/json"));
-    when(apiResponse.body()).thenReturn(new ByteArrayInputStream(new byte[0]));
+    when(apiResponse.body()).thenReturn(new byte[0]);
 
     Result result =
         invokeBuildProxyResult(
@@ -540,14 +541,14 @@ public class ApplicationControllerTest {
   }
 
   private HttpResponse<?> mockUpstreamResponse(int status) {
-    HttpResponse<ByteArrayInputStream> apiResponse = mock(HttpResponse.class);
+    HttpResponse<byte[]> apiResponse = mock(HttpResponse.class);
     java.net.http.HttpHeaders responseHeaders = mock(java.net.http.HttpHeaders.class);
     when(apiResponse.statusCode()).thenReturn(status);
     when(apiResponse.headers()).thenReturn(responseHeaders);
     when(responseHeaders.map()).thenReturn(Map.of());
     when(responseHeaders.firstValue(Http.HeaderNames.CONTENT_TYPE))
         .thenReturn(Optional.of("application/json"));
-    when(apiResponse.body()).thenReturn(new ByteArrayInputStream(new byte[0]));
+    when(apiResponse.body()).thenReturn(new byte[0]);
     return apiResponse;
   }
 
