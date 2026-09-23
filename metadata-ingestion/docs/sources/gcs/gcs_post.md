@@ -113,7 +113,7 @@ path_specs:
 
 ```python
 gs://my-bucket/foo/tests/bar.avro # single file table
-gs://my-bucket/foo/tests/*.* # mulitple file level tables
+gs://my-bucket/foo/tests/*.* # multiple file level tables
 gs://my-bucket/foo/tests/{table}/*.avro #table without partition
 gs://my-bucket/foo/tests/{table}/*/*.avro #table where partitions are not specified
 gs://my-bucket/foo/tests/{table}/*.* # table where no partitions as well as data type specified
