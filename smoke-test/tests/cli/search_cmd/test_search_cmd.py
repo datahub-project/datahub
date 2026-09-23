@@ -25,6 +25,7 @@ from dataclasses import dataclass
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utils import (
     delete_urns_from_file,
     get_sleep_info,
@@ -35,6 +36,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION, Domain.CATALOG)
 
 _TEST_DATA = "tests/cli/search_cmd/search_test_data.json"
 
@@ -108,6 +111,7 @@ def _run_search(auth_session, args: list) -> tuple:
 class TestSearchBasic:
     """Core output format and structure tests."""
 
+    @pytest.mark.p0
     def test_wildcard_returns_json(self, auth_session):
         """Default search returns valid JSON with results."""
         exit_code, stdout, _ = _run_search(auth_session, ["*", "--limit", "5"])

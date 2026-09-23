@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -34,8 +34,6 @@ jobs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
@@ -72,7 +70,7 @@ jobs:
           TEST_MATRIX: ${{ steps.ci.outputs.test_matrix }}
         run: |
           # testQuick always runs (all Python versions) + testPerformance (3.11 only)
-          BASE='[{"python-version":"3.11","command":"testQuick"},{"python-version":"3.10","command":"testQuick"},{"python-version":"3.12","command":"testQuick"},{"python-version":"3.11","command":"testPerformance"}]'
+          BASE='[{"python-version":"3.11","command":"testQuick"},{"python-version":"3.12","command":"testQuick"},{"python-version":"3.11","command":"testPerformance"}]'
 
           if [ "$RUN_ALL" = "true" ]; then
             # Full static batch list
@@ -86,15 +84,12 @@ jobs:
               {"python-version":"3.11","command":"testIntegrationBatchRecording"}
             ]'
           elif [ -n "$TEST_MATRIX" ] && [ "$TEST_MATRIX" != "[]" ]; then
-            # Selective: use connector test paths from selective_ci_checks.py
-            # Add python-version to each entry
             INTEGRATION=$(echo "$TEST_MATRIX" | jq -c '[.[] | . + {"python-version":"3.11"}]')
           else
             # No integration tests needed
             INTEGRATION='[]'
           fi
 
-          # Merge base + integration into a single matrix
           MATRIX=$(jq -n -c --argjson base "$BASE" --argjson integration "$INTEGRATION" \
             '{"include": ($base + $integration)}')
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
@@ -121,8 +116,7 @@ jobs:
     timeout-minutes: 80
     env:
       DATAHUB_TELEMETRY_ENABLED: false
-      # TODO: Enable this once the test is fixed.
-      # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
+      DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix: ${{ fromJson(needs.detect.outputs.matrix) }}
       fail-fast: false
@@ -143,14 +137,17 @@ jobs:
       # copies of this shared key. Key hashes the manifests that actually determine the
       # uv cache contents — the old '**/requirements.txt' matched 13 unrelated files and
       # none of them.
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: uv-cache
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
           restore-keys: |
             ${{ runner.os }}-uv-
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install ODBC driver for mssql tests
@@ -226,17 +223,34 @@ jobs:
               "$TEST_PATH" \
               --junit-xml="test-results/junit.${CONNECTOR}.xml"
           fi
+      # A lint on the tests, not extra coverage of the source. Flipping the default
+      # and re-running catches a test that reads an exact field path from the
+      # ambient config instead of pinning it -- which passes on its own and then
+      # asserts the wrong spelling for anyone who runs with the flag on. Measured:
+      # it kills no source mutation the explicit tests do not already kill, so do
+      # not read a green leg here as the ON path being covered. The tests that
+      # cover it are the ones that set the flag themselves.
+      - name: Snowflake unit tests with preserve_column_case forced on
+        if: ${{ matrix.command == 'testQuick' && matrix.python-version == '3.11' }}
+        env:
+          DATAHUB_TEST_PRESERVE_COLUMN_CASE: "1"
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          cd metadata-ingestion
+          source venv/bin/activate
+          pytest tests/unit/snowflake/ \
+            --junit-xml=test-results/junit.snowflake-preserve-column-case.xml
       # Success-only, single matrix leg (parallel legs would race to reserve the same
       # key). On master this workflow usually runs on Depot runners, where this save
       # lands in Depot Cache instead of the GitHub cache — the reliably GitHub-hosted
       # master writers for this key are documentation.yml and check-datahub-jars.yml.
       - name: Save uv cache (master only)
         if: github.ref == 'refs/heads/master' && matrix.command == 'testQuick' && matrix.python-version == '3.11' && steps.uv-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
       - name: Debug info
         if: always()
         run: |
@@ -287,7 +301,7 @@ jobs:
           rm -rf "$TEMP_DIR"
       - name: Upload coverage to Codecov with ingestion flag
         if: ${{ always() && matrix.python-version == '3.11' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/metadata-ingestion/
@@ -298,7 +312,7 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -382,6 +396,9 @@ jobs:
         if: steps.check-changes.outputs.should_run == 'true'
         with:
           python-version: "3.11"
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.check-changes.outputs.should_run == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install system dependencies
         if: steps.check-changes.outputs.should_run == 'true'
         run: ./metadata-ingestion/scripts/install_deps.sh
@@ -395,7 +412,6 @@ jobs:
         if: steps.check-changes.outputs.should_run == 'true'
         run: |
           cd metadata-ingestion
-          # Get plugin list using venv's python
           PLUGINS=$(venv/bin/python -m datahub check plugins 2>/dev/null | awk '/^Sinks:/ { exit } /^Sources:/ { next } /^[a-zA-Z0-9_-]+$/ { print $1 }' | jq -R -s -c 'split("\n") | map(select(length > 0))')
           PLUGIN_COUNT=$(echo "$PLUGINS" | jq 'length')
           echo "✅ Found $PLUGIN_COUNT plugins to validate:"
@@ -416,7 +432,6 @@ jobs:
             # Create a fresh venv for this plugin
             uv venv "$PLUGIN_VENV"
 
-            # Install the plugin in its venv using system uv command
             if ! uv pip install -e ".[${plugin}]" --python "$PLUGIN_VENV/bin/python"; then
               echo "❌ Plugin '$plugin' failed to install"
               FAILED_PLUGINS+=("$plugin")

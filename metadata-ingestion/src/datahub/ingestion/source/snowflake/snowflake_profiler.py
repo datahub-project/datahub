@@ -96,10 +96,6 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     ) -> dict:
         return {
             **super().get_batch_kwargs(table, schema_name, db_name),
-            # Lowercase/Mixedcase table names in Snowflake do not work by default.
-            # We need to pass `use_quoted_name=True` for such tables as mentioned here -
-            # https://github.com/great-expectations/great_expectations/pull/2023
-            "use_quoted_name": (table.name != table.name.upper()),
             "custom_sql": None,
             "row_count": table.rows_count,
         }
@@ -134,6 +130,12 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             config=self.config.profiling,
             platform=self.platform,
             env=self.config.env,
+            # Snowflake's schema comes from INFORMATION_SCHEMA, not from
+            # reflection, so its field paths follow source config rather than the
+            # dialect's normalize_name. Columns fold separately from datasets --
+            # preserve_column_case keeps a quoted "col"/"COL" pair distinct -- so
+            # this is the column rule, not snowflake_identifier.
+            field_path_transform=self.identifiers.snowflake_column_identifier,
         )
 
     def callable_for_db_connection(self, db_name: str) -> Callable:

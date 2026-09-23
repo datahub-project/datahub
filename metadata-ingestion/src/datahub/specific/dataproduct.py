@@ -105,3 +105,12 @@ class DataProductPatchBuilder(
             value=external_url,
         )
         return self
+
+    def set_parent_data_product(self, parent_urn: str) -> "DataProductPatchBuilder":
+        self._add_patch(
+            DataProductProperties.ASPECT_NAME,
+            "add",
+            path=("parentDataProduct",),
+            value=parent_urn,
+        )
+        return self

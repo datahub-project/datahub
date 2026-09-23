@@ -38,6 +38,10 @@ These privileges can be granted in two ways:
 1. **Admin Role Assignment** - Users assigned to the **Admin Role** receive these privileges by default
 2. **Custom Policy with Platform Privileges** - Create a [Custom Policy](authorization/policies.md) that grants the `Manage Metadata Ingestion` and `Manage Secrets` platform privileges to specific users or groups
 
+:::caution Grant only to trusted operators
+`Manage Metadata Ingestion` lets you define and run recipes on the [ingestion executor](docker/ingestion-executor-security.md). Those recipes run as Python in that process (custom source types, transformers, Kafka `oauth_cb`, and extra pip packages on non-locked images). Treat this privilege like the ability to execute code there — not only as "create a Snowflake source."
+:::
+
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-privileges.png"/>
 </p>
@@ -47,9 +51,9 @@ These privileges can be granted in two ways:
 For more granular control, administrators can create [Custom Policies](authorization/policies.md) that apply specifically to **Ingestion Sources**, allowing different users to have different levels of access:
 
 - **View** - View ingestion source configurations and run history
-- **Edit** - Modify ingestion source configurations
+- **Edit** - Modify ingestion source configurations (the recipe the executor will run)
 - **Delete** - Remove ingestion sources
-- **Execute** - Run ingestion sources on-demand
+- **Execute** - Run ingestion sources on-demand. Combined with **Edit**, this is the same code-execution capability as `Manage Metadata Ingestion`, scoped to those sources.
 
 **Prerequisites:**
 
@@ -174,6 +178,7 @@ For users who need additional control, DataHub provides advanced configuration o
 
 - **CLI Version:** Specify a particular version of the DataHub CLI for ingestion execution
 - **Environment Variables:** Set custom environment variables for the ingestion process
+- **Extra pip packages:** Install additional Python packages at run time (not available on [locked executor images](docker/ingestion-executor-security.md))
 - **Executor ID:** Configure remote execution if needed
 - **Debug Mode:** Enable detailed logging for troubleshooting
 
@@ -303,7 +308,9 @@ While the UI-based forms handle most common ingestion scenarios, advanced users 
 - Advanced filtering and processing logic
 - Integration with external systems
 
-For these advanced use cases, DataHub supports direct YAML recipe configuration. For detailed information about YAML-based configuration, including syntax and examples, see the [Recipe Overview Guide](metadata-ingestion/recipe_overview.md).
+YAML recipes are executed as Python on the ingestion executor. Custom `source.type` values, transformers, and callbacks such as Kafka `oauth_cb` can import code already on that executor. Grant `Manage Metadata Ingestion` (or Edit plus Execute) only to trusted operators — see [Ingestion executor security](docker/ingestion-executor-security.md).
+
+For detailed information about YAML-based configuration, including syntax and examples, see the [Recipe Overview Guide](metadata-ingestion/recipe_overview.md).
 
 ### Deploying Recipes (CLI)
 

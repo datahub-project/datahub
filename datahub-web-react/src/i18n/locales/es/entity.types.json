@@ -327,5 +327,6 @@
     "user.tab.ownerOf": "Owner de",
     "user.teamLabel": "Equipo",
     "user.teamsHeading": "Equipos",
-    "user.titleRoleLabel": "Título/Rol"
+    "user.titleRoleLabel": "Título/Rol",
+    "dataProduct.parentLabel": "Data Product padre"
 }

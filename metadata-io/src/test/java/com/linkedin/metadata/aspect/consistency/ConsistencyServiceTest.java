@@ -2397,4 +2397,68 @@ public class ConsistencyServiceTest {
                     i.getFixType() == ConsistencyFixType.HARD_DELETE
                         || i.getFixType() == ConsistencyFixType.DELETE_INDEX_DOCUMENTS));
   }
+
+  @Test
+  public void testCountMatching_returnsDaoCount() {
+    when(mockEsSystemMetadataDAO.count(any(), any(BoolQueryBuilder.class), anyBoolean()))
+        .thenReturn(Optional.of(42L));
+
+    OperationContext opContext = mock(OperationContext.class);
+    EntityRegistry registry = mock(EntityRegistry.class);
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(opContext.getEntityRegistry()).thenReturn(registry);
+    when(registry.getEntitySpec("assertion")).thenReturn(entitySpec);
+    when(entitySpec.getKeyAspectName()).thenReturn("assertionKey");
+
+    Optional<Long> count =
+        consistencyService.countMatching(
+            opContext,
+            CheckBatchRequest.builder()
+                .entityType("assertion")
+                .filter(SystemMetadataFilter.builder().keyAspectOnly(true).build())
+                .batchSize(100)
+                .build());
+
+    assertTrue(count.isPresent());
+    assertEquals(count.get().longValue(), 42L);
+    verify(mockEsSystemMetadataDAO).count(eq(opContext), any(BoolQueryBuilder.class), eq(false));
+  }
+
+  @Test
+  public void testCountMatching_softFailsOnDaoEmpty() {
+    when(mockEsSystemMetadataDAO.count(any(), any(BoolQueryBuilder.class), anyBoolean()))
+        .thenReturn(Optional.empty());
+
+    OperationContext opContext = mock(OperationContext.class);
+    EntityRegistry registry = mock(EntityRegistry.class);
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(opContext.getEntityRegistry()).thenReturn(registry);
+    when(registry.getEntitySpec("assertion")).thenReturn(entitySpec);
+    when(entitySpec.getKeyAspectName()).thenReturn("assertionKey");
+
+    Optional<Long> count =
+        consistencyService.countMatching(
+            opContext, CheckBatchRequest.builder().entityType("assertion").batchSize(100).build());
+
+    assertTrue(count.isEmpty());
+  }
+
+  @Test
+  public void testCountMatching_softFailsOnRuntimeException() {
+    when(mockEsSystemMetadataDAO.count(any(), any(BoolQueryBuilder.class), anyBoolean()))
+        .thenThrow(new RuntimeException("ES unavailable"));
+
+    OperationContext opContext = mock(OperationContext.class);
+    EntityRegistry registry = mock(EntityRegistry.class);
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(opContext.getEntityRegistry()).thenReturn(registry);
+    when(registry.getEntitySpec("assertion")).thenReturn(entitySpec);
+    when(entitySpec.getKeyAspectName()).thenReturn("assertionKey");
+
+    Optional<Long> count =
+        consistencyService.countMatching(
+            opContext, CheckBatchRequest.builder().entityType("assertion").batchSize(100).build());
+
+    assertTrue(count.isEmpty());
+  }
 }

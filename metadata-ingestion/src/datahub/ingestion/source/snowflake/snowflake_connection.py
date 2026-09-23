@@ -1,6 +1,7 @@
 import logging
 import threading
-from typing import Any, Dict, Optional
+import warnings
+from typing import Any, Dict, Final, Optional
 
 import pydantic
 import snowflake.connector
@@ -26,6 +27,7 @@ from tenacity.before_sleep import before_sleep_log
 from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
+    ConfigurationWarning,
     HiddenFromDocs,
     MetaError,
     TransparentSecretStr,
@@ -61,6 +63,32 @@ _VALID_AUTH_TYPES: Dict[str, str] = {
     "OAUTH_AUTHENTICATOR": OAUTH_AUTHENTICATOR,
     "OAUTH_AUTHENTICATOR_TOKEN": OAUTH_AUTHENTICATOR,
 }
+
+# Snowflake is deprecating username + password (DEFAULT_AUTHENTICATOR) auth
+# during its Strong Authentication rollout (Phase 3: Aug-Oct 2026, account-
+# specific enforcement dates).
+SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL: Final = "https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/migrate-to-key-pair-auth"
+
+# report.warning() requires LiteralString so identical warnings group in the
+# report; the URL goes in `context`, not the message.
+SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_TITLE: Final = "Snowflake password auth deprecation"
+SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_MESSAGE: Final = (
+    "Snowflake is deprecating username + password authentication "
+    "(DEFAULT_AUTHENTICATOR) as part of its Strong Authentication rollout. "
+    "Password auth will stop working on an account-specific enforcement date "
+    "during Phase 3 (Aug-Oct 2026). Switch this recipe to key-pair "
+    "authentication (KEY_PAIR_AUTHENTICATOR) before your account's enforcement date."
+)
+
+
+def get_password_auth_deprecation_warning() -> str:
+    """Full warning text (with URL) for warnings.warn, which reaches
+    --test-source-connection (that path prints neither the summary nor the
+    source report)."""
+    return (
+        f"{SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_MESSAGE} "
+        f"See the migration guide: {SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL}"
+    )
 
 
 class SnowflakePermissionError(MetaError):
@@ -206,7 +234,29 @@ class SnowflakeConnectionConfig(ConfigModel):
                     f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
                 )
 
+        # warnings.warn reaches --test-source-connection, which prints neither
+        # the summary nor the source report. SnowflakeV2Source mirrors this in
+        # its structured report for the UI. add_global_warning was dropped
+        # because Pipeline.run() clears global warnings in its finally block,
+        # before pretty_print_summary() reads them.
+        if self.is_using_password_auth():
+            warnings.warn(
+                get_password_auth_deprecation_warning(),
+                ConfigurationWarning,
+                stacklevel=2,
+            )
+
         return self
+
+    def is_using_password_auth(self) -> bool:
+        """True when configured for username+password (DEFAULT_AUTHENTICATOR) auth.
+
+        bool(SecretStr("")) is True (the wrapper is always truthy), so read
+        get_secret_value() first to treat an empty password as unset.
+        """
+        return self.authentication_type == "DEFAULT_AUTHENTICATOR" and bool(
+            self.password and self.password.get_secret_value()
+        )
 
     @staticmethod
     def _check_oauth_config(oauth_config: Optional[OAuthConfiguration]) -> None:

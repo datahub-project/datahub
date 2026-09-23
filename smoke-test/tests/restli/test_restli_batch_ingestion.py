@@ -18,9 +18,12 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import MlModelUrn
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.restli.restli_test import MetadataChangeProposalInvalidWrapper
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 generated_urns: List[str] = []
 
@@ -113,6 +116,7 @@ def _create_invalid_dataset_mcps() -> List[MetadataChangeProposalWrapper]:
     return bad_mcps
 
 
+@pytest.mark.p0
 def test_restli_batch_ingestion_sync(graph_client):
     # Positive Test (all valid MetadataChangeProposal)
     mcps = _create_valid_dashboard_mcps()

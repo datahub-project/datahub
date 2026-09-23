@@ -6,9 +6,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.config import ZDUTestConfig
 from tests.zdu.framework.context import TestContext
 from tests.zdu.framework.phases.nuke_and_redeploy import NukeAndRedeployPhase
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 @pytest.fixture
@@ -208,3 +211,61 @@ class TestRefreshTokenEnvVar:
         monkeypatch.setenv("ZDU_SKIP_TOKEN_REFRESH", "1")
         cfg = ZDUTestConfig.from_env()
         assert cfg.refresh_token is False
+
+
+class TestPinsEveryZduServiceToOld:
+    """The OLD stack has to be OLD for the consumers too, not just GMS.
+
+    On a split topology the consumers carry the MCL/MCP write path. An
+    unpinned consumer falls through to ``${DATAHUB_VERSION:-debug}``, which in
+    CI is ``head`` — an image pulled from Docker Hub that is neither side of
+    the upgrade and not this repo's code at all. That produces a run which
+    looks like a ZDU test and is measuring an unrelated build.
+    """
+
+    def test_consumers_pinned_alongside_gms(self, docker, monkeypatch) -> None:
+        monkeypatch.setenv("ZDU_COMPOSE_PROFILES", "debug-consumers")
+        cfg = ZDUTestConfig.from_env()
+        cfg.clean_build = True
+        cfg.old_image_tag = "zdu-old-abc12345"
+        phase = NukeAndRedeployPhase(
+            docker=docker,
+            gms_service=cfg.gms_service,
+            health_url="http://localhost:8080",
+            down_timeout_s=10,
+            up_timeout_s=10,
+            health_timeout_s=10,
+        )
+        with patch.object(NukeAndRedeployPhase, "_wait_for_health", return_value=True):
+            phase.run(TestContext(), cfg)
+
+        compose_env = docker.up_stack.call_args.kwargs["compose_env"]
+        assert compose_env["DATAHUB_GMS_VERSION"] == "zdu-old-abc12345"
+        assert compose_env["DATAHUB_MAE_VERSION"] == "zdu-old-abc12345"
+        assert compose_env["DATAHUB_MCE_VERSION"] == "zdu-old-abc12345"
+        # DATAHUB_VERSION must stay out — it cascades to frontend/actions,
+        # whose images don't exist at the OLD tag.
+        assert "DATAHUB_VERSION" not in compose_env
+
+    def test_embedded_profile_still_pins_only_what_it_runs(
+        self, docker, monkeypatch
+    ) -> None:
+        # The `debug` profile brings up no consumer containers, so the extra
+        # pins are harmless but should not silently disappear for GMS.
+        monkeypatch.setenv("ZDU_COMPOSE_PROFILES", "debug")
+        cfg = ZDUTestConfig.from_env()
+        cfg.clean_build = True
+        cfg.old_image_tag = "zdu-old-abc12345"
+        phase = NukeAndRedeployPhase(
+            docker=docker,
+            gms_service=cfg.gms_service,
+            health_url="http://localhost:8080",
+            down_timeout_s=10,
+            up_timeout_s=10,
+            health_timeout_s=10,
+        )
+        with patch.object(NukeAndRedeployPhase, "_wait_for_health", return_value=True):
+            phase.run(TestContext(), cfg)
+
+        compose_env = docker.up_stack.call_args.kwargs["compose_env"]
+        assert compose_env["DATAHUB_GMS_VERSION"] == "zdu-old-abc12345"

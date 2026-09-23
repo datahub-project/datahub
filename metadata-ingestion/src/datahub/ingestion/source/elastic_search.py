@@ -368,7 +368,7 @@ def _api_key_authorization(api_key: Union[Tuple[str, str], str]) -> str:
 
 @platform_name("Elasticsearch")
 @config_class(ElasticsearchSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class ElasticsearchSource(StatefulIngestionSourceBase):
     """

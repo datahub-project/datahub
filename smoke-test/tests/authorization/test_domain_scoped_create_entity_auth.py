@@ -46,11 +46,16 @@ from tests.privileges.utils import (
     set_view_dataset_sensitive_info_policy_status,
     set_view_entity_profile_privileges_policy_status,
 )
+from tests.utilities.domains import Domain
 from tests.utils import get_frontend_session, get_frontend_url, get_gms_url, login_as
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.global_policy_mutator]
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.global_policy_mutator,
+    pytest.mark.domain(Domain.PLATFORM),
+]
 
 _UNIQUE = uuid.uuid4().hex[:8]
 POLICY_PREFIX = "Test DomainScoped CREATE_ENTITY"

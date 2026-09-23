@@ -87,7 +87,6 @@ from datahub.ingestion.source.unity.config import (
 )
 from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
-from datahub.ingestion.source.unity.ge_profiler import UnityCatalogGEProfiler
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
@@ -96,6 +95,7 @@ from datahub.ingestion.source.unity.identifier_helper import split_databricks_id
 from datahub.ingestion.source.unity.platform_resource_repository import (
     UnityCatalogPlatformResourceRepository,
 )
+from datahub.ingestion.source.unity.profiler import UnityCatalogProfiler
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     DATA_TYPE_REGISTRY,
@@ -381,7 +381,7 @@ class _ExternalSchemaKey:
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following metadata from Databricks Unity Catalog:
@@ -660,10 +660,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     self.config.profiling, UnityCatalogSQLAlchemyProfilerConfig
                 ):
                     logger.info(
-                        "Using UnityCatalogGEProfiler with SQLAlchemyProfiler (method: sqlalchemy)"
+                        "Using UnityCatalogProfiler with SQLAlchemyProfiler (method: sqlalchemy)"
                     )
                     # Use GenericProfiler which will use SQLAlchemyProfiler internally
-                    yield from UnityCatalogGEProfiler(
+                    yield from UnityCatalogProfiler(
                         config=self.config,
                         profiling_config=self.config.profiling,
                         report=self.report,

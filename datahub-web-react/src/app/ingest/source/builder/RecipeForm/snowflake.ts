@@ -47,15 +47,17 @@ function setSnowflakeAuthTypeOnRecipe(recipe: any, value: string | undefined): a
  * @param recipe - The recipe configuration to inspect
  * @returns The inferred authentication type
  */
-function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
+export function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
+    const authType = get(recipe, authTypeFieldPath);
+    if (authType) {
+        return authType;
+    }
+    // The UI does not always write authentication_type.
     const hasPassword = !!get(recipe, passwordFieldPath);
     const hasPrivateKey = !!get(recipe, privateKeyFieldPath);
-
-    // If password is present (and no private key), infer DEFAULT_AUTHENTICATOR
     if (hasPassword && !hasPrivateKey) {
         return 'DEFAULT_AUTHENTICATOR';
     }
-    // Otherwise default to KEY_PAIR_AUTHENTICATOR (even if private key is not set yet)
     return 'KEY_PAIR_AUTHENTICATOR';
 }
 
@@ -135,12 +137,13 @@ export const SNOWFLAKE_USERNAME: RecipeField = {
 export const SNOWFLAKE_PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
-    tooltip: 'Snowflake password.',
+    tooltip: 'Snowflake password. Required when using Username & Password authentication.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',
     placeholder: 'password',
-    rules: null,
-    required: true,
+    rules: [createAuthTypeValidator('DEFAULT_AUTHENTICATOR', 'Password', 'Username & Password')],
+    required: false,
+    shouldShow: (formValues) => shouldShowSnowflakeField('password', formValues.authentication_type),
 };
 
 export const SNOWFLAKE_ROLE: RecipeField = {

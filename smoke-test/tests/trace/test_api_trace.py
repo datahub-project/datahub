@@ -4,9 +4,12 @@ import time
 import pytest
 from opensearchpy import OpenSearch
 
+from tests.utilities.domains import Domain
 from tests.utils import delete_urn, delete_urns, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 es = OpenSearch(["http://localhost:9200"])
 
 
@@ -33,6 +36,7 @@ def test_setup(graph_client):
     wait_for_writes_to_sync()
 
 
+@pytest.mark.p0
 def test_successful_async_write(auth_session):
     urn = generated_urns["apiTraceHappyPath"]
     aspect_name = "status"
@@ -64,6 +68,7 @@ def test_successful_async_write(auth_session):
     }
 
 
+@pytest.mark.p0
 def test_mcp_fail_aspect_async_write(auth_session):
     urn = generated_urns["apiTraceMCPFail"]
     aspect_name = "glossaryTerms"
@@ -102,6 +107,7 @@ def test_mcp_fail_aspect_async_write(auth_session):
     }
 
 
+@pytest.mark.p0
 def test_overwritten_async_write(auth_session):
     urn = generated_urns["apiTraceOverwritten"]
     aspect_name = "datasetProperties"
@@ -189,6 +195,7 @@ def test_overwritten_async_write(auth_session):
     }
 
 
+@pytest.mark.p0
 def test_missing_elasticsearch_async_write(auth_session, graph_client):
     urn = generated_urns["apiTraceDroppedElasticsearch"]
     aspect_name = "status"
@@ -265,6 +272,7 @@ def test_missing_elasticsearch_async_write(auth_session, graph_client):
     }
 
 
+@pytest.mark.p0
 def test_timeseries_async_write(auth_session):
     urn = generated_urns["apiTraceTimeseries"]
     aspect_name = "datasetProfile"
@@ -307,6 +315,7 @@ def test_timeseries_async_write(auth_session):
     }
 
 
+@pytest.mark.p0
 def test_noop_async_write(auth_session):
     urn = generated_urns["apiTraceNoop"]
     aspect_name = "status"
@@ -364,6 +373,7 @@ def test_noop_async_write(auth_session):
     }
 
 
+@pytest.mark.p0
 def test_noop_with_fmcp_async_write(auth_session):
     urn = generated_urns["apiTraceNoopWithFMCP"]
     aspect_name = "status"

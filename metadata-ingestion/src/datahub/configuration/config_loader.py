@@ -222,6 +222,10 @@ def load_config_file(
                 stdin_secrets = envelope.get("__secrets__", {})
                 if stdin_secrets:
                     extra_env_vars = {**(extra_env_vars or {}), **stdin_secrets}
+                    # Envelope secrets are secrets by declaration: maskable even
+                    # when the recipe does not reference them (e.g. it arrived
+                    # with values already substituted).
+                    SecretRegistry.get_instance().register_secrets_batch(stdin_secrets)
             else:
                 # Plain JSON (which is valid YAML) — treat as recipe
                 raw_config_file = raw_stdin

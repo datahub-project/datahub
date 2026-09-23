@@ -70,6 +70,8 @@ class TestDemoDataSource:
             mock_download.assert_called_once()
             mock_ingest.assert_called_once()
             assert source.file_source is not None
+            assert mock_ingest.call_args.kwargs.get("server") is None
+            assert mock_ingest.call_args.kwargs.get("token") is None
 
     @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
     @patch("datahub.cli.datapack.loader.download_pack")
@@ -186,6 +188,66 @@ class TestDemoDataSource:
             assert as_of is not None
             assert as_of.year == 2024
             assert as_of.month == 6
+
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
+    @patch("datahub.cli.datapack.registry.get_pack")
+    @patch("datahub.cli.datapack.loader.download_pack")
+    @patch("datahub.cli.datapack.loader.check_trust")
+    def test_server_and_token_passed_as_client_config(
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest
+    ):
+        from datahub.cli.datapack.models import DataPackInfo, TrustTier
+
+        mock_get_pack.return_value = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
+        )
+
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w") as f:
+            json.dump([], f)
+            f.flush()
+            mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
+
+            ctx = MagicMock()
+            config = DemoDataConfig(
+                server="http://localhost:8080",
+                token="sample-token",
+            )
+            DemoDataSource(ctx, config)
+
+            mock_ingest.assert_called_once()
+            assert mock_ingest.call_args.kwargs["server"] == "http://localhost:8080"
+            assert mock_ingest.call_args.kwargs["token"] == "sample-token"
+
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
+    @patch("datahub.cli.datapack.registry.get_pack")
+    @patch("datahub.cli.datapack.loader.download_pack")
+    @patch("datahub.cli.datapack.loader.check_trust")
+    def test_token_without_server_is_passed(
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest
+    ):
+        from datahub.cli.datapack.models import DataPackInfo, TrustTier
+
+        mock_get_pack.return_value = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
+        )
+
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w") as f:
+            json.dump([], f)
+            f.flush()
+            mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
+
+            ctx = MagicMock()
+            DemoDataSource(ctx, DemoDataConfig(token="sample-token"))
+
+            mock_ingest.assert_called_once()
+            assert mock_ingest.call_args.kwargs.get("server") is None
+            assert mock_ingest.call_args.kwargs["token"] == "sample-token"
 
     @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
     @patch("datahub.cli.datapack.registry.get_pack")

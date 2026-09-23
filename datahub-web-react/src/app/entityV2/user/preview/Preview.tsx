@@ -3,10 +3,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entityV2/Entity';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
-import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -55,40 +55,41 @@ const PlatformText = styled(Typography.Text)`
 
 export const Preview = ({
     urn,
+    previewType,
     name,
     title,
-    propagationDetails,
 }: {
     urn: string;
+    previewType: PreviewType;
     name: string;
     title?: string | undefined;
-    propagationDetails?: AttributionDetails;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const url = entityRegistry.getEntityUrl(EntityType.CorpUser, urn);
+    const { propagationDetails } = usePreviewData();
 
     return (
         <PreviewContainer>
             <div>
-                <Link to={url}>
-                    <TitleContainer>
-                        <PlatformInfo>
-                            <PreviewImage>
-                                {entityRegistry.getIcon(EntityType.CorpUser, 20, IconStyleType.HIGHLIGHT)}
-                            </PreviewImage>
-                            <PlatformText>{entityRegistry.getEntityName(EntityType.CorpUser)}</PlatformText>
-                        </PlatformInfo>
-                        <Link to={url}>
-                            <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
-                        </Link>
-                    </TitleContainer>
-                </Link>
+                <TitleContainer>
+                    <PlatformInfo>
+                        <PreviewImage>
+                            {entityRegistry.getIcon(EntityType.CorpUser, 20, IconStyleType.HIGHLIGHT)}
+                        </PreviewImage>
+                        <PlatformText>{entityRegistry.getEntityName(EntityType.CorpUser)}</PlatformText>
+                    </PlatformInfo>
+                    <Link to={url}>
+                        <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
+                    </Link>
+                </TitleContainer>
                 {title && (
                     <TitleContainer>
                         <SearchTextHighlighter field="title" text={title} />
                     </TitleContainer>
                 )}
-                <HoverCardAttributionDetails propagationDetails={propagationDetails} />
+                {previewType === PreviewType.HOVER_CARD && (
+                    <HoverCardAttributionDetails propagationDetails={propagationDetails} addMargin />
+                )}
             </div>
         </PreviewContainer>
     );

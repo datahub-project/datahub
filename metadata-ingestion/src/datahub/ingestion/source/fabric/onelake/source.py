@@ -34,17 +34,16 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
-    GenericContainerSubTypes,
 )
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
-from datahub.ingestion.source.fabric.common.models import WorkspaceKey
+from datahub.ingestion.source.fabric.common.models import FabricWorkspace, WorkspaceKey
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_lakehouse_name,
     make_schema_name,
     make_table_name,
     make_warehouse_name,
-    make_workspace_name,
 )
+from datahub.ingestion.source.fabric.common.utils import build_workspace_container
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
 from datahub.ingestion.source.fabric.onelake.constants import (
@@ -56,7 +55,6 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricTable,
     FabricView,
     FabricWarehouse,
-    FabricWorkspace,
 )
 from datahub.ingestion.source.fabric.onelake.report import (
     FabricOneLakeClientReport,
@@ -137,7 +135,7 @@ class WarehouseSchemaKey(WarehouseKey):
 
 @platform_name("Fabric OneLake")
 @config_class(FabricOneLakeSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -285,8 +283,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 logger.info(f"Processing workspace: {workspace.name} ({workspace.id})")
 
                 try:
-                    # Create workspace container
-                    yield from self._create_workspace_container(workspace)
+                    yield from build_workspace_container(
+                        workspace=workspace,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
 
                     # Process items (lakehouses and warehouses)
                     yield from self._process_workspace_items(workspace)
@@ -339,27 +340,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             and not self.report.usage_run_skipped
         ):
             self.usage_extractor.update_state_on_success()
-
-    def _create_workspace_container(
-        self, workspace: FabricWorkspace
-    ) -> Iterable[Container]:
-        """Create a workspace container."""
-        container_key = WorkspaceKey(
-            instance=self.config.platform_instance,
-            env=self.config.env,
-            workspace_id=workspace.id,
-        )
-
-        container = Container(
-            container_key=container_key,
-            display_name=workspace.name,
-            description=workspace.description,
-            subtype=GenericContainerSubTypes.FABRIC_WORKSPACE,
-            parent_container=None,  # Workspace is root container
-            qualified_name=make_workspace_name(workspace.id),
-        )
-
-        yield container
 
     def _process_workspace_items(
         self, workspace: FabricWorkspace

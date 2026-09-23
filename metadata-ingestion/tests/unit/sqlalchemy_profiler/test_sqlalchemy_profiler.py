@@ -2,22 +2,29 @@
 
 import logging
 import sqlite3
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
 
-from datahub.ingestion.source.ge_profiling_config import (
+from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
+from datahub.ingestion.source.profiling.config import (
     ProfilingConfig,
     ProfilingIsolationLevel,
 )
-from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
+from datahub.ingestion.source.sql.postgres.source import BOX, CITEXT, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
+    format_profile_value,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
+from datahub.metadata.schema_classes import DatasetFieldProfileClass
+from datahub.utilities.stats_collections import float_top_k_dict
 
 
 @pytest.fixture
@@ -74,6 +81,10 @@ def mock_report():
     report = MagicMock(spec=SQLSourceReport)
     report.report_dropped = MagicMock()
     report.warning = MagicMock()
+    report.info = MagicMock()
+    # Dataclass fields with default_factory are not class attributes, so a spec'd mock
+    # does not expose them; wire the real TopKDict so the profiler's finally block can write.
+    report.profiling_time_taken_per_table_secs = float_top_k_dict()
     return report
 
 
@@ -121,6 +132,28 @@ class TestSQLAlchemyProfiler:
         assert not profiler._should_ignore_column(sa.Integer(), "id")
         assert not profiler._should_ignore_column(sa.String(), "name")
         assert not profiler._should_ignore_column(sa.Float(), "value")
+        # NullType stringifies to "NULL"; this is how Databricks VARIANT columns
+        # (reflected as NullType) get skipped for profiling instead of erroring.
+        assert profiler._should_ignore_column(sa.types.NullType(), "payload")
+
+    def test_should_ignore_column_postgres_no_equality_types(
+        self, sqlite_engine, profiler_config, mock_report
+    ):
+        """Postgres geometric/xml columns have no equality operator, so
+        COUNT(DISTINCT col) errors; they must be excluded from field profiling.
+        """
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=profiler_config,
+            platform="postgres",
+            env="TEST",
+        )
+        assert profiler._should_ignore_column(BOX(), "bbox")
+        assert profiler._should_ignore_column(XML(), "doc")
+        # Types with btree operator classes profile fine and must not be skipped.
+        assert not profiler._should_ignore_column(LTREE(), "tree_path")
+        assert not profiler._should_ignore_column(CITEXT(), "ci")
 
     def test_generate_profiles_empty_list(self, profiler):
         """Test generate_profiles with empty request list."""
@@ -490,7 +523,6 @@ class TestSQLAlchemyProfiler:
             cardinality=Cardinality.MANY,
             numeric_stats_futures=numeric_stats_futures,
             pretty_name="test.table",
-            platform="sqlite",
         )
 
         # Verify warning was logged
@@ -527,7 +559,6 @@ class TestSQLAlchemyProfiler:
                     "cardinality": Cardinality.MANY,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
-                    "platform": "sqlite",
                 },
                 "expected_title": "Profiling: Unable to Calculate Histogram",
                 "expected_context": "test.table.value_col",
@@ -543,7 +574,6 @@ class TestSQLAlchemyProfiler:
                     "cardinality": Cardinality.MANY,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
-                    "platform": "sqlite",
                 },
                 "expected_title": "Profiling: Unable to Calculate Quantiles",
                 "expected_context": "test.table.value_col",
@@ -622,8 +652,8 @@ class TestSQLAlchemyProfiler:
         Test that profiling returns None when row_count metric fails.
 
         This prevents empty profiles from being emitted when we can't get basic
-        metrics like row count (e.g., due to permission errors). This matches
-        GE profiler behavior which asserts that profile.rowCount is not None.
+        metrics like row count (e.g., due to permission errors): a profile is
+        only emitted when profile.rowCount is not None.
 
         The row_count extraction includes explicit exception handling and early
         return logic to prevent emitting profiles without this critical metric.
@@ -676,7 +706,7 @@ class TestSQLAlchemyProfiler:
         """
         Test that empty tables (row_count == 0) skip column profiling but return basic profile.
 
-        This optimization matches GE profiler behavior:
+        This optimization:
         - Empty tables get a basic profile with rowCount=0
         - Column profiling is skipped (no field profiles generated)
         - No wasted queries on empty tables
@@ -1099,3 +1129,367 @@ class TestProfilingIsolationLevelRejection:
             "Asset: test.my_table; isolation_level=BOGUS_LEVEL"
         )
         assert isinstance(warning_call.kwargs["exc"], sa.exc.ArgumentError)
+
+
+class TestEmittedFieldPaths:
+    """The seam between the two names a column has.
+
+    Profiling addresses columns by their stored identifier so a case-colliding
+    pair stays distinct; a profile has to attach to the path the source put in
+    schemaMetadata. `_to_emitted_field_paths` is where one becomes the other, and
+    it is the only place two stored names can collapse onto one path.
+    """
+
+    @staticmethod
+    def _profiles(*paths: str) -> List[DatasetFieldProfileClass]:
+        return [DatasetFieldProfileClass(fieldPath=p) for p in paths]
+
+    def test_translates_each_path_through_the_adapter(self, profiler: Any) -> None:
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        result = profiler._to_emitted_field_paths(
+            self._profiles("ORDER_ID", "AMOUNT"), adapter, MagicMock(), "db.tbl"
+        )
+
+        assert [p.fieldPath for p in result] == ["order_id", "amount"]
+
+    def test_two_stored_names_collapsing_to_one_path_keep_one_profile(
+        self, profiler: Any
+    ) -> None:
+        # An Oracle-shaped case: "col" and "COL" are distinct columns and each got
+        # its own statistics, but the schema declares a single folded field. Two
+        # profiles on one path would be dropped downstream, so keep the first.
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        result = profiler._to_emitted_field_paths(
+            self._profiles("col", "COL", "ID"), adapter, MagicMock(), "db.tbl"
+        )
+
+        assert [p.fieldPath for p in result] == ["col", "id"]
+
+    def test_distinct_paths_all_survive(self, profiler: Any) -> None:
+        # The preserve-case shape: the adapter hands the stored name straight
+        # back, so nothing collapses and both columns keep their statistics.
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name
+
+        result = profiler._to_emitted_field_paths(
+            self._profiles("col", "COL"), adapter, MagicMock(), "db.tbl"
+        )
+
+        assert [p.fieldPath for p in result] == ["col", "COL"]
+
+    def test_a_quoted_name_leaves_as_a_plain_string(self, profiler: Any) -> None:
+        # Profiles are built from sql_table.columns, whose names this module
+        # rebuilds as quoted_name so the generated SQL targets each column
+        # exactly. quoted_name is a str subclass whose .lower()/.upper() return
+        # self while the identifier is quoted, so a path that keeps the subclass
+        # silently survives every later fold -- Snowflake's convert_urns_to_lowercase
+        # became a no-op this way, with no error anywhere.
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name
+
+        result = profiler._to_emitted_field_paths(
+            [
+                DatasetFieldProfileClass(
+                    fieldPath=sa.sql.quoted_name("MixedCol", quote=True)
+                )
+            ],
+            adapter,
+            MagicMock(),
+            "db.tbl",
+        )
+
+        assert type(result[0].fieldPath) is str
+        assert result[0].fieldPath.lower() == "mixedcol"
+
+    def test_quoted_names_still_fold_and_collapse(self, profiler: Any) -> None:
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        result = profiler._to_emitted_field_paths(
+            [
+                DatasetFieldProfileClass(fieldPath=sa.sql.quoted_name(n, quote=True))
+                for n in ("col", "COL", "ID")
+            ],
+            adapter,
+            MagicMock(),
+            "db.tbl",
+        )
+
+        assert [p.fieldPath for p in result] == ["col", "id"]
+
+    def test_a_collapsed_pair_is_reported(self, profiler: Any) -> None:
+        # Dropping the second profile is correct -- the schema declares one field.
+        # Doing it silently is not: the surviving profile carries whichever
+        # column came first, so the statistics under `col` may be "COL"'s, and
+        # which one wins moves with column order. Nothing else in the run says so.
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        profiler._to_emitted_field_paths(
+            self._profiles("col", "COL"), adapter, MagicMock(), "db.sch.orders"
+        )
+
+        assert profiler.report.warning.called
+        context = profiler.report.warning.call_args.kwargs["context"]
+        assert "db.sch.orders" in context
+        assert "col" in context
+
+    def test_nothing_collapsing_is_not_reported(self, profiler: Any) -> None:
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        profiler._to_emitted_field_paths(
+            self._profiles("ID", "AMOUNT"), adapter, MagicMock(), "db.sch.orders"
+        )
+
+        assert not profiler.report.warning.called
+
+
+class TestIgnoreSamplingColumnNames:
+    """tags_to_ignore_sampling is resolved against DataHub, so it arrives as
+    emitted field paths. Profiling addresses columns by their stored name, which
+    on a normalizing dialect is a different string -- the membership test would
+    silently never hit and the tag would stop working.
+
+    These use the real adapters on purpose. A stub adapter that lowercases makes
+    this look fixed while Snowflake, whose field_path_for returns the stored name
+    unchanged, still fails.
+    """
+
+    @staticmethod
+    def _table(*names: str) -> sa.Table:
+        return sa.Table("t", sa.MetaData(), *[sa.Column(n, sa.String()) for n in names])
+
+    @staticmethod
+    def _snowflake_adapter() -> Any:
+        from snowflake.sqlalchemy import dialect as snowflake_dialect
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
+            SnowflakeAdapter,
+        )
+
+        engine = MagicMock()
+        engine.dialect = snowflake_dialect()
+        return SnowflakeAdapter(ProfilingConfig(), SQLSourceReport(), engine), engine
+
+    def test_snowflake_tag_still_matches_its_column(self, profiler: Any) -> None:
+        # The default recipe lowercases field paths, so DataHub holds
+        # 'customer_id' while profiling holds 'CUSTOMER_ID'.
+        adapter, engine = self._snowflake_adapter()
+
+        kept = profiler._ignore_list_as_stored_names(
+            ["customer_id"], self._table("CUSTOMER_ID", "AMOUNT"), adapter, engine
+        )
+
+        assert kept == ["CUSTOMER_ID"]
+
+    def test_untagged_columns_are_left_alone(self, profiler: Any) -> None:
+        adapter, engine = self._snowflake_adapter()
+
+        kept = profiler._ignore_list_as_stored_names(
+            ["customer_id"], self._table("AMOUNT", "TOTAL"), adapter, engine
+        )
+
+        assert kept == []
+
+    def test_a_case_only_pair_is_treated_as_one(self, profiler: Any) -> None:
+        # Documented trade-off: the emitted path cannot be reconstructed here, so
+        # matching is folded and tagging one spelling skips both. Erring towards
+        # skipping suits a control meant to keep stats off costly or sensitive
+        # columns.
+        adapter, engine = self._snowflake_adapter()
+
+        kept = profiler._ignore_list_as_stored_names(
+            ["col"], self._table("col", "COL"), adapter, engine
+        )
+
+        assert kept == ["col", "COL"]
+
+    def test_empty_list_short_circuits(self, profiler: Any) -> None:
+        adapter = MagicMock()
+
+        assert (
+            profiler._ignore_list_as_stored_names([], self._table("A"), adapter, None)
+            == []
+        )
+        adapter.field_path_for.assert_not_called()
+
+
+class TestQueryCombinerWiring:
+    """The flatten knobs are useless if the config never reaches the combiner."""
+
+    def _combiner_kwargs(
+        self, sqlite_engine: Any, mock_report: Any, config: ProfilingConfig
+    ) -> Dict[str, Any]:
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler"
+            ".SQLAlchemyQueryCombiner"
+        ) as combiner_cls:
+            list(profiler.generate_profiles(requests=[], max_workers=1))
+        return dict(combiner_cls.call_args.kwargs)
+
+    def test_flatten_knobs_reach_the_combiner(
+        self, sqlite_engine: Any, mock_report: Any
+    ) -> None:
+        config = ProfilingConfig(
+            enabled=True,
+            query_combiner_flatten_enabled=True,
+            max_distinct_per_statement=3,
+        )
+        kwargs = self._combiner_kwargs(sqlite_engine, mock_report, config)
+
+        assert kwargs["flatten_enabled"] is True
+        assert kwargs["max_distinct_per_statement"] == 3
+
+    def test_defaults_leave_flattening_off(
+        self, sqlite_engine: Any, mock_report: Any
+    ) -> None:
+        kwargs = self._combiner_kwargs(
+            sqlite_engine, mock_report, ProfilingConfig(enabled=True)
+        )
+
+        assert kwargs["flatten_enabled"] is False
+
+
+class TestFormatProfileValue:
+    """Tests for the unified format_profile_value function."""
+
+    # -- None handling --
+
+    @pytest.mark.parametrize(
+        "col_type",
+        [
+            ProfilerDataType.INT,
+            ProfilerDataType.FLOAT,
+            ProfilerDataType.NUMERIC,
+            ProfilerDataType.DATETIME,
+            ProfilerDataType.STRING,
+        ],
+    )
+    def test_none_returns_none(self, col_type: ProfilerDataType) -> None:
+        assert format_profile_value(None, col_type) is None
+        assert format_profile_value(None, col_type, as_stat=True) is None
+
+    # -- INT data values (min/max/histogram) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (100, "100"),
+            (0, "0"),
+            (float(100.0), "100"),
+            (Decimal("100"), "100"),
+        ],
+    )
+    def test_int_data_value(self, value: Any, expected: str) -> None:
+        assert format_profile_value(value, ProfilerDataType.INT) == expected
+
+    # -- INT stat values (mean/median/stdev/quantiles) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (100, "100.0"),
+            (0, "0.0"),
+            (float(100.0), "100.0"),
+            (Decimal("100"), "100.0"),
+            (3.14, "3.14"),
+            (Decimal("3.14"), "3.14"),
+        ],
+    )
+    def test_int_stat_value(self, value: Any, expected: str) -> None:
+        assert (
+            format_profile_value(value, ProfilerDataType.INT, as_stat=True) == expected
+        )
+
+    # -- FLOAT data values --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (1, "1.0"),
+            (1.0, "1.0"),
+            (3.14, "3.14"),
+            (Decimal("42"), "42.0"),
+            (Decimal("3.14"), "3.14"),
+        ],
+    )
+    def test_float_data_value(self, value: Any, expected: str) -> None:
+        assert format_profile_value(value, ProfilerDataType.FLOAT) == expected
+
+    # -- FLOAT stat values (same as data values for FLOAT) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (1, "1.0"),
+            (3.14, "3.14"),
+            (Decimal("42"), "42.0"),
+        ],
+    )
+    def test_float_stat_value(self, value: Any, expected: str) -> None:
+        assert (
+            format_profile_value(value, ProfilerDataType.FLOAT, as_stat=True)
+            == expected
+        )
+
+    # -- NUMERIC data values (same rules as FLOAT) --
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (100, "100.0"),
+            (Decimal("100"), "100.0"),
+            (Decimal("3.14"), "3.14"),
+        ],
+    )
+    def test_numeric_data_value(self, value: Any, expected: str) -> None:
+        assert format_profile_value(value, ProfilerDataType.NUMERIC) == expected
+
+    # -- DATETIME values --
+
+    def test_datetime_object(self) -> None:
+        dt = datetime(2024, 1, 1, 12, 0, 0)
+        assert (
+            format_profile_value(dt, ProfilerDataType.DATETIME) == "2024-01-01T12:00:00"
+        )
+
+    def test_date_object(self) -> None:
+        d = date(2024, 1, 1)
+        assert format_profile_value(d, ProfilerDataType.DATETIME) == "2024-01-01"
+
+    def test_datetime_string_with_space(self) -> None:
+        assert (
+            format_profile_value("2024-01-01 12:00:00", ProfilerDataType.DATETIME)
+            == "2024-01-01T12:00:00"
+        )
+
+    def test_date_string(self) -> None:
+        assert (
+            format_profile_value("2024-01-01", ProfilerDataType.DATETIME)
+            == "2024-01-01T00:00:00"
+        )
+
+    def test_datetime_unparseable_string_returned_as_is(self) -> None:
+        # Non-ISO strings that fromisoformat can't parse are returned unchanged
+        assert (
+            format_profile_value("2024/01/02 10:30", ProfilerDataType.DATETIME)
+            == "2024/01/02 10:30"
+        )
+
+    # -- STRING type --
+
+    def test_string_type(self) -> None:
+        assert format_profile_value("hello", ProfilerDataType.STRING) == "hello"
+        assert format_profile_value(42, ProfilerDataType.STRING) == "42"

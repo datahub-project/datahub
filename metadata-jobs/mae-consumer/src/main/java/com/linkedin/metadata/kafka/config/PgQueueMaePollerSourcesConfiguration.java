@@ -66,7 +66,8 @@ public class PgQueueMaePollerSourcesConfiguration {
                 List.of(topic),
                 usageEventsPollMaxBatch(),
                 "pgqueue-usage-" + groupId,
-                sleep.emptyPoll(),
+                sleep.emptyPollMin(),
+                usageEventsEmptyPollSleep(),
                 sleep.missingTopic(),
                 sleep.errorRecovery(),
                 (logicalTopic, batch, ctx) -> {
@@ -160,6 +161,7 @@ public class PgQueueMaePollerSourcesConfiguration {
                         List.of(mclVersionedTopicName, mclTimeseriesTopicName),
                         metadataChangeLogPollMaxBatch(),
                         "pgqueue-mcl-" + gid,
+                        sleep.emptyPollMin(),
                         mclEmptyPollSleep,
                         sleep.missingTopic(),
                         sleep.errorRecovery(),
@@ -211,8 +213,22 @@ public class PgQueueMaePollerSourcesConfiguration {
     return PgQueueConsumerPollSettings.requireSleep(postgresSqlSetupProperties);
   }
 
+  private long usageEventsEmptyPollSleep() {
+    return PgQueueConsumerPollSettings.requireEmptyPollSleep(
+        Optional.ofNullable(configurationProvider.getMaeConsumer())
+            .map(MaeConsumerConfiguration::getPgQueue)
+            .map(MaeConsumerConfiguration.PgQueuePoll::getUsageEventsEmptyPollSleepMillis)
+            .orElse(null),
+        "maeConsumer.pgQueue.usageEventsEmptyPollSleepMillis");
+  }
+
   private long mclEmptyPollSleep() {
-    return PgQueueConsumerPollSettings.requireMclEmptyPollSleep(postgresSqlSetupProperties);
+    return PgQueueConsumerPollSettings.requireEmptyPollSleep(
+        Optional.ofNullable(configurationProvider.getMaeConsumer())
+            .map(MaeConsumerConfiguration::getPgQueue)
+            .map(MaeConsumerConfiguration.PgQueuePoll::getMetadataChangeLogEmptyPollSleepMillis)
+            .orElse(null),
+        "maeConsumer.pgQueue.metadataChangeLogEmptyPollSleepMillis");
   }
 
   private static PgQueuePollerRegistration buildBatchRegistration(
@@ -246,6 +262,7 @@ public class PgQueueMaePollerSourcesConfiguration {
         List.of(mclVersionedTopicName, mclTimeseriesTopicName),
         metadataChangeLogPollMaxBatch(configurationProvider),
         "pgqueue-mcl-batch-" + gid,
+        sleep.emptyPollMin(),
         mclEmptyPollSleep,
         sleep.missingTopic(),
         sleep.errorRecovery(),

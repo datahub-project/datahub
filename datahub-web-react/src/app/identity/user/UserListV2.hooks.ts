@@ -77,6 +77,9 @@ export function useUserListData(debouncedQuery: string, page: number, pageSize: 
             },
         },
         fetchPolicy: 'no-cache',
+        // Return partial data alongside errors so valid user rows still render
+        // when a single role entity is missing its DataHubRoleInfo aspect.
+        errorPolicy: 'all',
     });
 
     const totalUsers = data?.searchUsers?.total || 0;

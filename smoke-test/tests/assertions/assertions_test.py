@@ -33,6 +33,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.urn import guess_entity_type
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import (
     delete_urn,
     delete_urns_from_file,
@@ -41,6 +42,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.OBSERVE)
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -312,6 +315,7 @@ def _gms_get_latest_assertions_results_by_partition(auth_session):
     assert all(row[assertee_urn_index] == urn for row in rows)
 
 
+@pytest.mark.p0
 def test_gms_get_latest_assertions_results_by_partition(
     auth_session, test_run_ingestion
 ):
@@ -343,6 +347,7 @@ def test_gms_get_assertions_on_dataset_field(auth_session, test_run_ingestion):
     assert len(data["relationships"]) == 1
 
 
+@pytest.mark.p0
 def test_gms_get_assertion_info(auth_session, test_run_ingestion):
     assertion_urn = "urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b"
     response = auth_session.get(

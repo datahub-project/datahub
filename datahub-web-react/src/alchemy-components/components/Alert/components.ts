@@ -26,6 +26,7 @@ export const AlertContainer = styled.div<{ $variant: AlertVariant; $hasClose?: b
             borderRadius: radius.lg,
             backgroundColor: theme.colors[tokens.bg],
             color: theme.colors[tokens.text],
+            gap: '4px',
         };
     },
 );
@@ -103,4 +104,5 @@ export const AlertErrorMessage = styled.div(({ theme }) => ({
     fontSize: '13px',
     overflowWrap: 'break-word' as const,
     wordBreak: 'break-all' as const,
+    marginTop: '8px',
 }));

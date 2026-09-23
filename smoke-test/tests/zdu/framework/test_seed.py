@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
+from tests.utilities.domains import Domain
 from tests.zdu.framework.context import TestContext
 from tests.zdu.framework.phases.seed import SeedPhase
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _build_phase() -> tuple[SeedPhase, MagicMock, MagicMock]:

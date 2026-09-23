@@ -32,9 +32,12 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns, run_datahub_cmd
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 PLATFORM = "snowflake"
 ENV = "PROD"
@@ -181,6 +184,7 @@ def seeded(graph_client: DataHubGraph):
         wait_for_writes_to_sync()
 
 
+@pytest.mark.p0
 def test_instance2instance_rewrites_lineage_and_migrates_aspects(
     graph_client: DataHubGraph, seeded
 ) -> None:

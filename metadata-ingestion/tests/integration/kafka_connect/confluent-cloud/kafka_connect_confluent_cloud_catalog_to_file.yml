@@ -1,0 +1,41 @@
+---
+run_id: kafka-connect-confluent-cloud-catalog-test
+
+# DataHub Graph API configuration (required for Confluent Cloud)
+datahub_api:
+  server: "http://localhost:8080"
+
+source:
+  type: "kafka-connect"
+  config:
+    connect_uri: "http://localhost:8888/connect/v1/environments/env-00000/clusters/cluster-123"
+
+    confluent_cloud_environment_id: "env-00000"
+    confluent_cloud_cluster_id: "cluster-123"
+
+    kafka_rest_endpoint: "http://localhost:8888"
+
+    username: "admin"
+    password: "admin"
+
+    kafka_api_key: "admin"
+    kafka_api_secret: "admin"
+
+    confluent_catalog:
+      enabled: true
+      schema_registry_url: "https://psrc-mock.us-east-1.aws.confluent.cloud"
+      api_key: "admin"
+      api_secret: "admin"
+      include_lineage: true
+      page_size: 1
+
+    connector_patterns:
+      allow:
+        - ".*"
+
+    platform_instance: "confluent-cloud-prod"
+
+sink:
+  type: file
+  config:
+    filename: "./kafka_connect_confluent_cloud_catalog_mces.json"

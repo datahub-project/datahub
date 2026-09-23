@@ -88,6 +88,13 @@ metadata-ingestion/tests/integration/odcs/bitol_examples/
 are the upstream v3.1.0 documentation examples (docs/examples/...), each with
 a provenance header prepended.
 
+This product includes/uses stopit (https://github.com/glenfant/stopit)
+Copyright (c) 2018 Gilles Lenfant
+License: MIT - http://www.opensource.org/licenses/mit-license.php
+metadata-ingestion/src/datahub/utilities/_stopit.py is a trimmed vendored copy of
+stopit 1.1.2 (the TimeoutException, async_raise, BaseTimeout and ThreadingTimeout
+subset), with the license header retained in the file.
+
 
 ========================================================================
 External dependencies
