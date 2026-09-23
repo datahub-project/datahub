@@ -1903,12 +1903,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def _resolved_field_count(chart_urn: str, fields: List[InputFieldClass]) -> int:
-        """Fields pointing at something other than the chart itself."""
+        """Chart columns with an upstream that is not the chart itself.
+
+        Distinct field paths, not entries: a formula naming several upstream
+        columns emits one entry per reference, so counting entries would let a
+        chart that resolved one column out of three outrank one that resolved
+        all three.
+        """
         self_ref_prefix = f"urn:li:schemaField:({chart_urn},"
-        return sum(
-            1
-            for f in fields
-            if f.schemaFieldUrn and not f.schemaFieldUrn.startswith(self_ref_prefix)
+        return len(
+            {
+                f.schemaField.fieldPath
+                for f in fields
+                if f.schemaField is not None
+                and f.schemaFieldUrn
+                and not f.schemaFieldUrn.startswith(self_ref_prefix)
+            }
         )
 
     def _chart_input_fields_mcp(
@@ -1924,6 +1934,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         Keeping the richer aspect does NOT make the URNs correct: two genuinely
         different charts still share one entity.
+
+        A workbook cannot refuse its own drain re-emission: the drain merges
+        the stashed per-element fields for every column its SQL lineage does
+        not cover, so its column set is a superset of the element aspect's.
         """
         resolved = self._resolved_field_count(chart_urn, fields)
         best = self._chart_best_input_fields.get(chart_urn)
@@ -4383,24 +4397,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 wb_only_warehouse_keys=wb_only_warehouse_keys,
             )
 
-            # Stash formula-derived fields for customSQL charts so we can merge at
-            # drain time, ensuring warehouse-resolved entries supplement rather than
-            # replace computed/unmapped column entries from the formula pass.
-            if chart_urn in self._workbook_customsql_registered_urns:
-                self._workbook_customsql_formula_fields[chart_urn] = (
-                    element_input_fields
-                )
-
             # For customSQL charts a second InputFields MCP is emitted at drain time
             # by _build_workbook_chart_input_fields_mcp; the drain MCP supersedes this
             # one (later in the workunit stream).  The formula-derived fields stashed
-            # above are merged into the drain MCP so nothing is silently dropped.
+            # below are merged into the drain MCP so nothing is silently dropped.
             chart_mcp = self._chart_input_fields_mcp(chart_urn, element_input_fields)
             if chart_mcp is not None:
                 yield chart_mcp.as_workunit()
+                # Stash only what was emitted. Stashing a refused copy would
+                # feed it back through the drain, which is the last word on a
+                # customSQL chart.
+                if chart_urn in self._workbook_customsql_registered_urns:
+                    self._workbook_customsql_formula_fields[chart_urn] = (
+                        element_input_fields
+                    )
 
-            # Unconditional: the dashboard aspect is a union over the page, and
-            # a refusal here is about this chart URN only.
+            # Unconditional: within one workbook the page aspect is a union over
+            # its charts, and a refusal is about one chart URN. Page ids collide
+            # across duplicated workbooks exactly as element ids do, which this
+            # PR does not address.
             all_input_fields.extend(element_input_fields)
 
     def _gen_pages_workunit(
