@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tupl
 
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.source.fabric.onelake.constants import is_fabric_system_schema
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.metadata.schema_classes import (
     QuerySubjectsClass,
@@ -183,6 +184,11 @@ class FabricOneLakeSchemaResolver(SchemaResolver):
     References that look like cross-item names but cannot be resolved are
     recorded in ``unresolved_urns`` so the source can drop them instead of
     emitting dangling URNs, and a warning is reported once per reference.
+
+    References to system schemas (``sys``, ``INFORMATION_SCHEMA``,
+    ``queryinsights``) - e.g. from the catalog queries the ODBC driver runs on
+    the connector's behalf - are recorded in ``system_urns`` so no dataset,
+    lineage, usage or operation is emitted for them.
     """
 
     def __init__(
@@ -207,6 +213,8 @@ class FabricOneLakeSchemaResolver(SchemaResolver):
         self._seen_references: Set[Tuple[Optional[str], Tuple[str, ...]]] = set()
         self.unresolved_urns: Set[str] = set()
         self._unresolved_names: Set[str] = set()
+        self.system_urns: Set[str] = set()
+        self._system_names: Set[str] = set()
 
     @contextlib.contextmanager
     def scoped_to_default_db(self, default_db: Optional[str]) -> Iterator[None]:
@@ -226,23 +234,49 @@ class FabricOneLakeSchemaResolver(SchemaResolver):
     def is_unresolved_name(self, name: str) -> bool:
         return name.casefold() in self._unresolved_names
 
+    def is_system_name(self, name: str) -> bool:
+        return name.casefold() in self._system_names
+
     def get_urn_for_table(
         self, table: _TableName, lower: bool = False, mixed: bool = False
     ) -> str:
+        if self._is_system_object(table):
+            # Never rewritten: a system object is not a dataset, whichever
+            # item it is qualified with.
+            urn = super().get_urn_for_table(table, lower=lower, mixed=mixed)
+            self._record_system_object(urn, table)
+            return urn
         resolved, is_unresolved = self._resolve_fabric_table(table)
         urn = super().get_urn_for_table(resolved, lower=lower, mixed=mixed)
         if is_unresolved:
             self.unresolved_urns.add(urn)
-            # Name as the aggregator's is_allowed_table hook sees it (no
-            # platform instance prefix).
-            self._unresolved_names.add(
-                ".".join(
-                    filter(
-                        None, [resolved.database, resolved.db_schema, resolved.table]
-                    )
-                ).casefold()
-            )
+            self._unresolved_names.add(self._hook_name(resolved))
         return urn
+
+    @staticmethod
+    def _is_system_object(table: _TableName) -> bool:
+        # The schema is the second-to-last name part. ``db_schema`` alone is not
+        # enough: for a 4-part name it holds the item token.
+        parts = table.parts
+        schema = parts[-2] if parts and len(parts) >= 2 else table.db_schema
+        return schema is not None and is_fabric_system_schema(_normalize_token(schema))
+
+    @staticmethod
+    def _hook_name(table: _TableName) -> str:
+        """Name as the aggregator's ``is_allowed_table`` hook sees it (no
+        platform instance prefix)."""
+        return ".".join(
+            filter(None, [table.database, table.db_schema, table.table])
+        ).casefold()
+
+    def _record_system_object(self, urn: str, table: _TableName) -> None:
+        if urn in self.system_urns:
+            return
+        self.system_urns.add(urn)
+        self._system_names.add(self._hook_name(table))
+        self._report.report_system_object_reference(
+            ".".join(table.parts) if table.parts else self._hook_name(table)
+        )
 
     def _resolve_fabric_table(self, table: _TableName) -> Tuple[_TableName, bool]:
         """Return the (possibly rewritten) table name and whether it is unresolved."""
@@ -422,12 +456,15 @@ class UnresolvedReferenceFilterResult:
 def drop_unresolved_references(
     mcp: MetadataChangeProposalWrapper, unresolved_urns: Set[str]
 ) -> UnresolvedReferenceFilterResult:
-    """Strip unresolved cross-item URNs from lineage / query-subject aspects.
+    """Strip the given dataset URNs from lineage / query-subject aspects.
+
+    Used for unresolved cross-item references and for system objects
+    (``sys.*``, ``INFORMATION_SCHEMA.*``, ``queryinsights.*``).
 
     Table- and column-level lineage are filtered with the same URN set, so no
     schemaField URN can re-create a dangling dataset. Usage and operation aspects
     are already filtered by the aggregator's ``is_allowed_table`` hook (which
-    also skips lineage *for* an unresolved downstream); upstream lists are not,
+    also skips lineage *for* a dropped downstream); upstream lists are not,
     hence this pass.
     """
     if not unresolved_urns:

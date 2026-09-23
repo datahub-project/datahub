@@ -83,7 +83,9 @@ def _make_aggregator(
         generate_usage_statistics=generate_usage,
         generate_operations=generate_usage,
         usage_config=FabricUsageConfig() if generate_usage else None,
-        is_allowed_table=lambda name: not resolver.is_unresolved_name(name),
+        is_allowed_table=lambda name: (
+            not (resolver.is_unresolved_name(name) or resolver.is_system_name(name))
+        ),
     )
     return aggregator, resolver, report
 
@@ -95,6 +97,8 @@ def _drain(
     out: Dict[str, List[object]] = {}
     for mcp in aggregator.gen_metadata():
         filtered = drop_unresolved_references(mcp, resolver.unresolved_urns).mcp
+        if filtered is not None:
+            filtered = drop_unresolved_references(filtered, resolver.system_urns).mcp
         if filtered is None:
             continue
         assert filtered.entityUrn is not None
@@ -461,3 +465,112 @@ def test_view_parsing_hook_is_scoped() -> None:
 
     assert sorted(s for s in scopes if s is not None) == [WS_ANALYTICS, WS_SHARED]
     assert resolver._scope_workspace_id is None
+
+
+@pytest.mark.parametrize(
+    "table_ref",
+    [
+        "sys.databases",
+        "[sys].[spt_datatype_info_view]",
+        "INFORMATION_SCHEMA.COLUMNS",
+        "information_schema.tables",
+        "queryinsights.exec_requests_history",
+        # Qualified with another item / workspace: still a system object.
+        "silver_lh.sys.objects",
+        "[Shared Data].[ref_lh].[sys].[tables]",
+    ],
+)
+def test_system_objects_emit_no_datasets_usage_or_queries(table_ref: str) -> None:
+    """Catalog queries (e.g. the ODBC driver's `sp_*` procedure bodies, or the
+    connector's own INFORMATION_SCHEMA reads) must not create datasets."""
+    aggregator, resolver, report = _make_aggregator(
+        generate_usage=True, generate_queries=True
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query=f"SELECT * FROM {table_ref}",
+            timestamp=QUERY_TS,
+            default_db=GOLD_DB,
+            default_schema="dbo",
+        )
+    )
+    aspects = _drain(aggregator, resolver)
+    aggregator.close()
+
+    assert resolver.system_urns
+    assert not any(urn.startswith("urn:li:dataset:") for urn in aspects), aspects
+    assert not any(
+        isinstance(aspect, QuerySubjectsClass)
+        for per_entity in aspects.values()
+        for aspect in per_entity
+    )
+    assert report.num_system_object_references_filtered == 1
+    # System objects are never treated as unresolved cross-item references.
+    assert report.num_cross_item_references_unresolved == 0
+    assert not report.warnings
+
+
+def test_system_object_upstream_is_stripped_from_lineage_and_subjects() -> None:
+    """A query that mixes user tables and system objects keeps the user-table
+    lineage / usage and loses only the system-object edges."""
+    aggregator, resolver, report = _make_aggregator(
+        generate_usage=True, generate_queries=True
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="INSERT INTO dbo.customer_totals (customer_id, db_name) "
+            "SELECT c.customer_id, d.name FROM silver_lh.dbo.customers AS c "
+            "CROSS JOIN sys.databases AS d",
+            timestamp=QUERY_TS,
+            default_db=GOLD_DB,
+            default_schema="dbo",
+        )
+    )
+    raw = list(aggregator.gen_metadata())
+    aggregator.close()
+
+    system_urn = _urn(f"{GOLD_DB}.sys.databases")
+    assert resolver.system_urns == {system_urn}
+    kept = []
+    dropped_upstreams = 0
+    for mcp in raw:
+        result = drop_unresolved_references(mcp, resolver.system_urns)
+        dropped_upstreams += result.num_upstreams_dropped
+        if result.mcp is not None:
+            kept.append(result.mcp)
+    assert dropped_upstreams == 1
+    assert system_urn not in {mcp.entityUrn for mcp in kept}
+
+    lineage = [
+        mcp.aspect
+        for mcp in kept
+        if isinstance(mcp.aspect, UpstreamLineageClass)
+        and mcp.entityUrn == _urn(f"{GOLD_DB}.dbo.customer_totals")
+    ]
+    assert len(lineage) == 1
+    assert _upstream_datasets(lineage[0]) == [
+        _urn(f"{WS_ANALYTICS}.lh-silver.dbo.customers")
+    ]
+    for fgl in lineage[0].fineGrainedLineages or []:
+        assert not any("sys.databases" in up for up in fgl.upstreams or [])
+    for mcp in kept:
+        if isinstance(mcp.aspect, QuerySubjectsClass):
+            assert not any(
+                "sys.databases" in subject.entity for subject in mcp.aspect.subjects
+            )
+    assert report.num_system_object_references_filtered == 1
+    assert list(report.filtered_system_objects) == [f"{GOLD_DB}.sys.databases"]
+
+
+def test_non_system_schema_named_like_a_prefix_is_kept() -> None:
+    """Only the exact system schema names are filtered (e.g. `system` or
+    `sys_archive` are ordinary user schemas)."""
+    lineage, resolver, report = _upstreams_of_view(
+        "SELECT a.id FROM sys_archive.events AS a JOIN system.logs AS b ON a.id = b.id"
+    )
+    assert _upstream_datasets(lineage) == [
+        _urn(f"{GOLD_DB}.sys_archive.events"),
+        _urn(f"{GOLD_DB}.system.logs"),
+    ]
+    assert not resolver.system_urns
+    assert report.num_system_object_references_filtered == 0

@@ -308,6 +308,11 @@ source:
       # (canceled / failed queries are skipped at the source).
       skip_failed_queries: true
 
+      # When true, queries issued by the identity the connector connects as
+      # (the connector's own metadata reads and the ODBC driver's catalog
+      # procedures) are skipped. See "Filtered Queries" below.
+      skip_ingestion_identity_queries: true
+
       # Optional: emit per-query operation aspects in addition to aggregated
       # datasetUsageStatistics. Defaults to true (inherited from BaseUsageConfig).
       include_operational_stats: true
@@ -333,6 +338,19 @@ source:
 All standard `BaseUsageConfig` fields (`bucket_duration`, `start_time`, `end_time`, `top_n_queries`, `format_sql_queries`, `include_top_n_queries`, `include_operational_stats`, `user_email_pattern`, etc.) are supported under the `usage` block.
 
 When stateful ingestion is enabled, the usage time window is checkpointed only after a successful run, so a partial or failed run won't silently skip the next window.
+
+##### Filtered Queries and System Objects
+
+`queryinsights` records every statement run on a SQL Analytics Endpoint, including statements that are not user activity. The connector skips them before SQL parsing and counts each skip by reason in `num_usage_queries_skipped`:
+
+| Reason                 | What is skipped                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ingestion_identity`   | Rows whose `login_name` matches the identity the connector connects as (`SUSER_SNAME()`). These are the connector's own `INFORMATION_SCHEMA` / `queryinsights` reads and the catalog procedures the ODBC driver runs for them. Controlled by `usage.skip_ingestion_identity_queries` (default `true`); set it to `false` if the same identity also runs workloads you want usage and lineage for. |
+| `procedural_statement` | T-SQL control-of-flow and session statements (`SET`, `IF`, `DECLARE`, `WHILE`, `EXEC`, `BEGIN TRANSACTION`, `COMMIT`, ...), such as the bodies of the ODBC driver's `sp_*` catalog procedures (`set @ODBCVer = 3`). They carry no table lineage and cannot be parsed; DML inside a procedure is recorded as its own row and is kept.                                                              |
+| `user_filtered`        | Rows denied by `usage.user_email_pattern`.                                                                                                                                                                                                                                                                                                                                                        |
+| `empty_command`        | Rows with no query text.                                                                                                                                                                                                                                                                                                                                                                          |
+
+References to system objects — tables and views in the `sys`, `INFORMATION_SCHEMA`, and `queryinsights` schemas — never produce datasets, lineage, usage, operations, or query subjects, whether they appear in a view definition or an observed query. Queries that also touch user tables keep their lineage and usage for those tables. The report counts `num_system_object_references_filtered` (distinct objects, listed in `filtered_system_objects`) and `num_lineage_upstreams_dropped_system_objects` / `num_lineage_aspects_dropped_system_objects`.
 
 #### Warehouse Table Discovery
 

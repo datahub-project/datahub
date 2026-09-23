@@ -14,6 +14,7 @@ Reference:
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
@@ -39,6 +40,52 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
+
+# T-SQL control-of-flow / session statements. queryinsights logs every
+# statement of a batch or procedure body as its own row - including the bodies
+# of the ODBC driver's catalog procedures (`set @ODBCVer = 3`,
+# `if @data_type = 0`, ...). Such statements carry no table lineage or usage of
+# their own (any DML inside a procedure is logged as a separate row), and the
+# SQL parser cannot parse them, so they are skipped before parsing.
+_PROCEDURAL_KEYWORDS = frozenset(
+    {
+        "BEGIN",
+        "BREAK",
+        "COMMIT",
+        "CONTINUE",
+        "DBCC",
+        "DEALLOCATE",
+        "DECLARE",
+        "ELSE",
+        "END",
+        "EXEC",
+        "EXECUTE",
+        "GOTO",
+        "IF",
+        "PRINT",
+        "RAISERROR",
+        "RETURN",
+        "ROLLBACK",
+        "SAVE",
+        "SET",
+        "THROW",
+        "USE",
+        "WAITFOR",
+        "WHILE",
+    }
+)
+# Leading comments / whitespace, then the first keyword of the statement.
+_LEADING_KEYWORD = re.compile(
+    r"^(?:\s|--[^\n]*(?:\n|$)|/\*.*?\*/)*([A-Za-z_]+)", re.DOTALL
+)
+
+
+def _is_procedural_statement(command: str, statement_type: Optional[str]) -> bool:
+    """Whether a queryinsights row is a control-of-flow / session statement."""
+    if statement_type and statement_type.strip().upper() in _PROCEDURAL_KEYWORDS:
+        return True
+    match = _LEADING_KEYWORD.match(command)
+    return match is not None and match.group(1).upper() in _PROCEDURAL_KEYWORDS
 
 
 class FabricUsageExtractor:
@@ -126,6 +173,10 @@ class FabricUsageExtractor:
             f"workspace_id={workspace_id} item_id={item_id}"
         )
 
+        ingestion_login = self._get_ingestion_login(
+            workspace_id, item_id, schema_client
+        )
+
         try:
             row_iter = schema_client.stream_usage_history(
                 workspace_id=workspace_id,
@@ -135,7 +186,13 @@ class FabricUsageExtractor:
                 skip_failed_queries=self.config.skip_failed_queries,
             )
             for row in row_iter:
-                self._handle_row(row, workspace_id, item_id, item_display_name)
+                self._handle_row(
+                    row,
+                    workspace_id,
+                    item_id,
+                    item_display_name,
+                    ingestion_login=ingestion_login,
+                )
             logger.info(f"Finished usage extraction for item='{item_display_name}'")
         except Exception as e:
             logger.warning(
@@ -165,15 +222,57 @@ class FabricUsageExtractor:
                 time.monotonic() - started_at, 3
             )
 
+    def _get_ingestion_login(
+        self,
+        workspace_id: str,
+        item_id: str,
+        schema_client: "SchemaExtractionClient",
+    ) -> Optional[str]:
+        """Casefolded login of the ingestion identity, or None when
+        `skip_ingestion_identity_queries` is off or the lookup failed."""
+        if not self.config.skip_ingestion_identity_queries:
+            return None
+        try:
+            login = schema_client.get_current_login(workspace_id, item_id)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to Determine Ingestion Identity",
+                message=(
+                    "Could not read SUSER_SNAME() on the SQL Analytics Endpoint, "
+                    "so queries issued by the ingestion identity are not skipped "
+                    "for this item (usage.skip_ingestion_identity_queries)."
+                ),
+                context=f"workspace_id={workspace_id}, item_id={item_id}",
+                exc=e,
+                log=False,
+            )
+            return None
+        if not isinstance(login, str) or not login.strip():
+            return None
+        return login.strip().casefold()
+
     def _handle_row(
         self,
         row: FabricQueryInsightsRow,
         workspace_id: str,
         item_id: str,
         item_display_name: str,
+        ingestion_login: Optional[str] = None,
     ) -> None:
         if not row.command.strip():
             self.report.report_usage_query_skipped("empty_command")
+            return
+
+        if (
+            ingestion_login is not None
+            and row.login_name
+            and row.login_name.strip().casefold() == ingestion_login
+        ):
+            self.report.report_usage_query_skipped("ingestion_identity")
+            return
+
+        if _is_procedural_statement(row.command, row.statement_type):
+            self.report.report_usage_query_skipped("procedural_statement")
             return
 
         # Entra UPNs are case-insensitive by Microsoft spec, but pyodbc preserves the

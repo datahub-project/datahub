@@ -257,8 +257,13 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             graph=ctx.graph,
             # Unresolvable cross-item references are excluded from usage and
             # operations; lineage upstreams are stripped at drain time.
+            # System objects (sys / INFORMATION_SCHEMA / queryinsights) are
+            # excluded the same way.
             is_allowed_table=lambda name: (
-                not self.schema_resolver.is_unresolved_name(name)
+                not (
+                    self.schema_resolver.is_unresolved_name(name)
+                    or self.schema_resolver.is_system_name(name)
+                )
             ),
             generate_lineage=True,
             generate_queries=queries_enabled,
@@ -462,14 +467,24 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     def _drop_unresolved_references(
         self, mcp: MetadataChangeProposalWrapper
     ) -> Optional[MetadataChangeProposalWrapper]:
-        """Strip unresolved cross-item references from an aggregator MCP and
-        count what was dropped. ``None`` means the whole aspect is dropped."""
+        """Strip unresolved cross-item references and system objects from an
+        aggregator MCP and count what was dropped. ``None`` means the whole
+        aspect is dropped."""
         result = drop_unresolved_references(mcp, self.schema_resolver.unresolved_urns)
         self.report.num_lineage_upstreams_dropped_unresolved += (
             result.num_upstreams_dropped
         )
         if result.mcp is None:
             self.report.num_lineage_aspects_dropped_unresolved += 1
+            return None
+        result = drop_unresolved_references(
+            result.mcp, self.schema_resolver.system_urns
+        )
+        self.report.num_lineage_upstreams_dropped_system_objects += (
+            result.num_upstreams_dropped
+        )
+        if result.mcp is None:
+            self.report.num_lineage_aspects_dropped_system_objects += 1
         return result.mcp
 
     def _process_workspace(

@@ -906,6 +906,21 @@ _GOLD_QUERIES = [
     ),
     ("SELECT", "SELECT * FROM missing_lh.dbo.scores"),
 ]
+_INGESTION_LOGIN = "svc-datahub@example.com"
+# queryinsights noise that must not produce any output: bodies of the ODBC
+# driver's catalog procedures, catalog reads, and the connector's own queries.
+_GOLD_NOISE_QUERIES = [
+    ("etl@example.com", "OTHER", "set @ODBCVer = 3"),
+    ("etl@example.com", "OTHER", "if @data_type = 0"),
+    ("etl@example.com", "SELECT", "SELECT name FROM sys.databases"),
+    ("etl@example.com", "SELECT", "SELECT * FROM sys.spt_datatype_info_view"),
+    (
+        _INGESTION_LOGIN,
+        "SELECT",
+        "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES",
+    ),
+    (_INGESTION_LOGIN, "SELECT", "SELECT customer_id FROM dbo.customer_totals"),
+]
 
 
 def _cross_item_tables(workspace_id: str, item_id: str) -> list[FabricTable]:
@@ -960,16 +975,21 @@ def _cross_item_schema_client(
             )
             for name, definition, _ in _GOLD_VIEWS
         ]
+        client.get_current_login.return_value = _INGESTION_LOGIN
+        rows = [
+            ("etl@example.com", statement_type, command)
+            for statement_type, command in _GOLD_QUERIES
+        ] + _GOLD_NOISE_QUERIES
         client.stream_usage_history.return_value = iter(
             FabricQueryInsightsRow(
                 start_time=FROZEN_TIME - timedelta(hours=2, minutes=i),
                 statement_type=statement_type,
-                login_name="etl@example.com",
+                login_name=login_name,
                 row_count=10,
                 status="Succeeded",
                 command=command,
             )
-            for i, (statement_type, command) in enumerate(_GOLD_QUERIES)
+            for i, (login_name, statement_type, command) in enumerate(rows)
         )
     else:
         client.get_all_views.return_value = []
@@ -1092,6 +1112,17 @@ def test_fabric_onelake_cross_item_lineage(pytestconfig: pytest.Config) -> None:
                 name.startswith(("ws-analytics.", "ws-shared."))
                 for name in emitted_urns
             ), emitted_urns
+
+            # System objects and driver / connector noise produce nothing.
+            assert not any(
+                ".sys." in name or ".information_schema." in name.lower()
+                for name in emitted_urns
+            ), emitted_urns
+            skipped = source.report.num_usage_queries_skipped
+            assert skipped.get("procedural_statement") == 2
+            assert skipped.get("ingestion_identity") == 2
+            assert source.report.num_system_object_references_filtered == 2
+            assert source.report.num_usage_queries_fetched == len(_GOLD_QUERIES) + 2
 
             golden_path = (
                 Path(__file__).parent

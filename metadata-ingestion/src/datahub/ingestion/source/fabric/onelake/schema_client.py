@@ -107,6 +107,18 @@ class SchemaExtractionClient(Protocol):
         """
         ...
 
+    def get_current_login(self, workspace_id: str, item_id: str) -> Optional[str]:
+        """Login name of the identity this client connects as (``SUSER_SNAME()``).
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Lakehouse or Warehouse GUID
+
+        Returns:
+            The login name, or None if the server returned none
+        """
+        ...
+
     def get_all_views(
         self,
         workspace_id: str,
@@ -554,6 +566,20 @@ class SqlAnalyticsEndpointClient:
                 exc_info=True,
             )
             raise
+
+    def get_current_login(self, workspace_id: str, item_id: str) -> Optional[str]:
+        """Login name of the identity this client connects as.
+
+        ``SUSER_SNAME()`` returns the login of the current session, which is the
+        value ``queryinsights.exec_requests_history.login_name`` records for the
+        queries this connector (and the ODBC driver on its behalf) issues.
+
+        Reference: https://learn.microsoft.com/en-us/sql/t-sql/functions/suser-sname-transact-sql
+        """
+        engine = self._get_engine(workspace_id, item_id, self.endpoint_url)
+        with engine.connect() as connection:
+            login = connection.execute(text("SELECT SUSER_SNAME()")).scalar()
+        return str(login) if login else None
 
     def get_all_views(
         self,

@@ -77,6 +77,16 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     num_lineage_upstreams_dropped_unresolved: int = 0
     num_lineage_aspects_dropped_unresolved: int = 0
 
+    # SQL references to system objects (sys / INFORMATION_SCHEMA /
+    # queryinsights schemas) in views and observed queries. They are never
+    # emitted as datasets, lineage, usage, or operations. Counted once per
+    # distinct object; upstream edges / lineage aspects removed because of them
+    # are counted separately.
+    num_system_object_references_filtered: int = 0
+    filtered_system_objects: LossyList[str] = field(default_factory=LossyList)
+    num_lineage_upstreams_dropped_system_objects: int = 0
+    num_lineage_aspects_dropped_system_objects: int = 0
+
     # API metrics (can be populated from FabricClientReport)
     api_calls_total_count: int = 0
     api_calls_total_error_count: int = 0
@@ -104,6 +114,11 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
         self.num_usage_queries_skipped[reason] = (
             self.num_usage_queries_skipped.get(reason, 0) + 1
         )
+
+    def report_system_object_reference(self, name: str) -> None:
+        """Record a distinct system object referenced by a view or query."""
+        self.num_system_object_references_filtered += 1
+        self.filtered_system_objects.append(name)
 
     def report_workspace_scanned(self) -> None:
         """Increment workspaces scanned counter."""

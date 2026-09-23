@@ -388,6 +388,39 @@ class TestSqlAnalyticsEndpointClient:
         with pytest.raises(SQLAlchemyError):
             client.get_all_tables(workspace_id="ws-123", item_id="wh-456")
 
+    @pytest.mark.parametrize(
+        "scalar, expected",
+        [("svc-datahub@example.com", "svc-datahub@example.com"), (None, None)],
+    )
+    @patch("datahub.ingestion.source.fabric.onelake.schema_client.create_engine")
+    def test_get_current_login(
+        self,
+        mock_create_engine,
+        scalar,
+        expected,
+        mock_auth_helper,
+        sql_endpoint_config,
+        mock_report,
+    ):
+        mock_engine = MagicMock()
+        mock_connection = MagicMock()
+        mock_connection.execute.return_value.scalar.return_value = scalar
+        mock_connection.__enter__ = Mock(return_value=mock_connection)
+        mock_connection.__exit__ = Mock(return_value=False)
+        mock_engine.connect.return_value = mock_connection
+        mock_create_engine.return_value = mock_engine
+
+        client = SqlAnalyticsEndpointClient(
+            auth_helper=mock_auth_helper,
+            config=sql_endpoint_config,
+            report=mock_report,
+            endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestWarehouse",
+        )
+
+        assert client.get_current_login("ws-123", "wh-456") == expected
+        assert "SUSER_SNAME()" in str(mock_connection.execute.call_args[0][0])
+
     @patch("datahub.ingestion.source.fabric.onelake.schema_client.create_engine")
     def test_get_all_views_error_handling(
         self, mock_create_engine, mock_auth_helper, sql_endpoint_config, mock_report
