@@ -417,15 +417,20 @@ class ExploreUpstreamViewField:
         upstream_views_file_path: Dict[str, Optional[str]],
         config: LookerCommonConfig,
         remove_variant: bool = False,
+        view_aliases: Optional[Dict[str, str]] = None,
     ) -> Optional[ColumnRef]:
         assert self.field.name is not None
 
         if len(self.field.name.split(".")) != 2:
             return None  # Inconsistent info received
 
-        view_name: Optional[str] = self.explore.name
-        if self.field.original_view is not None:
-            view_name = self.field.original_view
+        view_name: Optional[str] = (
+            LookerUtil.extract_view_name_from_lookml_model_explore_field(self.field)
+        )
+        if view_name is None:
+            view_name = self.explore.name
+        if view_name is not None and view_aliases:
+            view_name = view_aliases.get(view_name, view_name)
 
         field_name = self.field.name.split(".")[1]
 
@@ -481,6 +486,7 @@ class ExploreUpstreamViewField:
         model_name: str,
         upstream_views_file_path: Dict[str, Optional[str]],
         config: LookerCommonConfig,
+        view_aliases: Optional[Dict[str, str]] = None,
     ) -> Optional[ColumnRef]:
         assert self.field.name is not None
 
@@ -491,6 +497,7 @@ class ExploreUpstreamViewField:
                 model_name,
                 upstream_views_file_path,
                 config,
+                view_aliases=view_aliases,
             )
 
         if self.field.type is None or not self.field.type.startswith("date_"):
@@ -500,6 +507,7 @@ class ExploreUpstreamViewField:
                 model_name,
                 upstream_views_file_path,
                 config,
+                view_aliases=view_aliases,
             )  # for Dimensional Group the type is always start with date_[time|date]
 
         if not self.field.name.endswith(f"_{self.field.field_group_variant.lower()}"):
@@ -509,6 +517,7 @@ class ExploreUpstreamViewField:
                 model_name,
                 upstream_views_file_path,
                 config,
+                view_aliases=view_aliases,
             )  # if the explore field is generated because of  Dimensional Group in View
             # then the field_name should ends with field_group_variant
 
@@ -519,6 +528,7 @@ class ExploreUpstreamViewField:
             upstream_views_file_path,
             config,
             remove_variant=True,
+            view_aliases=view_aliases,
         )
 
 
@@ -557,6 +567,8 @@ def _resolve_one_view(
 
     Parameters set can_veto=False: an imported parameter is still evidence, but a
     missing or local parameter path is not proof the view is defined locally.
+    Fields remapped from an explore alias use the same rule — an explore-scoped
+    local path is not proof the imported view is local.
 
     Cross-project includes emit the view entity under include.project, so an
     all-imported view must keep that project. Project and file path are taken
@@ -645,11 +657,12 @@ def resolve_view_locations(
             if field_view_name is None:
                 continue
             canonical_view_name = aliases.get(field_view_name, field_view_name)
+            remapped = canonical_view_name != field_view_name
             sources_by_view.setdefault(canonical_view_name, []).append(
                 _ViewFieldSource(
                     view_name=canonical_view_name,
                     source_file=field.source_file,
-                    can_veto=can_veto,
+                    can_veto=can_veto and not remapped,
                 )
             )
 
@@ -1390,6 +1403,7 @@ class LookerExplore:
                     model_name=model,
                     upstream_views_file_path=upstream_views_file_path,
                     config=source_config,
+                    view_aliases=view_aliases,
                 )
                 view_field.upstream_fields = (
                     [column_ref] if column_ref is not None else []

@@ -107,6 +107,29 @@ class TestExploreUpstreamViewFieldFormFieldName:
             assert result is None
             assert "Empty field name detected" in caplog.text
 
+    def test_aliased_explore_does_not_remap_join_view(self) -> None:
+        explore = LookmlModelExplore(name="spoke_explore", view_name="hub_view")
+        field = LookmlModelExploreField(
+            name="other_view.col_a",
+            type="string",
+            view="other_view",
+            original_view=None,
+        )
+        result = ExploreUpstreamViewField(
+            field=field, explore=explore
+        )._form_field_name(
+            view_project_map={},
+            explore_project_name="spoke",
+            model_name="m",
+            upstream_views_file_path={"other_view": "views/other.view.lkml"},
+            config=LookerCommonConfig(),
+            view_aliases={"spoke_explore": "hub_view"},
+        )
+        assert result is not None
+        assert "other_view" in result.table
+        assert "hub.view.hub_view" not in result.table
+        assert "spoke.view.spoke_explore" not in result.table
+
 
 class TestLookerExploreJoinReconstruction:
     """Explore joins carry the relationship semantics needed to reconstruct the
@@ -415,6 +438,33 @@ class TestResolveViewLocations:
         assert locations["parent_view"].imported_project == "hub"
         assert locations["parent_view"].file_path == parent_path
 
+    def test_explore_alias_local_field_does_not_veto_imported_view(self) -> None:
+        reporter = SourceReport()
+        imported_path = "imported_projects/hub/views/hub_view.view.lkml"
+        locations = resolve_view_locations(
+            view_names=["hub_view"],
+            schema_fields=[
+                LookmlModelExploreField(
+                    name="hub_view.col_a",
+                    type="string",
+                    view="hub_view",
+                    source_file=imported_path,
+                ),
+                LookmlModelExploreField(
+                    name="spoke_explore.local_dim",
+                    type="string",
+                    view="spoke_explore",
+                    original_view=None,
+                    source_file="explores/spoke.explore.lkml",
+                ),
+            ],
+            parameter_fields=[],
+            reporter=reporter,
+            view_aliases={"spoke_explore": "hub_view"},
+        )
+        assert locations["hub_view"].imported_project == "hub"
+        assert locations["hub_view"].file_path == imported_path
+
 
 class TestFromApiImportedViewProject:
     def _from_api(
@@ -580,6 +630,32 @@ class TestFromApiImportedViewProject:
                     original_view=None,
                     source_file="imported_projects/hub/views/hub_view.view.lkml",
                 )
+            ],
+            parameters=[],
+        )
+        self._assert_imported_hub(explore)
+        assert explore.fields is not None
+        assert explore.fields[0].upstream_fields
+        column_urn = explore.fields[0].upstream_fields[0].table
+        assert "hub.view.hub_view" in column_urn
+        assert "spoke_explore" not in column_urn
+
+    def test_explore_scoped_local_field_does_not_veto_imported_view(self) -> None:
+        explore = self._from_api(
+            dimensions=[
+                LookmlModelExploreField(
+                    name="hub_view.col_a",
+                    type="string",
+                    view="hub_view",
+                    source_file="imported_projects/hub/views/hub_view.view.lkml",
+                ),
+                LookmlModelExploreField(
+                    name="spoke_explore.local_dim",
+                    type="string",
+                    view="spoke_explore",
+                    original_view=None,
+                    source_file="explores/spoke.explore.lkml",
+                ),
             ],
             parameters=[],
         )
