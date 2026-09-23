@@ -1094,13 +1094,13 @@ The following environment variables are used in the codebase but may not be expl
 
 ### OpenTelemetry Configuration
 
-| Environment Variable    | Default | Description                    | Components                                   |
-| ----------------------- | ------- | ------------------------------ | -------------------------------------------- |
-| `OTEL_METRICS_EXPORTER` | `none`  | OpenTelemetry metrics exporter | GMS, MAE Consumer, MCE Consumer, PE Consumer |
-| `OTEL_TRACES_EXPORTER`  | `none`  | OpenTelemetry traces exporter  | GMS, MAE Consumer, MCE Consumer, PE Consumer |
-| `OTEL_LOGS_EXPORTER`    | `none`  | OpenTelemetry logs exporter    | GMS, MAE Consumer, MCE Consumer, PE Consumer |
-| `OTEL_PROPAGATORS`      | `null`  | OpenTelemetry propagators      | GMS, MAE Consumer, MCE Consumer, PE Consumer |
-| `TELEMETRY_TRACE_CONTINUATION_ENABLED` | `false` | Keep the trace id sent by the load balancer or ingress in the `traceparent` header instead of starting a new trace per request, so the edge access log, GMS spans and store logs share one id. Only needed without the OpenTelemetry Java agent, which does this itself | GMS |
+| Environment Variable                   | Default | Description                                                                                                                                                                                                                                                             | Components                                   |
+| -------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `OTEL_METRICS_EXPORTER`                | `none`  | OpenTelemetry metrics exporter                                                                                                                                                                                                                                          | GMS, MAE Consumer, MCE Consumer, PE Consumer |
+| `OTEL_TRACES_EXPORTER`                 | `none`  | OpenTelemetry traces exporter                                                                                                                                                                                                                                           | GMS, MAE Consumer, MCE Consumer, PE Consumer |
+| `OTEL_LOGS_EXPORTER`                   | `none`  | OpenTelemetry logs exporter                                                                                                                                                                                                                                             | GMS, MAE Consumer, MCE Consumer, PE Consumer |
+| `OTEL_PROPAGATORS`                     | `null`  | OpenTelemetry propagators                                                                                                                                                                                                                                               | GMS, MAE Consumer, MCE Consumer, PE Consumer |
+| `TELEMETRY_TRACE_CONTINUATION_ENABLED` | `false` | Keep the trace id sent by the load balancer or ingress in the `traceparent` header instead of starting a new trace per request, so the edge access log, GMS spans and store logs share one id. Only needed without the OpenTelemetry Java agent, which does this itself | GMS                                          |
 
 ### Request Attribution
 
@@ -1112,12 +1112,12 @@ long they took, and puts that record on the request's trace so your monitoring t
 and Postgres requests themselves, so those systems' own logs name the user. Requires traces to be
 exported (`OTEL_TRACES_EXPORTER`).
 
-| Environment Variable                                   | Default | Description                                                                                                                                                                                                                                              | Components |
-| ------------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `TELEMETRY_REQUEST_ATTRIBUTION_ENABLED`                | `false` | Turn on per-request attribution. Each request's trace records the user, the operation, and how many OpenSearch and database calls it made and how long they took                                                                                          | GMS        |
-| `TELEMETRY_REQUEST_ATTRIBUTION_OPENSEARCH_OPAQUE_ID`   | `false` | Tag every OpenSearch search request with the user, operation and trace id (in the `X-Opaque-Id` header) so OpenSearch's slow log, task list and Query Insights show who ran each query                                                                   | GMS        |
-| `TELEMETRY_REQUEST_ATTRIBUTION_POSTGRES_ACTOR_COMMENT` | `false` | Add a SQL comment naming the user and operation to every database statement a request runs, so the Postgres statement log and `pg_stat_activity` show who ran it. Note: this writes user urns into the database log                                     | GMS        |
-| `TELEMETRY_REQUEST_ATTRIBUTION_START_MARKER`           | `false` | Also record when each API request starts, not just when it ends, so a monitoring tool can list requests that are still running and who started them                                                                                                       | GMS        |
+| Environment Variable                                   | Default | Description                                                                                                                                                                                                         | Components |
+| ------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `TELEMETRY_REQUEST_ATTRIBUTION_ENABLED`                | `false` | Turn on per-request attribution. Each request's trace records the user, the operation, and how many OpenSearch and database calls it made and how long they took                                                    | GMS        |
+| `TELEMETRY_REQUEST_ATTRIBUTION_OPENSEARCH_OPAQUE_ID`   | `false` | Tag every OpenSearch search request with the user, operation and trace id (in the `X-Opaque-Id` header) so OpenSearch's slow log, task list and Query Insights show who ran each query                              | GMS        |
+| `TELEMETRY_REQUEST_ATTRIBUTION_POSTGRES_ACTOR_COMMENT` | `false` | Add a SQL comment naming the user and operation to every database statement a request runs, so the Postgres statement log and `pg_stat_activity` show who ran it. Note: this writes user urns into the database log | GMS        |
+| `TELEMETRY_REQUEST_ATTRIBUTION_START_MARKER`           | `false` | Also record when each API request starts, not just when it ends, so a monitoring tool can list requests that are still running and who started them                                                                 | GMS        |
 
 ### Secret Service Configuration
 

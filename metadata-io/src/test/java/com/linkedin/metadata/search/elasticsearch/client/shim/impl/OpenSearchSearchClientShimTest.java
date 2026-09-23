@@ -653,4 +653,71 @@ public class OpenSearchSearchClientShimTest {
     when(nullEngine.getEngineType()).thenReturn(null);
     assertThrows(IllegalArgumentException.class, () -> new OpenSearchSearchClientShim(nullEngine));
   }
+
+  // --- request attribution: failed round trips are timed, explain carries the header ---
+
+  private static io.opentelemetry.api.trace.Span attributionSpan() {
+    return io.opentelemetry.api.trace.Span.wrap(
+        io.opentelemetry.api.trace.SpanContext.create(
+            "0af7651916cd43dd8448eb211c80319c",
+            "b7ad6b7169203331",
+            io.opentelemetry.api.trace.TraceFlags.getSampled(),
+            io.opentelemetry.api.trace.TraceState.getDefault()));
+  }
+
+  @Test
+  public void attributionCountsATimedOutSearch() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    when(restClient.performRequest(any(Request.class)))
+        .thenThrow(new java.net.SocketTimeoutException("read timed out"));
+    io.datahubproject.metadata.context.RequestStats stats =
+        new io.datahubproject.metadata.context.RequestStats(false);
+    SearchRequest searchRequest = new SearchRequest("idx").source(new SearchSourceBuilder());
+    try (io.opentelemetry.context.Scope ignored =
+        io.opentelemetry.context.Context.current()
+            .with(io.datahubproject.metadata.context.RequestStats.CONTEXT_KEY, stats)
+            .makeCurrent()) {
+      shimWith(restClient).search(OP, searchRequest, RequestOptions.DEFAULT);
+      org.testng.Assert.fail("expected the timeout to propagate");
+    } catch (IOException expected) {
+      // the failed round trip is still attributed
+    }
+    assertEquals(stats.getEsCalls(), 1L);
+  }
+
+  @Test
+  public void attributionTagsAndTimesExplain() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    String body =
+        "{\"_index\":\"idx\",\"_id\":\"doc1\",\"matched\":true,"
+            + "\"explanation\":{\"value\":1.0,\"description\":\"d\",\"details\":[]}}";
+    Response ok = jsonResponse(200, body);
+    org.mockito.ArgumentCaptor<Request> captor = org.mockito.ArgumentCaptor.forClass(Request.class);
+    when(restClient.performRequest(captor.capture())).thenReturn(ok);
+    io.datahubproject.metadata.context.RequestStats stats =
+        new io.datahubproject.metadata.context.RequestStats(true);
+    stats.attach(null, "urn:li:corpuser:jdoe", "explain");
+    ExplainRequest explainRequest =
+        new ExplainRequest("idx", "doc1")
+            .query(org.opensearch.index.query.QueryBuilders.matchAllQuery());
+    try (io.opentelemetry.context.Scope ignored =
+        io.opentelemetry.context.Context.current()
+            .with(attributionSpan())
+            .with(io.datahubproject.metadata.context.RequestStats.CONTEXT_KEY, stats)
+            .makeCurrent()) {
+      shimWith(restClient).explain(OP, explainRequest, RequestOptions.DEFAULT);
+    }
+    assertEquals(stats.getEsCalls(), 1L);
+    String header =
+        captor.getValue().getOptions().getHeaders().stream()
+            .filter(
+                h ->
+                    h.getName().equals(com.linkedin.metadata.search.utils.ESUtils.OPAQUE_ID_HEADER))
+            .map(h -> h.getValue())
+            .findFirst()
+            .orElse(null);
+    assertEquals(
+        header,
+        "trace=0af7651916cd43dd8448eb211c80319c|actor=urn:li:corpuser:jdoe|req=explain|n=1");
+  }
 }
