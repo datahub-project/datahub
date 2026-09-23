@@ -16,4 +16,8 @@ public class TelemetryConfiguration {
 
   /** Whether or not server telemetry should be enabled */
   public boolean enabledServer;
+
+  /** Per-request actor/operation attribution on OpenTelemetry spans. Off by default. */
+  private RequestAttributionConfiguration requestAttribution =
+      new RequestAttributionConfiguration();
 }

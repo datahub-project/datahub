@@ -172,6 +172,12 @@ telemetry:
   enabledIngestion: ${INGESTION_REPORTING_ENABLED:false}
   enableThirdPartyLogging: ${ENABLE_THIRD_PARTY_LOGGING:false} # whether mixpanel tracking is enabled.
   enabledServer: ${DATAHUB_TELEMETRY_ENABLED:true}
+  # Per-request actor / operation attribution on OpenTelemetry spans (see RequestAttributionConfiguration).
+  # All off by default; no UI or log output, only span attributes and an optional OpenSearch header.
+  requestAttribution:
+    enabled: ${TELEMETRY_REQUEST_ATTRIBUTION_ENABLED:false}
+    opensearchOpaqueId: ${TELEMETRY_REQUEST_ATTRIBUTION_OPENSEARCH_OPAQUE_ID:false}
+    startMarker: ${TELEMETRY_REQUEST_ATTRIBUTION_START_MARKER:false}
 
 secretService:
   encryptionKey: "#{systemEnvironment['SECRET_SERVICE_ENCRYPTION_KEY'] ?: 'ENCRYPTION_KEY'}"

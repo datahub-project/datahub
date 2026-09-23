@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.RequestStats;
 import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
 import io.ebean.datasource.DataSourcePoolListener;
@@ -92,15 +93,25 @@ public class LocalEbeanConfigFactory {
   public static DataSourcePoolListener getListenerToTrackCounts(
       MetricUtils metricUtils, String metricName) {
     final String counterName = "ebeans_connection_pool_size_" + metricName;
+    // Request attribution (off by default): time how long each request holds a connection. Borrow
+    // and return happen on the same thread, so a ThreadLocal is enough; when no accumulator is in
+    // scope this costs one nanoTime call per borrow and nothing else.
+    final ThreadLocal<long[]> borrowedAt = ThreadLocal.withInitial(() -> new long[1]);
     return new DataSourcePoolListener() {
       @Override
       public void onAfterBorrowConnection(Connection connection) {
         if (metricUtils != null) metricUtils.increment(counterName, 1);
+        borrowedAt.get()[0] = System.nanoTime();
       }
 
       @Override
       public void onBeforeReturnConnection(Connection connection) {
         if (metricUtils != null) metricUtils.increment(counterName, -1);
+        long start = borrowedAt.get()[0];
+        if (start != 0L) {
+          borrowedAt.get()[0] = 0L;
+          RequestStats.current().ifPresent(s -> s.recordDb(System.nanoTime() - start));
+        }
       }
     };
   }
