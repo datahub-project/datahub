@@ -78,6 +78,26 @@ def _call_patched_parser():
     )
 
 
+def _installed_guard_operator_class() -> Any:
+    """Return SQLExecuteQueryOperator with the guard installed the way production does it.
+
+    Importing _airflow_compat installs the guard process-wide, and patch() is a no-op
+    once it is in place, so installing and removing it per test would silently depend
+    on test order. Rely on the production install and assert it happened instead.
+    """
+    from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+
+    from datahub_airflow_plugin.airflow3 import _airflow_compat  # noqa: F401
+    from datahub_airflow_plugin.airflow3._sql_operator_complete_patch import (
+        _PATCHED_MARKER,
+    )
+
+    assert getattr(SQLExecuteQueryOperator, _PATCHED_MARKER, False), (
+        "importing _airflow_compat should install the common-sql completion guard"
+    )
+    return SQLExecuteQueryOperator
+
+
 def test_scope_defaults_to_inactive():
     assert in_datahub_extraction() is False
 
@@ -140,20 +160,7 @@ class TestSqlOperatorCompleteGuard:
 
     @pytest.fixture
     def guarded_operator_class(self) -> Any:
-        from datahub_airflow_plugin.airflow3._sql_operator_complete_patch import (
-            SqlOperatorCompletePatch,
-        )
-
-        patcher = SqlOperatorCompletePatch()
-        patcher.patch()
-        try:
-            from airflow.providers.common.sql.operators.sql import (
-                SQLExecuteQueryOperator,
-            )
-
-            yield SQLExecuteQueryOperator
-        finally:
-            patcher.unpatch()
+        return _installed_guard_operator_class()
 
     @staticmethod
     def _fake_operator() -> Any:
@@ -282,10 +289,15 @@ class TestPatchInstallOrder:
         from datahub_airflow_plugin.airflow3 import _airflow_compat
 
         source = inspect.getsource(_airflow_compat)
-        guard_at = source.index("patch_sql_execute_query_operator()")
+
+        def position(call: str) -> int:
+            assert call in source, f"{call} not found in _airflow_compat"
+            return source.index(call)
+
+        guard_at = position("patch_sql_execute_query_operator()")
         operator_patches = [
-            source.index(name)
-            for name in (
+            position(call)
+            for call in (
                 "patch_athena_operator()",
                 "patch_bigquery_insert_job_operator()",
                 "patch_teradata_operator()",
@@ -307,36 +319,49 @@ class TestPassCountBaseline:
     """
 
     def test_datahub_adds_no_warehouse_passes(self, sql_parser_env):
-        from datahub_airflow_plugin.airflow3._sql_operator_complete_patch import (
-            SqlOperatorCompletePatch,
+        on_complete = (
+            _installed_guard_operator_class().get_openlineage_facets_on_complete
         )
 
-        patcher = SqlOperatorCompletePatch()
-        patcher.patch()
-        try:
-            from airflow.providers.common.sql.operators.sql import (
-                SQLExecuteQueryOperator,
-            )
+        hook = mock.MagicMock()
+        hook.get_openlineage_database_specific_lineage.return_value = None
+        operator: Any = SimpleNamespace(
+            get_openlineage_facets_on_start=_call_patched_parser,
+            get_db_hook=mock.MagicMock(return_value=hook),
+        )
 
-            hook = mock.MagicMock()
-            hook.get_openlineage_database_specific_lineage.return_value = None
-            operator: Any = SimpleNamespace(
-                get_openlineage_facets_on_start=_call_patched_parser,
-                get_db_hook=mock.MagicMock(return_value=hook),
-            )
-            on_complete = SQLExecuteQueryOperator.get_openlineage_facets_on_complete
-
-            # Provider's forked passes, then DataHub's in-process passes.
+        # Provider's forked passes, then DataHub's in-process passes.
+        operator.get_openlineage_facets_on_start()
+        with datahub_extraction_scope():
             operator.get_openlineage_facets_on_start()
-            with datahub_extraction_scope():
-                operator.get_openlineage_facets_on_start()
+        on_complete(operator, mock.MagicMock())
+        with datahub_extraction_scope():
             on_complete(operator, mock.MagicMock())
-            with datahub_extraction_scope():
-                on_complete(operator, mock.MagicMock())
-        finally:
-            patcher.unpatch()
 
         # Two passes, not four: exactly what the provider alone would have done.
         assert sql_parser_env.call_count == 2
         assert all(c.kwargs["use_connection"] for c in sql_parser_env.call_args_list)
         hook.get_openlineage_database_specific_lineage.assert_called_once()
+
+
+class TestTableErrorIsVisible:
+    def test_table_error_is_recorded_on_datajob(self, fake_parse_result):
+        """A table error drops all table lineage, so it must not be log-only.
+
+        With the provider enabled, DataHub's parser is the only table source during
+        DataHub extraction, making this the most likely way to lose lineage.
+        """
+        from datahub_airflow_plugin.airflow3.datahub_listener import DataHubListener
+
+        fake_parse_result.debug_info.table_error = ValueError("cannot resolve table")
+        datajob = SimpleNamespace(urn="urn:li:dataJob:test", properties={})
+
+        inputs, outputs, _ = DataHubListener._process_sql_parsing_result(
+            cast(Any, SimpleNamespace()), cast(Any, datajob), fake_parse_result
+        )
+
+        assert inputs == [] and outputs == []
+        assert (
+            "cannot resolve table"
+            in datajob.properties["datahub_sql_parser_table_error"]
+        )

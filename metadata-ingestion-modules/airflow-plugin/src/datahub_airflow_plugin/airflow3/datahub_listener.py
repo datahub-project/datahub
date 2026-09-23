@@ -862,8 +862,19 @@ class DataHubListener:
                     f"Created {len(fine_grained_lineages)} FGLs from {len(sql_parsing_result.column_lineage)} column_lineage items for task {datajob.urn}"
                 )
         else:
+            table_error = sql_parsing_result.debug_info.table_error
+            dropped = (
+                f"dropped {len(sql_parsing_result.in_tables)} input(s) / "
+                f"{len(sql_parsing_result.out_tables)} output(s)"
+            )
             logger.warning(
-                f"SQL parsing table error for task {datajob.urn}: {sql_parsing_result.debug_info.table_error}"
+                f"SQL parsing table error for task {datajob.urn} ({dropped}): {table_error}"
+            )
+            # Surface this on the DataJob like datahub_sql_parser_error above. With the
+            # OpenLineage provider enabled, DataHub's parser is the only table source
+            # during DataHub extraction, so a table error here means lost lineage.
+            datajob.properties["datahub_sql_parser_table_error"] = (
+                f"{type(table_error).__name__}: {table_error} ({dropped})"
             )
 
         return input_urns, output_urns, fine_grained_lineages

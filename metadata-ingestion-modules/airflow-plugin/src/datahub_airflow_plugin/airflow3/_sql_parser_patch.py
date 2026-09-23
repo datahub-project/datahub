@@ -120,7 +120,7 @@ def _datahub_generate_openlineage_metadata_from_sql(
                     database_info,
                     database,
                     sqlalchemy_engine,
-                    use_connection=False if datahub_driven else use_connection,
+                    use_connection=use_connection,
                 )
                 logger.debug(f"OpenLineage parser result: {ol_result}")
             except Exception as e:
