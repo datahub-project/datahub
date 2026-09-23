@@ -203,6 +203,7 @@ source:
 2. **Authentication**: Uses the same Azure credentials configured for REST API access with Azure AD token injection
 3. **Connection**: Connects to the SQL Analytics Endpoint using ODBC with the discovered endpoint URL
 4. **Query**: Queries `INFORMATION_SCHEMA.COLUMNS` to extract column metadata (required for schema extraction)
+   - For **Warehouses**, the tables themselves are also discovered here, from `INFORMATION_SCHEMA.TABLES` (`TABLE_TYPE = 'BASE TABLE'`, excluding the `sys`, `INFORMATION_SCHEMA`, and `queryinsights` schemas). See [Warehouse Table Discovery](#warehouse-table-discovery).
 5. **Type Mapping**: SQL Server data types are automatically mapped to DataHub types using the standard type mapping system
 
 **References:**
@@ -333,6 +334,12 @@ All standard `BaseUsageConfig` fields (`bucket_duration`, `start_time`, `end_tim
 
 When stateful ingestion is enabled, the usage time window is checkpointed only after a successful run, so a partial or failed run won't silently skip the next window.
 
+#### Warehouse Table Discovery
+
+The [Fabric REST Tables API](https://learn.microsoft.com/en-us/rest/api/fabric/lakehouse/tables/list-tables) is available for Lakehouses only; the [Warehouse REST API](https://learn.microsoft.com/en-us/rest/api/fabric/warehouse/items) has no operation that lists tables. The connector therefore discovers Warehouse tables (including tables created with T-SQL `CREATE TABLE` / `CREATE TABLE AS SELECT`) through the Warehouse's SQL Analytics Endpoint, by querying `INFORMATION_SCHEMA.TABLES`. These tables get column-level schema from `INFORMATION_SCHEMA.COLUMNS` and are registered with the SQL parser, so views over them get column-level lineage.
+
+This requires `sql_endpoint.enabled: true` (the default). If the endpoint is disabled or cannot be reached for a Warehouse, the connector falls back to the REST API, which returns 404 for Warehouses: that Warehouse's tables are not ingested, a `Warehouse Tables Not Discovered` warning explaining the fix is added to the report, and `num_warehouses_without_table_discovery` is incremented. The report field `num_warehouse_tables_discovered_via_sql_endpoint` counts the tables found through the endpoint.
+
 #### Schemas-Enabled vs Schemas-Disabled Lakehouses
 
 The connector automatically handles both schemas-enabled and schemas-disabled lakehouses:
@@ -370,6 +377,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
   - Permission issues
   - Table count limits in very large databases
 - **Graceful Degradation**: If schema extraction fails for a table, the table will still be ingested without column metadata (no ingestion failure)
+- **Warehouse Tables Require SQL Endpoint**: Warehouse tables are only discoverable through the SQL Analytics Endpoint (`INFORMATION_SCHEMA.TABLES`), because the Fabric REST Tables API is Lakehouse-only. With `sql_endpoint.enabled: false`, or if the endpoint is unreachable, a Warehouse's tables are not ingested and a warning is reported; lineage from its views then points at tables without schema metadata.
 - **View Extraction Requires SQL Endpoint**: Views are only discovered through the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, or if the endpoint is unreachable for a given Lakehouse/Warehouse, views in that item will not be ingested.
 - **Cross-Item References Require the Referenced Workspace**: `item.schema.table` and `workspace.item.schema.table` references resolve only to Lakehouses / Warehouses in workspaces ingested by the same recipe (allowed by `workspace_pattern`). References to other workspaces, to other item types (e.g. SQL databases, mirrored databases), are not resolved and are reported as warnings. A table that is a OneLake shortcut resolves to the shortcut table in the referencing item, not to the shortcut's target. With `platform_instance`, all resolved URNs use the recipe's platform instance.
 - **Usage Statistics Retention**: Fabric `queryinsights` retains query history for only **30 days**. Older usage cannot be backfilled, regardless of the configured `usage.start_time`.

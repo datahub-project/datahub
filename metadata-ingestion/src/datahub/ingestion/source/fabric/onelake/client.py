@@ -457,12 +457,18 @@ class OneLakeClient(BaseFabricClient):
     def list_warehouse_tables(
         self, workspace_id: str, warehouse_id: str
     ) -> Iterator[FabricTable]:
-        """List all tables in a warehouse.
+        """List the tables of a warehouse via the Fabric REST API.
 
-        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/tables/list
+        Fallback only: the Fabric REST Tables API is documented for Lakehouses
+        (https://learn.microsoft.com/en-us/rest/api/fabric/lakehouse/tables/list-tables)
+        and the Warehouse REST API exposes no tables operation
+        (https://learn.microsoft.com/en-us/rest/api/fabric/warehouse/items), so
+        this call is expected to return 404 for Warehouses. The source discovers
+        Warehouse tables through the SQL Analytics Endpoint
+        (INFORMATION_SCHEMA.TABLES) and only calls this when that endpoint is
+        disabled or unavailable.
 
-        Some warehouse types (e.g. staging warehouses for Dataflows) may return 404
-        for the tables endpoint; we treat that as empty and log a warning.
+        HTTP errors, including 404, are propagated so the caller can report them.
 
         Args:
             workspace_id: Workspace GUID
@@ -471,38 +477,24 @@ class OneLakeClient(BaseFabricClient):
         Yields:
             FabricTable objects
         """
-        logger.info(f"Listing tables for warehouse {warehouse_id}")
-        try:
-            response = self.get(
-                f"workspaces/{workspace_id}/warehouses/{warehouse_id}/tables"
+        logger.info(f"Listing tables for warehouse {warehouse_id} via REST API")
+        response = self.get(
+            f"workspaces/{workspace_id}/warehouses/{warehouse_id}/tables"
+        )
+        data = response.json()
+
+        tables = data.get("value", [])
+        logger.info(f"Found {len(tables)} table(s) in warehouse {warehouse_id}")
+
+        for table_data in tables:
+            full_name = table_data.get("name", "")
+            schema_name, table_name = _parse_table_name(full_name)
+            logger.debug(f"Processing table: {schema_name}.{table_name}")
+
+            yield FabricTable(
+                name=table_name,
+                schema_name=schema_name,
+                item_id=warehouse_id,
+                workspace_id=workspace_id,
+                description=table_data.get("description"),
             )
-            data = response.json()
-
-            tables = data.get("value", [])
-            logger.info(f"Found {len(tables)} table(s) in warehouse {warehouse_id}")
-
-            for table_data in tables:
-                full_name = table_data.get("name", "")
-                schema_name, table_name = _parse_table_name(full_name)
-                logger.debug(f"Processing table: {schema_name}.{table_name}")
-
-                yield FabricTable(
-                    name=table_name,
-                    schema_name=schema_name,
-                    item_id=warehouse_id,
-                    workspace_id=workspace_id,
-                    description=table_data.get("description"),
-                )
-
-        except requests.exceptions.HTTPError as e:
-            if e.response is not None and e.response.status_code == 404:
-                logger.warning(
-                    f"Warehouse {warehouse_id} tables endpoint returned 404 (Not Found). "
-                    "Some warehouse types (e.g. staging) do not expose tables via API. "
-                )
-                return
-            logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
-            raise

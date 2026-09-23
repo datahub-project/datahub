@@ -319,6 +319,76 @@ class TestSqlAnalyticsEndpointClient:
         assert columns_by_table[("dbo", "table2")][0].data_type == "VARCHAR"
 
     @patch("datahub.ingestion.source.fabric.onelake.schema_client.create_engine")
+    def test_get_all_tables_returns_base_tables(
+        self, mock_create_engine, mock_auth_helper, sql_endpoint_config, mock_report
+    ):
+        """Warehouse tables are discovered via INFORMATION_SCHEMA.TABLES."""
+        mock_engine = MagicMock()
+        mock_connection = MagicMock()
+        rows = []
+        for schema, table in [("dbo", "customer_totals"), ("sales", "orders")]:
+            row = MagicMock()
+            row.TABLE_SCHEMA = schema
+            row.TABLE_NAME = table
+            rows.append(row)
+        mock_result = MagicMock()
+        mock_result.__iter__ = Mock(return_value=iter(rows))
+        mock_connection.execute.return_value = mock_result
+        mock_connection.__enter__ = Mock(return_value=mock_connection)
+        mock_connection.__exit__ = Mock(return_value=False)
+        mock_engine.connect.return_value = mock_connection
+        mock_create_engine.return_value = mock_engine
+
+        client = SqlAnalyticsEndpointClient(
+            auth_helper=mock_auth_helper,
+            config=sql_endpoint_config,
+            endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            report=mock_report,
+            item_display_name="TestWarehouse",
+        )
+
+        tables = client.get_all_tables(workspace_id="ws-123", item_id="wh-456")
+
+        assert [(t.schema_name, t.name) for t in tables] == [
+            ("dbo", "customer_totals"),
+            ("sales", "orders"),
+        ]
+        assert all(t.item_id == "wh-456" and t.workspace_id == "ws-123" for t in tables)
+        query, params = mock_connection.execute.call_args[0]
+        sql = str(query)
+        assert "INFORMATION_SCHEMA.TABLES" in sql
+        assert "TABLE_TYPE = 'BASE TABLE'" in sql
+        assert set(params["system_schemas"]) == {
+            "INFORMATION_SCHEMA",
+            "sys",
+            "queryinsights",
+        }
+
+    @patch("datahub.ingestion.source.fabric.onelake.schema_client.create_engine")
+    def test_get_all_tables_error_propagates(
+        self, mock_create_engine, mock_auth_helper, sql_endpoint_config, mock_report
+    ):
+        """SQL failures must propagate so the caller can emit a structured warning."""
+        mock_engine = MagicMock()
+        mock_connection = MagicMock()
+        mock_connection.execute.side_effect = SQLAlchemyError("Connection failed")
+        mock_connection.__enter__ = Mock(return_value=mock_connection)
+        mock_connection.__exit__ = Mock(return_value=False)
+        mock_engine.connect.return_value = mock_connection
+        mock_create_engine.return_value = mock_engine
+
+        client = SqlAnalyticsEndpointClient(
+            auth_helper=mock_auth_helper,
+            config=sql_endpoint_config,
+            report=mock_report,
+            endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestWarehouse",
+        )
+
+        with pytest.raises(SQLAlchemyError):
+            client.get_all_tables(workspace_id="ws-123", item_id="wh-456")
+
+    @patch("datahub.ingestion.source.fabric.onelake.schema_client.create_engine")
     def test_get_all_views_error_handling(
         self, mock_create_engine, mock_auth_helper, sql_endpoint_config, mock_report
     ):

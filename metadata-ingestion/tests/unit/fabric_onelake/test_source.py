@@ -4,6 +4,7 @@ from typing import Iterator, List
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.ingestion.api.common import PipelineContext
@@ -15,6 +16,7 @@ from datahub.ingestion.source.fabric.common.models import (
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricLakehouse,
+    FabricTable,
     FabricWarehouse,
 )
 from datahub.ingestion.source.fabric.onelake.source import (
@@ -158,7 +160,7 @@ def test_norm_respects_convert_urns_to_lowercase() -> None:
 _WORKSPACE = FabricWorkspace(id="ws-1", name="Analytics")
 
 
-def _make_source() -> FabricOneLakeSource:
+def _make_source(**config: object) -> FabricOneLakeSource:
     return FabricOneLakeSource.create(
         {
             "credential": {
@@ -167,6 +169,7 @@ def _make_source() -> FabricOneLakeSource:
                 "client_secret": "test-secret",
                 "tenant_id": "test-tenant",
             },
+            **config,
         },
         PipelineContext(run_id="fabric-onelake-unit"),
     )
@@ -246,4 +249,162 @@ def test_item_listing_failure_is_the_reported_unresolved_cause() -> None:
     assert source.item_catalog.resolve_item(_WORKSPACE.id, "gold_wh").item is not None
     reason = source.item_catalog.resolve_item(_WORKSPACE.id, "silver_lh").reason
     assert reason is not None and "listing" in reason
+    source.close()
+
+
+def _http_error(status_code: int) -> requests.exceptions.HTTPError:
+    response = requests.Response()
+    response.status_code = status_code
+    return requests.exceptions.HTTPError(f"HTTP {status_code}", response=response)
+
+
+def _table(item_id: str, schema: str, name: str) -> FabricTable:
+    return FabricTable(
+        name=name, schema_name=schema, item_id=item_id, workspace_id=_WORKSPACE.id
+    )
+
+
+def test_warehouse_tables_come_from_sql_endpoint_not_rest() -> None:
+    """The Fabric REST Tables API is Lakehouse-only; Warehouse tables must be
+    discovered via INFORMATION_SCHEMA.TABLES on the SQL endpoint."""
+    source = _make_source()
+    schema_client = MagicMock()
+    schema_client.get_all_tables.return_value = [
+        _table("wh-1", "dbo", "customer_totals")
+    ]
+    with patch.object(
+        OneLakeClient,
+        "list_warehouse_tables",
+        side_effect=AssertionError("REST API must not be called"),
+    ):
+        tables = source._list_item_tables(
+            _WORKSPACE, "wh-1", "Warehouse", "gold_wh", schema_client
+        )
+
+    assert [t.name for t in tables] == ["customer_totals"]
+    schema_client.get_all_tables.assert_called_once_with(
+        workspace_id=_WORKSPACE.id, item_id="wh-1"
+    )
+    assert source.report.num_warehouse_tables_discovered_via_sql_endpoint == 1
+    assert not source.report.warnings
+    source.close()
+
+
+def test_lakehouse_tables_still_come_from_rest() -> None:
+    source = _make_source()
+    schema_client = MagicMock()
+    with patch.object(
+        OneLakeClient,
+        "list_lakehouse_tables",
+        return_value=iter([_table("lh-1", "dbo", "customers")]),
+    ):
+        tables = source._list_item_tables(
+            _WORKSPACE, "lh-1", "Lakehouse", "silver_lh", schema_client
+        )
+
+    assert [t.name for t in tables] == ["customers"]
+    schema_client.get_all_tables.assert_not_called()
+    source.close()
+
+
+def test_warehouse_sql_table_discovery_failure_is_reported() -> None:
+    source = _make_source()
+    schema_client = MagicMock()
+    schema_client.get_all_tables.side_effect = RuntimeError("login timeout")
+
+    tables = source._list_item_tables(
+        _WORKSPACE, "wh-1", "Warehouse", "gold_wh", schema_client
+    )
+
+    assert tables == []
+    warnings = [
+        w
+        for w in source.report.warnings
+        if w.title == "Warehouse Table Discovery Failed"
+    ]
+    assert len(warnings) == 1
+    assert any("gold_wh" in c for c in warnings[0].context)
+    source.close()
+
+
+def test_warehouse_rest_404_without_sql_endpoint_reports_the_fix() -> None:
+    """Without a SQL endpoint the REST fallback 404s; the report must say why
+    (REST is Lakehouse-only, not a 'staging warehouse' quirk) and how to fix."""
+    source = _make_source()
+    with patch.object(
+        OneLakeClient, "list_warehouse_tables", side_effect=_http_error(404)
+    ):
+        tables = source._list_item_tables(
+            _WORKSPACE, "wh-1", "Warehouse", "gold_wh", None
+        )
+
+    assert tables == []
+    assert source.report.num_warehouses_without_table_discovery == 1
+    warnings = [
+        w
+        for w in source.report.warnings
+        if w.title == "Warehouse Tables Not Discovered"
+    ]
+    assert len(warnings) == 1
+    assert "sql_endpoint.enabled" in warnings[0].message
+    assert "staging" not in warnings[0].message
+    source.close()
+
+
+def test_warehouse_rest_non_404_error_is_reported_generically() -> None:
+    source = _make_source()
+    with patch.object(
+        OneLakeClient, "list_warehouse_tables", side_effect=_http_error(500)
+    ):
+        tables = source._list_item_tables(
+            _WORKSPACE, "wh-1", "Warehouse", "gold_wh", None
+        )
+
+    assert tables == []
+    assert source.report.num_warehouses_without_table_discovery == 0
+    assert any(w.title == "Failed to Process Tables" for w in source.report.warnings)
+    source.close()
+
+
+def test_schema_client_not_created_when_sql_endpoint_disabled() -> None:
+    source = _make_source(
+        sql_endpoint={"enabled": False},
+        extract_views=False,
+        extract_schema={"enabled": False},
+        usage={"include_usage_statistics": False},
+    )
+    with patch(
+        "datahub.ingestion.source.fabric.onelake.schema_client."
+        "create_schema_extraction_client"
+    ) as factory:
+        client = source._create_schema_client(
+            _WORKSPACE, "wh-1", "Warehouse", "gold_wh"
+        )
+
+    assert client is None
+    factory.assert_not_called()
+    source.close()
+
+
+def test_schema_client_created_for_warehouse_table_discovery_alone() -> None:
+    """Warehouse table discovery needs the endpoint even with every other
+    endpoint-backed feature turned off."""
+    source = _make_source(
+        extract_views=False,
+        extract_schema={"enabled": False},
+        usage={"include_usage_statistics": False},
+    )
+    with patch(
+        "datahub.ingestion.source.fabric.onelake.schema_client."
+        "create_schema_extraction_client"
+    ) as factory:
+        warehouse_client = source._create_schema_client(
+            _WORKSPACE, "wh-1", "Warehouse", "gold_wh"
+        )
+        lakehouse_client = source._create_schema_client(
+            _WORKSPACE, "lh-1", "Lakehouse", "silver_lh"
+        )
+
+    assert warehouse_client is factory.return_value
+    assert lakehouse_client is None
     source.close()

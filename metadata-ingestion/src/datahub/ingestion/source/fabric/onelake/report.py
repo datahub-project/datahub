@@ -54,6 +54,13 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     filtered_tables: LossyList[str] = field(default_factory=LossyList)
     filtered_views: LossyList[str] = field(default_factory=LossyList)
 
+    # Warehouse tables are discovered via INFORMATION_SCHEMA.TABLES on the SQL
+    # Analytics Endpoint (the Fabric REST Tables API is Lakehouse-only).
+    num_warehouse_tables_discovered_via_sql_endpoint: int = 0
+    # Warehouses whose tables could not be discovered because the SQL Analytics
+    # Endpoint was unavailable and the REST fallback returned 404.
+    num_warehouses_without_table_discovery: int = 0
+
     # Views whose definition was unavailable (e.g. caller lacks
     # `VIEW DEFINITION` permission); their lineage cannot be parsed.
     views_missing_definition: LossyList[str] = field(default_factory=LossyList)

@@ -23,6 +23,7 @@ from typing import (
     Union,
 )
 
+import requests
 from typing_extensions import assert_never
 
 if TYPE_CHECKING:
@@ -610,6 +611,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             item_display_name=lakehouse.name,
             schema_map=schema_map,
             emitted_schemas=emitted_schemas,
+            schema_client=schema_client,
         )
 
         # Process views (requires SQL endpoint)
@@ -671,6 +673,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             item_display_name=warehouse.name,
             schema_map=schema_map,
             emitted_schemas=emitted_schemas,
+            schema_client=schema_client,
         )
 
         # Process views (requires SQL endpoint)
@@ -730,86 +733,155 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_display_name: str,
         schema_map: dict[tuple[str, str], list[FabricColumn]],
         emitted_schemas: set[str],
+        schema_client: Optional["SchemaExtractionClient"] = None,
     ) -> Iterable[Union[Container, Dataset]]:
         """Process tables in a lakehouse or warehouse."""
-        try:
-            # List tables
-            if item_type == "Lakehouse":
-                tables = list(self.client.list_lakehouse_tables(workspace.id, item_id))
+        tables = self._list_item_tables(
+            workspace, item_id, item_type, item_display_name, schema_client
+        )
+
+        # Group tables by schema
+        tables_by_schema: dict[str, list[FabricTable]] = defaultdict(list)
+
+        for table in tables:
+            normalized_schema = (
+                table.schema_name if table.schema_name else FABRIC_SQL_DEFAULT_SCHEMA
+            )
+
+            # Filter schemas
+            if not self.config.schema_pattern.allowed(normalized_schema):
+                self.report.report_schema_filtered(normalized_schema)
+                continue
+
+            # Filter tables
+            table_full_name = f"{normalized_schema}.{table.name}"
+
+            if not self.config.table_pattern.allowed(table_full_name):
+                self.report.report_table_filtered(table_full_name)
+                continue
+
+            self.report.report_table_scanned()
+            tables_by_schema[normalized_schema].append(table)
+
+        # Process each schema
+        for schema_name, schema_tables in tables_by_schema.items():
+            # Schema name as it goes into URNs (lowercased when configured),
+            # vs. the original case kept for display and schema_map lookups.
+            schema_urn_name = self._norm(schema_name)
+            parent_container_key: ContainerKey
+            if self.config.extract_schemas:
+                schema_key = self._make_schema_key(
+                    workspace.id, item_id, item_type, schema_urn_name
+                )
+                if schema_urn_name not in emitted_schemas:
+                    yield Container(
+                        container_key=schema_key,
+                        display_name=schema_name,
+                        subtype=DatasetContainerSubTypes.FABRIC_SCHEMA,
+                        parent_container=schema_key.parent_key(),
+                        qualified_name=make_schema_name(
+                            workspace.id, item_id, schema_urn_name
+                        ),
+                    )
+                    emitted_schemas.add(schema_urn_name)
+                    self.report.report_schema_scanned()
+                parent_container_key = schema_key
             else:
-                tables = list(self.client.list_warehouse_tables(workspace.id, item_id))
+                parent_container_key = item_container_key
 
-            # Group tables by schema
-            tables_by_schema: dict[str, list[FabricTable]] = defaultdict(list)
-
-            for table in tables:
-                normalized_schema = (
-                    table.schema_name
-                    if table.schema_name
-                    else FABRIC_SQL_DEFAULT_SCHEMA
+            # Create table datasets
+            for table in schema_tables:
+                columns = self._get_columns(schema_map, schema_name, table.name)
+                yield from self._create_table_dataset(
+                    workspace,
+                    item_id,
+                    schema_name,
+                    table,
+                    parent_container_key,
+                    columns,
                 )
 
-                # Filter schemas
-                if not self.config.schema_pattern.allowed(normalized_schema):
-                    self.report.report_schema_filtered(normalized_schema)
-                    continue
+    def _list_item_tables(
+        self,
+        workspace: FabricWorkspace,
+        item_id: str,
+        item_type: Literal["Lakehouse", "Warehouse"],
+        item_display_name: str,
+        schema_client: Optional["SchemaExtractionClient"],
+    ) -> list[FabricTable]:
+        """List an item's tables. Failures are reported and yield ``[]``.
 
-                # Filter tables
-                table_full_name = f"{normalized_schema}.{table.name}"
+        Lakehouse tables come from the Fabric REST / OneLake table APIs.
+        Warehouse tables come from the SQL Analytics Endpoint
+        (INFORMATION_SCHEMA.TABLES): the Fabric REST Tables API is
+        Lakehouse-only, so the REST call is used for Warehouses only when the
+        endpoint is unavailable, and is expected to return 404.
+        """
+        context = f"item={item_display_name} ({item_id}), item_type={item_type}"
+        if item_type == "Warehouse" and schema_client is not None:
+            try:
+                tables = schema_client.get_all_tables(
+                    workspace_id=workspace.id, item_id=item_id
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Warehouse Table Discovery Failed",
+                    message=(
+                        "Failed to query INFORMATION_SCHEMA.TABLES on the "
+                        "Warehouse's SQL Analytics Endpoint. Tables of this "
+                        "Warehouse are missing from this run; its views are still "
+                        "processed."
+                    ),
+                    context=context,
+                    exc=e,
+                    log=False,
+                )
+                return []
+            self.report.num_warehouse_tables_discovered_via_sql_endpoint += len(tables)
+            return tables
 
-                if not self.config.table_pattern.allowed(table_full_name):
-                    self.report.report_table_filtered(table_full_name)
-                    continue
-
-                self.report.report_table_scanned()
-                tables_by_schema[normalized_schema].append(table)
-
-            # Process each schema
-            for schema_name, schema_tables in tables_by_schema.items():
-                # Schema name as it goes into URNs (lowercased when configured),
-                # vs. the original case kept for display and schema_map lookups.
-                schema_urn_name = self._norm(schema_name)
-                parent_container_key: ContainerKey
-                if self.config.extract_schemas:
-                    schema_key = self._make_schema_key(
-                        workspace.id, item_id, item_type, schema_urn_name
-                    )
-                    if schema_urn_name not in emitted_schemas:
-                        yield Container(
-                            container_key=schema_key,
-                            display_name=schema_name,
-                            subtype=DatasetContainerSubTypes.FABRIC_SCHEMA,
-                            parent_container=schema_key.parent_key(),
-                            qualified_name=make_schema_name(
-                                workspace.id, item_id, schema_urn_name
-                            ),
-                        )
-                        emitted_schemas.add(schema_urn_name)
-                        self.report.report_schema_scanned()
-                    parent_container_key = schema_key
-                else:
-                    parent_container_key = item_container_key
-
-                # Create table datasets
-                for table in schema_tables:
-                    columns = self._get_columns(schema_map, schema_name, table.name)
-                    yield from self._create_table_dataset(
-                        workspace,
-                        item_id,
-                        schema_name,
-                        table,
-                        parent_container_key,
-                        columns,
-                    )
-
+        try:
+            if item_type == "Lakehouse":
+                return list(self.client.list_lakehouse_tables(workspace.id, item_id))
+            return list(self.client.list_warehouse_tables(workspace.id, item_id))
+        except requests.exceptions.HTTPError as e:
+            if (
+                item_type == "Warehouse"
+                and e.response is not None
+                and e.response.status_code == 404
+            ):
+                self.report.num_warehouses_without_table_discovery += 1
+                self.report.warning(
+                    title="Warehouse Tables Not Discovered",
+                    message=(
+                        "Warehouse tables can only be discovered through the SQL "
+                        "Analytics Endpoint (INFORMATION_SCHEMA.TABLES); the Fabric "
+                        "REST Tables API is Lakehouse-only and returned 404. Tables "
+                        "of this Warehouse are missing, so lineage from its views "
+                        "points at tables without schema metadata. Fix: set "
+                        "`sql_endpoint.enabled: true` and ensure the SQL Analytics "
+                        "Endpoint of this Warehouse is reachable (ODBC Driver 18 "
+                        "installed, identity has access)."
+                    ),
+                    context=context,
+                    exc=e,
+                    log=False,
+                )
+                return []
+            self._report_table_listing_failure(context, e)
+            return []
         except Exception as e:
-            self.report.warning(
-                title="Failed to Process Tables",
-                message="Unable to retrieve tables from item.",
-                context=f"item_id={item_id}, item_type={item_type}",
-                exc=e,
-                log=False,
-            )
+            self._report_table_listing_failure(context, e)
+            return []
+
+    def _report_table_listing_failure(self, context: str, exc: Exception) -> None:
+        self.report.warning(
+            title="Failed to Process Tables",
+            message="Unable to retrieve tables from item.",
+            context=context,
+            exc=exc,
+            log=False,
+        )
 
     def _get_columns(
         self,
@@ -909,16 +981,24 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_type: Literal["Lakehouse", "Warehouse"],
         item_display_name: str,
     ) -> Optional["SchemaExtractionClient"]:
-        """Create a SQL Analytics Endpoint client, shared by column-schema,
-        view extraction, and usage statistics. Returns None on failure; all
-        three features skip this item.
+        """Create a SQL Analytics Endpoint client, shared by Warehouse table
+        discovery, column-schema, view extraction, and usage statistics.
+        Returns None when the endpoint is disabled or on failure; these
+        features then skip this item (Warehouse tables fall back to the REST
+        API, which is Lakehouse-only and reports a warning).
         """
         needs_endpoint = (
             self.config.extract_schema.enabled
             or self.config.extract_views
             or self.config.usage.include_usage_statistics
+            # Warehouse tables are only discoverable through the endpoint.
+            or item_type == "Warehouse"
         )
-        if not (needs_endpoint and self.config.sql_endpoint):
+        if not (
+            needs_endpoint
+            and self.config.sql_endpoint is not None
+            and self.config.sql_endpoint.enabled
+        ):
             return None
 
         try:

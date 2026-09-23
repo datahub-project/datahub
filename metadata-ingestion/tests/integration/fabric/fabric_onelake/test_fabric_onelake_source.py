@@ -285,6 +285,11 @@ def test_fabric_onelake_warehouse_with_views(pytestconfig: pytest.Config) -> Non
     Mirrors test_fabric_onelake_lakehouse_with_views but exercises the warehouse
     code path (`_process_warehouse` -> `_process_item_views`) to guard against
     regressions where view discovery is wired up for lakehouses only.
+
+    The view's upstream `dbo.orders` is a T-SQL-created Warehouse table. The
+    Fabric REST Tables API is Lakehouse-only, so it must be discovered through
+    INFORMATION_SCHEMA.TABLES on the SQL endpoint (`get_all_tables`) and emitted
+    with schemaMetadata, giving the view column-level lineage.
     """
     view = FabricView(
         name="v_total_orders",
@@ -296,6 +301,10 @@ def test_fabric_onelake_warehouse_with_views(pytestconfig: pytest.Config) -> Non
         ),
     )
     schema_map = {
+        ("dbo", "orders"): [
+            FabricColumn(name="order_id", data_type="int", is_nullable=False),
+            FabricColumn(name="amount", data_type="decimal", is_nullable=True),
+        ],
         ("dbo", "v_total_orders"): [
             FabricColumn(name="order_id", data_type="int", is_nullable=False),
             FabricColumn(name="total", data_type="decimal", is_nullable=True),
@@ -303,6 +312,11 @@ def test_fabric_onelake_warehouse_with_views(pytestconfig: pytest.Config) -> Non
     }
 
     mock_schema_client = MagicMock()
+    mock_schema_client.get_all_tables.return_value = [
+        FabricTable(
+            name="orders", schema_name="dbo", item_id="wh-789", workspace_id="ws-123"
+        )
+    ]
     mock_schema_client.get_all_views.return_value = [view]
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
@@ -328,7 +342,11 @@ def test_fabric_onelake_warehouse_with_views(pytestconfig: pytest.Config) -> Non
                     )
                 ],
             ),
-            patch.object(OneLakeClient, "list_warehouse_tables", return_value=[]),
+            patch.object(
+                OneLakeClient,
+                "list_warehouse_tables",
+                side_effect=AssertionError("REST warehouse tables API called"),
+            ),
             patch.object(
                 FabricOneLakeSource,
                 "_create_schema_client",
@@ -362,6 +380,28 @@ def test_fabric_onelake_warehouse_with_views(pytestconfig: pytest.Config) -> Non
 
             pipeline.run()
             pipeline.raise_from_status()
+
+            assert isinstance(pipeline.source, FabricOneLakeSource)
+            report = pipeline.source.report
+            assert report.num_warehouse_tables_discovered_via_sql_endpoint == 1
+            events = json.loads(Path(output_file).read_text())
+            orders_urn = (
+                "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+                "ws-123.wh-789.dbo.orders,PROD)"
+            )
+            assert any(
+                e.get("entityUrn") == orders_urn
+                and e.get("aspectName") == "schemaMetadata"
+                for e in events
+            )
+            view_lineage = [
+                e
+                for e in events
+                if e.get("aspectName") == "upstreamLineage"
+                and "v_total_orders" in e.get("entityUrn", "")
+            ]
+            assert view_lineage
+            assert view_lineage[0]["aspect"]["json"].get("fineGrainedLineages")
 
             golden_path = (
                 Path(__file__).parent
@@ -908,6 +948,7 @@ def _cross_item_schema_client(
     item_display_name: str,
 ) -> MagicMock:
     client = MagicMock()
+    client.get_all_tables.return_value = _cross_item_tables(workspace.id, item_id)
     if item_id == "wh-gold":
         client.get_all_views.return_value = [
             FabricView(
@@ -971,10 +1012,12 @@ def test_fabric_onelake_cross_item_lineage(pytestconfig: pytest.Config) -> None:
                 "list_lakehouse_tables",
                 side_effect=_cross_item_tables,
             ),
+            # Warehouse tables come from the SQL endpoint; the REST Tables API
+            # is Lakehouse-only and must not be relied on.
             patch.object(
                 OneLakeClient,
                 "list_warehouse_tables",
-                side_effect=_cross_item_tables,
+                side_effect=AssertionError("REST warehouse tables API called"),
             ),
             patch.object(
                 FabricOneLakeSource,
