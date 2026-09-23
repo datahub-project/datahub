@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.fabric.data_factory.lineage import (
@@ -486,6 +487,19 @@ class TestSourceWiring:
     def test_disabled_by_config(self) -> None:
         graph = MagicMock()
         source = self._source(graph, include_column_lineage=False)
+        assert self._run(source) == []
+        graph.get_schema_metadata.assert_not_called()
+
+    def test_explicit_column_lineage_without_lineage_is_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="requires include_lineage"):
+            self._source(
+                MagicMock(), include_lineage=False, include_column_lineage=True
+            )
+
+    def test_default_column_lineage_with_lineage_disabled_is_a_no_op(self) -> None:
+        """The default must not break recipes that turn include_lineage off."""
+        graph = MagicMock()
+        source = self._source(graph, include_lineage=False)
         assert self._run(source) == []
         graph.get_schema_metadata.assert_not_called()
 

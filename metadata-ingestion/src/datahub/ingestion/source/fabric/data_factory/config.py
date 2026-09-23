@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -88,6 +88,21 @@ class FabricDataFactorySourceConfig(
             "sink columns are taken to equal the known source columns."
         ),
     )
+
+    @model_validator(mode="after")
+    def _column_lineage_requires_lineage(self) -> "FabricDataFactorySourceConfig":
+        # Only an explicit setting is rejected: the default (True) must not
+        # break recipes that disable include_lineage.
+        if (
+            "include_column_lineage" in self.model_fields_set
+            and self.include_column_lineage
+            and not self.include_lineage
+        ):
+            raise ValueError(
+                "include_column_lineage requires include_lineage. Set "
+                "include_lineage: true, or remove include_column_lineage."
+            )
+        return self
 
     include_execution_history: bool = Field(
         default=True,
