@@ -86,8 +86,7 @@ public class DocumentationChangeEventGenerator extends EntityChangeEventGenerato
     return map;
   }
 
-  private static ImmutableMap<String, Object> buildParameters(
-      DocumentationAssociation assoc) {
+  private static ImmutableMap<String, Object> buildParameters(DocumentationAssociation assoc) {
     return new ImmutableMap.Builder<String, Object>()
         .put("documentation", assoc.getDocumentation())
         .put(
