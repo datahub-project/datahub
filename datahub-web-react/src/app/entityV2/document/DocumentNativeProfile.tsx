@@ -69,6 +69,9 @@ const ContentCard = styled.div`
 const MainContent = styled.div`
     flex: 1;
     overflow-y: auto;
+    /* Always reserve space for the scrollbar so content doesn't shift when it appears/disappears
+       (e.g. when expanding a section makes the page taller). */
+    scrollbar-gutter: stable;
     padding: 0 20px 20px 20px;
 `;
 
