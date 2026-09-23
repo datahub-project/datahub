@@ -6,7 +6,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentContainer';
+import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
 import { getPlatformName } from '@app/entity/shared/utils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
