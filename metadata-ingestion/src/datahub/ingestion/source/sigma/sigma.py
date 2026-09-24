@@ -424,8 +424,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # (not replace) formula-derived column entries.
         self._workbook_customsql_formula_fields: Dict[str, List[InputFieldClass]] = {}
         # chart or page-dashboard URN -> resolved-column count of the best
-        # InputFields emitted for it so far. See _guarded_input_fields_mcp.
-        self._best_input_fields_resolved: Dict[str, int] = {}
+        # InputFields emitted for it so far, and what wrote it. See
+        # _guarded_input_fields_mcp.
+        self._best_input_fields_resolved: Dict[str, Tuple[int, str]] = {}
         # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
         # correlate ``data-model`` lineage entries (keyed by dataModelId) with
         # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
@@ -1922,7 +1923,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _chart_input_fields_mcp(
-        self, chart_urn: str, fields: List[InputFieldClass]
+        self, chart_urn: str, fields: List[InputFieldClass], claimed_by: str
     ) -> Optional[MetadataChangeProposalWrapper]:
         """Build a chart's InputFields MCP, or None if a richer one is emitted.
 
@@ -1940,32 +1941,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         not cover, so its column set is a superset of the element aspect's.
         """
         return self._guarded_input_fields_mcp(
-            chart_urn, fields, self._resolved_field_count(chart_urn, fields)
+            chart_urn,
+            fields,
+            self._resolved_field_count(chart_urn, fields),
+            claimed_by,
         )
 
     def _guarded_input_fields_mcp(
-        self, entity_urn: str, fields: List[InputFieldClass], resolved: int
+        self,
+        entity_urn: str,
+        fields: List[InputFieldClass],
+        resolved: int,
+        claimed_by: str,
     ) -> Optional[MetadataChangeProposalWrapper]:
         """Emit unless a previous aspect for this URN resolved more columns.
 
         The high-water mark only ever rises: a refused aspect must not lower
         it, or a third, middling copy would displace the richest one.
+
+        ``claimed_by`` names the workbook, so a refusal points at the two
+        workbooks to reconcile rather than at an element id nobody can search
+        for.
         """
         best = self._best_input_fields_resolved.get(entity_urn)
-        if best is not None and resolved < best:
+        if best is not None and resolved < best[0]:
             self.reporter.input_fields_regressive_emission_skipped += 1
             self.reporter.input_fields_regressive_emission_samples.append(
-                f"entity={entity_urn} kept={best} refused={resolved}"
+                f"entity={entity_urn} kept={best[0]} from={best[1]} "
+                f"refused={resolved} from={claimed_by}"
             )
             logger.debug(
-                "%s: refusing InputFields with %d resolved column(s); an aspect "
-                "with %d is already emitted for this URN.",
+                "%s: refusing InputFields from %s with %d resolved column(s); "
+                "an aspect from %s with %d is already emitted for this URN.",
                 entity_urn,
+                claimed_by,
                 resolved,
-                best,
+                best[1],
+                best[0],
             )
             return None
-        self._best_input_fields_resolved[entity_urn] = resolved
+        self._best_input_fields_resolved[entity_urn] = (resolved, claimed_by)
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
             aspect=InputFieldsClass(fields=fields),
@@ -2011,7 +2026,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     and fb.schemaField.fieldPath not in covered_paths
                 ):
                     input_fields.append(fb)
-        mcp = self._chart_input_fields_mcp(entity_urn, input_fields)
+        mcp = self._chart_input_fields_mcp(entity_urn, input_fields, "customSQL drain")
         # Counted after the guard: a refused aspect is not emitted.
         if mcp is not None:
             self.reporter.workbook_customsql_upstream_emitted += 1
@@ -4430,7 +4445,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # by _build_workbook_chart_input_fields_mcp; the drain MCP supersedes this
             # one (later in the workunit stream).  The formula-derived fields stashed
             # below are merged into the drain MCP so nothing is silently dropped.
-            chart_mcp = self._chart_input_fields_mcp(chart_urn, element_input_fields)
+            chart_mcp = self._chart_input_fields_mcp(
+                chart_urn, element_input_fields, f"workbook {workbook.workbookId}"
+            )
             if chart_mcp is not None:
                 # Stash only what was emitted. Stashing a refused copy would
                 # feed it back through the drain, which is the last word on a
@@ -4534,6 +4551,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     }.values()
                 ),
                 sum(chart_resolved_counts),
+                f"workbook {workbook.workbookId}",
             )
             if page_mcp is not None:
                 yield page_mcp.as_workunit()
