@@ -31,6 +31,9 @@ from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     CopyActivityColumnLineageExtractor,
     DatasetSchemaInfo,
 )
+from datahub.ingestion.source.azure_data_factory.adf_report import (
+    AzureDataFactorySourceReport,
+)
 from datahub.ingestion.source.azure_data_factory.adf_source import (
     ACTIVITY_SUBTYPE_MAP,
     AzureDataFactorySource,
@@ -830,7 +833,8 @@ class TestCopyActivityColumnLineageExtractor:
 
     def test_no_inference_for_ordinal_only_mappings(self) -> None:
         """Ordinal mappings are applied by ADF; identity edges would be wrong."""
-        extractor = CopyActivityColumnLineageExtractor()
+        report = AzureDataFactorySourceReport()
+        extractor = CopyActivityColumnLineageExtractor(report=report)
         activity = MockActivity(
             translator={
                 "type": "TabularTranslator",
@@ -853,6 +857,10 @@ class TestCopyActivityColumnLineageExtractor:
         )
 
         assert lineages == []
+        assert report.column_lineage_skipped_unresolvable_mappings == 1
+        assert list(report.column_lineage_skipped_unresolvable_mappings_details) == [
+            "TestActivity"
+        ]
 
 
 class TestSourceDatasetSchemaExtraction:

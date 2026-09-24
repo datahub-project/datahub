@@ -134,7 +134,7 @@ The connector extracts **column-level lineage** from Copy activities, enabled by
 
 - **Copy Activity Only**: Column lineage is currently extracted only from Copy activities. Other activity types (Data Flow, Lookup, etc.) produce table-level lineage only.
 - **Schema Availability**: Auto-mapping inference requires source dataset schema information (defined in ADF dataset's `schema` or `structure` property). If schema is unavailable, only explicit mappings are extracted.
-- **Ordinal Mappings**: Position-based (`ordinal`) mappings, used for header-less delimited text, are not extracted. When a translator has only such mappings, no column lineage is emitted for the activity (auto-mapping is not applied, since ADF does not map those columns by name).
+- **Ordinal Mappings**: Position-based (`ordinal`) mappings, used for header-less delimited text, are not extracted. When a translator has only such mappings, no column lineage is emitted for the activity (auto-mapping is not applied, since ADF does not map those columns by name). Such activities are counted in the ingestion report under `column_lineage_skipped_unresolvable_mappings`.
 
 #### Execution History
 

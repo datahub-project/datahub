@@ -1,11 +1,11 @@
 """Column-level lineage extraction for Azure Data Factory activities.
 
 This module provides an extensible framework for extracting column-level lineage
-from different ADF activity types. Currently supports Copy Activity with three
-mapping modes:
-1. Legacy dictionary format (columnMappings: {src: sink})
-2. Current list format (mappings: [{source: {name}, sink: {name}}])
-3. Auto-mapping inference from source dataset schema
+from different ADF activity types. Currently supports Copy Activity with:
+1. Explicit translator mappings (legacy columnMappings dict or string, or the
+   current mappings list with name or path columns), parsed by the shared
+   ``datahub.ingestion.source.azure.copy_translator`` module
+2. Auto-mapping inference from source dataset schema
 """
 
 import logging
@@ -19,6 +19,9 @@ from datahub.ingestion.source.azure.copy_translator import (
     get_translator_type,
     make_copy_fine_grained_lineage,
     parse_translator_mappings,
+)
+from datahub.ingestion.source.azure_data_factory.adf_report import (
+    AzureDataFactorySourceReport,
 )
 from datahub.metadata.schema_classes import FineGrainedLineageClass
 from datahub.sdk._shared import DatasetUrnOrStr
@@ -113,11 +116,14 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
     are provided (which shouldn't happen for Copy activities), a warning is logged
     and only the first pair is used.
 
-    Supports three mapping formats:
-    1. Legacy dict format: translator.columnMappings = {"src_col": "sink_col"}
-    2. List format: translator.mappings = [{source: {name: "src"}, sink: {name: "sink"}}]
+    Supports these mapping formats:
+    1. Legacy format: translator.columnMappings = {"src_col": "sink_col"} or
+       "src_col: sink_col, a: b"
+    2. List format: translator.mappings = [{source: {name|path}, sink: {name|path}}]
     3. Auto-mapping: When translator type is TabularTranslator with no explicit mappings,
-       infers 1:1 column mappings from source schema
+       infers 1:1 column mappings from source schema. Not applied when explicit
+       mappings exist but none is name-based (e.g. ordinal-only); those
+       activities are counted in the report instead.
 
     The translator can be found either:
     - Directly on the activity (SDK flattens CopyActivity properties)
@@ -127,6 +133,9 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
     - https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-schema-and-type-mapping
     - https://learn.microsoft.com/en-us/javascript/api/@azure/arm-datafactory/tabulartranslator
     """
+
+    def __init__(self, report: Optional[AzureDataFactorySourceReport] = None) -> None:
+        self._report = report
 
     def supports_activity(self, activity_type: str) -> bool:
         """Only supports Copy activities."""
@@ -188,11 +197,8 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
             # mappings for header-less delimited text). ADF applies those, not
             # the default by-name mapping, so inferring identity edges here
             # would emit wrong column lineage.
-            logger.warning(
-                f"Copy Activity '{activity.name}' has explicit column mappings "
-                "that are not name-based (e.g. ordinal); column-level lineage "
-                "is not extracted for it."
-            )
+            if self._report is not None:
+                self._report.report_column_lineage_unresolvable_mappings(activity.name)
             return []
 
         # No explicit mappings: a TabularTranslator maps columns by name.

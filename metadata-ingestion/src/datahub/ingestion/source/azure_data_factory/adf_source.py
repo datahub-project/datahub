@@ -206,7 +206,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
         # Column-level lineage extractors - extensible for different activity types
         self._column_lineage_extractors: list[ColumnLineageExtractor] = [
-            CopyActivityColumnLineageExtractor(),
+            CopyActivityColumnLineageExtractor(report=self.report),
         ]
 
     @classmethod
