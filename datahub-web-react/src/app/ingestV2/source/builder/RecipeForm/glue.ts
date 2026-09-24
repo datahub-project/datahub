@@ -1,4 +1,6 @@
-import { get, omit } from 'lodash';
+import get from 'lodash/get';
+import omit from 'lodash/omit';
+import set from 'lodash/set';
 
 import {
     FieldType,
@@ -33,19 +35,23 @@ export const awsSecretAccessKeyFieldPath = 'source.config.aws_secret_access_key'
 export const awsSessionTokenFieldPath = 'source.config.aws_session_token';
 export const awsRoleFieldPath = 'source.config.aws_role';
 
-export function setGlueAwsAuthMethodOnRecipe(recipe: any): any {
-    let updatedRecipe = { ...recipe };
-    const authType = get(updatedRecipe, awsAuthTypeFieldPath);
+export function setGlueAwsAuthMethodOnRecipe(recipe: any, value: string | undefined): any {
+    // `aws_auth_method` is NOT a real GlueSourceConfig field — it's a UI-only selector
+    // (the Python connector infers the auth method from which credentials are populated)
+    // and GlueSourceConfig inherits ConfigModel with `extra="forbid"`, so writing it
+    // would make the recipe fail validation. Keep it out of the recipe and only use it
+    // to drive credential cleanup.
+    let updatedRecipe = omit({ ...recipe }, [awsAuthTypeFieldPath]);
 
     const accessKeyFields = [awsAccessKeyIdFieldPath, awsSecretAccessKeyFieldPath, awsSessionTokenFieldPath];
-
     const roleFields = [awsRoleFieldPath];
 
-    if (authType === awsAuthAccessKeys) {
-        updatedRecipe = omit(updatedRecipe, accessKeyFields);
-    } else if (authType === awsAuthIamRole) {
+    if (value === awsAuthAccessKeys) {
         updatedRecipe = omit(updatedRecipe, roleFields);
+    } else if (value === awsAuthIamRole) {
+        updatedRecipe = omit(updatedRecipe, accessKeyFields);
     } else {
+        // Default credentials or unknown — no per-recipe credentials should remain.
         updatedRecipe = omit(updatedRecipe, [...accessKeyFields, ...roleFields]);
     }
 
@@ -174,15 +180,25 @@ export const GLUE_EXTRACT_TRANSFORMS: RecipeField = {
     rules: null,
 };
 
-const emitS3LineageFieldPath = 'source.config.emit_s3_lineage';
-const emitS3LineageFieldName = 'emit_s3_lineage';
+// The Python connector renamed `emit_s3_lineage` → `emit_storage_lineage` via
+// pydantic_renamed_field. Write the modern path on save, but still hydrate the form
+// from the legacy key when editing a recipe authored before the rename.
+const emitStorageLineageFieldPath = 'source.config.emit_storage_lineage';
+const legacyEmitS3LineageFieldPath = 'source.config.emit_s3_lineage';
+const emitStorageLineageFieldName = 'emit_storage_lineage';
 export const GLUE_EMIT_S3_LINEAGE: RecipeField = {
-    name: emitS3LineageFieldName,
-    label: 'Emit S3 Lineage',
+    name: emitStorageLineageFieldName,
+    label: 'Emit Storage Lineage',
     tooltip: 'Extract lineage between Glue tables and S3 locations. Shows S3-to-Glue or Glue-to-S3 data flow.',
     type: FieldType.BOOLEAN,
-    fieldPath: emitS3LineageFieldPath,
+    fieldPath: emitStorageLineageFieldPath,
     rules: null,
+    getValueFromRecipeOverride: (recipe: any) =>
+        get(recipe, emitStorageLineageFieldPath) ?? get(recipe, legacyEmitS3LineageFieldPath),
+    setValueOnRecipeOverride: (recipe: any, value: boolean) => {
+        const updated = set({ ...recipe }, emitStorageLineageFieldPath, value);
+        return omit(updated, [legacyEmitS3LineageFieldPath]);
+    },
 };
 
 const includeColumnLineageFieldPath = 'source.config.include_column_lineage';
@@ -191,7 +207,7 @@ export const GLUE_INCLUDE_COLUMN_LINEAGE: RecipeField = {
     label: 'Column Lineage',
     tooltip: 'Extract column-level lineage from S3. Requires Emit S3 Lineage enabled.',
     type: FieldType.BOOLEAN,
-    dynamicDisabled: (values) => !!get(values, emitS3LineageFieldName) !== true,
+    dynamicDisabled: (values) => !!get(values, emitStorageLineageFieldName) !== true,
     fieldPath: includeColumnLineageFieldPath,
     rules: null,
 };

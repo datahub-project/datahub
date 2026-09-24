@@ -857,7 +857,7 @@ def test_profiler_get_batch_kwargs(mock_get_filters):
     assert "test_dataset" in result["custom_sql"]
     assert "test_table" in result["custom_sql"]
     # The crawl-collected row count is forwarded so the SQLAlchemy profiler's
-    # sampling decision can skip a COUNT(*); the GE profiler ignores it.
+    # sampling decision can skip a COUNT(*).
     assert result["row_count"] == 10000
 
 
@@ -868,7 +868,7 @@ def test_profiler_get_batch_kwargs_sampling_deferred_downstream(mock_get_filters
     profiler = BigqueryProfiler(config, report)
 
     # Unpartitioned table large enough to sample. The profiler no longer emits an inline
-    # TABLESAMPLE: the SQLAlchemy adapter (_setup_sampling, mirrored by the GE profiler)
+    # TABLESAMPLE: the SQLAlchemy adapter (_setup_sampling)
     # samples the source table once. Emitting it here too would double-sample. It just
     # forwards the crawl-collected row count so the adapter can size the sample without a
     # COUNT(*).

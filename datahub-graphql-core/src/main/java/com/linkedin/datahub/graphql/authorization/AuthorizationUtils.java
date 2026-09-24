@@ -19,6 +19,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PatchEntityInput;
 import com.linkedin.knowledge.DocumentInfo;
+import com.linkedin.metadata.authorization.ApiGroup;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
@@ -27,6 +29,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -489,7 +492,17 @@ public class AuthorizationUtils {
   }
 
   /**
-   * Checks authorization for patch operations
+   * Checks authorization for patch operations.
+   *
+   * <p>Authorized when the actor holds Edit Entity on the target, or the entity type's own API
+   * UPDATE privilege (for example Manage Policies for {@code dataHubPolicy}). For entity types
+   * without a type-specific rule this is simply Edit Entity.
+   *
+   * <p>The resource type used for policy matching is always taken from the URN, which is what the
+   * patch is applied to, never from the client-supplied {@code entityType}. Otherwise a grant
+   * scoped to one entity type could be matched against a URN of a different type by claiming the
+   * wrong type. A URN that cannot be parsed, or a client type that disagrees with the URN, is
+   * rejected.
    *
    * @param input Patch entity input
    * @param context Query context
@@ -498,22 +511,37 @@ public class AuthorizationUtils {
   public static boolean isAuthorizedForPatch(
       @Nonnull PatchEntityInput input, @Nonnull QueryContext context) {
 
-    // For patch operations, we need EDIT_ENTITY_PRIVILEGE
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
-
-    // Use entity type from URN if not provided in input
-    String entityType = input.getEntityType();
-    if (entityType == null && input.getUrn() != null) {
+    String entityType = null;
+    if (input.getUrn() != null) {
       try {
         entityType = UrnUtils.getUrn(input.getUrn()).getEntityType();
       } catch (Exception e) {
         log.warn("Failed to extract entity type from URN: {}", input.getUrn(), e);
       }
     }
+    if (entityType == null) {
+      return false;
+    }
+    if (input.getEntityType() != null && !entityType.equals(input.getEntityType())) {
+      log.warn(
+          "Rejecting patch: entityType {} does not match URN entity type {} for {}",
+          input.getEntityType(),
+          entityType,
+          input.getUrn());
+      return false;
+    }
+
+    // Edit Entity on the target is always sufficient. In addition, accept the entity type's own
+    // API UPDATE privileges (for example Manage Policies for dataHubPolicy), so an actor who was
+    // granted a type-specific management privilege can patch that type without Edit Entity, the
+    // same way the dedicated GraphQL mutations for those types already allow.
+    final List<ConjunctivePrivilegeGroup> groups =
+        new ArrayList<>(
+            AuthUtil.buildDisjunctivePrivilegeGroup(
+                    ApiGroup.ENTITY, ApiOperation.UPDATE, entityType)
+                .getAuthorizedPrivilegeGroups());
+    groups.add(ALL_PRIVILEGES_GROUP);
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(groups);
 
     return isAuthorized(context, entityType, input.getUrn(), orPrivilegeGroups);
   }

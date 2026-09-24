@@ -287,7 +287,13 @@ export const NavSidebar = () => {
                         icon: <Sigma />,
                         selectedIcon: <Sigma weight="fill" />,
                         link: PageRoutes.METRICS,
+                        dataTestId: 'nav-menu-item-metrics',
                         isHidden: !config?.featureFlags?.metricsEnabled,
+                        badge: {
+                            label: 'BETA',
+                            show: true,
+                            showDot: false,
+                        },
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

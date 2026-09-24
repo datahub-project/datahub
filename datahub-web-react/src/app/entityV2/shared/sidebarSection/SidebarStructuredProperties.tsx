@@ -7,9 +7,8 @@ import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/Em
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
-import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
+import StructuredPropertyValueList from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValueList';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
-import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import { useReloadableQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableQuery';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
@@ -109,18 +108,13 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     const allProperties = isSchemaSidebar
         ? properties?.fieldEntity?.structuredProperties
         : entityData?.structuredProperties;
+    // The entity (or schema field) whose values are shown; part of the value list's key so its
+    // filter and paging state reset when the user moves to another asset.
+    const scopeUrn = isSchemaSidebar ? properties?.fieldEntity?.urn : entityData?.urn;
 
     const selectedPropertyValues = selectedProperty
         ? getPropertyRowFromSearchResult(selectedProperty, allProperties)?.values
         : undefined;
-
-    const uniqueEntityUrnsToHydrate = entityTypeProperties?.flatMap((property) => {
-        const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
-        const values = propertyRow?.values;
-        return values?.map((value) => value?.entity?.urn);
-    });
-
-    const hydratedEntityMap = useHydratedEntityMap(uniqueEntityUrnsToHydrate);
 
     return (
         <>
@@ -143,18 +137,14 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                             key={property.entity.urn}
                             content={
                                 <>
-                                    {values ? (
-                                        <>
-                                            {values.map((val) => (
-                                                <StructuredPropertyValue
-                                                    value={val}
-                                                    isRichText={isRichText}
-                                                    hydratedEntityMap={hydratedEntityMap}
-                                                    attribution={propertyRow.attribution}
-                                                    dataTestId={`property-${propertyName}-value-${val.value}`}
-                                                />
-                                            ))}
-                                        </>
+                                    {values && propertyRow ? (
+                                        <StructuredPropertyValueList
+                                            key={`${scopeUrn}:${property.entity.urn}`}
+                                            propertyRow={propertyRow}
+                                            isRichText={isRichText}
+                                            renderValue={(_, node) => node}
+                                            dataTestId={(val) => `property-${propertyName}-value-${val.value}`}
+                                        />
                                     ) : (
                                         <EmptySectionText message={EMPTY_MESSAGES.structuredProps.title} />
                                     )}

@@ -40,7 +40,10 @@ export default function usePlatrofmLinks(
         if (!genericEntityData) return [];
 
         const externalUrl = genericEntityData?.properties?.externalUrl;
-        const parentPlatformName = getExternalUrlDisplayName(genericEntityData) + (suffix ?? '');
+        // Only append the suffix when there is a real platform name; otherwise concatenating onto
+        // `undefined` yields the literal string "undefined" (e.g. entities with no data platform).
+        const platformDisplayName = getExternalUrlDisplayName(genericEntityData);
+        const parentPlatformName = platformDisplayName ? platformDisplayName + (suffix ?? '') : undefined;
         const defaultAction = externalUrl
             ? [{ displayName: parentPlatformName || t('externalUrl.sourceFallback'), url: externalUrl }]
             : [];

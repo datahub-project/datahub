@@ -59,7 +59,7 @@ class GenericProfiler:
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        # We don't run ge profiling queries if table profiling is enabled or if the row count is 0.
+        # We don't run column profiling queries if table profiling is enabled or if the row count is 0.
         profile_requests: List[ProfilerRequest] = []
         for request in requests:
             if not request.profile_table_level_only or request.table.rows_count == 0:
@@ -93,20 +93,20 @@ class GenericProfiler:
         if not profile_requests:
             return
 
-        # Otherwise, if column level profiling is enabled, use  GE profiler.
-        ge_profiler = self.get_profiler_instance(db_name)
+        # Otherwise, if column level profiling is enabled, use the column profiler.
+        profiler = self.get_profiler_instance(db_name)
 
-        for ge_profiler_request, profile in ge_profiler.generate_profiles(
+        for profiler_request, profile in profiler.generate_profiles(
             profile_requests, max_workers, platform, profiler_args
         ):
             if profile is None:
                 continue
 
             # Runtime validation instead of cast
-            assert isinstance(ge_profiler_request, TableProfilerRequest), (
-                f"Expected TableProfilerRequest, got {type(ge_profiler_request)}"
+            assert isinstance(profiler_request, TableProfilerRequest), (
+                f"Expected TableProfilerRequest, got {type(profiler_request)}"
             )
-            request = ge_profiler_request
+            request = profiler_request
             profile.sizeInBytes = request.table.size_in_bytes
 
             # If table is partitioned we profile only one partition (if nothing set then the last one)
@@ -314,5 +314,5 @@ class GenericProfiler:
         return True
 
     def get_profile_args(self) -> Dict:
-        """Passed down to GE profiler"""
+        """Passed down to the profiler."""
         return {}

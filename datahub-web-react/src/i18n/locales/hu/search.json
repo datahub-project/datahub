@@ -155,6 +155,7 @@
     "searchBar.sections.bestMatches": "Legjobb találatok",
     "searchBar.sections.recentlySearched": "Legutóbbi keresések",
     "searchBar.sections.recentlyViewed": "Legutóbb megtekintett",
+    "searchBar.viewAll": "Összes megtekintése →",
     "searchBar.viewAllResults": "Az összes találat megtekintése erre: <bold>{{query}}</bold>",
     "searchHeader.discover": "Felfedezés",
     "sidebar.loadingError": "Az oldalsáv betöltése nem sikerült.",

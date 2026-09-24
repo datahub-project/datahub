@@ -55,7 +55,7 @@ class TestKafkaSchemaResolver:
         self, schema_resolver, mock_schema_registry_client
     ):
         mock_registered_schema = RegisteredSchema(
-            schema_id="1",
+            schema_id=1,
             guid=None,
             schema=Schema(
                 schema_str='{"type": "record", "name": "Test"}', schema_type="AVRO"
@@ -93,7 +93,7 @@ class TestKafkaSchemaResolver:
         self, schema_resolver, mock_schema_registry_client
     ):
         mock_registered_schema = RegisteredSchema(
-            schema_id="2",
+            schema_id=2,
             guid=None,
             schema=Schema(
                 schema_str='{"type": "record", "name": "TestRecord"}',
@@ -177,9 +177,9 @@ class TestKafkaSchemaResolver:
             schema_str='{"type": "record", "name": "User", "namespace": "com.example"}',
             schema_type="AVRO",
         )
-        mock_schema_registry_client.get_by_id.return_value = mock_schema
+        mock_schema_registry_client.get_schema.return_value = mock_schema
         mock_schema_registry_client.get_latest_version.return_value = RegisteredSchema(
-            schema_id="3",
+            schema_id=3,
             guid=None,
             schema=mock_schema,
             subject="com.example.User-value",
@@ -211,9 +211,9 @@ class TestKafkaSchemaResolver:
             schema_str='{"type": "record", "name": "Order", "namespace": "com.example"}',
             schema_type="AVRO",
         )
-        mock_schema_registry_client.get_by_id.return_value = mock_schema
+        mock_schema_registry_client.get_schema.return_value = mock_schema
         mock_schema_registry_client.get_latest_version.return_value = RegisteredSchema(
-            schema_id="4",
+            schema_id=4,
             guid=None,
             schema=mock_schema,
             subject="order-topic-com.example.Order-value",
@@ -250,7 +250,7 @@ class TestKafkaSchemaResolver:
         schema_resolver.schema_inference = mock_inference
 
         mock_schema_registry_client.get_latest_version.return_value = RegisteredSchema(
-            schema_id="1",
+            schema_id=1,
             guid=None,
             schema=Schema(
                 schema_str='{"type": "record", "name": "Test"}', schema_type="AVRO"
@@ -277,7 +277,7 @@ class TestKafkaSchemaResolver:
     def test_extract_record_name_from_message_schema_registry_format(
         self, schema_resolver, mock_schema_registry_client
     ):
-        mock_schema_registry_client.get_by_id.return_value = Schema(
+        mock_schema_registry_client.get_schema.return_value = Schema(
             schema_str='{"type": "record", "name": "Order", "namespace": "com.example"}',
             schema_type="AVRO",
         )
@@ -289,7 +289,7 @@ class TestKafkaSchemaResolver:
         assert result.record_name == "Order"
         assert result.namespace == "com.example"
         assert result.full_name == "com.example.Order"
-        mock_schema_registry_client.get_by_id.assert_called_once_with(1)
+        mock_schema_registry_client.get_schema.assert_called_once_with(1)
 
     def test_extract_record_name_from_message_not_schema_registry(
         self, schema_resolver

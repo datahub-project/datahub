@@ -59,7 +59,7 @@ public class LoadIndicesConfigTest {
     // Test that createIndexManager method creates LoadIndicesIndexManager successfully
     // This test verifies that the method works with proper mocks
     var result =
-        config.createIndexManager(mockOperationContext, mockSearchClient, mockIndexBuilder);
+        config.createIndexManager(mockOperationContext, mockSearchClient, mockIndexBuilder, null);
     assertNotNull(result);
 
     // Verify that the operation context methods were called
@@ -70,7 +70,7 @@ public class LoadIndicesConfigTest {
   public void testCreateIndexManagerWithCustomRefreshInterval() throws Exception {
     // Test that createIndexManager method works with custom index builder
     var result =
-        config.createIndexManager(mockOperationContext, mockSearchClient, mockIndexBuilder);
+        config.createIndexManager(mockOperationContext, mockSearchClient, mockIndexBuilder, null);
     assertNotNull(result);
 
     // Verify that the operation context methods were called
@@ -82,7 +82,7 @@ public class LoadIndicesConfigTest {
     // Test that the operation context is properly used in createIndexManager
     // This verifies that the method correctly accesses the search context
     var result =
-        config.createIndexManager(mockOperationContext, mockSearchClient, mockIndexBuilder);
+        config.createIndexManager(mockOperationContext, mockSearchClient, mockIndexBuilder, null);
     assertNotNull(result);
 
     // Verify that the operation context methods were called

@@ -29,7 +29,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProf
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_and_filter_expressions,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 
 
 def make_config(**profiling_overrides: Any) -> BigQueryV2Config:
@@ -1505,15 +1505,15 @@ def test_partition_fetch_job_config_applies_timeout_and_byte_cap():
     assert job_config.maximum_bytes_billed is None
 
 
-def test_profiling_field_accepts_ge_profiling_config_instance():
-    """A caller may build the config in code and pass a GEProfilingConfig instance for
+def test_profiling_field_accepts_profiling_config_instance():
+    """A caller may build the config in code and pass a ProfilingConfig instance for
     `profiling`. Retyping the field to the BigQueryProfilingConfig subclass must not break
     that: the before-validator coerces the instance to a dict so re-validation succeeds.
     """
     config = BigQueryV2Config.parse_obj(
         {
             "project_id": "test-project-123456",
-            "profiling": GEProfilingConfig(enabled=True, profile_table_level_only=True),
+            "profiling": ProfilingConfig(enabled=True, profile_table_level_only=True),
         }
     )
 

@@ -58,6 +58,11 @@
       "description": "A Context Platform agora está em beta pública + agentes personalizados",
       "ctaText": "Conheça o DataHub Cloud 2.2"
     },
+    "ru": {
+      "title": "Обновления DataHub: сентябрь",
+      "description": "Context Platform теперь в публичной бета-версии + пользовательские агенты",
+      "ctaText": "Изучите DataHub Cloud 2.2"
+    },
     "sv": {
       "title": "DataHub-uppdateringar: september",
       "description": "Context Platform är nu i offentlig betaversion + anpassade agenter",
@@ -66,6 +71,11 @@
     "zh-CN": {
       "title": "DataHub 更新：九月",
       "description": "Context Platform 现已推出公开测试版 + 自定义智能体",
+      "ctaText": "探索 DataHub Cloud 2.2"
+    },
+    "zh-TW": {
+      "title": "DataHub 更新：九月",
+      "description": "Context Platform 現已推出公開測試版 + 自訂智慧代理",
       "ctaText": "探索 DataHub Cloud 2.2"
     }
   }

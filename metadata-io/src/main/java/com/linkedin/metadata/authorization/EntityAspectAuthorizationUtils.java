@@ -71,6 +71,16 @@ public final class EntityAspectAuthorizationUtils {
   private EntityAspectAuthorizationUtils() {}
 
   /**
+   * Returns true when the actor may update lineage on {@code urn} ({@code EDIT_LINEAGE} or {@code
+   * EDIT_ENTITY}). Matches GraphQL {@code updateLineage} privilege checks.
+   */
+  public static boolean isAuthorizedToUpdateLineage(
+      @Nonnull AuthorizationSession session, @Nonnull Urn urn) {
+    return com.datahub.authorization.AuthUtil.isAuthorizedUrns(
+        session, ApiGroup.LINEAGE, ApiOperation.UPDATE, Set.of(urn));
+  }
+
+  /**
    * Returns true when the actor may write the {@code assetSettings} aspect of {@code assetUrn}.
    * Requires {@code EDIT_ENTITY} or {@code MANAGE_ASSET_SUMMARY} on the asset itself.
    */
