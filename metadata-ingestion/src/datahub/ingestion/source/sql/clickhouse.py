@@ -55,6 +55,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.clickhouse_connection import with_client_identity
 from datahub.ingestion.source.sql.sql_common import (
+    SQLSourceReport,
     SqlWorkUnit,
     logger,
     register_custom_type,
@@ -596,6 +597,13 @@ ClickHouseDialect.get_view_definition = get_view_definition
 clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
+@dataclass
+class ClickHouseSourceReport(SQLSourceReport):
+    query_log_usage_reads: int = 0
+    query_log_lineage_rows: int = 0
+    query_log_queries_parsed: int = 0
+
+
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
 @support_status(SupportStatus.GA)
@@ -638,6 +646,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
 
     def __init__(self, config: ClickHouseConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "clickhouse")
+        self.report: ClickHouseSourceReport = ClickHouseSourceReport()
         self._lineage_map: Optional[Dict[str, LineageItem]] = None
         self._all_tables_set: Optional[Set[str]] = None
         self._query_log_aggregator: Optional[SqlParsingAggregator] = None
@@ -831,12 +840,10 @@ WHERE type = 'QueryFinish'
   -- without any guessing from the query text. One real table is enough to keep the
   -- row, so INSERT INTO db.t SELECT * FROM s3(...) still contributes db.t, and a
   -- query over a view is kept because ClickHouse lists the view and its table both.
-  AND NOT empty(
-      arrayFilter(
-          t ->
-              {non_user_table_filter},
-          tables
-      )
+  AND arrayExists(
+      t ->
+          {non_user_table_filter},
+      tables
   )
 
 ORDER BY event_time ASC
@@ -928,6 +935,9 @@ ORDER BY event_time ASC
 
         # len(by_query), not the number of add() calls: the splits of one query
         # share a SQL text, so only the first of them reaches the parser.
+        self.report.query_log_usage_reads += num_usage
+        self.report.query_log_lineage_rows += num_lineage
+        self.report.query_log_queries_parsed += len(by_query)
         logger.info(
             f"Query log processing complete: {num_usage} usage reads, "
             f"{num_lineage} lineage rows -> {len(by_query)} parsed"
@@ -959,7 +969,7 @@ ORDER BY event_time ASC
             env=self.config.env,
         )
 
-    def _usage_row_to_preparsed(self, row: Dict) -> Optional[PreparsedQuery]:
+    def _usage_row_to_preparsed(self, row: Dict[str, Any]) -> Optional[PreparsedQuery]:
         """Turn a Select row into a read of the tables ClickHouse resolved for it."""
         try:
             event_time = row["event_time"]
@@ -974,8 +984,8 @@ ORDER BY event_time ASC
                 if not dataset_name.startswith(_NON_USER_TABLE_PREFIXES)
             }
             if not urn_by_dataset_name:
-                # The fetch keeps a row if any one table is real, so a row can
-                # still arrive carrying nothing but system tables.
+                # Defensive: the fetch keeps a row only if it names a real table,
+                # using this same prefix list, so this should not be reachable.
                 return None
 
             # And columns as db.table.column, so everything up to the last dot is
@@ -1007,7 +1017,7 @@ ORDER BY event_time ASC
             )
             return None
 
-    def _parse_query_log_row(self, row: Dict) -> Optional[ObservedQuery]:
+    def _parse_query_log_row(self, row: Dict[str, Any]) -> Optional[ObservedQuery]:
         """Parse a query_log row into an ObservedQuery."""
         try:
             event_time = row["event_time"]
