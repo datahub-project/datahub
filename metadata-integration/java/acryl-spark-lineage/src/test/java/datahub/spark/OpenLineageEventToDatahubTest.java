@@ -1589,34 +1589,7 @@ public class OpenLineageEventToDatahubTest {
    */
   @Test
   public void testFabricRuntimeNotebookEventsCoalesced() throws Exception {
-    Config config =
-        ConfigFactory.parseString(
-            "metadata.dataset.fabricOneLake.enabled = true\n"
-                + "metadata.dataset.materialize = true\n"
-                + "metadata.dataset.include_schema_metadata = true");
-    SparkLineageConf sparkLineageConf =
-        SparkLineageConf.toSparkLineageConf(config, new SparkAppContext(), null);
-    io.openlineage.spark.api.SparkOpenLineageConfig olConfig =
-        new io.openlineage.spark.api.SparkOpenLineageConfig();
-    olConfig.setTransportConfig(new io.openlineage.client.transports.ConsoleConfig());
-    DatahubEventEmitter emitter = new DatahubEventEmitter(olConfig, "test");
-    emitter.setConfig(sparkLineageConf);
-
-    String events =
-        IOUtils.toString(
-            Objects.requireNonNull(
-                this.getClass()
-                    .getResourceAsStream("/ol_events/fabric_runtime_notebook_events.jsonl")),
-            StandardCharsets.UTF_8);
-    int count = 0;
-    for (String line : events.split("\n")) {
-      if (!line.isBlank()) {
-        emitter.convertOpenLineageRunEventToDatahubJob(
-            OpenLineageClientUtils.runEventFromJson(line));
-        count++;
-      }
-    }
-    assertEquals(12, count);
+    List<MetadataChangeProposal> mcps = replayFabricRuntimeNotebookEvents(true);
 
     String ws = FABRIC_WS + ".";
     String bronzeCustomers = fabricUrn(ws + FABRIC_BRONZE + ".dbo.customers");
@@ -1624,7 +1597,6 @@ public class OpenLineageEventToDatahubTest {
     String silverCustomers = fabricUrn(ws + FABRIC_SILVER + ".dbo.customers");
     String silverTotals = fabricUrn(ws + FABRIC_SILVER + ".dbo.customer_totals");
 
-    List<MetadataChangeProposal> mcps = emitter.generateCoalescedMcps();
     MetadataChangeProposal inputOutput =
         mcps.stream()
             .filter(mcp -> "dataJobInputOutput".equals(mcp.getAspectName()))
@@ -1679,6 +1651,61 @@ public class OpenLineageEventToDatahubTest {
                 mcp ->
                     "schemaMetadata".equals(mcp.getAspectName())
                         && mcp.getEntityUrn().toString().contains("fabric-onelake")));
+  }
+
+  /**
+   * Converts the Fabric Runtime 1.3 notebook events and returns the agent's coalesced MCPs (one
+   * DataJob per application, the agent's default).
+   */
+  private List<MetadataChangeProposal> replayFabricRuntimeNotebookEvents(boolean fabricOneLake)
+      throws Exception {
+    Config config =
+        ConfigFactory.parseString(
+            "metadata.dataset.fabricOneLake.enabled = "
+                + fabricOneLake
+                + "\n"
+                + "metadata.dataset.materialize = true\n"
+                + "metadata.dataset.include_schema_metadata = true");
+    SparkLineageConf sparkLineageConf =
+        SparkLineageConf.toSparkLineageConf(config, new SparkAppContext(), null);
+    io.openlineage.spark.api.SparkOpenLineageConfig olConfig =
+        new io.openlineage.spark.api.SparkOpenLineageConfig();
+    olConfig.setTransportConfig(new io.openlineage.client.transports.ConsoleConfig());
+    DatahubEventEmitter emitter = new DatahubEventEmitter(olConfig, "test");
+    emitter.setConfig(sparkLineageConf);
+
+    String events =
+        IOUtils.toString(
+            Objects.requireNonNull(
+                this.getClass()
+                    .getResourceAsStream("/ol_events/fabric_runtime_notebook_events.jsonl")),
+            StandardCharsets.UTF_8);
+    int count = 0;
+    for (String line : events.split("\n")) {
+      if (!line.isBlank()) {
+        emitter.convertOpenLineageRunEventToDatahubJob(
+            OpenLineageClientUtils.runEventFromJson(line));
+        count++;
+      }
+    }
+    assertEquals(12, count);
+
+    return emitter.generateCoalescedMcps();
+  }
+
+  @Test
+  public void testFabricRuntimeNotebookEventsCoalescedMappingDisabled() throws Exception {
+    // Control for the schemaMetadata assertion above: with the mapping off, the same events land on
+    // abs URNs and the agent does emit their (event-derived) schemaMetadata.
+    List<MetadataChangeProposal> mcps = replayFabricRuntimeNotebookEvents(false);
+    assertTrue(
+        mcps.stream()
+            .anyMatch(
+                mcp ->
+                    "schemaMetadata".equals(mcp.getAspectName())
+                        && mcp.getEntityUrn().toString().contains("dataPlatform:abs,")));
+    assertTrue(
+        mcps.stream().noneMatch(mcp -> mcp.getEntityUrn().toString().contains("fabric-onelake")));
   }
 
   private static String fabricUrn(String name) {
