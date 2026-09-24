@@ -27,8 +27,9 @@ PIPELINE_RUN_ID_1 = "run-11111111-1111-1111-1111-111111111111"
 ACTIVITY_RUN_ID_1 = "ar-11111111-1111-1111-1111-111111111111"
 ACTIVITY_RUN_ID_2 = "ar-22222222-2222-2222-2222-222222222222"
 LAKEHOUSE_ARTIFACT_ID = "lh-artifact-0000-0000-0000-000000000001"
-# Exported pipeline JSON uses this placeholder for items in the pipeline's own
-# workspace; lineage must resolve it to the pipeline's workspace GUID.
+# All-zero workspaceId placeholder that Fabric saves in pipeline definitions
+# (such activities fail at runtime); lineage resolves it to the pipeline's
+# workspace GUID.
 SAME_WORKSPACE_PLACEHOLDER_ID = "00000000-0000-0000-0000-000000000000"
 
 

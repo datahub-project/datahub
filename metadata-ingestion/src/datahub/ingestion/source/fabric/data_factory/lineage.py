@@ -45,7 +45,9 @@ EXPRESSION_TYPE = "Expression"
 SINK_TABLE_OPTION_KEY = "tableOption"
 SINK_TABLE_OPTION_AUTO_CREATE = "autoCreate"
 WORKSPACE_ID_KEY = "workspaceId"
-# Placeholder Fabric writes for items living in the pipeline's own workspace.
+# All-zero workspace GUID that Fabric accepts and saves in pipeline definitions
+# as a workspaceId placeholder. Activities referencing it fail at runtime until
+# a real workspace is set; lineage treats it as the pipeline's own workspace.
 SAME_WORKSPACE_PLACEHOLDER_ID = "00000000-0000-0000-0000-000000000000"
 
 # Resolves a dataset URN to its columns (e.g. from the DataHub graph).
@@ -66,7 +68,9 @@ def is_auto_create_sink(sink: Dict[str, Any]) -> bool:
 
     Set as ``sink.tableOption: "autoCreate"`` (e.g. DataWarehouseSink,
     AzureSqlSink, SqlServerSink); the table is created only if it does not
-    already exist.
+    already exist. Only the pipeline definition is inspected: runtime
+    prerequisites (e.g. staging for a Warehouse sink fed from a Lakehouse
+    table) are not checked.
     """
     table_option = sink.get(SINK_TABLE_OPTION_KEY)
     return (
@@ -337,9 +341,12 @@ class CopyActivityLineageExtractor:
     ) -> str:
         """Return the workspace GUID of a referenced Fabric item.
 
-        Exported pipeline JSON references items in the pipeline's own
-        workspace with the all-zero GUID placeholder; that, like a missing or
-        empty value, means "same workspace as the pipeline".
+        A missing or empty value means "same workspace as the pipeline".
+        Pipeline definitions can also carry the all-zero GUID placeholder:
+        Fabric saves it, but the activity fails at runtime until a real
+        workspace is set. It is treated like a missing value, so lineage
+        points at the referenced item in the pipeline's workspace rather than
+        at a nonexistent all-zero workspace.
         """
         for type_properties in type_properties_candidates:
             workspace_id = type_properties.get(WORKSPACE_ID_KEY)

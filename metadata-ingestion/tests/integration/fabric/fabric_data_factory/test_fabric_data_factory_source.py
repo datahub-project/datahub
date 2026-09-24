@@ -125,7 +125,7 @@ def test_full_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
             ),
             sink_settings=create_lakehouse_dataset_settings(
                 artifact_id=LAKEHOUSE_ARTIFACT_ID,
-                # Same-workspace placeholder → resolves to WORKSPACE_ID_1
+                # All-zero workspace placeholder → resolves to WORKSPACE_ID_1
                 workspace_id=SAME_WORKSPACE_PLACEHOLDER_ID,
                 schema="dbo",
                 table="customers",
