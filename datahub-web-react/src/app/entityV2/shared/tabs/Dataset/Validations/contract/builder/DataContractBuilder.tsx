@@ -1,5 +1,5 @@
 import { Button, message } from 'antd';
-import lodash from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -158,8 +158,7 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
         }
     };
 
-    const editDisabled =
-        lodash.isEqual(builderState, initialState) || lodash.isEqual(builderState, DEFAULT_BUILDER_STATE);
+    const editDisabled = isEqual(builderState, initialState) || isEqual(builderState, DEFAULT_BUILDER_STATE);
 
     const hasAssertions = freshnessAssertions.length || schemaAssertions.length || dataQualityAssertions.length;
 

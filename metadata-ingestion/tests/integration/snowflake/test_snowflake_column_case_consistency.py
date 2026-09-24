@@ -10,7 +10,7 @@ import time_machine
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
@@ -59,7 +59,7 @@ def _run(tmp_path: Path, filename: str, **config_overrides: Any) -> List[dict]:
                         end_time=datetime(2022, 6, 7, 7, 17).replace(
                             tzinfo=timezone.utc
                         ),
-                        profiling=GEProfilingConfig(
+                        profiling=ProfilingConfig(
                             enabled=True,
                             profile_if_updated_since_days=None,
                             profile_table_row_limit=None,

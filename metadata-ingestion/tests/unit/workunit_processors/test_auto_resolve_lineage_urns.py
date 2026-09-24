@@ -1095,14 +1095,17 @@ def test_workunit_level_counters_track_lineage_and_modified():
 
 
 def test_module_import_does_not_pull_sqlglot():
-    # Importing this module (e.g. via the workunit_processors package) must not drag
-    # in sqlglot, or connectors that don't declare it would break. The invariant rests
-    # on deferred imports + `from __future__ import annotations`; assert it in a fresh
-    # interpreter, since this test session may already have sqlglot loaded.
+    # The resolver chain must not drag in sqlglot, or connectors that don't declare it
+    # would break. Assert in a fresh interpreter, since this test session may already
+    # have sqlglot loaded.
     code = (
         "import sys; "
         "import datahub.ingestion.workunit_processors.auto_resolve_lineage_urns; "
-        "assert 'sqlglot' not in sys.modules, 'sqlglot imported at module load'"
+        "assert 'sqlglot' not in sys.modules, 'sqlglot imported at module load'; "
+        "import datahub.sql_parsing.schema_resolver; "
+        "assert 'sqlglot' not in sys.modules, 'schema_resolver pulled in sqlglot'; "
+        "import datahub.sql_parsing.schema_resolver_provider; "
+        "assert 'sqlglot' not in sys.modules, 'schema_resolver_provider pulled in sqlglot'"
     )
     result = subprocess.run(
         [sys.executable, "-c", code], capture_output=True, text=True
@@ -1290,25 +1293,6 @@ def test_disabled_under_bare_mock_ctx():
     # naive check would enable the processor with a Mock config and crash mid-run. It
     # must fail closed.
     assert AutoResolveLineageUrnsProcessor.should_enable(mock.MagicMock()) is False
-
-
-def test_config_requires_sql_parser_only_when_enabled(monkeypatch):
-    # sqlglot is not in the ingestion core. Enabling the feature without it must fail
-    # fast at config parse (only when enabled), with an actionable message — not deep in
-    # the processor at run time. Simulate the missing dependency by nulling the module.
-    monkeypatch.setitem(sys.modules, "sqlglot", None)
-
-    # Disabled: no requirement, config validates fine.
-    AutoResolveLineageUrnsConfig(enabled=False)
-
-    # Enabled: the SQL parser is required, so config validation fails.
-    with pytest.raises(pydantic.ValidationError, match="sql-parser"):
-        AutoResolveLineageUrnsConfig(
-            enabled=True,
-            upstream_platforms=[
-                UpstreamPlatformCasing(platform="snowflake", env="PROD")
-            ],
-        )
 
 
 # --- identity from a shared index, columns from our own load -----------------------

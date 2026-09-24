@@ -101,15 +101,13 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
     const prevOpenRef = useRef<boolean>(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // INGESTION_SOURCE isn't in the search index, so it is fetched separately below.
+    // Keep search params in refs so the debounce only fires on searchQuery changes,
+    // not on unstable array/object prop references from parent re-renders.
+    const searchParamsRef = useRef({ entityTypes, defaultFilters, viewUrn });
+    searchParamsRef.current = { entityTypes, defaultFilters, viewUrn };
+
+    // Check if INGESTION_SOURCE is in entity types
     const hasIngestionSource = entityTypes.includes(EntityType.IngestionSource);
-    const typesToSearch = useMemo(
-        () => entityTypes.filter((type) => type !== EntityType.IngestionSource),
-        [entityTypes],
-    );
-    // An empty entityTypes means "search everything". A non-empty list that held only
-    // INGESTION_SOURCE leaves the main search nothing to do.
-    const shouldSearchEntities = entityTypes.length === 0 || typesToSearch.length > 0;
 
     // Search functionality
     const [searchResources, { data: resourcesSearchData, loading: searchLoading }] =
@@ -117,10 +115,11 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
 
     // Debounced copy of searchQuery for the ingestion-sources query — it refetches on
     // every variables change, so feeding it the raw per-keystroke value would fire a
-    // request per character (the main search below already debounces via useDebounce).
+    // request per character (the main search above already debounces via useDebounce).
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     useDebounce(() => setDebouncedSearchQuery(searchQuery), DEBOUNCE_SEARCH_MS, [searchQuery]);
 
+    // Fetch ingestion sources when needed
     const { data: ingestionSourcesData, loading: ingestionSourcesLoading } = useListIngestionSourcesQuery({
         variables: {
             input: {
@@ -141,24 +140,32 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
 
     const doSearch = useCallback(
         (query: string) => {
-            if (!shouldSearchEntities) return;
-            searchResources({
-                variables: {
-                    input: {
-                        types: typesToSearch,
-                        query,
-                        start: 0,
-                        count: 10,
-                        orFilters: defaultFilters,
-                        viewUrn: viewUrn || undefined,
+            const { entityTypes: types, defaultFilters: filters, viewUrn: view } = searchParamsRef.current;
+            // Only search non-INGESTION_SOURCE types through the main search
+            const typesToSearch = types.filter((type) => type !== EntityType.IngestionSource);
+
+            // Call searchResources if:
+            // 1. Original types array is empty (search all types), OR
+            // 2. There are non-ingestion-source types to search (skip if only ingestion source)
+            if (types.length === 0 || typesToSearch.length > 0) {
+                searchResources({
+                    variables: {
+                        input: {
+                            types: typesToSearch,
+                            query,
+                            start: 0,
+                            count: 10,
+                            orFilters: filters,
+                            viewUrn: view || undefined,
+                        },
                     },
-                },
-            });
+                });
+            }
         },
-        [searchResources, shouldSearchEntities, typesToSearch, defaultFilters, viewUrn],
+        [searchResources],
     );
 
-    // Issue a default search when dropdown opens
+    // Initialize search when dropdown opens
     useEffect(() => {
         if (open && !prevOpenRef.current) {
             doSearch('*');
@@ -175,7 +182,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
             }
         },
         DEBOUNCE_SEARCH_MS,
-        [searchQuery, open, doSearch],
+        [searchQuery, doSearch],
     );
 
     const handleSearchChange = useCallback((value: string) => {
@@ -188,32 +195,38 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
     );
 
     const entityOptions = useMemo(() => {
-        const entityResults = shouldSearchEntities
-            ? (resourcesSearchData?.searchAcrossEntities?.searchResults || []).map((result) => ({
-                  label: getEntityDisplayName(result.entity as Entity),
-                  value: result.entity.urn,
-                  entity: result.entity as Entity,
-              }))
-            : [];
+        // Only include regular search results if we're actually searching for non-ingestion-source types
+        const typesToSearch = entityTypes.filter((type) => type !== EntityType.IngestionSource);
+        const shouldIncludeSearchResults = entityTypes.length === 0 || typesToSearch.length > 0;
 
-        const ingestionSourceResults = (ingestionSourcesData?.listIngestionSources?.ingestionSources || []).map(
-            (source) => {
-                const displayName = source.name || source.urn;
-                return {
-                    label: displayName,
-                    value: source.urn,
-                    entity: {
-                        ...source,
-                        urn: source.urn,
-                        type: EntityType.IngestionSource,
-                        name: displayName,
-                    } as Entity,
-                };
-            },
-        );
+        let entityResults: Array<{ label: string; value: string; entity: Entity }> = [];
+        if (shouldIncludeSearchResults) {
+            const results = resourcesSearchData?.searchAcrossEntities?.searchResults || [];
+            entityResults = results.map((result) => ({
+                label: getEntityDisplayName(result.entity as Entity),
+                value: result.entity.urn,
+                entity: result.entity as Entity,
+            }));
+        }
+
+        // Add ingestion sources if available
+        const ingestionSources = ingestionSourcesData?.listIngestionSources?.ingestionSources || [];
+        const ingestionSourceResults = ingestionSources.map((source) => {
+            const displayName = source.name || source.urn;
+            return {
+                label: displayName,
+                value: source.urn,
+                entity: {
+                    ...source,
+                    urn: source.urn,
+                    type: EntityType.IngestionSource,
+                    name: displayName,
+                } as Entity,
+            };
+        });
 
         return [...entityResults, ...ingestionSourceResults];
-    }, [resourcesSearchData, ingestionSourcesData, getEntityDisplayName, shouldSearchEntities]);
+    }, [resourcesSearchData, ingestionSourcesData, getEntityDisplayName, entityTypes]);
 
     const handleOptionClick = useCallback(
         (option: { value: string; entity: Entity }) => {
@@ -242,7 +255,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
                     setValue={handleSearchChange}
                     placeholder={resolvedPlaceholder}
                     icon={{ icon: MagnifyingGlass }}
-                    data-testid="entity-search-select-input"
+                    inputTestId="entity-search-select-input"
                 />
             </SearchInputContainer>
             <OptionList>

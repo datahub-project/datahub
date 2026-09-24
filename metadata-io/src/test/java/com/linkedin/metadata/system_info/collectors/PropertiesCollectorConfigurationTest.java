@@ -1194,6 +1194,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.v3.mappingConfig",
           "elasticsearch.entityIndex.v3.cleanup",
           "elasticsearch.entityIndex.v3.keywordReadEnabled",
+          "elasticsearch.entityIndex.v3.semanticReadEnabled",
           "elasticsearch.entityIndex.v3.maxFieldsLimit",
           // Semantic search configuration
           "elasticsearch.entityIndex.semanticSearch.enabled",
