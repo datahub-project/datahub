@@ -209,7 +209,7 @@ public class ContainerMapper {
     if (gmsProperties.hasEnv()) {
       // PdlEnumMapper falls back to null for an unrecognized fabric (e.g. Pegasus
       // $UNKNOWN) instead of throwing and failing the container/search response.
-      propertiesResult.setEnv(
+      propertiesResult.setOrigin(
           PdlEnumMapper.mapDefaultNull(
               com.linkedin.datahub.graphql.generated.FabricType.class, gmsProperties.getEnv()));
     }

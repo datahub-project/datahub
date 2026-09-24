@@ -46,10 +46,10 @@ describe('CompactView environment threading', () => {
         expect(entityHeaderMock).toHaveBeenCalledWith(expect.objectContaining({ environment: FabricType.Prod }));
     });
 
-    it('passes a resolved container env through to EntityHeader', () => {
+    it('passes a resolved container origin through to EntityHeader', () => {
         renderCompactView(EntityType.Container, {
             type: EntityType.Container,
-            properties: { env: FabricType.Dev },
+            properties: { origin: FabricType.Dev },
         });
         expect(entityHeaderMock).toHaveBeenCalledWith(expect.objectContaining({ environment: FabricType.Dev }));
     });

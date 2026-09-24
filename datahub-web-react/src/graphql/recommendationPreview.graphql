@@ -250,7 +250,7 @@ fragment recommendationEntityPreview on Entity {
     ... on Container {
         ...entityContainer
         properties {
-            env
+            origin
         }
     }
     ... on DataProduct {

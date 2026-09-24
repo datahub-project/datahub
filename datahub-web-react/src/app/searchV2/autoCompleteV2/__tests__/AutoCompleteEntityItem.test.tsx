@@ -32,7 +32,7 @@ const datasetEntity = {
 const containerEntity = {
     urn: 'urn:li:container:abc',
     type: EntityType.Container,
-    properties: { name: 'my_schema', env: FabricType.Dev },
+    properties: { name: 'my_schema', origin: FabricType.Dev },
     platform: PLATFORM,
 } as unknown as Entity;
 
@@ -58,7 +58,7 @@ describe('AutoCompleteEntityItem environment badge', () => {
         expect(getByText('QA')).toBeInTheDocument();
     });
 
-    it('shows the env pill for a container with properties.env=DEV when the toggle is on', () => {
+    it('shows the env pill for a container with properties.origin=DEV when the toggle is on', () => {
         const { getByText } = renderItem(containerEntity, true);
         expect(getByText('DEV')).toBeInTheDocument();
     });

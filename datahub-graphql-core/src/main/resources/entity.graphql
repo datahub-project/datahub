@@ -3458,7 +3458,7 @@ type ContainerProperties {
   """
   Environment (fabric) this Container belongs to, e.g. PROD, DEV, QA
   """
-  env: FabricType
+  origin: FabricType
 }
 
 """

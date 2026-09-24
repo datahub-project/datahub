@@ -8,7 +8,7 @@ import CustomThemeProvider from '@src/CustomThemeProvider';
 import { FabricType } from '@types';
 
 // EntityHeader is entity-agnostic: it renders whatever `environment` it's given, so a single
-// mocked value stands in for both the dataset (origin) and container (properties.env) sources —
+// mocked value stands in for both the dataset (origin) and container (properties.origin) sources —
 // getEntityEnvironment itself is covered by getEntityEnvironment.test.ts.
 const mockUseAppConfig = vi.fn();
 vi.mock('@app/useAppConfig', () => ({
@@ -47,7 +47,7 @@ describe('EntityHeader environment badge', () => {
         expect(queryByText('PROD')).toBeNull();
     });
 
-    it('shows the env pill for a container with properties.env=DEV when the toggle is on', () => {
+    it('shows the env pill for a container with properties.origin=DEV when the toggle is on', () => {
         const { getByText } = renderHeader(FabricType.Dev, true);
         expect(getByText('DEV')).toBeInTheDocument();
     });

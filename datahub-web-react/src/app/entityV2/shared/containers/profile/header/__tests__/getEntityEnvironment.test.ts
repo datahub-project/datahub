@@ -8,12 +8,12 @@ describe('getEntityEnvironment', () => {
             FabricType.Prod,
         );
     });
-    it('returns properties.env for containers', () => {
-        expect(getEntityEnvironment({ type: EntityType.Container, properties: { env: FabricType.Dev } } as any)).toBe(
-            FabricType.Dev,
-        );
+    it('returns properties.origin for containers', () => {
+        expect(
+            getEntityEnvironment({ type: EntityType.Container, properties: { origin: FabricType.Dev } } as any),
+        ).toBe(FabricType.Dev);
     });
-    it('returns null for containers without env', () => {
+    it('returns null for containers without origin', () => {
         expect(getEntityEnvironment({ type: EntityType.Container, properties: {} } as any)).toBeNull();
     });
     it('returns null for entity types without environment', () => {
