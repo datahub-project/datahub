@@ -240,7 +240,8 @@ looker_common = {
 bigquery_common = {
     # Google cloud logging library
     "google-cloud-logging<4.0.0",
-    "google-cloud-bigquery<4.0.0",
+    # >=3.14.0 for QueryJobConfig.job_timeout_ms (partition-fetch probe timeout).
+    "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",

@@ -667,7 +667,9 @@ def test_get_partitions_with_sampling_date_branch():
             table, "test-project-123456", "test_dataset", execute
         )
 
-    assert result == ["`event_date` = '2023-12-25'"]
+    # DATE partition value is widened to the granularity (defaults to DAY) half-open
+    # range rather than a point equality, consistent with all temporal partition columns.
+    assert result == ["`event_date` >= '2023-12-25' AND `event_date` < '2023-12-26'"]
 
 
 def test_get_partitions_with_sampling_non_date_branch():
@@ -3026,7 +3028,8 @@ def test_fallback_filter_with_column_types():
             [
                 "`partition_col1` = 20241021",  # INT64 unquoted
                 "`partition_col2` = 'region_a'",  # STRING quoted
-                "`partition_col3` = '2024-10-21'",  # DATE quoted
+                # DATE widened to the granularity (DAY) half-open range, not a point equality.
+                "`partition_col3` >= '2024-10-21' AND `partition_col3` < '2024-10-22'",
             ],
             3,
             id="mixed_types_int64_string_date",
@@ -3088,7 +3091,8 @@ def test_fallback_filter_with_column_types():
                 "shard_num": "3",
             },
             [
-                "`event_date` = '2024-10-21'",  # DATE quoted
+                # DATE widened to the granularity (DAY) half-open range, not a point equality.
+                "`event_date` >= '2024-10-21' AND `event_date` < '2024-10-22'",
                 "`batch_id` = 9876",  # INT64 unquoted
                 "`shard_num` = 3",  # INT64 unquoted
             ],
