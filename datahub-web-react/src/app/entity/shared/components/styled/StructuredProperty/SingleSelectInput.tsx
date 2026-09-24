@@ -54,7 +54,6 @@ export default function SingleSelectInput({ selectSingleValue, allowedValues, se
             values={selectedValues.map(String)}
             options={options}
             showDescriptions
-            showSearch
             sortSelectedFirst={false}
             showClear={false}
             dataTestId="structured-property-single-select"
