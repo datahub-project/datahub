@@ -182,6 +182,42 @@ def test_snowflake_regular_case():
 
 
 @pytest.mark.integration
+def test_starburst_trino_regular_case():
+    # Covers both Starburst Power BI connectors: StarburstAad and StarburstPresto.
+    starburst_queries: List[str] = [
+        'let\n    Source = StarburstAad.Contents("starburst.example.com", 443, [Role=null, Catalog=null, UseSystemProxy=null, ExtraConnectionString=null]),\n    prod_Database = Source{[Name="prod",Kind="Database"]}[Data],\n    sales_Schema = prod_Database{[Name="sales",Kind="Schema"]}[Data],\n    orders_Table = sales_Schema{[Name="orders",Kind="Table"]}[Data]\nin\n    orders_Table',
+        'let\n    Source = StarburstPresto.Contents("trino.example.com", 8443, [Catalog=null]),\n    hive_Database = Source{[Name="hive",Kind="Database"]}[Data],\n    analytics_Schema = hive_Database{[Name="analytics",Kind="Schema"]}[Data],\n    events_Table = analytics_Schema{[Name="events",Kind="Table"]}[Data]\nin\n    events_Table',
+    ]
+    expected_tables = [
+        "urn:li:dataset:(urn:li:dataPlatform:trino,prod.sales.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:trino,hive.analytics.events,PROD)",
+    ]
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    for index, query in enumerate(starburst_queries):
+        table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+            columns=[],
+            measures=[],
+            expression=query,
+            name="virtual_order_table",
+            full_name="OrderDataSet.virtual_order_table",
+        )
+        reporter = PowerBiDashboardSourceReport()
+
+        data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )[0].upstreams
+
+        assert len(data_platform_tables) == 1
+        assert data_platform_tables[0].urn == expected_tables[index]
+
+
+@pytest.mark.integration
 def test_postgres_regular_case():
     q: str = M_QUERIES[13]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(

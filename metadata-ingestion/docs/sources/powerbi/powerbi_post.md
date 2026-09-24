@@ -83,6 +83,7 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 7.  MySQL
 8.  Amazon Redshift
 9.  Amazon Athena
+10. Starburst / Trino (both the `StarburstAad.Contents` and `StarburstPresto.Contents` connectors)
 
 Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, `Oracle`, and ODBC data sources.
 
@@ -155,7 +156,8 @@ default). Federation is resolved while extracting lineage, so configuring the
 mapping with any of these disabled fails config validation rather than silently
 doing nothing. The target `platform` must be one of the platforms PowerBI
 lineage supports: `athena`, `bigquery`, `databricks`, `fabric-onelake`, `hive`,
-`mssql`, `mysql`, `odbc`, `oracle`, `postgres`, `redshift`, or `snowflake`.
+`mssql`, `mysql`, `odbc`, `oracle`, `postgres`, `redshift`, `snowflake`, or
+`trino`.
 Other DataHub platforms such as `cloudsql`, `alloydb`, `spanner`, or `mariadb`
 are rejected at config validation even though they exist in DataHub, so point
 the mapping at the engine's wire-compatible platform instead (Cloud SQL and
