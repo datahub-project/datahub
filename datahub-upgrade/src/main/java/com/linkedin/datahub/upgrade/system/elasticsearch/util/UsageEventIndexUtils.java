@@ -808,10 +808,15 @@ public class UsageEventIndexUtils {
       String indexName)
       throws IOException {
     long indexCreated = creationDate(opContext, esComponents, indexName);
+    if (indexCreated <= 0) {
+      // No longer a plain index, so another run has migrated it meanwhile.
+      return;
+    }
     for (String backupName :
         resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*")) {
       if (backfillMeta(opContext, esComponents, backupName).path(BACKFILL_TASK_META).isMissingNode()
-          && creationDate(opContext, esComponents, backupName) > indexCreated) {
+          && creationDate(opContext, esComponents, backupName) > indexCreated
+          && resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
         log.info("Deleting {}, left by an earlier attempt to migrate {}", backupName, indexName);
         deleteIndex(opContext, esComponents, backupName);
       }
@@ -890,20 +895,15 @@ public class UsageEventIndexUtils {
         createDataStream(opContext, esComponents, indexName);
       }
     } catch (IOException | RuntimeException e) {
-      try {
-        if (!originalDeleted
-            && resolveIndices(opContext, esComponents, indexName).contains(indexName)
-            && !IndexUtils.retryWithBackoff(
-                3,
-                1000,
-                () -> {
-                  setWriteBlock(opContext, esComponents, indexName, false);
-                  return true;
-                })) {
-          e.addSuppressed(new IOException("Could not lift the write block on " + indexName));
-        }
-      } catch (IOException | RuntimeException unblockFailure) {
-        e.addSuppressed(unblockFailure);
+      if (!originalDeleted
+          && !IndexUtils.retryWithBackoff(
+              3,
+              1000,
+              () -> {
+                setWriteBlock(opContext, esComponents, indexName, false);
+                return true;
+              })) {
+        e.addSuppressed(new IOException("Could not lift the write block on " + indexName));
       }
       throw e;
     }
@@ -938,27 +938,32 @@ public class UsageEventIndexUtils {
       throws IOException, InterruptedException {
     JsonNode meta = backfillMeta(opContext, esComponents, backupName);
     String taskId = meta.path(BACKFILL_TASK_META).asText();
+    String recordedWriteIndex = meta.path(BACKFILL_WRITE_INDEX_META).asText();
     String writeIndex = writeIndex(opContext, esComponents, indexName, dataStream);
-    if (!taskId.isEmpty() && getTask(opContext, esComponents, taskId) == null) {
-      // The cluster forgot the copy, for example after a restart; it may have stopped part way.
-      if (!writeIndex.equals(meta.path(BACKFILL_WRITE_INDEX_META).asText())) {
+    // A copy may have run untracked: its start was recorded but not its task, or the cluster
+    // forgot the task (for example after a restart); either way it may have stopped part way.
+    if (!recordedWriteIndex.isEmpty()
+        && (taskId.isEmpty() || getTask(opContext, esComponents, taskId) == null)) {
+      if (writeIndex.isEmpty() || !writeIndex.equals(recordedWriteIndex)) {
         log.error(
-            "Copy task {} for {} is gone and {} has rolled over since, so copying again could"
-                + " duplicate events. {} is kept; copy the remaining events yourself, then delete it",
-            taskId,
+            "An earlier copy of {} into {} did not finish and {} has rolled over since, so"
+                + " copying again could duplicate events. {} is kept; copy the remaining events"
+                + " yourself, then delete it",
             backupName,
+            recordedWriteIndex,
             indexName,
             backupName);
         return;
       }
       log.warn(
-          "Copy task {} for {} is gone; copying it again into {}, which skips events already there",
-          taskId,
+          "An earlier copy of {} did not finish; copying it again into {}, which skips events"
+              + " already there",
           backupName,
           writeIndex);
       taskId = "";
     }
     if (taskId.isEmpty()) {
+      recordCopy(opContext, esComponents, backupName, "", writeIndex);
       String reindex =
           String.format(
               "{\"conflicts\":\"proceed\",\"source\":{\"index\":\"%s\"},"
@@ -976,13 +981,7 @@ public class UsageEventIndexUtils {
       if (taskId.isEmpty()) {
         throw new IOException("Reindex from " + backupName + " did not return a task id");
       }
-      IndexUtils.performPutRequest(
-          opContext,
-          esComponents,
-          "/" + backupName + "/_mapping",
-          String.format(
-              "{\"_meta\":{\"%s\":\"%s\",\"%s\":\"%s\"}}",
-              BACKFILL_TASK_META, taskId, BACKFILL_WRITE_INDEX_META, writeIndex));
+      recordCopy(opContext, esComponents, backupName, taskId, writeIndex);
     }
     JsonNode task = waitForTask(opContext, esComponents, taskId);
     if (task == null) {
@@ -1029,6 +1028,22 @@ public class UsageEventIndexUtils {
         present,
         dropped,
         backupName);
+  }
+
+  private static void recordCopy(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String backupName,
+      String taskId,
+      String writeIndex)
+      throws IOException {
+    IndexUtils.performPutRequest(
+        opContext,
+        esComponents,
+        "/" + backupName + "/_mapping",
+        String.format(
+            "{\"_meta\":{\"%s\":\"%s\",\"%s\":\"%s\"}}",
+            BACKFILL_TASK_META, taskId, BACKFILL_WRITE_INDEX_META, writeIndex));
   }
 
   @Nullable
@@ -1139,11 +1154,12 @@ public class UsageEventIndexUtils {
       String indexName,
       boolean blocked)
       throws IOException {
-    IndexUtils.performPutRequest(
-        opContext,
-        esComponents,
-        "/" + indexName + "/_settings",
+    Request request = new Request("PUT", "/" + indexName + "/_settings");
+    request.setJsonEntity(
         String.format("{\"%s\":%s}", IndexUtils.INDEX_BLOCKS_WRITE_SETTING, blocked));
+    // Harmless on an alias or data stream, and nothing to do if the index is gone.
+    request.addParameter("ignore", "404");
+    esComponents.getSearchClient().performLowLevelRequest(opContext, request);
   }
 
   private static void deleteIndex(
