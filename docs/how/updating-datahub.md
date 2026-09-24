@@ -125,6 +125,8 @@ Requirements:
 
 - [#19905](https://github.com/datahub-project/datahub/pull/19905) **(Ingestion / openapi)** The `get_token` recipe field is now a typed object (`request_type: get|post`, `url_complement`) instead of a free-form dict. An unrecognized key, a missing `request_type`/`url_complement`, or a `request_type: get` whose `url_complement` omits the `{username}`/`{password}` placeholders now fails recipe validation instead of failing later (or silently) at ingestion time. `get_token` is also now mutually exclusive with `token`/`bearer_token`. **Action:** none if your recipe already used `get_token: {request_type: ..., url_complement: ...}` with a single auth method (the common case). Fix any recipe that relied on a malformed `get_token` being silently ignored, or that set more than one of `token`/`bearer_token`/`get_token`.
 
+- [#19906](https://github.com/datahub-project/datahub/pull/19906) **(Ingestion / openapi)** `forced_examples` values must now be lists of scalars (str/int/float/bool); a `null` or object entry is rejected instead of being silently stringified as `"None"` in the composed URL (booleans are coerced via int, so `true`/`false` become `"1"`/`"0"`). `schema_resolution_max_depth` is now bounded to `1..100` (previously any integer was accepted); `0` or a value above `100` now fails validation. **Action:** none if your recipe used scalar `forced_examples` values and left `schema_resolution_max_depth` within `1..100`. Fix any recipe relying on the old lenient behavior.
+
 ### Known Issues
 
 ### Potential Downtime
