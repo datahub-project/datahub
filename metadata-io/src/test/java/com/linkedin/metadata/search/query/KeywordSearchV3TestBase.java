@@ -29,11 +29,17 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.browse.BrowseResultGroupV2;
+import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.AutoCompleteEntity;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -105,6 +111,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:postgres,sales.customers,PROD)");
   private static final Urn ORDERS_CHART = UrnUtils.getUrn("urn:li:chart:(looker,orders_by_region)");
   private static final List<String> ENTITY_TYPES = List.of(DATASET_ENTITY_NAME, CHART_ENTITY_NAME);
+  private static final String BROWSE_DELIMITER = "␟";
 
   private final List<String> createdIndices = new ArrayList<>();
   private OperationContext opContext;
@@ -334,6 +341,105 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertTrue(explain.isMatch());
   }
 
+  @Test
+  public void testSearch() {
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    assertUrns(
+        searchService
+            .search(fulltext, List.of(DATASET_ENTITY_NAME), "orders", null, null, 0, 10)
+            .getEntities(),
+        ORDERS);
+
+    SearchResult acrossEntities =
+        searchService.search(
+            fulltext,
+            ENTITY_TYPES,
+            "orders",
+            null,
+            null,
+            0,
+            10,
+            List.of("platform", "_entityType"));
+    assertUrns(acrossEntities.getEntities(), ORDERS, ORDERS_CHART);
+    Map<String, Map<String, Long>> facets =
+        acrossEntities.getMetadata().getAggregations().stream()
+            .collect(
+                Collectors.toMap(
+                    AggregationMetadata::getName, AggregationMetadata::getAggregations));
+    assertEquals(facets.get("platform"), Map.of(HIVE.toString(), 1L));
+    assertEquals(facets.get("_entityType"), Map.of(DATASET_ENTITY_NAME, 1L, CHART_ENTITY_NAME, 1L));
+    // Each returned Type value filters back to its entities
+    for (Map.Entry<String, Urn> type :
+        Map.of(DATASET_ENTITY_NAME, ORDERS, CHART_ENTITY_NAME, ORDERS_CHART).entrySet()) {
+      assertUrns(
+          searchService
+              .search(
+                  fulltext,
+                  ENTITY_TYPES,
+                  "orders",
+                  QueryUtils.newFilter("_entityType", type.getKey()),
+                  null,
+                  0,
+                  10)
+              .getEntities(),
+          type.getValue());
+    }
+
+    // Keyword sort on the root name alias: upper case sorts first
+    assertEquals(
+        searchService
+            .search(
+                fulltext,
+                ENTITY_TYPES,
+                "orders",
+                null,
+                List.of(new SortCriterion().setField("_entityName").setOrder(SortOrder.ASCENDING)),
+                0,
+                10)
+            .getEntities()
+            .stream()
+            .map(SearchEntity::getEntity)
+            .collect(Collectors.toList()),
+        List.of(ORDERS_CHART, ORDERS));
+  }
+
+  @Test
+  public void testScroll() {
+    assertUrns(
+        searchService
+            .fullTextScroll(opContext, ENTITY_TYPES, "*", null, null, null, null, 10, List.of())
+            .getEntities(),
+        ORDERS,
+        CUSTOMERS,
+        ORDERS_CHART);
+  }
+
+  @Test
+  public void testAutoComplete() {
+    assertEquals(
+        searchService
+            .autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10)
+            .getEntities()
+            .stream()
+            .map(AutoCompleteEntity::getUrn)
+            .collect(Collectors.toList()),
+        List.of(ORDERS));
+  }
+
+  @Test
+  public void testBrowseV2() {
+    BrowseResultV2 datasets =
+        searchService.browseV2(opContext, DATASET_ENTITY_NAME, "", null, "*", 0, 10);
+    assertEquals(datasets.getMetadata().getTotalNumEntities().longValue(), 2L);
+    assertEquals(groups(datasets), Map.of("prod", 2L));
+
+    BrowseResultV2 acrossEntities =
+        searchService.browseV2(
+            opContext, ENTITY_TYPES, BROWSE_DELIMITER + "prod", null, "*", 0, 10);
+    assertEquals(acrossEntities.getMetadata().getTotalNumEntities().longValue(), 3L);
+    assertEquals(groups(acrossEntities), Map.of("sales", 2L, "marketing", 1L));
+  }
+
   private List<MCLItem> events(Urn urn, RecordTemplate... aspects) {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
     AuditStamp auditStamp =
@@ -367,6 +473,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 Arrays.stream(ids)
                     .map(id -> new BrowsePathEntry().setId(id))
                     .collect(Collectors.toList())));
+  }
+
+  private static Map<String, Long> groups(BrowseResultV2 result) {
+    return result.getGroups().stream()
+        .collect(Collectors.toMap(BrowseResultGroupV2::getName, BrowseResultGroupV2::getCount));
   }
 
   private boolean indexExists(String index) throws IOException {

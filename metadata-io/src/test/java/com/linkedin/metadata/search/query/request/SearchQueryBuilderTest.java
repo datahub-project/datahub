@@ -264,6 +264,40 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testQueryBuilderV3UsesTierFields() {
+    SearchQueryBuilder v3Builder = new SearchQueryBuilder(testQueryConfig, null, true);
+    List<EntitySpec> datasets = List.of(opContext.getEntityRegistry().getEntitySpec("dataset"));
+
+    String fulltext = v3Builder.buildQuery(opContext, datasets, "testQuery", true).toString();
+    assertTrue(fulltext.contains("simple_query_string"));
+    assertTrue(fulltext.contains("_search.tier_1.full_stemmed"));
+    assertTrue(fulltext.contains("_search.tier_2.full_removed_sep"));
+    assertTrue(fulltext.contains("_search.entityName"));
+    assertTrue(fulltext.contains("match_phrase_prefix"));
+    // V2 subfields and analyzers do not exist on V3 indices
+    assertFalse(fulltext.contains(URN_SEARCH_ANALYZER));
+    assertFalse(fulltext.contains("\"analyzer\""));
+    assertFalse(fulltext.contains(".delimited"));
+    assertFalse(fulltext.contains(".keyword"));
+
+    String structured = v3Builder.buildQuery(opContext, datasets, "testQuery", false).toString();
+    assertTrue(structured.contains("query_string"));
+    assertTrue(structured.contains("_search.tier_1.full"));
+    assertFalse(structured.contains(".delimited"));
+  }
+
+  @Test
+  public void testQueryBuilderV3TiersFollowAnnotations() {
+    // The test entity has no searchTier annotations, so only the urn's tier is searched
+    String query =
+        new SearchQueryBuilder(testQueryConfig, null, true)
+            .buildQuery(opContext, List.of(TestEntitySpecBuilder.getSpec()), "testQuery", true)
+            .toString();
+    assertTrue(query.contains("_search.tier_4.full_stemmed"));
+    assertFalse(query.contains("_search.tier_1.full_stemmed"));
+  }
+
+  @Test
   public void testCustomSelectAll() {
     for (String triggerQuery : List.of("*", "")) {
       FunctionScoreQueryBuilder result =

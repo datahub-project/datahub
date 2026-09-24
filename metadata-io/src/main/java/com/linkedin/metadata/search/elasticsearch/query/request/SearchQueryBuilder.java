@@ -32,10 +32,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -57,6 +60,11 @@ import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 @Slf4j
 public class SearchQueryBuilder {
   public static final String STRUCTURED_QUERY_PREFIX = "\\/q ";
+  // Search V3 keeps analyzed text only in the _search.tier_N copy_to targets
+  private static final String V3_TIER_FIELD_PREFIX = "_search.tier_";
+  private static final String V3_ENTITY_NAME_FIELD = "_search.entityName";
+  // urn copies to _search.tier_4 in the V3 base mapping, not through a searchTier annotation
+  private static final int V3_URN_SEARCH_TIER = 4;
   private final ExactMatchConfiguration exactMatchConfiguration;
   private final PartialConfiguration partialConfiguration;
   private final WordGramConfiguration wordGramConfiguration;
@@ -65,9 +73,25 @@ public class SearchQueryBuilder {
 
   private final CustomizedQueryHandler customizedQueryHandler;
 
+  /**
+   * Search V3 entity indices have no per-field text subfields, so full-text queries target the
+   * {@code _search.tier_N} fields instead.
+   */
+  private final boolean v3KeywordReadEnabled;
+
+  /** V2 queries only; production passes the V3 read decision through the other constructor. */
+  @VisibleForTesting
   public SearchQueryBuilder(
       @Nonnull SearchConfiguration searchConfiguration,
       @Nullable CustomSearchConfiguration customSearchConfiguration) {
+    this(searchConfiguration, customSearchConfiguration, false);
+  }
+
+  public SearchQueryBuilder(
+      @Nonnull SearchConfiguration searchConfiguration,
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      final boolean v3KeywordReadEnabled) {
+    this.v3KeywordReadEnabled = v3KeywordReadEnabled;
     this.exactMatchConfiguration = searchConfiguration.getExactMatch();
     this.partialConfiguration = searchConfiguration.getPartial();
     this.wordGramConfiguration = searchConfiguration.getWordGram();
@@ -376,7 +400,13 @@ public class SearchQueryBuilder {
       executeSimpleQuery = !(isQuoted(sanitizedQuery) && exactMatchConfiguration.isExclusive());
     }
 
-    if (executeSimpleQuery) {
+    if (executeSimpleQuery && v3KeywordReadEnabled) {
+      // No analyzer: each tier subfield applies its own search analyzer
+      SimpleQueryStringBuilder simpleBuilder =
+          QueryBuilders.simpleQueryStringQuery(sanitizedQuery).defaultOperator(Operator.AND);
+      getV3TierTextFields(entitySpecs).forEach(simpleBuilder::field);
+      result = Optional.of(simpleBuilder);
+    } else if (executeSimpleQuery) {
       BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
 
       // Get base fields
@@ -451,6 +481,10 @@ public class SearchQueryBuilder {
             : customQueryConfig.isPrefixMatchQuery();
     final boolean isExactQuery = customQueryConfig == null || customQueryConfig.isExactMatchQuery();
 
+    if (v3KeywordReadEnabled) {
+      return getV3PrefixAndExactMatchQuery(query, isPrefixQuery, isExactQuery);
+    }
+
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     String unquotedQuery = unquote(query);
 
@@ -523,6 +557,59 @@ public class SearchQueryBuilder {
         : Optional.empty();
   }
 
+  /**
+   * Exact matches on the normalized entity name, tier 1 keyword and urn, plus a phrase prefix on
+   * the tier 1 text. The V3 keywords are normalized, so V2's case-sensitive exact boost has no
+   * equivalent.
+   */
+  private Optional<QueryBuilder> getV3PrefixAndExactMatchQuery(
+      String query, boolean isPrefixQuery, boolean isExactQuery) {
+    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+    if (isPrefixQuery) {
+      finalQuery.should(
+          QueryBuilders.matchPhrasePrefixQuery(V3_TIER_FIELD_PREFIX + "1.full", query)
+              .boost(getV3TierBoost(1) * exactMatchConfiguration.getPrefixFactor()));
+    }
+    if (isExactQuery) {
+      String unquotedQuery = unquote(query);
+      for (String field : List.of(V3_ENTITY_NAME_FIELD, V3_TIER_FIELD_PREFIX + "1", "urn")) {
+        finalQuery.should(
+            QueryBuilders.termQuery(field, unquotedQuery)
+                .caseInsensitive(true)
+                .boost(getV3TierBoost(1) * exactMatchConfiguration.getExactFactor()));
+      }
+    }
+    return finalQuery.should().isEmpty()
+        ? Optional.empty()
+        : Optional.of(finalQuery.minimumShouldMatch(1));
+  }
+
+  /**
+   * Text subfields of every tier the entities' {@code searchTier} annotations copy into, plus the
+   * urn's tier. Boost descends with the tier number (1/N).
+   */
+  private static Map<String, Float> getV3TierTextFields(
+      @Nonnull Collection<EntitySpec> entitySpecs) {
+    SortedSet<Integer> tiers =
+        entitySpecs.stream()
+            .flatMap(spec -> spec.getSearchableFieldSpecs().stream())
+            .map(fieldSpec -> fieldSpec.getSearchableAnnotation().getSearchTier())
+            .flatMap(Optional::stream)
+            .collect(Collectors.toCollection(TreeSet::new));
+    tiers.add(V3_URN_SEARCH_TIER);
+    Map<String, Float> fields = new LinkedHashMap<>();
+    for (int tier : tiers) {
+      for (String subfield : List.of("full", "full_stemmed", "full_removed_sep")) {
+        fields.put(V3_TIER_FIELD_PREFIX + tier + "." + subfield, getV3TierBoost(tier));
+      }
+    }
+    return fields;
+  }
+
+  private static float getV3TierBoost(int tier) {
+    return 1.0f / tier;
+  }
+
   private Optional<QueryBuilder> getStructuredQuery(
       @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
@@ -540,8 +627,12 @@ public class SearchQueryBuilder {
     if (executeStructuredQuery) {
       QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(sanitizedQuery);
       queryBuilder.defaultOperator(Operator.AND);
-      getStandardFields(entityRegistry, entitySpecs)
-          .forEach(entitySpec -> queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
+      if (v3KeywordReadEnabled) {
+        getV3TierTextFields(entitySpecs).forEach(queryBuilder::field);
+      } else {
+        getStandardFields(entityRegistry, entitySpecs)
+            .forEach(entitySpec -> queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
+      }
       result = Optional.of(queryBuilder);
     }
     return result;

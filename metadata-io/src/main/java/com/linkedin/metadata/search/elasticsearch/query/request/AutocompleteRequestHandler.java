@@ -66,6 +66,12 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   @Nonnull private final HighlightBuilder highlights;
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
 
+  /**
+   * Search V3 entity indices keep analyzed text only in the {@code _search.tier_N} fields, and
+   * their root fields have no subfields.
+   */
+  private final boolean v3KeywordReadEnabled;
+
   public AutocompleteRequestHandler(
       @Nonnull OperationContext systemOperationContext,
       @Nonnull EntitySpec entitySpec,
@@ -73,6 +79,8 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull ElasticSearchConfiguration searchConfiguration,
       @Nonnull SearchServiceConfiguration searchServiceConfiguration) {
+    this.v3KeywordReadEnabled =
+        EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex());
     this.entitySpec = entitySpec;
     List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
     this.customizedQueryHandler =
@@ -151,13 +159,11 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
     BoolQueryBuilder baseQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
     // Initial query with input filters
-    final boolean readV3 =
-        EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex());
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
-            readV3 ? ESUtils.toV3EntityFilter(opContext, filter) : filter,
+            v3KeywordReadEnabled ? ESUtils.toV3EntityFilter(opContext, filter) : filter,
             false,
-            readV3,
+            v3KeywordReadEnabled,
             searchableFieldTypes,
             opContext,
             queryFilterRewriteChain);
@@ -215,6 +221,11 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
                 opContext.getSearchContext().getSearchFlags(),
                 CustomConfiguration::getAutoCompleteFieldConfigDefault));
     if (highlightBuilder != null) {
+      if (v3KeywordReadEnabled) {
+        // V3 matches on the tier fields, so root fields must highlight without a field match: a
+        // hit without a highlight is dropped from the suggestions
+        highlightBuilder.fields().forEach(f -> f.requireFieldMatch(false).noMatchSize(200));
+      }
       searchSourceBuilder.highlighter(highlightBuilder);
     }
 
@@ -318,6 +329,14 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       List<Pair<String, String>> autocompleteFields, @Nonnull String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
+    if (v3KeywordReadEnabled) {
+      // Entity names copy into both tier 1 and _search.entityName, so the requested field is not
+      // queried on its own
+      return finalQuery
+          .should(QueryBuilders.matchBoolPrefixQuery("_search.tier_1.full", query))
+          .should(QueryBuilders.prefixQuery("_search.entityName", query).caseInsensitive(true));
+    }
+
     // Search for exact matches with higher boost and ngram matches
     MultiMatchQueryBuilder multiMatchQueryBuilder =
         QueryBuilders.multiMatchQuery(query).type(MultiMatchQueryBuilder.Type.BOOL_PREFIX);
@@ -364,7 +383,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   @Override
   protected Stream<String> highlightFieldExpansion(
       @Nonnull OperationContext opContext, @Nonnull String fieldName) {
-    if (fieldName.endsWith(".*")) {
+    if (fieldName.endsWith(".*") || v3KeywordReadEnabled) {
       return Stream.of(fieldName);
     }
 

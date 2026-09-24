@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -1230,5 +1231,48 @@ public class AutocompleteRequestHandlerTest {
                 });
 
     assertTrue(hasKeyPart1, "Should have default keyPart1 field when config doesn't exist");
+  }
+
+  @Test
+  public void testV3QueryUsesTierFieldsAndHighlightsRootFields() {
+    ElasticSearchConfiguration v3Config =
+        testQueryConfig.toBuilder()
+            .entityIndex(
+                V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
+                    .v3(
+                        V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.getV3().toBuilder()
+                            .keywordReadEnabled(true)
+                            .build())
+                    .build())
+            .build();
+    AutocompleteRequestHandler v3Handler =
+        new AutocompleteRequestHandler(
+            nonMockOpContext,
+            nonMockOpContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            v3Config,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchSourceBuilder source =
+        v3Handler
+            .getSearchRequest(nonMockOpContext, DATASET_ENTITY_NAME, "ord", "name", null, 10)
+            .source();
+    String query = source.query().toString();
+    assertTrue(query.contains("match_bool_prefix"));
+    assertTrue(query.contains("_search.tier_1.full"));
+    assertTrue(query.contains("_search.entityName"));
+    // V2 subfields do not exist on V3 indices
+    assertFalse(query.contains(".ngram"));
+    assertFalse(query.contains(".delimited"));
+    assertFalse(query.contains(".keyword"));
+
+    // Suggestions come from highlights, so the root field highlights without a field match
+    List<HighlightBuilder.Field> highlights = source.highlighter().fields();
+    assertEquals(
+        highlights.stream().map(HighlightBuilder.Field::name).collect(Collectors.toList()),
+        List.of("name"));
+    assertEquals(highlights.get(0).requireFieldMatch(), Boolean.FALSE);
+    assertEquals(highlights.get(0).noMatchSize(), Integer.valueOf(200));
   }
 }
