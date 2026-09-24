@@ -13,6 +13,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig
+from datahub.ingestion.source.sigma.connection_registry import SigmaConnectionRegistry
 from datahub.ingestion.source.sigma.data_classes import (
     DataModelElementUpstream,
     Element,
@@ -52,8 +53,13 @@ def _make_source() -> SigmaSource:
         client_secret="test",
         api_url="https://aws-api.sigmacomputing.com/v2",
     )
-    with patch.object(SigmaAPI, "_generate_token", return_value=None):
+    with (
+        patch.object(SigmaAPI, "_generate_token", return_value=None),
+        patch.object(SigmaSource, "_build_connection_registry") as registry,
+    ):
+        registry.return_value = SigmaConnectionRegistry({})
         source = SigmaSource(config, PipelineContext(run_id="test"))
+    source.sigma_api.get_workbook_lineage = MagicMock(return_value=[])  # type: ignore[method-assign]
     source.dm_element_urn_by_name = {DM_URL_ID: {"source": [DM_ELEMENT_DATASET_URN]}}
     source.dm_container_urn_by_url_id = {DM_URL_ID: "urn:li:container:dm-1"}
     return source
@@ -564,21 +570,26 @@ class TestTheCustomSqlDrainIsGuardedToo:
         assert source.reporter.workbook_customsql_upstream_emitted == 1
         assert source.reporter.workbook_customsql_column_lineage_emitted == 0
 
-    def test_two_aggregators_are_told_apart(self) -> None:
-        """A customSQL chart's element aspects tie at 0, so they record no
-        sample -- a drain-vs-drain refusal is the only entry there is."""
+    def test_a_drain_refused_against_an_element_aspect_names_its_aggregator(
+        self,
+    ) -> None:
+        """Two drains cannot contest one URN -- the registered set is global.
+
+        A drain can still lose to an element aspect whose workbook failed to
+        register, so nothing was stashed for the drain to inherit.
+        """
         source = _make_source()
         chart_urn = _chart_urn(CHART_ELEMENT_ID)
-        prod = "customsql-drain:snowflake/PROD/inst"
-        dev = "customsql-drain:snowflake/DEV/inst"
+        # wb-1 emitted two resolved columns but never registered, so the drain
+        # has no stash to carry them forward.
+        source._best_input_fields_resolved[chart_urn] = (2, "wb-1")
 
-        assert self._drain_aspect(source, chart_urn, "col", prod) is not None
-        assert self._drain_aspect(source, chart_urn, None, dev) is None
-
+        assert self._drain_aspect(source, chart_urn, "col") is None
         assert [
             s
             for s in source.reporter.input_fields_regressive_emission_samples
-            if f"kept_from={prod} refused=0 refused_from={dev}" in s
+            if "kept=2 kept_from=wb-1 refused=1 "
+            "refused_from=customsql-drain:snowflake/PROD/inst" in s
         ]
 
     def test_a_refused_drain_aspect_is_not_counted_as_emitted(self) -> None:
