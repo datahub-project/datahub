@@ -83,11 +83,15 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageDocuments(AuthorizationUtils.canManageDocuments(context));
             platformPrivileges.setManageUserCredentials(canManageUserCredentials(context));
             platformPrivileges.setCreateDomains(AuthorizationUtils.canCreateDomains(context));
+            platformPrivileges.setCreateLogicalModels(
+                AuthorizationUtils.canCreateLogicalModels(context));
             platformPrivileges.setCreateTags(AuthorizationUtils.canCreateTags(context));
             platformPrivileges.setManageTags(AuthorizationUtils.canManageTags(context));
             platformPrivileges.setViewManageTags(AuthorizationUtils.canViewManageTags(context));
             platformPrivileges.setManageGlobalViews(
                 AuthorizationUtils.canManageGlobalViews(context));
+            platformPrivileges.setManageGlobalSettings(
+                AuthorizationUtils.canManageGlobalSettings(context));
             platformPrivileges.setManageOwnershipTypes(
                 AuthorizationUtils.canManageOwnershipTypes(context));
             platformPrivileges.setManageGlobalAnnouncements(

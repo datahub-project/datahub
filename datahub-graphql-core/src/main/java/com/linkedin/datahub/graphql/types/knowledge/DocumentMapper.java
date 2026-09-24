@@ -1,7 +1,5 @@
 package com.linkedin.datahub.graphql.types.knowledge;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Documentation;
@@ -9,10 +7,12 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.SemanticText;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.DocumentContent;
 import com.linkedin.datahub.graphql.generated.DocumentInfo;
@@ -26,6 +26,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAsp
 import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
@@ -54,10 +55,40 @@ public class DocumentMapper {
 
     // Map Document Info aspect
     final EnvelopedAspect envelopedInfo = aspects.get(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    if (envelopedInfo != null) {
-      result.setInfo(
-          mapDocumentInfo(
-              new com.linkedin.knowledge.DocumentInfo(envelopedInfo.getValue().data()), entityUrn));
+    final com.linkedin.knowledge.DocumentInfo docInfo =
+        envelopedInfo != null
+            ? new com.linkedin.knowledge.DocumentInfo(envelopedInfo.getValue().data())
+            : null;
+
+    // Compute lastIngested for external documents only. Prefer a proper run-based time, but fall
+    // back to lastObserved from documentInfo's systemMetadata because datahub writes with
+    // DEFAULT_RUN_ID (which produces no run record).
+    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspects);
+    if (lastIngested == null && docInfo != null) {
+      final boolean isExternal =
+          docInfo.hasSource()
+              && docInfo.getSource().hasSourceType()
+              && "EXTERNAL".equals(docInfo.getSource().getSourceType().name());
+      if (isExternal
+          && envelopedInfo.hasSystemMetadata()
+          && envelopedInfo.getSystemMetadata().hasLastObserved()) {
+        lastIngested = envelopedInfo.getSystemMetadata().getLastObserved();
+      }
+    }
+    result.setLastIngested(lastIngested);
+
+    if (docInfo != null) {
+      result.setInfo(mapDocumentInfo(docInfo, entityUrn));
+    }
+
+    // Map the standalone semanticText aspect (curated embedding-source text) into contents,
+    // keeping the GraphQL surface (contents.semanticText) stable across the aspect move.
+    final EnvelopedAspect envelopedSemanticText = aspects.get(Constants.SEMANTIC_TEXT_ASPECT_NAME);
+    if (envelopedSemanticText != null
+        && result.getInfo() != null
+        && result.getInfo().getContents() != null) {
+      final SemanticText semanticText = new SemanticText(envelopedSemanticText.getValue().data());
+      result.getInfo().getContents().setSemanticText(semanticText.getText());
     }
 
     // Map Document Settings aspect
@@ -70,8 +101,9 @@ public class DocumentMapper {
 
     // Map SubTypes aspect to subType field (get first type if available)
     final EnvelopedAspect envelopedSubTypes = aspects.get(Constants.SUB_TYPES_ASPECT_NAME);
-    if (envelopedSubTypes != null) {
-      final SubTypes subTypes = new SubTypes(envelopedSubTypes.getValue().data());
+    final SubTypes subTypes =
+        envelopedSubTypes != null ? new SubTypes(envelopedSubTypes.getValue().data()) : null;
+    if (subTypes != null) {
       if (subTypes.hasTypeNames() && !subTypes.getTypeNames().isEmpty()) {
         result.setSubType(subTypes.getTypeNames().get(0));
       }
@@ -143,9 +175,13 @@ public class DocumentMapper {
     // Map Global Tags aspect
     final EnvelopedAspect envelopedGlobalTags = aspects.get(Constants.GLOBAL_TAGS_ASPECT_NAME);
     if (envelopedGlobalTags != null) {
-      result.setTags(
+      final com.linkedin.datahub.graphql.generated.GlobalTags mappedTags =
           GlobalTagsMapper.map(
-              context, new GlobalTags(envelopedGlobalTags.getValue().data()), entityUrn));
+              context, new GlobalTags(envelopedGlobalTags.getValue().data()), entityUrn);
+      result.setTags(mappedTags);
+      // Populate the deprecated `globalTags` alias for parity with Dataset / DataProduct /
+      // Domain. See DatasetMapper for the same pattern.
+      result.setGlobalTags(mappedTags);
     }
 
     // Map Glossary Terms aspect
@@ -184,12 +220,12 @@ public class DocumentMapper {
     // Note: Relationships are handled separately via batch resolvers in GraphQL
     // They will be resolved lazily when accessed through the GraphQL query
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return com.linkedin.datahub.graphql.authorization.AuthorizationUtils.restrictEntity(
-          result, Document.class);
-    } else {
-      return result;
+    if (context != null
+        && !AuthorizationUtils.canViewDocument(
+            context.getOperationContext(), entityUrn, docInfo, subTypes)) {
+      return AuthorizationUtils.restrictEntity(result, Document.class);
     }
+    return result;
   }
 
   /** Maps the Document Info PDL model to the GraphQL model */

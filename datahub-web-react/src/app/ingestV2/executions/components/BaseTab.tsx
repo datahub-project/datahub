@@ -1,6 +1,9 @@
+import React from 'react';
 import styled from 'styled-components';
 
-import colors from '@src/alchemy-components/theme/foundations/colors';
+import { TextProps } from '@components/components/Text/types';
+
+import { Heading, Text } from '@src/alchemy-components';
 
 export const SectionBase = styled.div`
     padding: 16px 20px 16px 0;
@@ -10,13 +13,21 @@ export const DetailsContainer = styled.div`
     margin-top: 12px;
 
     pre {
-        background-color: ${colors.gray[1500]};
-        border: 1px solid ${colors.gray[1400]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 8px;
         padding: 16px;
         margin: 0;
-        color: ${colors.gray[1700]};
-        overflow-y: auto;
+        color: ${(props) => props.theme.colors.textSecondary};
+        overflow: auto;
+        font-family: 'Roboto Mono', monospace;
+        /* Long unwrapped lines (stack traces, YAML) otherwise force this box to its
+           content's natural width, which propagates up through every ancestor flex
+           container (Tabs, PageLayout) and pushes layout siblings off-screen. This
+           forces the box to respect its container's width instead. */
+        width: 0;
+        min-width: 100%;
+        box-sizing: border-box;
     }
 `;
 
@@ -34,7 +45,7 @@ export const ScrollableDetailsContainer = styled(DetailsContainer)`
 
     pre:hover {
         scrollbar-width: thin;
-        scrollbar-color: rgba(193, 196, 208, 0.8) transparent;
+        scrollbar-color: ${(props) => props.theme.colors.scrollbarThumb} transparent;
     }
 
     pre:hover::-webkit-scrollbar {
@@ -42,12 +53,34 @@ export const ScrollableDetailsContainer = styled(DetailsContainer)`
     }
 
     pre::-webkit-scrollbar-track {
-        background: rgba(193, 196, 208, 0.3) !important;
+        background: ${(props) => props.theme.colors.scrollbarTrack} !important;
         border-radius: 10px;
     }
 
     pre::-webkit-scrollbar-thumb {
-        background: rgba(193, 196, 208, 0.8) !important;
+        background: ${(props) => props.theme.colors.scrollbarThumb} !important;
         border-radius: 10px;
     }
 `;
+
+type SectionHeadingProps = {
+    title: string;
+};
+
+export const SectionHeading: React.FC<SectionHeadingProps> = ({ title }) => (
+    <Heading type="h4" size="lg" weight="bold">
+        {title}
+    </Heading>
+);
+
+type SectionSecondaryTextProps = {
+    title: string;
+    color: TextProps['color'];
+    colorLevel: TextProps['colorLevel'];
+};
+
+export const SectionSecondaryText: React.FC<SectionSecondaryTextProps> = ({ title, color, colorLevel }) => (
+    <Text color={color} colorLevel={colorLevel}>
+        {title}
+    </Text>
+);

@@ -1,8 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled, { useTheme } from 'styled-components';
-
-import { getColor } from '@components/theme/utils';
+import styled from 'styled-components';
 
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import DisplayName from '@app/searchV2/autoCompleteV2/components/DisplayName';
@@ -23,6 +21,7 @@ const Container = styled.div<{
 }>`
     display: flex;
     flex-direction: row;
+    align-items: center;
     justify-content: space-between;
     padding: ${(props) => (props.$padding ? props.$padding : '8px 13px 8px 8px')};
     gap: 8px;
@@ -40,29 +39,52 @@ const Container = styled.div<{
 // so we have this separated version with hover
 
 // On container hover
-const DisplayNameHoverFromContainer = styled(DisplayName)<{ $decorationColor?: string }>`
+const DisplayNameHoverFromContainer = styled(DisplayName)`
     ${Container}:hover & {
         text-decoration: underline;
-        ${(props) => props.$decorationColor && `text-decoration-color: ${props.$decorationColor};`}
     }
 `;
 
 // On self (name) hover only
-const DisplayNameHoverFromSelf = styled(DisplayName)<{ $decorationColor?: string }>`
+const DisplayNameHoverFromSelf = styled(DisplayName)`
     &:hover {
         text-decoration: underline;
         cursor: pointer;
-        ${(props) => props.$decorationColor && `text-decoration-color: ${props.$decorationColor};`}
     }
 `;
 
 const DisplayNameWrapper = styled.div`
     white-space: nowrap;
+    color: ${(props) => props.theme.colors.text};
+    line-height: 20px;
+
+    a {
+        color: inherit;
+    }
+
+    & span,
+    & div {
+        line-height: inherit;
+    }
+`;
+
+const SubtitleAndMatchesWrapper = styled.div`
+    color: ${(props) => props.theme.colors.textSecondary};
+    line-height: 18px;
+
+    & > div {
+        line-height: inherit;
+    }
+
+    &:empty {
+        display: none;
+    }
 `;
 
 const ContentContainer = styled.div`
     display: flex;
     flex-direction: row;
+    align-items: center;
     gap: 16px;
     overflow: hidden;
 `;
@@ -70,9 +92,9 @@ const ContentContainer = styled.div`
 const DescriptionContainer = styled.div`
     display: flex;
     flex-direction: column;
+    gap: 0;
     overflow: hidden;
     width: 100%;
-    align-self: center;
 `;
 
 const IconContainer = styled.div<{ $variant?: EntityItemVariant }>`
@@ -109,6 +131,7 @@ interface EntityAutocompleteItemProps {
     matchedFields?: MatchedField[];
     variant?: EntityItemVariant;
     customDetailsRenderer?: (entity: Entity) => React.ReactNode;
+    customIconRenderer?: () => React.ReactNode;
     navigateOnlyOnNameClick?: boolean;
     dragIconRenderer?: () => React.ReactNode;
     hideSubtitle?: boolean;
@@ -128,6 +151,7 @@ export default function AutoCompleteEntityItem({
     matchedFields,
     variant,
     customDetailsRenderer,
+    customIconRenderer,
     navigateOnlyOnNameClick,
     dragIconRenderer,
     hideSubtitle,
@@ -139,7 +163,6 @@ export default function AutoCompleteEntityItem({
     customOnEntityClick,
     dataTestId,
 }: EntityAutocompleteItemProps) {
-    const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
     const linkProps = useGetModalLinkProps();
 
@@ -168,10 +191,8 @@ export default function AutoCompleteEntityItem({
                 <DisplayNameHoverComponent
                     displayName={displayName}
                     highlight={query}
-                    color={variantProps?.nameColor}
-                    colorLevel={variantProps?.nameColorLevel}
                     weight={variantProps?.nameWeight}
-                    $decorationColor={getColor(variantProps?.nameColor, variantProps?.nameColorLevel, theme)}
+                    fontSize={variantProps?.nameFontSize}
                 />
             </div>
         );
@@ -181,10 +202,8 @@ export default function AutoCompleteEntityItem({
                 <DisplayNameHoverComponent
                     displayName={displayName}
                     highlight={query}
-                    color={variantProps?.nameColor}
-                    colorLevel={variantProps?.nameColorLevel}
                     weight={variantProps?.nameWeight}
-                    $decorationColor={getColor(variantProps?.nameColor, variantProps?.nameColorLevel, theme)}
+                    fontSize={variantProps?.nameFontSize}
                 />
             </Link>
         );
@@ -193,9 +212,8 @@ export default function AutoCompleteEntityItem({
             <DisplayName
                 displayName={displayName}
                 highlight={query}
-                color={variantProps?.nameColor}
-                colorLevel={variantProps?.nameColorLevel}
                 weight={variantProps?.nameWeight}
+                fontSize={variantProps?.nameFontSize}
                 showNameTooltipIfTruncated
             />
         );
@@ -213,12 +231,16 @@ export default function AutoCompleteEntityItem({
                     <Icons>
                         {dragIconRenderer()}
                         <IconContainer $variant={variant}>
-                            <EntityIcon entity={entity} siblings={siblings} />
+                            {customIconRenderer ? (
+                                customIconRenderer()
+                            ) : (
+                                <EntityIcon entity={entity} siblings={siblings} />
+                            )}
                         </IconContainer>
                     </Icons>
                 ) : (
                     <IconContainer $variant={variant}>
-                        <EntityIcon entity={entity} siblings={siblings} />
+                        {customIconRenderer ? customIconRenderer() : <EntityIcon entity={entity} siblings={siblings} />}
                     </IconContainer>
                 )}
 
@@ -236,23 +258,19 @@ export default function AutoCompleteEntityItem({
                         </HoverEntityTooltip>
                     )}
 
-                    {!hideSubtitle && (
-                        <EntitySubtitle
-                            entity={entity}
-                            color={variantProps?.subtitleColor}
-                            colorLevel={variantProps?.subtitleColorLevel}
-                        />
-                    )}
+                    {(!hideSubtitle || !hideMatches) && (
+                        <SubtitleAndMatchesWrapper>
+                            {!hideSubtitle && <EntitySubtitle entity={entity} />}
 
-                    {!hideMatches && (
-                        <Matches
-                            matchedFields={matchedFields}
-                            entity={entity}
-                            query={query}
-                            displayName={displayName}
-                            color={variantProps?.matchColor}
-                            colorLevel={variantProps?.matchColorLevel}
-                        />
+                            {!hideMatches && (
+                                <Matches
+                                    matchedFields={matchedFields}
+                                    entity={entity}
+                                    query={query}
+                                    displayName={displayName}
+                                />
+                            )}
+                        </SubtitleAndMatchesWrapper>
                     )}
                 </DescriptionContainer>
             </ContentContainer>

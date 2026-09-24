@@ -1,8 +1,6 @@
 import { Tooltip } from '@components';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 // must display content in reverse to have ellipses at the beginning of content
 export const ParentNodesWrapper = styled.div`
     align-items: center;
@@ -16,7 +14,7 @@ export const ParentNodesWrapper = styled.div`
 `;
 
 export const Ellipsis = styled.span<{ $color?: string }>`
-    color: ${(props) => props.$color ?? ANTD_GRAY[7]};
+    color: ${(props) => props.$color ?? props.theme.colors.textTertiary};
     margin-right: 2px;
 `;
 

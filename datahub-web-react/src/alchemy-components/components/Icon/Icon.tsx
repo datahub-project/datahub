@@ -1,10 +1,9 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import { IconWrapper } from '@components/components/Icon/components';
 import { IconProps, IconPropsDefaults } from '@components/components/Icon/types';
 import { Tooltip } from '@components/components/Tooltip';
-import { getColor, getFontSize, getRotationTransform } from '@components/theme/utils';
+import { getFontSize, getRotationTransform, getThemedIconColor } from '@components/theme/utils';
 
 import { useCustomTheme } from '@src/customThemeContext';
 
@@ -27,15 +26,14 @@ export const Icon = ({
 }: IconProps) => {
     const { theme } = useCustomTheme();
 
+    const resolvedColor = useMemo(() => getThemedIconColor(color, colorLevel, theme), [color, colorLevel, theme]);
+
     if (!IconComponent) return null;
 
     return (
         <IconWrapper size={getFontSize(size)} rotate={getRotationTransform(rotate)} {...props}>
             <Tooltip title={tooltipText}>
-                <IconComponent
-                    style={{ fontSize: getFontSize(size), color: getColor(color, colorLevel, theme) }}
-                    weight={weight}
-                />
+                <IconComponent style={{ fontSize: getFontSize(size), color: resolvedColor }} weight={weight} />
             </Tooltip>
         </IconWrapper>
     );

@@ -1,6 +1,5 @@
 package io.datahubproject.test;
 
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 
 import com.linkedin.common.AuditStamp;
@@ -15,9 +14,9 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryTermInfo;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -29,6 +28,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -77,9 +77,9 @@ public class DataGenerator {
         new EntityServiceImpl(
             mock(AspectDao.class),
             mock(EventProducer.class),
-            false,
             mock(PreProcessHooks.class),
-            anyBoolean());
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(false),
+            mock(MetricUtils.class));
     return new DataGenerator(opContext, mockEntityServiceImpl);
   }
 
@@ -96,7 +96,7 @@ public class DataGenerator {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     AuditStamp auditStamp =
         new AuditStamp()
-            .setActor(UrnUtils.getUrn(Constants.DATAHUB_ACTOR))
+            .setActor(UrnUtils.getUrn("urn:li:corpuser:datahub"))
             .setTime(System.currentTimeMillis());
 
     // Prevent duplicate tags and terms generated as secondary entities
@@ -330,7 +330,7 @@ public class DataGenerator {
                 try {
                   AuditStamp auditStamp =
                       new AuditStamp()
-                          .setActor(Urn.createFromString(Constants.DATAHUB_ACTOR))
+                          .setActor(Urn.createFromString("urn:li:corpuser:datahub"))
                           .setTime(System.currentTimeMillis());
                   auditStampMethod.invoke(aspect, auditStamp);
                 } catch (URISyntaxException

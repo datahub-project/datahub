@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import config.GracefulShutdownModule;
 import java.io.ByteArrayInputStream;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -44,7 +45,8 @@ public class ApplicationControllerTest {
 
     mockHttpClient = mock(HttpClient.class);
     Environment mockEnvironment = mock(Environment.class);
-    application = new Application(mockHttpClient, mockEnvironment, config);
+    GracefulShutdownModule mockShutdownModule = mock(GracefulShutdownModule.class);
+    application = new Application(mockHttpClient, mockEnvironment, config, mockShutdownModule);
   }
 
   @Test
@@ -234,7 +236,10 @@ public class ApplicationControllerTest {
     Config verboseConfig = ConfigFactory.parseMap(verboseConfigMap);
     Application appWithVerboseLogging =
         new Application(
-            mock(java.net.http.HttpClient.class), mock(Environment.class), verboseConfig);
+            mock(java.net.http.HttpClient.class),
+            mock(Environment.class),
+            verboseConfig,
+            mock(GracefulShutdownModule.class));
 
     Http.Request request = mock(Http.Request.class);
     HttpResponse<?> apiResponse = mock(HttpResponse.class);
@@ -353,8 +358,27 @@ public class ApplicationControllerTest {
   }
 
   @Test
+  void mapPath_apiV2Graphql_preservesOperationNameQuery() throws Exception {
+    assertEquals(
+        "/api/graphql?operationName=appConfig",
+        invokeMapPath("/api/v2/graphql?operationName=appConfig"));
+  }
+
+  @Test
+  void mapPath_apiV2Graphql_dropsMalformedQueryButStillMapsPath() throws Exception {
+    // Unencoded space / braces are illegal in URI.create; drop query, keep GraphQL rewrite.
+    assertEquals("/api/graphql", invokeMapPath("/api/v2/graphql?operationName=app Config"));
+    assertEquals("/api/graphql", invokeMapPath("/api/v2/graphql?filter={}"));
+  }
+
+  @Test
   void mapPath_apiGmsPrefix_stripsGmsPrefix() throws Exception {
     assertEquals("/entities", invokeMapPath("/api/gms/entities"));
+  }
+
+  @Test
+  void mapPath_apiGmsPrefix_preservesQueryString() throws Exception {
+    assertEquals("/entities?aspects=List", invokeMapPath("/api/gms/entities?aspects=List"));
   }
 
   @Test
@@ -364,7 +388,11 @@ public class ApplicationControllerTest {
     configMap.put("proxy.streamingPathPrefixes", "");
     Config configWithBasePath = ConfigFactory.parseMap(configMap);
     Application appWithBasePath =
-        new Application(mock(HttpClient.class), mock(Environment.class), configWithBasePath);
+        new Application(
+            mock(HttpClient.class),
+            mock(Environment.class),
+            configWithBasePath,
+            mock(GracefulShutdownModule.class));
     String result = invokeMapPath(appWithBasePath, "/datahub/openapi/swagger-ui");
     assertEquals("/datahub/openapi/swagger-ui", result);
   }
@@ -376,8 +404,39 @@ public class ApplicationControllerTest {
     configMap.put("proxy.streamingPathPrefixes", "");
     Config configWithBasePath = ConfigFactory.parseMap(configMap);
     Application appWithBasePath =
-        new Application(mock(HttpClient.class), mock(Environment.class), configWithBasePath);
+        new Application(
+            mock(HttpClient.class),
+            mock(Environment.class),
+            configWithBasePath,
+            mock(GracefulShutdownModule.class));
     assertEquals("/api/graphql", invokeMapPath(appWithBasePath, "/datahub/api/graphql"));
+  }
+
+  @Test
+  void mapPath_withBasePath_preservesGraphqlOperationNameQuery() throws Exception {
+    Map<String, Object> configMap = new HashMap<>();
+    configMap.put("datahub.basePath", "/datahub");
+    configMap.put("proxy.streamingPathPrefixes", "");
+    Config configWithBasePath = ConfigFactory.parseMap(configMap);
+    Application appWithBasePath =
+        new Application(
+            mock(HttpClient.class),
+            mock(Environment.class),
+            configWithBasePath,
+            mock(GracefulShutdownModule.class));
+    assertEquals(
+        "/api/graphql?operationName=appConfig",
+        invokeMapPath(appWithBasePath, "/datahub/api/v2/graphql?operationName=appConfig"));
+  }
+
+  @Test
+  void proxy_malformedPath_returnsBadRequestWithoutCallingUpstream() throws Exception {
+    Http.Request request = mockProxyRequest("/api/gms/foo bar", Optional.empty());
+
+    Result result = application.proxy("foo bar", request).get();
+
+    assertEquals(400, result.status());
+    verify(mockHttpClient, never()).sendAsync(any(), any());
   }
 
   private Http.Request mockProxyRequest(String uri, Optional<String> contentType) {

@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import CreateViewButton from '@app/entityV2/view/select/components/CreateViewButton';
 import { Carousel } from '@app/sharedV2/carousel/Carousel';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
@@ -17,7 +16,7 @@ const StyledCarousel = styled(Carousel)<{ $isShowNavBarRedesign?: boolean }>`
         .ant-select-item-option-content {
             display: flex;
             gap: 1rem;
-            color: ${ANTD_GRAY[1]};
+            color: ${(props) => props.theme.colors.bg};
             padding: 10px 0px;
         }
         .ant-select-item,

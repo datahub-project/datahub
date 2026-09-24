@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
 import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
 import VerificationAuditStamp from '@app/entity/shared/containers/profile/sidebar/FormInfo/VerificationAuditStamp';
@@ -32,10 +34,12 @@ export default function CompletedView({
     formUrn,
     openFormModal,
 }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
+    const theme = useTheme();
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <CTAWrapper backgroundColor="#FFF" borderColor="#77B750">
+        <CTAWrapper backgroundColor="transparent" borderColor={theme.colors.textSuccess}>
             <FlexWrapper>
                 <Content>
                     <TitleWrapper
@@ -47,9 +51,11 @@ export default function CompletedView({
                             {showVerificationStyles ? (
                                 <StyledImgIcon src={ShieldCheck} addLineHeight />
                             ) : (
-                                <StyledReadOutlined color="#77B750" addLineHeight />
+                                <StyledReadOutlined color={theme.colors.textSuccess} addLineHeight />
                             )}
-                            {showVerificationStyles ? 'Verified' : 'Documented'}
+                            {showVerificationStyles
+                                ? t('sidebar.formInfo.verifiedTitle')
+                                : t('sidebar.formInfo.documentedTitle')}
                         </Title>
                         {isUserAssigned && <StyledArrow isOpen={isOpen} />}
                     </TitleWrapper>
@@ -60,7 +66,7 @@ export default function CompletedView({
                             {!!openFormModal && (
                                 <StyledButtonWrapper>
                                     <Button variant="outline" onClick={openFormModal}>
-                                        View & Edit
+                                        {t('sidebar.formInfo.viewAndEditButton')}
                                     </Button>
                                 </StyledButtonWrapper>
                             )}

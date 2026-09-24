@@ -6,7 +6,7 @@ import { Direction } from '@app/lineage/types';
 import { FilterMode } from '@app/search/utils/constants';
 
 import {
-    AllowedValue,
+    AllowedValueInput,
     DataHubPageModuleType,
     DataHubViewType,
     EntityType,
@@ -79,6 +79,7 @@ export enum EventType {
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
+    MoveDataProductEvent,
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
     IngestionSourceConfigurationImpressionEvent,
@@ -180,6 +181,11 @@ export enum EventType {
     IngestionEnterSyncScheduleEvent,
     IngestionExitConfigurationEvent,
     CloseCreateSourceEducationModalEvent,
+    ImportDocumentsEvent,
+    GoToLogicalParentEvent,
+    GoToPhysicalChildEvent,
+    GoToLogicalParentColumnEvent,
+    GoToPhysicalChildColumnEvent,
 }
 
 /**
@@ -647,6 +653,12 @@ export interface MoveDomainEvent extends BaseEvent {
     parentDomainUrn?: string;
 }
 
+export interface MoveDataProductEvent extends BaseEvent {
+    type: EventType.MoveDataProductEvent;
+    oldParentDataProductUrn?: string;
+    parentDataProductUrn?: string;
+}
+
 // Managed Ingestion Events
 
 export interface IngestionTestConnectionEvent extends BaseEvent {
@@ -968,7 +980,7 @@ interface StructuredPropertyEvent extends BaseEvent {
     appliesTo: string[];
     qualifiedName?: string;
     allowedAssetTypes?: string[];
-    allowedValues?: AllowedValue[];
+    allowedValues?: AllowedValueInput[];
     cardinality?: PropertyCardinality;
     showInFilters?: boolean;
     isHidden: boolean;
@@ -1082,6 +1094,7 @@ export interface NavBarExpandCollapseEvent extends BaseEvent {
 export interface NavBarItemClickEvent extends BaseEvent {
     type: EventType.NavBarItemClick;
     label: string; // the label of the item that is clicks from the nav sidebar
+    subLabel?: string;
 }
 
 export interface FilterStatsPageEvent extends BaseEvent {
@@ -1357,6 +1370,41 @@ export interface DeleteDocumentEvent extends BaseEvent {
 }
 
 /**
+ * Logged when a user imports documents from a source (file upload or GitHub).
+ */
+export interface ImportDocumentsEvent extends BaseEvent {
+    type: EventType.ImportDocumentsEvent;
+    source: 'FILE_UPLOAD' | 'GITHUB' | 'NOTION' | 'CONFLUENCE';
+    createdCount: number;
+    updatedCount: number;
+    failedCount: number;
+}
+
+interface GoToLogicalParentEvent extends BaseEvent {
+    type: EventType.GoToLogicalParentEvent;
+    entityUrn: string;
+    parentUrn?: string;
+}
+
+interface GoToPhysicalChildEvent extends BaseEvent {
+    type: EventType.GoToPhysicalChildEvent;
+    entityUrn: string;
+    childUrn?: string;
+}
+
+interface GoToLogicalParentColumnEvent extends BaseEvent {
+    type: EventType.GoToLogicalParentColumnEvent;
+    entityUrn: string;
+    parentUrn?: string;
+}
+
+interface GoToPhysicalChildColumnEvent extends BaseEvent {
+    type: EventType.GoToPhysicalChildColumnEvent;
+    entityUrn: string;
+    childUrn?: string;
+}
+
+/**
  * Event consisting of a union of specific event types.
  */
 export type Event =
@@ -1414,6 +1462,7 @@ export type Event =
     | CreateGlossaryEntityEvent
     | CreateDomainEvent
     | MoveDomainEvent
+    | MoveDataProductEvent
     | CreateIngestionSourceEvent
     | UpdateIngestionSourceEvent
     | DeleteIngestionSourceEvent
@@ -1514,4 +1563,9 @@ export type Event =
     | IngestionEnterConfigurationEvent
     | IngestionEnterSyncScheduleEvent
     | IngestionExitConfigurationEvent
-    | CloseCreateSourceEducationModalEvent;
+    | CloseCreateSourceEducationModalEvent
+    | ImportDocumentsEvent
+    | GoToLogicalParentEvent
+    | GoToPhysicalChildEvent
+    | GoToLogicalParentColumnEvent
+    | GoToPhysicalChildColumnEvent;

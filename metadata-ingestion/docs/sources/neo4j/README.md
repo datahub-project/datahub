@@ -2,7 +2,7 @@
 
 Neo4J is a data platform used to store and query analytical or operational data. Learn more in the [official Neo4J documentation](https://neo4j.com/).
 
-The DataHub integration for Neo4J covers core metadata entities such as datasets/tables/views, schema fields, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Neo4J covers core metadata entities such as datasets/tables/views, schema fields, and containers. It also captures stateful deletion detection.
 
 ## Concept Mapping
 

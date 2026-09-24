@@ -81,8 +81,8 @@ export default function useGetDataForProfile<T>({
             Object.keys(dataPossiblyCombinedWithSiblings).length > 0 &&
             getDataForEntityType({
                 data: {
-                    ...formsData?.entity,
                     ...dataPossiblyCombinedWithSiblings[Object.keys(dataPossiblyCombinedWithSiblings)[0]],
+                    ...(formsData?.entity && 'forms' in formsData.entity ? { forms: formsData.entity.forms } : {}),
                 },
                 entityType,
                 getOverrideProperties,
@@ -91,5 +91,25 @@ export default function useGetDataForProfile<T>({
             })) ||
         null;
 
-    return { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch };
+    const rootEntityData =
+        (dataNotCombinedWithSiblings &&
+            Object.keys(dataNotCombinedWithSiblings).length > 0 &&
+            getDataForEntityType({
+                data: dataNotCombinedWithSiblings[Object.keys(dataNotCombinedWithSiblings)[0]],
+                entityType,
+                getOverrideProperties,
+                isHideSiblingMode,
+                flags,
+            })) ||
+        null;
+
+    return {
+        entityData,
+        rootEntityData,
+        dataPossiblyCombinedWithSiblings,
+        dataNotCombinedWithSiblings,
+        loading,
+        error,
+        refetch,
+    };
 }

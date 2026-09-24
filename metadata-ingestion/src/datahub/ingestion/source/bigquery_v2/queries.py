@@ -1,6 +1,12 @@
 import textwrap
 from typing import Optional
 
+from datahub.ingestion.source.bigquery_v2.common import (
+    BQ_NULL_PARTITION_ID,
+    BQ_STREAMING_UNPARTITIONED_PARTITION_ID,
+    BQ_UNPARTITIONED_PARTITION_ID,
+)
+
 
 class BigqueryTableType:
     # See https://cloud.google.com/bigquery/docs/information-schema-tables#schema
@@ -33,20 +39,20 @@ order by
   s.schema_name
 """
 
-    # https://cloud.google.com/bigquery/docs/information-schema-table-storage?hl=en
-    tables_for_dataset = f"""
+    # Sources row_count / size / last_altered from the legacy __TABLES__ construct.
+    tables_for_dataset_with_legacy_stats = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
   t.table_name as table_name,
   t.table_type as table_type,
   t.creation_time as created,
-  ts.storage_last_modified_time as last_altered,
+  ts.last_modified_time as last_altered,
   tos.OPTION_VALUE as comment,
   t.is_insertable_into,
   t.ddl,
-  ts.total_rows as row_count,
-  ts.total_logical_bytes as bytes,
+  ts.row_count as row_count,
+  ts.size_bytes as bytes,
   p.num_partitions,
   p.max_partition_id,
   p.active_billable_bytes as active_billable_bytes,
@@ -56,16 +62,15 @@ SELECT
 
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
-  left join `{{project_id}}`.`{{region}}`.INFORMATION_SCHEMA.TABLE_STORAGE as ts
-    on ts.table_schema = '{{dataset_name}}' and ts.table_name = t.TABLE_NAME and ts.deleted = false
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
   left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
   left join (
     select
         table_name,
-        sum(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then 1 else 0 END) as num_partitions,
-        max(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then partition_id else NULL END) as max_partition_id,
+        sum(case when partition_id not in ('{BQ_NULL_PARTITION_ID}', '{BQ_UNPARTITIONED_PARTITION_ID}', '{BQ_STREAMING_UNPARTITIONED_PARTITION_ID}') then 1 else 0 END) as num_partitions,
+        max(case when partition_id not in ('{BQ_NULL_PARTITION_ID}', '{BQ_UNPARTITIONED_PARTITION_ID}', '{BQ_STREAMING_UNPARTITIONED_PARTITION_ID}') then partition_id else NULL END) as max_partition_id,
         sum(total_rows) as total_rows,
         sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes,
         sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
@@ -75,7 +80,7 @@ FROM
         table_name) as p on
     t.table_name = p.table_name
 WHERE
-  t.table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
 order by
   table_schema ASC,
@@ -83,7 +88,62 @@ order by
   table_suffix DESC
 """
 
-    tables_for_dataset_without_partition_data = f"""
+    # Same as tables_for_dataset_with_legacy_stats, but sources row_count / size /
+    # last_altered from INFORMATION_SCHEMA.PARTITIONS instead of the legacy __TABLES__
+    # construct. PARTITIONS is dataset-scoped and already queried for partition metadata,
+    # so this adds no extra scan. It covers base tables only; external tables (absent from
+    # PARTITIONS) get null stats via the LEFT JOIN.
+    tables_for_dataset_with_partition_stats = f"""
+SELECT
+  t.table_catalog as table_catalog,
+  t.table_schema as table_schema,
+  t.table_name as table_name,
+  t.table_type as table_type,
+  t.creation_time as created,
+  p.last_modified_time as last_altered,
+  tos.OPTION_VALUE as comment,
+  t.is_insertable_into,
+  t.ddl,
+  p.total_rows as row_count,
+  p.total_logical_bytes as bytes,
+  p.num_partitions,
+  p.max_partition_id,
+  p.active_billable_bytes as active_billable_bytes,
+  IFNULL(p.long_term_billable_bytes, 0) as long_term_billable_bytes,
+  REGEXP_EXTRACT(t.table_name, r"(?:(?:.+\\D)[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$") as table_suffix,
+  REGEXP_REPLACE(t.table_name, r"(?:[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$", "") as table_base
+
+FROM
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  and t.TABLE_NAME = tos.TABLE_NAME
+  and tos.OPTION_NAME = "description"
+  left join (
+    select
+        table_name,
+        sum(case when partition_id not in ('{BQ_NULL_PARTITION_ID}', '{BQ_UNPARTITIONED_PARTITION_ID}', '{BQ_STREAMING_UNPARTITIONED_PARTITION_ID}') then 1 else 0 END) as num_partitions,
+        max(case when partition_id not in ('{BQ_NULL_PARTITION_ID}', '{BQ_UNPARTITIONED_PARTITION_ID}', '{BQ_STREAMING_UNPARTITIONED_PARTITION_ID}') then partition_id else NULL END) as max_partition_id,
+        sum(total_rows) as total_rows,
+        sum(total_logical_bytes) as total_logical_bytes,
+        UNIX_MILLIS(max(last_modified_time)) as last_modified_time,
+        sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes,
+        sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
+    from
+        `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.PARTITIONS
+    group by
+        table_name) as p on
+    t.table_name = p.table_name
+WHERE
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
+{{table_filter}}
+order by
+  table_schema ASC,
+  table_base ASC,
+  table_suffix DESC
+"""
+
+    # No row_count / size / last_altered stats at all (neither __TABLES__ nor PARTITIONS).
+    tables_for_dataset_without_stats = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -110,24 +170,24 @@ order by
   table_suffix DESC
 """
 
-    views_for_dataset: str = f"""
+    # Views keep last_altered / row_count / size_bytes from the legacy __TABLES__ construct.
+    views_for_dataset_with_legacy_stats: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
   t.table_name as table_name,
   t.table_type as table_type,
   t.creation_time as created,
-  ts.storage_last_modified_time as last_altered,
+  ts.last_modified_time as last_altered,
   tos_description.OPTION_VALUE as comment,
   tos_labels.OPTION_VALUE as labels,
   t.is_insertable_into,
   t.ddl as view_definition,
-  ts.total_rows as row_count,
-  ts.total_logical_bytes as size_bytes
+  ts.row_count,
+  ts.size_bytes
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
-  left join `{{project_id}}`.`{{region}}`.INFORMATION_SCHEMA.TABLE_STORAGE as ts
-    on ts.table_schema = '{{dataset_name}}' and ts.table_name = t.TABLE_NAME and ts.deleted = false
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
   left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos_description on t.table_schema = tos_description.table_schema
   and t.TABLE_NAME = tos_description.TABLE_NAME
   and tos_description.OPTION_NAME = "description"
@@ -135,13 +195,14 @@ FROM
   and t.TABLE_NAME = tos_labels.TABLE_NAME
   and tos_labels.OPTION_NAME = "labels"
 WHERE
-  t.table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
+  table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
 order by
   table_schema ASC,
   table_name ASC
 """
 
-    views_for_dataset_without_data_read: str = f"""
+    # No __TABLES__ join, so no last_altered / row_count / size_bytes stats.
+    views_for_dataset_without_stats: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -167,7 +228,8 @@ order by
   table_name ASC
 """
 
-    snapshots_for_dataset: str = f"""
+    # Snapshots keep last_altered / rows_count / size_in_bytes from the legacy __TABLES__ construct.
+    snapshots_for_dataset_with_legacy_stats: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -180,25 +242,25 @@ SELECT
   t.base_table_catalog,
   t.base_table_schema,
   t.base_table_name,
-  ts.storage_last_modified_time as last_altered,
+  ts.last_modified_time as last_altered,
   tos.OPTION_VALUE as comment,
-  ts.total_rows as row_count,
-  ts.total_logical_bytes as size_bytes
+  ts.row_count,
+  ts.size_bytes
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
-  left join `{{project_id}}`.`{{region}}`.INFORMATION_SCHEMA.TABLE_STORAGE as ts
-    on ts.table_schema = '{{dataset_name}}' and ts.table_name = t.TABLE_NAME and ts.deleted = false
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
   left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  t.table_type = '{BigqueryTableType.SNAPSHOT}'
+  table_type = '{BigqueryTableType.SNAPSHOT}'
 order by
   table_schema ASC,
   table_name ASC
 """
 
-    snapshots_for_dataset_without_data_read: str = f"""
+    # No __TABLES__ join, so no last_altered / rows_count / size_in_bytes stats.
+    snapshots_for_dataset_without_stats: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -232,6 +294,7 @@ select
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
   cfp.field_path as field_path,
+  cfp.policy_tags as policy_tags,
   c.is_nullable as is_nullable,
   CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
   description as comment,
@@ -254,6 +317,7 @@ select * from
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
   cfp.field_path as field_path,
+  cfp.policy_tags as policy_tags,
   c.is_nullable as is_nullable,
   CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
   description as comment,
@@ -282,6 +346,7 @@ select
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
   cfp.field_path as field_path,
+  cfp.policy_tags as policy_tags,
   c.is_nullable as is_nullable,
   CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
   c.is_hidden as is_hidden,

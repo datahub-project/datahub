@@ -176,6 +176,13 @@ public class ChangeItemImpl implements ChangeMCP {
         // generate default
         systemMetadata(null);
       }
+      // Stamp the server's current schema version so that write-path mutators
+      // can skip migration for freshly-written aspects (stored version == current version).
+
+      // Future addition: If clients can send the schema version that was used to produce the
+      // aspect, in the system metadata,
+      // it can allow the write Mutators to be used even for requests coming from the client.
+      SystemMetadataUtils.setSchemaVersion(this.systemMetadata, this.aspectSpec.getSchemaVersion());
       this.systemMetadata = SystemMetadataUtils.setAspectModified(this.systemMetadata, auditStamp);
 
       return new ChangeItemImpl(

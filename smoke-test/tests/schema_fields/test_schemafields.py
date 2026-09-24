@@ -14,8 +14,11 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 start_index = randint(10, 10000)

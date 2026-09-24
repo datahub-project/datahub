@@ -29,8 +29,11 @@ def test_multi_project_initialization_with_explicit_ids(
     mock_resolve.assert_called_once()
 
 
+@patch("datahub.ingestion.source.vertexai.vertexai.ProjectsClient")
 @patch("datahub.ingestion.source.vertexai.vertexai.resolve_gcp_projects")
-def test_multi_project_initialization_with_labels(mock_resolve: MagicMock) -> None:
+def test_multi_project_initialization_with_labels(
+    mock_resolve: MagicMock, mock_projects_client: MagicMock
+) -> None:
     mock_resolve.return_value = [
         GcpProject(id="dev-project", name="Development"),
         GcpProject(id="prod-project", name="Production"),
@@ -183,6 +186,32 @@ def test_rate_limit_disabled_by_default() -> None:
     source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
 
     assert not isinstance(source._rate_limiter, RateLimiter)
+
+
+def test_region_validator_accepts_legacy_region() -> None:
+    config = VertexAIConfig.model_validate(
+        {"project_id": "test-project", "region": "us-central1"}
+    )
+    assert config.region == "us-central1"
+
+
+def test_region_validator_accepts_regions_list() -> None:
+    config = VertexAIConfig.model_validate(
+        {"project_id": "test-project", "regions": ["us-central1", "europe-west1"]}
+    )
+    assert config.regions == ["us-central1", "europe-west1"]
+
+
+def test_region_validator_accepts_discover_regions() -> None:
+    config = VertexAIConfig.model_validate(
+        {"project_id": "test-project", "discover_regions": True}
+    )
+    assert config.discover_regions is True
+
+
+def test_region_validator_rejects_no_region_source() -> None:
+    with pytest.raises(Exception, match="region"):
+        VertexAIConfig.model_validate({"project_id": "test-project"})
 
 
 def test_rate_limit_creates_shared_rate_limiter() -> None:

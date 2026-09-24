@@ -1,9 +1,15 @@
-import { PageTitle, Switch } from '@components';
+import { PageTitle, Pill, Switch } from '@components';
 import { message } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { LanguageSelect } from '@app/i18n/components/LanguageSelect';
+import { useIsI18nEnabled } from '@app/i18n/hooks/useIsI18nEnabled';
+import DarkModeSwitch from '@app/settingsV2/DarkModeSwitch';
+import { useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
+import { THEME_DARK_MODE_FLAG } from '@app/theme/useIsDarkMode';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useUpdateApplicationsSettingsMutation } from '@graphql/app.generated';
@@ -56,6 +62,9 @@ const SettingText = styled.div`
     font-size: 16px;
     color: ${(props) => props.theme.colors.text};
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 `;
 
 const DescriptionText = styled.div`
@@ -66,9 +75,12 @@ const DescriptionText = styled.div`
 `;
 
 export const Preferences = () => {
+    const { t } = useTranslation('settings.preferences');
     const theme = useTheme();
     const userContext = useUserContext();
     const appConfig = useAppConfig();
+    const i18nEnabled = useIsI18nEnabled();
+    const darkModeEnabled = useFeatureFlag(THEME_DARK_MODE_FLAG);
 
     const applicationsEnabled = appConfig.config?.visualConfig?.application?.showApplicationInNavigation ?? false;
 
@@ -81,18 +93,29 @@ export const Preferences = () => {
             <SourceContainer>
                 <TokensContainer>
                     <HeaderContainer>
-                        <PageTitle title="Appearance" subTitle="Manage your appearance settings." />
+                        <PageTitle title={t('appearance.title')} subTitle={t('appearance.subTitle')} />
                     </HeaderContainer>
                 </TokensContainer>
+                {darkModeEnabled && (
+                    <StyledCard>
+                        <UserSettingRow>
+                            <TextContainer>
+                                <SettingText>
+                                    {t('darkMode.title')}
+                                    <Pill label={t('darkMode.beta')} size="xs" color="primary" clickable={false} />
+                                </SettingText>
+                                <DescriptionText>{t('darkMode.description')}</DescriptionText>
+                            </TextContainer>
+                            <DarkModeSwitch />
+                        </UserSettingRow>
+                    </StyledCard>
+                )}
                 {canManageApplicationAppearance && (
                     <StyledCard>
                         <UserSettingRow>
                             <TextContainer>
-                                <SettingText>Show Applications</SettingText>
-                                <DescriptionText>
-                                    Applications are another way to organize your data, similar to Domains. They are
-                                    hidden by default.
-                                </DescriptionText>
+                                <SettingText>{t('showApplications.title')}</SettingText>
+                                <DescriptionText>{t('showApplications.description')}</DescriptionText>
                             </TextContainer>
                             <Switch
                                 label=""
@@ -105,15 +128,29 @@ export const Preferences = () => {
                                             },
                                         },
                                     });
-                                    message.success({ content: 'Setting updated!', duration: 2 });
+                                    message.success({
+                                        content: t('showApplications.successMessage'),
+                                        duration: 2,
+                                    });
                                     appConfig?.refreshContext();
                                 }}
                             />
                         </UserSettingRow>
                     </StyledCard>
                 )}
-                {!canManageApplicationAppearance && (
-                    <div style={{ color: theme.colors.textSecondary }}>No appearance settings found.</div>
+                {i18nEnabled && (
+                    <StyledCard>
+                        <UserSettingRow>
+                            <TextContainer>
+                                <SettingText>{t('language.title')}</SettingText>
+                                <DescriptionText>{t('language.description')}</DescriptionText>
+                            </TextContainer>
+                            <LanguageSelect />
+                        </UserSettingRow>
+                    </StyledCard>
+                )}
+                {!canManageApplicationAppearance && !i18nEnabled && !darkModeEnabled && (
+                    <div style={{ color: theme.colors.textSecondary }}>{t('noSettings')}</div>
                 )}
             </SourceContainer>
         </Page>

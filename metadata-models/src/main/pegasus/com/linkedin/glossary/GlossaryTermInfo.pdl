@@ -36,7 +36,10 @@ record GlossaryTermInfo includes CustomProperties {
   /**
    * Definition of business term.
    */
-  @Searchable = {}
+  @Searchable = {
+    "fieldType": "TEXT",
+    "searchTier": 2
+  }
   definition: string
 
   /**

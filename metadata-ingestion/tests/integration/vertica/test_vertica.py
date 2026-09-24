@@ -2,11 +2,11 @@ import subprocess
 from typing import List
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = [
     pytest.mark.integration_batch_3,
@@ -33,10 +33,18 @@ def is_vertica_responsive(container_name: str) -> bool:
 
 
 @pytest.fixture(scope="module")
-def vertica_runner(docker_compose_runner, test_resources_dir):
+def vertica_runner(docker_compose_runner, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "vertica"
     ) as docker_services:
+        # The compose file exposes the client port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh
+        # run needs. vertica_to_file.yml picks it up via ${VERTICA_PORT}.
+        vertica_port = docker_services.port_for("vertica", 5433)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("VERTICA_PORT", str(vertica_port))
+        request.addfinalizer(mp.undo)
+
         wait_for_port(
             docker_services,
             "vertica-ce",
@@ -56,11 +64,8 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
 
         yield docker_services
 
-    # The image is pretty large, so we remove it after the test.
-    cleanup_image("vertica/vertica-ce")
 
-
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_vertica_ingest_with_db(vertica_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/vertica"

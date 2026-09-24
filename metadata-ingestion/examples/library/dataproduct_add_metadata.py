@@ -1,5 +1,3 @@
-import logging
-
 from datahub.emitter.mce_builder import (
     make_data_product_urn,
     make_tag_urn,
@@ -11,9 +9,6 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.specific.dataproduct import DataProductPatchBuilder
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
 
@@ -29,4 +24,4 @@ for mcp in (
     .build()
 ):
     rest_emitter.emit(mcp)
-    log.info(f"Added metadata to Data Product {data_product_urn}")
+    print(f"Added metadata to Data Product {data_product_urn}")

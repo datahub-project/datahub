@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from typing import Dict, List, Union
 from unittest.mock import patch
 
@@ -300,16 +301,122 @@ class TestDatasharesHelper:
             mocked_method.side_effect = mock_search_by_key
             result = list(helper.generate_lineage(share, tables))
 
-        # Assert
         assert len(result) == 0
-        assert len(report.warnings) == 1
-        assert (
-            list(report.warnings)[0].title
-            == "Upstream lineage of inbound datashare will be missing"
+        warning_messages = [w.message for w in report.warnings]
+        assert any(
+            "Failed to parse platform resource for outbound datashare" in m
+            for m in warning_messages
         )
-        assert (
-            "Failed to parse platform resource for outbound datashare"
-            in list(report.warnings)[0].message
+        assert any(
+            "Could not parse any matching OUTBOUND_DATASHARE PlatformResource" in m
+            for m in warning_messages
+        )
+
+    def test_generate_lineage_prefers_resource_with_platform_instance(self):
+        config = get_redshift_config()
+        report = RedshiftReport()
+        graph = get_datahub_graph()
+        helper = RedshiftDatasharesHelper(config, report, graph)
+
+        share = PartialInboundDatashare(
+            producer_namespace_prefix="producer-ns-",
+            share_name="my_share",
+            consumer_database="consumer_db",
+        )
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {
+            "schema1": [RedshiftTable(name="table1", comment=None, created=None)],
+        }
+
+        def mock_search_by_filters(*args, **kwargs):
+            stale = PlatformResource.create(
+                key=PlatformResourceKey(
+                    platform="redshift",
+                    platform_instance=None,
+                    resource_type="OUTBOUND_DATASHARE",
+                    primary_key="producer-ns-1.my_share",
+                ),
+                value=OutboundSharePlatformResource(
+                    namespace="producer-ns-1",
+                    platform_instance=None,
+                    env="PROD",
+                    source_database="producer_db",
+                    share_name="my_share",
+                ),
+            )
+            current = PlatformResource.create(
+                key=PlatformResourceKey(
+                    platform="redshift",
+                    platform_instance="producer_instance",
+                    resource_type="OUTBOUND_DATASHARE",
+                    primary_key="producer-ns-1.my_share",
+                ),
+                value=OutboundSharePlatformResource(
+                    namespace="producer-ns-1",
+                    platform_instance="producer_instance",
+                    env="PROD",
+                    source_database="producer_db",
+                    share_name="my_share",
+                ),
+            )
+            return [stale, current]
+
+        with patch.object(PlatformResource, "search_by_filters") as mocked_method:
+            mocked_method.side_effect = mock_search_by_filters
+            result = list(helper.generate_lineage(share, tables))
+
+        assert len(result) == 1
+        assert result[0] == KnownLineageMapping(
+            upstream_urn=(
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,"
+                "producer_instance.producer_db.schema1.table1,PROD)"
+            ),
+            downstream_urn=(
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,"
+                "consumer_instance.consumer_db.schema1.table1,PROD)"
+            ),
+        )
+
+    def test_generate_lineage_falls_back_when_only_legacy_resource(self):
+        config = get_redshift_config()
+        report = RedshiftReport()
+        graph = get_datahub_graph()
+        helper = RedshiftDatasharesHelper(config, report, graph)
+
+        share = PartialInboundDatashare(
+            producer_namespace_prefix="ns-",
+            share_name="legacy_share",
+            consumer_database="c",
+        )
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {
+            "s": [RedshiftTable(name="t", comment=None, created=None)],
+        }
+
+        def mock_search_by_filters(*args, **kwargs):
+            return [
+                PlatformResource.create(
+                    key=PlatformResourceKey(
+                        platform="redshift",
+                        platform_instance=None,
+                        resource_type="OUTBOUND_DATASHARE",
+                        primary_key="ns-1.legacy_share",
+                    ),
+                    value=OutboundSharePlatformResource(
+                        namespace="ns-1",
+                        platform_instance=None,
+                        env="PROD",
+                        source_database="src_db",
+                        share_name="legacy_share",
+                    ),
+                )
+            ]
+
+        with patch.object(PlatformResource, "search_by_filters") as mocked_method:
+            mocked_method.side_effect = mock_search_by_filters
+            result = list(helper.generate_lineage(share, tables))
+
+        assert len(result) == 1
+        assert result[0].upstream_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,src_db.s.t,PROD)"
         )
 
     def test_generate_lineage_shared_database_with_no_tables(self):
@@ -395,18 +502,16 @@ class TestDatasharesHelper:
 
         assert isinstance(info.value, SerializedValueClass)
         assert info.value.contentType == SerializedValueContentTypeClass.JSON
-        assert info.value.blob == json.dumps(
-            {
-                "namespace": "test_namespace",
-                "platform_instance": "test_instance",
-                "env": "PROD",
-                "source_database": "db1",
-                "share_name": "share1",
-            },
-            sort_keys=True,
-        ).encode("utf-8")
+        blob1 = json.loads(info.value.blob)
+        assert blob1["namespace"] == "test_namespace"
+        assert blob1["platform_instance"] == "test_instance"
+        assert blob1["env"] == "PROD"
+        assert blob1["source_database"] == "db1"
+        assert blob1["share_name"] == "share1"
+        assert "ingested_at" in blob1
+        # Python 3.10 fromisoformat doesn't accept 'Z'; replace before parsing.
+        datetime.fromisoformat(blob1["ingested_at"].replace("Z", "+00:00"))
 
-        # Check the content of the first MetadataChangeProposalWrapper
         fourth_mcp = result[3]
         assert fourth_mcp.entityType == "platformResource", (
             "Expected entityType to be platformResource"
@@ -423,16 +528,15 @@ class TestDatasharesHelper:
 
         assert isinstance(info.value, SerializedValueClass)
         assert info.value.contentType == SerializedValueContentTypeClass.JSON
-        assert info.value.blob == json.dumps(
-            {
-                "namespace": "test_namespace",
-                "platform_instance": "test_instance",
-                "env": "PROD",
-                "source_database": "db2",
-                "share_name": "share2",
-            },
-            sort_keys=True,
-        ).encode("utf-8")
+        blob4 = json.loads(info.value.blob)
+        assert blob4["namespace"] == "test_namespace"
+        assert blob4["platform_instance"] == "test_instance"
+        assert blob4["env"] == "PROD"
+        assert blob4["source_database"] == "db2"
+        assert blob4["share_name"] == "share2"
+        assert "ingested_at" in blob4
+        # Python 3.10 fromisoformat doesn't accept 'Z'; replace before parsing.
+        datetime.fromisoformat(blob4["ingested_at"].replace("Z", "+00:00"))
 
     def test_to_platform_resource_edge_case_single_share(self):
         """
@@ -490,6 +594,140 @@ class TestDatasharesHelper:
             == "Downstream lineage to outbound datashare may not work"
         )
 
+    def test_generate_lineage_prefers_most_recently_ingested_resource(self):
+        config = get_redshift_config()
+        report = RedshiftReport()
+        graph = get_datahub_graph()
+        helper = RedshiftDatasharesHelper(config, report, graph)
+
+        share = PartialInboundDatashare(
+            producer_namespace_prefix="ns-",
+            share_name="my_share",
+            consumer_database="consumer_db",
+        )
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {
+            "s": [RedshiftTable(name="t", comment=None, created=None)],
+        }
+
+        older = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        newer = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+        def mock_search_by_filters(*args, **kwargs):
+            return [
+                PlatformResource.create(
+                    key=PlatformResourceKey(
+                        platform="redshift",
+                        platform_instance="old_instance",
+                        resource_type="OUTBOUND_DATASHARE",
+                        primary_key="ns-1.my_share",
+                    ),
+                    value=OutboundSharePlatformResource(
+                        namespace="ns-1",
+                        platform_instance="old_instance",
+                        env="PROD",
+                        source_database="src_old",
+                        share_name="my_share",
+                        ingested_at=older,
+                    ),
+                ),
+                PlatformResource.create(
+                    key=PlatformResourceKey(
+                        platform="redshift",
+                        platform_instance="new_instance",
+                        resource_type="OUTBOUND_DATASHARE",
+                        primary_key="ns-1.my_share",
+                    ),
+                    value=OutboundSharePlatformResource(
+                        namespace="ns-1",
+                        platform_instance="new_instance",
+                        env="STG",
+                        source_database="src_new",
+                        share_name="my_share",
+                        ingested_at=newer,
+                    ),
+                ),
+            ]
+
+        with patch.object(PlatformResource, "search_by_filters") as mocked:
+            mocked.side_effect = mock_search_by_filters
+            result = list(helper.generate_lineage(share, tables))
+
+        assert len(result) == 1
+        assert result[0].upstream_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,new_instance.src_new.s.t,STG)"
+        )
+        assert len(report.warnings) == 1
+        assert (
+            list(report.warnings)[0].title
+            == "Multiple matching outbound datashare PlatformResources"
+        )
+
+    def test_generate_lineage_modern_resource_beats_legacy_resource(self):
+        config = get_redshift_config()
+        report = RedshiftReport()
+        graph = get_datahub_graph()
+        helper = RedshiftDatasharesHelper(config, report, graph)
+
+        share = PartialInboundDatashare(
+            producer_namespace_prefix="ns-",
+            share_name="my_share",
+            consumer_database="consumer_db",
+        )
+        tables: Dict[str, List[Union[RedshiftTable, RedshiftView]]] = {
+            "s": [RedshiftTable(name="t", comment=None, created=None)],
+        }
+
+        ingestion_ts = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+        def mock_search_by_filters(*args, **kwargs):
+            return [
+                PlatformResource.create(
+                    key=PlatformResourceKey(
+                        platform="redshift",
+                        platform_instance=None,
+                        resource_type="OUTBOUND_DATASHARE",
+                        primary_key="ns-1.my_share",
+                    ),
+                    value=OutboundSharePlatformResource(
+                        namespace="ns-1",
+                        platform_instance=None,
+                        env="PROD",
+                        source_database="src_legacy",
+                        share_name="my_share",
+                    ),
+                ),
+                PlatformResource.create(
+                    key=PlatformResourceKey(
+                        platform="redshift",
+                        platform_instance="new_instance",
+                        resource_type="OUTBOUND_DATASHARE",
+                        primary_key="ns-1.my_share",
+                    ),
+                    value=OutboundSharePlatformResource(
+                        namespace="ns-1",
+                        platform_instance="new_instance",
+                        env="STG",
+                        source_database="src_new",
+                        share_name="my_share",
+                        ingested_at=ingestion_ts,
+                    ),
+                ),
+            ]
+
+        with patch.object(PlatformResource, "search_by_filters") as mocked:
+            mocked.side_effect = mock_search_by_filters
+            result = list(helper.generate_lineage(share, tables))
+
+        assert len(result) == 1
+        assert result[0].upstream_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,new_instance.src_new.s.t,STG)"
+        )
+        assert len(report.warnings) == 1
+        assert (
+            list(report.warnings)[0].title
+            == "Multiple matching outbound datashare PlatformResources"
+        )
+
     def test_database_get_inbound_datashare_success(self):
         db = RedshiftDatabase(
             name="db",
@@ -533,3 +771,16 @@ class TestDatasharesHelper:
         )
 
         assert db.get_inbound_share() is None
+
+    def test_outbound_share_naive_ingested_at_coerced_to_utc(self):
+        naive_dt = datetime(2026, 1, 1, 12, 0, 0)
+        resource = OutboundSharePlatformResource(
+            namespace="ns",
+            env="PROD",
+            source_database="db",
+            share_name="share",
+            ingested_at=naive_dt,
+        )
+        assert resource.ingested_at is not None
+        assert resource.ingested_at.tzinfo is not None
+        assert resource.ingested_at == naive_dt.replace(tzinfo=timezone.utc)

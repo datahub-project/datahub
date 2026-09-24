@@ -39,16 +39,15 @@ class Constant:
     keys used in powerbi plugin
     """
 
-    PBIAccessToken = "PBIAccessToken"
     DASHBOARD_LIST = "DASHBOARD_LIST"
     TILE_LIST = "TILE_LIST"
     REPORT_LIST = "REPORT_LIST"
     PAGE_BY_REPORT = "PAGE_BY_REPORT"
-    DATASET_GET = "DATASET_GET"
+    REPORT_DATASOURCES = "REPORT_DATASOURCES"
+    DATASET_PARAMS_GET = "DATASET_PARAMS_GET"
     DATASET_LIST = "DATASET_LIST"
     WORKSPACE_MODIFIED_LIST = "WORKSPACE_MODIFIED_LIST"
     REPORT_GET = "REPORT_GET"
-    DATASOURCE_GET = "DATASOURCE_GET"
     TILE_GET = "TILE_GET"
     ENTITY_USER_LIST = "ENTITY_USER_LIST"
     SCAN_CREATE = "SCAN_CREATE"
@@ -140,8 +139,11 @@ class Constant:
     STATE = "state"
     ACTIVE = "Active"
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
+    EXTERNAL_QUERY_NOT_MAPPED = "BigQuery EXTERNAL_QUERY connection not mapped"
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
+    USERS = "users"
+    TILES = "tiles"
 
     # DirectLake / Fabric artifact constants
     RELATIONS = "relations"
@@ -216,6 +218,11 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="mysql",
     )
 
+    HIVE = DataPlatformPair(
+        powerbi_data_platform_name="Hive",
+        datahub_data_platform_name="hive",
+    )
+
     ODBC = DataPlatformPair(
         powerbi_data_platform_name="Odbc",
         datahub_data_platform_name="odbc",
@@ -259,6 +266,10 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
+    # Per EXTERNAL_QUERY connection (not per upstream table URN).
+    m_query_external_query_connections_resolved: int = 0
+    m_query_external_query_connections_unmapped: int = 0
+    m_query_external_query_failures: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -273,14 +284,17 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
         self.filtered_charts.append(view)
 
 
-def default_for_dataset_type_mapping() -> Dict[str, str]:
-    dict_: dict = {}
-    for item in SupportedDataPlatform:
-        dict_[item.value.powerbi_data_platform_name] = (
-            item.value.datahub_data_platform_name
-        )
+# Lookup of PowerBI datasourceType -> DataPlatformPair; safe to share globally.
+POWERBI_TYPE_TO_DATA_PLATFORM_PAIR: Dict[str, DataPlatformPair] = {
+    item.value.powerbi_data_platform_name: item.value for item in SupportedDataPlatform
+}
 
-    return dict_
+
+def default_for_dataset_type_mapping() -> Dict[str, str]:
+    return {
+        powerbi_name: pair.datahub_data_platform_name
+        for powerbi_name, pair in POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.items()
+    }
 
 
 class DataBricksPlatformDetail(PlatformDetail):
@@ -293,9 +307,61 @@ class DataBricksPlatformDetail(PlatformDetail):
     )
 
 
+def _strip_and_reject_blank(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("must not be empty or whitespace")
+    return stripped
+
+
+class OraclePlatformDetail(PlatformDetail):
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Owner/schema applied to unqualified table references inside "
+            '``Oracle.Database(…, Query="…")`` inline native SQL, so they resolve '
+            "to your ingested Oracle datasets. Not used by hierarchical navigation."
+        ),
+    )
+    default_database: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Database segment prepended to the table name when the "
+            "``Oracle.Database`` connection is a bare TNS alias or descriptor "
+            "(which carries no database). Set this to match the database segment "
+            "your Oracle ingestion uses, only when that ingestion emits 3-part "
+            "``database.schema.table`` URNs (``add_database_name_to_urn: true``); "
+            "leave unset for the default 2-part URNs and for EZ-Connect "
+            "``host:port/service`` connections."
+        ),
+    )
+
+    @field_validator("default_schema", "default_database")
+    @classmethod
+    def _validate_optional_str(cls, value: Optional[str]) -> Optional[str]:
+        return _strip_and_reject_blank(value)
+
+    # Requires at least one knob. This is also relied on to disambiguate
+    # OraclePlatformDetail from a plain PlatformDetail in the
+    # server_to_platform_instance Union: a plain {platform_instance} entry fails
+    # this check, so it is never a valid OraclePlatformDetail candidate —
+    # independent of pydantic's union-resolution order.
+    @model_validator(mode="after")
+    def _require_at_least_one_default(self) -> "OraclePlatformDetail":
+        if self.default_schema is None and self.default_database is None:
+            raise ValueError(
+                "OraclePlatformDetail requires 'default_schema' and/or "
+                "'default_database'; use a plain platform-instance mapping if "
+                "you need neither."
+            )
+        return self
+
+
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
-        default=False,
+        default=True,
         description=(
             "Whether to create user entities from PowerBI data. "
             "When False (RECOMMENDED): PowerBI emits ownership URNs only (soft references). "
@@ -359,6 +425,65 @@ class AthenaPlatformOverride(ConfigModel):
     )
 
 
+class BigQueryExternalQueryPlatformDetail(PlatformDetail):
+    """Maps a BigQuery ``EXTERNAL_QUERY`` connection to the external source it federates to.
+
+    BigQuery federation (``EXTERNAL_QUERY(connection, sql)``) runs the inner SQL on an
+    external engine such as Cloud SQL or AlloyDB (which expose MySQL/PostgreSQL). The
+    connection id (``project.region.connection``) does not reveal the external platform,
+    so this mapping supplies it, letting PowerBI lineage point at the real upstream table
+    on that platform instead of failing to resolve a URN. ``platform`` must be a
+    recognized DataHub platform (see ``SupportedDataPlatform``).
+    """
+
+    platform: str = pydantic.Field(
+        min_length=1,
+        description="Target DataHub platform of the external source the EXTERNAL_QUERY "
+        "federates to (e.g. 'postgres', 'mysql', 'snowflake').",
+    )
+    default_database: Optional[str] = pydantic.Field(
+        default=None,
+        description="Database prepended to unqualified or 2-part table names in the "
+        "federated (inner) SQL. The EXTERNAL_QUERY connection id does not carry the "
+        "external database name, so set this when your external source's ingestion emits "
+        "3-part database.schema.table URNs so the lineage URNs match.",
+    )
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description="Schema applied to unqualified table references in the federated "
+        "(inner) SQL.",
+    )
+
+    @field_validator("platform")
+    @classmethod
+    def _validate_known_platform(cls, value: str) -> str:
+        known_platforms = {
+            item.value.datahub_data_platform_name for item in SupportedDataPlatform
+        }
+        if value not in known_platforms:
+            raise ValueError(
+                f"platform '{value}' is not a recognized DataHub platform. "
+                f"Known platforms: {sorted(known_platforms)}."
+            )
+        return value
+
+    @field_validator("default_schema", "default_database")
+    @classmethod
+    def _validate_optional_str(cls, value: Optional[str]) -> Optional[str]:
+        return _strip_and_reject_blank(value)
+
+
+# Workspace ``type`` values returned by the PowerBI admin API for personal
+# workspaces. These are not addressable by id in the PowerBI UI - they are
+# reachable only via the ``/groups/me`` alias and only by their owner, so
+# ``/groups/{guid}`` for these types resolves to ``GroupNotAccessible``.
+PERSONAL_WORKSPACE_TYPE = "PersonalGroup"
+LEGACY_PERSONAL_WORKSPACE_TYPE = "Personal"
+NON_ADDRESSABLE_WORKSPACE_TYPES = frozenset(
+    {PERSONAL_WORKSPACE_TYPE, LEGACY_PERSONAL_WORKSPACE_TYPE}
+)
+
+
 class PowerBiEnvironment(ConfigEnum):
     COMMERCIAL = "COMMERCIAL"
     GOVERNMENT = "GOVERNMENT"
@@ -368,6 +493,17 @@ class PowerBiEnvironment(ConfigEnum):
         if self == PowerBiEnvironment.GOVERNMENT:
             return "https://app.powerbigov.us"
         return "https://app.powerbi.com"
+
+    def workspace_url(self, workspace_id: str, workspace_type: str) -> Optional[str]:
+        """Build a clickable PowerBI UI URL for a workspace.
+
+        Returns ``None`` for personal workspace types (see
+        ``NON_ADDRESSABLE_WORKSPACE_TYPES``); surfacing ``/groups/{guid}``
+        for those would produce a dead ``GroupNotAccessible`` link.
+        """
+        if workspace_type in NON_ADDRESSABLE_WORKSPACE_TYPES:
+            return None
+        return f"{self.web_app_base_url}/groups/{workspace_id}"
 
 
 class PowerBiAppUrlPattern(ConfigEnum):
@@ -425,13 +561,16 @@ class PowerBiDashboardSourceConfig(
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[
-        str, Union[PlatformDetail, DataBricksPlatformDetail]
+        str, Union[OraclePlatformDetail, DataBricksPlatformDetail, PlatformDetail]
     ] = pydantic.Field(
         default={},
-        description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
-        " :port is optional and only needed if your datasource server is running on non-standard port. "
-        "For Google BigQuery the datasource's server is google bigquery project name. "
-        "For Databricks Unity Catalog the datasource's server is workspace FQDN.",
+        description="Mapping from a PowerBI datasource server to the DataHub platform instance "
+        "(and env) of its upstream tables, so lineage URNs match your other DataHub sources. "
+        "The key is the server as it appears in the M-query, i.e. `host[:port]` (`:port` only for "
+        "non-standard ports); for Google BigQuery it is the project name, for Databricks Unity "
+        "Catalog the workspace FQDN, and for Oracle the EZ-Connect host, bare TNS alias, or "
+        "descriptor SERVICE_NAME (case-insensitive). The value is a platform-detail object; Oracle "
+        "servers may add `default_schema`/`default_database` and Databricks servers `metastore`.",
     )
     # ODBC DSN to platform mapping
     dsn_to_platform_name: Dict[str, str] = pydantic.Field(
@@ -463,6 +602,26 @@ class PowerBiDashboardSourceConfig(
         "This override is applied AFTER catalog stripping, so use 2-part names "
         "(database.table), not 3-part names (catalog.database.table). "
         "Overrides with a DSN specified take precedence over those without.",
+    )
+    bigquery_external_query_connection_to_platform: Dict[
+        str, BigQueryExternalQueryPlatformDetail
+    ] = pydantic.Field(
+        default={},
+        description="Mapping from a BigQuery ``EXTERNAL_QUERY`` connection id "
+        "(``project.region.connection``, the first argument of EXTERNAL_QUERY) to the "
+        "external source it federates to. BigQuery federation runs the inner SQL on an "
+        "external engine such as Cloud SQL or AlloyDB (which expose MySQL/PostgreSQL); "
+        "configure this so PowerBI lineage resolves to the real upstream table on that "
+        "platform instead of failing. The value sets the target `platform` (required, "
+        "must be one of `athena`, `bigquery`, `databricks`, `fabric-onelake`, "
+        "`hive`, `mssql`, `mysql`, `odbc`, `oracle`, `postgres`, `redshift` or "
+        "`snowflake`, and its "
+        "PowerBI name must remain in `dataset_type_mapping` if you narrow that mapping) "
+        "plus optional `platform_instance`, `env`, `default_database`, and "
+        "`default_schema`. Requires `extract_lineage`, `native_query_parsing`, and "
+        "`enable_advance_lineage_sql_construct`. If the outer native query cannot be "
+        "parsed, lineage is skipped for the whole table (native upstreams included), "
+        "not just the federated part.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
@@ -677,6 +836,52 @@ class PowerBiDashboardSourceConfig(
             raise ValueError(f"Enable all these flags in recipe: {flags} ")
 
         return self
+
+    @model_validator(mode="after")
+    def validate_external_query_requires_advanced_sql(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        # Federation resolution only runs while extracting lineage inside
+        # parse_custom_sql, which requires all of these flags. Fail fast so a configured
+        # mapping cannot silently no-op.
+        if not self.bigquery_external_query_connection_to_platform:
+            return self
+        missing = [
+            flag
+            for flag in (
+                "extract_lineage",
+                "native_query_parsing",
+                "enable_advance_lineage_sql_construct",
+            )
+            if not getattr(self, flag)
+        ]
+        if missing:
+            raise ValueError(
+                "bigquery_external_query_connection_to_platform requires these "
+                f"flags enabled: {missing}"
+            )
+        return self
+
+    @field_validator("server_to_platform_instance", mode="after")
+    @classmethod
+    def _reject_case_insensitive_duplicate_server_keys(cls, value: Dict) -> Dict:
+        # Oracle TNS lookup is case-insensitive in the source system, and the
+        # resolver falls back to a case-insensitive key match. If a recipe
+        # contained both ``EDWPSFN`` and ``edwpsfn``, that fallback would pick
+        # one silently by dict insertion order — a wrong-platform-instance
+        # outcome. Reject the ambiguity at config-load time.
+        seen: Dict[str, str] = {}
+        for key in value:
+            lower = key.lower()
+            if lower in seen:
+                raise ValueError(
+                    "server_to_platform_instance has case-insensitive duplicate keys: "
+                    f"{seen[lower]!r} and {key!r}. Recipe keys must differ in more "
+                    "than just case (the resolver falls back to a case-insensitive "
+                    "match for Oracle TNS aliases)."
+                )
+            seen[lower] = key
+        return value
 
     @field_validator("dataset_type_mapping", mode="after")
     @classmethod

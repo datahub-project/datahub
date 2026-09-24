@@ -5,6 +5,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.shared.ElasticSearchUpgradeUtils;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
+import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesIncrementalStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPostStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPreStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesStep;
@@ -13,19 +14,24 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.steps.CreateUserStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -34,6 +40,7 @@ public class BuildIndices implements BlockingSystemUpgrade {
   private final List<UpgradeStep> _steps;
   private final List<ElasticSearchIndexed> _indexedServices;
   private final Set<Pair<Urn, StructuredPropertyDefinition>> _structuredProperties;
+  private final boolean _incrementalReindexEnabled;
 
   public BuildIndices(
       final SystemMetadataService systemMetadataService,
@@ -43,7 +50,12 @@ public class BuildIndices implements BlockingSystemUpgrade {
       final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
           baseElasticSearchComponents,
       final ConfigurationProvider configurationProvider,
-      final AspectDao aspectDao) {
+      final AspectDao aspectDao,
+      final OperationContext opContext,
+      final EntityService<?> entityService,
+      final GitVersion gitVersion,
+      final String revision,
+      @Nullable final SearchClusterRegistry searchClusterRegistry) {
 
     _indexedServices =
         ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(
@@ -56,12 +68,50 @@ public class BuildIndices implements BlockingSystemUpgrade {
       _structuredProperties = Set.of();
     }
 
+    _incrementalReindexEnabled =
+        configurationProvider.getElasticSearch().getBuildIndices() != null
+            && configurationProvider
+                .getElasticSearch()
+                .getBuildIndices()
+                .isIncrementalReindexEnabled();
+
+    // Mapping reconciliation is driven exclusively by BuildIndicesIncrementalStep, which is only
+    // constructed on the incremental path. Asking for it without incremental reindexing enabled
+    // is a no-op, and silently so — the operator would see a clean upgrade and conclude the
+    // historical documents had been rebuilt.
+    if (!_incrementalReindexEnabled
+        && configurationProvider.getElasticSearch().getBuildIndices() != null
+        && configurationProvider
+            .getElasticSearch()
+            .getBuildIndices()
+            .isReconcileInPlaceMappingUpdates()) {
+      log.warn(
+          "ELASTICSEARCH_BUILD_INDICES_RECONCILE_IN_PLACE_MAPPING_UPDATES=true has no effect"
+              + " because incremental reindexing is disabled"
+              + " (ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED / ZDU_STAGE_20 = false)."
+              + " In-place mapping parameter updates will still be applied to the live index, but"
+              + " existing documents will NOT be rebuilt under the new mapping. Enable incremental"
+              + " reindexing on the same run, or reconcile the affected indices separately.");
+    }
+
     _steps =
-        buildSteps(_indexedServices, baseElasticSearchComponents, configurationProvider, aspectDao);
+        buildSteps(
+            _indexedServices,
+            baseElasticSearchComponents,
+            configurationProvider,
+            aspectDao,
+            opContext,
+            entityService,
+            String.format("%s-%s", gitVersion.getVersion(), revision),
+            searchClusterRegistry);
   }
 
   @Override
   public boolean requiresK8ScaleDown(UpgradeContext context) {
+    if (_incrementalReindexEnabled) {
+      // Incremental reindex never requires consumer scale-down
+      return false;
+    }
     try {
       List<ReindexConfig> configs =
           IndexUtils.getAllReindexConfigs(
@@ -88,27 +138,46 @@ public class BuildIndices implements BlockingSystemUpgrade {
       final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
           baseElasticSearchComponents,
       final ConfigurationProvider configurationProvider,
-      final AspectDao aspectDao) {
+      final AspectDao aspectDao,
+      final OperationContext opContext,
+      final EntityService<?> entityService,
+      final String upgradeVersion,
+      @Nullable final SearchClusterRegistry searchClusterRegistry) {
 
     final List<UpgradeStep> steps = new ArrayList<>();
     // Setup Elasticsearch users and roles (if enabled)
-    steps.add(new CreateUserStep(baseElasticSearchComponents, configurationProvider));
-    // Setup usage event indices and policies
-    steps.add(new CreateUsageEventIndicesStep(baseElasticSearchComponents, configurationProvider));
-    // Disable ES write mode/change refresh rate and clone indices
     steps.add(
-        new BuildIndicesPreStep(
-            baseElasticSearchComponents,
-            indexedServices,
-            configurationProvider,
-            _structuredProperties));
-    // Configure graphService, entitySearchService, systemMetadataService, timeseriesAspectService
-    steps.add(new BuildIndicesStep(indexedServices, _structuredProperties));
-    // Reset configuration (and delete clones? Or just do this regularly? Or delete clone in
-    // pre-configure step if it already exists?
+        new CreateUserStep(
+            baseElasticSearchComponents, configurationProvider, searchClusterRegistry));
     steps.add(
-        new BuildIndicesPostStep(
-            baseElasticSearchComponents, indexedServices, _structuredProperties));
+        new CreateUsageEventIndicesStep(
+            baseElasticSearchComponents, configurationProvider, searchClusterRegistry));
+
+    if (_incrementalReindexEnabled) {
+      // Incremental path: create next indices + _reindex without blocking writes or swapping
+      // aliases
+      steps.add(
+          new BuildIndicesIncrementalStep(
+              opContext,
+              indexedServices,
+              _structuredProperties,
+              entityService,
+              upgradeVersion,
+              configurationProvider.getElasticSearch().getBuildIndices()));
+    } else {
+      // Legacy path: block writes, reindex in-place, swap aliases, unblock writes
+      steps.add(
+          new BuildIndicesPreStep(
+              baseElasticSearchComponents,
+              indexedServices,
+              configurationProvider,
+              _structuredProperties));
+      steps.add(
+          new BuildIndicesStep(indexedServices, _structuredProperties, configurationProvider));
+      steps.add(
+          new BuildIndicesPostStep(
+              baseElasticSearchComponents, indexedServices, _structuredProperties));
+    }
     return steps;
   }
 }

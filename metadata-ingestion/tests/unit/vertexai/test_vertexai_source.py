@@ -1,18 +1,32 @@
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.api_core.exceptions import NotFound, PermissionDenied
 from google.cloud.aiplatform import ExperimentRun, PipelineJob
+from google.cloud.aiplatform.metadata import constants as metadata_constants
+from google.cloud.aiplatform.metadata.context import Context as MetadataContext
+from google.cloud.aiplatform.metadata.execution import Execution as MetadataExecution
+from google.cloud.aiplatform.metadata.experiment_resources import Experiment
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
 from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
+from google.rpc.error_details_pb2 import ErrorInfo
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAISource
+from datahub.ingestion.source.vertexai.vertexai_experiment_extractor import (
+    VertexAIExperimentExtractor,
+)
 from datahub.ingestion.source.vertexai.vertexai_models import (
     ExperimentMetadata,
     VertexAIResourceCategoryKey,
 )
+from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.metadata.schema_classes import (
     DataProcessInstancePropertiesClass,
 )
@@ -99,7 +113,8 @@ def test_pipeline_task_with_none_timestamps(
     }
 
     with patch(
-        "google.cloud.aiplatform.PipelineJob.list", return_value=[mock_pipeline_job]
+        "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor.rate_limited_gapic_list",
+        return_value=[mock_pipeline_job],
     ):
         mcps = list(source.pipeline_extractor.get_workunits())
         assert len(mcps) > 0, "Should generate MCPs for pipeline task"
@@ -130,9 +145,11 @@ def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
 
     mock_exp_run.get_executions.return_value = [mock_execution]
 
-    with patch("google.cloud.aiplatform.ExperimentRun.list") as mock_list:
-        mock_list.return_value = [mock_exp_run]
-
+    with patch.object(
+        source.experiment_extractor,
+        "_list_experiment_runs_rate_limited",
+        return_value=[mock_exp_run],
+    ):
         actual_mcps = list(source.experiment_extractor.get_experiment_run_workunits())
 
         run_mcps = [
@@ -326,3 +343,323 @@ def test_multi_region_urls() -> None:
     assert url_west != url_europe
     assert "us-west1" in url_west
     assert "europe-west4" in url_europe
+
+
+# ---------------------------------------------------------------------------
+# VertexAIExperimentExtractor
+# ---------------------------------------------------------------------------
+
+EXPERIMENT_PROJECT_ID = "test-project"
+EXPERIMENT_REGION = "us-central1"
+
+
+@pytest.fixture
+def experiment_extractor() -> VertexAIExperimentExtractor:
+    source = VertexAISource(
+        ctx=PipelineContext(run_id="test"),
+        config=VertexAIConfig.model_validate(
+            {"project_id": EXPERIMENT_PROJECT_ID, "region": EXPERIMENT_REGION}
+        ),
+    )
+    return source.experiment_extractor
+
+
+def test_metadata_store_parent_without_experiment(
+    experiment_extractor: VertexAIExperimentExtractor,
+) -> None:
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.vertex_initializer"
+    ) as mock_init:
+        mock_init.global_config.common_location_path.return_value = (
+            "projects/test-project/locations/us-central1"
+        )
+        parent = experiment_extractor._metadata_store_parent()
+
+    assert (
+        parent == "projects/test-project/locations/us-central1/metadataStores/default"
+    )
+
+
+def test_metadata_store_parent_with_experiment_uses_its_location(
+    experiment_extractor: VertexAIExperimentExtractor,
+) -> None:
+    mock_exp = MagicMock()
+    mock_exp._metadata_context.project = "exp-project"
+    mock_exp._metadata_context.location = "europe-west1"
+
+    parent = experiment_extractor._metadata_store_parent(mock_exp)
+
+    assert (
+        parent == "projects/exp-project/locations/europe-west1/metadataStores/default"
+    )
+
+
+def test_list_experiments_excludes_tensorboard_and_wraps_the_rest(
+    experiment_extractor: VertexAIExperimentExtractor,
+) -> None:
+    regular_ctx = MagicMock()
+    regular_ctx.metadata = {}
+    tb_ctx = MagicMock()
+    tb_ctx.metadata = {metadata_constants.TENSORBOARD_CUSTOM_JOB_EXPERIMENT_FIELD: True}
+
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.rate_limited_gapic_list",
+            return_value=[regular_ctx, tb_ctx],
+        ),
+        patch.object(experiment_extractor, "_metadata_store_parent", return_value="p"),
+    ):
+        experiments = experiment_extractor._list_experiments_rate_limited()
+
+    assert len(experiments) == 1
+    assert isinstance(experiments[0], Experiment)
+    assert experiments[0]._metadata_context is regular_ctx
+
+
+def test_list_experiments_returns_empty_on_not_found(
+    experiment_extractor: VertexAIExperimentExtractor,
+) -> None:
+    """Projects without a Vertex AI Metadata Store return 404 — must skip, not crash."""
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.rate_limited_gapic_list",
+            side_effect=NotFound("Requested Metadata Store default not found"),
+        ),
+        patch.object(experiment_extractor, "_metadata_store_parent", return_value="p"),
+    ):
+        experiments = experiment_extractor._list_experiments_rate_limited()
+
+    assert experiments == []
+    warning_titles = [w.title for w in experiment_extractor.report.warnings]
+    assert "Vertex AI Metadata Store not found" in warning_titles
+
+
+def test_list_experiment_runs_combines_context_and_execution_nodes(
+    experiment_extractor: VertexAIExperimentExtractor,
+) -> None:
+    """Both v2 (Context) and v1 (Execution) nodes produce ExperimentRun instances."""
+    mock_exp = MagicMock(spec=Experiment)
+    mock_exp.resource_name = (
+        "projects/p/locations/l/metadataStores/default/contexts/exp-1"
+    )
+
+    ctx_node = MagicMock()
+    exec_node = MagicMock()
+
+    def gapic_list_side_effect(cls, *args, **kwargs):
+        if cls is MetadataContext:
+            return [ctx_node]
+        if cls is MetadataExecution:
+            return [exec_node]
+        return []
+
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.rate_limited_gapic_list",
+            side_effect=gapic_list_side_effect,
+        ),
+        patch.object(experiment_extractor, "_metadata_store_parent", return_value="p"),
+        patch.object(ExperimentRun, "_initialize_experiment_run"),
+    ):
+        runs = experiment_extractor._list_experiment_runs_rate_limited(mock_exp)
+
+    assert len(runs) == 2
+    assert all(isinstance(r, ExperimentRun) for r in runs)
+
+
+# ---------------------------------------------------------------------------
+# VertexAIStateHandler — stateful_ingestion=None (default) must not crash
+# ---------------------------------------------------------------------------
+
+
+def _make_state_handler(
+    stateful_ingestion_config: Optional[StatefulStaleMetadataRemovalConfig] = None,
+) -> VertexAIStateHandler:
+    """Build a VertexAIStateHandler with a minimal mock source."""
+    mock_source = MagicMock()
+    mock_source.state_provider.is_stateful_ingestion_configured.return_value = False
+    mock_source.ctx.run_id = "test-run"
+    mock_source.ctx.pipeline_name = "test-pipeline"
+    return VertexAIStateHandler(
+        source=mock_source,
+        stateful_ingestion_config=stateful_ingestion_config,
+    )
+
+
+def test_state_handler_no_stateful_ingestion_config_does_not_crash() -> None:
+    """Pipeline must not crash when stateful_ingestion is not configured (the default).
+
+    Regression test for the bug introduced in PR #16176 where `config.stateful_ingestion or config`
+    passed the entire VertexAIConfig as the stateful_ingestion_config when no stateful ingestion
+    was configured, causing AttributeError on .ignore_old_state / .ignore_new_state.
+    """
+    handler = _make_state_handler(stateful_ingestion_config=None)
+
+    # These must not raise AttributeError
+    assert handler.get_last_update_time("model") is None
+    assert handler.create_checkpoint() is None
+
+
+def test_state_handler_checkpointing_disabled_returns_empty_state() -> None:
+    """get_last_checkpoint_state returns an empty state when checkpointing is off."""
+    handler = _make_state_handler(stateful_ingestion_config=None)
+    state = handler.get_last_checkpoint_state()
+    assert state.last_update_times == {}
+
+
+@patch("datahub.ingestion.source.vertexai.vertexai.resolve_gcp_projects")
+@patch("datahub.ingestion.source.vertexai.vertexai.ProjectsClient")
+@patch.object(VertexAISource, "_setup_credentials")
+def test_resolve_target_projects_passes_credentialed_client(
+    mock_setup_credentials: MagicMock,
+    mock_projects_client: MagicMock,
+    mock_resolve_gcp_projects: MagicMock,
+) -> None:
+    """Regression: project discovery must use the recipe's SA credentials.
+
+    If self._credentials is not threaded into ProjectsClient, the Resource
+    Manager client falls back to Application Default Credentials, which do not
+    exist on the executor -> DefaultCredentialsError. Dataplex threads them;
+    VertexAI must too.
+    """
+    sentinel_creds = MagicMock(name="service_account_credentials")
+    mock_setup_credentials.return_value = sentinel_creds
+    mock_resolve_gcp_projects.return_value = []
+
+    VertexAISource(
+        ctx=PipelineContext(run_id="vertexai-cred-test"),
+        config=VertexAIConfig(
+            project_id_pattern={"allow": [".*-production$"]},
+            region=REGION,
+        ),
+    )
+
+    # The Resource Manager client must be built with the source's credentials...
+    mock_projects_client.assert_called_once_with(credentials=sentinel_creds)
+    # ...and that client must be handed to the shared resolver.
+    _, kwargs = mock_resolve_gcp_projects.call_args
+    assert kwargs.get("projects_client") is mock_projects_client.return_value
+
+
+@patch("datahub.ingestion.source.vertexai.vertexai.resolve_gcp_projects")
+@patch("datahub.ingestion.source.vertexai.vertexai.ProjectsClient")
+@patch.object(VertexAISource, "_setup_credentials")
+def test_resolve_target_projects_skips_client_for_explicit_project_ids(
+    mock_setup_credentials: MagicMock,
+    mock_projects_client: MagicMock,
+    mock_resolve_gcp_projects: MagicMock,
+) -> None:
+    """With explicit project_ids, discovery is skipped, so no Resource Manager
+    client is constructed and None is forwarded to resolve_gcp_projects.
+
+    Guards the `else None` branch and matches Dataplex, which only builds a
+    discovery client when project_ids is empty (avoids an unused gRPC client).
+    """
+    mock_setup_credentials.return_value = MagicMock(name="service_account_credentials")
+    mock_resolve_gcp_projects.return_value = []
+
+    VertexAISource(
+        ctx=PipelineContext(run_id="vertexai-explicit-projects-test"),
+        config=VertexAIConfig(project_ids=[PROJECT_ID], region=REGION),
+    )
+
+    mock_projects_client.assert_not_called()
+    _, kwargs = mock_resolve_gcp_projects.call_args
+    assert kwargs.get("projects_client") is None
+
+
+# ---------------------------------------------------------------------------
+# Disabled-API project resilience (per-project SERVICE_DISABLED handling)
+# ---------------------------------------------------------------------------
+
+
+@patch(
+    "datahub.ingestion.source.vertexai.vertexai.get_vertexai_disable_parallelism",
+    return_value=True,
+)
+@patch("datahub.ingestion.source.vertexai.vertexai.MetadataServiceClient")
+@patch("datahub.ingestion.source.vertexai.vertexai.aiplatform.init")
+def test_disabled_vertex_api_project_is_skipped(
+    _mock_init: MagicMock,
+    _mock_metadata_client: MagicMock,
+    _mock_disable_parallelism: MagicMock,
+) -> None:
+    """A disabled-API project is skipped with a warning; other projects still ingest."""
+    config = VertexAIConfig.model_validate(
+        {
+            "project_ids": ["disabled-project", "enabled-project"],
+            "region": REGION,
+            "include_models": False,
+            "include_evaluations": False,
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+    enabled_project_wu = MagicMock(name="enabled-project-workunit")
+
+    def fetch_phase1_side_effect(resource_type):
+        if resource_type != "training_jobs":
+            return
+        if source._current_project_id == "disabled-project":
+            raise PermissionDenied(
+                "Agent Platform API has not been used in project disabled-project before "
+                "or it is disabled.",
+                error_info=ErrorInfo(
+                    reason="SERVICE_DISABLED", domain="googleapis.com"
+                ),
+            )
+        yield enabled_project_wu
+
+    with (
+        patch.object(source, "_gen_project_workunits", return_value=iter([])),
+        patch.object(
+            source, "_fetch_phase1_resource", side_effect=fetch_phase1_side_effect
+        ),
+    ):
+        workunits = list(source.get_workunits_internal())
+
+    assert workunits == [enabled_project_wu]
+
+    assert len(source.report.warnings) == 1
+    warning = source.report.warnings[0]
+    assert any("disabled-project" in ctx for ctx in warning.context)
+
+
+@patch(
+    "datahub.ingestion.source.vertexai.vertexai.get_vertexai_disable_parallelism",
+    return_value=True,
+)
+@patch("datahub.ingestion.source.vertexai.vertexai.MetadataServiceClient")
+@patch("datahub.ingestion.source.vertexai.vertexai.aiplatform.init")
+def test_non_service_disabled_permission_denied_still_raises(
+    _mock_init: MagicMock,
+    _mock_metadata_client: MagicMock,
+    _mock_disable_parallelism: MagicMock,
+) -> None:
+    """A non-SERVICE_DISABLED PermissionDenied (IAM denial) must propagate, not be swallowed."""
+    config = VertexAIConfig.model_validate(
+        {
+            "project_ids": ["denied-project", "other-project"],
+            "region": REGION,
+            "include_models": False,
+            "include_evaluations": False,
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+    def fetch_phase1_side_effect(_resource_type):
+        raise PermissionDenied(
+            "Permission denied on resource.",
+            error_info=ErrorInfo(
+                reason="IAM_PERMISSION_DENIED", domain="googleapis.com"
+            ),
+        )
+        yield
+
+    with (
+        patch.object(source, "_gen_project_workunits", return_value=iter([])),
+        patch.object(
+            source, "_fetch_phase1_resource", side_effect=fetch_phase1_side_effect
+        ),
+        pytest.raises(PermissionDenied),
+    ):
+        list(source.get_workunits_internal())

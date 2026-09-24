@@ -25,6 +25,28 @@ logger: logging.Logger = logging.getLogger(__name__)
 REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE = "-- partner: DataHub -v {version}\n"
 
 
+def unescape_stl_query_text(text: str) -> str:
+    """Convert Redshift STL literal escape sequences back to real characters.
+
+    Redshift's provisioned ``STL_QUERYTEXT.text`` stores query newlines/tabs/CRs
+    as literal two-character escape sequences (backslash + ``n``/``t``/``r``), not
+    real control bytes -- see
+    https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html . ``sqlglot``
+    cannot tokenize a bare ``\\n`` sitting between SQL tokens, so multi-line queries
+    fail to parse and are silently dropped by the aggregator, taking their lineage,
+    usage and Query entities with them. Every place that consumes reconstructed
+    STL_QUERYTEXT text must normalize it first; route all such call sites through
+    this single helper so they stay consistent (they previously handled only ``\\n``).
+
+    A literal ``\\n`` inside a string literal (e.g. ``WHERE x = 'a\\nb'``) is also
+    converted. This does not affect table/column lineage; the rare in-literal case
+    may alter the captured query text, which is acceptable here. On serverless
+    (``SYS_QUERY_TEXT``) and single-line queries there are no such escapes, so this
+    is a no-op there.
+    """
+    return text.replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
+
+
 @dataclass
 class RedshiftColumn(BaseColumn):
     dist_key: bool = False
@@ -47,6 +69,7 @@ class RedshiftTable(BaseTable):
     output_parameters: Optional[str] = None
     serde_parameters: Optional[str] = None
     last_altered: Optional[datetime] = None
+    owner: Optional[str] = None
 
     def is_external_table(self) -> bool:
         return self.type == "EXTERNAL_TABLE"
@@ -60,6 +83,7 @@ class RedshiftView(BaseTable):
     last_altered: Optional[datetime] = None
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
+    owner: Optional[str] = None
 
     def is_external_table(self) -> bool:
         return self.type == "EXTERNAL_TABLE"
@@ -258,7 +282,9 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_query_result(
-        conn: redshift_connector.Connection, query: str
+        conn: redshift_connector.Connection,
+        query: str,
+        parameters: Optional[Tuple[str, ...]] = None,
     ) -> redshift_connector.Cursor:
         cursor: redshift_connector.Cursor = conn.cursor()
 
@@ -266,7 +292,13 @@ class RedshiftDataDictionary:
         with PerfTimer() as timer:
             query_hash_id = hash(tagged_query)
             logger.info(f"Executing query [{query_hash_id}]\n{tagged_query}")
-            cursor.execute(tagged_query)
+            # Pass values as bind parameters (paramstyle="format", %s) rather than
+            # interpolating them into the SQL string, so config/catalog-derived
+            # values are never concatenated into the query text.
+            if parameters is not None:
+                cursor.execute(tagged_query, parameters)
+            else:
+                cursor.execute(tagged_query)
             logger.info(
                 f"Time taken query [{query_hash_id}: {timer.elapsed_seconds():.3f} seconds"
             )
@@ -303,11 +335,15 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_schemas(
-        conn: redshift_connector.Connection, database: str
+        conn: redshift_connector.Connection,
+        database: str,
+        extract_ownership: bool = False,
     ) -> List[RedshiftSchema]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftCommonQuery.list_schemas(database),
+            RedshiftCommonQuery.list_schemas(
+                database, extract_ownership=extract_ownership
+            ),
         )
 
         schemas = cursor.fetchall()
@@ -318,6 +354,7 @@ class RedshiftDataDictionary:
                 database=database,
                 name=schema[field_names.index("schema_name")],
                 type=schema[field_names.index("schema_type")],
+                owner=schema[field_names.index("schema_owner_name")],
                 option=schema[field_names.index("schema_option")],
                 external_platform=schema[field_names.index("external_platform")],
                 external_database=schema[field_names.index("external_database")],
@@ -365,6 +402,7 @@ class RedshiftDataDictionary:
         database: str,
         skip_external_tables: bool = False,
         is_shared_database: bool = False,
+        extract_ownership: bool = False,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
@@ -379,6 +417,7 @@ class RedshiftDataDictionary:
                 database=database,
                 skip_external_tables=skip_external_tables,
                 is_shared_database=is_shared_database,
+                extract_ownership=extract_ownership,
             ),
         )
         field_names = [i[0] for i in cur.description]
@@ -421,6 +460,7 @@ class RedshiftDataDictionary:
                         output_parameters=table[field_names.index("output_format")],
                         serde_parameters=table[field_names.index("serde_parameters")],
                         comment=table[field_names.index("table_description")],
+                        owner=table[field_names.index("owner_name")],
                     )
                 )
             else:
@@ -454,6 +494,7 @@ class RedshiftDataDictionary:
                         size_in_bytes=size_in_bytes,
                         rows_count=rows_count,
                         materialized=materialized,
+                        owner=table[field_names.index("owner_name")],
                     )
                 )
 
@@ -596,10 +637,8 @@ class RedshiftDataDictionary:
                         if "target_table" in field_names
                         else None
                     ),
-                    # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
-                    # for why we need to remove the \\n.
                     ddl=(
-                        row[field_names.index("ddl")].replace("\\n", "\n")
+                        unescape_stl_query_text(row[field_names.index("ddl")])
                         if "ddl" in field_names
                         else None
                     ),

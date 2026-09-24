@@ -16,15 +16,13 @@ export const StyledEntitySidebarContainer = styled.div<{
     isFocused?: boolean;
     $isShowNavBarRedesign?: boolean;
     $contextType?: TabContextType;
+    $flushOuterMargin?: boolean;
 }>`
     flex: 1;
     overflow: auto;
     box-shadow: ${(props) => {
         if (props.$contextType === TabContextType.CHROME_SIDEBAR) {
             return 'none';
-        }
-        if (props.$isShowNavBarRedesign) {
-            return props.theme.styles['box-shadow-navbar-redesign'];
         }
         return props.theme.colors.shadowSm;
     }};
@@ -41,7 +39,7 @@ export const StyledEntitySidebarContainer = styled.div<{
             return '0';
         }
         if (props.$isShowNavBarRedesign) {
-            return '4px 4px 4px 8px';
+            return props.$flushOuterMargin ? '0 0 0 8px' : '4px 4px 4px 8px';
         }
         return '0px 0px 0px 0px';
     }};
@@ -128,6 +126,7 @@ interface Props {
     width?: number;
     headerDropdownItems?: Set<EntityMenuItems>;
     className?: string;
+    flushOuterMargin?: boolean;
 }
 
 export default function EntityProfileSidebar({
@@ -139,6 +138,7 @@ export default function EntityProfileSidebar({
     width,
     headerDropdownItems,
     className,
+    flushOuterMargin = false,
 }: Props) {
     const { isClosed } = useContext(EntitySidebarContext);
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -160,6 +160,7 @@ export default function EntityProfileSidebar({
             className={className}
             $isShowNavBarRedesign={isShowNavBarRedesign}
             $contextType={contextType}
+            $flushOuterMargin={flushOuterMargin}
             aria-expanded={!isClosed}
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>

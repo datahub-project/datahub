@@ -2,9 +2,9 @@ import { CaretDownFilled } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Select } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DEFAULT_SORT_OPTION } from '@app/searchV2/context/constants';
 import useGetSortOptions from '@app/searchV2/sorting/useGetSortOptions';
 
@@ -18,12 +18,12 @@ const SelectWrapper = styled.span`
     }
     .ant-select-selection-item {
         // !important is necessary because updating Select styles for antd is impossible
-        color: ${ANTD_GRAY[8]} !important;
+        color: ${(props) => props.theme.colors.textTertiary} !important;
         font-weight: 700;
     }
 
     .ant-select-selection-placeholder {
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textTertiary};
         font-weight: 700;
     }
 `;
@@ -34,14 +34,15 @@ type Props = {
 };
 
 export default function SearchSortSelect({ selectedSortOption, setSelectedSortOption }: Props) {
+    const { t } = useTranslation('search');
     const sortOptions = useGetSortOptions();
     const options = Object.entries(sortOptions).map(([value, option]) => ({ value, label: option.label }));
 
     return (
-        <Tooltip title="Sort search results" showArrow={false} placement="left">
+        <Tooltip title={t('sort.tooltipTitle')} showArrow={false} placement="left">
             <SelectWrapper>
                 <Select
-                    placeholder="Sort by"
+                    placeholder={t('sort.placeholder')}
                     value={selectedSortOption === DEFAULT_SORT_OPTION ? null : selectedSortOption}
                     options={options}
                     bordered={false}

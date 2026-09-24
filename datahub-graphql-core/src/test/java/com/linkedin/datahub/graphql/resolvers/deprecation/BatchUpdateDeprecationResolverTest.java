@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.deprecation;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -52,10 +51,10 @@ public class BatchUpdateDeprecationResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2));
 
     BatchUpdateDeprecationResolver resolver = new BatchUpdateDeprecationResolver(mockService);
 
@@ -90,6 +89,8 @@ public class BatchUpdateDeprecationResolverTest {
             Urn.createFromString(TEST_ENTITY_URN_2), DEPRECATION_ASPECT_NAME, newDeprecation);
 
     verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
+
+    verifyExistenceResolvedInBatches(mockService, 1);
   }
 
   @Test
@@ -118,10 +119,10 @@ public class BatchUpdateDeprecationResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(originalDeprecation);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2));
 
     BatchUpdateDeprecationResolver resolver = new BatchUpdateDeprecationResolver(mockService);
 
@@ -156,6 +157,8 @@ public class BatchUpdateDeprecationResolverTest {
             Urn.createFromString(TEST_ENTITY_URN_2), DEPRECATION_ASPECT_NAME, newDeprecation);
 
     verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
+
+    verifyExistenceResolvedInBatches(mockService, 1);
   }
 
   @Test
@@ -177,10 +180,8 @@ public class BatchUpdateDeprecationResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(false);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
+    // The first resource does not exist.
+    stubExistingUrns(mockService, Urn.createFromString(TEST_ENTITY_URN_2));
 
     BatchUpdateDeprecationResolver resolver = new BatchUpdateDeprecationResolver(mockService);
 

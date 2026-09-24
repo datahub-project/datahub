@@ -1,30 +1,42 @@
-import { useUserContext } from '@src/app/context/useUserContext';
+import { useUserContext } from '@app/context/useUserContext';
+import { HOME_RECOMMENDATION_MODULE_LIMIT } from '@app/homeV2/homeRecommendationModules';
+import { useRecommendationModulesFilter } from '@app/homeV2/useRecommendationModulesFilter';
 import { RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES } from '@src/app/entityV2/shared/constants';
-import { useListRecommendationsQuery } from '@src/graphql/recommendations.generated';
-import { Entity, ScenarioType } from '@src/types.generated';
+import { Entity } from '@src/types.generated';
 
-const LIMIT_OF_RECOMMENDATIONS = 5;
+import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
+import { RecommendationModuleId, ScenarioType } from '@types';
 
 interface Response {
     entities: Entity[];
     loading: boolean;
+    refetch: () => Promise<unknown>;
 }
 
-export default function useRecentlyViewedEntities(): Response {
-    const { user, loaded } = useUserContext();
+export default function useRecentlyViewedEntities(skip?: boolean): Response {
+    const { user, localState } = useUserContext();
+    const { selectedViewUrn } = localState;
+    const userUrn = user?.urn;
 
-    const { data, loading } = useListRecommendationsQuery({
+    const { modules, onFilteredQueryError } = useRecommendationModulesFilter([
+        RecommendationModuleId.RecentlyViewedEntities,
+    ]);
+
+    const { data, loading, refetch } = useListRecommendationsQuery({
         variables: {
             input: {
-                userUrn: user?.urn as string,
+                userUrn: userUrn as string,
                 requestContext: {
                     scenario: ScenarioType.Home,
+                    ...(modules ? { modules } : {}),
                 },
-                limit: LIMIT_OF_RECOMMENDATIONS,
+                limit: HOME_RECOMMENDATION_MODULE_LIMIT,
+                viewUrn: selectedViewUrn,
             },
         },
         fetchPolicy: 'cache-first',
-        skip: !user?.urn,
+        onError: onFilteredQueryError,
+        skip: skip || !userUrn,
     });
 
     const viewedModule = data?.listRecommendations?.modules?.find(
@@ -33,8 +45,8 @@ export default function useRecentlyViewedEntities(): Response {
 
     const entities =
         viewedModule?.content
-            .map((content) => content.entity)
+            ?.map((content) => content.entity)
             .filter((entity): entity is Entity => entity?.type !== undefined) || [];
 
-    return { entities, loading: loading || loaded };
+    return { entities, loading, refetch };
 }

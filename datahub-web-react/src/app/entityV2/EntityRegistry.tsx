@@ -3,21 +3,14 @@ import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import DefaultEntity from '@app/entityV2/DefaultEntity';
-import {
-    Entity,
-    EntityCapabilityType,
-    EntityMenuActions,
-    IconStyleType,
-    PreviewContext as PreviewContextProps,
-    PreviewType,
-} from '@app/entityV2/Entity';
-import PreviewContext from '@app/entityV2/shared/PreviewContext';
+import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import PreviewContext, { PreviewContextProps } from '@app/entityV2/shared/PreviewContext';
 import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
 import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from '@app/entityV2/shared/utils';
 import { FetchedEntity } from '@app/lineage/types';
-import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
-import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '@app/lineageV2/types';
+import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '@app/lineageV3/types';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
 
 import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';
@@ -143,20 +136,20 @@ export default class EntityRegistry {
         extraContext?: PreviewContextProps,
     ): JSX.Element {
         const entity = validatedGet(entityType, this.entityTypeToEntity, DefaultEntity);
-        const genericEntityData = entity.getGenericEntityProperties(data);
+        const previewData = entity.getGenericEntityProperties(data);
         return (
-            <PreviewContext.Provider value={genericEntityData}>
-                {entity.renderPreview(type, data, actions, extraContext)}
+            <PreviewContext.Provider value={{ previewData, previewType: type, ...extraContext }}>
+                {entity.renderPreview(type, data, actions)}
             </PreviewContext.Provider>
         );
     }
 
     renderSearchResult(type: EntityType, searchResult: SearchResult): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
-        const genericEntityData = entity.getGenericEntityProperties(searchResult.entity);
+        const previewData = entity.getGenericEntityProperties(searchResult.entity);
         return (
             <SearchResultProvider searchResult={searchResult}>
-                <PreviewContext.Provider value={genericEntityData}>
+                <PreviewContext.Provider value={{ previewData }}>
                     {entity.renderSearch(searchResult)}
                 </PreviewContext.Provider>
             </SearchResultProvider>
@@ -288,20 +281,14 @@ export default class EntityRegistry {
 
     getLineageAssets(type: EntityType, data: EntityLineageV2Fragment): Map<string, LineageAsset> | undefined {
         // TODO: Fold into entity registry?
-        if (data?.__typename === 'Domain') {
-            return data?.dataProducts?.searchResults?.reduce((obj, r) => {
-                if (r.entity.__typename === 'DataProduct') {
-                    const name = this.getDisplayName(r.entity.type, r.entity);
-                    obj.set(name, { name, type: LineageAssetType.DataProduct, size: r.entity.entities?.total });
-                }
-                return obj;
-            }, new Map<string, LineageAsset>());
-        }
         const fields = getSchemaFields(data, this.getGenericEntityProperties(type, data));
         if (fields) {
             return new Map(
                 fields.map((field) => {
                     const name = downgradeV2FieldPath(field.fieldPath);
+                    // Note: counts are not seeded from `lineageFeatures` -- they are rarely
+                    // computed for schema fields and go stale; `useFetchColumnCounts` fetches
+                    // live counts on hover instead
                     const value: LineageAsset = {
                         name,
                         type: LineageAssetType.Column,

@@ -1,4 +1,4 @@
-ragment relatedDocumentsFields on RelatedDocumentsResult {
+fragment relatedDocumentsFields on RelatedDocumentsResult {
     start
     count
     total

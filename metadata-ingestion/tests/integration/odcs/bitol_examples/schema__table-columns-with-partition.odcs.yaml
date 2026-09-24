@@ -1,0 +1,42 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/schema/table-columns-with-partition.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: 1.0.0
+kind: DataContract
+id: 53581432-6c55-4ba2-a65f-72344a91553c
+status: active
+name: my_table
+dataProduct: my_quantum
+apiVersion: v3.0.2
+schema:
+  - name: tbl
+    physicalType: table
+    properties:
+      - name: rcvr_cntry_code
+        businessName: Receiver country code
+        logicalType: string
+        physicalType: varchar(2)
+        primaryKey: true
+        primaryKeyPosition: 1
+        partitioned: true
+        partitionKeyPosition: 1
+      - name: rcvr_id
+        businessName: Receiver identification number
+        logicalType: string
+        physicalType: varchar(20)
+        primaryKey: true
+        primaryKeyPosition: 2
+        partitioned: false
+      - name: year
+        businessName: Year of transaction
+        logicalType: integer
+        physicalType: int
+        primaryKey: false
+        partitioned: true
+        partitionKeyPosition: 2
+      - name: amount
+        businessName: Transaction amount
+        logicalType: number
+        physicalType: double
+        primaryKey: false
+        partitioned: false

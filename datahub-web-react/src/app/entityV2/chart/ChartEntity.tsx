@@ -10,6 +10,7 @@ import {
 import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -43,12 +44,15 @@ import { InputFieldsTab } from '@app/entityV2/shared/tabs/Entity/InputFieldsTab'
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
     getDashboardLastUpdatedMs,
     getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { LOOKER_URN, MODE, MODE_URN } from '@app/ingest/source/builder/constants';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '@app/searchV2/matches/matchedInputFieldRenderer';
@@ -94,9 +98,9 @@ export class ChartEntity implements Entity<Chart> {
 
     getPathName = () => this.getGraphName();
 
-    getEntityName = () => 'Chart';
+    getEntityName = () => i18next.t('entity.types:chart.name');
 
-    getCollectionName = () => 'Charts';
+    getCollectionName = () => i18next.t('entity.types:chart.namePlural');
 
     useEntityQuery = useGetChartQuery;
 
@@ -111,82 +115,94 @@ export class ChartEntity implements Entity<Chart> {
             subHeader={{
                 component: ChartStatsSummarySubHeader,
             }}
-            tabs={[
-                {
-                    name: 'Summary',
-                    component: ChartSummaryTab,
-                    icon: SUMMARY_TAB_ICON,
-                    display: {
-                        visible: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.subTypes?.typeNames?.includes(SubType.TableauWorksheet) ||
-                            !!chart?.chart?.subTypes?.typeNames?.includes(SubType.Looker) ||
-                            chart?.chart?.platform?.name === MODE,
-                        enabled: () => true,
-                    },
-                },
-                {
-                    name: 'Documentation',
-                    component: DocumentationTab,
-                    icon: FileOutlined,
-                },
-                {
-                    name: 'Fields',
-                    component: InputFieldsTab,
-                    icon: LayoutOutlined,
-                    display: {
-                        visible: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
-                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
-                    },
-                },
-                {
-                    name: 'Preview',
-                    component: EmbedTab,
-                    icon: EyeOutlined,
-                    display: {
-                        visible: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.embed?.renderUrl &&
-                            PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
-                        enabled: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.embed?.renderUrl &&
-                            PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
-                    },
-                },
-                {
-                    name: 'Lineage',
-                    component: LineageTab,
-                    icon: PartitionOutlined,
-                    properties: {
-                        defaultDirection: LineageDirection.Upstream,
-                    },
-                    supportsFullsize: true,
-                },
-                {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                    icon: UnorderedListOutlined,
-                },
-                {
-                    name: 'Dashboards',
-                    component: ChartDashboardsTab,
-                    icon: DashboardOutlined,
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) > 0,
-                    },
-                },
-                {
-                    name: 'Incidents',
-                    getCount: (_, chart, loading) => {
-                        return !loading ? chart?.chart?.activeIncidents?.total : undefined;
-                    },
-                    icon: WarningOutlined,
-                    component: IncidentTab,
-                },
-            ]}
+            tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
     );
+
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
+        return [
+            {
+                name: i18next.t('entity.types:tab.summary'),
+                component: showSummaryTab ? SummaryTab : ChartSummaryTab,
+                icon: SUMMARY_TAB_ICON,
+                display: showSummaryTab
+                    ? undefined
+                    : {
+                          visible: (_, chart: GetChartQuery) =>
+                              !!chart?.chart?.subTypes?.typeNames?.includes(SubType.TableauWorksheet) ||
+                              !!chart?.chart?.subTypes?.typeNames?.includes(SubType.Looker) ||
+                              chart?.chart?.platform?.name === MODE,
+                          enabled: () => true,
+                      },
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: i18next.t('entity.types:tab.documentation'),
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
+            {
+                name: i18next.t('entity.types:chart.fieldsTab'),
+                component: InputFieldsTab,
+                icon: LayoutOutlined,
+                display: {
+                    visible: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
+                    enabled: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
+                },
+            },
+            {
+                name: i18next.t('common.actions:preview'),
+                component: EmbedTab,
+                icon: EyeOutlined,
+                display: {
+                    visible: (_, chart: GetChartQuery) =>
+                        !!chart?.chart?.embed?.renderUrl &&
+                        PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
+                    enabled: (_, chart: GetChartQuery) =>
+                        !!chart?.chart?.embed?.renderUrl &&
+                        PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
+                },
+            },
+            {
+                name: i18next.t('entity.types:tab.lineage'),
+                component: LineageTab,
+                icon: PartitionOutlined,
+                properties: {
+                    defaultDirection: LineageDirection.Upstream,
+                },
+                supportsFullsize: true,
+            },
+            {
+                name: i18next.t('entity.types:tab.properties'),
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+            },
+            {
+                name: i18next.t('entity.types:dashboard.namePlural'),
+                component: ChartDashboardsTab,
+                icon: DashboardOutlined,
+                display: {
+                    visible: (_, _1) => true,
+                    enabled: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) > 0,
+                },
+            },
+            {
+                name: i18next.t('entity.types:tab.incidents'),
+                getCount: (_, chart, loading) => {
+                    return !loading ? chart?.chart?.activeIncidents?.total : undefined;
+                },
+                icon: WarningOutlined,
+                component: IncidentTab,
+            },
+        ];
+    };
 
     getSidebarSections = () => [
         {
@@ -232,18 +248,18 @@ export class ChartEntity implements Entity<Chart> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];

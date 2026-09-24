@@ -90,7 +90,20 @@ enum AssertionStdOperator {
   IS_FALSE
 
   /**
-  * Other
+  * Catch-all value for assertions whose check can't be expressed with one of the
+  * structured operators above. Primarily used by external-system importers (e.g. dbt
+  * tests, Great Expectations expectations) when bringing in a check whose semantics
+  * don't map cleanly onto the standard set.
+  *
+  * When set, the caller is expected to populate the corresponding "native" payload
+  * on the assertion so it still carries enough information to be displayed and,
+  * where supported, evaluated — for example DatasetAssertionInfo.nativeType /
+  * nativeParameters / logic, or the free-form fields on CustomAssertionInfo.
+  *
+  * Assertion shapes that don't have such an escape hatch (e.g. FieldValuesAssertion,
+  * FieldMetricAssertion) cannot meaningfully express a native check: _NATIVE_ there
+  * produces an unparameterised assertion that can't be evaluated and has no rendered
+  * description. Pick a structured operator from the list above instead.
   */
   _NATIVE_
 }

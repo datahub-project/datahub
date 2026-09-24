@@ -105,6 +105,11 @@ class GitInfo(GitReference):
         description="The url to call `git clone` on. We infer this for github and gitlab repos, but it is required for other hosts.",
     )
 
+    clone_timeout: Optional[int] = Field(
+        300,
+        description="Timeout in seconds for git clone operations. Set to None to disable the timeout.",
+    )
+
     _fix_deploy_key_newlines = pydantic_multiline_string("deploy_key")
 
     @model_validator(mode="before")
@@ -119,6 +124,8 @@ class GitInfo(GitReference):
         if values.get("deploy_key") is None:
             deploy_key_file = values.get("deploy_key_file")
             if deploy_key_file is not None:
+                deploy_key_file = pathlib.Path(deploy_key_file).expanduser()
+                values["deploy_key_file"] = str(deploy_key_file)
                 with open(deploy_key_file) as fp:
                     deploy_key = SecretStr(fp.read())
                     values["deploy_key"] = deploy_key
@@ -174,6 +181,7 @@ class GitInfo(GitReference):
             ssh_key=self.deploy_key or fallback_deploy_key,
             repo_url=self.repo_ssh_locator,
             branch=self.branch_for_clone,
+            timeout=self.clone_timeout,
         )
 
         return checkout_dir

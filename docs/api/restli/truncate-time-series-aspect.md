@@ -1,3 +1,7 @@
+---
+description: "Use the truncateTimeseriesAspect Rest.li endpoint in DataHub to remove old entries from a timeseries index and reclaim storage space."
+---
+
 # Truncate Timeseries Index Endpoint
 
 You can do a HTTP POST request to `/gms/operations?action=truncateTimeseriesAspect` endpoint to manage the size of a time series index by removing entries older than a certain timestamp, thereby truncating the table to only the entries needed, to save space. The `getIndexSizes` endpoint can be used to identify the largest indices. The output includes the index parameters needed for this function.

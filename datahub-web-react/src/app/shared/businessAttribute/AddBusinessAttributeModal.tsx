@@ -1,6 +1,7 @@
 import { GlobalOutlined } from '@ant-design/icons';
 import { Button, Tag as CustomTag, Modal, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AttributeBrowser from '@app/businessAttribute/AttributeBrowser';
@@ -36,19 +37,16 @@ const StyleTag = styled(CustomTag)`
     align-items: center;
     white-space: nowrap;
     opacity: 1;
-    color: #434343;
+    color: ${(props) => props.theme.colors.text};
     line-height: 16px;
     white-space: normal;
     word-break: break-all;
 `;
 
 const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; maxHeight?: number }>`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     max-height: ${(props) => (props.maxHeight ? props.maxHeight : '380')}px;
     overflow: auto;
     position: absolute;
@@ -80,6 +78,8 @@ export default function EditBusinessAttributeModal({
     onOkOverride,
     resources,
 }: EditAttributeModalProps) {
+    const { t } = useTranslation('shared.business-attribute');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
     const [addBusinessAttributeMutation] = useAddBusinessAttributeMutation();
@@ -212,14 +212,14 @@ export default function EditBusinessAttributeModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Added Business Attribute!`,
+                        content: t('addSuccess'),
                         duration: 2,
                     });
                 }
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to add: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('addError', { error: e.message || '' }), duration: 3 });
             })
             .finally(() => {
                 setDisableAction(false);
@@ -246,7 +246,7 @@ export default function EditBusinessAttributeModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Removed Business Attribute!`,
+                        content: t('removeSuccess'),
                         duration: 2,
                     });
                 }
@@ -254,7 +254,7 @@ export default function EditBusinessAttributeModal({
             .catch((e) => {
                 message.destroy();
                 message.error(
-                    handleBatchError(urn, e, { content: `Failed to remove: \n ${e.message || ''}`, duration: 3 }),
+                    handleBatchError(urn, e, { content: t('removeError', { error: e.message || '' }), duration: 3 }),
                 );
             })
             .finally(() => {
@@ -319,13 +319,17 @@ export default function EditBusinessAttributeModal({
 
     return (
         <Modal
-            title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
+            title={
+                operationType === OperationType.ADD
+                    ? t('modal.addTitle', { entityName: entityRegistry.getEntityName(type) })
+                    : t('modal.removeTitle', { entityName: entityRegistry.getEntityName(type) })
+            }
             open={open}
             onCancel={onCloseModal}
             footer={
                 <>
                     <Button onClick={onCloseModal} type="text">
-                        Cancel
+                        {tc('cancel')}
                     </Button>
                     <Button
                         id="addAttributeButton"
@@ -333,7 +337,7 @@ export default function EditBusinessAttributeModal({
                         onClick={onOk}
                         disabled={urn.length === 0 || disableAction}
                     >
-                        Done
+                        {tc('done')}
                     </Button>
                 </>
             }
@@ -341,7 +345,9 @@ export default function EditBusinessAttributeModal({
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <AttributeSelect
                     data-testid="business-attribute-modal-input"
-                    placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
+                    placeholder={t('searchPlaceholder', {
+                        entityName: entityRegistry.getEntityName(type)?.toLowerCase(),
+                    })}
                     autoFocus
                     defaultOpen
                     mode="multiple"

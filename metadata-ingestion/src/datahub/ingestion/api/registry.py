@@ -1,6 +1,7 @@
 import importlib
 import inspect
 import sys
+import threading
 import unittest.mock
 from importlib.metadata import entry_points
 from typing import (
@@ -68,6 +69,7 @@ class PluginRegistry(Generic[T]):
         self._mapping = {}
         self._aliases = {}
         self._extra_cls_check = extra_cls_check
+        self._lock = threading.Lock()
 
     def _get_registered_type(self) -> Type[T]:
         cls = typing_inspect.get_generic_type(self)
@@ -140,9 +142,10 @@ class PluginRegistry(Generic[T]):
             self.register_lazy(entry_point.name, entry_point.value)
 
     def _materialize_entrypoints(self) -> None:
-        for entry_point_key in self._entrypoints:
-            self._load_entrypoint(entry_point_key)
-        self._entrypoints = []
+        with self._lock:
+            for entry_point_key in self._entrypoints:
+                self._load_entrypoint(entry_point_key)
+            self._entrypoints = []
 
     @property
     def mapping(self) -> Dict[str, Union[str, Type[T], Exception]]:

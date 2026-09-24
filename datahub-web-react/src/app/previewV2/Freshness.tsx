@@ -1,16 +1,16 @@
 import { Popover } from '@components';
 import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
+import i18next from 'i18next';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getLastIngestedColor } from '@app/entity/shared/containers/profile/sidebar/LastIngested';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 
 const LastUpdatedContainer = styled.div<{ color: string }>`
     align-items: center;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     display: flex;
     flex-direction: row;
     gap: 5px;
@@ -23,7 +23,7 @@ const LastUpdatedContainer = styled.div<{ color: string }>`
 const PopoverContent = styled.div`
     align-items: center;
     display: flex;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type Props = {
@@ -32,22 +32,37 @@ type Props = {
     timeProperty?: 'lastModified' | 'lastRefreshed' | 'lastUpdated';
 };
 
+// Lazy getters so i18next.t is invoked at access time (after i18n is initialized),
+// not at module import time.
 const descriptors = {
     lastModified: {
-        sectionTitle: 'Last Modified',
-        tooltip: 'Last modified',
+        get sectionTitle() {
+            return i18next.t('entity.preview:freshness.lastModified.sectionTitle');
+        },
+        get tooltip() {
+            return i18next.t('entity.preview:freshness.lastModified.tooltip');
+        },
     },
     lastRefreshed: {
-        sectionTitle: 'Data Last Refreshed',
-        tooltip: 'Data last refreshed',
+        get sectionTitle() {
+            return i18next.t('entity.preview:freshness.lastRefreshed.sectionTitle');
+        },
+        get tooltip() {
+            return i18next.t('entity.preview:freshness.lastRefreshed.tooltip');
+        },
     },
     lastUpdated: {
-        sectionTitle: 'Last Updated',
-        tooltip: 'Last updated',
+        get sectionTitle() {
+            return i18next.t('entity.preview:freshness.lastUpdated.sectionTitle');
+        },
+        get tooltip() {
+            return i18next.t('entity.preview:freshness.lastUpdated.tooltip');
+        },
     },
 };
 
 const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
+    const { t } = useTranslation('entity.preview');
     const lastUpdatedAgo = toRelativeTimeString(time);
 
     if (!time || time === 0) return null;
@@ -67,7 +82,7 @@ const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
 
     return (
         <Popover
-            content={<PopoverContent>{`${updateType} ${lastUpdatedAgo}`}</PopoverContent>}
+            content={<PopoverContent>{t('freshness.popoverContent', { updateType, lastUpdatedAgo })}</PopoverContent>}
             placement="bottom"
             showArrow={false}
         >

@@ -4,7 +4,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.metadata.dao.producer.KafkaEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import java.util.function.Function;
@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Slf4j
 public class DataHubStartupStep implements UpgradeStep {
-  private final KafkaEventProducer _kafkaEventProducer;
+  private final EventProducer _kafkaEventProducer;
   private final String _version;
 
   @Override
@@ -33,7 +33,8 @@ public class DataHubStartupStep implements UpgradeStep {
       try {
         DataHubUpgradeHistoryEvent dataHubUpgradeHistoryEvent =
             new DataHubUpgradeHistoryEvent().setVersion(_version);
-        _kafkaEventProducer.produceDataHubUpgradeHistoryEvent(dataHubUpgradeHistoryEvent);
+        _kafkaEventProducer.produceDataHubUpgradeHistoryEvent(
+            context.opContext(), dataHubUpgradeHistoryEvent);
         log.info("System Update finished for version: {}", _version);
       } catch (Exception e) {
         log.error("DataHubStartupStep failed.", e);

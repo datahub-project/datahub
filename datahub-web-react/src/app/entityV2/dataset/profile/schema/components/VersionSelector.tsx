@@ -2,10 +2,10 @@ import { CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Select } from 'antd';
 import React, { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import navigateToUrl from '@app/utils/navigateToUrl';
@@ -23,11 +23,11 @@ const Wrapper = styled.div`
 
 const SchemaBlameSelector = styled(Select)`
     &&& .ant-select-selector {
-        background: ${REDESIGN_COLORS.LIGHT_GREY};
+        background: ${(props) => props.theme.colors.bgSurface};
         font-size: 14px;
         font-weight: 500;
         line-height: 24px;
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.textSecondary};
         min-width: 30px;
         margin-right: 10px;
         border-radius: 20px;
@@ -73,6 +73,7 @@ export default function VersionSelector({
     maxTimestamp,
     primaryVersion,
 }: Props) {
+    const { t } = useTranslation('entity.types');
     const location = useLocation();
     const history = useHistory();
 
@@ -122,10 +123,10 @@ export default function VersionSelector({
                         disabled={v.disabled}
                     >
                         <Tooltip
-                            title={v.disabled ? `Incompatible with primary version ${primaryVersion}` : ''}
+                            title={v.disabled ? t('dataset.incompatibleWithPrimaryVersion', { primaryVersion }) : ''}
                             placement="left"
                         >
-                            {`${v.label} - ${toRelativeTimeString(v.timestamp) || 'unknown'}`}
+                            {`${v.label} - ${toRelativeTimeString(v.timestamp) || t('dataset.unknown')}`}
                         </Tooltip>
                     </SchemaBlameSelectorOption>
                 ))}

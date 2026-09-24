@@ -81,7 +81,8 @@ public class MLModelGroup extends Entity
         HasOwners<MLModelGroup>,
         HasDomains<MLModelGroup>,
         HasSubTypes<MLModelGroup>,
-        HasStructuredProperties<MLModelGroup> {
+        HasStructuredProperties<MLModelGroup>,
+        HasDocumentation<MLModelGroup> {
 
   private static final String ENTITY_TYPE = "mlModelGroup";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();

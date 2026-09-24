@@ -16,6 +16,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -32,6 +33,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -49,6 +51,16 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   private final ElasticSearchConfiguration elasticSearchConfiguration;
   private final MappingsBuilder mappingsBuilder;
   private final SettingsBuilder settingsBuilder;
+
+  /**
+   * Resolves the index builder that owns a resolved index name.
+   *
+   * <p>Search V2 and Search V3 can be routed to different clusters, in which case their index
+   * families must be built by different clients — sending a merged mapping list to one client would
+   * create V3 indices on the V2 cluster. Null (the common case) means every component shares one
+   * cluster and {@link #indexBuilder} handles everything, exactly as before.
+   */
+  @Nullable private final Function<String, ESIndexBuilder> indexBuilderResolver;
 
   public static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
@@ -81,26 +93,64 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   private final ESBrowseDAO esBrowseDAO;
   @Getter private final ESWriteDAO esWriteDAO;
 
+  /** Single-cluster deployments: every index family is built by the same index builder. */
+  public ElasticSearchService(
+      ESIndexBuilder indexBuilder,
+      SearchServiceConfiguration searchServiceConfig,
+      ElasticSearchConfiguration elasticSearchConfiguration,
+      MappingsBuilder mappingsBuilder,
+      SettingsBuilder settingsBuilder,
+      ESSearchDAO esSearchDAO,
+      ESBrowseDAO esBrowseDAO,
+      ESWriteDAO esWriteDAO) {
+    this(
+        indexBuilder,
+        searchServiceConfig,
+        elasticSearchConfiguration,
+        mappingsBuilder,
+        settingsBuilder,
+        null,
+        esSearchDAO,
+        esBrowseDAO,
+        esWriteDAO);
+  }
+
   @Override
   public void reindexAll(
       @Nonnull OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
       try {
-        indexBuilder.buildIndex(config);
+        builderFor(config.name()).buildIndex(opContext, config);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
     }
   }
 
+  /** The index builder for the cluster that owns {@code indexName}. */
+  @Nonnull
+  private ESIndexBuilder builderFor(@Nonnull String indexName) {
+    if (indexBuilderResolver == null) {
+      return indexBuilder;
+    }
+    ESIndexBuilder resolved = indexBuilderResolver.apply(indexName);
+    if (resolved == null) {
+      throw new IllegalArgumentException(
+          "Index '"
+              + indexName
+              + "' is not a Search V2, V3, or semantic entity index. Refusing to build or reindex"
+              + " it on the primary cluster.");
+    }
+    return resolved;
+  }
+
   @Override
   public List<ReindexConfig> buildReindexConfigs(
       @Nonnull OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-
-    return indexBuilder.buildReindexConfigs(
-        opContext, settingsBuilder, mappingsBuilder, properties);
+    return buildReindexConfigsFromMappings(
+        opContext, mappingsBuilder.getIndexMappings(opContext, properties), false);
   }
 
   /**
@@ -112,9 +162,44 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    */
   public List<ReindexConfig> buildReindexConfigsWithNewStructProp(
       @Nonnull OperationContext opContext, Urn urn, StructuredPropertyDefinition property) {
+    return buildReindexConfigsFromMappings(
+            opContext,
+            mappingsBuilder.getIndexMappingsWithNewStructuredProperty(opContext, urn, property),
+            true)
+        .stream()
+        .filter(ReindexConfig::hasNewStructuredProperty)
+        .collect(Collectors.toList());
+  }
 
-    return indexBuilder.buildReindexConfigsWithNewStructProp(
-        opContext, settingsBuilder, mappingsBuilder, urn, property);
+  /**
+   * Inspect live index state on the cluster that owns each mapping. Target shards/replicas/codec
+   * and {@code indexExists} must not run against primary when V2 and V3 are split.
+   */
+  @Nonnull
+  private List<ReindexConfig> buildReindexConfigsFromMappings(
+      @Nonnull OperationContext opContext,
+      Collection<MappingsBuilder.IndexMapping> indexMappings,
+      boolean copyStructuredPropertyMappings) {
+    return indexMappings.stream()
+        .map(
+            indexMap -> {
+              try {
+                ESIndexBuilder builder = builderFor(indexMap.getIndexName());
+                Map<String, Object> settings =
+                    settingsBuilder.getSettings(
+                        builder.getConfig().getIndex(), indexMap.getIndexName());
+                return builder.buildReindexState(
+                    opContext,
+                    indexMap.getIndexName(),
+                    indexMap.getMappings(),
+                    settings,
+                    copyStructuredPropertyMappings);
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -124,14 +209,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     // Recreate the indices that were deleted
     if (!deletedIndexNames.isEmpty()) {
       try {
-        List<ReindexConfig> allConfigs =
-            indexBuilder.buildReindexConfigs(
-                opContext, settingsBuilder, mappingsBuilder, Collections.emptySet());
+        List<ReindexConfig> allConfigs = buildReindexConfigs(opContext, Collections.emptySet());
 
         // Filter to only recreate indices that were deleted
         for (ReindexConfig config : allConfigs) {
           if (deletedIndexNames.contains(config.name())) {
-            indexBuilder.buildIndex(config);
+            builderFor(config.name()).buildIndex(opContext, config);
             log.info("Recreated index {} after clearing", config.name());
           }
         }
@@ -175,12 +258,15 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param docId the ID of the document
    */
   public void upsertDocumentByIndexName(
-      @Nonnull String indexName, @Nonnull String document, @Nonnull String docId) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String document,
+      @Nonnull String docId) {
     log.debug(
         String.format(
             "Upserting Search document indexName: %s, document: %s, docId: %s",
             indexName, document, docId));
-    esWriteDAO.upsertDocumentByIndexName(indexName, document, docId);
+    esWriteDAO.upsertDocumentByIndexName(opContext, indexName, document, docId);
   }
 
   @Override
@@ -198,9 +284,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param indexName name of the index
    * @param docId the ID of the document to delete
    */
-  public void deleteDocumentByIndexName(@Nonnull String indexName, @Nonnull String docId) {
+  public void deleteDocumentByIndexName(
+      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nonnull String docId) {
     log.debug(String.format("Deleting Search document indexName: %s, docId: %s", indexName, docId));
-    esWriteDAO.deleteDocumentByIndexName(indexName, docId);
+    esWriteDAO.deleteDocumentByIndexName(opContext, indexName, docId);
   }
 
   /**
@@ -209,8 +296,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param indexName name of the index to check
    * @return true if the index exists, false otherwise
    */
-  public boolean indexExists(@Nonnull String indexName) {
-    return esWriteDAO.indexExists(indexName);
+  public boolean indexExists(@Nonnull OperationContext opContext, @Nonnull String indexName) {
+    return esWriteDAO.indexExists(opContext, indexName);
   }
 
   /**
@@ -224,6 +311,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param upsert the document to upsert if it doesn't exist
    */
   public void applyScriptUpdateByIndexName(
+      @Nonnull OperationContext opContext,
       @Nonnull String indexName,
       @Nonnull String docId,
       @Nonnull String scriptSource,
@@ -234,7 +322,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         indexName,
         docId,
         scriptSource);
-    esWriteDAO.applyScriptUpdateByIndexName(indexName, docId, scriptSource, scriptParams, upsert);
+    esWriteDAO.applyScriptUpdateByIndexName(
+        opContext, indexName, docId, scriptSource, scriptParams, upsert);
   }
 
   /**
@@ -246,6 +335,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param document the document to update / insert
    * @param docId the ID of the document
    */
+  @Override
   public void upsertDocumentBySearchGroup(
       @Nonnull OperationContext opContext,
       @Nonnull String searchGroup,
@@ -266,6 +356,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param searchGroup the search group name
    * @param docId the ID of the document to delete
    */
+  @Override
   public void deleteDocumentBySearchGroup(
       @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {
     log.debug(
@@ -306,10 +397,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     // Dual-write to semantic index if it exists (with caching to avoid repeated HEAD requests)
     String semanticIndexName =
-        opContext.getSearchContext().getIndexConvention().getEntityIndexNameSemantic(entityName);
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameSemantic(opContext, entityName);
     Boolean semanticExists = semanticIndexExistsCache.getIfPresent(semanticIndexName);
     if (semanticExists == null) {
-      semanticExists = indexExists(semanticIndexName);
+      semanticExists = indexExists(opContext, semanticIndexName);
       semanticIndexExistsCache.put(semanticIndexName, semanticExists);
     }
     if (semanticExists) {
@@ -319,7 +413,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
           entityName,
           docId,
           runId);
-      applyScriptUpdateByIndexName(semanticIndexName, docId, SCRIPT_SOURCE, scriptParams, upsert);
+      applyScriptUpdateByIndexName(
+          opContext, semanticIndexName, docId, SCRIPT_SOURCE, scriptParams, upsert);
     } else {
       log.debug(
           "Semantic dual-write: SKIP - index '{}' does not exist for runId update",
@@ -463,6 +558,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         field,
         requestParams,
         limit);
+  }
+
+  @Nonnull
+  @Override
+  public Map<Urn, IncidentStats> getActiveIncidentStats(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
+    return esSearchDAO.getActiveIncidentStats(opContext, entityUrns);
   }
 
   @Nonnull
@@ -657,7 +759,23 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
+  public boolean validateAndSwapAlias(
+      @Nonnull OperationContext opContext,
+      @Nonnull String aliasName,
+      @Nonnull String newBackingIndex,
+      long expectedSourceDocCount)
+      throws Exception {
+    return builderFor(aliasName)
+        .validateAndSwapAlias(opContext, aliasName, newBackingIndex, expectedSourceDocCount);
+  }
+
+  @Override
   public ESIndexBuilder getIndexBuilder() {
     return indexBuilder;
+  }
+
+  @Override
+  public ESIndexBuilder getIndexBuilder(@Nonnull String indexName) {
+    return builderFor(indexName);
   }
 }

@@ -25,11 +25,15 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.identity.corp_user_status import (
+    corp_user_info_active_from_status,
+    derive_corp_user_status_from_azure_ad,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -134,7 +138,9 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="regex patterns for groups to include in ingestion.",
     )
 
-    _remove_filtered_tracking = pydantic_removed_field("filtered_tracking")
+    _remove_filtered_tracking = pydantic_removed_field(
+        "filtered_tracking", month="January", year=2025
+    )
 
     # Optional: Whether to mask sensitive information from workunit ID's. On by default.
     mask_group_id: bool = Field(
@@ -165,7 +171,7 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("Azure AD")
 @config_class(AzureADConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
@@ -228,17 +234,12 @@ class AzureADSource(StatefulIngestionSourceBase):
                 f"Token response content: {str(token_response.content)}"
             )
             logger.error(error_str)
-            self.report.report_failure("get_token", error_str)
+            self.report.failure(
+                message="Failed to get token from Azure AD",
+                context=error_str,
+            )
             click.echo("Error: Token response invalid")
             exit()
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # for future developers: The actual logic of this ingestion wants to be executed, in order:
@@ -295,7 +296,10 @@ class AzureADSource(StatefulIngestionSourceBase):
                 datahub_corp_group_urn = self._map_azure_ad_group_to_urn(azure_ad_group)
                 if not datahub_corp_group_urn:
                     error_str = f"Failed to extract DataHub Group Name from Azure AD Group named {azure_ad_group.get('displayName')}. Skipping..."
-                    self.report.report_failure("azure_ad_group_mapping", error_str)
+                    self.report.failure(
+                        message="Failed to extract DataHub Group Name from Azure AD Group",
+                        context=error_str,
+                    )
                     continue
                 self._add_group_members_to_group_membership(
                     datahub_corp_group_urn,
@@ -369,7 +373,10 @@ class AzureADSource(StatefulIngestionSourceBase):
         user_urn = self._map_azure_ad_user_to_urn(azure_ad_user)
         if not user_urn:
             error_str = f"Failed to extract DataHub Username from Azure ADUser {azure_ad_user.get('displayName')}. Skipping..."
-            self.report.report_failure("azure_ad_user_mapping", error_str)
+            self.report.failure(
+                message="Failed to extract DataHub Username from Azure AD User",
+                context=error_str,
+            )
         else:
             self.azure_ad_groups_users.append(azure_ad_user)
             # update/create the GroupMembership aspect for this group member.
@@ -448,7 +455,10 @@ class AzureADSource(StatefulIngestionSourceBase):
                 )
                 logger.debug(f"URL = {url}")
                 logger.error(error_str)
-                self.report.report_failure("_get_azure_ad_data_", error_str)
+                self.report.failure(
+                    message="Failed to get data from Azure AD Graph API",
+                    context=error_str,
+                )
                 raise Exception(f"Unable to get {url}, error {response.status_code}")
 
     def _map_identity_to_urn(self, func, id_to_extract, mapping_identifier, id_type):
@@ -465,7 +475,10 @@ class AzureADSource(StatefulIngestionSourceBase):
             )
         if error_str is not None:
             logger.error(error_str)
-            self.report.report_failure(mapping_identifier, error_str)
+            self.report.failure(
+                message="Failed to extract identity from Azure AD",
+                context=f"{mapping_identifier}: {error_str}",
+            )
         return result, error_str
 
     def _map_azure_ad_groups(self, azure_ad_groups):
@@ -473,25 +486,46 @@ class AzureADSource(StatefulIngestionSourceBase):
             try:
                 yield from self._map_azure_ad_group(azure_ad_group)
             except Exception as e:
-                self.report.report_failure("azure_ad_group", str(e))
+                self.report.failure(
+                    message="Failed to map Azure AD group",
+                    context="azure_ad_group",
+                    exc=e,
+                )
 
     def _map_azure_ad_group(self, azure_ad_group):
-        corp_group_urn, error_str = self._map_identity_to_urn(
-            self._map_azure_ad_group_to_urn,
-            azure_ad_group,
-            "azure_ad_group_mapping",
-            "group",
-        )
-        if error_str is not None:
+        # Resolve group name and apply filters before building the URN.
+        # This avoids false report_failure entries for groups that are
+        # intentionally excluded by the user's configuration.
+        #
+        # Pre-check for missing attribute so we can distinguish misconfiguration
+        # from intentional regex filtering without changing the shared helper's
+        # exception contract (which other callers rely on).
+        raw_name = azure_ad_group.get(self.config.azure_ad_response_to_groupname_attr)
+        if raw_name is None:
+            self.report.failure(
+                message="Attribute not found in Azure AD group response",
+                context=(
+                    f"azure_ad_response_to_groupname_attr="
+                    f"{self.config.azure_ad_response_to_groupname_attr!r}"
+                ),
+            )
             return
-        group_name = self._extract_regex_match_from_dict_value(
-            azure_ad_group,
-            self.config.azure_ad_response_to_groupname_attr,
-            self.config.azure_ad_response_to_groupname_regex,
-        )
+        try:
+            group_name = self._extract_regex_match_from_dict_value(
+                azure_ad_group,
+                self.config.azure_ad_response_to_groupname_attr,
+                self.config.azure_ad_response_to_groupname_regex,
+            )
+        except ValueError:
+            # Attribute exists but regex didn't match — group is intentionally
+            # excluded by azure_ad_response_to_groupname_regex, not an error.
+            self.report.report_filtered(f"group:{raw_name}")
+            return
         if not self.config.groups_pattern.allowed(group_name):
-            self.report.report_filtered(f"{corp_group_urn}")
+            self.report.report_filtered(f"group:{group_name}")
             return
+        # URN construction is safe here: group_name is already validated above.
+        corp_group_urn = make_group_urn(urllib.parse.quote(group_name))
         self.selected_azure_ad_groups.append(azure_ad_group)
         corp_group_snapshot = CorpGroupSnapshot(
             urn=corp_group_urn,
@@ -544,6 +578,8 @@ class AzureADSource(StatefulIngestionSourceBase):
             )
             corp_user_info = self._map_azure_ad_user_to_corp_user(user)
             corp_user_snapshot.aspects.append(corp_user_info)
+            user_status = derive_corp_user_status_from_azure_ad(user)
+            corp_user_snapshot.aspects.append(make_corp_user_status_aspect(user_status))
             yield corp_user_snapshot
 
     def _map_azure_ad_user_to_user_name(self, azure_ad_user):
@@ -566,8 +602,9 @@ class AzureADSource(StatefulIngestionSourceBase):
             + " "
             + str(azure_ad_user.get("surname", ""))
         )
+        user_status = derive_corp_user_status_from_azure_ad(azure_ad_user)
         return CorpUserInfoClass(
-            active=True,
+            active=corp_user_info_active_from_status(user_status),
             displayName=azure_ad_user.get("displayName", full_name),
             firstName=azure_ad_user.get("givenName", None),
             lastName=azure_ad_user.get("surname", None),

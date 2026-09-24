@@ -63,7 +63,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
                   DataHubSecretValueMapper.map(
                       null,
                       input.getName(),
-                      _secretService.encrypt(input.getValue()),
+                      _secretService.encrypt(context.getOperationContext(), input.getValue()),
                       input.getDescription(),
                       new AuditStamp()
                           .setActor(UrnUtils.getUrn(context.getActorUrn()))

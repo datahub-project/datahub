@@ -1,4 +1,5 @@
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
@@ -19,6 +20,10 @@ const Wrapper = styled.div`
     margin: 12px 0;
 `;
 
+const BoldText = styled.span`
+    font-weight: 600;
+`;
+
 const ColoredContainer = styled.div<{ $bgColor: string; $textColor: string }>`
     border-radius: 20px;
     padding: 4px 12px;
@@ -28,37 +33,59 @@ const ColoredContainer = styled.div<{ $bgColor: string; $textColor: string }>`
     width: max-content;
 `;
 
-const BoldText = styled.span`
-    font-weight: 600;
-`;
-
 interface Props {
     type: ActionType;
 }
 
 const SyncedOrSharedTooltip = ({ type }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const theme = useTheme();
-    const action = type === ActionType.SYNC ? 'Synced' : 'Shared';
     return (
         <Container>
             <HeaderText>
-                This represents the time that the entity was last {type === ActionType.SYNC ? 'synchronized' : 'shared'}
+                {type === ActionType.SYNC
+                    ? t('sidebar.syncedOrShared.tooltip.synchronizedHeader')
+                    : t('sidebar.syncedOrShared.tooltip.sharedHeader')}
             </HeaderText>
             <Wrapper>
                 <ColoredContainer
                     $bgColor={theme.colors.bgSurfaceSuccess}
                     $textColor={theme.colors.textOnSurfaceSuccess}
                 >
-                    {action} within the <BoldText>past week </BoldText>
+                    <Trans
+                        t={t}
+                        i18nKey={
+                            type === ActionType.SYNC
+                                ? 'sidebar.syncedOrShared.tooltip.syncedWithinPastWeek'
+                                : 'sidebar.syncedOrShared.tooltip.sharedWithinPastWeek'
+                        }
+                        components={{ bold: <BoldText /> }}
+                    />
                 </ColoredContainer>
                 <ColoredContainer
                     $bgColor={theme.colors.bgSurfaceWarning}
                     $textColor={theme.colors.textOnSurfaceWarning}
                 >
-                    {action} within the <BoldText>past month</BoldText>
+                    <Trans
+                        t={t}
+                        i18nKey={
+                            type === ActionType.SYNC
+                                ? 'sidebar.syncedOrShared.tooltip.syncedWithinPastMonth'
+                                : 'sidebar.syncedOrShared.tooltip.sharedWithinPastMonth'
+                        }
+                        components={{ bold: <BoldText /> }}
+                    />
                 </ColoredContainer>
                 <ColoredContainer $bgColor={theme.colors.bgSurfaceError} $textColor={theme.colors.textOnSurfaceError}>
-                    {action} <BoldText>more than a month ago</BoldText>
+                    <Trans
+                        t={t}
+                        i18nKey={
+                            type === ActionType.SYNC
+                                ? 'sidebar.syncedOrShared.tooltip.syncedMoreThanMonthAgo'
+                                : 'sidebar.syncedOrShared.tooltip.sharedMoreThanMonthAgo'
+                        }
+                        components={{ bold: <BoldText /> }}
+                    />
                 </ColoredContainer>
             </Wrapper>
         </Container>

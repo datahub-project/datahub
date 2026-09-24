@@ -9,6 +9,10 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.source.identity.corp_user_status import (
+    CORP_USER_STATUS_ACTIVE,
+    make_corp_user_status_aspect,
+)
 from datahub.metadata.schema_classes import (
     CorpUserEditableInfoClass,
     CorpUserInfoClass,
@@ -45,7 +49,7 @@ class CorpUser(ConfigModel):
         description (Optional[str]): A description string for the user
         slack (Optional[str]): Slack handle for the user
         picture_link (Optional[str]): A resolvable url for the user's picture icon
-        phone (Optional(str)): A phone number for the user
+        phone (Optional[str]): A phone number for the user
     """
 
     id: str
@@ -112,7 +116,7 @@ class CorpUser(ConfigModel):
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=str(self.urn),
                 aspect=CorpUserInfoClass(
-                    active=True,  # Deprecated, use CorpUserStatus instead.
+                    active=True,
                     displayName=self.display_name,
                     email=self.email,
                     title=self.title,
@@ -126,6 +130,11 @@ class CorpUser(ConfigModel):
                 ),
             )
             yield mcp
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=make_corp_user_status_aspect(CORP_USER_STATUS_ACTIVE),
+            )
 
         for group_membership in self.generate_group_membership_aspect():
             mcp = MetadataChangeProposalWrapper(

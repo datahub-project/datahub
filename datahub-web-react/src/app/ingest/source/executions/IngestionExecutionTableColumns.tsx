@@ -3,7 +3,7 @@ import { Avatar, Text, Tooltip } from '@components';
 import { Button, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
@@ -12,6 +12,7 @@ import {
     MANUAL_INGESTION_SOURCE,
     RUNNING,
     SCHEDULED_INGESTION_SOURCE,
+    SUCCEEDED_WITH_WARNINGS,
     SUCCESS,
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
@@ -56,9 +57,10 @@ interface StatusColumnProps {
 }
 
 export function StatusColumn({ status, record, setFocusExecutionUrn }: StatusColumnProps) {
+    const theme = useTheme();
     const Icon = getExecutionRequestStatusIcon(status);
     const text = getExecutionRequestStatusDisplayText(status);
-    const color = getExecutionRequestStatusDisplayColor(status);
+    const color = getExecutionRequestStatusDisplayColor(theme, status);
     return (
         <StatusContainer>
             {Icon && <Icon style={{ color, fontSize: 14 }} />}
@@ -145,7 +147,7 @@ export function ButtonsColumn({
                     CANCEL
                 </Button>
             )}
-            {record.status === SUCCESS && record.showRollback && (
+            {(record.status === SUCCESS || record.status === SUCCEEDED_WITH_WARNINGS) && record.showRollback && (
                 <Button style={{ marginRight: 16 }} onClick={() => handleRollbackExecution(record.id)}>
                     ROLLBACK
                 </Button>

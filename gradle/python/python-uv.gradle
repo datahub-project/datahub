@@ -1,0 +1,39 @@
+// Shared config for runner-side Python uv installs (not Docker builds).
+// Apply: apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
+// Uses uvInstallProfile from settings.gradle (CLI -P > UV_INSTALL_PROFILE > gradle.properties).
+// Sets UV_CONFIG_FILE, UV_INSTALL_PROFILE, and NETRC on Exec tasks. Rejects profile "custom".
+
+apply from: "${rootProject.projectDir}/gradle/python/netrc.gradle"
+
+def uvInstallProfile = gradle.ext['datahub.dependencies.python.uvInstallProfile']
+def uvConfigPath = gradle.ext['resolveUvProfileFile'](uvInstallProfile)
+
+def netrcPath = {
+  if (System.getenv("NETRC") != null) {
+    return null
+  }
+  def path = System.getenv("DATAHUB_NETRC_PATH") ?: "${rootProject.projectDir}/docker/snippets/uv/.netrc"
+  def file = new File(path)
+  return file.exists() ? file.absolutePath : null
+}()
+
+validateDatahubNetrc(netrcPath ?: System.getenv("NETRC"))
+
+if (uvConfigPath) {
+  logger.lifecycle("[python-uv] ${project.path}: UV_CONFIG_FILE=${uvConfigPath} (uvInstallProfile=${uvInstallProfile})")
+}
+if (netrcPath) {
+  logger.lifecycle("[python-uv] ${project.path}: NETRC=${netrcPath}")
+}
+
+if (uvConfigPath || netrcPath) {
+  tasks.withType(Exec).configureEach {
+    if (uvConfigPath) {
+      environment 'UV_CONFIG_FILE', uvConfigPath
+    }
+    environment 'UV_INSTALL_PROFILE', uvInstallProfile
+    if (netrcPath) {
+      environment 'NETRC', netrcPath
+    }
+  }
+}

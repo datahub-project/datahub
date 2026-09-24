@@ -43,6 +43,7 @@ export default interface ColorTheme {
     iconInformation: string;
     iconSuccess: string;
     iconWarning: string;
+    iconOnFillBrand: string;
     buttonFillBrand: string;
     buttonFillFocus: string;
     buttonSurfaceBrandFocus: string;
@@ -54,6 +55,7 @@ export default interface ColorTheme {
     avatarBorderBrand: string;
     avatarBorderInformation: string;
     border: string;
+    lineageBackgroundDot: string;
     borderBrand: string;
     borderBrandFocused: string;
     borderBrandInverse: string;
@@ -63,6 +65,7 @@ export default interface ColorTheme {
     borderError: string;
     borderSuccess: string;
     borderWarning: string;
+    borderWhite: string;
     // Interactive states: Hover
     textHover: string;
     iconHover: string;
@@ -92,11 +95,15 @@ export default interface ColorTheme {
     shadowFocusBrand: string;
     shadowInset: string;
     shadowNavbar: string;
+    shadowDropBrandColor: string;
+    shadowViewSelect: string;
     // Overlays
     overlayLight: string;
     overlayMedium: string;
     overlayHeavy: string;
     overlayOnBrand: string;
+    overlayMask: string;
+    overlayDropShadow: string;
     // Inputs / Forms
     bgInput: string;
     bgInputDisabled: string;
@@ -112,8 +119,13 @@ export default interface ColorTheme {
     bgCode: string;
     bgCodeBlock: string;
     // Highlight
+    bgHighlight: string;
     // Tooltip
     bgTooltip: string;
+    // Surface for floating overlays (menus, dropdowns, popovers, tooltips). Tracks `bg` in
+    // both themes — elevation comes from the theme-aware shadow, not a lighter fill.
+    // Not the same as `bgTooltip`, which is an inverted surface in light mode.
+    bgOverlay: string;
     // Brand gradients
     brandGradient: string;
     brandGradientSelected: string;
@@ -148,6 +160,10 @@ export default interface ColorTheme {
     chartsGreenMedium: string;
     chartsGreenLow: string;
     chartsGreenBase: string;
+    chartsYellowHigh: string;
+    chartsYellowMedium: string;
+    chartsYellowLow: string;
+    chartsYellowBase: string;
     chartsBrandContrast: string;
     chartsBrandHigh: string;
     chartsBrandMedium: string;
@@ -157,11 +173,17 @@ export default interface ColorTheme {
     chartsHeatmapMedium: string;
     chartsHeatmapLow: string;
     chartsHeatmapBase: string;
+    chartsRedHigh: string;
+    chartsRedMedium: string;
+    chartsRedLow: string;
+    chartsRedBase: string;
     chartsBrandHighAlpha: string;
     chartsBrandMediumAlpha: string;
     chartsBrandLowAlpha: string;
     chartsBrandBaseAlpha: string;
     chartsInformationHigh: string;
+    chartsGradientStart: string;
+    chartsGradientEnd: string;
     /** @deprecated Remove — unused. Kept for type compat only. */
     navBgGradientTop: string;
     /** @deprecated Remove — unused. Kept for type compat only. */
@@ -209,4 +231,27 @@ export default interface ColorTheme {
     tagsTrueYellowBorder: string;
     tagsTrueYellowIcon: string;
     tagsTrueYellowText: string;
+    colorPickerOrange: string;
+    colorPickerBlue: string;
+    colorPickerCobalt: string;
+    colorPickerTangerine: string;
+    colorPickerBrown: string;
+    colorPickerDarkGreen: string;
+    colorPickerOlive: string;
+    colorPickerDefault: string;
+    // Glossary Color Palette
+    glossaryPaletteViolet: string;
+    glossaryPalettePurple: string;
+    glossaryPaletteLightBlue: string;
+    glossaryPaletteBlue: string;
+    glossaryPaletteTeal: string;
+    glossaryPaletteGreen: string;
+    glossaryPaletteLime: string;
+    glossaryPaletteLightOrange: string;
+    glossaryPaletteMustard: string;
+    glossaryPaletteOrange: string;
+    glossaryPalettePeach: string;
+    glossaryPaletteRed: string;
+    glossaryPaletteMagenta: string;
+    glossaryPaletteColdGrey: string;
 }

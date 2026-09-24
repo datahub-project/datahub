@@ -1,10 +1,10 @@
 import { CodeOutlined, FormOutlined } from '@ant-design/icons';
 import { Typography, message } from 'antd';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { CSVInfo } from '@app/ingestV2/source/builder/CSVInfo';
 import { IngestionDocumentationHint } from '@app/ingestV2/source/builder/IngestionDocumentationHint';
 import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
@@ -12,6 +12,8 @@ import RecipeForm from '@app/ingestV2/source/builder/RecipeForm/RecipeForm';
 import { YamlEditor } from '@app/ingestV2/source/builder/YamlEditor';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
+import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/sharedV2/ingestionSources/SnowflakePasswordAuthDeprecationWarning';
 import { Button } from '@src/alchemy-components';
 
 import { IngestionSource } from '@types';
@@ -26,16 +28,16 @@ const BorderedSection = styled.div`
     display: flex;
     flex-direction: column;
     padding-bottom: 16px;
-    border: solid ${ANTD_GRAY[4]} 0.5px;
+    border: solid ${(props) => props.theme.colors.border} 0.5px;
 `;
 
 const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        color: #1890ff;
+        color: ${props.theme.colors.hyperlinks};
         &:focus {
-            color: #1890ff;
+            color: ${props.theme.colors.hyperlinks};
         }    
     `}
 `;
@@ -80,9 +82,22 @@ function RecipeBuilder(props: Props) {
         goToPrevious,
         selectedSource,
     } = props;
+    const { t } = useTranslation('ingestion.sourceBuilder');
+    const { t: tc } = useTranslation('common.actions');
     const { type } = state;
     const [isViewingForm, setIsViewingForm] = useState(true);
     const [hideDocsHint, setHideDocsHint] = useState(false);
+
+    // Only the Snowflake banner consumes parsedRecipe; skip YAML parsing for
+    // other source types so editing a non-Snowflake recipe doesn't pay the cost.
+    const parsedRecipe = useMemo(() => {
+        if (type !== SNOWFLAKE || !displayRecipe) return null;
+        try {
+            return YAML.parse(displayRecipe);
+        } catch {
+            return null;
+        }
+    }, [displayRecipe, type]);
 
     function switchViews(isFormView: boolean) {
         try {
@@ -90,9 +105,9 @@ function RecipeBuilder(props: Props) {
             setIsViewingForm(isFormView);
         } catch (e) {
             const messageText = (e as any).parsedLine
-                ? `Fix line ${(e as any).parsedLine} in your recipe`
-                : 'Please fix your recipe';
-            message.warn(`Found invalid YAML. ${messageText} in order to switch views.`);
+                ? t('recipeBuilder.fixLine', { line: (e as any).parsedLine })
+                : t('recipeBuilder.fixRecipe');
+            message.warn(t('recipeBuilder.invalidYaml', { messageText }));
         }
     }
 
@@ -103,9 +118,10 @@ function RecipeBuilder(props: Props) {
             ) : null}
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             {type === CSV && <CSVInfo />}
+            {type === SNOWFLAKE && <SnowflakePasswordAuthDeprecationWarning recipe={parsedRecipe} />}
             <HeaderContainer>
                 <Title style={{ marginBottom: 0 }} level={5}>
-                    {sourceConfigs?.displayName} Details
+                    {t('recipeBuilder.detailsTitle', { displayName: sourceConfigs?.displayName ?? '' })}
                 </Title>
                 <ButtonsWrapper>
                     <StyledButton
@@ -115,7 +131,7 @@ function RecipeBuilder(props: Props) {
                         onClick={() => switchViews(true)}
                         data-testid="recipe-builder-form-button"
                     >
-                        <FormOutlined /> Form
+                        <FormOutlined /> {t('recipeBuilder.formView')}
                     </StyledButton>
                     <StyledButton
                         variant="text"
@@ -124,7 +140,7 @@ function RecipeBuilder(props: Props) {
                         onClick={() => switchViews(false)}
                         data-testid="recipe-builder-yaml-button"
                     >
-                        <CodeOutlined /> YAML
+                        <CodeOutlined /> {t('recipeBuilder.yamlView')}
                     </StyledButton>
                 </ButtonsWrapper>
             </HeaderContainer>
@@ -147,10 +163,10 @@ function RecipeBuilder(props: Props) {
                     </BorderedSection>
                     <ControlsContainer>
                         <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>
-                            Previous
+                            {tc('previous')}
                         </Button>
                         <Button data-testid="recipe-builder-next-button" onClick={onClickNext}>
-                            Next
+                            {tc('next')}
                         </Button>
                     </ControlsContainer>
                 </>

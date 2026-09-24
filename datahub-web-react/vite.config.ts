@@ -2,10 +2,15 @@ import { codecovVitePlugin } from '@codecov/vite-plugin';
 import federation from '@originjs/vite-plugin-federation';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react-swc';
+import * as fs from 'fs';
 import * as path from 'path';
 import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
+
+// Vite config is evaluated by Node before `@src` aliases exist.
+// eslint-disable-next-line import-alias/import-alias
+import { i18nLocaleBundlesPlugin } from './vite-plugins/i18nLocaleBundlesPlugin';
 
 const injectMeticulous = () => {
     if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
@@ -36,6 +41,41 @@ export function stripDotSlashFromAssets() {
         name: 'strip-dot-slash',
         transformIndexHtml(html) {
             return html.replace(/src="\.\//g, 'src="').replace(/href="\.\//g, 'href="');
+        },
+    };
+}
+
+// Fails fast with a clear message if lazy icon stubs haven't been generated.
+// Prevents silent fallback-to-AppWindow when running outside Gradle.
+function assertLazyIconsGenerated(): PluginOption {
+    return {
+        name: 'assert-lazy-icons-generated',
+        buildStart() {
+            const iconsDir = path.resolve(__dirname, 'src/app/mfeframework/lazy-icons');
+            const hasStubs = fs.existsSync(iconsDir) && fs.readdirSync(iconsDir).some((f) => f.endsWith('.ts'));
+            if (!hasStubs) {
+                throw new Error(
+                    '\n\n  [Lazy Icons] Icon stubs are missing. Generate them before starting:\n\n' +
+                        '    ./gradlew :datahub-web-react:generateLazyIconStubs\n' +
+                        '    — or —\n' +
+                        '    node datahub-web-react/scripts/generate-lazy-icon-stubs.js\n\n',
+                );
+            }
+        },
+    };
+}
+
+// In production the datahub-frontend Play server substitutes @basePath in index.html
+// at serve time. The Vite dev server serves the template verbatim, leaving a broken
+// relative <base href="@basePath">, so relative asset URLs (e.g. platform logos at
+// assets/platforms/*) resolve against the current route instead of the site root and
+// 404 on deep routes. Substitute it to '/' for dev, matching what Play does.
+function substituteBasePathForDev(): PluginOption {
+    return {
+        name: 'substitute-base-path-dev',
+        apply: 'serve',
+        transformIndexHtml(html) {
+            return html.replace('@basePath', '/');
         },
     };
 }
@@ -88,7 +128,9 @@ export default defineConfig(async ({ mode }) => {
     };
 
     const isHttps = process.env.REACT_APP_HTTPS === 'true';
+    const localesDir = path.resolve(__dirname, 'src/i18n/locales');
     const devPlugins: PluginOption[] = mode === 'development' ? [injectMeticulous()] : [];
+
     if (isHttps) {
         devPlugins.push(
             basicSsl({
@@ -102,6 +144,9 @@ export default defineConfig(async ({ mode }) => {
         appType: 'spa',
         base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
+            i18nLocaleBundlesPlugin(localesDir),
+            substituteBasePathForDev(),
+            assertLazyIconsGenerated(),
             ...devPlugins,
             react(),
             federation({
@@ -169,6 +214,26 @@ export default defineConfig(async ({ mode }) => {
             reportCompressedSize: false,
             // Limit number of worker threads to reduce CPU pressure
             workers: 3, // default is number of CPU cores
+            rollupOptions: {
+                output: {
+                    // Emit source maps without inlined sourcesContent. The original source text is
+                    // ~70% of each map's bytes and pushes the largest 'source' map over Cloudflare
+                    // Pages' 25 MiB (26,214,400 byte) per-file limit, which breaks the preview
+                    // deploy Meticulous records against. The mappings + source paths that remain are
+                    // what Meticulous needs to attribute coverage to source files; it fetches the
+                    // original files from the served build rather than reading inlined text. Keeps
+                    // every map well under the limit without splitting app code (static app-code
+                    // splits cut import cycles and cause "cannot access X before initialization"
+                    // TDZ crashes at load).
+                    sourcemapExcludeSources: true,
+                    // Locale splitting is handled by i18nLocaleBundlesPlugin's virtual dynamic
+                    // imports, so nothing is assigned here. The hook is kept as an extension
+                    // point for builds that layer on their own chunk assignments.
+                    manualChunks() {
+                        return undefined;
+                    },
+                },
+            },
         },
         server: {
             open: false,
@@ -193,6 +258,22 @@ export default defineConfig(async ({ mode }) => {
             setupFiles: './src/setupTests.ts',
             css: true,
             // reporters: ['verbose'],
+            onConsoleLog(log) {
+                // Suppress noisy Apollo Client / GraphQL mock warnings that produce
+                // thousands of lines of output and make CI logs unreadable.
+                if (
+                    log.includes('No more mocked responses') ||
+                    log.includes('Missing field') ||
+                    log.includes('[GraphQL error]') ||
+                    log.includes('networkError') ||
+                    log.includes('Mocked provider') ||
+                    log.includes('query-manager') ||
+                    log.includes('ObservableQuery')
+                ) {
+                    return false;
+                }
+                return undefined;
+            },
             coverage: {
                 enabled: true,
                 provider: 'v8',
@@ -205,21 +286,24 @@ export default defineConfig(async ({ mode }) => {
             },
         },
         resolve: {
-            alias: {
+            alias: [
+                {
+                    find: /^lodash\/(.+)$/,
+                    replacement: 'lodash-es/$1.js',
+                },
                 // Root Directories
-                '@src': path.resolve(__dirname, '/src'),
-                '@app': path.resolve(__dirname, '/src/app'),
-                '@conf': path.resolve(__dirname, '/src/conf'),
-                '@components': path.resolve(__dirname, 'src/alchemy-components'),
-                '@graphql': path.resolve(__dirname, 'src/graphql'),
-                '@graphql-mock': path.resolve(__dirname, 'src/graphql-mock'),
-                '@images': path.resolve(__dirname, 'src/images'),
-                '@providers': path.resolve(__dirname, 'src/providers'),
-                '@utils': path.resolve(__dirname, 'src/utils'),
-
+                { find: '@src', replacement: path.resolve(__dirname, '/src') },
+                { find: '@app', replacement: path.resolve(__dirname, '/src/app') },
+                { find: '@conf', replacement: path.resolve(__dirname, '/src/conf') },
+                { find: '@components', replacement: path.resolve(__dirname, 'src/alchemy-components') },
+                { find: '@graphql', replacement: path.resolve(__dirname, 'src/graphql') },
+                { find: '@graphql-mock', replacement: path.resolve(__dirname, 'src/graphql-mock') },
+                { find: '@images', replacement: path.resolve(__dirname, 'src/images') },
+                { find: '@providers', replacement: path.resolve(__dirname, 'src/providers') },
+                { find: '@utils', replacement: path.resolve(__dirname, 'src/utils') },
                 // Specific Files
-                '@types': path.resolve(__dirname, 'src/types.generated.ts'),
-            },
+                { find: '@types', replacement: path.resolve(__dirname, 'src/types.generated.ts') },
+            ],
         },
     };
 });

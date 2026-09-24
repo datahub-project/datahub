@@ -4,10 +4,10 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.LineageDirection;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageInput;
@@ -15,7 +15,6 @@ import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.LineageFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnScrollAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.LineageFlags;
@@ -23,7 +22,6 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -43,22 +41,17 @@ public class ScrollAcrossLineageResolver
   private final EntityClient _entityClient;
 
   @Override
-  public CompletableFuture<ScrollAcrossLineageResults> get(DataFetchingEnvironment environment)
-      throws URISyntaxException {
+  public CompletableFuture<ScrollAcrossLineageResults> get(DataFetchingEnvironment environment) {
     final ScrollAcrossLineageInput input =
         bindArgument(environment.getArgument("input"), ScrollAcrossLineageInput.class);
 
     final QueryContext context = environment.getContext();
-    final Urn urn = Urn.createFromString(input.getUrn());
+    final Urn urn = UrnUtils.requireUrn(input.getUrn());
 
     final LineageDirection lineageDirection = input.getDirection();
 
-    List<EntityType> entityTypes =
-        (input.getTypes() == null || input.getTypes().isEmpty())
-            ? SEARCHABLE_ENTITY_TYPES
-            : input.getTypes();
     List<String> entityNames =
-        entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+        SearchUtils.getSearchEntityNames(context.getOperationContext(), input.getTypes());
 
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery =
@@ -105,6 +98,17 @@ public class ScrollAcrossLineageResolver
                 filters,
                 scrollId,
                 count);
+
+            if (entityNames.isEmpty()) {
+              log.debug(
+                  "scrollAcrossLineage: empty entity-type list; returning no results "
+                      + "(not searching all indices)");
+              final ScrollAcrossLineageResults empty = new ScrollAcrossLineageResults();
+              empty.setCount(count);
+              empty.setTotal(0);
+              empty.setSearchResults(new ArrayList<>());
+              return empty;
+            }
 
             final SearchFlags searchFlags;
             com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();

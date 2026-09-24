@@ -1,12 +1,15 @@
 """Unit tests for Fabric OneLake source key hierarchy."""
 
+from unittest.mock import MagicMock
+
 from datahub.emitter.mce_builder import datahub_guid
-from datahub.ingestion.source.fabric.common.keys import (
-    WORKSPACE_PLATFORM,
+from datahub.ingestion.source.fabric.common.models import (
+    FABRIC_WORKSPACE_PLATFORM,
     WorkspaceKey,
 )
 from datahub.ingestion.source.fabric.onelake.source import (
     PLATFORM,
+    FabricOneLakeSource,
     LakehouseKey,
     LakehouseSchemaKey,
     WarehouseKey,
@@ -25,7 +28,7 @@ def test_lakehouse_parent_workspace_uses_fabric_platform() -> None:
 
     parent = key.parent_key()
     assert isinstance(parent, WorkspaceKey)
-    assert parent.platform == WORKSPACE_PLATFORM
+    assert parent.platform == FABRIC_WORKSPACE_PLATFORM
     assert parent.workspace_id == "ws-123"
 
 
@@ -40,7 +43,7 @@ def test_warehouse_parent_workspace_uses_fabric_platform() -> None:
 
     parent = key.parent_key()
     assert isinstance(parent, WorkspaceKey)
-    assert parent.platform == WORKSPACE_PLATFORM
+    assert parent.platform == FABRIC_WORKSPACE_PLATFORM
     assert parent.workspace_id == "ws-123"
 
 
@@ -60,7 +63,7 @@ def test_schema_parent_chain_keeps_onelake_then_fabric() -> None:
 
     workspace_parent = lakehouse_parent.parent_key()
     assert isinstance(workspace_parent, WorkspaceKey)
-    assert workspace_parent.platform == WORKSPACE_PLATFORM
+    assert workspace_parent.platform == FABRIC_WORKSPACE_PLATFORM
 
 
 def test_warehouse_schema_parent_chain_keeps_onelake_then_fabric() -> None:
@@ -79,7 +82,7 @@ def test_warehouse_schema_parent_chain_keeps_onelake_then_fabric() -> None:
 
     workspace_parent = warehouse_parent.parent_key()
     assert isinstance(workspace_parent, WorkspaceKey)
-    assert workspace_parent.platform == WORKSPACE_PLATFORM
+    assert workspace_parent.platform == FABRIC_WORKSPACE_PLATFORM
 
 
 def test_lakehouse_key_guid_uses_fabric_onelake_platform() -> None:
@@ -120,3 +123,22 @@ def test_warehouse_key_guid_uses_fabric_onelake_platform() -> None:
         }
     )
     assert key.guid() == expected
+
+
+def test_norm_respects_convert_urns_to_lowercase() -> None:
+    """_norm lowercases identifiers iff convert_urns_to_lowercase=True.
+
+    _norm gates URN-bound identifier casing so the dataset URNs match what
+    sqlglot emits during view-lineage parsing. Bypassing __init__ is fine here
+    because _norm only reads self.config.convert_urns_to_lowercase.
+    """
+    src = MagicMock()
+
+    src.config.convert_urns_to_lowercase = True
+    assert FabricOneLakeSource._norm(src, "Sales") == "sales"
+    assert FabricOneLakeSource._norm(src, "CUSTOMERS") == "customers"
+    assert FabricOneLakeSource._norm(src, "already_lower") == "already_lower"
+
+    src.config.convert_urns_to_lowercase = False
+    assert FabricOneLakeSource._norm(src, "Sales") == "Sales"
+    assert FabricOneLakeSource._norm(src, "CUSTOMERS") == "CUSTOMERS"

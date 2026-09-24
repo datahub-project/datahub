@@ -30,6 +30,10 @@ class ProfilingContext:
     pretty_name: str
     table: str
     schema: Optional[str] = None
+    # PARTIALLY DEPRECATED: custom_sql should eventually be removed.
+    # It exists because some sources (e.g. BigQuery partitions) bypass the
+    # adapter layer. New adapters should centralize this logic in
+    # setup_profiling instead.
     custom_sql: Optional[str] = None
     partition: Optional[str] = None
 

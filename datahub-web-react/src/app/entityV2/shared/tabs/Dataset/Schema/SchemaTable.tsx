@@ -3,6 +3,7 @@ import { SorterResult } from 'antd/lib/table/interface';
 import ResizeObserver from 'rc-resize-observer';
 import type { FixedType } from 'rc-table/lib/interface';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -13,14 +14,21 @@ import useSchemaTitleRenderer from '@app/entityV2/dataset/profile/schema/utils/s
 import useSchemaTypeRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTypeRenderer';
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
-import { findIndexOfFieldPathExcludingCollapsedFields } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import {
+    findIndexOfFieldPathExcludingCollapsedFields,
+    hasNestedSchemaRows,
+} from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
+import {
+    MetadataStatus,
+    renderMetadataCell as renderMetadataCellFor,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/metadataStatus';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
 import useBusinessAttributeRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useBusinessAttributeRenderer';
 import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
+import useEditableSchemaFieldInfoMaps from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
@@ -29,7 +37,6 @@ import { useGetTableColumnProperties } from '@app/entityV2/shared/tabs/Dataset/S
 import useTagsAndTermsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
 import { useBusinessAttributesFlag } from '@app/useAppConfig';
-import { colors } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
 import { EditableSchemaMetadata, SchemaField, SchemaMetadata, UsageQueryResult } from '@types';
@@ -44,11 +51,11 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
     }
 
     &&& .ant-table-tbody > tr {
-        background-color: #fff;
+        background-color: ${(props) => props.theme.colors.bg};
     }
 
     &&& .ant-table-tbody > tr.expanded-child {
-        background-color: #f5f9fa;
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 
     &&& .ant-table-tbody > tr > .ant-table-cell {
@@ -71,21 +78,21 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
 
     &&& .selected-row * {
         .ant-typography mark {
-            background-color: ${REDESIGN_COLORS.HEADING_COLOR} !important;
+            background-color: ${(props) => props.theme.colors.bgHighlight} !important;
         }
 
         .row-icon-tooltip .ant-tooltip-inner {
-            background: #e5eff1 !important;
-            color: ${REDESIGN_COLORS.DARK_GREY} !important;
+            background: ${(props) => props.theme.colors.bgSurface} !important;
+            color: ${(props) => props.theme.colors.text} !important;
         }
 
         .ant-tag {
-            background-color: ${REDESIGN_COLORS.WHITE};
+            background-color: ${(props) => props.theme.colors.bg};
         }
     }
 
     &&& .selected-row {
-        background: ${colors.gray[100]} !important;
+        background: ${(props) => props.theme.colors.border} !important;
     }
 
     &&& .level-0 td .row-icon-container .row-icon {
@@ -98,12 +105,12 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
 
     &&& tr.expanded-row td:first-of-type {
         border-left: ${(props) =>
-            props.isSearchActive ? '4px solid #ffffff00' : `4px solid ${REDESIGN_COLORS.BACKGROUND_PURPLE}`};
+            props.isSearchActive ? '4px solid transparent' : `4px solid ${props.theme.colors.bgSurfaceBrand}`};
     }
 
     &&& .expanded-child > td {
         .depth-container {
-            background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
+            background: ${(props) => props.theme.colors.bgSurfaceBrand};
         }
 
         .depth-text {
@@ -163,11 +170,14 @@ type Props = {
     }[];
     refetch?: () => void;
     visibleColumns?: string[];
+    /** Phase 2 (full metadata) state; drives skeleton / unavailable rendering of metadata cells. */
+    metadataStatus?: MetadataStatus;
 };
 
 const EMPTY_SET: Set<string> = new Set();
 const TABLE_HEADER_HEIGHT = 52;
 const KEYBOARD_CONTROL_DEBOUNCE_MS = 50;
+const SCROLL_X = 'max-content';
 
 export default function SchemaTable({
     rows,
@@ -183,8 +193,11 @@ export default function SchemaTable({
     setOpenTimelineDrawer,
     refetch,
     visibleColumns,
+    metadataStatus = 'ready',
 }: Props): JSX.Element {
-    const { urn: entityUrn } = useEntityData();
+    const { t } = useTranslation('entity.profile.schema');
+    const { t: tc } = useTranslation('common.labels');
+    const { urn: entityUrn, entityData } = useEntityData();
     const location = useLocation();
 
     // Reset expandedDrawerFieldPath when URL pathname changes (ignoring query params) to close drawer on a tab change
@@ -199,7 +212,8 @@ export default function SchemaTable({
 
     const schemaFields = schemaMetadata ? schemaMetadata.fields : inputFields;
 
-    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false);
+    const fieldInfoMaps = useEditableSchemaFieldInfoMaps(editableSchemaMetadata);
+    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false, fieldInfoMaps);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats, expandedDrawerFieldPath);
     const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
@@ -210,6 +224,7 @@ export default function SchemaTable({
         filterText,
         false,
         true,
+        fieldInfoMaps,
     );
     const termRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
@@ -220,23 +235,24 @@ export default function SchemaTable({
         filterText,
         false,
         true,
+        fieldInfoMaps,
     );
-    const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata);
-    const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
-    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
+    const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata, fieldInfoMaps);
+    const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata, fieldInfoMaps);
+    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata, fieldInfoMaps);
     const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
     const schemaTitleRenderer = useSchemaTitleRenderer(entityUrn, schemaMetadata, filterText);
     const schemaTypeRenderer = useSchemaTypeRenderer();
     const businessAttributesFlag = useBusinessAttributesFlag();
 
-    const tableColumnStructuredProps = useGetTableColumnProperties();
-    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
+    const tableColumnStructuredProps = useGetTableColumnProperties(entityData?.platform?.urn);
+    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps, metadataStatus);
 
     const fieldColumn = useMemo(
         () => ({
             fixed: 'left' as FixedType,
             width: 200,
-            title: 'Name',
+            title: tc('name'),
             dataIndex: 'fieldPath',
             key: 'fieldPath',
             render: schemaTitleRenderer,
@@ -245,72 +261,82 @@ export default function SchemaTable({
             sorter: (sourceA, sourceB) =>
                 translateFieldPath(sourceA.fieldPath).localeCompare(translateFieldPath(sourceB.fieldPath)),
         }),
-        [schemaTitleRenderer],
+        [schemaTitleRenderer, tc],
     );
 
     const typeColumn = useMemo(
         () => ({
             width: 100,
-            title: 'Type',
+            title: tc('type'),
             dataIndex: 'type',
             key: 'type',
             render: schemaTypeRenderer,
             sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
         }),
-        [schemaTypeRenderer],
+        [schemaTypeRenderer, tc],
+    );
+
+    // One shared wrapper for every Phase 2 metadata column (description/tags/terms): skeleton
+    // while full metadata loads, an explicit "unavailable" marker when the full query failed
+    // (a blank cell would read as "no tags"), real content otherwise.
+    const renderMetadataCell = useCallback(
+        (width: number, content: () => React.ReactNode): React.ReactNode =>
+            renderMetadataCellFor(metadataStatus, width, content),
+        [metadataStatus],
     );
 
     const descriptionColumn = useMemo(
         () => ({
             ellipsis: true,
             className: 'description-column',
-            title: 'Description',
+            title: tc('description'),
             dataIndex: 'description',
             key: 'description',
-            render: descriptionRender,
+            render: (description, record, index) =>
+                renderMetadataCell(120, () => descriptionRender(description, record, index)),
             sorter: (sourceA, sourceB) =>
                 (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
                 (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
         }),
-        [descriptionRender, extractFieldDescription],
+        [descriptionRender, extractFieldDescription, tc, renderMetadataCell],
     );
 
     const tagColumn = useMemo(
         () => ({
             width: 100,
-            title: 'Tags',
+            title: tc('tags'),
             dataIndex: 'globalTags',
             key: 'tag',
-            render: tagRenderer,
+            render: (tags, record) => renderMetadataCell(80, () => tagRenderer(tags, record)),
             sorter: (sourceA, sourceB) =>
                 extractFieldTagsInfo(sourceA).numberOfTags - extractFieldTagsInfo(sourceB).numberOfTags,
         }),
-        [tagRenderer, extractFieldTagsInfo],
+        [tagRenderer, extractFieldTagsInfo, tc, renderMetadataCell],
     );
 
     const termColumn = useMemo(
         () => ({
             width: 200,
-            title: 'Glossary Terms',
+            title: t('schemaTable.glossaryTermsColumn'),
             dataIndex: 'globalTags',
             key: 'term',
-            render: termRenderer,
+            render: (tags, record) => renderMetadataCell(80, () => termRenderer(tags, record)),
             sorter: (sourceA, sourceB) =>
                 extractFieldGlossaryTermsInfo(sourceA).numberOfTerms -
                 extractFieldGlossaryTermsInfo(sourceB).numberOfTerms,
         }),
-        [termRenderer, extractFieldGlossaryTermsInfo],
+        [termRenderer, extractFieldGlossaryTermsInfo, t, renderMetadataCell],
     );
 
     const businessAttributeColumn = useMemo(
         () => ({
             width: 150,
-            title: 'Business Attribute',
+            title: t('schemaTable.businessAttributeColumn'),
             dataIndex: 'businessAttribute',
             key: 'businessAttribute',
             render: businessAttributeRenderer,
         }),
-        [businessAttributeRenderer],
+        [businessAttributeRenderer, t],
     );
 
     // Function to get the count of each usageStats fieldPath
@@ -329,13 +355,13 @@ export default function SchemaTable({
     const usageColumn = useMemo(
         () => ({
             width: 100,
-            title: 'Stats',
+            title: t('schemaTable.statsColumn'),
             dataIndex: 'fieldPath',
             key: 'usage',
             render: usageStatsRenderer,
             sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
         }),
-        [usageStatsRenderer, getCount],
+        [usageStatsRenderer, getCount, t],
     );
 
     const allColumns = useMemo(() => {
@@ -400,7 +426,7 @@ export default function SchemaTable({
 
             if (tableRef.current) {
                 const tableBody = tableRef.current.querySelector('.ant-table-body');
-                const row = tableBody?.querySelector(`[data-row-key="${expandedDrawerFieldPath}"]`);
+                const row = tableBody?.querySelector(`[data-row-key="${CSS.escape(expandedDrawerFieldPath)}"]`);
                 if (row) {
                     row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                 }
@@ -431,31 +457,35 @@ export default function SchemaTable({
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
     }, [expandedRows, expandedDrawerFieldPath, finalColumns]);
 
-    const rowClassName = (record) => {
-        let className = '';
+    // Pre-compute prefixes once per expandedRows change rather than inside the per-row callback.
+    // expandedRows.forEach inside rowClassName was O(expandedRows) × O(rows) on every render.
+    const expandedRowPrefixes = useMemo(() => Array.from(expandedRows).map((r) => `${r}.`), [expandedRows]);
 
-        if (expandedDrawerFieldPath === record.fieldPath) {
-            className += 'selected-row';
-        }
-        if (expandedRows.has(record?.fieldPath)) {
-            className += ' expanded-row';
-        }
-        // Add different classes based on depth
-        if (record?.depth < 2) className += ` level-${record?.depth}`;
-        else className += ' level-n';
+    const rowClassName = useCallback(
+        (record) => {
+            let className = '';
 
-        const path: string = record?.fieldPath?.toString();
+            if (expandedDrawerFieldPath === record.fieldPath) {
+                className += 'selected-row';
+            }
+            if (expandedRows.has(record?.fieldPath)) {
+                className += ' expanded-row';
+            }
+            // Add different classes based on depth
+            if (record?.depth < 2) className += ` level-${record?.depth}`;
+            else className += ' level-n';
 
-        expandedRows.forEach((row) => {
-            if (path.startsWith(`${row}.`)) {
+            const path: string = record?.fieldPath?.toString();
+            if (expandedRowPrefixes.some((prefix) => path.startsWith(prefix))) {
                 className += ' expanded-child';
             }
-        });
 
-        return className;
-    };
+            return className;
+        },
+        [expandedDrawerFieldPath, expandedRows, expandedRowPrefixes],
+    );
 
-    const hasSomeRowsWithDepthGreaterThanZero = useMemo(() => rows.some((row) => row.depth || 0 > 1), [rows]);
+    const hasSomeRowsWithDepthGreaterThanZero = useMemo(() => hasNestedSchemaRows(rows), [rows]);
 
     const [schemaFieldDrawerFieldPath, setSchemaFieldDrawerFieldPath] = useState(expandedDrawerFieldPath);
     useDebounce(() => setSchemaFieldDrawerFieldPath(expandedDrawerFieldPath), KEYBOARD_CONTROL_DEBOUNCE_MS, [
@@ -498,30 +528,39 @@ export default function SchemaTable({
         updateDisplayedRows();
     }, [expandedRows, dataSource, sortedDataSource, schemaSorter]);
 
-    const sortData = (data, sorter) => {
-        if (sorter.order) {
-            const { field, order } = sorter;
-
-            const column = finalColumns.find((col) => col.key === field);
-
-            if (column && column.sorter) {
-                const sortedRows = data.slice().sort((a, b) => {
-                    const sorterFunction = typeof column.sorter === 'function' ? column.sorter : undefined;
-
-                    return sorterFunction ? sorterFunction(a, b) : 0;
-                });
-                return order === 'ascend' ? sortedRows : sortedRows.reverse();
-            }
-        }
-        return data;
+    // Single sorter used by the header-click handler and the metadata-refresh effect below:
+    // resolves the active column by key, applies its sorter at every tree level (children
+    // sort within their parent, matching antd), and reverses for descending order.
+    const sortRows = (data: ExtendedSchemaFields[], sorter?: SorterResult<any>): ExtendedSchemaFields[] => {
+        if (!sorter?.order) return data;
+        const column = finalColumns.find((col) => col.key === sorter.columnKey);
+        const sorterFunction = typeof column?.sorter === 'function' ? column.sorter : undefined;
+        if (!sorterFunction) return data;
+        const sortTree = (rows_: ExtendedSchemaFields[]): ExtendedSchemaFields[] => {
+            const sorted = rows_.slice().sort((a, b) => sorterFunction(a, b, sorter.order));
+            if (sorter.order === 'descend') sorted.reverse();
+            return sorted.map((row) => (row.children ? { ...row, children: sortTree(row.children) } : row));
+        };
+        return sortTree(data);
     };
 
     const handleTableChange = (_, __, sorter, { currentDataSource }) => {
         setSchemaSorter(sorter as SorterResult<ExtendedSchemaFields>);
         setSortedDataSource(currentDataSource);
-        const sortedrows = sortData(displayedRows, sorter);
-        setSortedDisplayedRows(sortedrows);
+        setSortedDisplayedRows(sortRows(displayedRows, sorter));
     };
+
+    // sortedDataSource is a snapshot taken when the user last clicked a column header. The
+    // rows are rebuilt when Phase 2 metadata lands (and on any later refetch), so re-sort the
+    // new rows with the active sorter or the sorted view keeps showing the old Phase 1 rows,
+    // with metadata-column ordering computed before there were any tags/descriptions.
+    useEffect(() => {
+        if (!schemaSorter?.order) return;
+        setSortedDataSource(sortRows(dataSource, schemaSorter));
+        // Only the row payload and sort state matter here; sortRows/finalColumns are derived from
+        // them plus stable renderers, and depending on them would re-sort on every render.
+        /* eslint-disable-next-line react-hooks/exhaustive-deps */
+    }, [dataSource, schemaSorter, metadataStatus]);
 
     return (
         <>
@@ -529,24 +568,23 @@ export default function SchemaTable({
                 ref={tableRef}
                 isSearchActive={isSearchActive}
                 hasRowWithDepth={hasSomeRowsWithDepthGreaterThanZero}
+                data-testid="schema-table-container"
             >
                 <ResizeObserver onResize={(dimensions) => setTableHeight(dimensions.height - TABLE_HEADER_HEIGHT)}>
                     <StyledTable
+                        data-testid="schema-table"
                         onChange={handleTableChange}
                         rowClassName={rowClassName}
                         columns={finalColumns}
                         dataSource={dataSource}
-                        // rowKey={(record) => `column-${record.fieldPath}`}
                         rowKey="fieldPath"
-                        scroll={{ x: 'max-content', y: tableHeight }}
+                        scroll={{ x: SCROLL_X, y: tableHeight }}
                         components={VT}
                         expandable={{
                             expandedRowKeys: [...Array.from(expandedRows)],
                             defaultExpandAllRows: false,
-
                             expandRowByClick: false,
                             expandIcon: (props) => <ExpandIcon {...props} />,
-
                             onExpand: (expanded, record) => {
                                 if (expanded) {
                                     setExpandedRows((previousRows) => new Set(previousRows.add(record.fieldPath)));
@@ -570,6 +608,7 @@ export default function SchemaTable({
                                 );
                             },
                             id: `column-${record.fieldPath}`,
+                            'data-testid': `schema-field-${record.fieldPath}`,
                         })}
                         showSorterTooltip={false}
                     />

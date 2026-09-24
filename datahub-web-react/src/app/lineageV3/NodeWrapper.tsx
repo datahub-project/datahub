@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import React, { HTMLAttributes } from 'react';
 import styled from 'styled-components';
 
@@ -9,14 +8,16 @@ const Wrapper = styled.div<{
     dragging: boolean;
     isGhost: boolean;
     isSearchedEntity: boolean;
+    highlighted: boolean;
 }>`
     width: ${LINEAGE_NODE_WIDTH}px;
 
-    background-color: ${colors.white};
+    // Same color as a column connected to the hovered / selected column, see Column.tsx
+    background-color: ${({ highlighted, theme }) => (highlighted ? theme.colors.bgHover : theme.colors.bg)};
     border-radius: 12px;
-    border: 1px solid ${({ selected }) => (selected ? colors.violet[600] : colors.gray[100])};
-    box-shadow: ${({ isSearchedEntity }) =>
-        isSearchedEntity ? `0 0 4px 4px ${colors.gray[100]}` : '0px 1px 2px 0px rgba(33, 23, 95, 0.07)'};
+    border: 1px solid ${({ selected, theme }) => (selected ? theme.colors.borderSelected : theme.colors.border)};
+    box-shadow: ${({ isSearchedEntity, theme }) =>
+        isSearchedEntity ? `0 0 4px 4px ${theme.colors.border}` : theme.colors.shadowXs};
 
     display: flex;
     align-items: center;
@@ -39,13 +40,21 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
     dragging: boolean;
     isGhost: boolean;
     isSearchedEntity: boolean;
+    /** Whether the node as a whole is part of the highlighted column lineage, e.g. a metric reading a column. */
+    highlighted?: boolean;
     children?: React.ReactNode;
 }
 
 /** Base component to wrap graph nodes */
-export default function NodeWrapper({ urn, children, ...props }: Props) {
+export default function NodeWrapper({ urn, children, highlighted = false, ...props }: Props) {
     return (
-        <Wrapper data-testid={`lineage-node-${urn}`} {...props}>
+        <Wrapper
+            data-testid={`lineage-node-${urn}`}
+            // eslint-disable-next-line i18next/no-literal-string
+            data-lineage-highlighted={highlighted ? 'true' : 'false'}
+            highlighted={highlighted}
+            {...props}
+        >
             {children}
         </Wrapper>
     );

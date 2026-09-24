@@ -29,6 +29,8 @@ This connector also extracts basic user profile information from Okta. The follo
 - department
 - country code
 
+This connector emits both `corpUserInfo.active` and the `corpUserStatus` aspect for each user. Okta user statuses `SUSPENDED`, `DEPROVISIONED`, and `LOCKED_OUT` map to DataHub `SUSPENDED` (and `active: false`); all other ingested statuses map to `ACTIVE` (and `active: true`).
+
 #### Extracting DataHub Groups
 
 Group entities are extracted from Okta groups APIs and mapped to DataHub `CorpGroup` entities.

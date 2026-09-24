@@ -1,29 +1,85 @@
 ### Overview
 
-The `dataplex` module ingests metadata from Dataplex into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+The `dataplex` module ingests metadata from Google Cloud Knowledge Catalog (Dataplex) into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-The Dataplex connector extracts metadata from Google Dataplex using the **Universal Catalog Entries API**. This API extracts entries from system-managed entry groups for Google Cloud services and is the recommended approach for discovering resources across your GCP organization.
+The connector extracts metadata from Google Cloud Knowledge Catalog (Dataplex) using the **Universal Catalog Entries API**. This API extracts entries from system-managed entry groups for Google Cloud services and is the recommended approach for discovering resources across your GCP organization.
 
-#### Supported services
+#### Extraction methods
 
-- **BigQuery**: datasets, tables, models, routines, connections, and linked datasets
-- **Cloud SQL**: instances
-- **AlloyDB**: instances, databases, schemas, tables, and views
-- **Spanner**: instances, databases, and tables
-- **Pub/Sub**: topics and subscriptions
-- **Cloud Storage**: buckets
-- **Bigtable**: instances, clusters, and tables
-- **Vertex AI**: models, datasets, and feature stores
-- **Dataform**: repositories and workflows
-- **Dataproc Metastore**: services and databases
+The connector supports two ways of fetching entries, controlled by `extraction_method`:
 
-:::note
-Only **BigQuery** and **Cloud Storage (GCS)** have been thoroughly tested with this connector. Other services may work but have not been validated.
-:::
+- **`api`** (default) — iterates the configured projects and lists entries via the Catalog `list_entry_groups` / `list_entries` / `get_entry` APIs. This only returns entries **physically created** in each project's entry groups.
+- **`export`** — submits one Dataplex [metadata export job](https://docs.cloud.google.com/dataplex/docs/export-metadata) per configured entries location (scoped to the configured projects and the entry types the connector supports), waits for the jobs to finish, and then reads the exported JSONL from a Cloud Storage bucket. Requires the `export_config` section.
+- **`read_export`** — submits no jobs and instead ingests the output of metadata exports you run yourself (Cloud Scheduler, Workflows, a separate pipeline, etc.). Requires the `read_export_config` section and only storage read access (see below).
+
+Use `export` when your organization runs a **central catalog** architecture: tenant projects grant a central Dataplex project permission to read their metadata, and assets surface in the central project via Dataplex catalog linking/federation without being physically created there. Those linked entries are invisible to `list_entries` (the `api` method returns nothing), but a metadata export scoped to the central project includes them.
+
+Notes on `export` mode:
+
+- One export job runs per entries location in `entries_locations`, and each location must resolve to a GCS bucket via `export_config.export_bucket_config` or `export_config.bucket_base_name` (bucket name `{bucket_base_name}-{location}`). Note the default `entries_locations` is `['us', 'eu', 'asia', 'global']`, so by default four export jobs run per ingestion. The bucket for a `global`-location job must be in a compatible (multi-)region.
+- `filter_config.entry_groups.pattern` does not apply (the export is scoped by entry type, not entry group); use the entry-level `filter_config.entries.pattern` / `fqn_pattern` filters instead.
+- Lineage and Business Glossary extraction work identically in both methods — they use the live Data Lineage and Business Glossary APIs.
+- If an export job fails or times out, or the exported output cannot be read completely, the run is reported as failed and stale-entity soft-deletion is skipped for that run, so temporarily missing entities are not tombstoned.
+- Exports of large catalogs can take tens of minutes or more. Per-job progress (state, elapsed seconds, entries read) is visible in the ingestion report's `export_jobs` field while the run is waiting, and `export_config.export_timeout_seconds` (default 3600) bounds the total wait.
+- Export buckets are reused across runs and old runs' output accumulates, which slows down the per-run object listing over time. Configure a GCS lifecycle/retention rule on the export buckets (or rotate `export_config.prefix` periodically) to keep them bounded.
+- The connection test verifies metadata-job **read** access and bucket access; it cannot verify permission to **create** metadata jobs (`roles/dataplex.metadataJobOwner`), so a passing test does not guarantee job submission will succeed.
+
+Notes on `read_export` mode (`read_export_config.export_paths`):
+
+- Map each location to the `gs://bucket[/prefix]` output path of a metadata export you orchestrate yourself. The connector submits no jobs and only reads those paths, so the service account needs just `roles/storage.objectViewer` on the buckets — no Dataplex job-submission roles.
+- When a path holds output from several export runs (multiple `job=<id>` partitions), the most recently written partition is read. Point the path at a specific `.../job=<id>` folder to pin an exact run.
+- The entries stage reads exactly the locations in this mapping; `entries_locations` applies to the other stages (lineage, glossaries).
+- Keep the pointed-to exports fresh: entries missing from the read output are subject to normal stale-entity handling on later runs, and an empty path is reported as a failure (which skips soft-deletion for the run).
+
+#### Spanner entry collection behavior
+
+Spanner entries are collected through an additional `search_entries` workaround after the entry-group traversal phase. Because those entries are not discovered through `list_entry_groups`, `filter_config.entry_groups.pattern` does not apply to them. Use entry-level filters (`filter_config.entries.pattern` and `filter_config.entries.fqn_pattern`) to control Spanner inclusion.
 
 ### Prerequisites
 
-Refer to [Dataplex documentation](https://cloud.google.com/dataplex/docs) for Dataplex basics.
+Refer to [Google Cloud Knowledge Catalog (Dataplex) documentation](https://cloud.google.com/dataplex/docs) for the basics.
+
+#### Project Selection
+
+The connector supports three ways to select GCP projects, evaluated in this order of precedence:
+
+1. **`project_ids`** — explicit list of project IDs. When set, this overrides the other two options and no project discovery is performed.
+2. **`project_labels`** — list of `key:value` labels. Projects carrying any of these labels are discovered via the Cloud Resource Manager `search_projects` API and then filtered through `project_id_pattern`.
+3. **`project_id_pattern`** — `AllowDenyPattern` of regexes. When `project_ids` is empty, all projects visible to the credentials are returned via the Cloud Resource Manager `search_projects` API and filtered through this pattern.
+
+At least one of these must be set. Auto-discovery via `project_labels` or `project_id_pattern` requires the service account to have `resourcemanager.projects.get` (e.g. via `roles/browser`) on each candidate project so the Cloud Resource Manager `search_projects` API can return them; no folder/organization-level grant is needed. When `project_ids` is set explicitly, no Resource Manager permissions are needed.
+
+#### API Enablement
+
+Enable the following APIs on all target projects:
+
+- **Dataplex API** (`dataplex.googleapis.com`) — see [Enable Knowledge Catalog](https://docs.cloud.google.com/dataplex/docs/enable-api)
+- **Data Lineage API** (`datalineage.googleapis.com`) — required for lineage extraction (`include_lineage: true`), see [Enable Data Lineage API](https://docs.cloud.google.com/dataplex/docs/use-lineage#enable-apis)
+- **Cloud Resource Manager API** (`cloudresourcemanager.googleapis.com`) — required for term-asset associations (`include_glossary_term_associations: true`)
+
+#### Asset-Specific Configuration
+
+Some asset types require additional setup for automatic metadata discovery:
+
+**Cloud SQL** - Instances must be connected to Dataplex:
+
+```sh
+gcloud sql instances patch INSTANCE_NAME --enable-dataplex-integration --project=PROJECT_ID
+```
+
+**Dataproc Metastore** - Services must have Knowledge Catalog integration enabled:
+
+```sh
+# For new services
+gcloud metastore services create SERVICE_NAME \
+  --enable-dataplex-integration \
+  --location=LOCATION
+
+# For existing services
+gcloud metastore services update SERVICE_NAME \
+  --enable-dataplex-integration \
+  --location=LOCATION
+```
 
 #### Authentication
 
@@ -77,25 +133,32 @@ For service account authentication, follow these instructions:
 
 #### Permissions
 
-Grant the following permissions to the service account on all target projects.
+Grant the following roles to the service account on all target projects.
 
-**Universal Catalog Entries API:**
+| Feature                                                              | Required Role                                                                                                                                                                                                                                                                                                                       |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Universal Catalog Entries API (core ingestion)                       | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)                                                                                                                                                                                                                           |
+| Lineage extraction (`include_lineage: true`)                         | [`roles/datalineage.viewer`](https://cloud.google.com/dataplex/docs/iam-roles#datalineage.viewer)                                                                                                                                                                                                                                   |
+| Business Glossary ingestion (`include_glossaries: true`)             | [`roles/dataplex.catalogViewer`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)                                                                                                                                                                                                                           |
+| Term-asset associations (`include_glossary_term_associations: true`) | [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser) on each candidate project (lighter-weight) or [`roles/resourcemanager.folderViewer`](https://cloud.google.com/resource-manager/docs/access-control-proj) — both provide `resourcemanager.projects.get`, required for resolving GCP project numbers |
+| Project auto-discovery via `project_id_pattern` or `project_labels`  | [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser) on each candidate project — provides `resourcemanager.projects.get` needed for `search_projects` to return the project                                                                                                                             |
 
-**Default GCP Role:** [roles/dataplex.catalogViewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)
+For `extraction_method: export`, the following additional grants are required (see [Export metadata](https://docs.cloud.google.com/dataplex/docs/export-metadata#required-roles)):
 
-| Permission                  | Description                           |
-| --------------------------- | ------------------------------------- |
-| `dataplex.entryGroups.get`  | Retrieve specific entry group details |
-| `dataplex.entryGroups.list` | View all entry groups in a location   |
-| `dataplex.entries.get`      | Access entry metadata and details     |
-| `dataplex.entries.getData`  | View data aspects within entries      |
-| `dataplex.entries.list`     | Enumerate entries within groups       |
+| Feature                                            | Required Role                                                                                                                                 |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Running metadata export jobs                       | [`roles/dataplex.metadataJobOwner`](https://cloud.google.com/dataplex/docs/iam-roles) on `export_config.export_job_runner_project`            |
+| Export scope access                                | [`roles/dataplex.catalogEditor`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogEditor) on each project in the export scope |
+| Writing/reading export output in the GCS bucket(s) | [`roles/storage.objectUser`](https://cloud.google.com/storage/docs/access-control/iam-roles) on each configured export bucket                 |
 
-**Lineage extraction** (optional, `include_lineage: true`):
+For `extraction_method: read_export`, none of the grants above are needed — the connector only requires [`roles/storage.objectViewer`](https://cloud.google.com/storage/docs/access-control/iam-roles) on the bucket(s) holding the pre-existing export output.
 
-**Default GCP Role:** [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
+:::tip "Lineage requires the role on multiple projects"
 
-| Permission                 | Description                               |
-| -------------------------- | ----------------------------------------- |
-| `datalineage.links.get`    | Allows a user to view lineage links       |
-| `datalineage.links.search` | Allows a user to search for lineage links |
+Grant `roles/datalineage.viewer` on all projects where the corresponding process is actually executed. Note it may differ from the project containing the asset.
+:::
+
+Additional asset-specific viewer roles:
+
+- `roles/aiplatform.viewer` (Vertex AI Viewer) is required when ingesting Vertex AI assets.
+- `roles/spanner.viewer` (Cloud Spanner Viewer) is required when ingesting Cloud Spanner assets.

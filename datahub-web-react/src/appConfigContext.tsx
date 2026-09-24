@@ -1,6 +1,10 @@
 import React from 'react';
 
-import { AppConfig, PersonalSidebarSection, SearchBarApi } from '@types';
+import { AppConfig, PersonalSidebarSection, PoliciesConfig, SearchBarApi } from '@types';
+
+export type AppConfigWithoutPolicyPrivileges = Omit<AppConfig, 'policiesConfig'> & {
+    policiesConfig: Omit<PoliciesConfig, 'platformPrivileges' | 'resourcePrivileges'>;
+};
 
 export const DEFAULT_APP_CONFIG = {
     analyticsConfig: {
@@ -34,6 +38,8 @@ export const DEFAULT_APP_CONFIG = {
     },
     authConfig: {
         tokenAuthEnabled: false,
+        allowNoExpiry: false,
+        allowedAccessTokenDurations: ['PT1H', 'P1D', 'P7D', 'P30D', 'P90D', 'P180D', 'P365D'],
     },
     telemetryConfig: {
         enableThirdPartyLogging: false,
@@ -65,13 +71,15 @@ export const DEFAULT_APP_CONFIG = {
         showAccessManagement: false,
         nestedDomainsEnabled: true,
         platformBrowseV2: false,
+        browserTracingEnabled: false,
+        browserWebVitalsEnabled: false,
         businessAttributeEntityEnabled: false,
         dataContractsEnabled: false,
         editableDatasetNameEnabled: false,
         themeV2Enabled: false,
         themeV2Default: false,
         themeV2Toggleable: false,
-        lineageGraphV2: false,
+        themeDarkModeEnabled: false,
         showSeparateSiblings: false,
         schemaFieldCLLEnabled: false,
         schemaFieldLineageIgnoreStatus: false,
@@ -87,20 +95,25 @@ export const DEFAULT_APP_CONFIG = {
         showIngestionPageRedesign: false,
         ingestionOnboardingRedesignV1: false,
         showLineageExpandMore: false,
+        showLineageFilterNodes: false,
         showDefaultExternalLinks: true,
         showStatsTabRedesign: false,
         showHomePageRedesign: false,
         showProductUpdates: false,
-        lineageGraphV3: false,
         logicalModelsEnabled: false,
         showHomepageUserRole: false,
         assetSummaryPageV1: false,
         datasetSummaryPageV1: false,
+        metricsEnabled: false,
         documentationFileUploadV1: false,
         contextDocumentsEnabled: false,
         hideLineageInSearchCards: false,
+        dataProductLineageEnabled: false,
         glossaryBasedPoliciesEnabled: false,
+        structuredPropertiesInPoliciesEnabled: false,
         multipleDataProductsPerAsset: false,
+        showTestsInHealthIcon: false,
+        i18nEnabled: true,
     },
     chromeExtensionConfig: {
         enabled: false,
@@ -109,7 +122,7 @@ export const DEFAULT_APP_CONFIG = {
 };
 
 export const AppConfigContext = React.createContext<{
-    config: AppConfig;
+    config: AppConfigWithoutPolicyPrivileges;
     loaded: boolean;
     refreshContext: () => void;
 }>({ config: DEFAULT_APP_CONFIG, loaded: false, refreshContext: () => null });

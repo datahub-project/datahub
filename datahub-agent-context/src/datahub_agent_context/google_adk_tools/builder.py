@@ -3,6 +3,10 @@
 from typing import TYPE_CHECKING, Callable, List
 
 from datahub_agent_context.mcp_tools import get_me
+from datahub_agent_context.mcp_tools.ask_datahub import (
+    ask_datahub_chat,
+    get_datahub_chat,
+)
 from datahub_agent_context.mcp_tools.assertions import get_dataset_assertions
 from datahub_agent_context.mcp_tools.documents import grep_documents, search_documents
 from datahub_agent_context.mcp_tools.domains import remove_domains, set_domains
@@ -17,6 +21,11 @@ if TYPE_CHECKING:
 
 from datahub_agent_context.mcp_tools.descriptions import update_description
 from datahub_agent_context.mcp_tools.entities import get_entities, list_schema_fields
+from datahub_agent_context.mcp_tools.incidents import (
+    list_incidents,
+    raise_incident,
+    resolve_incident,
+)
 from datahub_agent_context.mcp_tools.lineage import (
     get_lineage,
     get_lineage_paths_between,
@@ -74,6 +83,7 @@ def build_google_adk_tools(
         create_context_wrapper(get_lineage_paths_between, client),
         create_context_wrapper(get_dataset_queries, client),
         create_context_wrapper(get_dataset_assertions, client),
+        create_context_wrapper(list_incidents, client),
         create_context_wrapper(search, client),
     ]
 
@@ -92,6 +102,41 @@ def build_google_adk_tools(
                 create_context_wrapper(add_glossary_terms, client),
                 create_context_wrapper(remove_glossary_terms, client),
                 create_context_wrapper(save_document, client),
+                create_context_wrapper(raise_incident, client),
+                create_context_wrapper(resolve_incident, client),
+            ]
+        )
+
+    return tools
+
+
+def build_google_adk_cloud_tools(
+    client: "DataHubClient",
+    *,
+    ask_datahub: bool = True,
+) -> List[Callable]:
+    """Build Google ADK tools for DataHub Cloud features.
+
+    Returns tools that are only available on DataHub Cloud instances.
+    Use alongside ``build_google_adk_tools`` to get the full suite::
+
+        tools = build_google_adk_tools(client, include_mutations=True)
+        tools += build_google_adk_cloud_tools(client, ask_datahub=True)
+
+    Args:
+        client: DataHubClient instance (must be connected to a Cloud instance)
+        ask_datahub: Include the Ask DataHub AI chat tools (default: True)
+
+    Returns:
+        List of callables for Cloud-only features
+    """
+    tools: List[Callable] = []
+
+    if ask_datahub:
+        tools.extend(
+            [
+                create_context_wrapper(ask_datahub_chat, client),
+                create_context_wrapper(get_datahub_chat, client),
             ]
         )
 

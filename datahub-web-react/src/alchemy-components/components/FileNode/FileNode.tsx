@@ -1,12 +1,14 @@
-import { Button, colors } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Typography } from 'antd';
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Button } from '@components/components/Button';
 import { getExtensionFromFileName } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileIcon } from '@components/components/FileNode/FileIcon';
 import { FileNodeProps } from '@components/components/FileNode/types';
+import { Text } from '@components/components/Text';
+import { Tooltip } from '@components/components/Tooltip';
 import { getFontSize } from '@components/theme/utils';
 
 import Loading from '@app/shared/Loading';
@@ -19,7 +21,7 @@ const Container = styled.div<{ $border?: boolean; $fontSize?: string }>`
         props.$border &&
         `
         border-radius: 8px;
-        border: 1px solid ${colors.gray[100]};
+        border: 1px solid ${props.theme.colors.border};
     `}
 
     ${(props) => props.$fontSize && `font-size: ${props.$fontSize};`}
@@ -42,11 +44,13 @@ const CloseButton = styled(Button)`
     padding: 0;
 `;
 
-const FileName = styled(Typography.Text)`
-    color: ${({ theme }) => theme?.styles?.['primary-color'] ?? colors.violet[500]};
+const FileName = styled(Text)`
+    color: ${({ theme }) => theme.colors.textBrand};
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: block;
+    min-width: 0;
 `;
 
 export function FileNode({
@@ -59,6 +63,7 @@ export function FileNode({
     onClick,
     onClose,
 }: FileNodeProps) {
+    const { t } = useTranslation('alchemy');
     const extension = useMemo(() => getExtensionFromFileName(fileName || ''), [fileName]);
 
     const closeHandler = useCallback(
@@ -92,7 +97,9 @@ export function FileNode({
             <Container $border={border} className={className} $fontSize={fontSize}>
                 <FileDetails>
                     <Loading height={18} width={20} marginTop={0} />
-                    <FileName ellipsis={{ tooltip: fileName }}>Uploading {fileName}...</FileName>
+                    <Tooltip title={fileName}>
+                        <FileName type="span">{t('fileNode.uploading', { fileName })}</FileName>
+                    </Tooltip>
                 </FileDetails>
             </Container>
         );
@@ -102,7 +109,9 @@ export function FileNode({
         <Container $border={border} className={className} $fontSize={fontSize}>
             <FileDetails onClick={clickHandler}>
                 <FileIcon extension={extension} />
-                <FileName ellipsis={{ tooltip: fileName }}>{fileName}</FileName>
+                <Tooltip title={fileName}>
+                    <FileName type="span">{fileName}</FileName>
+                </Tooltip>
 
                 {hasRightContent && <SpaceFiller />}
 

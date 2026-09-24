@@ -6,14 +6,14 @@ import pytest
 import pytest_docker.plugin
 import requests
 import tenacity
-from freezegun import freeze_time
+import time_machine
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
-from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = pytest.mark.integration_batch_5
 
@@ -168,8 +168,6 @@ def loaded_grafana(docker_compose_runner, test_resources_dir):
 
         yield docker_services
 
-    cleanup_image("grafana/grafana")
-
 
 def verify_grafana_api_ready(docker_services: pytest_docker.plugin.Services) -> None:
     """Robust verification that Grafana API is fully accessible after health check passes"""
@@ -255,7 +253,7 @@ def verify_grafana_entities_provisioned(timeout: int = 180) -> None:
             return
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_grafana_basic_ingest(
     loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
 ):
@@ -294,7 +292,7 @@ def test_grafana_basic_ingest(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_grafana_ingest(
     loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
 ):

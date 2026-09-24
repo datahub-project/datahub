@@ -1,23 +1,19 @@
+import json
 import random
 import string
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from google.cloud.bigquery.table import TableListItem
 
 from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
     PlatformResourceKey,
 )
-from datahub.ingestion.glossary.classifier import (
-    ClassificationConfig,
-    DynamicTypedClassifierConfig,
-)
-from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
 from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
@@ -82,18 +78,6 @@ def recipe(mcp_output_path: str, source_config_override: Optional[dict] = None) 
                 "include_data_platform_instance": True,
                 "capture_table_label_as_tag": True,
                 "capture_dataset_label_as_tag": True,
-                "classification": ClassificationConfig(
-                    enabled=True,
-                    classifiers=[
-                        DynamicTypedClassifierConfig(
-                            type="datahub",
-                            config=DataHubClassifierConfig(
-                                minimum_values_threshold=1,
-                            ),
-                        )
-                    ],
-                    max_workers=1,
-                ).model_dump(),
                 **source_config_override,
             },
         },
@@ -101,7 +85,90 @@ def recipe(mcp_output_path: str, source_config_override: Optional[dict] = None) 
     }
 
 
-@freeze_time(FROZEN_TIME)
+def _configure_linked_dataset_mocks(
+    client: MagicMock,
+    get_datasets_for_project_id: MagicMock,
+    get_core_table_details: MagicMock,
+    get_columns_for_dataset: MagicMock,
+    get_sample_data_for_table: MagicMock,
+    get_tables_for_dataset: MagicMock,
+    get_views_for_dataset: MagicMock,
+    get_snapshots_for_dataset: MagicMock,
+    columns: List[BigqueryColumn],
+    view_columns: Optional[List[BigqueryColumn]] = None,
+) -> None:
+    """Wire the common mock shape for one linked dataset (`linked-dataset-1`, one table
+    `table-1`) mirroring `publisher-project-1.source-dataset-1`. The source is reported on
+    the full dataset resource by project NUMBER, which list_projects resolves to an ID.
+    Callers supply the table's columns and differ only in that and their config/assertions.
+    """
+    dataset_name, table_name = "linked-dataset-1", "table-1"
+    get_datasets_for_project_id.return_value = [
+        BigqueryDataset(name=dataset_name, location="US", type="LINKED")
+    ]
+    bq_client = client.return_value
+    bq_client.get_dataset.return_value = MagicMock(
+        _properties={
+            "type": "LINKED",
+            "linkedDatasetSource": {
+                "sourceDataset": {
+                    "projectId": "123456789012",
+                    "datasetId": "source-dataset-1",
+                }
+            },
+            "linkedDatasetMetadata": {"linkState": "LINKED"},
+        }
+    )
+    bq_client.list_projects.return_value = [
+        SimpleNamespace(
+            project_id="publisher-project-1",
+            numeric_id="123456789012",
+            friendly_name="",
+        )
+    ]
+    get_core_table_details.return_value = {
+        table_name: TableListItem(
+            {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
+        )
+    }
+    columns_by_name: Dict[str, List[BigqueryColumn]] = {table_name: columns}
+    views: List[BigqueryView] = []
+    if view_columns is not None:
+        view_name = "view-1"
+        columns_by_name[view_name] = view_columns
+        views.append(
+            BigqueryView(
+                name=view_name,
+                comment=None,
+                created=None,
+                view_definition=None,
+                last_altered=None,
+                size_in_bytes=None,
+                rows_count=None,
+                materialized=False,
+            )
+        )
+    get_columns_for_dataset.return_value = columns_by_name
+    get_sample_data_for_table.return_value = {
+        column.name: [random.randint(1, 80) for _ in range(20)] for column in columns
+    }
+    get_tables_for_dataset.return_value = iter(
+        [
+            BigqueryTable(
+                name=table_name,
+                comment=None,
+                created=None,
+                last_altered=None,
+                size_in_bytes=None,
+                rows_count=None,
+            )
+        ]
+    )
+    get_views_for_dataset.return_value = iter(views)
+    get_snapshots_for_dataset.return_value = iter([])
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_views_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
@@ -253,7 +320,7 @@ def test_bigquery_v2_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
 @patch.object(BigQuerySchemaGenerator, "get_core_table_details")
 @patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
@@ -351,7 +418,7 @@ def test_bigquery_v2_project_labels_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_views_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
@@ -479,7 +546,7 @@ def test_bigquery_queries_v2_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
@@ -577,7 +644,6 @@ LIMIT 100
             "include_schema_metadata": False,
             "include_table_lineage": True,
             "include_usage_statistics": True,
-            "classification": {"enabled": False},
         },
     )
 
@@ -590,7 +656,7 @@ LIMIT 100
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_views_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
@@ -775,7 +841,6 @@ def test_bigquery_convert_column_urns_to_lowercase(
             "convert_column_urns_to_lowercase": True,
             "use_queries_v2": True,
             "include_table_lineage": True,
-            "classification": {"enabled": False},
         },
     )
 
@@ -790,7 +855,7 @@ def test_bigquery_convert_column_urns_to_lowercase(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_views_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
@@ -921,7 +986,6 @@ def test_bigquery_lineage_v2_ingest_view_snapshots(
             "use_queries_v2": use_queries_v2,
             "include_table_lineage": include_table_lineage,
             "include_usage_statistics": include_usage_statistics,
-            "classification": {"enabled": False},
         },
     )
 
@@ -932,3 +996,430 @@ def test_bigquery_lineage_v2_ingest_view_snapshots(
         output_path=mcp_output_path,
         golden_path=mcp_golden_path,
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_views_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQuerySchemaGenerator, "get_core_table_details")
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+@patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
+@patch.object(BigQueryDataReader, "get_sample_data_for_table")
+@patch("google.cloud.bigquery.Client")
+@patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_bigquery_linked_dataset_ingest(
+    projects_client,
+    policy_tag_manager_client,
+    client,
+    get_sample_data_for_table,
+    get_columns_for_dataset,
+    get_datasets_for_project_id,
+    get_core_table_details,
+    get_tables_for_dataset,
+    get_views_for_dataset,
+    get_snapshots_for_dataset,
+    pytestconfig,
+    tmp_path,
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
+    golden_file = "bigquery_linked_dataset_mcp_golden.json"
+    mcp_golden_path = f"{test_resources_dir}/{golden_file}"
+    mcp_output_path = "{}/{}_output.json".format(tmp_path, golden_file)
+
+    columns = [
+        BigqueryColumn(
+            name="age",
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="age",
+            data_type="INT",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=[],
+        ),
+        BigqueryColumn(
+            name="email",
+            ordinal_position=2,
+            is_nullable=True,
+            field_path="email",
+            data_type="STRING",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=[],
+        ),
+    ]
+    _configure_linked_dataset_mocks(
+        client,
+        get_datasets_for_project_id,
+        get_core_table_details,
+        get_columns_for_dataset,
+        get_sample_data_for_table,
+        get_tables_for_dataset,
+        get_views_for_dataset,
+        get_snapshots_for_dataset,
+        columns=columns,
+    )
+
+    # Set explicitly rather than inherited: this suite must keep exercising the
+    # feature regardless of which way the default goes.
+    pipeline_config_dict: Dict[str, Any] = recipe(
+        mcp_output_path=mcp_output_path,
+        source_config_override={"include_linked_dataset_lineage": True},
+    )
+
+    run_and_get_pipeline(pipeline_config_dict)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=mcp_output_path,
+        golden_path=mcp_golden_path,
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_views_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQuerySchemaGenerator, "get_core_table_details")
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+@patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
+@patch.object(BigQueryDataReader, "get_sample_data_for_table")
+@patch("google.cloud.bigquery.Client")
+@patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_bigquery_linked_dataset_no_copy_edge_without_table_lineage(
+    projects_client,
+    policy_tag_manager_client,
+    client,
+    get_sample_data_for_table,
+    get_columns_for_dataset,
+    get_datasets_for_project_id,
+    get_core_table_details,
+    get_tables_for_dataset,
+    get_views_for_dataset,
+    get_snapshots_for_dataset,
+    pytestconfig,
+    tmp_path,
+):
+    # I7: with include_table_lineage off (and the parser off, so the schema-registration gate
+    # runs on this path), a linked dataset is still catalogued but its COPY upstream is gated
+    # off. Asserted directly rather than against a golden, since the invariant is absent upstreamLineage.
+    mcp_output_path = f"{tmp_path}/linked_no_lineage_output.json"
+
+    columns = [
+        BigqueryColumn(
+            name="age",
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="age",
+            data_type="INT",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=[],
+        ),
+    ]
+    _configure_linked_dataset_mocks(
+        client,
+        get_datasets_for_project_id,
+        get_core_table_details,
+        get_columns_for_dataset,
+        get_sample_data_for_table,
+        get_tables_for_dataset,
+        get_views_for_dataset,
+        get_snapshots_for_dataset,
+        columns=columns,
+    )
+
+    pipeline_config_dict: Dict[str, Any] = recipe(
+        mcp_output_path=mcp_output_path,
+        source_config_override={
+            "include_linked_dataset_lineage": True,
+            "include_table_lineage": False,
+            "lineage_use_sql_parser": False,
+        },
+    )
+    run_and_get_pipeline(pipeline_config_dict)
+
+    with open(mcp_output_path) as f:
+        mcps = json.load(f)
+
+    # The COPY edge is this feature's only lineage here, and it is gated on table lineage,
+    # so nothing emits an upstreamLineage aspect.
+    assert not [m for m in mcps if m.get("aspectName") == "upstreamLineage"]
+
+    # Detection still runs: the dataset keeps its Linked Dataset subtype and source reference.
+    assert any(
+        m.get("aspectName") == "subTypes"
+        and "Linked Dataset" in m["aspect"]["json"].get("typeNames", [])
+        for m in mcps
+    ), "linked dataset should still be subtyped 'Linked Dataset'"
+    assert any("source_project_id" in json.dumps(m["aspect"]["json"]) for m in mcps), (
+        "linked dataset should still carry its source reference"
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_views_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQuerySchemaGenerator, "get_core_table_details")
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+@patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
+@patch.object(BigQueryDataReader, "get_sample_data_for_table")
+@patch("google.cloud.bigquery.Client")
+@patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_bigquery_linked_dataset_copy_edge_without_schema_metadata(
+    projects_client,
+    policy_tag_manager_client,
+    client,
+    get_sample_data_for_table,
+    get_columns_for_dataset,
+    get_datasets_for_project_id,
+    get_core_table_details,
+    get_tables_for_dataset,
+    get_views_for_dataset,
+    get_snapshots_for_dataset,
+    pytestconfig,
+    tmp_path,
+):
+    # With schema off the COPY edge emits; the Linked Dataset subtype and source properties (schema
+    # pass) and identity CLL (needs a graph, absent in this mock harness) do not.
+    mcp_output_path = f"{tmp_path}/linked_schema_off_output.json"
+
+    columns = [
+        BigqueryColumn(
+            name="age",
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="age",
+            data_type="INT",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=[],
+        ),
+    ]
+    _configure_linked_dataset_mocks(
+        client,
+        get_datasets_for_project_id,
+        get_core_table_details,
+        get_columns_for_dataset,
+        get_sample_data_for_table,
+        get_tables_for_dataset,
+        get_views_for_dataset,
+        get_snapshots_for_dataset,
+        columns=columns,
+    )
+    # Schema-off fills table_refs via the lightweight list_tables path, not get_tables_for_dataset.
+    client.return_value.list_tables.return_value = [
+        TableListItem(
+            {"tableReference": {"projectId": "", "datasetId": "", "tableId": "table-1"}}
+        )
+    ]
+
+    pipeline_config_dict: Dict[str, Any] = recipe(
+        mcp_output_path=mcp_output_path,
+        source_config_override={
+            "include_linked_dataset_lineage": True,
+            "include_schema_metadata": False,
+            "include_table_lineage": True,
+            "lineage_use_sql_parser": False,
+        },
+    )
+    run_and_get_pipeline(pipeline_config_dict)
+
+    with open(mcp_output_path) as f:
+        mcps = json.load(f)
+
+    upstreams = [m for m in mcps if m.get("aspectName") == "upstreamLineage"]
+    assert len(upstreams) == 1
+    assert upstreams[0]["aspect"]["json"]["upstreams"][0]["type"] == "COPY"
+
+    consumer_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)"
+    publisher_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,publisher-project-1.source-dataset-1.table-1,PROD)"
+    assert upstreams[0]["entityUrn"] == consumer_urn
+    assert upstreams[0]["aspect"]["json"]["upstreams"][0]["dataset"] == publisher_urn
+
+    assert not any(
+        m.get("aspectName") == "subTypes"
+        and "Linked Dataset" in m["aspect"]["json"].get("typeNames", [])
+        for m in mcps
+    )
+    assert not any("source_project_id" in json.dumps(m["aspect"]["json"]) for m in mcps)
+
+    # Schema off: no BigQuery column read; the schema comes from the graph.
+    get_columns_for_dataset.assert_not_called()
+    # Detection costs exactly one datasets.get per linked dataset.
+    assert client.return_value.get_dataset.call_count == 1
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_views_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQuerySchemaGenerator, "get_core_table_details")
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+@patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
+@patch.object(BigQueryDataReader, "get_sample_data_for_table")
+@patch("google.cloud.bigquery.Client")
+@patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_bigquery_linked_dataset_not_reclassified_when_flag_off(
+    projects_client,
+    policy_tag_manager_client,
+    client,
+    get_sample_data_for_table,
+    get_columns_for_dataset,
+    get_datasets_for_project_id,
+    get_core_table_details,
+    get_tables_for_dataset,
+    get_views_for_dataset,
+    get_snapshots_for_dataset,
+    pytestconfig,
+    tmp_path,
+):
+    # With the feature off (the default), a linked dataset must stay an ordinary Dataset;
+    # reclassifying it would silently flip existing users' containers on upgrade.
+    mcp_output_path = f"{tmp_path}/linked_flag_off_output.json"
+
+    columns = [
+        BigqueryColumn(
+            name="age",
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="age",
+            data_type="INT",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=[],
+        ),
+    ]
+    _configure_linked_dataset_mocks(
+        client,
+        get_datasets_for_project_id,
+        get_core_table_details,
+        get_columns_for_dataset,
+        get_sample_data_for_table,
+        get_tables_for_dataset,
+        get_views_for_dataset,
+        get_snapshots_for_dataset,
+        columns=columns,
+    )
+
+    # No include_linked_dataset_lineage override, so the feature is off. The parser is off
+    # too, so the schema-registration gate runs and takes its no-sharing-handler branch.
+    pipeline_config_dict: Dict[str, Any] = recipe(
+        mcp_output_path=mcp_output_path,
+        source_config_override={"lineage_use_sql_parser": False},
+    )
+    run_and_get_pipeline(pipeline_config_dict)
+
+    with open(mcp_output_path) as f:
+        mcps = json.load(f)
+
+    subtypes = [
+        m["aspect"]["json"].get("typeNames", [])
+        for m in mcps
+        if m.get("aspectName") == "subTypes"
+    ]
+    assert ["Dataset"] in subtypes, "the linked dataset should stay an ordinary Dataset"
+    assert not any("Linked Dataset" in tn for tn in subtypes)
+    assert not any(
+        "source_project_id" in json.dumps(m["aspect"]["json"]) for m in mcps
+    ), "no source reference should be emitted with the feature off"
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_views_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQuerySchemaGenerator, "get_core_table_details")
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+@patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
+@patch.object(BigQueryDataReader, "get_sample_data_for_table")
+@patch("google.cloud.bigquery.Client")
+@patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_bigquery_linked_dataset_column_lineage_survives_parser_off(
+    projects_client,
+    policy_tag_manager_client,
+    client,
+    get_sample_data_for_table,
+    get_columns_for_dataset,
+    get_datasets_for_project_id,
+    get_core_table_details,
+    get_tables_for_dataset,
+    get_views_for_dataset,
+    get_snapshots_for_dataset,
+    pytestconfig,
+    tmp_path,
+):
+    mcp_output_path = f"{tmp_path}/linked_parser_off_output.json"
+
+    columns = [
+        BigqueryColumn(
+            name="age",
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="age",
+            data_type="INT",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=[],
+        ),
+    ]
+    view_columns = [
+        BigqueryColumn(
+            name="email",
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="email",
+            data_type="STRING",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=[],
+        ),
+    ]
+    _configure_linked_dataset_mocks(
+        client,
+        get_datasets_for_project_id,
+        get_core_table_details,
+        get_columns_for_dataset,
+        get_sample_data_for_table,
+        get_tables_for_dataset,
+        get_views_for_dataset,
+        get_snapshots_for_dataset,
+        columns=columns,
+        view_columns=view_columns,
+    )
+
+    pipeline_config_dict: Dict[str, Any] = recipe(
+        mcp_output_path=mcp_output_path,
+        source_config_override={
+            "include_linked_dataset_lineage": True,
+            "lineage_use_sql_parser": False,
+        },
+    )
+    run_and_get_pipeline(pipeline_config_dict)
+
+    with open(mcp_output_path) as f:
+        mcps = json.load(f)
+
+    upstreams = [m for m in mcps if m.get("aspectName") == "upstreamLineage"]
+    # One COPY edge each for the linked table and the linked view.
+    assert len(upstreams) == 2
+    for m in upstreams:
+        aspect = m["aspect"]["json"]
+        assert aspect["upstreams"][0]["type"] == "COPY"
+        assert aspect.get("fineGrainedLineages"), (
+            "identity column lineage should survive lineage_use_sql_parser=false"
+        )

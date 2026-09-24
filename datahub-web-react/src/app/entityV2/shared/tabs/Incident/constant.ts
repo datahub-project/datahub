@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { IncidentPriority, IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
 
 export const INCIDENT_DEFAULT_FILTERS = {
@@ -13,50 +15,98 @@ export const INCIDENT_DEFAULT_FILTERS = {
 };
 
 export const INCIDENT_GROUP_BY_FILTER_OPTIONS = [
-    { label: 'Priority', value: 'priority' },
-    { label: 'Stage', value: 'stage' },
-    { label: 'Category', value: 'category' },
-    { label: 'State', value: 'state' },
+    {
+        get label() {
+            return i18next.t('entity.profile.incident:field.priorityLabel');
+        },
+        value: 'priority',
+    },
+    {
+        get label() {
+            return i18next.t('entity.profile.incident:field.stageLabel');
+        },
+        value: 'stage',
+    },
+    {
+        get label() {
+            return i18next.t('common.labels:category');
+        },
+        value: 'category',
+    },
+    {
+        get label() {
+            return i18next.t('common.labels:state');
+        },
+        value: 'state',
+    },
 ];
 
 export const INCIDENT_TYPE_NAME_MAP = {
-    CUSTOM: 'Custom',
-    FIELD: 'Column',
-    FRESHNESS: 'Freshness',
-    DATASET: 'Other',
-    DATA_SCHEMA: 'Schema',
-    OPERATIONAL: 'Operational',
+    get CUSTOM() {
+        return i18next.t('entity.profile.incident:type.custom');
+    },
+    get FIELD() {
+        return i18next.t('entity.profile.incident:type.field');
+    },
+    get FRESHNESS() {
+        return i18next.t('entity.profile.incident:type.freshness');
+    },
+    get DATASET() {
+        return i18next.t('entity.profile.incident:type.dataset');
+    },
+    get DATA_SCHEMA() {
+        return i18next.t('entity.profile.incident:type.schema');
+    },
+    get OPERATIONAL() {
+        return i18next.t('entity.profile.incident:type.operational');
+    },
     SQL: 'SQL',
-    VOLUME: 'Volume',
+    get VOLUME() {
+        return i18next.t('entity.profile.incident:type.volume');
+    },
 };
 
 export const INCIDENT_CATEGORIES = [
     {
-        label: INCIDENT_TYPE_NAME_MAP.OPERATIONAL,
+        get label() {
+            return INCIDENT_TYPE_NAME_MAP.OPERATIONAL;
+        },
         value: IncidentType.Operational,
     },
     {
-        label: INCIDENT_TYPE_NAME_MAP.DATA_SCHEMA,
+        get label() {
+            return INCIDENT_TYPE_NAME_MAP.DATA_SCHEMA;
+        },
         value: IncidentType.DataSchema,
     },
     {
-        label: INCIDENT_TYPE_NAME_MAP.FIELD,
+        get label() {
+            return INCIDENT_TYPE_NAME_MAP.FIELD;
+        },
         value: IncidentType.Field,
     },
     {
-        label: INCIDENT_TYPE_NAME_MAP.FRESHNESS,
+        get label() {
+            return INCIDENT_TYPE_NAME_MAP.FRESHNESS;
+        },
         value: IncidentType.Freshness,
     },
     {
-        label: INCIDENT_TYPE_NAME_MAP.SQL,
+        get label() {
+            return INCIDENT_TYPE_NAME_MAP.SQL;
+        },
         value: IncidentType.Sql,
     },
     {
-        label: INCIDENT_TYPE_NAME_MAP.VOLUME,
+        get label() {
+            return INCIDENT_TYPE_NAME_MAP.VOLUME;
+        },
         value: IncidentType.Volume,
     },
     {
-        label: INCIDENT_TYPE_NAME_MAP.CUSTOM,
+        get label() {
+            return INCIDENT_TYPE_NAME_MAP.CUSTOM;
+        },
         value: IncidentType.Custom,
     },
 ];
@@ -73,110 +123,170 @@ interface IncidentPriorityInterface {
 
 export const INCIDENT_PRIORITIES: IncidentPriorityInterface[] = [
     {
-        label: 'Critical',
+        get label() {
+            return i18next.t('entity.profile.incident:priority.critical');
+        },
         value: IncidentPriority.Critical,
     },
     {
-        label: 'High',
+        get label() {
+            return i18next.t('entity.profile.incident:priority.high');
+        },
         value: IncidentPriority.High,
     },
     {
-        label: 'Medium',
+        get label() {
+            return i18next.t('entity.profile.incident:priority.medium');
+        },
         value: IncidentPriority.Medium,
     },
     {
-        label: 'Low',
+        get label() {
+            return i18next.t('entity.profile.incident:priority.low');
+        },
         value: IncidentPriority.Low,
     },
 ];
 
 export const INCIDENT_STAGES = [
     {
-        label: 'Triage',
+        get label() {
+            return i18next.t('entity.profile.incident:stage.triage');
+        },
         value: IncidentStage.Triage,
     },
     {
-        label: 'Investigation',
+        get label() {
+            return i18next.t('entity.profile.incident:stage.investigation');
+        },
         value: IncidentStage.Investigation,
     },
     {
-        label: 'In Progress',
+        get label() {
+            return i18next.t('entity.profile.incident:stage.workInProgress');
+        },
         value: IncidentStage.WorkInProgress,
     },
     {
-        label: 'Fixed',
+        get label() {
+            return i18next.t('entity.profile.incident:stage.fixed');
+        },
         value: IncidentStage.Fixed,
     },
     {
-        label: 'No Action',
+        get label() {
+            return i18next.t('entity.profile.incident:stage.noAction');
+        },
         value: IncidentStage.NoActionRequired,
     },
 ];
 
 export const INCIDENT_RESOLUTION_STAGES = [
     {
-        label: 'Fixed',
+        get label() {
+            return i18next.t('entity.profile.incident:stage.fixed');
+        },
         value: IncidentStage.Fixed,
     },
     {
-        label: 'No Action',
+        get label() {
+            return i18next.t('entity.profile.incident:stage.noAction');
+        },
         value: IncidentStage.NoActionRequired,
     },
 ];
 
 export const INCIDENT_STATES = [
     {
-        label: 'Resolved',
+        get label() {
+            return i18next.t('entity.profile.incident:state.resolved');
+        },
         value: IncidentState.Resolved,
     },
     {
-        label: 'Active',
+        get label() {
+            return i18next.t('entity.profile.incident:state.active');
+        },
         value: IncidentState.Active,
     },
 ];
 
 export const INCIDENT_OPTION_LABEL_MAPPING = {
     category: {
-        label: 'Category',
+        key: 'category',
+        get label() {
+            return i18next.t('common.labels:category');
+        },
         name: 'type',
         fieldName: 'type',
     },
     priority: {
-        label: 'Priority',
+        key: 'priority',
+        get label() {
+            return i18next.t('entity.profile.incident:field.priorityLabel');
+        },
         name: 'priority',
         fieldName: 'priority',
     },
     stage: {
-        label: 'Stage',
+        key: 'stage',
+        get label() {
+            return i18next.t('entity.profile.incident:field.stageLabel');
+        },
         name: 'status',
         fieldName: 'status',
     },
     state: {
-        label: 'Status',
+        key: 'status',
+        get label() {
+            return i18next.t('common.labels:status');
+        },
         name: 'state',
         fieldName: 'state',
     },
 };
 
 export const INCIDENT_STAGE_NAME_MAP = {
-    FIXED: 'Fixed',
-    INVESTIGATION: 'Investigation',
-    NO_ACTION_REQUIRED: 'No Action',
-    TRIAGE: 'Triage',
-    WORK_IN_PROGRESS: 'In progress',
+    get FIXED() {
+        return i18next.t('entity.profile.incident:stage.fixed');
+    },
+    get INVESTIGATION() {
+        return i18next.t('entity.profile.incident:stage.investigation');
+    },
+    get NO_ACTION_REQUIRED() {
+        return i18next.t('entity.profile.incident:stage.noAction');
+    },
+    get TRIAGE() {
+        return i18next.t('entity.profile.incident:stage.triage');
+    },
+    get WORK_IN_PROGRESS() {
+        return i18next.t('entity.profile.incident:stage.workInProgress');
+    },
     None: 'None',
 };
 
 export const INCIDENT_STATE_NAME_MAP = {
-    ACTIVE: 'Active',
-    RESOLVED: 'Resolved',
+    get ACTIVE() {
+        return i18next.t('entity.profile.incident:state.active');
+    },
+    get RESOLVED() {
+        return i18next.t('entity.profile.incident:state.resolved');
+    },
 };
 
 export const INCIDENT_PRIORITY_NAME_MAP = {
-    CRITICAL: 'Critical',
-    HIGH: 'High',
-    LOW: 'Low',
-    MEDIUM: 'Medium',
+    get CRITICAL() {
+        return i18next.t('entity.profile.incident:priority.critical');
+    },
+    get HIGH() {
+        return i18next.t('entity.profile.incident:priority.high');
+    },
+    get LOW() {
+        return i18next.t('entity.profile.incident:priority.low');
+    },
+    get MEDIUM() {
+        return i18next.t('entity.profile.incident:priority.medium');
+    },
     None: 'None',
 };
 
@@ -207,18 +317,16 @@ export const INCIDENT_PRIORITY = [
     IncidentPriority.Low,
 ];
 
-export const PRIORITY_ORDER = [INCIDENT_PRIORITY_NAME_MAP.None, ...INCIDENT_PRIORITY];
+export const PRIORITY_ORDER = ['None', ...INCIDENT_PRIORITY];
 
 export const STAGE_ORDER = [
-    INCIDENT_PRIORITY_NAME_MAP.None,
-    INCIDENT_STAGE_NAME_MAP.TRIAGE,
-    INCIDENT_STAGE_NAME_MAP.INVESTIGATION,
-    INCIDENT_STAGE_NAME_MAP.WORK_IN_PROGRESS,
-    INCIDENT_STAGE_NAME_MAP.FIXED,
-    INCIDENT_STAGE_NAME_MAP.NO_ACTION_REQUIRED,
+    'None',
+    IncidentStage.Triage,
+    IncidentStage.Investigation,
+    IncidentStage.WorkInProgress,
+    IncidentStage.Fixed,
+    IncidentStage.NoActionRequired,
 ];
-export const STATE_ORDER = [INCIDENT_STATE_NAME_MAP.ACTIVE, INCIDENT_STATE_NAME_MAP.RESOLVED];
+export const STATE_ORDER = [IncidentState.Active, IncidentState.Resolved];
 
 export const MAX_VISIBLE_ASSIGNEE = 5;
-
-export const noPermissionsMessage = 'You do not have permission to edit incidents for this asset.';

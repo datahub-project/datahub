@@ -12,11 +12,17 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -61,7 +67,7 @@ import org.testng.annotations.Test;
 
 public class ESWriteDAOTest {
 
-  private static final String TEST_DELETE_INDEX = "test_index";
+  private static final String TEST_DELETE_INDEX = "test_index_v2";
   private static final String TEST_NODE_ID = "node1";
   private static final long TEST_TASK_ID = 12345L;
   private static final String TEST_TASK_STRING = TEST_NODE_ID + ":" + TEST_TASK_ID;
@@ -74,21 +80,52 @@ public class ESWriteDAOTest {
 
   @Mock private SearchClientShim<?> mockSearchClient;
   @Mock private ESBulkProcessor mockBulkProcessor;
-  private final OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+  private OperationContext opContext;
 
   private ESWriteDAO esWriteDAO;
 
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
+    opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), mockSearchClient);
 
     esWriteDAO =
         new ESWriteDAO(
-            TEST_OS_SEARCH_CONFIG.toBuilder()
-                .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(NUM_RETRIES).build())
-                .build(),
+            searchConfig(true),
             mockSearchClient,
-            mockBulkProcessor);
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
+  }
+
+  private static ElasticSearchConfiguration searchConfig(boolean v3Enabled) {
+    EntityIndexConfiguration entityIndex = TEST_OS_SEARCH_CONFIG.getEntityIndex();
+    return TEST_OS_SEARCH_CONFIG.toBuilder()
+        .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(NUM_RETRIES).build())
+        .entityIndex(
+            entityIndex.toBuilder()
+                .v3(entityIndex.getV3().toBuilder().enabled(v3Enabled).build())
+                .build())
+        .build();
+  }
+
+  @Test
+  public void testSearchGroupWritesSkippedWhenV3Disabled() {
+    ESWriteDAO v3DisabledDAO =
+        new ESWriteDAO(
+            searchConfig(false),
+            mockSearchClient,
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
+
+    v3DisabledDAO.upsertDocumentBySearchGroup(
+        opContext, "test_group", "{\"field\":\"value\"}", TEST_DOC_ID);
+    v3DisabledDAO.deleteDocumentBySearchGroup(opContext, "test_group", TEST_DOC_ID);
+    v3DisabledDAO.applyScriptUpdateBySearchGroup(
+        opContext, "test_group", TEST_DOC_ID, "ctx._source.x=1", Map.of(), Map.of());
+
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
   }
 
   @Test
@@ -98,7 +135,8 @@ public class ESWriteDAOTest {
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, TEST_DOC_ID);
 
     ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
-    verify(mockBulkProcessor).add(requestCaptor.capture());
+    verify(mockBulkProcessor)
+        .add(any(OperationContext.class), eq(TEST_DOC_ID), requestCaptor.capture());
 
     UpdateRequest capturedRequest = requestCaptor.getValue();
     assertEquals(capturedRequest.index(), TEST_INDEX);
@@ -113,11 +151,29 @@ public class ESWriteDAOTest {
   }
 
   @Test
+  public void testUpsertDocumentAndSearchGroupHitDifferentBulkProcessors() {
+    ESBulkProcessor v2Bulk = mock(ESBulkProcessor.class);
+    ESBulkProcessor v3Bulk = mock(ESBulkProcessor.class);
+    SearchWriteAccess writeAccess =
+        component -> component == SearchComponent.SEARCH_V3 ? v3Bulk : v2Bulk;
+    ESWriteDAO dao = new ESWriteDAO(searchConfig(true), mockSearchClient, v2Bulk, writeAccess);
+
+    dao.upsertDocument(opContext, TEST_ENTITY, "{\"field\":\"v2\"}", TEST_DOC_ID);
+    verify(v2Bulk).add(any(OperationContext.class), eq(TEST_DOC_ID), any(UpdateRequest.class));
+    verify(v3Bulk, never())
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+
+    dao.upsertDocumentBySearchGroup(opContext, "dataset", "{\"field\":\"v3\"}", TEST_DOC_ID);
+    verify(v3Bulk).add(any(OperationContext.class), eq(TEST_DOC_ID), any(UpdateRequest.class));
+  }
+
+  @Test
   public void testDeleteDocument() {
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, TEST_DOC_ID);
 
     ArgumentCaptor<DeleteRequest> requestCaptor = ArgumentCaptor.forClass(DeleteRequest.class);
-    verify(mockBulkProcessor).add(requestCaptor.capture());
+    verify(mockBulkProcessor)
+        .add(any(OperationContext.class), eq(TEST_DOC_ID), requestCaptor.capture());
 
     DeleteRequest capturedRequest = requestCaptor.getValue();
     assertEquals(capturedRequest.index(), TEST_INDEX);
@@ -136,7 +192,8 @@ public class ESWriteDAOTest {
         opContext, TEST_ENTITY, TEST_DOC_ID, scriptSource, scriptParams, upsert);
 
     ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
-    verify(mockBulkProcessor).add(requestCaptor.capture());
+    verify(mockBulkProcessor)
+        .add(any(OperationContext.class), eq(TEST_DOC_ID), requestCaptor.capture());
 
     UpdateRequest capturedRequest = requestCaptor.getValue();
     assertEquals(TEST_INDEX, capturedRequest.index());
@@ -173,7 +230,8 @@ public class ESWriteDAOTest {
         opContext, searchGroup, TEST_DOC_ID, scriptSource, scriptParams, upsert);
 
     ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
-    verify(mockBulkProcessor).add(requestCaptor.capture());
+    verify(mockBulkProcessor)
+        .add(any(OperationContext.class), eq(TEST_DOC_ID), requestCaptor.capture());
 
     UpdateRequest capturedRequest = requestCaptor.getValue();
     assertEquals("datasetindex_v3", capturedRequest.index());
@@ -187,26 +245,38 @@ public class ESWriteDAOTest {
 
   @Test
   public void testClear() throws IOException {
-    String[] indices = new String[] {"index1", "index2"};
+    String[] indices = new String[] {"datasetindex_v2", "chartindex_v2"};
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(indices);
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getIndex(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
 
     // Mock getIndexAliases to return empty aliases (concrete indices, not aliases)
     GetAliasesResponse mockAliasesResponse = mock(GetAliasesResponse.class);
     when(mockAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
-    when(mockSearchClient.getIndexAliases(any(GetAliasesRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getIndexAliases(
+            any(OperationFingerprint.class),
+            any(GetAliasesRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(mockAliasesResponse);
 
     // Mock indexExists to return true
-    when(mockSearchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.indexExists(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(true);
 
     // Mock deleteIndex to return acknowledged response
     AcknowledgedResponse mockDeleteResponse = mock(AcknowledgedResponse.class);
     when(mockDeleteResponse.isAcknowledged()).thenReturn(true);
-    when(mockSearchClient.deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.deleteIndex(
+            any(OperationFingerprint.class),
+            any(DeleteIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(mockDeleteResponse);
 
     Set<String> deletedIndices = esWriteDAO.clear(opContext);
@@ -214,24 +284,34 @@ public class ESWriteDAOTest {
     // Verify the GetIndexRequest
     ArgumentCaptor<GetIndexRequest> indexRequestCaptor =
         ArgumentCaptor.forClass(GetIndexRequest.class);
-    verify(mockSearchClient).getIndex(indexRequestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    verify(mockSearchClient)
+        .getIndex(
+            any(OperationFingerprint.class),
+            indexRequestCaptor.capture(),
+            eq(RequestOptions.DEFAULT));
     assertEquals(indexRequestCaptor.getValue().indices()[0], TEST_PATTERN);
 
     // Verify indices were deleted
     assertEquals(deletedIndices.size(), 2);
-    assertTrue(deletedIndices.contains("index1"));
-    assertTrue(deletedIndices.contains("index2"));
+    assertTrue(deletedIndices.contains("datasetindex_v2"));
+    assertTrue(deletedIndices.contains("chartindex_v2"));
 
     // Verify deleteIndex was called for each index
     ArgumentCaptor<DeleteIndexRequest> deleteRequestCaptor =
         ArgumentCaptor.forClass(DeleteIndexRequest.class);
     verify(mockSearchClient, times(2))
-        .deleteIndex(deleteRequestCaptor.capture(), eq(RequestOptions.DEFAULT));
+        .deleteIndex(
+            any(OperationFingerprint.class),
+            deleteRequestCaptor.capture(),
+            eq(RequestOptions.DEFAULT));
   }
 
   @Test(expectedExceptions = RuntimeException.class)
   public void testClearWithIOException() throws IOException {
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getIndex(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Test exception"));
     // This should now throw RuntimeException (not swallow the error)
     esWriteDAO.clear(opContext);
@@ -261,11 +341,13 @@ public class ESWriteDAOTest {
     QueryBuilder query = QueryBuilders.termQuery("status", "deleted");
 
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     CompletableFuture<String> future =
-        esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQueryAsync(opContext, TEST_DELETE_INDEX, query, null);
     String result = future.get();
 
     assertNotNull(result);
@@ -275,7 +357,8 @@ public class ESWriteDAOTest {
     ArgumentCaptor<DeleteByQueryRequest> requestCaptor =
         ArgumentCaptor.forClass(DeleteByQueryRequest.class);
     verify(mockSearchClient)
-        .submitDeleteByQueryTask(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+        .submitDeleteByQueryTask(
+            any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     DeleteByQueryRequest capturedRequest = requestCaptor.getValue();
     assertEquals(capturedRequest.indices()[0], TEST_DELETE_INDEX);
@@ -296,11 +379,13 @@ public class ESWriteDAOTest {
             .build();
 
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     CompletableFuture<String> future =
-        esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, customConfig);
+        esWriteDAO.deleteByQueryAsync(opContext, TEST_DELETE_INDEX, query, customConfig);
     String result = future.get();
 
     assertNotNull(result);
@@ -309,7 +394,8 @@ public class ESWriteDAOTest {
     ArgumentCaptor<DeleteByQueryRequest> requestCaptor =
         ArgumentCaptor.forClass(DeleteByQueryRequest.class);
     verify(mockSearchClient)
-        .submitDeleteByQueryTask(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+        .submitDeleteByQueryTask(
+            any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     DeleteByQueryRequest capturedRequest = requestCaptor.getValue();
     assertEquals(capturedRequest.getBatchSize(), 5000);
@@ -321,11 +407,13 @@ public class ESWriteDAOTest {
     QueryBuilder query = QueryBuilders.termQuery("field", "value");
 
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Network error"));
 
     CompletableFuture<String> future =
-        esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQueryAsync(opContext, TEST_DELETE_INDEX, query, null);
 
     try {
       future.get();
@@ -345,11 +433,12 @@ public class ESWriteDAOTest {
     // Mock count response with 0 documents
     CountResponse mockCountResponse = mock(CountResponse.class);
     when(mockCountResponse.getCount()).thenReturn(0L);
-    when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.count(
+            any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockCountResponse);
 
     ESWriteDAO.DeleteByQueryResult result =
-        esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
     assertTrue(result.isSuccess());
     assertEquals(result.getRemainingDocuments(), 0);
@@ -368,13 +457,16 @@ public class ESWriteDAOTest {
     CountResponse afterDeleteCount = mock(CountResponse.class);
     when(afterDeleteCount.getCount()).thenReturn(0L);
 
-    when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.count(
+            any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(initialCount)
         .thenReturn(afterDeleteCount);
 
     // Mock task submission
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     // Mock task monitoring
@@ -387,7 +479,7 @@ public class ESWriteDAOTest {
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
-        esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
     assertTrue(result.isSuccess());
     assertEquals(result.getRemainingDocuments(), 0);
@@ -408,14 +500,17 @@ public class ESWriteDAOTest {
     CountResponse count0 = mock(CountResponse.class);
     when(count0.getCount()).thenReturn(0L);
 
-    when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.count(
+            any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(count100) // Initial count
         .thenReturn(count50) // After first delete
         .thenReturn(count0); // After second delete
 
     // Mock task submissions
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     // Mock task monitoring
@@ -428,7 +523,7 @@ public class ESWriteDAOTest {
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
-        esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
     assertTrue(result.isSuccess());
     assertEquals(result.getRemainingDocuments(), 0);
@@ -437,7 +532,10 @@ public class ESWriteDAOTest {
 
     // Verify two delete operations were performed
     verify(mockSearchClient, times(2))
-        .submitDeleteByQueryTask(any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT));
+        .submitDeleteByQueryTask(
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -448,12 +546,15 @@ public class ESWriteDAOTest {
     CountResponse count100 = mock(CountResponse.class);
     when(count100.getCount()).thenReturn(100L);
 
-    when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.count(
+            any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(count100); // Always returns 100
 
     // Mock task submission
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     // Mock task monitoring with no deletions
@@ -466,7 +567,7 @@ public class ESWriteDAOTest {
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
-        esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
     assertFalse(result.isSuccess());
     assertEquals(result.getRemainingDocuments(), 100);
@@ -480,16 +581,19 @@ public class ESWriteDAOTest {
     // Mock initial count
     CountResponse mockCountResponse = mock(CountResponse.class);
     when(mockCountResponse.getCount()).thenReturn(100L);
-    when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.count(
+            any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockCountResponse);
 
     // Mock exception during task submission
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Connection failed"));
 
     ESWriteDAO.DeleteByQueryResult result =
-        esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
     assertFalse(result.isSuccess());
     assertEquals(result.getRemainingDocuments(), -1); // Unknown
@@ -505,11 +609,14 @@ public class ESWriteDAOTest {
       // Setup mocks for a basic flow
       CountResponse mockCount = mock(CountResponse.class);
       when(mockCount.getCount()).thenReturn(100L).thenReturn(0L);
-      when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+      when(mockSearchClient.count(
+              any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
           .thenReturn(mockCount);
 
       when(mockSearchClient.submitDeleteByQueryTask(
-              any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+              any(OperationContext.class),
+              any(DeleteByQueryRequest.class),
+              eq(RequestOptions.DEFAULT)))
           .thenReturn("node123:456789");
 
       GetTaskResponse mockTaskResponse = mock(GetTaskResponse.class);
@@ -518,7 +625,7 @@ public class ESWriteDAOTest {
           .thenReturn(Optional.of(mockTaskResponse));
 
       ESWriteDAO.DeleteByQueryResult result =
-          esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+          esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
       // If we get here without exception, parsing worked
       assertNotNull(result);
@@ -540,17 +647,22 @@ public class ESWriteDAOTest {
             .build();
 
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     // Should handle invalid slices gracefully and default to auto
     CompletableFuture<String> future =
-        esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, customConfig);
+        esWriteDAO.deleteByQueryAsync(opContext, TEST_DELETE_INDEX, query, customConfig);
     String result = future.get();
 
     assertNotNull(result);
     verify(mockSearchClient)
-        .submitDeleteByQueryTask(any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT));
+        .submitDeleteByQueryTask(
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -566,11 +678,13 @@ public class ESWriteDAOTest {
             .build();
 
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     CompletableFuture<String> future =
-        esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, customConfig);
+        esWriteDAO.deleteByQueryAsync(opContext, TEST_DELETE_INDEX, query, customConfig);
     String result = future.get();
 
     assertNotNull(result);
@@ -579,7 +693,8 @@ public class ESWriteDAOTest {
     ArgumentCaptor<DeleteByQueryRequest> requestCaptor =
         ArgumentCaptor.forClass(DeleteByQueryRequest.class);
     verify(mockSearchClient)
-        .submitDeleteByQueryTask(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+        .submitDeleteByQueryTask(
+            any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     DeleteByQueryRequest capturedRequest = requestCaptor.getValue();
     assertEquals(capturedRequest.getBatchSize(), 2000);
@@ -597,13 +712,16 @@ public class ESWriteDAOTest {
     CountResponse afterFailureCount = mock(CountResponse.class);
     when(afterFailureCount.getCount()).thenReturn(90L); // Some documents deleted before failure
 
-    when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.count(
+            any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(initialCount)
         .thenReturn(afterFailureCount);
 
     // Mock task submission
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     // Mock task monitoring with incomplete/failed task
@@ -614,7 +732,7 @@ public class ESWriteDAOTest {
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
-        esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
     assertFalse(result.isSuccess());
     assertEquals(result.getRemainingDocuments(), 90);
@@ -639,7 +757,8 @@ public class ESWriteDAOTest {
     CountResponse count40 = mock(CountResponse.class);
     when(count40.getCount()).thenReturn(40L);
 
-    when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.count(
+            any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(count100) // Initial
         .thenReturn(count80) // After 1st delete
         .thenReturn(count60) // After 2nd delete
@@ -647,7 +766,9 @@ public class ESWriteDAOTest {
 
     // Mock task submissions
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     // Mock successful task completions
@@ -658,7 +779,7 @@ public class ESWriteDAOTest {
         .thenReturn(Optional.of(mockTaskResponse));
 
     ESWriteDAO.DeleteByQueryResult result =
-        esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
     assertFalse(result.isSuccess()); // Failed because documents remain
     assertEquals(result.getRemainingDocuments(), 40);
@@ -667,7 +788,10 @@ public class ESWriteDAOTest {
 
     // Verify 3 delete operations were performed (initial + 2 retries)
     verify(mockSearchClient, times(3))
-        .submitDeleteByQueryTask(any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT));
+        .submitDeleteByQueryTask(
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -679,7 +803,8 @@ public class ESWriteDAOTest {
         .thenThrow(new IOException("Task API error"));
 
     // Also make count fail when trying to get remaining documents
-    when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.count(
+            any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Count API error"));
 
     // Note: This tests the internal monitor method indirectly through deleteByQuerySync
@@ -690,16 +815,19 @@ public class ESWriteDAOTest {
     when(initialCount.getCount()).thenReturn(100L);
 
     // First count succeeds, subsequent counts fail
-    when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.count(
+            any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(initialCount)
         .thenThrow(new IOException("Count API error"));
 
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     ESWriteDAO.DeleteByQueryResult result =
-        esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
     assertFalse(result.isSuccess());
     assertEquals(result.getRemainingDocuments(), -1); // Unknown due to count failure
@@ -714,15 +842,18 @@ public class ESWriteDAOTest {
     try {
       CountResponse mockCount = mock(CountResponse.class);
       when(mockCount.getCount()).thenReturn(100L);
-      when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+      when(mockSearchClient.count(
+              any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
           .thenReturn(mockCount);
 
       when(mockSearchClient.submitDeleteByQueryTask(
-              any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+              any(OperationContext.class),
+              any(DeleteByQueryRequest.class),
+              eq(RequestOptions.DEFAULT)))
           .thenReturn(null);
 
       ESWriteDAO.DeleteByQueryResult result =
-          esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+          esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
       assertFalse(result.isSuccess());
       assertTrue(result.getFailureReason().contains("Invalid task string format"));
@@ -734,15 +865,18 @@ public class ESWriteDAOTest {
     try {
       CountResponse mockCount = mock(CountResponse.class);
       when(mockCount.getCount()).thenReturn(100L);
-      when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+      when(mockSearchClient.count(
+              any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
           .thenReturn(mockCount);
 
       when(mockSearchClient.submitDeleteByQueryTask(
-              any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+              any(OperationContext.class),
+              any(DeleteByQueryRequest.class),
+              eq(RequestOptions.DEFAULT)))
           .thenReturn("invalidformat");
 
       ESWriteDAO.DeleteByQueryResult result =
-          esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+          esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
       assertFalse(result.isSuccess());
       assertTrue(result.getFailureReason().contains("Invalid task string format"));
@@ -759,12 +893,15 @@ public class ESWriteDAOTest {
     CountResponse count100 = mock(CountResponse.class);
     when(count100.getCount()).thenReturn(100L);
 
-    when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.count(
+            any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(count100);
 
     // Mock task submission
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     // Mock task monitoring that takes time
@@ -780,7 +917,7 @@ public class ESWriteDAOTest {
             });
 
     ESWriteDAO.DeleteByQueryResult result =
-        esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
     assertFalse(result.isSuccess());
     assertTrue(result.getFailureReason().contains("interrupted"));
@@ -801,13 +938,16 @@ public class ESWriteDAOTest {
     CountResponse afterCount = mock(CountResponse.class);
     when(afterCount.getCount()).thenReturn(50L); // No change
 
-    when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.count(
+            any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(initialCount)
         .thenReturn(afterCount);
 
     // Mock task submission
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     // Return empty Optional for task response
@@ -815,7 +955,7 @@ public class ESWriteDAOTest {
         .thenReturn(Optional.empty());
 
     ESWriteDAO.DeleteByQueryResult result =
-        esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
     assertFalse(result.isSuccess());
     assertEquals(result.getRemainingDocuments(), 50);
@@ -844,13 +984,16 @@ public class ESWriteDAOTest {
     CountResponse afterCount = mock(CountResponse.class);
     when(afterCount.getCount()).thenReturn(0L);
 
-    when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.count(
+            any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(initialCount)
         .thenReturn(afterCount);
 
     // Mock task submission
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     // Mock task response
@@ -859,7 +1002,7 @@ public class ESWriteDAOTest {
     when(mockSearchClient.getTask(any(GetTaskRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(Optional.of(mockTaskResponse));
 
-    esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, customConfig);
+    esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, customConfig);
 
     // Verify GetTaskRequest parameters
     ArgumentCaptor<GetTaskRequest> taskRequestCaptor =
@@ -879,18 +1022,21 @@ public class ESWriteDAOTest {
     QueryBuilder query = QueryBuilders.matchAllQuery();
 
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     CompletableFuture<String> future =
-        esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQueryAsync(opContext, TEST_DELETE_INDEX, query, null);
     future.get();
 
     // Verify conflicts strategy is set to "proceed"
     ArgumentCaptor<DeleteByQueryRequest> requestCaptor =
         ArgumentCaptor.forClass(DeleteByQueryRequest.class);
     verify(mockSearchClient)
-        .submitDeleteByQueryTask(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+        .submitDeleteByQueryTask(
+            any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     DeleteByQueryRequest capturedRequest = requestCaptor.getValue();
     // Note: We can't directly verify conflicts setting as it's not exposed via getter
@@ -917,10 +1063,12 @@ public class ESWriteDAOTest {
 
     if (canWrite) {
       // When writable, bulkProcessor.add should be called
-      verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, times(1))
+          .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
     } else {
       // When not writable, bulkProcessor.add should not be called
-      verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, never())
+          .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
     }
   }
 
@@ -929,16 +1077,17 @@ public class ESWriteDAOTest {
     // Set writability
     esWriteDAO.setWritable(canWrite);
 
-    String indexName = "test_index_" + description;
     String document = "{\"data\":\"" + description + "\"}";
     String docId = "doc_" + description;
 
-    esWriteDAO.upsertDocumentByIndexName(indexName, document, docId);
+    esWriteDAO.upsertDocumentByIndexName(opContext, TEST_INDEX, document, docId);
 
     if (canWrite) {
-      verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, times(1))
+          .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
     } else {
-      verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, never())
+          .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
     }
   }
 
@@ -952,9 +1101,11 @@ public class ESWriteDAOTest {
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, docId);
 
     if (canWrite) {
-      verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, times(1))
+          .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
     } else {
-      verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, never())
+          .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
     }
   }
 
@@ -963,15 +1114,16 @@ public class ESWriteDAOTest {
     // Set writability
     esWriteDAO.setWritable(canWrite);
 
-    String indexName = "test_index_" + description;
     String docId = "doc_" + description;
 
-    esWriteDAO.deleteDocumentByIndexName(indexName, docId);
+    esWriteDAO.deleteDocumentByIndexName(opContext, TEST_INDEX, docId);
 
     if (canWrite) {
-      verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, times(1))
+          .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
     } else {
-      verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, never())
+          .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
     }
   }
 
@@ -986,9 +1138,11 @@ public class ESWriteDAOTest {
     esWriteDAO.upsertDocumentBySearchGroup(opContext, searchGroup, document, docId);
 
     if (canWrite) {
-      verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, times(1))
+          .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
     } else {
-      verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, never())
+          .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
     }
   }
 
@@ -1002,9 +1156,11 @@ public class ESWriteDAOTest {
     esWriteDAO.deleteDocumentBySearchGroup(opContext, searchGroup, docId);
 
     if (canWrite) {
-      verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, times(1))
+          .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
     } else {
-      verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, never())
+          .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
     }
   }
 
@@ -1022,9 +1178,11 @@ public class ESWriteDAOTest {
         opContext, TEST_ENTITY, TEST_DOC_ID + description, scriptSource, scriptParams, upsert);
 
     if (canWrite) {
-      verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, times(1))
+          .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
     } else {
-      verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, never())
+          .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
     }
   }
 
@@ -1032,26 +1190,38 @@ public class ESWriteDAOTest {
   public void testClearWithWritability(boolean canWrite, String description) throws IOException {
     esWriteDAO.setWritable(canWrite);
 
-    String[] indices = new String[] {"index1", "index2"};
+    String[] indices = new String[] {"datasetindex_v2", "chartindex_v2"};
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(indices);
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getIndex(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
 
     // Mock getIndexAliases to return empty aliases (concrete indices, not aliases)
     GetAliasesResponse mockAliasesResponse = mock(GetAliasesResponse.class);
     when(mockAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
-    when(mockSearchClient.getIndexAliases(any(GetAliasesRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getIndexAliases(
+            any(OperationFingerprint.class),
+            any(GetAliasesRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(mockAliasesResponse);
 
     // Mock indexExists to return true
-    when(mockSearchClient.indexExists(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.indexExists(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(true);
 
     // Mock deleteIndex to return acknowledged response
     AcknowledgedResponse mockDeleteResponse = mock(AcknowledgedResponse.class);
     when(mockDeleteResponse.isAcknowledged()).thenReturn(true);
-    when(mockSearchClient.deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.deleteIndex(
+            any(OperationFingerprint.class),
+            any(DeleteIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(mockDeleteResponse);
 
     Set<String> deletedIndices = esWriteDAO.clear(opContext);
@@ -1059,16 +1229,22 @@ public class ESWriteDAOTest {
     if (canWrite) {
       // Verify indices were deleted
       assertEquals(deletedIndices.size(), 2);
-      assertTrue(deletedIndices.contains("index1"));
-      assertTrue(deletedIndices.contains("index2"));
+      assertTrue(deletedIndices.contains("datasetindex_v2"));
+      assertTrue(deletedIndices.contains("chartindex_v2"));
       // Verify deleteIndex was called for each index
       verify(mockSearchClient, times(2))
-          .deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT));
+          .deleteIndex(
+              any(OperationFingerprint.class),
+              any(DeleteIndexRequest.class),
+              eq(RequestOptions.DEFAULT));
     } else {
       // Verify no indices were deleted when not writable
       assertTrue(deletedIndices.isEmpty());
       verify(mockSearchClient, never())
-          .deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT));
+          .deleteIndex(
+              any(OperationFingerprint.class),
+              any(DeleteIndexRequest.class),
+              eq(RequestOptions.DEFAULT));
     }
   }
 
@@ -1080,22 +1256,28 @@ public class ESWriteDAOTest {
     QueryBuilder query = QueryBuilders.termQuery("status", "deleted_" + description);
 
     when(mockSearchClient.submitDeleteByQueryTask(
-            any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(TEST_TASK_STRING);
 
     CompletableFuture<String> future =
-        esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQueryAsync(opContext, TEST_DELETE_INDEX, query, null);
     String result = future.get();
 
     if (canWrite) {
       assertNotNull(result);
       assertEquals(result, TEST_TASK_STRING);
       verify(mockSearchClient, times(1))
-          .submitDeleteByQueryTask(any(DeleteByQueryRequest.class), eq(RequestOptions.DEFAULT));
+          .submitDeleteByQueryTask(
+              any(OperationContext.class),
+              any(DeleteByQueryRequest.class),
+              eq(RequestOptions.DEFAULT));
     } else {
       assertEquals(result, ""); // Returns empty string when not writable
       verify(mockSearchClient, never())
-          .submitDeleteByQueryTask(any(DeleteByQueryRequest.class), any());
+          .submitDeleteByQueryTask(
+              any(OperationContext.class), any(DeleteByQueryRequest.class), any());
     }
   }
 
@@ -1109,12 +1291,13 @@ public class ESWriteDAOTest {
     if (canWrite) {
       CountResponse mockCount = mock(CountResponse.class);
       when(mockCount.getCount()).thenReturn(0L);
-      when(mockSearchClient.count(any(CountRequest.class), eq(RequestOptions.DEFAULT)))
+      when(mockSearchClient.count(
+              any(OperationContext.class), any(CountRequest.class), eq(RequestOptions.DEFAULT)))
           .thenReturn(mockCount);
     }
 
     ESWriteDAO.DeleteByQueryResult result =
-        esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
     assertNotNull(result);
     if (canWrite) {
@@ -1132,8 +1315,8 @@ public class ESWriteDAOTest {
 
     if (!canWrite) {
       // Verify no search client calls when not writable
-      verify(mockSearchClient, never()).count(any(), any());
-      verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any());
+      verify(mockSearchClient, never()).count(any(), any(), any());
+      verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any(), any());
     }
   }
 
@@ -1143,20 +1326,23 @@ public class ESWriteDAOTest {
 
     String document1 = "{\"field\":\"value1\"}";
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document1, "doc1");
-    verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
 
     esWriteDAO.setWritable(false);
 
     String document2 = "{\"field\":\"value2\"}";
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document2, "doc2");
     // Still only 1 call
-    verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
 
     esWriteDAO.setWritable(true);
 
     String document3 = "{\"field\":\"value3\"}";
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document3, "doc3");
-    verify(mockBulkProcessor, times(2)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(2))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -1168,59 +1354,70 @@ public class ESWriteDAOTest {
 
     // 1. upsertDocument
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "doc1");
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
 
     // 2. upsertDocumentByIndexName
-    esWriteDAO.upsertDocumentByIndexName("test_index", document, "doc2");
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index_v2", document, "doc2");
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
 
     // 3. deleteDocument
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, "doc3");
-    verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
 
     // 4. deleteDocumentByIndexName
-    esWriteDAO.deleteDocumentByIndexName("test_index", "doc4");
-    verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index_v2", "doc4");
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
 
     // 5. upsertDocumentBySearchGroup
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "group", document, "doc5");
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
 
     // 6. deleteDocumentBySearchGroup
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "group", "doc6");
-    verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
 
     // 7. applyScriptUpdate
     esWriteDAO.applyScriptUpdate(
         opContext, TEST_ENTITY, "doc7", "script", new HashMap<>(), new HashMap<>());
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
 
     // 8. clear
     String[] indices = new String[] {"index1"};
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(indices);
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getIndex(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
     esWriteDAO.clear(opContext);
-    verify(mockBulkProcessor, never()).deleteByQuery(any(QueryBuilder.class), any());
+    verify(mockBulkProcessor, never())
+        .deleteByQuery(any(OperationContext.class), any(QueryBuilder.class), any());
 
     // 9. deleteByQueryAsync
     CompletableFuture<String> asyncResult =
-        esWriteDAO.deleteByQueryAsync("index", QueryBuilders.matchAllQuery(), null);
+        esWriteDAO.deleteByQueryAsync(opContext, "index", QueryBuilders.matchAllQuery(), null);
     try {
       assertEquals(asyncResult.get(), "");
     } catch (Exception e) {
       fail("Should not throw exception");
     }
-    verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any());
+    verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any(), any());
 
     // 10. deleteByQuerySync
     ESWriteDAO.DeleteByQueryResult syncResult =
-        esWriteDAO.deleteByQuerySync("index", QueryBuilders.matchAllQuery(), null);
+        esWriteDAO.deleteByQuerySync(opContext, "index", QueryBuilders.matchAllQuery(), null);
     assertNotNull(syncResult);
     assertFalse(syncResult.isSuccess());
-    verify(mockSearchClient, never()).count(any(), any());
-    verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any());
+    verify(mockSearchClient, never()).count(any(), any(), any());
+    verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any(), any());
   }
 
   @Test
@@ -1232,42 +1429,49 @@ public class ESWriteDAOTest {
 
     // All write operations should be blocked
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "migrationDoc1");
-    esWriteDAO.upsertDocumentByIndexName("migration_index", document, "migrationDoc2");
+    esWriteDAO.upsertDocumentByIndexName(
+        opContext, "migration_index_v2", document, "migrationDoc2");
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, "migrationDoc3");
-    esWriteDAO.deleteDocumentByIndexName("migration_index", "migrationDoc4");
+    esWriteDAO.deleteDocumentByIndexName(opContext, "migration_index_v2", "migrationDoc4");
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "migration_group", document, "migrationDoc5");
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "migration_group", "migrationDoc6");
     esWriteDAO.applyScriptUpdate(
         opContext, TEST_ENTITY, "migrationDoc7", "script", new HashMap<>(), new HashMap<>());
 
-    String[] indices = new String[] {"migration_index"};
+    String[] indices = new String[] {"migration_index_v2"};
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(indices);
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getIndex(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
     esWriteDAO.clear(opContext);
 
     CompletableFuture<String> asyncResult =
-        esWriteDAO.deleteByQueryAsync("migration_index", QueryBuilders.matchAllQuery(), null);
+        esWriteDAO.deleteByQueryAsync(
+            opContext, "migration_index_v2", QueryBuilders.matchAllQuery(), null);
     String asyncTaskId = asyncResult.get();
     assertEquals(asyncTaskId, "");
 
     ESWriteDAO.DeleteByQueryResult syncResult =
-        esWriteDAO.deleteByQuerySync("migration_index", QueryBuilders.matchAllQuery(), null);
+        esWriteDAO.deleteByQuerySync(
+            opContext, "migration_index_v2", QueryBuilders.matchAllQuery(), null);
     assertNotNull(syncResult);
     assertFalse(syncResult.isSuccess());
 
     // No operations should have been executed
-    verify(mockBulkProcessor, never()).add(any());
-    verify(mockBulkProcessor, never()).deleteByQuery(any(), any());
-    verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any());
-    verify(mockSearchClient, never()).count(any(), any());
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+    verify(mockBulkProcessor, never()).deleteByQuery(any(OperationContext.class), any(), any());
+    verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any(), any());
+    verify(mockSearchClient, never()).count(any(), any(), any());
 
     esWriteDAO.setWritable(true);
 
     // Writes should work again
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "postMigrationDoc");
-    verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -1277,11 +1481,13 @@ public class ESWriteDAOTest {
     String document = "{\"seq\":\"test\"}";
 
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "seq1");
-    esWriteDAO.upsertDocumentByIndexName("test_index", document, "seq2");
+    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index_v2", document, "seq2");
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, "seq3");
 
-    verify(mockBulkProcessor, times(2)).add(any(UpdateRequest.class));
-    verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, times(2))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1))
+        .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
 
     esWriteDAO.setWritable(false);
 
@@ -1289,14 +1495,17 @@ public class ESWriteDAOTest {
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, "seq5");
 
     // Counts should not increase
-    verify(mockBulkProcessor, times(2)).add(any(UpdateRequest.class));
-    verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, times(2))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1))
+        .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
 
     esWriteDAO.setWritable(true);
 
     // Operations should work again
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "seq6");
-    verify(mockBulkProcessor, times(3)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(3))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -1307,11 +1516,11 @@ public class ESWriteDAOTest {
     QueryBuilder query = QueryBuilders.termQuery("field", "value");
 
     CompletableFuture<String> future =
-        esWriteDAO.deleteByQueryAsync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQueryAsync(opContext, TEST_DELETE_INDEX, query, null);
     String result = future.get();
 
     assertEquals(result, "");
-    verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any());
+    verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any(), any());
   }
 
   @Test
@@ -1321,7 +1530,7 @@ public class ESWriteDAOTest {
     QueryBuilder query = QueryBuilders.termQuery("field", "value");
 
     ESWriteDAO.DeleteByQueryResult result =
-        esWriteDAO.deleteByQuerySync(TEST_DELETE_INDEX, query, null);
+        esWriteDAO.deleteByQuerySync(opContext, TEST_DELETE_INDEX, query, null);
 
     assertNotNull(result);
     assertFalse(result.isSuccess());
@@ -1331,8 +1540,8 @@ public class ESWriteDAOTest {
     assertNull(result.getFailureReason());
     assertNull(result.getTaskId());
 
-    verify(mockSearchClient, never()).count(any(), any());
-    verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any());
+    verify(mockSearchClient, never()).count(any(), any(), any());
+    verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any(), any());
   }
 
   @Test
@@ -1357,7 +1566,8 @@ public class ESWriteDAOTest {
                 .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(NUM_RETRIES).build())
                 .build(),
             mockSearchClient,
-            mockBulkProcessor);
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
 
     esWriteDAO.setWritable(false);
 
@@ -1368,11 +1578,13 @@ public class ESWriteDAOTest {
 
     // First instance operations blocked
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "doc1");
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
 
     // Second instance operations work
     secondDao.upsertDocument(opContext, TEST_ENTITY, document, "doc2");
-    verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -1383,17 +1595,19 @@ public class ESWriteDAOTest {
     String docId = "testDoc";
 
     // Both methods should behave the same way when not writable
-    esWriteDAO.upsertDocumentByIndexName("test_index", document, docId);
+    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index_v2", document, docId);
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "test_group", document, docId);
 
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
 
     esWriteDAO.setWritable(true);
 
-    esWriteDAO.upsertDocumentByIndexName("test_index", document, docId);
+    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index_v2", document, docId);
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "test_group", document, docId);
 
-    verify(mockBulkProcessor, times(2)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(2))
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -1403,17 +1617,19 @@ public class ESWriteDAOTest {
     String docId = "testDoc";
 
     // Both methods should behave the same way when not writable
-    esWriteDAO.deleteDocumentByIndexName("test_index", docId);
+    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index_v2", docId);
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "test_group", docId);
 
-    verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
 
     esWriteDAO.setWritable(true);
 
-    esWriteDAO.deleteDocumentByIndexName("test_index", docId);
+    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index_v2", docId);
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "test_group", docId);
 
-    verify(mockBulkProcessor, times(2)).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, times(2))
+        .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
   }
 
   @Test
@@ -1429,7 +1645,8 @@ public class ESWriteDAOTest {
     esWriteDAO.applyScriptUpdate(
         opContext, TEST_ENTITY, "scriptDoc", scriptSource, scriptParams, upsert);
 
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never())
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -1440,15 +1657,27 @@ public class ESWriteDAOTest {
     String[] indices = new String[] {"index1", "index2", "index3"};
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(indices);
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockSearchClient.getIndex(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
 
     esWriteDAO.clear(opContext);
 
     // Should not call deleteByQuery at all
-    verify(mockBulkProcessor, never()).deleteByQuery(any(), any());
+    verify(mockBulkProcessor, never()).deleteByQuery(any(), any(), any());
 
     // Should not even try to get indices when not writable
-    verify(mockSearchClient, never()).getIndex(any(), any());
+    verify(mockSearchClient, never()).getIndex(any(), any(), any());
+  }
+
+  @Test
+  public void testUnrecognizedIndexNameIsAnError() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            esWriteDAO.upsertDocumentByIndexName(
+                opContext, "graph_service_v1", "{\"field\":\"value\"}", TEST_DOC_ID));
   }
 }

@@ -72,8 +72,8 @@ def test_field_remove():
     class TestModel(ConfigModel):
         b: str
 
-        _validate_removed_r1 = pydantic_removed_field("r1")
-        _validate_removed_r2 = pydantic_removed_field("r2")
+        _validate_removed_r1 = pydantic_removed_field("r1", month="July", year=2023)
+        _validate_removed_r2 = pydantic_removed_field("r2", month="July", year=2023)
 
     v = TestModel.model_validate({"b": "original"})
     assert v.b == "original"

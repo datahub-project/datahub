@@ -3,11 +3,10 @@
 An example DAG demonstrating the usage of DataHub's Airflow lineage backend.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-from airflow.utils.dates import days_ago
 
 from datahub_airflow_plugin.entities import Dataset, Urn
 
@@ -19,13 +18,12 @@ default_args = {
     "execution_timeout": timedelta(minutes=5),
 }
 
-
 with DAG(
-    "datahub_lineage_backend_demo",
+    dag_id="datahub_lineage_backend_demo",
     default_args=default_args,
     description="An example DAG demonstrating the usage of DataHub's Airflow lineage backend.",
-    schedule_interval=timedelta(days=1),
-    start_date=days_ago(2),
+    start_date=datetime(2023, 1, 1),
+    schedule=timedelta(days=1),
     tags=["example_tag"],
     catchup=False,
 ) as dag:

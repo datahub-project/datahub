@@ -1,17 +1,14 @@
-import { ErrorRounded } from '@mui/icons-material';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { CTAWrapper, StyledArrow } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
 import UpstreamEntitiesList from '@app/entityV2/shared/embed/UpstreamHealth/UpstreamEntitiesList';
 import { DATASET_COUNT } from '@app/entityV2/shared/embed/UpstreamHealth/utils';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
-import {
-    HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
-    IS_DEPRECATED_FILTER_NAME,
-} from '@app/search/utils/constants';
+import { HAS_ACTIVE_INCIDENTS_FILTER_NAME, IS_DEPRECATED_FILTER_NAME } from '@app/search/utils/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { isDeprecated, isUnhealthy } from '@src/app/shared/health/healthUtils';
@@ -48,6 +45,8 @@ const Container = styled.div`
 `;
 
 export default function UpstreamHealth() {
+    const { t } = useTranslation('entity.shared.stats');
+    const themeConfig = useTheme();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
 
@@ -69,7 +68,7 @@ export default function UpstreamHealth() {
 
     const generateQueryVariables = ({ degree, start }) => {
         return {
-            skip: !lineageEnabled,
+            skip: !lineageEnabled || !urn,
             variables: {
                 input: {
                     searchFlags: {
@@ -92,20 +91,6 @@ export default function UpstreamHealth() {
                                 },
                                 {
                                     field: HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-                                    condition: FilterOperator.Equal,
-                                    values: ['true'],
-                                },
-                            ],
-                        },
-                        {
-                            and: [
-                                {
-                                    field: 'degree',
-                                    condition: FilterOperator.Equal,
-                                    values: degree,
-                                },
-                                {
-                                    field: HAS_FAILING_ASSERTIONS_FILTER_NAME,
                                     condition: FilterOperator.Equal,
                                     values: ['true'],
                                 },
@@ -226,11 +211,15 @@ export default function UpstreamHealth() {
 
     return (
         <Container>
-            <CTAWrapper backgroundColor="#FBF3EF" borderColor="#FBF3EF" padding="10px 0 0 0">
+            <CTAWrapper
+                backgroundColor={themeConfig.colors.bgSurfaceError}
+                borderColor={themeConfig.colors.borderError}
+                padding="10px 0 0 0"
+            >
                 <TitleWrapper isOpen={isOpen} onClick={() => setIsOpen(!isOpen)}>
                     <Header>
-                        <ErrorRounded style={{ color: '#E54D1F', fontSize: '18' }} />
-                        <Title>Some upstreams are unhealthy</Title>
+                        <WarningCircle color={themeConfig.colors.textError} size={18} />
+                        <Title>{t('upstream.unhealthy')}</Title>
                     </Header>
                     <StyledArrow isOpen={isOpen} />
                 </TitleWrapper>

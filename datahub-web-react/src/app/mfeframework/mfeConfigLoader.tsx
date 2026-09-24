@@ -6,7 +6,7 @@ import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContai
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
-export interface MFEFlags {
+interface MFEFlags {
     enabled: boolean;
     showInNav: boolean;
 }
@@ -25,6 +25,7 @@ export interface MFEConfig {
 
 // MFESchema: The overall config schema.
 export interface MFESchema {
+    topLevelMenuTitle: string;
     subNavigationMode: boolean;
     microFrontends: MFEConfig[];
 }

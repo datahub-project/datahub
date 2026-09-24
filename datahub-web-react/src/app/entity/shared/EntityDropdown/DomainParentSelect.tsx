@@ -1,6 +1,7 @@
-import { CloseCircleFilled } from '@ant-design/icons';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { Select } from 'antd';
 import React, { MouseEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useDomainsContext } from '@app/domain/DomainsContext';
@@ -9,7 +10,7 @@ import { getParentDomains } from '@app/domain/utils';
 import useParentSelector from '@app/entity/shared/EntityDropdown/useParentSelector';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Domain, EntityType } from '@types';
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export default function DomainParentSelect({ selectedParentUrn, setSelectedParentUrn, isMoving }: Props) {
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
     const domainUrn = entityData?.urn;
@@ -81,8 +83,8 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
             <Select
                 showSearch
                 allowClear
-                clearIcon={<CloseCircleFilled onClick={handleClear} />}
-                placeholder="Select"
+                clearIcon={<XCircle weight="fill" onClick={handleClear} />}
+                placeholder={t('domainSelect.placeholder')}
                 filterOption={false}
                 value={selectedParentName}
                 onSelect={onSelectParent}

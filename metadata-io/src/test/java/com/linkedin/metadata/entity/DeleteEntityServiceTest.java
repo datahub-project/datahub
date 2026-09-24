@@ -4,6 +4,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.util.RecordUtils;
@@ -26,6 +27,7 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
@@ -40,10 +42,15 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
-import com.linkedin.metadata.utils.aws.S3Util;
+import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageReference;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.List;
@@ -98,10 +105,15 @@ public class DeleteEntityServiceTest {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(_aspectDao, mock(EventProducer.class), true, preProcessHooks, true);
+        new EntityServiceImpl(
+            _aspectDao,
+            mock(EventProducer.class),
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+            mock(MetricUtils.class));
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _deleteEntityService =
-        new DeleteEntityService(_entityServiceImpl, _graphService, _mockSearchService, null);
+        new DeleteEntityService(_entityServiceImpl, _graphService, _mockSearchService, null, null);
 
     setupDefaultFileScrollMock(_mockSearchService);
   }
@@ -201,7 +213,8 @@ public class DeleteEntityServiceTest {
     dbValue.setCreatedOn(new Timestamp(auditStamp.getTime()));
 
     final Map<EntityAspectIdentifier, EntityAspect> dbEntries = Map.of(dbKey, dbValue);
-    Mockito.when(_aspectDao.batchGet(Mockito.any(), Mockito.anyBoolean())).thenReturn(dbEntries);
+    Mockito.when(_aspectDao.batchGet(Mockito.any(), Mockito.any(), Mockito.anyBoolean()))
+        .thenReturn(dbEntries);
 
     RollbackResult result =
         new RollbackResult(
@@ -216,7 +229,8 @@ public class DeleteEntityServiceTest {
             false,
             1);
 
-    Mockito.when(_aspectDao.runInTransactionWithRetry(Mockito.any(), Mockito.anyInt()))
+    Mockito.when(
+            _aspectDao.runInTransactionWithRetry(Mockito.any(), Mockito.any(), Mockito.anyInt()))
         .thenReturn(Optional.of(result));
 
     final DeleteReferencesResponse response =
@@ -231,7 +245,7 @@ public class DeleteEntityServiceTest {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, _graphService, mockSearchService, null);
+        new DeleteEntityService(mockEntityService, _graphService, mockSearchService, null, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn form = UrnUtils.getUrn("urn:li:form:12345");
@@ -340,7 +354,7 @@ public class DeleteEntityServiceTest {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, _graphService, mockSearchService, null);
+        new DeleteEntityService(mockEntityService, _graphService, mockSearchService, null, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn form = UrnUtils.getUrn("urn:li:form:12345");
@@ -416,7 +430,7 @@ public class DeleteEntityServiceTest {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, _graphService, mockSearchService, null);
+        new DeleteEntityService(mockEntityService, _graphService, mockSearchService, null, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn form = UrnUtils.getUrn("urn:li:form:12345");
@@ -517,7 +531,7 @@ public class DeleteEntityServiceTest {
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     GraphService mockGraphService = Mockito.mock(GraphService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null);
+        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null, null);
 
     final Urn container = UrnUtils.getUrn("urn:li:container:dry-run-test");
     final String containerStr = container.toString();
@@ -610,9 +624,11 @@ public class DeleteEntityServiceTest {
   @Test
   public void testDeleteFileReferences() {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
-    S3Util mockS3Util = Mockito.mock(S3Util.class);
+    ObjectStorageClient mockObjectStorageClient = Mockito.mock(ObjectStorageClient.class);
+    Mockito.when(mockObjectStorageClient.isConfigured()).thenReturn(true);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, _graphService, _mockSearchService, mockS3Util);
+        new DeleteEntityService(
+            mockEntityService, _graphService, _mockSearchService, mockObjectStorageClient, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-id");
@@ -698,7 +714,8 @@ public class DeleteEntityServiceTest {
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
 
     // Verify S3 delete was called
-    Mockito.verify(mockS3Util, Mockito.times(1)).deleteObject("test-bucket", "test-key");
+    Mockito.verify(mockObjectStorageClient, Mockito.times(1))
+        .deleteObject(new ObjectStorageReference("test-bucket", "test-key"));
 
     // Verify file entity was soft-deleted
     Mockito.verify(mockEntityService, Mockito.times(1))
@@ -709,12 +726,12 @@ public class DeleteEntityServiceTest {
             eq(true));
   }
 
-  /** Test that file cleanup is skipped when S3Util is not configured */
+  /** Test that file cleanup is skipped when ObjectStorageClient is not configured */
   @Test
-  public void testDeleteFileReferencesWithoutS3Util() {
+  public void testDeleteFileReferencesWithoutObjectStorageClient() {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, _graphService, _mockSearchService, null);
+        new DeleteEntityService(mockEntityService, _graphService, _mockSearchService, null, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-id");
@@ -799,7 +816,7 @@ public class DeleteEntityServiceTest {
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
 
-    // Verify file entity was still soft-deleted even without S3Util
+    // Verify file entity was still soft-deleted even without ObjectStorageClient
     Mockito.verify(mockEntityService, Mockito.times(1))
         .ingestProposal(
             any(OperationContext.class),
@@ -809,15 +826,18 @@ public class DeleteEntityServiceTest {
   }
 
   /**
-   * Test that file cleanup continues even if S3 deletion fails. We soft-delete the entity to avoid
-   * leaving the parent entity in limbo. The tradeoff is accepting a potential orphaned S3 object.
+   * Test that file cleanup continues even if object storage deletion fails. We soft-delete the
+   * entity to avoid leaving the parent entity in limbo. The tradeoff is accepting a potential
+   * orphaned storage object.
    */
   @Test
-  public void testDeleteFileReferencesWithS3Failure() {
+  public void testDeleteFileReferencesWithObjectStorageFailure() {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
-    S3Util mockS3Util = Mockito.mock(S3Util.class);
+    ObjectStorageClient mockObjectStorageClient = Mockito.mock(ObjectStorageClient.class);
+    Mockito.when(mockObjectStorageClient.isConfigured()).thenReturn(true);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, _graphService, _mockSearchService, mockS3Util);
+        new DeleteEntityService(
+            mockEntityService, _graphService, _mockSearchService, mockObjectStorageClient, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-id");
@@ -881,10 +901,10 @@ public class DeleteEntityServiceTest {
                 eq(Constants.DATAHUB_FILE_INFO_ASPECT_NAME)))
         .thenReturn(fileInfo);
 
-    // Make S3 deletion throw an exception
-    Mockito.doThrow(new RuntimeException("S3 error"))
-        .when(mockS3Util)
-        .deleteObject("test-bucket", "test-key");
+    // Make object storage deletion throw an exception
+    Mockito.doThrow(new RuntimeException("object storage error"))
+        .when(mockObjectStorageClient)
+        .deleteObject(new ObjectStorageReference("test-bucket", "test-key"));
 
     // No other relationships
     Mockito.when(
@@ -909,7 +929,8 @@ public class DeleteEntityServiceTest {
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
 
     // Verify S3 delete was attempted
-    Mockito.verify(mockS3Util, Mockito.times(1)).deleteObject("test-bucket", "test-key");
+    Mockito.verify(mockObjectStorageClient, Mockito.times(1))
+        .deleteObject(new ObjectStorageReference("test-bucket", "test-key"));
 
     // Verify file entity was still soft-deleted despite S3 failure to avoid leaving entity in limbo
     Mockito.verify(mockEntityService, Mockito.times(1))
@@ -939,7 +960,7 @@ public class DeleteEntityServiceTest {
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     GraphService mockGraphService = Mockito.mock(GraphService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null);
+        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null, null);
 
     final Urn tagUrn = UrnUtils.getUrn("urn:li:tag:stress-hot-tag-1");
     final String tagUrnStr = tagUrn.toString();
@@ -1081,7 +1102,7 @@ public class DeleteEntityServiceTest {
     EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     GraphService mockGraphService = Mockito.mock(GraphService.class);
     DeleteEntityService deleteEntityService =
-        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null);
+        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null, null);
 
     final Urn tagUrn = UrnUtils.getUrn("urn:li:tag:orphan-test");
 
@@ -1172,5 +1193,152 @@ public class DeleteEntityServiceTest {
     } finally {
       serviceLogger.detachAppender(logAppender);
     }
+  }
+
+  /**
+   * Verifies that MCPs generated during deleteReferencesTo carry cascade operation IDs in their
+   * SystemMetadata for downstream Kafka correlation. Tests both the search-ref phase (forms
+   * cleanup) and the graph-ref phase (updateAspect). Also verifies that cascade metrics are
+   * emitted.
+   */
+  @Test
+  public void testCascadeIdPropagatedOnMCPs() {
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    MetricUtils metricUtils = MetricUtils.builder().registry(meterRegistry).build();
+
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
+    DeleteEntityService deleteEntityService =
+        new DeleteEntityService(
+            mockEntityService, _graphService, mockSearchService, null, metricUtils);
+
+    final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
+    final Urn form = UrnUtils.getUrn("urn:li:form:cascade-test");
+
+    // Mock file entity searches to return empty results
+    ScrollResult emptyFileScrollResult = new ScrollResult();
+    emptyFileScrollResult.setEntities(new SearchEntityArray());
+    emptyFileScrollResult.setNumEntities(0);
+    Mockito.when(
+            mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.argThat(
+                    set -> set != null && set.contains(Constants.DATAHUB_FILE_ENTITY_NAME)),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq("5m"),
+                Mockito.anyInt()))
+        .thenReturn(emptyFileScrollResult);
+
+    // Mock search scroll returning one dataset referencing the form
+    ScrollResult scrollResult = new ScrollResult();
+    SearchEntityArray entities = new SearchEntityArray();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(dataset);
+    entities.add(searchEntity);
+    scrollResult.setEntities(entities);
+    scrollResult.setNumEntities(1);
+    scrollResult.setScrollId("1");
+    Mockito.when(
+            mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.argThat(
+                    set -> set == null || !set.contains(Constants.DATAHUB_FILE_ENTITY_NAME)),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.eq(null),
+                Mockito.eq(null),
+                Mockito.eq("5m"),
+                Mockito.eq(1000)))
+        .thenReturn(scrollResult);
+
+    // Second scroll page returns empty (end of results)
+    ScrollResult scrollResult2 = new ScrollResult();
+    scrollResult2.setNumEntities(0);
+    Mockito.when(
+            mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.argThat(
+                    set -> set == null || !set.contains(Constants.DATAHUB_FILE_ENTITY_NAME)),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.eq(null),
+                Mockito.eq("1"),
+                Mockito.eq("5m"),
+                Mockito.eq(1000)))
+        .thenReturn(scrollResult2);
+
+    // Mock forms aspect on the dataset
+    Forms formsAspect = new Forms();
+    FormAssociationArray incompleteForms = new FormAssociationArray();
+    FormAssociation formAssociation = new FormAssociation();
+    formAssociation.setUrn(form);
+    incompleteForms.add(formAssociation);
+    formsAspect.setIncompleteForms(incompleteForms);
+    formsAspect.setCompletedForms(new FormAssociationArray());
+    formsAspect.setVerifications(new FormVerificationAssociationArray());
+    Mockito.when(
+            mockEntityService.getLatestAspect(
+                Mockito.any(OperationContext.class), Mockito.eq(dataset), Mockito.eq("forms")))
+        .thenReturn(formsAspect);
+
+    // No graph relationships for this form
+    Mockito.when(
+            _graphService.scrollRelatedEntities(
+                any(OperationContext.class),
+                nullable(Set.class),
+                eq(newFilter("urn", form.toString())),
+                nullable(Set.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableSet.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(emptyScrollGraphResult());
+
+    // Execute the deletion
+    deleteEntityService.deleteReferencesTo(opContext, form, false);
+
+    // Capture the MCP that was ingested for the search-ref cleanup
+    ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    Mockito.verify(mockEntityService, Mockito.atLeastOnce())
+        .ingestProposal(
+            any(), mcpCaptor.capture(), Mockito.any(AuditStamp.class), Mockito.eq(true));
+
+    // Verify cascade operation ID is present on the MCP's SystemMetadata
+    MetadataChangeProposal capturedMcp = mcpCaptor.getValue();
+    SystemMetadata systemMetadata = capturedMcp.getSystemMetadata();
+    assertNotNull(systemMetadata, "MCP should have SystemMetadata set");
+    assertNotNull(systemMetadata.getProperties(), "SystemMetadata should have properties");
+    assertTrue(
+        systemMetadata
+            .getProperties()
+            .containsKey(CascadeOperationContext.SYSTEM_METADATA_CASCADE_ID_KEY),
+        "SystemMetadata should contain cascadeOperationId");
+    String cascadeId =
+        systemMetadata.getProperties().get(CascadeOperationContext.SYSTEM_METADATA_CASCADE_ID_KEY);
+    assertNotNull(cascadeId, "cascadeOperationId should not be null");
+    assertFalse(cascadeId.isEmpty(), "cascadeOperationId should not be empty");
+
+    // Verify cascade metrics were emitted
+    assertNotNull(
+        meterRegistry
+            .find("datahub.cascade.duration")
+            .tag("operation_type", "deleteReferencesTo")
+            .timer(),
+        "cascade duration timer should be emitted");
+    assertNotNull(
+        meterRegistry
+            .find("datahub.cascade.entities_processed")
+            .tag("operation_type", "deleteReferencesTo")
+            .counter(),
+        "cascade entities_processed counter should be emitted");
   }
 }

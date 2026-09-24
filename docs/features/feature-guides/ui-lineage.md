@@ -1,3 +1,7 @@
+---
+description: "View, edit, and manage data lineage relationships between datasets, dashboards, and pipelines through the DataHub UI."
+---
+
 # Managing Data Lineage via UI
 
 ## Viewing Data Lineage

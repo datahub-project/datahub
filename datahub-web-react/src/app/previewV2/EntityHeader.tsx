@@ -1,21 +1,21 @@
 import { Tooltip, zIndices } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PreviewType } from '@app/entityV2/Entity';
+import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { getNumberWithOrdinal } from '@app/entityV2/shared/utils';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
-import { Deprecation, Health, Maybe } from '@types';
+import { DataPlatform, Deprecation, Health, Maybe } from '@types';
 
 const EntityTitleContainer = styled.div`
     display: flex;
@@ -36,7 +36,7 @@ const EntityTitle = styled.div<{ $titleSizePx?: number }>`
         vertical-align: middle;
 
         :hover {
-            color: ${(p) => getColor('primary', 700, p.theme)};
+            color: ${(p) => p.theme.colors.textHover};
         }
     }
 
@@ -44,7 +44,7 @@ const EntityTitle = styled.div<{ $titleSizePx?: number }>`
     overflow: hidden;
     text-overflow: ellipsis;
     font-size: 13px;
-    color: ${(p) => p.theme.styles['primary-color']};
+    color: ${(p) => p.theme.colors.textBrand};
     height: 100%;
 `;
 
@@ -57,12 +57,12 @@ const CardEntityTitle = styled(EntityTitle)<{ $previewType?: Maybe<PreviewType> 
 
 const DegreeText = styled.div`
     border-radius: 18px;
-    background: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
+    background: ${(props) => props.theme.colors.bgSurface};
     padding: 3px 5px;
     font-size: 12px;
     font-weight: 700;
     width: fit-content;
-    color: ${REDESIGN_COLORS.SUB_TEXT};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 interface EntityHeaderProps {
@@ -77,6 +77,7 @@ interface EntityHeaderProps {
     degree?: number;
     connectionName?: Maybe<string>;
     previewData?: GenericEntityProperties | null;
+    refetchDeprecation?: (formData?: DeprecationFormData) => void;
 }
 
 const EntityHeader: React.FC<EntityHeaderProps> = ({
@@ -91,7 +92,9 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
     degree,
     connectionName,
     previewData,
+    refetchDeprecation,
 }) => {
+    const { t } = useTranslation('entity.preview');
     const linkProps = useEmbeddedProfileLinkProps();
 
     return (
@@ -111,18 +114,28 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
             </StyledLink>
             {degree !== undefined && (
                 <Tooltip
-                    title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
-                        connectionName || 'the source entity'
-                    }`}
+                    title={t('degreeConnectionTooltip', {
+                        ordinalText: getNumberWithOrdinal(degree),
+                        connectionName: connectionName || t('sourceEntityFallback'),
+                    })}
                 >
                     <DegreeText>{getNumberWithOrdinal(degree)}</DegreeText>
                 </Tooltip>
             )}
             {deprecation?.deprecated && (
-                <DeprecationIcon urn={urn} deprecation={deprecation} showUndeprecate showText={false} />
+                <DeprecationIcon
+                    urn={urn}
+                    deprecation={deprecation}
+                    showUndeprecate
+                    showText={false}
+                    refetch={refetchDeprecation}
+                />
             )}
             {health && <HealthIcon urn={urn} health={health} baseUrl={url} />}
-            <StructuredPropertyBadge structuredProperties={previewData?.structuredProperties} />
+            <StructuredPropertyBadge
+                structuredProperties={previewData?.structuredProperties}
+                platformUrn={(previewData?.platform as DataPlatform | undefined)?.urn}
+            />
             <VersioningBadge versionProperties={previewData?.versionProperties ?? undefined} showPopover={false} />
         </EntityTitleContainer>
     );

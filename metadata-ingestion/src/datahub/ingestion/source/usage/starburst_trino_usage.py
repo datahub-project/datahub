@@ -111,9 +111,9 @@ class TrinoUsageReport(SourceReport):
     num_joined_access_events_skipped: int = 0
 
 
-@platform_name("Trino", id="starburst-trino-usage")
+@platform_name("Trino", id="trino")
 @config_class(TrinoUsageConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 @dataclasses.dataclass
 class TrinoUsageSource(Source):

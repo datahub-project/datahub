@@ -1,3 +1,7 @@
+---
+description: "Delete metadata from DataHub safely using the DataHub CLI, including soft deletes, hard deletes, and selective filters."
+---
+
 # Removing Metadata from DataHub
 
 :::tip

@@ -2,13 +2,14 @@ import json
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionResultClass,
+    AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
@@ -19,7 +20,6 @@ from datahub.metadata.schema_classes import (
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
     CustomAssertionInfoClass,
-    DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
 )
 
@@ -190,6 +190,91 @@ def _string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
     return {k: str(v) for k, v in input_map.items()}
 
 
+def _map_dbt_test_status(
+    status: str, test_warnings_are_errors: bool
+) -> tuple[str, Optional[str]]:
+    """Map a dbt test result status to (AssertionResultType, AssertionResultSeverity).
+
+    dbt test statuses:
+      - pass/success: the test ran and found no failing rows.
+      - warn: the test ran, found failing rows, and is configured with
+        ``severity: warn``. Surfaced as a soft failure.
+      - fail: the test ran, found failing rows, and is configured with
+        ``severity: error`` (the default). Hard failure.
+      - error / runtime error: the test invocation itself could not complete
+        (compilation/SQL/infra issue). No pass/fail verdict was produced.
+
+    Severity is only meaningful on FAILURE results.
+    """
+    if status in ("pass", "success"):
+        return AssertionResultTypeClass.SUCCESS, None
+    if status in ("error", "runtime error"):
+        return AssertionResultTypeClass.ERROR, None
+    if status == "warn":
+        if test_warnings_are_errors:
+            return (
+                AssertionResultTypeClass.FAILURE,
+                AssertionResultSeverityClass.LOW,
+            )
+        return AssertionResultTypeClass.SUCCESS, None
+    # Anything else (fail, or an unknown non-pass/non-error status) is a hard
+    # failure.
+    return AssertionResultTypeClass.FAILURE, AssertionResultSeverityClass.HIGH
+
+
+def _map_dbt_freshness_status(
+    status: str, test_warnings_are_errors: bool
+) -> tuple[str, Optional[str]]:
+    """Map a dbt source freshness status to (AssertionResultType, AssertionResultSeverity).
+
+    Unlike regular dbt tests, freshness ``error`` means the ``error_after``
+    threshold was exceeded - the check ran to completion and produced a verdict.
+    Only ``runtime error`` indicates the freshness check itself failed to run.
+    """
+    if status == "pass":
+        return AssertionResultTypeClass.SUCCESS, None
+    if status == "runtime error":
+        return AssertionResultTypeClass.ERROR, None
+    if status == "warn":
+        if test_warnings_are_errors:
+            return (
+                AssertionResultTypeClass.FAILURE,
+                AssertionResultSeverityClass.LOW,
+            )
+        return AssertionResultTypeClass.SUCCESS, None
+    # Covers "error" (error_after threshold exceeded) and any other unknown
+    # non-pass status.
+    return AssertionResultTypeClass.FAILURE, AssertionResultSeverityClass.HIGH
+
+
+def _make_custom_assertion_info(
+    *,
+    entity_urn: str,
+    scope: Union[DatasetAssertionScopeClass, str],
+    operator: Union[AssertionStdOperatorClass, str],
+    aggregation: Union[AssertionStdAggregationClass, str],
+    fields: Optional[List[str]] = None,
+    native_type: Optional[str] = None,
+    parameters: Optional[AssertionStdParametersClass] = None,
+    logic: Optional[str] = None,
+    native_parameters: Optional[Dict[str, str]] = None,
+) -> CustomAssertionInfoClass:
+    field_urns = fields or []
+    return CustomAssertionInfoClass(
+        type="dbt",
+        entity=entity_urn,
+        field=field_urns[0] if field_urns else None,
+        fields=field_urns or None,
+        scope=scope,
+        operator=operator,
+        aggregation=aggregation,
+        parameters=parameters,
+        nativeType=native_type,
+        logic=logic,
+        nativeParameters=native_parameters,
+    )
+
+
 def make_assertion_from_test(
     extra_custom_props: Dict[str, str],
     node: "DBTNode",
@@ -203,68 +288,64 @@ def make_assertion_from_test(
 
     if qualified_test_name in _DBT_TEST_NAME_TO_ASSERTION_MAP:
         assertion_params = _DBT_TEST_NAME_TO_ASSERTION_MAP[qualified_test_name]
-        assertion_info = AssertionInfoClass(
-            type=AssertionTypeClass.DATASET,
-            customProperties=extra_custom_props,
-            datasetAssertion=DatasetAssertionInfoClass(
-                dataset=upstream_urn,
-                scope=assertion_params.scope,
-                operator=assertion_params.operator,
-                fields=(
-                    [mce_builder.make_schema_field_urn(upstream_urn, column_name)]
-                    if (
-                        assertion_params.scope
-                        == DatasetAssertionScopeClass.DATASET_COLUMN
-                        and column_name
-                    )
-                    else []
-                ),
-                nativeType=node.name,
-                aggregation=assertion_params.aggregation,
-                parameters=(
-                    assertion_params.parameters(kw_args)
-                    if assertion_params.parameters
-                    else None
-                ),
-                logic=(
-                    assertion_params.logic_fn(kw_args)
-                    if assertion_params.logic_fn
-                    else None
-                ),
-                nativeParameters=_string_map(kw_args),
+        fields = (
+            [mce_builder.make_schema_field_urn(upstream_urn, column_name)]
+            if (
+                assertion_params.scope == DatasetAssertionScopeClass.DATASET_COLUMN
+                and column_name
+            )
+            else []
+        )
+        custom_assertion = _make_custom_assertion_info(
+            entity_urn=upstream_urn,
+            scope=assertion_params.scope,
+            operator=assertion_params.operator,
+            aggregation=assertion_params.aggregation,
+            fields=fields,
+            native_type=node.name,
+            parameters=(
+                assertion_params.parameters(kw_args)
+                if assertion_params.parameters
+                else None
             ),
+            logic=(
+                assertion_params.logic_fn(kw_args)
+                if assertion_params.logic_fn
+                else None
+            ),
+            native_parameters=_string_map(kw_args),
         )
     elif column_name:
         # no match with known test types, column-level test
-        assertion_info = AssertionInfoClass(
-            type=AssertionTypeClass.DATASET,
-            customProperties=extra_custom_props,
-            datasetAssertion=DatasetAssertionInfoClass(
-                dataset=upstream_urn,
-                scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-                operator=AssertionStdOperatorClass._NATIVE_,
-                fields=[mce_builder.make_schema_field_urn(upstream_urn, column_name)],
-                nativeType=node.name,
-                logic=node.compiled_code or node.raw_code,
-                aggregation=AssertionStdAggregationClass._NATIVE_,
-                nativeParameters=_string_map(kw_args),
-            ),
+        fields = [mce_builder.make_schema_field_urn(upstream_urn, column_name)]
+        custom_assertion = _make_custom_assertion_info(
+            entity_urn=upstream_urn,
+            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+            operator=AssertionStdOperatorClass._NATIVE_,
+            aggregation=AssertionStdAggregationClass._NATIVE_,
+            fields=fields,
+            native_type=node.name,
+            logic=node.compiled_code or node.raw_code,
+            native_parameters=_string_map(kw_args),
         )
     else:
         # no match with known test types, default to row-level test
-        assertion_info = AssertionInfoClass(
-            type=AssertionTypeClass.DATASET,
-            customProperties=extra_custom_props,
-            datasetAssertion=DatasetAssertionInfoClass(
-                dataset=upstream_urn,
-                scope=DatasetAssertionScopeClass.DATASET_ROWS,
-                operator=AssertionStdOperatorClass._NATIVE_,
-                logic=node.compiled_code or node.raw_code,
-                nativeType=node.name,
-                aggregation=AssertionStdAggregationClass._NATIVE_,
-                nativeParameters=_string_map(kw_args),
-            ),
+        custom_assertion = _make_custom_assertion_info(
+            entity_urn=upstream_urn,
+            scope=DatasetAssertionScopeClass.DATASET_ROWS,
+            operator=AssertionStdOperatorClass._NATIVE_,
+            aggregation=AssertionStdAggregationClass._NATIVE_,
+            native_type=node.name,
+            logic=node.compiled_code or node.raw_code,
+            native_parameters=_string_map(kw_args),
         )
+
+    assertion_info = AssertionInfoClass(
+        type=AssertionTypeClass.CUSTOM,
+        customProperties=extra_custom_props,
+        source=mce_builder.make_assertion_source(),
+        customAssertion=custom_assertion,
+    )
 
     return MetadataChangeProposalWrapper(
         entityUrn=assertion_urn,
@@ -279,18 +360,17 @@ def make_assertion_result_from_test(
     upstream_urn: str,
     test_warnings_are_errors: bool,
 ) -> MetadataChangeProposalWrapper:
+    result_type, severity = _map_dbt_test_status(
+        test_result.status, test_warnings_are_errors
+    )
     assertionResult = AssertionRunEventClass(
         timestampMillis=int(test_result.execution_time.timestamp() * 1000.0),
         assertionUrn=assertion_urn,
         asserteeUrn=upstream_urn,
         runId=test_result.invocation_id,
         result=AssertionResultClass(
-            type=(
-                AssertionResultTypeClass.SUCCESS
-                if test_result.has_success_status()
-                or (not test_warnings_are_errors and test_result.status == "warn")
-                else AssertionResultTypeClass.FAILURE
-            ),
+            type=result_type,
+            severity=severity,
             nativeResults=test_result.native_results,
         ),
         status=AssertionRunStatusClass.COMPLETE,
@@ -327,7 +407,10 @@ def make_assertion_from_freshness(
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         customProperties=custom_props,
-        customAssertion=CustomAssertionInfoClass(type="Freshness", entity=upstream_urn),
+        source=mce_builder.make_assertion_source(),
+        customAssertion=CustomAssertionInfoClass(
+            type="dbt Freshness", entity=upstream_urn
+        ),
     )
 
     return MetadataChangeProposalWrapper(
@@ -346,12 +429,9 @@ def make_assertion_result_from_freshness(
     assert node.freshness_info
     freshness_info = node.freshness_info
 
-    if freshness_info.status == "pass" or (
-        freshness_info.status == "warn" and not test_warnings_are_errors
-    ):
-        result_type = AssertionResultTypeClass.SUCCESS
-    else:
-        result_type = AssertionResultTypeClass.FAILURE
+    result_type, severity = _map_dbt_freshness_status(
+        freshness_info.status, test_warnings_are_errors
+    )
 
     native_results = {
         "status": freshness_info.status,
@@ -367,6 +447,7 @@ def make_assertion_result_from_freshness(
         runId=freshness_info.invocation_id,
         result=AssertionResultClass(
             type=result_type,
+            severity=severity,
             nativeResults=native_results,
         ),
         status=AssertionRunStatusClass.COMPLETE,

@@ -1,11 +1,19 @@
 ### Capabilities
 
-Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+- Loads any named pack from the DataHub registry (`bootstrap`, `showcase-ecommerce`, `covid-bigquery`)
+- Loads custom packs from arbitrary HTTP(S) URLs via `pack_url`
+- Time-shifts timestamps so ingested metadata appears current (set `no_time_shift: false`)
+- SHA256 integrity verification for registry packs
+- Local caching to avoid repeated downloads
 
 ### Limitations
 
-Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+- Data packs are read-only collections of MCPs; they cannot be modified before loading.
+- Time-shifting adjusts all temporal fields by a fixed offset — relative ordering is preserved but absolute times may not match real-world events.
+- Custom URL packs (`pack_url`) bypass SHA256 verification unless the pack includes a checksum.
 
 ### Troubleshooting
 
-If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+- **"Pack not found"**: Verify the pack name with `datahub datapack list`. Pack names are case-sensitive.
+- **Trust errors**: Community and custom packs require explicit opt-in via `trust_community: true` or `trust_custom: true`.
+- **Download failures**: Check network connectivity to the pack URL. Use `no_cache: true` to force a fresh download if a cached file is corrupted.

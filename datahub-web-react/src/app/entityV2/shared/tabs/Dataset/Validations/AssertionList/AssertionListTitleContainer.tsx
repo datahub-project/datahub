@@ -1,5 +1,6 @@
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const AssertionTitleContainer = styled.div`
@@ -18,15 +19,16 @@ const AssertionListTitle = styled(Typography.Title)`
 
 const SubTitle = styled(Typography.Text)`
     font-size: 14px;
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const AssertionListTitleContainer = () => {
+    const { t } = useTranslation('entity.profile.validations');
     return (
         <AssertionTitleContainer>
             <div className="left-section">
-                <AssertionListTitle level={4}>Assertions</AssertionListTitle>
-                <SubTitle>View and manage data quality checks for this table</SubTitle>
+                <AssertionListTitle level={4}>{t('assertionList.assertionsTitle')}</AssertionListTitle>
+                <SubTitle>{t('assertionList.subtitle')}</SubTitle>
             </div>
         </AssertionTitleContainer>
     );

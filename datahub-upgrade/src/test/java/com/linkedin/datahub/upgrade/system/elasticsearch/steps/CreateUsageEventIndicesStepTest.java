@@ -2,20 +2,31 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static org.mockito.Mockito.atLeastOnce;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
+import com.linkedin.metadata.config.search.ComponentClusterConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.function.Function;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -59,6 +70,7 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.when(esComponents.getSearchClient()).thenReturn(searchClient);
     Mockito.when(searchClient.getEngineType()).thenReturn(searchEngineType);
     Mockito.when(esComponents.getIndexBuilder()).thenReturn(indexBuilder);
+    Mockito.when(esComponents.getConfig()).thenReturn(elasticSearch);
 
     Mockito.when(configurationProvider.getPlatformAnalytics()).thenReturn(platformAnalytics);
     Mockito.when(configurationProvider.getElasticSearch()).thenReturn(elasticSearch);
@@ -113,19 +125,25 @@ public class CreateUsageEventIndicesStepTest {
               }
             });
 
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
 
     // Mock index existence check
     Mockito.when(
             searchClient.indexExists(
-                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationFingerprint.class),
+                Mockito.any(GetIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(false);
 
     // Mock alias check - return empty map by default (no alias exists)
     Mockito.when(
             searchClient.getIndexAliases(
-                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationFingerprint.class),
+                Mockito.any(GetAliasesRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
     Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
 
@@ -133,7 +151,9 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.when(createIndexResponse.isAcknowledged()).thenReturn(true);
     Mockito.when(
             searchClient.createIndex(
-                Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationFingerprint.class),
+                Mockito.any(CreateIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(createIndexResponse);
   }
 
@@ -358,16 +378,20 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.verify(index, atLeastOnce()).getFinalPrefix();
 
     // Verify that the low-level requests were made with correct names (no underscore prefix)
-    Mockito.verify(searchClient, Mockito.atLeast(2)).performLowLevelRequest(Mockito.any());
+    Mockito.verify(searchClient, Mockito.atLeast(2))
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
 
     // Verify specific endpoint calls were made
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request.getEndpoint().equals("/_ilm/policy/datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -397,11 +421,13 @@ public class CreateUsageEventIndicesStepTest {
     // Verify that the low-level requests were made with correct names (with underscore prefix)
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request.getEndpoint().equals("/_ilm/policy/prod_datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -432,6 +458,7 @@ public class CreateUsageEventIndicesStepTest {
     // Verify that the low-level requests were made with correct names (with underscore prefix)
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -440,6 +467,7 @@ public class CreateUsageEventIndicesStepTest {
                             "/_ilm/policy/kbcpyv7ss3-staging-test_datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -472,6 +500,7 @@ public class CreateUsageEventIndicesStepTest {
     // Note: createIsmPolicy makes 2 calls - one for creation and one for update attempt
     Mockito.verify(searchClient, Mockito.atLeast(1))
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -479,6 +508,7 @@ public class CreateUsageEventIndicesStepTest {
                         .equals("/_plugins/_ism/policies/datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -510,6 +540,7 @@ public class CreateUsageEventIndicesStepTest {
     // Note: createIsmPolicy makes 2 calls - one for creation and one for update attempt
     Mockito.verify(searchClient, Mockito.atLeast(1))
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -517,6 +548,7 @@ public class CreateUsageEventIndicesStepTest {
                         .equals("/_plugins/_ism/policies/prod_datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request ->
                     request
@@ -576,5 +608,79 @@ public class CreateUsageEventIndicesStepTest {
 
     // Verify that the executable function can be called multiple times
     Mockito.verify(searchEngineType, Mockito.times(2)).isOpenSearch();
+  }
+
+  @Test
+  public void testExecutable_UsageOnSecondaryUsesThatCluster() throws Exception {
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+    Mockito.when(esComponents.getIndexConvention()).thenReturn(Mockito.mock(IndexConvention.class));
+
+    SearchClientShim<?> primaryClient = Mockito.mock(SearchClientShim.class);
+    SearchClientShim<?> usageClient = Mockito.mock(SearchClientShim.class);
+    SearchClientShim.SearchEngineType usageEngine =
+        Mockito.mock(SearchClientShim.SearchEngineType.class);
+    Mockito.when(usageEngine.isOpenSearch()).thenReturn(false);
+    Mockito.when(usageClient.getEngineType()).thenReturn(usageEngine);
+    Mockito.when(
+            usageClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenReturn(rawResponse);
+
+    IndexConfiguration usageIndex = Mockito.mock(IndexConfiguration.class);
+    Mockito.when(usageIndex.getFinalPrefix()).thenReturn("test_");
+    Mockito.when(usageIndex.getNumShards()).thenReturn(7);
+    Mockito.when(usageIndex.getNumReplicas()).thenReturn(3);
+    ElasticSearchConfiguration usageConfig = Mockito.mock(ElasticSearchConfiguration.class);
+    Mockito.when(usageConfig.getIndex()).thenReturn(usageIndex);
+
+    ElasticSearchConfiguration routingConfig =
+        ElasticSearchConfiguration.builder()
+            .componentCluster(ComponentClusterConfiguration.builder().usage("secondary").build())
+            .build();
+    Map<String, SearchClusterRegistry.ClusterConnection> connections = new LinkedHashMap<>();
+    connections.put(
+        "primary",
+        new SearchClusterRegistry.ClusterConnection(
+            "primary",
+            elasticSearch,
+            primaryClient,
+            Mockito.mock(ESBulkProcessor.class),
+            Mockito.mock(ESIndexBuilder.class)));
+    connections.put(
+        "secondary",
+        new SearchClusterRegistry.ClusterConnection(
+            "secondary",
+            usageConfig,
+            usageClient,
+            Mockito.mock(ESBulkProcessor.class),
+            Mockito.mock(ESIndexBuilder.class)));
+
+    CreateUsageEventIndicesStep usageStep =
+        new CreateUsageEventIndicesStep(
+            esComponents,
+            configurationProvider,
+            new SearchClusterRegistry(routingConfig, connections));
+
+    UpgradeStepResult result = usageStep.executable().apply(upgradeContext);
+
+    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    Mockito.verify(usageIndex).getNumShards();
+    Mockito.verify(usageIndex).getNumReplicas();
+    Mockito.verify(usageClient, atLeastOnce())
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
+    Mockito.verify(primaryClient, Mockito.never())
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
+
+    IndexConvention convention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver("prod"),
+            new EntityIndexConfiguration(),
+            Map.of(SearchComponent.USAGE, "test"));
+    Assert.assertEquals(
+        convention.getIndexName(upgradeContext.opContext(), "datahub_usage_event"),
+        usageIndex.getFinalPrefix() + "datahub_usage_event");
   }
 }

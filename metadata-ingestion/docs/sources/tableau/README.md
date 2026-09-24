@@ -2,7 +2,7 @@
 
 Tableau is a business intelligence and analytics platform. Learn more in the [official Tableau documentation](https://www.tableau.com/).
 
-The DataHub integration for Tableau covers BI entities such as dashboards, charts, datasets, and related ownership context. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Tableau covers BI entities such as dashboards, charts, datasets, and related ownership context. It also captures table- and column-level lineage, usage statistics, ownership, tags, and stateful deletion detection.
 
 :::info Ingestion through UI
 

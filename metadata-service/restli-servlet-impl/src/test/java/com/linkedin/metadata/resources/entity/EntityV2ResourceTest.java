@@ -1,0 +1,247 @@
+package com.linkedin.metadata.resources.entity;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.testng.Assert.assertEquals;
+
+import com.datahub.authentication.AuthenticationContext;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.identity.CorpUserCredentials;
+import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.parseq.Engine;
+import com.linkedin.parseq.EngineBuilder;
+import com.linkedin.parseq.Task;
+import java.util.concurrent.Executors;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.Aspect;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.query.QuerySubject;
+import com.linkedin.query.QuerySubjectArray;
+import com.linkedin.query.QuerySubjects;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.testng.annotations.Test;
+
+public class EntityV2ResourceTest {
+
+  private static final Urn USER_URN = UrnUtils.getUrn("urn:li:corpuser:victim");
+
+  /** Grants everything except Manage User Credentials. */
+  private static Authorizer denyManageUserCredentialsAuthorizer() {
+    Authorizer authorizer = mock(Authorizer.class);
+    when(authorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              AuthorizationResult.Type type =
+                  PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE
+                          .getType()
+                          .equals(request.getPrivilege())
+                      ? AuthorizationResult.Type.DENY
+                      : AuthorizationResult.Type.ALLOW;
+              return new AuthorizationResult(request, type, "");
+            });
+    return authorizer;
+  }
+
+  static EntityResponse corpUserResponseWithCredentials(Urn urn) {
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.CORP_USER_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(new CorpUserInfo().setActive(true).data())));
+    aspects.put(
+        Constants.CORP_USER_CREDENTIALS_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setValue(
+                new Aspect(
+                    new CorpUserCredentials().setSalt("salt").setHashedPassword("hash").data())));
+    return new EntityResponse().setUrn(urn).setAspects(aspects);
+  }
+
+  static <T> T awaitTask(Task<T> task) {
+    Engine engine =
+        new EngineBuilder()
+            .setTaskExecutor(Runnable::run)
+            .setTimerScheduler(Executors.newSingleThreadScheduledExecutor())
+            .build();
+    try {
+      engine.blockingRun(task);
+      return task.get();
+    } finally {
+      engine.shutdown();
+    }
+  }
+
+  private static EntityV2Resource resourceForUser(EntityService<?> entityService) {
+    EntityV2Resource resource = new EntityV2Resource();
+    resource.setEntityService(entityService);
+    resource.setAuthorizer(denyManageUserCredentialsAuthorizer());
+    resource.setSystemOperationContext(TestOperationContexts.systemContextNoSearchAuthorization());
+    AuthenticationContext.setAuthentication(
+        new Authentication(new Actor(ActorType.USER, "regular-user"), ""));
+    return resource;
+  }
+
+  @Test
+  public void testGetOmitsCredentialsWithoutManageUserCredentials() throws Exception {
+    EntityService<?> entityService = mock(EntityService.class);
+    when(entityService.getEntityV2(any(), eq("corpuser"), eq(USER_URN), anySet(), anyBoolean()))
+        .thenReturn(corpUserResponseWithCredentials(USER_URN));
+
+    EntityResponse response =
+        awaitTask(resourceForUser(entityService).get(USER_URN.toString(), null, null));
+
+    assertEquals(response.getAspects().keySet(), Set.of(Constants.CORP_USER_INFO_ASPECT_NAME));
+  }
+
+  @Test
+  public void testBatchGetOmitsCredentialsWithoutManageUserCredentials() throws Exception {
+    EntityService<?> entityService = mock(EntityService.class);
+    when(entityService.getEntitiesV2(any(), eq("corpuser"), anySet(), anySet(), anyBoolean()))
+        .thenReturn(Map.of(USER_URN, corpUserResponseWithCredentials(USER_URN)));
+
+    Map<Urn, EntityResponse> responses =
+        awaitTask(
+            resourceForUser(entityService).batchGet(Set.of(USER_URN.toString()), null, null));
+
+    assertEquals(
+        responses.get(USER_URN).getAspects().keySet(),
+        Set.of(Constants.CORP_USER_INFO_ASPECT_NAME));
+  }
+
+  private static final Urn QUERY_URN = UrnUtils.getUrn("urn:li:query:auth-test");
+  private static final Urn SUBJECT_DATASET =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,foo,PROD)");
+  private static final Urn DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,bar,PROD)");
+
+  @Test
+  public void testIsAuthorizedToReadEntities_deniesQueryWhenSubjectNotViewable() throws Exception {
+    OperationContext opContext = createUserContextWithViewAuth(denyAllAuthorizer(), querySubjectsRetriever());
+
+    assertFalse(invokeIsAuthorizedToReadEntities(opContext, List.of(QUERY_URN)));
+  }
+
+  @Test
+  public void testIsAuthorizedToReadEntities_allowsDatasetWithReadPrivilege() throws Exception {
+    OperationContext opContext =
+        createUserContextWithViewAuth(allowAllAuthorizer(), mock(AspectRetriever.class));
+
+    assertTrue(invokeIsAuthorizedToReadEntities(opContext, List.of(DATASET_URN)));
+  }
+
+  @Test
+  public void testIsAuthorizedToReadEntities_allowsQueryWhenSubjectViewable() throws Exception {
+    OperationContext opContext =
+        createUserContextWithViewAuth(allowAllAuthorizer(), querySubjectsRetriever());
+
+    assertTrue(invokeIsAuthorizedToReadEntities(opContext, List.of(QUERY_URN)));
+  }
+
+  private static boolean invokeIsAuthorizedToReadEntities(
+      OperationContext opContext, List<Urn> urns) throws Exception {
+    Method method =
+        EntityV2Resource.class.getDeclaredMethod(
+            "isAuthorizedToReadEntities", OperationContext.class, java.util.Collection.class);
+    method.setAccessible(true);
+    return (boolean) method.invoke(null, opContext, urns);
+  }
+
+  private static Authorizer denyAllAuthorizer() {
+    Authorizer authorizer = mock(Authorizer.class);
+    when(authorizer.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
+    return authorizer;
+  }
+
+  private static Authorizer allowAllAuthorizer() {
+    Authorizer authorizer = mock(Authorizer.class);
+    when(authorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation ->
+                new AuthorizationResult(
+                    invocation.getArgument(0), AuthorizationResult.Type.ALLOW, ""));
+    return authorizer;
+  }
+
+  private static AspectRetriever querySubjectsRetriever() {
+    QuerySubjects querySubjects = new QuerySubjects();
+    querySubjects.setSubjects(new QuerySubjectArray(new QuerySubject().setEntity(SUBJECT_DATASET)));
+
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(aspectRetriever.getLatestAspectObjects(
+            any(),
+            eq(Set.of(QUERY_URN)),
+            eq(Set.of(Constants.QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(
+            Map.of(
+                QUERY_URN,
+                Map.of(
+                    Constants.QUERY_SUBJECTS_ASPECT_NAME,
+                    new Aspect(querySubjects.data()))));
+    return aspectRetriever;
+  }
+
+  private static OperationContext createUserContextWithViewAuth(
+      Authorizer authorizer, AspectRetriever aspectRetriever) {
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "datahub"), "");
+
+    RetrieverContext retrieverContext =
+        RetrieverContext.builder()
+            .aspectRetriever(aspectRetriever)
+            .cachingAspectRetriever(
+                TestOperationContexts.emptyActiveUsersAspectRetriever(
+                    aspectRetriever::getEntityRegistry))
+            .graphRetriever(GraphRetriever.EMPTY)
+            .searchRetriever(SearchRetriever.EMPTY)
+            .build();
+
+    OperationContext systemContext =
+        TestOperationContexts.systemContext(
+            () ->
+                OperationContextConfig.builder()
+                    .viewAuthorizationConfiguration(
+                        ViewAuthorizationConfiguration.builder().enabled(true).build())
+                    .build(),
+            null,
+            null,
+            null,
+            () -> retrieverContext,
+            null,
+            null,
+            null);
+
+    return systemContext.asSession(RequestContext.TEST, authorizer, userAuth);
+  }
+}

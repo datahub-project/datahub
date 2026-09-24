@@ -1,6 +1,7 @@
 import { AppstoreOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -14,7 +15,6 @@ import {
 import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
 import { getContentTypeIcon } from '@app/entityV2/shared/summary/IconComponents';
 import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
-import { pluralize } from '@app/shared/textUtil';
 import { EntityCountCard } from '@app/sharedV2/cards/EntityCountCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -30,6 +30,8 @@ const StyledHeaderWrapper = styled(SummaryTabHeaderWrapper)`
 `;
 
 export const AssetsSection = () => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { urn, entityType } = useEntityData();
@@ -41,7 +43,8 @@ export const AssetsSection = () => {
                 types: [],
                 query: '',
                 orFilters: [{ and: [{ field: 'applications', values: [urn] }] }],
-                count: 1000,
+                // Facets/total only — do not fetch result cards (avoids per-result lineage/health/stats fan-out).
+                count: 0,
             },
         },
         fetchPolicy: 'cache-first',
@@ -58,9 +61,12 @@ export const AssetsSection = () => {
     return (
         <AssetsSectionWrapper>
             <StyledHeaderWrapper>
-                <SummaryTabHeaderTitle icon={<AppstoreOutlined />} title={`Assets (${contentsCount})`} />
+                <SummaryTabHeaderTitle
+                    icon={<AppstoreOutlined />}
+                    title={t('shared.assetsCountTitle', { count: contentsCount })}
+                />
                 <Button type="link" onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>
-                    View all
+                    {tc('viewAll')}
                 </Button>
             </StyledHeaderWrapper>
             {loading && <ContentSectionLoading />}
@@ -88,7 +94,7 @@ export const AssetsSection = () => {
                                 name={typeName}
                                 count={summary.count}
                                 icon={getContentTypeIcon(entityRegistry, summary.entityType, summary.type)}
-                                tooltipDescriptor={pluralize(count, typeName)}
+                                tooltipDescriptor={t('shared.assetTypeNameCount', { count, type: typeName })}
                                 link={link}
                             />
                         );

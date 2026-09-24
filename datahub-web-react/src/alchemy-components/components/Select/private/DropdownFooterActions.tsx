@@ -1,5 +1,6 @@
 import { Button } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SelectSizeOptions } from '@components/components/Select/types';
@@ -11,20 +12,23 @@ const FooterBase = styled.div(({ theme }) => ({
     justifyContent: 'flex-end',
     gap: spacing.sm,
     paddingTop: spacing.sm,
-    borderTop: `1px solid ${theme?.colors?.border}`,
+    borderTop: `1px solid ${theme.colors.border}`,
 }));
 
 interface Props {
     onCancel?: () => void;
     onUpdate?: () => void;
     size?: SelectSizeOptions;
+    /** Label for the confirm button. Defaults to translated "Update". */
+    updateLabel?: string;
 }
 
-export default function DropdownFooterActions({ onCancel, onUpdate, size }: Props) {
+export default function DropdownFooterActions({ onCancel, onUpdate, size, updateLabel }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     return (
         <FooterBase>
             <Button onClick={onCancel} variant="text" size={size} data-testid="footer-button-cancel">
-                Cancel
+                {tc('cancel')}
             </Button>
             <Button
                 onClick={onUpdate}
@@ -32,7 +36,7 @@ export default function DropdownFooterActions({ onCancel, onUpdate, size }: Prop
                 onFocus={(e) => e.stopPropagation()}
                 data-testid="footer-button-update"
             >
-                Update
+                {updateLabel ?? tc('update')}
             </Button>
         </FooterBase>
     );

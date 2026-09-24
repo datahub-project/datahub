@@ -1,5 +1,6 @@
 import { Button } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useVisibilityObserver } from '@app/entityV2/summary/documentation/useVisibilityObserver';
@@ -15,13 +16,13 @@ const Wrapper = styled.div<{ expanded: boolean }>`
 
 const ContentContainer = styled.div<{ $expanded: boolean; $hasMore: boolean }>`
     overflow: ${({ $expanded }) => ($expanded ? 'visible' : 'hidden')};
-    ${({ $expanded, $hasMore }) =>
+    ${({ $expanded, $hasMore, theme }) =>
         !$expanded &&
         $hasMore &&
         `
-            -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0.5) 90%, rgba(0,0,0,0) 100%);
-            mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0.5) 90%, rgba(0,0,0,0) 100%);
-  `}
+            -webkit-mask-image: linear-gradient(to bottom, black 60%, ${theme.colors.overlayMask} 90%, transparent 100%);
+            mask-image: linear-gradient(to bottom, black 60%, ${theme.colors.overlayMask} 90%, transparent 100%);
+        `}
 `;
 
 const StyledButton = styled(Button)`
@@ -34,6 +35,7 @@ interface Props {
 }
 
 export default function DescriptionViewer({ children }: Props) {
+    const { t } = useTranslation('entity.profile.summary');
     const [isExpanded, setIsExpanded] = useState(false);
 
     const { elementRef, hasMore } = useVisibilityObserver(MAX_VIEW_HEIGHT, [children]);
@@ -51,7 +53,7 @@ export default function DescriptionViewer({ children }: Props) {
                         setIsExpanded((val) => !val);
                     }}
                 >
-                    {isExpanded ? 'View Less' : 'View More'}
+                    {isExpanded ? t('documentation.viewLess') : t('documentation.viewMore')}
                 </StyledButton>
             )}
         </Wrapper>

@@ -1,5 +1,5 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { IdentificationBadge } from '@phosphor-icons/react/dist/csr/IdentificationBadge';
+import i18next from 'i18next';
 import * as React from 'react';
 import styled from 'styled-components';
 
@@ -42,9 +42,9 @@ export class RoleEntity implements Entity<Role> {
 
     getPathName: () => string = () => 'role';
 
-    getCollectionName: () => string = () => 'Roles';
+    getCollectionName: () => string = () => i18next.t('entity.types:role.namePlural');
 
-    getEntityName: () => string = () => 'Role';
+    getEntityName: () => string = () => i18next.t('entity.types:role.name');
 
     renderProfile: (urn: string) => JSX.Element = (_) => <RoleEntityProfile />;
 

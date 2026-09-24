@@ -1,44 +1,70 @@
 ### Overview
 
-The `dremio` module ingests metadata from Dremio into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+Dremio is a data lakehouse platform that provides SQL query capabilities across diverse data sources without copying data. The DataHub integration connects directly to Dremio via REST API and system table queries to discover and catalog your data assets.
 
-This plugin integrates with Dremio to extract and ingest metadata into DataHub. The following types of metadata are extracted:
-
-- Metadata for Spaces, Folders, Sources, and Datasets:
-  - Includes physical and virtual datasets, with detailed information about each dataset.
-  - Extracts metadata about Dremio's organizational hierarchy: Spaces (top-level), Folders (sub-level), and Sources (external data connections).
-    \*Schema and Column Information:
-  - Column types and schema metadata associated with each physical and virtual dataset.
-  - Extracts column-level metadata, such as names, data types, and descriptions, if available.
-- Lineage Information:
-  - Dataset-level and column-level lineage tracking:
-    - Dataset-level lineage shows dependencies and relationships between physical and virtual datasets.
-    - Column-level lineage tracks transformations applied to individual columns across datasets.
-  - Lineage information helps trace the flow of data and transformations within Dremio.
-- Ownership and Glossary Terms:
-  - Metadata related to ownership of datasets, extracted from Dremio’s ownership model.
-  - Glossary terms and business metadata associated with datasets, providing additional context to the data.
-  - Note: Ownership information will only be available for the Cloud and Enterprise editions, it will not be available for the Community edition.
-- Optional SQL Profiling (if enabled):
-  - Table, row, and column statistics can be profiled and ingested via optional SQL queries.
-  - Extracts statistics about tables and columns, such as row counts and data distribution, for better insight into the dataset structure.
+This module captures physical datasets (tables), virtual datasets (views), spaces, folders, and data sources as containers. Optional capabilities include column-level lineage from view definitions, query-based lineage from job history, data profiling, and stateful deletion of removed entities.
 
 ### Prerequisites
 
-Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
+You need a running Dremio instance with API access, a user account with appropriate permissions, and network connectivity between DataHub and Dremio.
 
-1. **Generate an API Token**:
+#### Authentication
 
-   - Log in to your Dremio instance.
-   - Navigate to your user profile in the top-right corner.
-   - Select **Generate API Token** to create an API token for programmatic access.
+Generate a Personal Access Token for programmatic access:
 
-2. **Permissions**:
+- Log in to your Dremio instance
+- Navigate to your user profile (top-right corner)
+- Select **Generate API Token** to create a Personal Access Token
+- Save the token securely — it is only displayed once
 
-   - The token should have **read-only** or **admin** permissions that allow it to:
-     - View all datasets (physical and virtual).
-     - Access all spaces, folders, and sources.
-     - Retrieve dataset and column-level lineage information.
+#### Required Permissions
 
-3. **Verify External Data Source Permissions**:
-   - If Dremio is connected to external data sources (e.g., AWS S3, relational databases), ensure that Dremio has access to the credentials required for querying those sources.
+Your user account needs the following Dremio privileges:
+
+**Container Access (Required for container discovery)**
+
+```sql
+-- Grant access to view and use sources and spaces
+GRANT READ METADATA ON SOURCE <source_name> TO USER <username>
+GRANT READ METADATA ON SPACE <space_name> TO USER <username>
+
+-- Or grant at system level for all containers
+GRANT READ METADATA ON SYSTEM TO USER <username>
+```
+
+**System Tables Access (Required for metadata extraction)**
+
+```sql
+-- Grant access to system tables for dataset metadata
+GRANT SELECT ON SYSTEM TO USER <username>
+```
+
+**Dataset Access (Optional — only needed for data profiling)**
+
+```sql
+-- For data profiling (only if profiling is enabled)
+GRANT SELECT ON SOURCE <source_name> TO USER <username>
+GRANT SELECT ON SPACE <space_name> TO USER <username>
+```
+
+**Query Lineage Access (Optional — only if `include_query_lineage: true`)**
+
+```sql
+-- Required for query lineage extraction
+GRANT VIEW JOB HISTORY ON SYSTEM TO USER <username>
+```
+
+What each permission does:
+
+- `READ METADATA`: Access to view containers and their metadata via API calls
+- `SELECT ON SYSTEM`: Access to system tables (`SYS.*`, `INFORMATION_SCHEMA.*`) for dataset metadata
+- `SELECT ON SOURCE/SPACE`: Read actual data for profiling (optional)
+- `VIEW JOB HISTORY`: Access query history tables for lineage (optional)
+
+#### External Data Source Verification
+
+If your Dremio instance connects to external data sources (AWS S3, databases, etc.), ensure that:
+
+- Dremio has proper credentials configured for those sources
+- The DataHub user can access datasets from those external sources
+- Network connectivity exists between Dremio and external sources

@@ -23,8 +23,8 @@ source:
     path_list:
       - "s3://bucket/data/excel/*/*.xlsx"
     aws_config:
-      aws_access_key_id: AKIAIOSFODNN7EXAMPLE
-      aws_secret_access_key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+      aws_access_key_id: ...
+      aws_secret_access_key: ...
       aws_region: us-east-1
     profiling:
       enabled: false

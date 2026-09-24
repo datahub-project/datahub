@@ -1,6 +1,7 @@
 import { Icon, Pill, Tooltip } from '@components';
 import { ArrowsLeftRight } from '@phosphor-icons/react/dist/csr/ArrowsLeftRight';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import SyncedOrSharedTooltip from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrSharedTooltip';
@@ -50,6 +51,7 @@ interface Props {
 }
 
 const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const pillColor = getRelativeTimeStatus(time);
 
     return (
@@ -68,11 +70,15 @@ const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props
                     </span>
                 </Tooltip>
                 {!!platform && (
-                    <>
-                        <LabelText>from</LabelText>
-                        <PlatformIcon platform={platform} size={16} />
-                        <LabelText>{platformName}</LabelText>
-                    </>
+                    <Trans
+                        t={t}
+                        i18nKey="sidebar.syncedOrShared.fromPlatform"
+                        values={{ platformName }}
+                        components={{
+                            icon: <PlatformIcon platform={platform} size={16} />,
+                            text: <LabelText />,
+                        }}
+                    />
                 )}
             </DetailRow>
         </DetailsContainer>

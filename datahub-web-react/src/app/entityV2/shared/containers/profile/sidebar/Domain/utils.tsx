@@ -1,10 +1,9 @@
+import i18next from 'i18next';
 import * as QueryString from 'query-string';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import filtersToQueryStringParams from '@app/search/utils/filtersToQueryStringParams';
-import { pluralize } from '@app/shared/textUtil';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '@types';
@@ -12,7 +11,7 @@ import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '@
 const UNIT_SEPARATOR = '␞';
 
 const SummaryText = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type ContentTypeSummary = {
@@ -93,13 +92,14 @@ export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry:
             {summary.types.map((type, idx) => {
                 return (
                     <SummaryText key={type.entityType}>
-                        {type.count}{' '}
-                        {pluralize(
-                            type.count,
-                            !type.type
-                                ? (entityRegistry.getEntityName(type.entityType as EntityType) as any)
-                                : type.type,
-                        ).toLocaleLowerCase()}
+                        {i18next.t('entity.shared.containers:sidebar.entityTypeCount', {
+                            count: type.count,
+                            type: (!type.type
+                                ? entityRegistry.getEntityName(type.entityType as EntityType)
+                                : type.type
+                            )?.toLocaleLowerCase(),
+                        })}
+                        {/* eslint-disable-next-line i18next/no-literal-string -- list separator punctuation, not translatable UI text */}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>
                 );

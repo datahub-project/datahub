@@ -43,7 +43,24 @@ def mock_playwright():
 
 
 class TestBrowserSsoLogin:
-    def test_extracts_cookies_and_generates_token(self, mock_playwright: dict) -> None:
+    @pytest.mark.parametrize(
+        ("support", "ticket_id", "expected_auth_url"),
+        [
+            (False, None, "http://localhost:9002/authenticate"),
+            (
+                True,
+                "SUPPORT-123",
+                "http://localhost:9002/support/authenticate?ticket_id=SUPPORT-123",
+            ),
+        ],
+    )
+    def test_extracts_cookies_and_generates_token(
+        self,
+        mock_playwright: dict,
+        support: bool,
+        ticket_id: str | None,
+        expected_auth_url: str,
+    ) -> None:
         """Happy path: SSO login succeeds, cookies extracted, token generated."""
         context = mock_playwright["context"]
         context.cookies.return_value = [
@@ -85,11 +102,15 @@ class TestBrowserSsoLogin:
             mock_session.post.side_effect = [list_response, create_response]
 
             token_name, access_token = browser_sso_login(
-                "http://localhost:9002", "ONE_HOUR"
+                "http://localhost:9002",
+                "ONE_HOUR",
+                support=support,
+                ticket_id=ticket_id,
             )
 
         assert access_token == "generated-sso-token-xyz"
         assert "cli token" in token_name
+        mock_playwright["page"].goto.assert_called_once_with(expected_auth_url)
 
         # Verify cookies were set on the session
         assert mock_session.cookies.set.call_count == 2

@@ -1,11 +1,11 @@
 ---
 title: "SCIM Integration: Okta and DataHub"
-hide_title: true
+description: "Configure SCIM-based identity provisioning between Okta and DataHub Cloud to automate user and group lifecycle management."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-## SCIM Integration: Okta and DataHub
+# SCIM Integration: Okta and DataHub
 
 <FeatureAvailability saasOnly />
 

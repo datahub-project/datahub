@@ -49,8 +49,14 @@ interface Props<T> {
 
 export default function EmbeddedProfile<T>({ urn, entityType, getOverrideProperties, useEntityQuery }: Props<T>) {
     const entityRegistry = useEntityRegistryV2();
-    const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, refetch } =
-        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
+    const {
+        entityData,
+        rootEntityData,
+        dataPossiblyCombinedWithSiblings,
+        dataNotCombinedWithSiblings,
+        loading,
+        refetch,
+    } = useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
 
     // Only compute sidebar tabs when entityData.type is available to avoid unnecessary work during loading.
     const sidebarTabs = entityData?.type ? entityRegistry.getSidebarTabs(entityData.type) : [];
@@ -70,6 +76,7 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                 urn,
                 entityType,
                 entityData,
+                rootEntityData,
                 loading,
                 baseEntity: dataPossiblyCombinedWithSiblings,
                 dataNotCombinedWithSiblings,

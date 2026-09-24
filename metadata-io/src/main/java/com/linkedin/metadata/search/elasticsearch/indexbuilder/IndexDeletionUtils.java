@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -59,19 +60,24 @@ public class IndexDeletionUtils {
    * @throws IOException If there's an error communicating with Elasticsearch
    */
   public static IndexResolutionResult resolveIndexForDeletion(
-      @Nonnull SearchClientShim<?> searchClient, @Nonnull String indexName) throws IOException {
+      @Nonnull SearchClientShim<?> searchClient,
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName)
+      throws IOException {
 
     // Check if it's an alias
     GetAliasesRequest getAliasesRequest = new GetAliasesRequest(indexName);
     GetAliasesResponse aliasesResponse;
     try {
-      aliasesResponse = searchClient.getIndexAliases(getAliasesRequest, RequestOptions.DEFAULT);
+      aliasesResponse =
+          searchClient.getIndexAliases(opContext, getAliasesRequest, RequestOptions.DEFAULT);
     } catch (IOException | RuntimeException e) {
       // If getIndexAliases throws, check if it's because index/alias doesn't exist
       if (e.getMessage() != null && e.getMessage().contains("index_not_found_exception")) {
         // Check if it's an actual index
         boolean indexExists =
-            searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+            searchClient.indexExists(
+                opContext, new GetIndexRequest(indexName), RequestOptions.DEFAULT);
         if (!indexExists) {
           log.debug("Index {} does not exist, skipping", indexName);
           return null;
@@ -89,7 +95,8 @@ public class IndexDeletionUtils {
     if (aliasesResponse == null || aliasesResponse.getAliases().isEmpty()) {
       // Not an alias, must be a concrete index - verify it exists
       boolean indexExists =
-          searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+          searchClient.indexExists(
+              opContext, new GetIndexRequest(indexName), RequestOptions.DEFAULT);
       if (!indexExists) {
         log.debug("Index {} does not exist, skipping", indexName);
         return null;
@@ -100,7 +107,7 @@ public class IndexDeletionUtils {
       GetAliasesRequest aliasesForIndexRequest = new GetAliasesRequest();
       aliasesForIndexRequest.indices(indexName);
       GetAliasesResponse aliasesForIndex =
-          searchClient.getIndexAliases(aliasesForIndexRequest, RequestOptions.DEFAULT);
+          searchClient.getIndexAliases(opContext, aliasesForIndexRequest, RequestOptions.DEFAULT);
 
       nameToTrack = indexName;
       if (!aliasesForIndex.getAliases().isEmpty()
@@ -137,11 +144,13 @@ public class IndexDeletionUtils {
    * @throws IOException If there's an error deleting the index
    */
   public static void deleteConcreteIndex(
-      @Nonnull SearchClientShim<?> searchClient, @Nonnull String concreteIndexName)
+      @Nonnull SearchClientShim<?> searchClient,
+      @Nonnull OperationContext opContext,
+      @Nonnull String concreteIndexName)
       throws IOException {
     DeleteIndexRequest deleteRequest = new DeleteIndexRequest(concreteIndexName);
     deleteRequest.timeout(TimeValue.timeValueSeconds(30));
-    searchClient.deleteIndex(deleteRequest, RequestOptions.DEFAULT);
+    searchClient.deleteIndex(opContext, deleteRequest, RequestOptions.DEFAULT);
     log.info("Successfully deleted index {}", concreteIndexName);
   }
 
@@ -155,14 +164,17 @@ public class IndexDeletionUtils {
    * @throws IOException If there's an error deleting the index
    */
   public static String deleteIndex(
-      @Nonnull SearchClientShim<?> searchClient, @Nonnull String indexName) throws IOException {
-    IndexResolutionResult resolution = resolveIndexForDeletion(searchClient, indexName);
+      @Nonnull SearchClientShim<?> searchClient,
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName)
+      throws IOException {
+    IndexResolutionResult resolution = resolveIndexForDeletion(searchClient, opContext, indexName);
     if (resolution == null) {
       return null;
     }
 
     for (String concreteIndex : resolution.indicesToDelete()) {
-      deleteConcreteIndex(searchClient, concreteIndex);
+      deleteConcreteIndex(searchClient, opContext, concreteIndex);
     }
 
     return resolution.nameToTrack();

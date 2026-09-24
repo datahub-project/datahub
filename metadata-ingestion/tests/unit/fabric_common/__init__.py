@@ -1,1 +1,1 @@
-"""Unit tests for shared Fabric components."""
+"""Unit tests for shared Fabric connector utilities."""

@@ -5,44 +5,68 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from datahub.emitter.mcp_builder import BigQueryDatasetKey
+from google.cloud import dataplex_v1
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class EntryDataTuple:
-    """Immutable data structure for tracking entry metadata.
+    """Immutable Dataplex/DataHub identity tuple for lineage tracking.
 
     Used in sets for lineage extraction, so must be hashable (frozen=True).
     """
 
-    entry_id: str
-    source_platform: str
-    dataset_id: str
+    dataplex_entry_short_name: str
+    dataplex_entry_name: str
+    dataplex_location: str
+    dataplex_entry_type_short_name: str
+    dataplex_entry_fqn: str
+    datahub_platform: str
+    datahub_dataset_name: str
+    datahub_dataset_urn: str
 
 
-def make_bigquery_dataset_container_key(
-    project_id: str, dataset_id: str, platform: str, env: str
-) -> BigQueryDatasetKey:
-    """Create container key for a BigQuery dataset.
+@dataclass(frozen=True)
+class ExportedEntry:
+    """One entry parsed from metadata-export output, with its entries location."""
 
-    Args:
-        project_id: GCP project ID
-        dataset_id: BigQuery dataset ID
-        platform: Platform name (should be "bigquery")
-        env: Environment (PROD, DEV, etc.)
+    entry: dataplex_v1.Entry
+    location: str
 
-    Returns:
-        BigQueryDatasetKey for the dataset container
-    """
-    return BigQueryDatasetKey(
-        project_id=project_id,
-        dataset_id=dataset_id,
-        platform=platform,
-        env=env,
-        backcompat_env_as_instance=True,
-    )
+
+@dataclass(frozen=True)
+class GcsPath:
+    """A parsed ``gs://bucket[/prefix]`` URI."""
+
+    bucket: str
+    prefix: Optional[str]
+
+    @property
+    def list_prefix(self) -> Optional[str]:
+        """Prefix argument for ``list_blobs`` (trailing slash, or None for bucket root)."""
+        return f"{self.prefix}/" if self.prefix else None
+
+    @property
+    def uri(self) -> str:
+        """Normalized ``gs://bucket/prefix/`` form."""
+        if self.prefix:
+            return f"gs://{self.bucket}/{self.prefix}/"
+        return f"gs://{self.bucket}/"
+
+
+GCS_URI_SCHEME = "gs://"
+
+
+def parse_gcs_path(path: str) -> GcsPath:
+    """Parse a ``gs://bucket[/prefix]`` URI, raising ValueError when malformed."""
+    if not path.startswith(GCS_URI_SCHEME):
+        raise ValueError(f"GCS path must start with '{GCS_URI_SCHEME}': '{path}'")
+    remainder = path[len(GCS_URI_SCHEME) :].strip("/")
+    if not remainder:
+        raise ValueError(f"GCS path has no bucket name: '{path}'")
+    bucket, _, prefix = remainder.partition("/")
+    return GcsPath(bucket=bucket, prefix=prefix.strip("/") or None)
 
 
 def make_audit_stamp(timestamp: Any) -> Optional[Dict[str, Any]]:
@@ -156,46 +180,3 @@ def serialize_field_value(field_value: Any) -> str:
         return json.dumps(field_value)
     except (TypeError, ValueError):
         return str(field_value)
-
-
-def parse_entry_fqn(fqn: str) -> tuple[str, str]:
-    """Parse fully qualified name to extract platform and dataset_id.
-
-    Args:
-        fqn: Fully qualified name (e.g., 'bigquery:project.dataset.table')
-
-    Returns:
-        Tuple of (platform, dataset_id)
-        - For BigQuery: dataset_id is 'project.dataset.table'
-        - For GCS: dataset_id is 'bucket/path'
-    """
-    if ":" not in fqn:
-        return "", ""
-
-    platform, resource_path = fqn.split(":", 1)
-
-    if platform == "bigquery":
-        # BigQuery FQN format: bigquery:project.dataset.table
-        # Return the full project.dataset.table as dataset_id
-        parts = resource_path.split(".")
-        if len(parts) >= 3:
-            # Full table reference: project.dataset.table
-            return platform, resource_path
-        elif len(parts) == 2:
-            # Dataset reference (legacy): project.dataset
-            logger.warning(
-                f"BigQuery FQN '{fqn}' only has 2 parts (project.dataset), expected 3 (project.dataset.table)"
-            )
-            return platform, resource_path
-        else:
-            logger.warning(
-                f"BigQuery FQN '{fqn}' has unexpected format, expected 'bigquery:project.dataset.table'"
-            )
-            return platform, resource_path
-    elif platform == "gcs":
-        # GCS FQN format: gcs:bucket/path
-        # Return the full bucket/path as dataset_id
-        return platform, resource_path
-
-    # For other platforms, return the full resource_path
-    return platform, resource_path

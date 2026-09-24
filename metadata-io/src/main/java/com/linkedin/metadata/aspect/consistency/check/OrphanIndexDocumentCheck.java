@@ -40,7 +40,7 @@ import org.springframework.stereotype.Component;
 @Component("consistencyOrphanIndexDocumentCheck")
 public class OrphanIndexDocumentCheck implements ConsistencyCheck {
 
-  private static final String CHECK_ID = "orphan-index-document";
+  public static final String CHECK_ID = "orphan-index-document";
 
   @Override
   @Nonnull

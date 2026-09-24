@@ -1,10 +1,13 @@
 import Editor from '@monaco-editor/react';
 import { Button, Modal } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { jsonToYaml } from '@app/ingestV2/source/utils';
 import '@conf/monaco';
+
+const EDITOR_LANGUAGE = 'yaml';
 
 const YamlWrapper = styled.div`
     padding: 24px;
@@ -16,6 +19,8 @@ interface Props {
 }
 
 function RecipeViewerModal({ recipe, onCancel }: Props) {
+    const { t } = useTranslation('ingestion');
+    const { t: tc } = useTranslation('common.actions');
     const formattedRecipe = recipe ? jsonToYaml(recipe) : '';
 
     return (
@@ -23,8 +28,8 @@ function RecipeViewerModal({ recipe, onCancel }: Props) {
             open
             onCancel={onCancel}
             width={800}
-            title="View Ingestion Recipe"
-            footer={<Button onClick={onCancel}>Done</Button>}
+            title={t('source.viewRecipeTitle')}
+            footer={<Button onClick={onCancel}>{tc('done')}</Button>}
         >
             <YamlWrapper>
                 <Editor
@@ -37,7 +42,7 @@ function RecipeViewerModal({ recipe, onCancel }: Props) {
                         },
                     }}
                     height="55vh"
-                    defaultLanguage="yaml"
+                    defaultLanguage={EDITOR_LANGUAGE}
                     value={formattedRecipe}
                 />
             </YamlWrapper>

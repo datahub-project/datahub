@@ -194,6 +194,12 @@ class SnowplowSourceReport(StaleEntityRemovalSourceReport):
     num_deployment_fetch_failures: int = 0
     failed_deployment_fetches: List[str] = field(default_factory=list)
 
+    # Environment filtering stats
+    num_schemas_filtered_by_env: int = 0
+    filtered_schemas_by_env: List[str] = field(default_factory=list)
+    num_pipelines_filtered_by_label: int = 0
+    filtered_pipelines_by_label: List[str] = field(default_factory=list)
+
     # Hidden schemas
     num_hidden_schemas: int = 0
     num_hidden_schemas_skipped: int = 0
@@ -287,6 +293,16 @@ class SnowplowSourceReport(StaleEntityRemovalSourceReport):
         """Record that an enrichment was filtered out."""
         self.num_enrichments_filtered += 1
 
+    def report_schema_filtered_by_env(self, schema_name: str) -> None:
+        """Record that a schema was filtered out by deployment environment."""
+        self.num_schemas_filtered_by_env += 1
+        self.filtered_schemas_by_env.append(schema_name)
+
+    def report_pipeline_filtered_by_label(self, pipeline_name: str) -> None:
+        """Record that a pipeline was filtered out because its label didn't match pipeline_label."""
+        self.num_pipelines_filtered_by_label += 1
+        self.filtered_pipelines_by_label.append(pipeline_name)
+
     def report_warehouse_lineage_extracted(self) -> None:
         """Record that warehouse lineage was extracted."""
         self.num_warehouse_lineage_extracted += 1
@@ -374,36 +390,40 @@ class SnowplowSourceReport(StaleEntityRemovalSourceReport):
 
         # Add to warnings if significant filtering occurred
         if self.num_event_schemas_filtered > 0:
-            self.report_warning(
-                "schema_filtering",
-                f"Filtered out {self.num_event_schemas_filtered} event schemas. "
-                f"Check schema_pattern configuration.",
+            self.warning(
+                message="Filtered out event schemas. Check schema_pattern configuration.",
+                context=f"schema_filtering: {self.num_event_schemas_filtered} event schemas filtered",
+                log=False,
             )
 
         if self.num_entity_schemas_filtered > 0:
-            self.report_warning(
-                "schema_filtering",
-                f"Filtered out {self.num_entity_schemas_filtered} entity schemas. "
-                f"Check schema_pattern configuration.",
+            self.warning(
+                message="Filtered out entity schemas. Check schema_pattern configuration.",
+                context=f"schema_filtering: {self.num_entity_schemas_filtered} entity schemas filtered",
+                log=False,
             )
 
         # Report hidden schemas
         if self.num_hidden_schemas_skipped > 0:
-            self.report_warning(
-                "hidden_schemas",
-                f"Skipped {self.num_hidden_schemas_skipped} hidden schemas. "
-                f"Set include_hidden_schemas=true to include them.",
+            self.warning(
+                message="Skipped hidden schemas. Set include_hidden_schemas=true to include them.",
+                context=f"hidden_schemas: {self.num_hidden_schemas_skipped} schemas skipped",
+                log=False,
             )
 
         # Report schema parsing errors
         if self.schema_parsing_errors:
             for error in self.schema_parsing_errors[:5]:  # Limit to 5 errors
-                self.report_warning("schema_parsing", error)
+                self.warning(
+                    message="Schema parsing error",
+                    context=error,
+                    log=False,
+                )
 
         # Report API errors
         for api_name, errors in self.api_errors.items():
             for error in errors[:3]:  # Limit to 3 errors per API
-                self.report_failure(api_name, error)
+                self.failure(message="API error", context=f"{api_name}: {error}")
 
         # Log API metrics summary for performance tuning
         self._log_api_metrics_summary()

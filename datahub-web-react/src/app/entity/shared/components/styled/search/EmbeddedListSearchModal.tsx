@@ -1,5 +1,6 @@
 import { Button, Modal } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EmbeddedListSearch } from '@app/entity/shared/components/styled/search/EmbeddedListSearch';
@@ -53,6 +54,7 @@ export const EmbeddedListSearchModal = ({
     isViewAllMode,
     handleViewAllClickWarning,
 }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     // Component state
     const [query, setQuery] = useState<string>('');
     const [page, setPage] = useState(1);
@@ -80,7 +82,7 @@ export const EmbeddedListSearchModal = ({
             title={title}
             open
             onCancel={onClose}
-            footer={<Button onClick={onClose}>Close</Button>}
+            footer={<Button onClick={onClose}>{tc('close')}</Button>}
         >
             <SearchContainer>
                 <EmbeddedListSearch

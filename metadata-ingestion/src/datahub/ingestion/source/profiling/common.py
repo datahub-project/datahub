@@ -1,5 +1,6 @@
+import dataclasses
 from enum import Enum
-from typing import Optional
+from typing import Any, Dict, Optional
 
 
 class Cardinality(Enum):
@@ -50,3 +51,11 @@ def convert_to_cardinality(
     else:
         cardinality = Cardinality.MANY
     return cardinality
+
+
+@dataclasses.dataclass
+class ProfilerRequest:
+    """Generic profiling request shared by profiler backends."""
+
+    pretty_name: str
+    batch_kwargs: Dict[str, Any]

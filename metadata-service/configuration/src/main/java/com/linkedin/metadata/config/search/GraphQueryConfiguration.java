@@ -42,4 +42,12 @@ public class GraphQueryConfiguration {
 
   /** Enable creation of point in time snapshots for graph queries */
   private boolean pointInTimeCreationEnabled;
+
+  /**
+   * Seconds to wait (after {@code cancel(true)}) for all parallel graph slice futures to finish
+   * before releasing shared PIT or clearing scroll; one {@link
+   * java.util.concurrent.CompletableFuture#allOf} wait uses this bound. Must be set via
+   * configuration (no Java default).
+   */
+  private Integer sliceFutureDrainTimeoutSeconds;
 }

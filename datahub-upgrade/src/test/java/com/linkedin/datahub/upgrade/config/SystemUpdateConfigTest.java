@@ -7,7 +7,7 @@ import com.linkedin.datahub.upgrade.UpgradeCliApplication;
 import com.linkedin.datahub.upgrade.UpgradeCliApplicationTestConfiguration;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.SystemJavaEntityClient;
-import javax.inject.Named;
+import jakarta.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -21,7 +21,6 @@ import org.testng.annotations.Test;
 @ActiveProfiles("test")
 @SpringBootTest(
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
-    properties = {"kafka.schemaRegistry.type=INTERNAL"},
     args = {"-u", "SystemUpdateBlocking"})
 public class SystemUpdateConfigTest extends AbstractTestNGSpringContextTests {
 

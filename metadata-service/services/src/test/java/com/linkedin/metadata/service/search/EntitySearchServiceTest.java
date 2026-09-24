@@ -22,6 +22,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.SystemMetadata;
@@ -34,6 +35,7 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.NotImplementedException;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.opensearch.action.explain.ExplainResponse;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -258,6 +260,13 @@ public class EntitySearchServiceTest {
       return null;
     }
 
+    @Nonnull
+    @Override
+    public Map<Urn, IncidentStats> getActiveIncidentStats(
+        @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
+      return Map.of();
+    }
+
     @Override
     public BrowseResult browse(
         OperationContext opContext,
@@ -347,6 +356,16 @@ public class EntitySearchServiceTest {
     public @Nonnull Map<Urn, Map<String, Object>> raw(
         @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns) {
       return Map.of();
+    }
+
+    @Override
+    public boolean validateAndSwapAlias(
+        @NonNull OperationContext opContext,
+        @NonNull String aliasName,
+        @NonNull String newBackingIndex,
+        long expectedSourceDocCount)
+        throws Exception {
+      return false;
     }
   }
 }

@@ -1,6 +1,8 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { SimpleSelect, Text, Tooltip } from '@components';
-import React, { useMemo } from 'react';
+import { Icon, SimpleSelect, Text, Tooltip } from '@components';
+import { User } from '@phosphor-icons/react/dist/csr/User';
+import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SelectOption } from '@components/components/Select/types';
@@ -9,6 +11,12 @@ import { mapRoleToPhosphorIcon } from '@app/identity/user/PhosphorRoleUtils';
 import { useRoleSelector } from '@app/identity/user/useRoleSelector';
 
 import { DataHubRole } from '@types';
+
+const PlaceholderContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
 
 const LoadMoreContainer = styled.div`
     display: flex;
@@ -37,11 +45,22 @@ interface Props {
 export default function SimpleSelectRole({
     selectedRole,
     onRoleSelect,
-    placeholder = 'No Role',
+    placeholder,
     size = 'md',
     width = 'fit-content',
     disabled = false,
 }: Props) {
+    const { t } = useTranslation('entity.identity');
+    const resolvedPlaceholder = placeholder ?? t('users.noRole');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    const placeholderWithIcon = (
+        <PlaceholderContainer>
+            <Icon icon={User} size="xl" />
+            {resolvedPlaceholder}
+        </PlaceholderContainer>
+    );
+
     const { roles, loading, hasMore, observerRef, setSearchQuery } = useRoleSelector();
 
     const roleSelectOptions = useMemo(() => {
@@ -69,15 +88,22 @@ export default function SimpleSelectRole({
         });
 
         // Add "No Role" option at the end
-        const options = [...sortedRoleOptions, { value: '', label: placeholder, icon: mapRoleToPhosphorIcon('') }];
+        const options = [
+            ...sortedRoleOptions,
+            { value: '', label: resolvedPlaceholder, icon: mapRoleToPhosphorIcon('') },
+        ];
 
         // Add sentinel option for infinite scroll trigger
         if (hasMore) {
-            options.push({ value: LOAD_MORE_VALUE, label: 'Loading more...', icon: <LoadingOutlined /> });
+            options.push({
+                value: LOAD_MORE_VALUE,
+                label: t('users.loadingMoreRolesSentinel'),
+                icon: <LoadingOutlined />,
+            });
         }
 
         return options;
-    }, [roles, placeholder, hasMore]);
+    }, [roles, resolvedPlaceholder, hasMore, t]);
 
     const handleRoleSelect = (roleUrn: string) => {
         // Ignore clicks on the sentinel option
@@ -98,7 +124,7 @@ export default function SimpleSelectRole({
                 <LoadMoreContainer ref={observerRef}>
                     <LoadingOutlined />
                     <Text color="gray" size="sm" style={{ marginLeft: 8 }}>
-                        Loading more roles...
+                        {t('users.loadingMoreRoles')}
                     </Text>
                 </LoadMoreContainer>
             );
@@ -106,7 +132,7 @@ export default function SimpleSelectRole({
 
         // Default rendering for role options
         return (
-            <Tooltip title={option.value || 'No URN'} placement="right">
+            <Tooltip title={option.value || t('users.statusNoUrn')} placement="right">
                 <OptionContainer>
                     {option.icon}
                     <Text weight="semiBold" size="md" color="gray">
@@ -118,12 +144,13 @@ export default function SimpleSelectRole({
     };
 
     return (
-        <Tooltip title="Set user role" placement="top">
+        <Tooltip title={t('users.setRoleTooltip')} placement="top" open={isDropdownOpen ? false : undefined}>
             <span>
                 <SimpleSelect
                     onUpdate={(values) => handleRoleSelect(values[0] || '')}
+                    onOpenChange={setIsDropdownOpen}
                     options={roleSelectOptions}
-                    placeholder={placeholder}
+                    placeholder={placeholderWithIcon}
                     values={selectedRole?.urn ? [selectedRole.urn] : []}
                     size={size}
                     width={width}

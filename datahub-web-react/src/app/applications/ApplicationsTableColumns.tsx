@@ -3,6 +3,8 @@ import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVerti
 import { Dropdown } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
@@ -62,11 +64,12 @@ export const ApplicationNameColumn = React.memo(
         searchQuery?: string;
     }) => {
         const entityRegistry = useEntityRegistry();
+        const history = useHistory();
         const url = entityRegistry.getEntityUrl(EntityType.Application, applicationUrn);
 
         return (
             <ColumnContainer>
-                <ApplicationName onClick={() => window.open(url, '_blank')} data-testid={`${applicationUrn}-name`}>
+                <ApplicationName onClick={() => history.push(url)} data-testid={`${applicationUrn}-name`}>
                     <Highlight search={searchQuery}>{displayName}</Highlight>
                 </ApplicationName>
             </ColumnContainer>
@@ -101,15 +104,18 @@ export const ApplicationOwnersColumn = React.memo(({ owners }: { owners: Ownersh
 
 export const ApplicationActionsColumn = React.memo(
     ({ applicationUrn, onDelete }: { applicationUrn: string; onDelete: () => void }) => {
+        const { t } = useTranslation('misc');
+        const { t: tc } = useTranslation('common.actions');
         const entityRegistry = useEntityRegistry();
+        const history = useHistory();
         const url = entityRegistry.getEntityUrl(EntityType.Application, applicationUrn);
 
         const items = [
             {
                 key: '0',
                 label: (
-                    <MenuItem onClick={() => window.open(url, '_blank')} data-testid="action-edit">
-                        View
+                    <MenuItem onClick={() => history.push(url)} data-testid="action-edit">
+                        {tc('view')}
                     </MenuItem>
                 ),
             },
@@ -121,7 +127,7 @@ export const ApplicationActionsColumn = React.memo(
                             navigator.clipboard.writeText(applicationUrn);
                         }}
                     >
-                        Copy Urn
+                        {t('applications.copyUrn')}
                     </MenuItem>
                 ),
             },
@@ -129,7 +135,7 @@ export const ApplicationActionsColumn = React.memo(
                 key: '2',
                 label: (
                     <DeleteMenuItem onClick={onDelete} data-testid="action-delete">
-                        Delete
+                        {tc('delete')}
                     </DeleteMenuItem>
                 ),
             },

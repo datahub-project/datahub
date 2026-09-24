@@ -16,7 +16,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -32,7 +32,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -48,7 +48,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -66,7 +66,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -98,7 +98,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -121,7 +121,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -137,7 +137,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -153,7 +153,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -171,7 +171,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -192,7 +192,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -208,7 +208,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -233,7 +233,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1771824853"
+                            "transient_lastddltime": "1781946359"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -325,7 +325,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -343,7 +343,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -362,7 +362,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -387,7 +387,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -406,7 +406,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -477,7 +477,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -493,7 +493,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -516,7 +516,7 @@
                             "numrows": "3",
                             "rawdatasize": "94",
                             "totalsize": "97",
-                            "transient_lastddltime": "1771824858"
+                            "transient_lastddltime": "1781946366"
                         },
                         "name": "classification_test",
                         "tags": []
@@ -564,17 +564,6 @@
                                 },
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
-                                "glossaryTerms": {
-                                    "terms": [
-                                        {
-                                            "urn": "urn:li:glossaryTerm:Full_Name"
-                                        }
-                                    ],
-                                    "auditStamp": {
-                                        "time": 1615443388097,
-                                        "actor": "urn:li:corpuser:datahub"
-                                    }
-                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -587,17 +576,6 @@
                                 },
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
-                                "glossaryTerms": {
-                                    "terms": [
-                                        {
-                                            "urn": "urn:li:glossaryTerm:Email_Address"
-                                        }
-                                    ],
-                                    "auditStamp": {
-                                        "time": 1615443388097,
-                                        "actor": "urn:li:corpuser:datahub"
-                                    }
-                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -610,17 +588,6 @@
                                 },
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
-                                "glossaryTerms": {
-                                    "terms": [
-                                        {
-                                            "urn": "urn:li:glossaryTerm:Gender"
-                                        }
-                                    ],
-                                    "auditStamp": {
-                                        "time": 1615443388097,
-                                        "actor": "urn:li:corpuser:datahub"
-                                    }
-                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -633,17 +600,6 @@
                                 },
                                 "nativeDataType": "INTEGER",
                                 "recursive": false,
-                                "glossaryTerms": {
-                                    "terms": [
-                                        {
-                                            "urn": "urn:li:glossaryTerm:Age"
-                                        }
-                                    ],
-                                    "auditStamp": {
-                                        "time": 1615443388097,
-                                        "actor": "urn:li:corpuser:datahub"
-                                    }
-                                },
                                 "isPartOfKey": false
                             }
                         ]
@@ -653,7 +609,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -671,7 +627,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -690,7 +646,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -715,7 +671,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -734,7 +690,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -816,7 +772,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -832,7 +788,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -855,7 +811,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1771824856"
+                            "transient_lastddltime": "1781946363"
                         },
                         "name": "map_test",
                         "tags": []
@@ -916,7 +872,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -934,7 +890,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -953,7 +909,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -978,7 +934,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -997,7 +953,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1046,7 +1002,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1062,7 +1018,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1085,7 +1041,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1771824856"
+                            "transient_lastddltime": "1781946363"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -1190,7 +1146,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1208,7 +1164,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1227,7 +1183,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1252,7 +1208,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1271,7 +1227,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1364,7 +1320,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1380,7 +1336,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1465,7 +1421,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1483,7 +1439,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1502,7 +1458,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1527,7 +1483,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1546,7 +1502,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1606,7 +1562,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1622,7 +1578,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1645,7 +1601,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1771824850"
+                            "transient_lastddltime": "1781946355"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -1730,7 +1686,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1748,7 +1704,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1767,7 +1723,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1792,7 +1748,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1811,7 +1767,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1882,7 +1838,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1898,7 +1854,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1918,7 +1874,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1771824855"
+                            "transient_lastddltime": "1781946362"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -2003,7 +1959,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2021,7 +1977,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2040,7 +1996,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2065,7 +2021,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2084,7 +2040,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2155,7 +2111,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2171,7 +2127,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2194,7 +2150,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1771824850"
+                            "transient_lastddltime": "1781946355"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -2251,7 +2207,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2269,7 +2225,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2288,7 +2244,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2313,7 +2269,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2332,7 +2288,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2381,7 +2337,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2397,7 +2353,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2420,7 +2376,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1771824856"
+                            "transient_lastddltime": "1781946363"
                         },
                         "name": "union_test",
                         "tags": []
@@ -2553,7 +2509,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2571,7 +2527,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2590,7 +2546,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2615,7 +2571,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2634,7 +2590,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2749,7 +2705,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2765,7 +2721,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2873,7 +2829,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2891,7 +2847,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2909,7 +2865,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2928,7 +2884,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2953,7 +2909,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2972,7 +2928,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3043,7 +2999,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3058,7 +3014,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1615443388097,
+                        "time": 1632398400000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -3101,7 +3057,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3124,13 +3080,13 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1632378600000,
+                "time": 1632398400000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3165,7 +3121,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3181,7 +3137,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3197,7 +3153,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3213,7 +3169,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3229,7 +3185,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3245,7 +3201,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3261,7 +3217,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3277,7 +3233,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3293,7 +3249,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3309,7 +3265,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3325,7 +3281,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3341,7 +3297,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -3357,71 +3313,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "trino-hive-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Age",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Age"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "trino-hive-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Email_Address",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Email_Address"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "trino-hive-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Full_Name",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Full_Name"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "trino-hive-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Gender",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Gender"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1632398400000,
         "runId": "trino-hive-test",
         "lastRunId": "no-run-id-provided"
     }

@@ -1,11 +1,11 @@
 import { useCallback, useMemo } from 'react';
 
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
-import { ASSET_ENTITY_TYPES, OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import useGetUserGroupUrns from '@src/app/entityV2/user/useGetUserGroupUrns';
 
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { useGetSearchResultsForMultipleCardsQuery } from '@graphql/search.generated';
 import { CorpUser, Entity } from '@types';
 
 const MAX_ASSETS_TO_FETCH = 50;
@@ -21,11 +21,10 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, initialCount = MAX_AS
                 query: '*',
                 start,
                 count,
-                types: ASSET_ENTITY_TYPES,
+                types: [], // Get all default searchable entity types from backend
                 filters: [
                     {
                         field: OWNERS_FILTER_NAME,
-                        value: user?.urn,
                         values: [user?.urn || '', ...groupUrns],
                     },
                 ],
@@ -40,7 +39,7 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, initialCount = MAX_AS
         data,
         error,
         refetch,
-    } = useGetSearchResultsForMultipleQuery({
+    } = useGetSearchResultsForMultipleCardsQuery({
         variables: getInputVariables(0, initialCount),
         skip: !user?.urn || groupDataLoading,
         fetchPolicy: isReloading ? 'cache-and-network' : 'cache-first',

@@ -1,52 +1,69 @@
 """Reporting for Dataplex source."""
 
 from dataclasses import dataclass, field
-from typing import Dict
+from typing import List, Optional
 
+from datahub.ingestion.source.dataplex.dataplex_entries import DataplexEntriesReport
+from datahub.ingestion.source.dataplex.dataplex_glossary import DataplexGlossaryReport
+from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
-from datahub.utilities.perf_timer import PerfTimer
+
+
+@dataclass
+class ExportJobInfo:
+    """Per-job status for ``extraction_method: export`` (submit mode).
+
+    Updated on every poll cycle so a long-running export shows visible
+    progress in the periodic report instead of appearing hung.
+    """
+
+    location: str
+    job_id: str
+    output_path: str
+    state: Optional[str] = None
+    elapsed_seconds: int = 0
+    entries_read: int = 0
 
 
 @dataclass
 class DataplexReport(StaleEntityRemovalSourceReport):
     """Report for Dataplex ingestion."""
 
-    num_entry_groups_scanned: int = 0
-    num_entries_scanned: int = 0
+    entries_report: DataplexEntriesReport = field(default_factory=DataplexEntriesReport)
+    lineage_report: DataplexLineageReport = field(default_factory=DataplexLineageReport)
+    glossary_report: DataplexGlossaryReport = field(
+        default_factory=DataplexGlossaryReport
+    )
 
-    num_entries_filtered: int = 0
+    # Export extraction method (extraction_method: export) observability.
+    # Failed jobs / aborted blob reads are additionally reported as source
+    # failures, which suppresses stale-entity soft-deletion for the run.
+    export_jobs_submitted: int = 0
+    export_jobs_succeeded: int = 0
+    export_jobs_failed: int = 0
+    export_blobs_read: int = 0
+    export_blobs_read_failed: int = 0
+    export_entries_read: int = 0
+    export_malformed_lines_skipped: int = 0
+    export_locations_with_no_output: int = 0
+    export_jobs: List[ExportJobInfo] = field(default_factory=list)
 
-    num_entry_groups_ingested: int = 0
-    num_entries_ingested: int = 0
+    def is_export_partial(self) -> bool:
+        """True when any entity may be missing from this run's export stream.
 
-    num_lineage_relationships_created: int = 0
-    num_lineage_entries_scanned: int = 0
-    num_lineage_entries_failed: int = 0
-
-    entries_scanned: Dict[str, bool] = field(default_factory=dict)
-
-    lineage_api_timer: PerfTimer = field(default_factory=PerfTimer)
-    catalog_api_timer: PerfTimer = field(default_factory=PerfTimer)
-
-    def report_entry_group_scanned(self) -> None:
-        """Report that an entry group was scanned."""
-        self.num_entry_groups_scanned += 1
-        self.num_entry_groups_ingested += 1
-
-    def report_entry_scanned(self, entry_id: str, filtered: bool = False) -> None:
-        """Report that an entry was scanned."""
-        self.num_entries_scanned += 1
-        self.entries_scanned[entry_id] = not filtered
-        if filtered:
-            self.num_entries_filtered += 1
-        else:
-            self.num_entries_ingested += 1
-
-    def report_lineage_relationship_created(self) -> None:
-        """Report that a lineage relationship was created."""
-        self.num_lineage_relationships_created += 1
+        Observational only: stale-entity soft-deletion is gated solely by
+        ``report.failure()``, not by this helper. The cases can diverge — a
+        legitimately empty location is only a warning (deletion proceeds)
+        yet still counts as potentially partial here, because this run's
+        stream cannot prove that location's previous entities still exist.
+        """
+        return (
+            self.export_jobs_failed > 0
+            or self.export_blobs_read_failed > 0
+            or self.export_locations_with_no_output > 0
+        )
 
 
 # Alias for consistency with other sources

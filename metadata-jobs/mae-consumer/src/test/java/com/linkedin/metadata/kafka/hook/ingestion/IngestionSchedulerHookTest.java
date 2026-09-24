@@ -12,6 +12,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -19,12 +20,14 @@ import org.testng.annotations.Test;
 
 public class IngestionSchedulerHookTest {
   private IngestionSchedulerHook _ingestionSchedulerHook;
+  private OperationContext opContext;
 
   @BeforeMethod
   public void setupTest() {
     IngestionScheduler mockScheduler = Mockito.mock(IngestionScheduler.class);
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     _ingestionSchedulerHook = new IngestionSchedulerHook(mockScheduler, true);
-    _ingestionSchedulerHook.init(TestOperationContexts.systemContextNoSearchAuthorization());
+    _ingestionSchedulerHook.init(opContext);
   }
 
   @Test
@@ -47,7 +50,7 @@ public class IngestionSchedulerHookTest {
             .setVersion("0.8.18"));
     event.setAspect(GenericRecordUtils.serializeAspect(newInfo));
     event.setEntityUrn(Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0"));
-    _ingestionSchedulerHook.invoke(event);
+    _ingestionSchedulerHook.invoke(opContext, event);
     verify(_ingestionSchedulerHook.scheduler(), Mockito.times(1))
         .scheduleNextIngestionSourceExecution(Mockito.any(), Mockito.any());
   }
@@ -59,7 +62,7 @@ public class IngestionSchedulerHookTest {
     event2.setAspectName(INGESTION_SOURCE_KEY_ASPECT_NAME);
     event2.setChangeType(ChangeType.DELETE);
     event2.setEntityUrn(Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0"));
-    _ingestionSchedulerHook.invoke(event2);
+    _ingestionSchedulerHook.invoke(opContext, event2);
     verify(_ingestionSchedulerHook.scheduler(), Mockito.times(1))
         .unscheduleNextIngestionSourceExecution(Mockito.any());
   }
@@ -71,17 +74,17 @@ public class IngestionSchedulerHookTest {
     event2.setAspectName(INGESTION_INFO_ASPECT_NAME);
     event2.setChangeType(ChangeType.DELETE);
     event2.setEntityUrn(Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0"));
-    _ingestionSchedulerHook.invoke(event2);
+    _ingestionSchedulerHook.invoke(opContext, event2);
     verify(_ingestionSchedulerHook.scheduler(), Mockito.times(1))
         .unscheduleNextIngestionSourceExecution(Mockito.any());
   }
 
   @Test
-  public void testInvokeWrongAspect() {
+  public void testInvokeWrongAspect() throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setAspectName(SECRET_VALUE_ASPECT_NAME);
     event.setChangeType(ChangeType.UPSERT);
-    _ingestionSchedulerHook.invoke(event);
+    _ingestionSchedulerHook.invoke(opContext, event);
     verify(_ingestionSchedulerHook.scheduler(), times(1)).init();
     Mockito.verifyNoMoreInteractions(_ingestionSchedulerHook.scheduler());
   }

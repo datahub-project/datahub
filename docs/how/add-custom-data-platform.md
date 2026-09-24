@@ -1,3 +1,7 @@
+---
+description: "Add a custom Data Platform to DataHub to represent a third-party source system that does not ship as a built-in connector."
+---
+
 # Adding a custom Dataset Data Platform
 
 A Data Platform represents a 3rd party system from which [Metadata Entities](https://docs.datahub.com/docs/metadata-modeling/metadata-model/) are ingested from. Each Dataset that is ingested is associated with a single platform, for example MySQL, Snowflake, Redshift, or BigQuery.
