@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.OpenSearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchHttpProxyConfigurator;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2KnnQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexSettingsBuilder;
@@ -245,6 +246,7 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
                   .build());
 
           setCredentials(httpAsyncClientBuilder);
+          SearchHttpProxyConfigurator.apply(httpAsyncClientBuilder, shimConfiguration);
 
           return httpAsyncClientBuilder;
         });
@@ -333,12 +335,17 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
   }
 
   private void setCredentials(HttpAsyncClientBuilder httpAsyncClientBuilder) {
-    if (shimConfiguration.getUsername() != null && shimConfiguration.getPassword() != null) {
+    boolean clusterAuth =
+        shimConfiguration.getUsername() != null && shimConfiguration.getPassword() != null;
+    if (clusterAuth || SearchHttpProxyConfigurator.hasProxyCredentials(shimConfiguration)) {
       final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-      credentialsProvider.setCredentials(
-          AuthScope.ANY,
-          new UsernamePasswordCredentials(
-              shimConfiguration.getUsername(), shimConfiguration.getPassword()));
+      if (clusterAuth) {
+        credentialsProvider.setCredentials(
+            AuthScope.ANY,
+            new UsernamePasswordCredentials(
+                shimConfiguration.getUsername(), shimConfiguration.getPassword()));
+      }
+      SearchHttpProxyConfigurator.addProxyCredentials(credentialsProvider, shimConfiguration);
       httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
     }
     if (shimConfiguration.isUseAwsIamAuth()) {

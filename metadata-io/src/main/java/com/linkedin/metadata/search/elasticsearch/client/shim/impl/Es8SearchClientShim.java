@@ -85,6 +85,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.ElasticSearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchHttpProxyConfigurator;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8KnnQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexSettingsBuilder;
@@ -339,6 +340,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
           // Authentication
           configureAuthentication(httpAsyncClientBuilder, config);
+          SearchHttpProxyConfigurator.apply(httpAsyncClientBuilder, config);
 
           return httpAsyncClientBuilder;
         });
@@ -431,12 +433,15 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
   private void configureAuthentication(
       HttpAsyncClientBuilder httpAsyncClientBuilder, ShimConfiguration config) {
-    // Basic authentication
-    if (config.getUsername() != null && config.getPassword() != null) {
+    boolean clusterAuth = config.getUsername() != null && config.getPassword() != null;
+    if (clusterAuth || SearchHttpProxyConfigurator.hasProxyCredentials(config)) {
       final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-      credentialsProvider.setCredentials(
-          AuthScope.ANY,
-          new UsernamePasswordCredentials(config.getUsername(), config.getPassword()));
+      if (clusterAuth) {
+        credentialsProvider.setCredentials(
+            AuthScope.ANY,
+            new UsernamePasswordCredentials(config.getUsername(), config.getPassword()));
+      }
+      SearchHttpProxyConfigurator.addProxyCredentials(credentialsProvider, config);
       httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
     }
 
