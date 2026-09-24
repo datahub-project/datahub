@@ -47,6 +47,7 @@ public class UsageEventIndexUtils {
   private static final Duration BACKFILL_WAIT = Duration.ofMinutes(5);
   // A younger backup may belong to a migration still running elsewhere, so it is left alone.
   private static final Duration STALE_BACKUP_AGE = Duration.ofMinutes(10);
+  private static final Duration BLOCKED_INDEX_POLL_INTERVAL = Duration.ofSeconds(30);
   // Data streams reject events without @timestamp. Older events may only carry timestamp; events
   // with neither cannot go into a data stream at all, so they are dropped there.
   private static final String BACKFILL_SCRIPT =
@@ -775,14 +776,24 @@ public class UsageEventIndexUtils {
       throws IOException, InterruptedException {
     String indexName = prefix + "datahub_usage_event";
     // Nothing locks against two system-update runs at once; each could leave a backup behind.
-    if (resolveIndices(opContext, esComponents, indexName).contains(indexName)
-        && dropStaleBackups(opContext, esComponents, prefix, indexName)) {
-      replaceLegacyIndex(
-          opContext,
-          esComponents,
-          indexName,
-          prefix + LEGACY_BACKUP_INFIX + System.currentTimeMillis(),
-          useOpenSearch);
+    long waitUntil = System.currentTimeMillis() + STALE_BACKUP_AGE.plusMinutes(1).toMillis();
+    while (resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
+      if (dropStaleBackups(opContext, esComponents, prefix, indexName)) {
+        replaceLegacyIndex(
+            opContext,
+            esComponents,
+            indexName,
+            prefix + LEGACY_BACKUP_INFIX + System.currentTimeMillis(),
+            useOpenSearch);
+        break;
+      }
+      // A recent clone blocks a new attempt. If its attempt died after blocking writes, nothing
+      // else lifts the block, so wait for that clone to go stale or its migration to finish.
+      if (!isWriteBlocked(opContext, esComponents, indexName)
+          || System.currentTimeMillis() >= waitUntil) {
+        return;
+      }
+      Thread.sleep(BLOCKED_INDEX_POLL_INTERVAL.toMillis());
     }
     for (String backupName :
         resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*")) {
@@ -841,6 +852,25 @@ public class UsageEventIndexUtils {
       return false;
     }
     return true;
+  }
+
+  private static boolean isWriteBlocked(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String indexName)
+      throws IOException {
+    return readJson(
+            opContext,
+            IndexUtils.performGetRequest(
+                opContext,
+                esComponents,
+                "/" + indexName + "/_settings/" + IndexUtils.INDEX_BLOCKS_WRITE_SETTING))
+        .path(indexName)
+        .path("settings")
+        .path("index")
+        .path("blocks")
+        .path("write")
+        .asBoolean();
   }
 
   private static long creationDate(
