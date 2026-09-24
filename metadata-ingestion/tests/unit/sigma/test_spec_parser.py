@@ -390,6 +390,73 @@ def test_a_source_with_no_usable_kind_is_counted(kind: Any) -> None:
     assert index.unrecognised_element_count == 1
 
 
+@pytest.mark.parametrize("kind", ["join-v2", "transpose"])
+def test_an_unknown_source_kind_is_counted_not_assumed_single_source(
+    kind: str,
+) -> None:
+    """A renamed "join" would otherwise stop every join with nothing reported."""
+    source = _join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}]))
+    source["kind"] = kind
+    index = parse_data_model_spec(_spec(source))
+    assert index.pairs == []
+    assert index.unrecognised_element_count == 1
+
+
+@pytest.mark.parametrize("kind", ["warehouse-table", "table", "sql"])
+def test_a_published_single_source_kind_is_quiet(kind: str) -> None:
+    index = parse_data_model_spec(_spec({"kind": kind}))
+    assert index.unrecognised_element_count == 0
+
+
+def test_a_source_that_is_not_an_object_is_counted() -> None:
+    index = parse_data_model_spec(_spec("warehouse-table"))  # type: ignore[arg-type]
+    assert index.unrecognised_element_count == 1
+
+
+def test_a_renamed_source_key_leaves_no_sourced_elements() -> None:
+    """Otherwise it would look exactly like a model of plain tables."""
+    legit = _spec(_join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}])))
+    renamed = _spec(
+        _join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}]))
+    )
+    for element in renamed["pages"][0]["elements"]:
+        element["src"] = element.pop("source")
+    good, bad = parse_data_model_spec(legit), parse_data_model_spec(renamed)
+    assert (good.element_count, good.sourced_element_count) == (3, 3)
+    assert (bad.element_count, bad.sourced_element_count) == (3, 0)
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [(1, 1), (2, 2), ("1", None), (True, None), ("<absent>", None)],
+)
+def test_the_schema_version_is_read(version: Any, expected: Any) -> None:
+    spec = _spec(_join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}])))
+    if version != "<absent>":
+        spec["schemaVersion"] = version
+    assert parse_data_model_spec(spec).schema_version == expected
+
+
+@pytest.mark.parametrize(
+    "data_model_id",
+    [123, {"id": "dm-2"}, "", "  "],
+    ids=["int", "dict", "empty", "blank"],
+)
+def test_an_unusable_data_model_id_is_drift_not_a_local_element(
+    data_model_id: Any,
+) -> None:
+    """Element ids repeat across models, so falling back to this one would
+    attach the key to whatever local element shares the id."""
+    side = {**_ELEMENT_SIDE_R, "dataModelId": data_model_id}
+    join_index = _parse_join(
+        _one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}], right=side)
+    )
+    assert join_index.pairs == []
+    assert join_index.unreadable_join_element_ids == ["el-x"]
+    union_index = _parse_union(_union([side, _el("el-b")], ["[X]", "[Y]"]))
+    assert union_index.unreadable_union_element_ids == ["el-union"]
+
+
 def test_a_renamed_kind_key_is_counted() -> None:
     source = _join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}]))
     source["type"] = source.pop("kind")
@@ -554,10 +621,26 @@ def test_a_cross_model_union_branch_keeps_its_data_model_id() -> None:
     assert [b.data_model_id for b in index.unions[0].branches] == [None, "dm-2"]
 
 
-def test_a_multi_column_branch_is_reported_and_the_rest_still_read() -> None:
-    index = _parse_union(_union([_el("el-a"), _el("el-b")], ["[A] + [B]", "[C]"]))
-    assert _branches(index.unions[0]) == [("el-b", "C")]
-    assert index.unreadable_union_element_ids == ["el-union"]
+def test_a_branch_naming_several_columns_contributes_each() -> None:
+    """A branch is a data flow: every column it names feeds the output."""
+    index = _parse_union(
+        _union([_el("el-a"), _el("el-b")], ['Concat([First], " ", [Last])', "[C]"])
+    )
+    branches = index.unions[0].branches
+    assert [(b.element_id, b.column, b.source_index) for b in branches] == [
+        ("el-a", "First", 0),
+        ("el-a", "Last", 0),
+        ("el-b", "C", 1),
+    ]
+    assert index.unreadable_union_element_ids == []
+
+
+def test_a_relationship_ref_in_a_branch_is_counted_not_drift() -> None:
+    """Valid Sigma, but mapping it needs the relationship's target."""
+    index = _parse_union(_union([_el("el-a"), _el("el-b")], ["[A] + [Rel/Col]", "[C]"]))
+    assert _branches(index.unions[0]) == [("el-a", "A"), ("el-b", "C")]
+    assert index.union_relationship_ref_count == 1
+    assert index.unreadable_union_element_ids == []
 
 
 def test_a_constant_branch_is_not_drift() -> None:
@@ -628,10 +711,6 @@ def test_a_column_past_the_sources_is_reported_not_reassigned() -> None:
         _union([_el("el-a")], [0]),
         _union([_el("el-a")], [False]),
         _union([_el("el-a")], [[]]),
-        # A branch is a data flow: several columns, or a relationship ref, is a
-        # shape this parser cannot map.
-        _union([_el("el-a")], ['Concat([First], " ", [Last])']),
-        _union([_el("el-a")], ["[Rel/Col]"]),
         {"kind": "union", "sources": [_el("el-a")], "matches": ["junk"]},
         {
             "kind": "union",
@@ -657,8 +736,6 @@ def test_a_column_past_the_sources_is_reported_not_reassigned() -> None:
         "zero-slot",
         "false-slot",
         "list-slot",
-        "two-column-slot",
-        "relationship-slot",
         "non-dict-match",
         "empty-output-name",
         "non-string-output-name",
