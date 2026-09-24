@@ -616,12 +616,12 @@ jobs:
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           elif [[ "${{ needs.setup.outputs.smoke_tier }}" == "p0" ]]; then
             # The p0 tier is 357 of 1209 collected tests, so 4 batches carry a
-            # lighter per-batch load than the full suite's 7 while cutting the
+            # lighter per-batch load than the full suite's 9 while cutting the
             # per-batch fixed cost (caches, image pull, quickstart) that dominates
             # a short run. Revisit once p0 batch durations have been measured.
             echo "python_batch_count=4" >> "$GITHUB_OUTPUT"
           else
-            echo "python_batch_count=7" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=9" >> "$GITHUB_OUTPUT"
           fi
 
       - id: set-matrix

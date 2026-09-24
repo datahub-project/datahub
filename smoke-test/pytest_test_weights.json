@@ -1,333 +1,5 @@
 [
   {
-    "testId": "tests.e2e.test_authentication_e2e::test_actuator_prometheus_no_auth",
-    "duration": "0.047s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_admin_endpoints_require_privileges",
-    "duration": "29.990s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_api_token_authentication",
-    "duration": "20.106s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_authentication_behavior_summary",
-    "duration": "9.863s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_authentication_priority_and_fallback",
-    "duration": "0.029s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_config_progressive_disclosure",
-    "duration": "0.069s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_cross_service_authentication_consistency",
-    "duration": "19.929s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/config/search/export]",
-    "duration": "0.004s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/config]",
-    "duration": "0.005s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/public-iceberg/health]",
-    "duration": "0.015s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/schema-registry/subjects]",
-    "duration": "0.010s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_invalid_token",
-    "duration": "0.011s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_no_auth",
-    "duration": "0.014s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_valid_token",
-    "duration": "9.835s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_via_frontend_uses_gzip",
-    "duration": "9.981s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_health_endpoint_no_auth",
-    "duration": "7.482s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_health_endpoint_with_invalid_token",
-    "duration": "0.005s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[Basic dXNlcjpwYXNz]",
-    "duration": "0.007s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[Bearer ]",
-    "duration": "0.007s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[Bearer]",
-    "duration": "0.008s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[InvalidPrefix token]",
-    "duration": "0.007s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[bearer invalid-token]",
-    "duration": "0.007s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_invalid_token[/aspects?action=getAspect-GET]",
-    "duration": "0.015s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_invalid_token[/entities?action=search-POST]",
-    "duration": "0.015s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_invalid_token[/openapi/operations/throttle/requests-GET]",
-    "duration": "0.015s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_invalid_token[/openapi/v2/entity/dataset-GET]",
-    "duration": "0.010s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/aspects?action=getAspect-GET]",
-    "duration": "0.007s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/entities?action=search-POST]",
-    "duration": "0.010s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/openapi/operations/throttle/requests-GET]",
-    "duration": "0.018s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/openapi/v1/system-info-GET]",
-    "duration": "0.008s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/openapi/v2/entity/dataset-GET]",
-    "duration": "0.017s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_restli_endpoints_with_valid_auth",
-    "duration": "9.785s"
-  },
-  {
-    "testId": "tests.e2e.test_authentication_e2e::test_session_vs_token_authentication",
-    "duration": "19.935s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_add_remove_members_from_group",
-    "duration": "39.910s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_create_group",
-    "duration": "11.668s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_app_config",
-    "duration": "1.666s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_auth",
-    "duration": "0.001s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_browse_datasets",
-    "duration": "10.115s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_datasets[urn:li:dataPlatform:bigquery-bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times-PROD]",
-    "duration": "1.577s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_datasets[urn:li:dataPlatform:kafka-SampleKafkaDataset-PROD]",
-    "duration": "1.599s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_me_query",
-    "duration": "5.251s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_search_across_entities[-1]",
-    "duration": "9.992s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_search_across_entities[covid-1]",
-    "duration": "10.108s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_search_across_entities[sample-3]",
-    "duration": "9.945s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_search_datasets[-1]",
-    "duration": "9.884s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_search_datasets[covid-1]",
-    "duration": "9.889s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_search_datasets[sample-3]",
-    "duration": "10.136s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_frontend_user_info",
-    "duration": "10.097s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_generate_personal_access_token",
-    "duration": "9.798s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_batch_get_v2",
-    "duration": "0.023s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_get_dataset[urn:li:dataPlatform:bigquery-bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times-PROD]",
-    "duration": "0.013s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_get_dataset[urn:li:dataPlatform:kafka-SampleKafkaDataset-PROD]",
-    "duration": "0.020s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_get_user",
-    "duration": "84.188s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_search_across_entities[covid-1]",
-    "duration": "9.837s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_search_across_entities[sample-3]",
-    "duration": "9.973s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_search_dataset[covid-1]",
-    "duration": "9.847s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_search_dataset[sample-3]",
-    "duration": "8.382s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_gms_usage_fetch",
-    "duration": "9.897s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_home_page_recommendations",
-    "duration": "8.378s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_home_page_recommendations_with_module_filter",
-    "duration": "11.620s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_ingest_with_blank_system_metadata",
-    "duration": "1.595s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_ingest_with_system_metadata",
-    "duration": "8.332s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_ingest_without_system_metadata",
-    "duration": "1.574s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_list_groups",
-    "duration": "1.669s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_list_users",
-    "duration": "10.092s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_native_user_endpoints",
-    "duration": "0.307s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_remove_group",
-    "duration": "18.345s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_remove_user",
-    "duration": "20.065s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_search_results_recommendations",
-    "duration": "8.522s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_update_corp_group_description",
-    "duration": "30.004s"
-  },
-  {
-    "testId": "tests.e2e.test_e2e::test_update_corp_group_properties",
-    "duration": "28.445s"
-  },
-  {
-    "testId": "tests.e2e.test_rapid::test_ingestion_via_rest_rapid",
-    "duration": "25.545s"
-  },
-  {
-    "testId": "tests.e2e.test_system_info::test_system_info_authenticated_non_admin_user_returns_403",
-    "duration": "26.315s"
-  },
-  {
-    "testId": "tests.e2e.test_system_info::test_system_info_endpoint_separation",
-    "duration": "0.148s"
-  },
-  {
-    "testId": "tests.e2e.test_system_info::test_system_info_main_endpoint",
-    "duration": "0.121s"
-  },
-  {
-    "testId": "tests.e2e.test_system_info::test_system_info_properties_endpoint",
-    "duration": "0.055s"
-  },
-  {
-    "testId": "tests.e2e.test_system_info::test_system_info_properties_structure",
-    "duration": "0.064s"
-  },
-  {
-    "testId": "tests.e2e.test_system_info::test_system_info_sensitive_data_redaction",
-    "duration": "0.052s"
-  },
-  {
-    "testId": "tests.e2e.test_system_info::test_system_info_simple_properties_endpoint",
-    "duration": "0.057s"
-  },
-  {
-    "testId": "tests.e2e.test_system_info::test_system_info_spring_components_endpoint",
-    "duration": "0.053s"
-  },
-  {
-    "testId": "tests.e2e.test_system_info::test_system_info_spring_components_structure",
-    "duration": "0.063s"
-  },
-  {
-    "testId": "tests.e2e.test_system_info::test_system_info_unauthorized_access_returns_403",
-    "duration": "0.012s"
-  },
-  {
     "testId": "tests.e2e.actions.doc_propagation.test_propagation::test_col_col_propagation_cycles",
     "duration": "49.991s"
   },
@@ -1116,67 +788,67 @@
     "duration": "56.222s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_add_group_members_adds_every_user_in_one_mutation",
-    "duration": "78.500s"
-  },
-  {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_container_parent_containers_hierarchy",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestContainer::test_container_parent_containers_hierarchy",
     "duration": "19.857s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_container_relationships_direct_children",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestContainer::test_container_relationships_direct_children",
     "duration": "10.096s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_corp_group_incoming_members_after_native_add",
-    "duration": "41.665s"
-  },
-  {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_corp_group_incoming_members_immediately_after_add_second_member",
-    "duration": "41.548s"
-  },
-  {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_domain_cache_metrics_when_isolated",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestDomain::test_domain_cache_metrics_when_isolated",
     "duration": "0.003s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_domain_parent_domains_hierarchy",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestDomain::test_domain_parent_domains_hierarchy",
     "duration": "58.946s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_domain_sync_move_reflects_in_parent_domains",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestDomain::test_domain_sync_move_reflects_in_parent_domains",
     "duration": "69.820s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_glossary_cache_metrics_when_isolated",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestGlossary::test_glossary_cache_metrics_when_isolated",
     "duration": "0.002s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_glossary_deep_hierarchy_within_bundled_max_depth",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestGlossary::test_glossary_deep_hierarchy_within_bundled_max_depth",
     "duration": "19.902s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_glossary_parent_nodes_hierarchy",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestGlossary::test_glossary_parent_nodes_hierarchy",
     "duration": "20.289s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_glossary_sync_reparent_reflects_in_parent_nodes",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestGlossary::test_glossary_sync_reparent_reflects_in_parent_nodes",
     "duration": "39.984s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_membership_relationships_idempotent_for_isolated_user",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_add_group_members_adds_every_user_in_one_mutation",
+    "duration": "78.500s"
+  },
+  {
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_corp_group_incoming_members_after_native_add",
+    "duration": "41.665s"
+  },
+  {
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_corp_group_incoming_members_immediately_after_add_second_member",
+    "duration": "41.548s"
+  },
+  {
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_membership_relationships_idempotent_for_isolated_user",
     "duration": "169.994s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_migration_converts_existing_members_when_group_becomes_native",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_migration_converts_existing_members_when_group_becomes_native",
     "duration": "80.057s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_remove_group_members_revokes_legacy_membership",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_remove_group_members_revokes_legacy_membership",
     "duration": "59.897s"
   },
   {
-    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache::test_session_user_dual_group_types_labeled_correctly",
+    "testId": "tests.e2e.entity_graph_cache.test_entity_graph_cache.TestMembership::test_session_user_dual_group_types_labeled_correctly",
     "duration": "112.920s"
   },
   {
@@ -1810,14 +1482,6 @@
   {
     "testId": "tests.e2e.ml_models.test_ml_models::test_create_ml_models",
     "duration": "9.952s"
-  },
-  {
-    "testId": "tests.oauth.test_oauth_cli_gms::test_ingest_explicit_static_token_wins_over_env_auth",
-    "duration": "0.001s"
-  },
-  {
-    "testId": "tests.oauth.test_oauth_cli_gms::test_unauthenticated_request_is_rejected",
-    "duration": "0.001s"
   },
   {
     "testId": "tests.e2e.object_storage.test_object_storage::test_documentation_file_upload_gated_without_presigned_urls",
@@ -2728,6 +2392,290 @@
     "duration": "0.009s"
   },
   {
+    "testId": "tests.e2e.test_authentication_e2e::test_actuator_prometheus_no_auth",
+    "duration": "0.047s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_admin_endpoints_require_privileges",
+    "duration": "29.990s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_api_token_authentication",
+    "duration": "20.106s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_authentication_behavior_summary",
+    "duration": "9.863s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_authentication_priority_and_fallback",
+    "duration": "0.029s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_config_progressive_disclosure",
+    "duration": "0.069s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_cross_service_authentication_consistency",
+    "duration": "19.929s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/config/search/export]",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/config]",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/public-iceberg/health]",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_excluded_paths_no_auth[/schema-registry/subjects]",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_invalid_token",
+    "duration": "0.011s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_no_auth",
+    "duration": "0.014s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_valid_token",
+    "duration": "9.835s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_graphql_endpoint_via_frontend_uses_gzip",
+    "duration": "9.981s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_health_endpoint_no_auth",
+    "duration": "7.482s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_health_endpoint_with_invalid_token",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[Basic dXNlcjpwYXNz]",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[Bearer ]",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[Bearer]",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[InvalidPrefix token]",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_malformed_auth_headers[bearer invalid-token]",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_invalid_token[/aspects?action=getAspect-GET]",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_invalid_token[/entities?action=search-POST]",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_invalid_token[/openapi/operations/throttle/requests-GET]",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_invalid_token[/openapi/v2/entity/dataset-GET]",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/aspects?action=getAspect-GET]",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/entities?action=search-POST]",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/openapi/operations/throttle/requests-GET]",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/openapi/v1/system-info-GET]",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_protected_endpoints_no_auth[/openapi/v2/entity/dataset-GET]",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_restli_endpoints_with_valid_auth",
+    "duration": "9.785s"
+  },
+  {
+    "testId": "tests.e2e.test_authentication_e2e::test_session_vs_token_authentication",
+    "duration": "19.935s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_add_remove_members_from_group",
+    "duration": "39.910s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_create_group",
+    "duration": "11.668s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_app_config",
+    "duration": "1.666s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_auth",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_browse_datasets",
+    "duration": "10.115s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_datasets[urn:li:dataPlatform:bigquery-bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times-PROD]",
+    "duration": "1.577s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_datasets[urn:li:dataPlatform:kafka-SampleKafkaDataset-PROD]",
+    "duration": "1.599s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_me_query",
+    "duration": "5.251s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_search_across_entities[-1]",
+    "duration": "9.992s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_search_across_entities[covid-1]",
+    "duration": "10.108s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_search_across_entities[sample-3]",
+    "duration": "9.945s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_search_datasets[-1]",
+    "duration": "9.884s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_search_datasets[covid-1]",
+    "duration": "9.889s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_search_datasets[sample-3]",
+    "duration": "10.136s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_frontend_user_info",
+    "duration": "10.097s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_generate_personal_access_token",
+    "duration": "9.798s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_gms_batch_get_v2",
+    "duration": "0.023s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_gms_get_dataset[urn:li:dataPlatform:bigquery-bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times-PROD]",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_gms_get_dataset[urn:li:dataPlatform:kafka-SampleKafkaDataset-PROD]",
+    "duration": "0.020s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_gms_get_user",
+    "duration": "84.188s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_gms_search_across_entities[covid-1]",
+    "duration": "9.837s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_gms_search_across_entities[sample-3]",
+    "duration": "9.973s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_gms_search_dataset[covid-1]",
+    "duration": "9.847s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_gms_search_dataset[sample-3]",
+    "duration": "8.382s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_gms_usage_fetch",
+    "duration": "9.897s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_home_page_recommendations",
+    "duration": "8.378s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_home_page_recommendations_with_module_filter",
+    "duration": "11.620s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_ingest_with_blank_system_metadata",
+    "duration": "1.595s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_ingest_with_system_metadata",
+    "duration": "8.332s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_ingest_without_system_metadata",
+    "duration": "1.574s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_list_groups",
+    "duration": "1.669s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_list_users",
+    "duration": "10.092s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_native_user_endpoints",
+    "duration": "0.307s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_remove_group",
+    "duration": "18.345s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_remove_user",
+    "duration": "20.065s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_search_results_recommendations",
+    "duration": "8.522s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_update_corp_group_description",
+    "duration": "30.004s"
+  },
+  {
+    "testId": "tests.e2e.test_e2e::test_update_corp_group_properties",
+    "duration": "28.445s"
+  },
+  {
     "testId": "tests.e2e.test_kafka_default_sink::test_default_sink_ingests_end_to_end[kafka-datahub-kafka]",
     "duration": "20.079s"
   },
@@ -2740,8 +2688,52 @@
     "duration": "9.979s"
   },
   {
+    "testId": "tests.e2e.test_rapid::test_ingestion_via_rest_rapid",
+    "duration": "25.545s"
+  },
+  {
     "testId": "tests.e2e.test_stateful_ingestion::test_stateful_ingestion",
     "duration": "0.892s"
+  },
+  {
+    "testId": "tests.e2e.test_system_info::test_system_info_authenticated_non_admin_user_returns_403",
+    "duration": "26.315s"
+  },
+  {
+    "testId": "tests.e2e.test_system_info::test_system_info_endpoint_separation",
+    "duration": "0.148s"
+  },
+  {
+    "testId": "tests.e2e.test_system_info::test_system_info_main_endpoint",
+    "duration": "0.121s"
+  },
+  {
+    "testId": "tests.e2e.test_system_info::test_system_info_properties_endpoint",
+    "duration": "0.055s"
+  },
+  {
+    "testId": "tests.e2e.test_system_info::test_system_info_properties_structure",
+    "duration": "0.064s"
+  },
+  {
+    "testId": "tests.e2e.test_system_info::test_system_info_sensitive_data_redaction",
+    "duration": "0.052s"
+  },
+  {
+    "testId": "tests.e2e.test_system_info::test_system_info_simple_properties_endpoint",
+    "duration": "0.057s"
+  },
+  {
+    "testId": "tests.e2e.test_system_info::test_system_info_spring_components_endpoint",
+    "duration": "0.053s"
+  },
+  {
+    "testId": "tests.e2e.test_system_info::test_system_info_spring_components_structure",
+    "duration": "0.063s"
+  },
+  {
+    "testId": "tests.e2e.test_system_info::test_system_info_unauthorized_access_returns_403",
+    "duration": "0.012s"
   },
   {
     "testId": "tests.e2e.timeline.timeline_change_history_auth_test::test_get_timeline_authorized_user_succeeds",
@@ -2992,6 +2984,26 @@
     "duration": "29.910s"
   },
   {
+    "testId": "tests.e2e.views.views_test::test_create_list_delete_global_view",
+    "duration": "50.096s"
+  },
+  {
+    "testId": "tests.e2e.views.views_test::test_create_list_delete_personal_view",
+    "duration": "49.789s"
+  },
+  {
+    "testId": "tests.e2e.views.views_test::test_update_global_view",
+    "duration": "0.097s"
+  },
+  {
+    "testId": "tests.oauth.test_oauth_cli_gms::test_ingest_explicit_static_token_wins_over_env_auth",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.oauth.test_oauth_cli_gms::test_unauthenticated_request_is_rejected",
+    "duration": "0.001s"
+  },
+  {
     "testId": "tests.unit.test_consistency_utils_wait::test_5xx_retries_until_timeout",
     "duration": "0.029s"
   },
@@ -3062,18 +3074,6 @@
   {
     "testId": "tests.unit.test_ingest_search_wait::test_wait_for_ingested_urns_searchable_times_out_when_graphql_errors",
     "duration": "0.001s"
-  },
-  {
-    "testId": "tests.e2e.views.views_test::test_create_list_delete_global_view",
-    "duration": "50.096s"
-  },
-  {
-    "testId": "tests.e2e.views.views_test::test_create_list_delete_personal_view",
-    "duration": "49.789s"
-  },
-  {
-    "testId": "tests.e2e.views.views_test::test_update_global_view",
-    "duration": "0.097s"
   },
   {
     "testId": "tests.unit.zdu.test_build_images.TestCacheHit::test_cache_hit_skips_build_and_returns_passed",
