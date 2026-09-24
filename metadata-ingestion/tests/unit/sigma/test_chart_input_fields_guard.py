@@ -194,11 +194,13 @@ class TestADuplicateWorkbookCannotOverwriteRicherLineage:
         assert chart_urn not in poor
         assert source.reporter.input_fields_regressive_emission_skipped == 1
         # The counter alone cannot be acted on; a default INFO run has no logs,
-        # and an element id is not something a Sigma admin can search for.
+        # and an element id is not something a Sigma admin can search for. The
+        # two labels must not swap: they say which copy to keep.
         assert [
             s
             for s in source.reporter.input_fields_regressive_emission_samples
-            if chart_urn in s and "wb-1" in s and "wb-2" in s
+            if f"entity={chart_urn} kept=1 kept_from=wb-1 refused=0 "
+            "refused_from=wb-2" in s
         ]
         # The source element resolves nothing either way, so it is unaffected.
         assert _chart_urn(SOURCE_ELEMENT_ID) in poor
@@ -283,6 +285,30 @@ class TestTheBarOnlyEverRises:
         assert source._chart_input_fields_mcp(chart_urn, rich[:1], "wb-3") is None
         assert source.reporter.input_fields_regressive_emission_skipped == 2
 
+    def test_an_accepted_tie_moves_the_label(self) -> None:
+        """The label must name whoever wrote the aspect that is there."""
+        source = _make_source()
+        chart_urn = _chart_urn(CHART_ELEMENT_ID)
+        rich = [
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(UPSTREAM_DATASET_URN, "a"),
+                schemaField=SchemaFieldClass(
+                    fieldPath="a",
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    nativeDataType="string",
+                ),
+            )
+        ]
+        assert source._chart_input_fields_mcp(chart_urn, rich, "wb-1") is not None
+        assert source._chart_input_fields_mcp(chart_urn, rich, "wb-2") is not None
+        assert source._chart_input_fields_mcp(chart_urn, [], "wb-3") is None
+
+        assert [
+            s
+            for s in source.reporter.input_fields_regressive_emission_samples
+            if "kept=1 kept_from=wb-2 refused=0 refused_from=wb-3" in s
+        ]
+
     def test_the_bar_does_not_carry_across_runs(self) -> None:
         source = _make_source()
         chart_urn = _chart_urn(CHART_ELEMENT_ID)
@@ -323,10 +349,12 @@ class TestThePageDashboardIsGuardedToo:
         poor_workbook.pages[0].pageId = shared_page.pageId
 
         assert self._page_aspect(source, poor_workbook) is None
-        assert any(
-            "urn:li:dashboard:" in s
+        assert [
+            s
             for s in source.reporter.input_fields_regressive_emission_samples
-        )
+            if s.startswith("entity=urn:li:dashboard:")
+            and "kept=1 kept_from=wb-1 refused=0 refused_from=wb-2" in s
+        ]
 
     def _page(
         self, source: SigmaSource, workbook_id: str, first: int, second: int
@@ -503,6 +531,11 @@ class TestTheCustomSqlDrainIsGuardedToo:
 
         assert self._drain_aspect(source, chart_urn, None) is None
         assert source.reporter.input_fields_regressive_emission_skipped == 1
+        assert [
+            s
+            for s in source.reporter.input_fields_regressive_emission_samples
+            if "refused_from=customsql-drain" in s
+        ]
 
     def test_a_fallback_only_drain_is_not_counted_as_column_lineage(self) -> None:
         """The flag is read before the fallback merge appends to the same list."""
