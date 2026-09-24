@@ -31,9 +31,10 @@ _INNER_JOIN_TYPE = "inner"
 # scored.
 _OUTER_JOIN_TYPES = frozenset({"left-outer", "right-outer", "full-outer", "lookup"})
 _KNOWN_JOIN_TYPES = _OUTER_JOIN_TYPES | {_INNER_JOIN_TYPE}
-# Only equality says two columns hold the same value. The other operators Sigma
-# accepts make a column a join participant without making it equal; an
-# operator outside both sets is reported.
+# Only equality says two columns hold the same value. The others make a column a
+# join participant without making it equal. The set is what Sigma's data model
+# write API accepted when probed; an operator outside it is reported, so a wrong
+# entry fails closed.
 _EQUALITY_OPS = frozenset({"=", ""})
 _KNOWN_OPS = _EQUALITY_OPS | {"!=", "<", "<=", ">", ">=", "within", "intersects"}
 
@@ -317,6 +318,7 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
     for element in _iter_spec_elements(spec):
         element_id = str(element.get(_ID) or "")
         source = element.get(_SOURCE)
+        # An element with no id cannot be named in a report or consumed by id.
         if not isinstance(source, dict) or not element_id:
             continue
         kind = str(source.get(_KIND) or "").strip().lower()
