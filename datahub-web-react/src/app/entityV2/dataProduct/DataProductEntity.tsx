@@ -132,7 +132,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             component: SidebarViewDefinitionSection,
             display: {
                 // to do - change when we have a GetDataProductQuery
-                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.viewProperties?.logic && true) || false,
+                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.viewProperties && true) || false,
             },
         },
         {
