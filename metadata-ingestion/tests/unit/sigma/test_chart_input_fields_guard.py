@@ -159,11 +159,11 @@ class TestADuplicateWorkbookCannotOverwriteRicherLineage:
         )
 
         assert chart_urn not in poor
-        assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
+        assert source.reporter.input_fields_regressive_emission_skipped == 1
         # The counter alone cannot be acted on; a default INFO run has no logs.
         assert [
             s
-            for s in source.reporter.chart_input_fields_regressive_emission_samples
+            for s in source.reporter.input_fields_regressive_emission_samples
             if chart_urn in s
         ]
         # The source element resolves nothing either way, so it is unaffected.
@@ -181,7 +181,7 @@ class TestADuplicateWorkbookCannotOverwriteRicherLineage:
         )
 
         assert len(_resolved_urns(second[chart_urn], chart_urn)) == 1
-        assert source.reporter.chart_input_fields_regressive_emission_skipped == 0
+        assert source.reporter.input_fields_regressive_emission_skipped == 0
 
     def test_an_equally_good_copy_is_still_emitted(self) -> None:
         """Only a strictly poorer copy is refused."""
@@ -194,7 +194,7 @@ class TestADuplicateWorkbookCannotOverwriteRicherLineage:
         )
 
         assert chart_urn in second
-        assert source.reporter.chart_input_fields_regressive_emission_skipped == 0
+        assert source.reporter.input_fields_regressive_emission_skipped == 0
 
     def test_a_refused_chart_still_contributes_to_the_page_aspect(self) -> None:
         """Within one workbook the page aspect is a union over its charts."""
@@ -218,11 +218,91 @@ class TestADuplicateWorkbookCannotOverwriteRicherLineage:
             )
         )
 
-        assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
+        assert source.reporter.input_fields_regressive_emission_skipped == 1
         assert any(
             f.schemaField is not None and f.schemaField.fieldPath == "c"
             for f in page_fields
         )
+
+
+class TestTheBarOnlyEverRises:
+    def test_a_refused_copy_does_not_lower_the_bar(self) -> None:
+        """Otherwise a third, middling copy displaces the richest one."""
+        source = _make_source()
+        chart_urn = _chart_urn(CHART_ELEMENT_ID)
+
+        rich = [
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(
+                    UPSTREAM_DATASET_URN, name
+                ),
+                schemaField=SchemaFieldClass(
+                    fieldPath=name,
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    nativeDataType="string",
+                ),
+            )
+            for name in ("a", "b")
+        ]
+        assert source._chart_input_fields_mcp(chart_urn, rich) is not None
+        assert source._chart_input_fields_mcp(chart_urn, []) is None
+        assert source._chart_input_fields_mcp(chart_urn, rich[:1]) is None
+        assert source.reporter.input_fields_regressive_emission_skipped == 2
+
+    def test_the_bar_does_not_carry_across_runs(self) -> None:
+        source = _make_source()
+        chart_urn = _chart_urn(CHART_ELEMENT_ID)
+        source._best_input_fields_resolved[chart_urn] = 5
+
+        source.sigma_api = MagicMock()
+        source.sigma_api.get_sigma_entities.return_value = []
+        source.sigma_api.fill_workspaces.return_value = None
+        list(source.get_workunits_internal())
+
+        assert source._best_input_fields_resolved == {}
+
+
+class TestTheePageDashboardIsGuardedToo:
+    """Page ids collide across duplicated workbooks exactly as element ids do."""
+
+    def _page_aspect(
+        self, source: SigmaSource, workbook: Workbook
+    ) -> Optional[InputFieldsClass]:
+        for wu in source._gen_pages_workunit(workbook, paths=[]):
+            aspect = wu.get_aspect_of_type(InputFieldsClass)
+            if aspect is not None and str(wu.metadata.entityUrn).startswith(  # type: ignore[union-attr]
+                "urn:li:dashboard:"
+            ):
+                return aspect
+        return None
+
+    def test_a_poorer_copy_of_a_page_is_refused(self) -> None:
+        source = _make_source()
+        shared_page = Page(pageId="shared-page", name="Page 1")
+
+        rich_workbook = _make_workbook("wb-1", _elements(chart_has_formula=True))
+        rich_workbook.pages[0].pageId = shared_page.pageId
+        rich = self._page_aspect(source, rich_workbook)
+        assert rich is not None
+
+        poor_workbook = _make_workbook("wb-2", _elements(chart_has_formula=False))
+        poor_workbook.pages[0].pageId = shared_page.pageId
+
+        assert self._page_aspect(source, poor_workbook) is None
+        assert any(
+            "urn:li:dashboard:" in s
+            for s in source.reporter.input_fields_regressive_emission_samples
+        )
+
+    def test_an_equally_good_copy_of_a_page_is_still_emitted(self) -> None:
+        source = _make_source()
+        first = _make_workbook("wb-1", _elements(chart_has_formula=True))
+        first.pages[0].pageId = "shared-page"
+        second = _make_workbook("wb-2", _elements(chart_has_formula=True))
+        second.pages[0].pageId = "shared-page"
+
+        assert self._page_aspect(source, first) is not None
+        assert self._page_aspect(source, second) is not None
 
 
 class TestSelfReferencesAreNotLineage:
@@ -278,7 +358,7 @@ class TestTheScoreCountsColumnsNotEntries:
 
         one_column_four_refs = self._fields({"a": 4})
         assert source._chart_input_fields_mcp(chart_urn, one_column_four_refs) is None
-        assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
+        assert source.reporter.input_fields_regressive_emission_skipped == 1
 
 
 class TestARefusedCopyIsNotFedBackThroughTheDrain:
@@ -294,7 +374,7 @@ class TestARefusedCopyIsNotFedBackThroughTheDrain:
             source, _make_workbook("wb-2", _elements(chart_has_formula=False))
         )
 
-        assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
+        assert source.reporter.input_fields_regressive_emission_skipped == 1
         assert (
             source._workbook_customsql_formula_fields[chart_urn] is stashed_after_accept
         )
@@ -349,7 +429,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
         assert self._drain_aspect(source, chart_urn, "col") is not None
 
         assert self._drain_aspect(source, chart_urn, None) is None
-        assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
+        assert source.reporter.input_fields_regressive_emission_skipped == 1
 
     def test_a_fallback_only_drain_is_not_counted_as_column_lineage(self) -> None:
         """The flag is read before the fallback merge appends to the same list."""
@@ -384,7 +464,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
     def test_a_refused_drain_aspect_is_not_yielded(self) -> None:
         source = _make_source()
         chart_urn = _chart_urn(CHART_ELEMENT_ID)
-        source._chart_best_input_fields[chart_urn] = 5
+        source._best_input_fields_resolved[chart_urn] = 5
         source._workbook_customsql_registered_urns.add(chart_urn)
 
         mcp = MetadataChangeProposalWrapper(
@@ -402,7 +482,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
         """
         source = _make_source()
         refused_urn = _chart_urn(CHART_ELEMENT_ID)
-        source._chart_best_input_fields[refused_urn] = 5
+        source._best_input_fields_resolved[refused_urn] = 5
         source._workbook_customsql_registered_urns.add(refused_urn)
         healthy_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm-1.other,PROD)"
 
@@ -432,7 +512,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
         emitted = [wu.metadata.entityUrn for wu in source._drain_sql_aggregators()]  # type: ignore[union-attr]
 
         assert emitted == [healthy_urn]
-        assert source.reporter.chart_input_fields_regressive_emission_skipped == 1
+        assert source.reporter.input_fields_regressive_emission_skipped == 1
         assert not [
             entry
             for entry in source.reporter.warnings
