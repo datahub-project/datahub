@@ -332,6 +332,57 @@ class DataplexConfig(
         "unparseable.",
     )
 
+    include_lineage_operations: bool = Field(
+        default=False,
+        description="Whether to attach the producing GCP operation (process) "
+        "to each lineage edge as a DataHub Query entity, rendered as an "
+        "operation node on the edge in the UI. Adds batchSearchLinkProcesses, "
+        "getProcess and listRuns Data Lineage API reads (through the same rate "
+        "limiter; one getProcess and one single-row listRuns per distinct "
+        "process per run thanks to caching). Requires 'include_lineage'; when "
+        "off, lineage output is byte-identical to before this feature existed.",
+    )
+
+    include_lineage_operation_sql: bool = Field(
+        default=False,
+        description="Whether to fetch the real SQL text (plus job metadata) "
+        "for BigQuery-origin operations from the BigQuery Jobs API. The Data "
+        "Lineage API stores only the job id, never the statement. Needs "
+        "roles/bigquery.resourceViewer on the compute projects, because jobs "
+        "are private to their creator by default, and the google-cloud-bigquery "
+        "package, which the dataplex extra does not install. Failures degrade "
+        "to a synthetic statement. Requires 'include_lineage_operations'.",
+    )
+
+    lineage_operation_origin_types: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Allow/deny patterns matched against a GCP process's "
+        "origin sourceType (BIGQUERY, DATAFLOW, COMPOSER, DATAPROC, "
+        "DATA_FUSION, VERTEX_AI, CUSTOM, ...). Denied origins keep their "
+        "lineage edges but get no operation node — the escape hatch when "
+        "another connector already owns query nodes for those tables.",
+    )
+
+    lineage_operation_attribute_allowlist: List[str] = Field(
+        default_factory=lambda: [
+            "sql",
+            "bigquery_job_id",
+            "job_id",
+            "process_id",
+            "process_name",
+            "dag_id",
+            "task_id",
+            "airflow_dag_id",
+            "airflow_task_id",
+            "spark.app.name",
+            "spark.app.id",
+        ],
+        description="Process attribute keys copied into the operation node's "
+        "custom properties. Attributes are producer-controlled free-form maps "
+        "of up to 100 entries, so only allowlisted keys are hoisted; values "
+        "are truncated to 1000 characters.",
+    )
+
     include_storage_lineage: bool = Field(
         default=False,
         description="Whether to derive a bucket -> table lineage edge from a "
@@ -610,6 +661,25 @@ class DataplexConfig(
                 " and ".join(f"'{name}'" for name in unmet),
             )
             self.include_column_lineage = False
+        return self
+
+    @model_validator(mode="after")
+    def validate_lineage_operation_dependencies(self) -> "DataplexConfig":
+        """Same degrade-don't-raise contract as column lineage."""
+        if self.include_lineage_operations and not self.include_lineage:
+            logger.warning(
+                "Disabling 'include_lineage_operations': it requires "
+                "'include_lineage' to be enabled. Set "
+                "'include_lineage_operations: false' explicitly to silence this."
+            )
+            self.include_lineage_operations = False
+        if self.include_lineage_operation_sql and not self.include_lineage_operations:
+            logger.warning(
+                "Disabling 'include_lineage_operation_sql': it requires "
+                "'include_lineage_operations' to be enabled. Set "
+                "'include_lineage_operation_sql: false' explicitly to silence this."
+            )
+            self.include_lineage_operation_sql = False
         return self
 
     @model_validator(mode="after")

@@ -187,6 +187,44 @@ DataHub graph client; a dry run without one emits the fresh state only.
 Either way, entities that disappear from the source are still soft-deleted by
 stateful ingestion.
 
+#### Lineage Operation Nodes
+
+Set `include_lineage_operations: true` to resolve each lineage link to the GCP
+process that produced it and emit that process as a DataHub Query entity,
+referenced from the edge so the UI renders an operation node on it.
+
+This adds `batchSearchLinkProcesses`, `getProcess` and `listRuns` reads, all
+through the same rate limiter; caching keeps it to one `getProcess` and one
+single-row `listRuns` per distinct process per run. A link produced by several
+processes collapses to the one with the latest end time, since an edge's query
+pointer is single-valued. Use `lineage_operation_origin_types` to deny specific
+origins (`BIGQUERY`, `DATAFLOW`, `COMPOSER`, `DATAPROC`, ...) when another
+connector already owns query nodes for those tables — denied origins keep their
+lineage edges and simply get no operation node.
+
+The Data Lineage API stores only a BigQuery job id, never the statement, so the
+query node carries a synthetic comment-style statement by default. Set
+`include_lineage_operation_sql: true` to fetch the real SQL from the BigQuery
+Jobs API instead; this needs `roles/bigquery.resourceViewer` on the compute
+projects, because jobs are private to their creator by default, and the
+`google-cloud-bigquery` package, which the `dataplex` extra does not install
+(for example `pip install 'acryl-datahub[dataplex,bigquery]'`). Any failure
+degrades back to the synthetic statement.
+
+```yaml
+source:
+  type: dataplex
+  config:
+    project_ids:
+      - "my-gcp-project"
+    include_lineage: true
+    include_lineage_operations: true
+    # include_lineage_operation_sql: true
+    lineage_operation_origin_types:
+      deny:
+        - "BIGQUERY" # BigQuery query nodes already come from the BigQuery connector
+```
+
 #### Configuration Options
 
 **Metadata Extraction:**
@@ -194,6 +232,7 @@ stateful ingestion.
 - **`include_schema`** (default: `true`): Extract column metadata and types. Columns that carry structure — `REPEATED` mode, nested `fields`, or a hive-style complex type spelling such as `array<struct<...>>` — are expanded into nested `[version=2.0]` fieldPaths, the same representation the BigQuery connector emits, so the UI renders them as Array/Struct with expandable children.
 - **`include_lineage`** (default: `true`): Extract table-level lineage (automatically retries transient errors)
 - **`include_column_lineage`** (default: `false`): Extract column-to-column lineage; see [Column-level Lineage](#column-level-lineage)
+- **`include_lineage_operations`** (default: `false`): Emit the producing GCP process as an operation node on each edge; see [Lineage Operation Nodes](#lineage-operation-nodes)
 - **`include_lineage_only_upstreams`** (default: `false`): Materialize minimal entities for upstreams this run does not otherwise ingest; see [Lineage-only Upstream Nodes](#lineage-only-upstream-nodes)
 - **`remove_stale_lineage`** (default: `true`): Whether lineage mirrors the live API state; see [Sticky Lineage](#sticky-lineage)
 - **`include_storage_lineage`** (default: `false`): Derive a bucket → table edge from a Dataproc Metastore table's `storage` aspect

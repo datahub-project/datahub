@@ -47,6 +47,14 @@ source:
     # include_schema; multiplies Data Lineage API read volume.
     # include_column_lineage: true
 
+    # Optional: attach the producing GCP process to each edge as an
+    # operation node (a DataHub Query entity).
+    # include_lineage_operations: true
+    # include_lineage_operation_sql: true  # needs roles/bigquery.resourceViewer
+    # lineage_operation_origin_types:
+    #   deny:
+    #     - "BIGQUERY"
+
     # Optional: upstreams the Data Lineage API reports that are not catalog
     # entries (GCS buckets, cluster-local hive tables, Pub/Sub subscriptions).
     # include_storage_lineage: true         # bucket -> table edge from the storage aspect
