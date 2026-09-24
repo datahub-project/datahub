@@ -325,13 +325,15 @@ public class DatasetUsageStatsResolverTest {
   }
 
   /**
-   * Authorizer granting VIEW_DATASET_USAGE (needed just to reach the topSqlQueries decision at all)
+   * Authorizer granting VIEW_ENTITY_PAGE and VIEW_DATASET_USAGE (together needed just to reach the
+   * topSqlQueries decision at all, since usage stats require entity view plus the usage privilege)
    * and VIEW_ALL_QUERIES — every other privilege, including VIEW_ENTITY_QUERIES / EDIT_QUERIES /
    * EDIT_ENTITY, is explicitly denied.
    */
   private Authorizer viewAllQueriesOnlyAuthorizer() {
     Set<String> allowedPrivileges =
         ImmutableSet.of(
+            PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType(),
             PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE.getType(),
             PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE.getType());
     Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);

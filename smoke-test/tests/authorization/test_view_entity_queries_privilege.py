@@ -181,13 +181,13 @@ def view_queries_setup(graph_client, auth_session):
     wait_for_writes_to_sync(mae_only=True)
     admin_session = create_user(admin_session, TEST_USER_EMAIL, TEST_USER_PASSWORD)
 
-    # The user needs VIEW_DATASET_USAGE to read usage numbers at all; the tests below
-    # check that this alone does NOT unlock topSqlQueries.
+    # Reading usage numbers at all requires entity view plus VIEW_DATASET_USAGE; the tests
+    # below check that these alone do NOT unlock query SQL or topSqlQueries.
     usage_policy = create_metadata_policy(
         admin_session,
         name=f"{POLICY_PREFIX} usage",
-        description="VIEW_DATASET_USAGE on dataset A",
-        privileges=["VIEW_DATASET_USAGE"],
+        description="VIEW_ENTITY_PAGE and VIEW_DATASET_USAGE on dataset A",
+        privileges=["VIEW_ENTITY_PAGE", "VIEW_DATASET_USAGE"],
         user_urn=TEST_USER_URN,
         resource_urn=DS_A_URN,
     )
@@ -285,7 +285,7 @@ def _assert_view_all_access():
 
 def test_no_privilege_hides_queries_and_top_sql():
     """Without VIEW_ENTITY_QUERIES: no queries listed, no SQL, topSqlQueries denied,
-    while plain usage numbers (VIEW_DATASET_USAGE) still come back."""
+    while plain usage numbers (entity view + VIEW_DATASET_USAGE) still come back."""
     _assert_no_query_access()
 
 

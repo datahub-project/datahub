@@ -242,8 +242,7 @@ public class EntityController
         .map(
             u -> {
               List<EnvelopedAspect> urnAspects =
-                  
-                         aspects.getOrDefault(u, List.of()).stream()
+                  aspects.getOrDefault(u, List.of()).stream()
                       .filter(
                           a ->
                               !EntityAuthorizationUtils.isQuerySqlAspectRestricted(
@@ -254,8 +253,7 @@ public class EntityController
                   .build(
                       objectMapper,
                       SensitiveAspectAuthUtil.omitUnauthorizedAspects(
-                          opContext,
-                          u, toAspectMap(u, urnAspects, withSystemMetadata)));
+                          opContext, u, toAspectMap(u, urnAspects, withSystemMetadata)));
             })
         .collect(Collectors.toList());
   }

@@ -188,11 +188,6 @@ public class EntityV2ResourceTest {
     }
   }
 
-  private <T> T awaitTask(Task<T> task) {
-    parseqEngine.blockingRun(task);
-    return task.get();
-  }
-
   /**
    * Regression for a crash the previous whole-aspect redaction fix introduced: {@code
    * getEntityV2} returns null for some empty-projection requests (e.g. an explicit {@code
