@@ -112,6 +112,39 @@ def _elements(*, chart_has_formula: bool) -> List[Element]:
     return [source_element, chart_element]
 
 
+def _page_of_two_charts(first: int, second: int) -> List[Element]:
+    """A page whose two charts resolve `first` and `second` columns.
+
+    Every column carries the same data-model ref, so a chart's resolved count
+    is just how many columns it has.
+    """
+    source_element = Element(
+        elementId=SOURCE_ELEMENT_ID,
+        name="Source",
+        url="https://example.com/src",
+        columns=["col"],
+    )
+    source_element.column_formulas = {}
+    source_element.upstream_sources = {}
+
+    charts = []
+    for n, resolved in enumerate((first, second)):
+        chart = Element(
+            elementId=f"chartElem0{n}",
+            name=f"Chart {n}",
+            url=f"https://example.com/chart{n}",
+            columns=[f"c{i}" for i in range(resolved)],
+        )
+        chart.column_formulas = {f"c{i}": "[Source/col]" for i in range(resolved)}
+        chart.upstream_sources = {
+            "dm_node": DataModelElementUpstream(
+                name="Source", data_model_url_id=DM_URL_ID
+            )
+        }
+        charts.append(chart)
+    return [source_element, *charts]
+
+
 def _run_workbook(
     source: SigmaSource, workbook: Workbook
 ) -> Dict[str, InputFieldsClass]:
@@ -160,11 +193,12 @@ class TestADuplicateWorkbookCannotOverwriteRicherLineage:
 
         assert chart_urn not in poor
         assert source.reporter.input_fields_regressive_emission_skipped == 1
-        # The counter alone cannot be acted on; a default INFO run has no logs.
+        # The counter alone cannot be acted on; a default INFO run has no logs,
+        # and an element id is not something a Sigma admin can search for.
         assert [
             s
             for s in source.reporter.input_fields_regressive_emission_samples
-            if chart_urn in s
+            if chart_urn in s and "wb-1" in s and "wb-2" in s
         ]
         # The source element resolves nothing either way, so it is unaffected.
         assert _chart_urn(SOURCE_ELEMENT_ID) in poor
@@ -244,15 +278,15 @@ class TestTheBarOnlyEverRises:
             )
             for name in ("a", "b")
         ]
-        assert source._chart_input_fields_mcp(chart_urn, rich) is not None
-        assert source._chart_input_fields_mcp(chart_urn, []) is None
-        assert source._chart_input_fields_mcp(chart_urn, rich[:1]) is None
+        assert source._chart_input_fields_mcp(chart_urn, rich, "wb-1") is not None
+        assert source._chart_input_fields_mcp(chart_urn, [], "wb-2") is None
+        assert source._chart_input_fields_mcp(chart_urn, rich[:1], "wb-3") is None
         assert source.reporter.input_fields_regressive_emission_skipped == 2
 
     def test_the_bar_does_not_carry_across_runs(self) -> None:
         source = _make_source()
         chart_urn = _chart_urn(CHART_ELEMENT_ID)
-        source._best_input_fields_resolved[chart_urn] = 5
+        source._best_input_fields_resolved[chart_urn] = (5, "wb-1")
 
         source.sigma_api = MagicMock()
         source.sigma_api.get_sigma_entities.return_value = []
@@ -262,7 +296,7 @@ class TestTheBarOnlyEverRises:
         assert source._best_input_fields_resolved == {}
 
 
-class TestTheePageDashboardIsGuardedToo:
+class TestThePageDashboardIsGuardedToo:
     """Page ids collide across duplicated workbooks exactly as element ids do."""
 
     def _page_aspect(
@@ -293,6 +327,42 @@ class TestTheePageDashboardIsGuardedToo:
             "urn:li:dashboard:" in s
             for s in source.reporter.input_fields_regressive_emission_samples
         )
+
+    def _page(
+        self, source: SigmaSource, workbook_id: str, first: int, second: int
+    ) -> Optional[InputFieldsClass]:
+        workbook = _make_workbook(workbook_id, _page_of_two_charts(first, second))
+        workbook.pages[0].pageId = "shared-page"
+        return self._page_aspect(source, workbook)
+
+    def test_a_page_that_lost_one_charts_lineage_is_refused(self) -> None:
+        """Scored by the SUM of its charts: under max these two would tie.
+
+        This is the shape a partial /columns fetch produces -- some charts on
+        the page keep their formulas, some do not.
+        """
+        source = _make_source()
+
+        assert self._page(source, "wb-1", first=1, second=1) is not None
+        assert self._page(source, "wb-2", first=1, second=0) is None
+
+    def test_a_refused_charts_columns_still_count_towards_its_page(self) -> None:
+        """They are still in the page union, so they belong in the page score.
+
+        wb-2 loses on the second chart but makes it up on the first, so its
+        page is exactly as rich as wb-1's and must still be emitted.
+        """
+        source = _make_source()
+
+        assert self._page(source, "wb-1", first=0, second=3) is not None
+        assert self._page(source, "wb-2", first=2, second=1) is not None
+        # Only the second chart was refused, not the page.
+        assert source.reporter.input_fields_regressive_emission_skipped == 1
+        assert not [
+            s
+            for s in source.reporter.input_fields_regressive_emission_samples
+            if "urn:li:dashboard:" in s
+        ]
 
     def test_an_equally_good_copy_of_a_page_is_still_emitted(self) -> None:
         source = _make_source()
@@ -354,10 +424,13 @@ class TestTheScoreCountsColumnsNotEntries:
         chart_urn = _chart_urn(CHART_ELEMENT_ID)
 
         three = self._fields({"a": 1, "b": 1, "c": 1})
-        assert source._chart_input_fields_mcp(chart_urn, three) is not None
+        assert source._chart_input_fields_mcp(chart_urn, three, "wb-1") is not None
 
         one_column_four_refs = self._fields({"a": 4})
-        assert source._chart_input_fields_mcp(chart_urn, one_column_four_refs) is None
+        assert (
+            source._chart_input_fields_mcp(chart_urn, one_column_four_refs, "wb-2")
+            is None
+        )
         assert source.reporter.input_fields_regressive_emission_skipped == 1
 
 
@@ -464,7 +537,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
     def test_a_refused_drain_aspect_is_not_yielded(self) -> None:
         source = _make_source()
         chart_urn = _chart_urn(CHART_ELEMENT_ID)
-        source._best_input_fields_resolved[chart_urn] = 5
+        source._best_input_fields_resolved[chart_urn] = (5, "wb-1")
         source._workbook_customsql_registered_urns.add(chart_urn)
 
         mcp = MetadataChangeProposalWrapper(
@@ -482,7 +555,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
         """
         source = _make_source()
         refused_urn = _chart_urn(CHART_ELEMENT_ID)
-        source._best_input_fields_resolved[refused_urn] = 5
+        source._best_input_fields_resolved[refused_urn] = (5, "wb-1")
         source._workbook_customsql_registered_urns.add(refused_urn)
         healthy_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm-1.other,PROD)"
 
