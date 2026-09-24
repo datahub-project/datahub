@@ -368,17 +368,17 @@ def test_resolve_governance_dataset_urn_includes_metastore_prefix_when_enabled()
     # own output exactly, including the metastore-id prefix, or governance assertions
     # attach to a dataset URN the connector never emits.
     src = _make_uc_source(include_metastore=True)
-    src.metastore_id = "acryl_metastore"
+    src.metastore_id = "test_metastore"
     urn = src._resolve_governance_dataset_urn("my_catalog", "my_schema", "my_table")
     assert urn == src.gen_dataset_urn(
         TableReference(
-            metastore="acryl_metastore",
+            metastore="test_metastore",
             catalog="my_catalog",
             schema="my_schema",
             table="my_table",
         )
     )
-    assert urn is not None and "acryl_metastore.my_catalog.my_schema.my_table" in urn
+    assert urn is not None and "test_metastore.my_catalog.my_schema.my_table" in urn
 
 
 def test_resolve_governance_dataset_urn_omits_metastore_prefix_by_default():
