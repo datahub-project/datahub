@@ -597,12 +597,13 @@ def test_lineage_with_cross_platform_references(
     assert len(result["downstream"]) == 0
     assert result["upstream"][0] == "gcs:my-bucket/raw/data.csv"
 
-    # GCS upstream is not yet part of DATAPLEX_ENTRY_TYPE_MAPPINGS datasets.
-    # Confirm it is skipped during edge normalization.
+    # Resolved at bucket granularity; the object path is dropped.
     lineage_edges, _column_mappings = (
         lineage_extractor._extract_lineage_edges_for_entry(test_entry, result)
     )
-    assert lineage_edges == set()
+    assert {edge.upstream_datahub_urn for edge in lineage_edges} == {
+        "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket,PROD)"
+    }
 
 
 def test_get_lineage_workunits_skips_unsupported_upstream_platform() -> None:

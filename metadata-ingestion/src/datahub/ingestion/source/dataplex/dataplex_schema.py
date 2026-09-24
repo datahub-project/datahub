@@ -10,6 +10,7 @@ from typing import Any, Optional
 from google.cloud import dataplex_v1
 
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+from datahub.ingestion.source.dataplex.dataplex_helpers import GCS_URI_SCHEME
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -457,6 +458,45 @@ def map_aspect_type_to_datahub(type_str: str) -> SchemaFieldDataTypeClass:
     else:
         # Default to string for unknown types
         return SchemaFieldDataTypeClass(type=StringTypeClass())
+
+
+CLOUD_STORAGE_SERVICE = "CLOUD_STORAGE"
+STORAGE_ASPECT_SUFFIXES = (".storage", "/storage")
+
+
+def extract_gcs_storage_bucket_from_entry_aspects(
+    entry: dataplex_v1.Entry, entry_id: str
+) -> Optional[str]:
+    """GCS bucket from an entry's ``storage`` aspect, or None.
+
+    Only ``service: CLOUD_STORAGE`` counts; BigQuery entries point at themselves.
+    """
+    if not entry.aspects:
+        return None
+
+    storage_aspect = None
+    for aspect_key in entry.aspects:
+        # Keys are project-number prefixed, e.g. "1234.global.storage".
+        if aspect_key.endswith(STORAGE_ASPECT_SUFFIXES):
+            storage_aspect = entry.aspects[aspect_key]
+            break
+    if storage_aspect is None:
+        return None
+
+    data = getattr(storage_aspect, "data", None)
+    if not data or data.get("service") != CLOUD_STORAGE_SERVICE:
+        return None
+
+    resource_name = data.get("resourceName") or ""
+    if not isinstance(resource_name, str) or not resource_name.startswith(
+        GCS_URI_SCHEME
+    ):
+        return None
+    bucket = resource_name[len(GCS_URI_SCHEME) :].split("/", 1)[0]
+    if not bucket:
+        logger.debug(f"Entry {entry_id} storage resourceName has no bucket")
+        return None
+    return bucket
 
 
 def extract_schema_from_entry_aspects(

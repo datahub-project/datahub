@@ -40,6 +40,7 @@ from __future__ import annotations
 import re
 from typing import Optional, Pattern
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp_builder import ContainerKey
 
 
@@ -171,8 +172,9 @@ SPANNER_TABLE_FQN_REGEX = re.compile(
 SPANNER_GRAPH_FQN_REGEX = re.compile(
     r"^spanner:graph:(?P<project_id>[^.]+)\.regional-(?P<location>[^.]+)\.(?P<instance_id>[^.]+)\.(?P<database_id>[^.]+)\.(?P<graph_id>[^.]+)$"
 )
+# Topic ids may contain periods; project ids cannot, so the first dot delimits.
 PUBSUB_TOPIC_FQN_REGEX = re.compile(
-    r"^pubsub:topic:(?P<project_id>[^.]+)\.(?P<topic_id>[^.]+)$"
+    r"^pubsub:topic:(?P<project_id>[^.]+)\.(?P<topic_id>.+)$"
 )
 BIGTABLE_INSTANCE_FQN_REGEX = re.compile(
     r"^bigtable:(?P<project_id>[^.]+)\.(?P<instance_id>[^.]+)$"
@@ -227,6 +229,78 @@ DATAPROC_METASTORE_SERVICE_PARENT_ENTRY_REGEX = re.compile(
 DATAPROC_METASTORE_DATABASE_PARENT_ENTRY_REGEX = re.compile(
     r"^projects/[^/]+/locations/[^/]+/entryGroups/[^/]+/entries/metastore\.googleapis\.com/projects/(?P<project_id>[^/]+)/locations/(?P<location>[^/]+)/services/(?P<service_id>[^/]+)/databases/(?P<database_id>[^/]+)$"
 )
+
+
+# Lineage-only FQN shapes. Kept out of the mapper registry, which also sets the
+# metadata-export scope.
+
+# Object paths are dropped so every producer lands on one bucket node.
+GCS_BUCKET_FQN_REGEX = re.compile(r"^gcs:(?P<bucket_name>[^/]+)(?:/.*)?$")
+
+# e.g. hive_metastore:`localhost:9083`.my_database.my_table; the host carries
+# no identity and is discarded. Any segment may be backtick-quoted.
+HIVE_METASTORE_FQN_REGEX = re.compile(
+    r"^hive_metastore:(?:`[^`]*`|[^.`]+)"
+    r"\.(?P<database_id>`[^`]*`|[^.`]+)"
+    r"\.(?P<table_id>`[^`]*`|[^.`]+)$"
+)
+
+# How Dataflow reports Pub/Sub sources; resolved to the backing topic.
+PUBSUB_SUBSCRIPTION_FQN_REGEX = re.compile(
+    r"^pubsub:subscription:(?P<project_id>[^.]+)\.(?P<subscription_id>.+)$"
+)
+
+GCS_PLATFORM = "gcs"
+HIVE_PLATFORM = "hive"
+
+
+def parse_gcs_bucket_fqn(fully_qualified_name: str) -> Optional[str]:
+    """Parse a ``gcs:`` lineage FQN into its bucket name."""
+    match = GCS_BUCKET_FQN_REGEX.match(fully_qualified_name)
+    return match.group("bucket_name") if match else None
+
+
+def parse_hive_metastore_fqn(
+    fully_qualified_name: str,
+) -> Optional[tuple[str, str]]:
+    """Parse a ``hive_metastore:`` FQN into ``(database_id, table_id)``, unquoted."""
+    match = HIVE_METASTORE_FQN_REGEX.match(fully_qualified_name)
+    if not match:
+        return None
+    return (
+        match.group("database_id").strip("`"),
+        match.group("table_id").strip("`"),
+    )
+
+
+def parse_pubsub_subscription_fqn(
+    fully_qualified_name: str,
+) -> Optional[tuple[str, str]]:
+    """Parse a ``pubsub:subscription:`` FQN into ``(project_id, subscription_id)``."""
+    match = PUBSUB_SUBSCRIPTION_FQN_REGEX.match(fully_qualified_name)
+    if not match:
+        return None
+    return match.group("project_id"), match.group("subscription_id")
+
+
+def build_gcs_bucket_urn(bucket_name: str, env: str) -> str:
+    """``gcs`` dataset URN for a bucket."""
+    return make_dataset_urn_with_platform_instance(
+        platform=GCS_PLATFORM,
+        name=bucket_name,
+        platform_instance=None,
+        env=env,
+    )
+
+
+def build_hive_table_urn(database_id: str, table_id: str, env: str) -> str:
+    """``hive`` URN named ``{database}.{table}``, as DataHub's Hive connector names it."""
+    return make_dataset_urn_with_platform_instance(
+        platform=HIVE_PLATFORM,
+        name=f"{database_id}.{table_id}",
+        platform_instance=None,
+        env=env,
+    )
 
 
 # Platform -> project-level key class. Keyed by plain ``str`` because the

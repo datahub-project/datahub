@@ -28,6 +28,7 @@ from google.cloud.datacatalog_lineage import (
     MultipleEntityReference,
     SearchLinksRequest,
 )
+from google.oauth2 import service_account
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -39,9 +40,23 @@ from datahub.ingestion.source.dataplex.dataplex_helpers import (
     EntryDataTuple,
     calls_per_minute_bucket,
 )
+from datahub.ingestion.source.dataplex.dataplex_ids import (
+    DATAPROC_METASTORE_TABLE_FQN_REGEX,
+    build_gcs_bucket_urn,
+    build_hive_table_urn,
+    parse_gcs_bucket_fqn,
+    parse_hive_metastore_fqn,
+    parse_pubsub_subscription_fqn,
+    parse_with_regex,
+)
 from datahub.ingestion.source.dataplex.dataplex_mappers import (
+    DATAPROC_METASTORE_TABLE_ENTRY_TYPE,
+    dataproc_metastore_table_urn,
     dataset_urn_from_fqn_only,
     is_lineage_supported,
+)
+from datahub.ingestion.source.dataplex.dataplex_pubsub import (
+    PubSubSubscriptionResolver,
 )
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
@@ -72,6 +87,13 @@ SEARCH_LINKS_PAGE_SIZE = 100
 
 # API limit on entities per MultipleEntityReference.
 COLUMN_LINK_BATCH_SIZE = 20
+
+# Number of dotted segments in dpms_hive_metastore_service.
+DPMS_SERVICE_PARTS = 3
+
+# Sentinel distinguishing "key absent" from "key present but ambiguous (None)"
+# in the Dataproc Metastore (database, table) -> URN indexes.
+_UNSET: Any = object()
 
 
 def build_lineage_parent(project_id: str, location: str) -> str:
@@ -158,6 +180,31 @@ class DataplexLineageReport(Report):
     num_columns_without_lineage: int = 0
     num_column_names_unmatched: int = 0
     column_names_unmatched_samples: LossyList[str] = field(default_factory=LossyList)
+    # hive_metastore FQN resolution.
+    num_hive_metastore_fqns_resolved: int = 0
+    num_hive_metastore_fqns_unresolved: int = 0
+    hive_metastore_fqns_unresolved_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    # Uncatalogued hive tables emitted as lineage-only 'hive' platform nodes.
+    num_hive_metastore_fallback_nodes: int = 0
+    hive_metastore_fallback_node_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    # Storage-aspect-derived table -> GCS bucket edges.
+    num_storage_lineage_edges_added: int = 0
+    storage_lineage_edges_added_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    num_storage_lineage_missing: int = 0
+    storage_lineage_missing_samples: LossyList[str] = field(default_factory=LossyList)
+    # pubsub:subscription: upstream FQNs resolved to their backing topic.
+    num_pubsub_subscriptions_resolved: int = 0
+    num_pubsub_subscriptions_unresolved: int = 0
+    pubsub_subscriptions_unresolved_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    num_pubsub_subscription_cache_hits: int = 0
     lineage_api: dict[str, tuple[int, float]] = field(default_factory=dict)
     scan_stats_by_project_location_pair: dict[tuple[str, str], LocationScanStats] = (
         field(default_factory=dict)
@@ -333,6 +380,47 @@ class DataplexLineageReport(Report):
             entry_name,
         )
 
+    def report_hive_metastore_fqn_resolved(self) -> None:
+        with self._lock:
+            self.num_hive_metastore_fqns_resolved += 1
+
+    def report_hive_metastore_fqn_unresolved(self, upstream_fqn: str) -> None:
+        with self._lock:
+            self.num_hive_metastore_fqns_unresolved += 1
+            self.hive_metastore_fqns_unresolved_samples.append(upstream_fqn)
+
+    def report_hive_metastore_fallback_node(self, table_name: str) -> None:
+        with self._lock:
+            self.num_hive_metastore_fallback_nodes += 1
+            self.hive_metastore_fallback_node_samples.append(table_name)
+
+    def report_storage_lineage_edge_added(
+        self, downstream_dataset_id: str, upstream_dataset_urn: str
+    ) -> None:
+        with self._lock:
+            self.num_storage_lineage_edges_added += 1
+            self.storage_lineage_edges_added_samples.append(
+                f"{downstream_dataset_id}<-{upstream_dataset_urn}"
+            )
+
+    def report_storage_lineage_missing(self, entry_name: str) -> None:
+        with self._lock:
+            self.num_storage_lineage_missing += 1
+            self.storage_lineage_missing_samples.append(entry_name)
+
+    def report_pubsub_subscription_resolved(self) -> None:
+        with self._lock:
+            self.num_pubsub_subscriptions_resolved += 1
+
+    def report_pubsub_subscription_unresolved(self, context: str) -> None:
+        with self._lock:
+            self.num_pubsub_subscriptions_unresolved += 1
+            self.pubsub_subscriptions_unresolved_samples.append(context)
+
+    def report_pubsub_subscription_cache_hit(self) -> None:
+        with self._lock:
+            self.num_pubsub_subscription_cache_hits += 1
+
 
 class _EntryLineageEdges:
     """Per-entry accumulator keeping exactly one edge per upstream URN."""
@@ -343,6 +431,10 @@ class _EntryLineageEdges:
         self._report = report
         self._downstream_dataset_id = downstream_dataset_id
         self.edges_by_urn: Dict[str, LineageEdge] = {}
+
+    def seed(self, edge: LineageEdge) -> None:
+        """Pre-register an edge built outside the Data Lineage API."""
+        self.edges_by_urn[edge.upstream_datahub_urn] = edge
 
     def add(self, upstream_dataset_urn: str) -> None:
         if upstream_dataset_urn in self.edges_by_urn:
@@ -378,6 +470,7 @@ class DataplexLineageExtractor:
         source_report: SourceReport,
         lineage_client: Optional[LineageClient] = None,
         redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
+        credentials: Optional[service_account.Credentials] = None,
     ):
         """
         Initialize the lineage extractor.
@@ -388,6 +481,7 @@ class DataplexLineageExtractor:
             source_report: Source report for warning/failure emission
             lineage_client: Optional pre-configured LineageClient
             redundant_run_skip_handler: Optional redundant lineage run skip handler
+            credentials: Optional GCP credentials for the Pub/Sub client
         """
         self.config = config
         self.report = report
@@ -398,10 +492,20 @@ class DataplexLineageExtractor:
         self.redundant_run_skip_handler = redundant_run_skip_handler
         # Dataset URN -> (exact, casefolded) simple name -> fieldPath.
         self._schema_paths_by_urn: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
+        # (database, table) -> URN; None marks an ambiguous pair.
+        self._dpms_urn_by_db_table: Dict[Tuple[str, str], Optional[str]] = {}
+        self._dpms_urn_by_db_table_casefold: Dict[Tuple[str, str], Optional[str]] = {}
         # Shared by all lineage workers.
         self._rate_limiter: TokenBucket = calls_per_minute_bucket(
             config.lineage_max_calls_per_minute
         )
+        # Subscription -> backing-topic resolution for Dataflow-reported
+        # pubsub:subscription: upstream FQNs. None means the feature is off.
+        self._pubsub_resolver: Optional[PubSubSubscriptionResolver] = None
+        if config.resolve_pubsub_subscriptions:
+            self._pubsub_resolver = PubSubSubscriptionResolver(
+                report=report, credentials=credentials
+            )
 
     def get_lineage_for_entry(
         self,
@@ -670,7 +774,11 @@ class DataplexLineageExtractor:
         return ".".join(entity_reference.field)
 
     def register_schema_field_paths(self, entries: Iterable[EntryDataTuple]) -> None:
-        """Index each entry's fieldPaths by URN, to remap upstream column names."""
+        """Index each entry's fieldPaths by URN, to remap upstream column names.
+
+        Keyed by URN because aliased upstreams (``hive_metastore:``,
+        ``pubsub:subscription:``) resolve to tables ingested under another FQN.
+        """
         for entry in entries:
             if not entry.datahub_dataset_urn or not entry.schema_field_paths:
                 continue
@@ -681,6 +789,138 @@ class DataplexLineageExtractor:
                 exact.setdefault(simple, field_path)
                 by_casefold.setdefault(simple.casefold(), field_path)
             self._schema_paths_by_urn[entry.datahub_dataset_urn] = (exact, by_casefold)
+
+    def register_dpms_tables(self, entries: Iterable[EntryDataTuple]) -> None:
+        """Index this run's Dataproc Metastore tables by ``(database, table)``.
+
+        A pair claimed by two different tables is marked ambiguous (None).
+        """
+        for entry in entries:
+            if (
+                entry.dataplex_entry_type_short_name
+                != DATAPROC_METASTORE_TABLE_ENTRY_TYPE
+            ):
+                continue
+            identity_fields = parse_with_regex(
+                DATAPROC_METASTORE_TABLE_FQN_REGEX, entry.dataplex_entry_fqn
+            )
+            if identity_fields is None:
+                continue
+            database_id = identity_fields["database_id"]
+            table_id = identity_fields["table_id"]
+            urn = entry.datahub_dataset_urn
+            for index, key in (
+                (self._dpms_urn_by_db_table, (database_id, table_id)),
+                (
+                    self._dpms_urn_by_db_table_casefold,
+                    (database_id.casefold(), table_id.casefold()),
+                ),
+            ):
+                existing = index.get(key, _UNSET)
+                if existing is _UNSET:
+                    index[key] = urn
+                elif existing is not None and existing != urn:
+                    index[key] = None
+
+    def close(self) -> None:
+        """Release per-run resources."""
+        if self._pubsub_resolver is not None:
+            self._pubsub_resolver.close()
+
+    def _resolve_gcs_fqn(self, upstream_fqn: str) -> Optional[str]:
+        """Bucket URN for a ``gcs:`` FQN."""
+        bucket_name = parse_gcs_bucket_fqn(upstream_fqn)
+        if bucket_name is None:
+            return None
+        return build_gcs_bucket_urn(bucket_name, self.config.env)
+
+    def _resolve_hive_metastore_fqn(self, upstream_fqn: str) -> Optional[str]:
+        """URN for a ``hive_metastore:`` FQN, or None.
+
+        Tries this run's tables, then ``dpms_hive_metastore_service``, then a hive node.
+        """
+        parsed = parse_hive_metastore_fqn(upstream_fqn)
+        if parsed is None:
+            return None
+        database_id, table_id = parsed
+
+        def _hive_node_or_unresolved() -> Optional[str]:
+            if self.config.include_hive_metastore_nodes:
+                self.report.report_hive_metastore_fallback_node(
+                    f"{database_id}.{table_id}"
+                )
+                return build_hive_table_urn(database_id, table_id, env=self.config.env)
+            self.report.report_hive_metastore_fqn_unresolved(upstream_fqn)
+            return None
+
+        hit = self._dpms_urn_by_db_table.get((database_id, table_id), _UNSET)
+        if hit is _UNSET:
+            hit = self._dpms_urn_by_db_table_casefold.get(
+                (database_id.casefold(), table_id.casefold()), _UNSET
+            )
+        if hit is not _UNSET:
+            if hit is None:
+                # Ambiguous: the pair exists under more than one service.
+                return _hive_node_or_unresolved()
+            self.report.report_hive_metastore_fqn_resolved()
+            return hit
+
+        fallback = self.config.dpms_hive_metastore_service
+        if fallback:
+            parts = fallback.split(".")
+            if len(parts) == DPMS_SERVICE_PARTS:
+                urn = dataproc_metastore_table_urn(
+                    project_id=parts[0],
+                    location=parts[1],
+                    service_id=parts[2],
+                    database_id=database_id,
+                    table_id=table_id,
+                    env=self.config.env,
+                )
+                if urn is not None:
+                    self.report.report_hive_metastore_fqn_resolved()
+                    return urn
+            logger.warning(
+                "Ignoring malformed dpms_hive_metastore_service %r "
+                "(expected '{project}.{location}.{service}')",
+                fallback,
+            )
+
+        return _hive_node_or_unresolved()
+
+    def _resolve_pubsub_subscription_fqn(self, upstream_fqn: str) -> Optional[str]:
+        """Backing topic's URN for a subscription FQN, or None."""
+        parsed = parse_pubsub_subscription_fqn(upstream_fqn)
+        if parsed is None or self._pubsub_resolver is None:
+            return None
+        topic_fqn = self._pubsub_resolver.resolve_topic_fqn(*parsed)
+        if topic_fqn is None:
+            return None
+        return dataset_urn_from_fqn_only(
+            fully_qualified_name=topic_fqn,
+            env=self.config.env,
+        )
+
+    def _storage_lineage_edge(self, entry: EntryDataTuple) -> Optional[LineageEdge]:
+        """Bucket -> table edge from a Dataproc Metastore table's storage aspect."""
+        if not self.config.include_storage_lineage:
+            return None
+        if entry.dataplex_entry_type_short_name != DATAPROC_METASTORE_TABLE_ENTRY_TYPE:
+            return None
+        if not entry.storage_gcs_bucket:
+            self.report.report_storage_lineage_missing(entry.dataplex_entry_name)
+            return None
+
+        bucket_urn = build_gcs_bucket_urn(entry.storage_gcs_bucket, self.config.env)
+        self.report.report_storage_lineage_edge_added(
+            downstream_dataset_id=entry.datahub_dataset_name,
+            upstream_dataset_urn=bucket_urn,
+        )
+        return LineageEdge(
+            upstream_datahub_urn=bucket_urn,
+            audit_stamp=datetime.now(timezone.utc),
+            lineage_type=DatasetLineageTypeClass.TRANSFORMED,
+        )
 
     def _remap_upstream_column(self, upstream_urn: str, upstream_column: str) -> str:
         """The upstream's own fieldPath for an API column name, when it is in this run."""
@@ -789,6 +1029,9 @@ class DataplexLineageExtractor:
             )
             return set(), {}
 
+        storage_edge = self._storage_lineage_edge(entry)
+        storage_edges = {storage_edge} if storage_edge is not None else set()
+
         upstream_count = len(lineage_data.get("upstream", []))
         self.report.report_lineage_upstream_links_found(
             entry_name=entry.dataplex_entry_name,
@@ -799,19 +1042,22 @@ class DataplexLineageExtractor:
                 entry_name=entry.dataplex_entry_name,
                 reason="empty_upstream",
             )
-            return set(), {}
+            return set(storage_edges), {}
 
         if not is_lineage_supported(entry.dataplex_entry_type_short_name):
             self.report.report_lineage_entry_skipped_unsupported_type(
                 entry_name=entry.dataplex_entry_name,
                 entry_type=entry.dataplex_entry_type_short_name,
             )
-            return set(), {}
+            return set(storage_edges), {}
 
         edges = _EntryLineageEdges(
             report=self.report,
             downstream_dataset_id=entry.datahub_dataset_name,
         )
+        if storage_edge is not None:
+            # Seeded so an API link to the same bucket merges into it.
+            edges.seed(storage_edge)
         # Cache FQN -> URN so table-level and column-level lineage normalize
         # each upstream FQN exactly once (and agree on the URN).
         resolved_fqns: Dict[str, Optional[str]] = {}
@@ -845,6 +1091,18 @@ class DataplexLineageExtractor:
             fully_qualified_name=upstream_fqn,
             env=self.config.env,
         )
+        if resolved is None:
+            # Shapes the Data Lineage API reports that are not Dataplex entry
+            # types, and so are deliberately absent from the mapper registry.
+            resolved = self._resolve_gcs_fqn(upstream_fqn)
+        if resolved is None:
+            # Spark-reported hive_metastore FQNs carry no project or service;
+            # resolve them against this run's catalog entries.
+            resolved = self._resolve_hive_metastore_fqn(upstream_fqn)
+        if resolved is None:
+            # Dataflow-reported subscriptions resolve to their backing topic so
+            # the edge joins the catalogued topic entity.
+            resolved = self._resolve_pubsub_subscription_fqn(upstream_fqn)
         resolved_fqns[upstream_fqn] = resolved
         return resolved
 
@@ -856,16 +1114,38 @@ class DataplexLineageExtractor:
             entry_name=entry.dataplex_entry_name,
             upstream_fqn=upstream_fqn,
         )
-        self.source_report.warning(
-            "Unable to normalize upstream Dataplex lineage FQN. Skipping upstream edge.",
-            title="Dataplex upstream lineage parse failed",
-            context=(
-                f"dataplex_entry_name={entry.dataplex_entry_name}, "
-                f"datahub_dataset_name={entry.datahub_dataset_name}, "
-                f"entry_type={entry.dataplex_entry_type_short_name}, "
-                f"upstream_fqn={upstream_fqn}"
-            ),
+        skip_context = (
+            f"dataplex_entry_name={entry.dataplex_entry_name}, "
+            f"datahub_dataset_name={entry.datahub_dataset_name}, "
+            f"entry_type={entry.dataplex_entry_type_short_name}, "
+            f"upstream_fqn={upstream_fqn}"
         )
+        if parse_hive_metastore_fqn(upstream_fqn) is not None:
+            # It parsed fine — there was just nothing to match it to and every
+            # fallback is off. Distinct from a parse failure.
+            self.source_report.warning(
+                "hive_metastore upstream matched no Dataproc Metastore table in "
+                "this run and the hive-node fallback is disabled. Skipping "
+                "upstream edge. Set 'dpms_hive_metastore_service' or enable "
+                "'include_hive_metastore_nodes'.",
+                title="Dataplex hive_metastore upstream unmatched",
+                context=skip_context,
+            )
+        elif parse_pubsub_subscription_fqn(upstream_fqn) is not None:
+            self.source_report.warning(
+                "Pub/Sub subscription upstream could not be resolved to its "
+                "backing topic. Skipping upstream edge. Enable "
+                "'resolve_pubsub_subscriptions' and grant "
+                "pubsub.subscriptions.get on the subscription's project.",
+                title="Dataplex Pub/Sub subscription upstream unresolved",
+                context=skip_context,
+            )
+        else:
+            self.source_report.warning(
+                "Unable to normalize upstream Dataplex lineage FQN. Skipping upstream edge.",
+                title="Dataplex upstream lineage parse failed",
+                context=skip_context,
+            )
 
     def _normalize_column_mappings(
         self,
@@ -1046,6 +1326,9 @@ class DataplexLineageExtractor:
         # Every index must be complete before the first worker starts.
         entry_data = list(entry_data)
         self.register_schema_field_paths(entry_data)
+        # Index Dataproc Metastore tables before any worker resolves a
+        # hive_metastore upstream FQN against them.
+        self.register_dpms_tables(entry_data)
 
         logger.info("Extracting lineage (parallel, max_workers=%d)", max_workers)
 

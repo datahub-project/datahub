@@ -118,6 +118,38 @@ source:
     include_column_lineage: true
 ```
 
+#### Lineage Upstreams Outside the Catalog
+
+The Data Lineage API reports upstreams that are not Universal Catalog entries.
+The connector resolves three such shapes:
+
+| Reported FQN shape                    | Resolved to                                                                                             |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `gcs:{bucket}[/object/path]`          | A `gcs` dataset keyed on the bucket. Object paths are dropped so every producer lands on the same node. |
+| `hive_metastore:{host}.{db}.{table}`  | The matching Dataproc Metastore table ingested in this run; see below for the fallbacks.                |
+| `pubsub:subscription:{project}.{sub}` | The backing topic, resolved through the Pub/Sub Admin API. Opt in with `resolve_pubsub_subscriptions`.  |
+
+Spark and Dataproc jobs report lineage as
+`hive_metastore:` `` `<thrift-host>` ``.`{database}.{table}`, which carries no
+project, location or service. The connector resolves that pair in order:
+
+1. an exact (then case-insensitive) match against the Dataproc Metastore tables
+   ingested in this run;
+2. the `dpms_hive_metastore_service` fallback (`{project}.{location}.{service}`),
+   which mints a Dataproc Metastore URN under the configured service;
+3. with `include_hive_metastore_nodes` (default `true`), a lineage-only `hive`
+   dataset named `{database}.{table}` — matching DataHub's Hive connector
+   convention, so a later real Hive ingestion of the same metastore joins those
+   URNs rather than duplicating them. A pair that exists under two metastore
+   services is ambiguous and also lands here rather than being guessed;
+4. otherwise the edge is skipped and counted under
+   `num_hive_metastore_fqns_unresolved`.
+
+Dataplex never reports a table's backing-storage hop as lineage, so
+`include_storage_lineage: true` derives a bucket → table edge for Dataproc
+Metastore tables from the entry's own `storage` aspect. It is off by default
+because it adds an upstream that no previous run emitted.
+
 #### Configuration Options
 
 **Metadata Extraction:**
@@ -125,6 +157,10 @@ source:
 - **`include_schema`** (default: `true`): Extract column metadata and types. Columns that carry structure — `REPEATED` mode, nested `fields`, or a hive-style complex type spelling such as `array<struct<...>>` — are expanded into nested `[version=2.0]` fieldPaths, the same representation the BigQuery connector emits, so the UI renders them as Array/Struct with expandable children.
 - **`include_lineage`** (default: `true`): Extract table-level lineage (automatically retries transient errors)
 - **`include_column_lineage`** (default: `false`): Extract column-to-column lineage; see [Column-level Lineage](#column-level-lineage)
+- **`include_storage_lineage`** (default: `false`): Derive a bucket → table edge from a Dataproc Metastore table's `storage` aspect
+- **`resolve_pubsub_subscriptions`** (default: `false`): Resolve `pubsub:subscription:` upstreams to their backing topic
+- **`include_hive_metastore_nodes`** (default: `true`): Emit unmatched `hive_metastore:` upstreams as lineage-only `hive` datasets
+- **`dpms_hive_metastore_service`** (default: unset): `{project}.{location}.{service}` fallback for resolving `hive_metastore:` upstreams
 
 #### Parallel Processing
 

@@ -18,6 +18,7 @@ from datahub.ingestion.source.dataplex.dataplex_mappers import (
     _extract_description,
     _extract_display_name,
     _extract_entry_group_id,
+    dataproc_metastore_table_urn,
     dataset_urn_from_fqn_only,
     get_entry_mapper,
     is_lineage_supported,
@@ -620,3 +621,31 @@ def test_extract_entry_group_id_and_unknown_fallback() -> None:
     )
     # No entryGroups segment -> "unknown".
     assert _extract_entry_group_id("projects/p/locations/us/entries/e") == "unknown"
+
+
+def test_dataproc_metastore_table_urn_matches_the_mapper() -> None:
+    """A resolved hive_metastore upstream must land on exactly the URN the
+    entries stage mints for the same table."""
+    result = ENTRY_MAPPERS["dataproc-metastore-table"].map(
+        _make_entry(
+            short_name="dataproc-metastore-table",
+            fqn="dataproc_metastore:my-project.us-west1.my-service.my_database.my_table",
+            parent_entry="projects/my-project/locations/us-west1/entryGroups/@dataprocmetastore/entries/"
+            "metastore.googleapis.com/projects/my-project/locations/us-west1/services/my-service/databases/my_database",
+        ),
+        _ctx(),
+    )
+    assert result is not None and result.main_entity is not None
+    entries_urn = result.main_entity.urn.urn()
+
+    assert (
+        dataproc_metastore_table_urn(
+            project_id="my-project",
+            location="us-west1",
+            service_id="my-service",
+            database_id="my_database",
+            table_id="my_table",
+            env="PROD",
+        )
+        == entries_urn
+    )

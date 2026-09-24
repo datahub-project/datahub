@@ -47,6 +47,13 @@ source:
     # include_schema; multiplies Data Lineage API read volume.
     # include_column_lineage: true
 
+    # Optional: upstreams the Data Lineage API reports that are not catalog
+    # entries (GCS buckets, cluster-local hive tables, Pub/Sub subscriptions).
+    # include_storage_lineage: true         # bucket -> table edge from the storage aspect
+    # resolve_pubsub_subscriptions: true    # needs roles/pubsub.viewer
+    # include_hive_metastore_nodes: true    # default: true
+    # dpms_hive_metastore_service: "my-gcp-project.us-west1.my-service"
+
     # Optional: Extraction method (default: api)
     # Use 'export' for central-catalog / federated setups where assets surface
     # in a catalog project via Dataplex catalog linking and list_entries returns

@@ -12,6 +12,7 @@ import pytest
 from datahub.ingestion.source.dataplex.dataplex_ids import (
     BIGQUERY_TABLE_FQN_REGEX,
     PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM,
+    PUBSUB_TOPIC_FQN_REGEX,
     VERTEX_AI_FEATURE_GROUP_FQN_REGEX,
     VERTEX_AI_MODEL_FQN_REGEX,
     DataplexBigQueryProject,
@@ -102,6 +103,28 @@ def test_project_schema_key_class_by_platform_covers_supported_platforms() -> No
     }
     for key_class in PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM.values():
         assert issubclass(key_class, DataplexProjectId)
+
+
+@pytest.mark.parametrize(
+    "fqn,expected",
+    [
+        (
+            "pubsub:topic:my-project.my-topic",
+            {"project_id": "my-project", "topic_id": "my-topic"},
+        ),
+        # Topic ids may legally contain periods; project ids cannot, so the
+        # first dot is still an unambiguous delimiter.
+        (
+            "pubsub:topic:my-project.orders.v2",
+            {"project_id": "my-project", "topic_id": "orders.v2"},
+        ),
+        ("pubsub:topic:my-project", None),
+    ],
+)
+def test_pubsub_topic_fqn_accepts_dotted_topic_ids(
+    fqn: str, expected: Optional[dict]
+) -> None:
+    assert parse_with_regex(PUBSUB_TOPIC_FQN_REGEX, fqn) == expected
 
 
 @pytest.mark.parametrize(

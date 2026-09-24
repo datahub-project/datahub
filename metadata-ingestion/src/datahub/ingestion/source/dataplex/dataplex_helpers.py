@@ -39,6 +39,8 @@ class EntryDataTuple:
     datahub_dataset_urn: str
     # fieldPaths of the emitted schemaMetadata; a tuple keeps the dataclass hashable.
     schema_field_paths: Tuple[str, ...] = ()
+    # From the entry's ``storage`` aspect, when it points at GCS.
+    storage_gcs_bucket: Optional[str] = None
 
 
 @dataclass(frozen=True)

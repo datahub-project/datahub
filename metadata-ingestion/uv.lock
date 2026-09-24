@@ -141,6 +141,7 @@ all = [
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
     { name = "google-cloud-logging" },
+    { name = "google-cloud-pubsub" },
     { name = "google-cloud-resource-manager" },
     { name = "google-cloud-secret-manager" },
     { name = "google-cloud-storage" },
@@ -400,6 +401,7 @@ dataplex = [
     { name = "cachetools" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
+    { name = "google-cloud-pubsub" },
     { name = "google-cloud-resource-manager" },
     { name = "google-cloud-storage" },
     { name = "protobuf" },
@@ -510,6 +512,7 @@ dev = [
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
     { name = "google-cloud-logging" },
+    { name = "google-cloud-pubsub" },
     { name = "google-cloud-resource-manager" },
     { name = "google-cloud-secret-manager" },
     { name = "google-cloud-storage" },
@@ -704,6 +707,7 @@ docs = [
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
     { name = "google-cloud-logging" },
+    { name = "google-cloud-pubsub" },
     { name = "google-cloud-resource-manager" },
     { name = "google-cloud-secret-manager" },
     { name = "google-cloud-storage" },
@@ -1992,6 +1996,10 @@ requires-dist = [
     { name = "google-cloud-logging", marker = "extra == 'dev'", specifier = "<4.0.0" },
     { name = "google-cloud-logging", marker = "extra == 'docs'", specifier = "<4.0.0" },
     { name = "google-cloud-logging", marker = "extra == 'fivetran'", specifier = "<4.0.0" },
+    { name = "google-cloud-pubsub", marker = "extra == 'all'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "google-cloud-pubsub", marker = "extra == 'dataplex'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "google-cloud-pubsub", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "google-cloud-pubsub", marker = "extra == 'docs'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-cloud-resource-manager", marker = "extra == 'all'", specifier = "<2.0.0" },
     { name = "google-cloud-resource-manager", marker = "extra == 'bigquery'", specifier = "<2.0.0" },
     { name = "google-cloud-resource-manager", marker = "extra == 'bigquery-queries'", specifier = "<2.0.0" },
@@ -5659,6 +5667,26 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/9d/ce/0d3539008dc33b436e7c5c644abc8f8a7ec5900911d14a8e34e145f0ebe5/google_cloud_logging-3.14.0.tar.gz", hash = "sha256:361e83cd692fecc7da10351f641c474591f586f234fc49394db4ba5c8c5994a7", size = 293452, upload-time = "2026-03-06T21:53:07.526Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7b/3e/01795fc20f1b5f8b1d1d22eeb425c9c3396046f1761c4f6b4cc7d8dcab90/google_cloud_logging-3.14.0-py3-none-any.whl", hash = "sha256:4767ebdb3b46a3052d5185a7d5cf02829d33ea12a0aab1d57221110d581b9e1a", size = 232961, upload-time = "2026-03-06T21:52:48.393Z" },
+]
+
+[[package]]
+name = "google-cloud-pubsub"
+version = "2.39.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "grpc-google-iam-v1" },
+    { name = "grpcio" },
+    { name = "grpcio-status" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-sdk" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/11/2b/4bf2c17e319ff65340389565b0e1b4d72696d87802b2f5f94390fbefa73c/google_cloud_pubsub-2.39.0.tar.gz", hash = "sha256:eed65e25f57f95bf3e02d96d7ee171688b23922471f9f21b5a91ed90e1282c0f", size = 402096, upload-time = "2026-06-03T15:28:26.396Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/93/20/dd0b27d4ad4577c062e77ff968ca3e2d404186cd78c8a2a53a0ef5fe5389/google_cloud_pubsub-2.39.0-py3-none-any.whl", hash = "sha256:7210d691a46d7a66559696899ebe6eb731e63de29b624964b3be4dd2d12d3e19", size = 324665, upload-time = "2026-06-03T15:27:41.119Z" },
 ]
 
 [[package]]

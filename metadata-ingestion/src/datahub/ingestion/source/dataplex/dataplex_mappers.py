@@ -90,6 +90,7 @@ from datahub.ingestion.source.dataplex.dataplex_properties import (
     extract_entry_custom_properties,
 )
 from datahub.ingestion.source.dataplex.dataplex_schema import (
+    extract_gcs_storage_bucket_from_entry_aspects,
     extract_graph_schema_from_entry_aspects,
     extract_schema_from_entry_aspects,
 )
@@ -691,6 +692,9 @@ def build_dataset(
             env=ctx.config.env,
         ),
         schema_field_paths=_lineage_field_paths(schema_metadata),
+        storage_gcs_bucket=extract_gcs_storage_bucket_from_entry_aspects(
+            entry, entry.name
+        ),
     )
 
     return EntryMappingResult(
@@ -1415,3 +1419,38 @@ def dataset_urn_from_fqn_only(fully_qualified_name: str, env: str) -> Optional[s
         if urn:
             return urn
     return None
+
+
+DATAPROC_METASTORE_TABLE_ENTRY_TYPE = "dataproc-metastore-table"
+
+
+def dataproc_metastore_table_urn(
+    *,
+    project_id: str,
+    location: str,
+    service_id: str,
+    database_id: str,
+    table_id: str,
+    env: str,
+) -> Optional[str]:
+    """URN the ``dataproc-metastore-table`` mapper would mint for these fields."""
+    mapper = ENTRY_MAPPERS[DATAPROC_METASTORE_TABLE_ENTRY_TYPE]
+    identity = mapper.datahub_identity
+    assert isinstance(identity, DatasetIdentity)
+    dataset_name = identity.dataset_name(
+        {
+            "project_id": project_id,
+            "location": location,
+            "service_id": service_id,
+            "database_id": database_id,
+            "table_id": table_id,
+        }
+    )
+    if dataset_name is None:
+        return None
+    return make_dataset_urn_with_platform_instance(
+        platform=mapper.datahub_platform,
+        name=dataset_name,
+        platform_instance=None,
+        env=env,
+    )

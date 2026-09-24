@@ -310,6 +310,51 @@ class DataplexConfig(
         "warning rather than failing the source.",
     )
 
+    dpms_hive_metastore_service: Optional[str] = Field(
+        default=None,
+        description="Fallback '{project}.{location}.{service}' used to resolve "
+        "'hive_metastore:...' lineage FQNs (which is how Spark and Dataproc "
+        "jobs report lineage) to Dataproc Metastore table URNs when the "
+        "(database, table) pair is not found among the tables ingested in this "
+        "run. Leave unset to fall through to 'include_hive_metastore_nodes' "
+        "handling.",
+    )
+
+    include_hive_metastore_nodes: bool = Field(
+        default=True,
+        description="Whether 'hive_metastore:...' upstreams that match no "
+        "Dataproc Metastore table in this run — the table lives only in a "
+        "Dataproc cluster's own metastore, with no catalog entry — are emitted "
+        "as lineage-only datasets on the 'hive' platform named "
+        "'{database}.{table}', the same treatment GCS bucket upstreams get. "
+        "When false, those upstream edges are skipped and counted in the "
+        "report. Only affects lineage FQNs that would otherwise be dropped as "
+        "unparseable.",
+    )
+
+    include_storage_lineage: bool = Field(
+        default=False,
+        description="Whether to derive a bucket -> table lineage edge from a "
+        "Dataproc Metastore table's own 'storage' aspect. Dataplex never "
+        "reports that hop through the Data Lineage API, so it is the only way "
+        "to see where such a table's files actually live. Off by default "
+        "because it adds an upstream that no previous run emitted.",
+    )
+
+    resolve_pubsub_subscriptions: bool = Field(
+        default=False,
+        description="Whether 'pubsub:subscription:...' upstream lineage FQNs "
+        "(how Dataflow reports Pub/Sub sources) are resolved to their backing "
+        "topic via the Pub/Sub Admin API, using one cached get_subscription "
+        "call per distinct subscription per run. The resulting edge points at "
+        "the topic's dataset URN — identical to the URN of an ingested Pub/Sub "
+        "topic — so the edge joins the catalogued topic entity. Off by "
+        "default: enabling it needs pubsub.subscriptions.get "
+        "(roles/pubsub.viewer) on each subscription's project. Any failure "
+        "(missing dependency, missing permission, deleted topic) skips the "
+        "edge with a warning, which is exactly the behavior when this is off.",
+    )
+
     lineage_locations: List[str] = Field(
         default_factory=lambda: list(DEFAULT_LINEAGE_LOCATIONS),
         description="List of GCP regions to scan for Dataplex lineage data. "

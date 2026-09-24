@@ -318,6 +318,55 @@ class TestColumnLineageExtraction:
 
         assert mappings == {"col_a": [(upstream.datahub_dataset_urn, upstream_v2)]}
 
+    def test_aliased_upstream_column_is_remapped_to_the_resolved_table(
+        self, lineage_client: MagicMock
+    ) -> None:
+        """A ``hive_metastore:`` upstream resolves to a table ingested under
+        another FQN; its column must still land on that table's fieldPath."""
+        extractor = make_extractor(lineage_client)
+        hive_fqn = "hive_metastore:`localhost:9083`.my_database.my_table"
+        upstream_v2 = "[version=2.0].[type=struct].[type=string].item_id"
+        lineage_client.search_links.side_effect = route_search_links(
+            [
+                FakeLink(
+                    source=FakeEntityReference(hive_fqn),
+                    target=FakeEntityReference(
+                        "bigquery:my-project.my_dataset.my_table"
+                    ),
+                )
+            ],
+            [
+                FakeLink(
+                    source=FakeEntityReference(hive_fqn, ["item_id"]),
+                    target=FakeEntityReference(
+                        "bigquery:my-project.my_dataset.my_table", ["col_a"]
+                    ),
+                )
+            ],
+        )
+        downstream = make_entry(schema_field_paths=("col_a",))
+        metastore_table = make_entry(
+            fqn=(
+                "dataproc_metastore:my-project.us-west1.my-service.my_database.my_table"
+            ),
+            dataset_name="my-project.us-west1.my-service.my_database.my_table",
+            entry_type="dataproc-metastore-table",
+            platform="dataproc-metastore",
+            schema_field_paths=(upstream_v2,),
+        )
+        extractor.register_schema_field_paths([downstream, metastore_table])
+        extractor.register_dpms_tables([metastore_table])
+
+        result = extractor.get_lineage_for_entry(downstream, SCAN_PAIRS)
+        assert result is not None
+        _edges, mappings = extractor._extract_lineage_edges_for_entry(
+            downstream, result
+        )
+
+        assert mappings == {
+            "col_a": [(metastore_table.datahub_dataset_urn, upstream_v2)]
+        }
+
     def test_column_only_upstream_is_promoted_to_a_table_edge(
         self, lineage_client: MagicMock
     ) -> None:
