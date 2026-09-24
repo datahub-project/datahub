@@ -719,6 +719,41 @@ module.exports = {
       id: "docs/managed-datahub/welcome-acryl",
     },
     {
+      type: "category",
+      label: "Context and AI",
+      items: [
+        {
+          label: "Context",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/context/overview",
+          },
+          className: "saasOnly",
+          items: [
+            {
+              label: "Configure Context Generation",
+              type: "doc",
+              id: "docs/managed-datahub/context/configure-context-generation",
+              className: "saasOnly",
+            },
+            {
+              label: "Validate Context",
+              type: "doc",
+              id: "docs/managed-datahub/context/review-context-proposals",
+              className: "saasOnly",
+            },
+            {
+              label: "Activate Context",
+              type: "doc",
+              id: "docs/managed-datahub/context/activate-context",
+              className: "saasOnly",
+            },
+          ],
+        },
+      ],
+    },
+    {
       label: "Data Quality & Observability",
       type: "doc",
       id: "docs/managed-datahub/observe/overview",
@@ -936,6 +971,7 @@ module.exports = {
           items: [
             "metadata-ingestion/docs/transformer/dataset_transformer",
             "metadata-ingestion/docs/transformer/universal_transformers",
+            "metadata-ingestion/docs/transformer/set_attribution",
           ],
         },
       ],

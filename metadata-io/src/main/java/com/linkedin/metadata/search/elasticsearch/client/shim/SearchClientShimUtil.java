@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es7CompatibilitySearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -417,9 +416,6 @@ public class SearchClientShimUtil {
     log.info("Creating SearchClientShim for engine type: {} ", engineType);
 
     switch (engineType) {
-      case ELASTICSEARCH_7:
-        return new Es7CompatibilitySearchClientShim(config);
-
       case ELASTICSEARCH_8:
       case ELASTICSEARCH_9:
         return new Es8SearchClientShim(config, objectMapper);
@@ -488,6 +484,7 @@ public class SearchClientShimUtil {
 
       try (SearchClientShim<?> testShim = new OpenSearchSearchClientShim(testConfig)) {
         String version = testShim.getEngineVersion();
+        rejectUnsupported7xVersion(version);
 
         if (version != null && version.startsWith("2.")) {
           return SearchEngineType.OPENSEARCH_2;
@@ -497,32 +494,12 @@ public class SearchClientShimUtil {
         }
         failures.add("OpenSearch: connected but version='" + version + "' (expected 2.x/3.x)");
       }
+    } catch (IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
       failures.add("OpenSearch: " + msg);
       log.debug("OpenSearch detection failed: {}", msg);
-    }
-
-    // Try Elasticsearch 7.x with high-level client
-    try {
-      ShimConfiguration testConfig =
-          new ShimConfigurationBuilder(config)
-              .withEngineType(SearchEngineType.ELASTICSEARCH_7)
-              .withEngineTypeAutoDetected(true)
-              .build();
-
-      try (SearchClientShim<?> testShim = new Es7CompatibilitySearchClientShim(testConfig)) {
-        String version = testShim.getEngineVersion();
-
-        if (version != null && version.startsWith("7.")) {
-          return SearchEngineType.ELASTICSEARCH_7;
-        }
-        failures.add("ES7: connected but version='" + version + "' (expected 7.x)");
-      }
-    } catch (Exception e) {
-      String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-      failures.add("ES7: " + msg);
-      log.debug("Elasticsearch 7.x detection failed: {}", msg);
     }
 
     // Try Elasticsearch 8.x/9.x with new Java client
@@ -535,17 +512,16 @@ public class SearchClientShimUtil {
 
       try (SearchClientShim<?> testShim = new Es8SearchClientShim(testConfig, objectMapper)) {
         String version = testShim.getEngineVersion();
-
+        rejectUnsupported7xVersion(version);
         if (version != null && version.startsWith("8.")) {
           return SearchEngineType.ELASTICSEARCH_8;
         } else if (version != null && version.startsWith("9.")) {
           return SearchEngineType.ELASTICSEARCH_9;
         }
-        failures.add(
-            "ES8: connected but version='"
-                + version
-                + "' (expected 8.x/9.x). Misconfiguration? ES8 client may be talking to an ES7 cluster.");
+        failures.add("ES8: connected but version='" + version + "' (expected 8.x/9.x)");
       }
+    } catch (IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
       failures.add("ES8: " + msg);
@@ -562,6 +538,21 @@ public class SearchClientShimUtil {
             + endpoint
             + ". Ensure the cluster is accessible and running a supported version. Details: "
             + detail);
+  }
+
+  /**
+   * Elasticsearch 7.x and OpenSearch Elasticsearch-compatibility mode (GET / reports 7.10.2) are
+   * not supported search backends. Compatibility mode is not treated as OpenSearch 2/3.
+   */
+  static void rejectUnsupported7xVersion(String version) {
+    if (version != null && version.startsWith("7.")) {
+      throw new IllegalStateException(
+          "A 7.x search-engine version is not supported as a DataHub search backend. This includes"
+              + " Elasticsearch 7.x and OpenSearch with Elasticsearch compatibility mode"
+              + " (compatibility.override_main_response_version, which reports 7.10.2). Upgrade to"
+              + " Elasticsearch 8+ or OpenSearch 2+/3+, and turn compatibility mode off so GET /"
+              + " reports the real 2.x/3.x version.");
+    }
   }
 
   /** Builder class for creating ShimConfiguration instances */

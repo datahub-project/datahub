@@ -390,6 +390,16 @@ export class LineageBasePage extends BasePage {
     await this.page.getByTestId(`manage-lineage-menu-${nodeUrn}`).click();
   }
 
+  async expectEditUpstreamLineageDisabled(): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD puts aria-disabled on the parent menu item
+    await expect(this.editUpstreamLineageButton.locator('xpath=ancestor::*[@aria-disabled="true"]')).toBeVisible();
+  }
+
+  async expectEditDownstreamLineageEnabled(): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD puts aria-disabled on the parent menu item
+    await expect(this.editDownstreamLineageButton.locator('xpath=ancestor::*[@aria-disabled="true"]')).toHaveCount(0);
+  }
+
   async clickLineageEditMenuButton(): Promise<void> {
     await this.lineageEditMenuButton.click();
   }
@@ -400,6 +410,14 @@ export class LineageBasePage extends BasePage {
 
   async clickEditDownstreamLineage(): Promise<void> {
     await this.editDownstreamLineageButton.click();
+  }
+
+  async expectCurrentLineageContains(name: string): Promise<void> {
+    await expect(this.page.getByTestId('lineage-entity-item').getByText(name)).toBeVisible();
+  }
+
+  async expectCurrentLineageNotContains(name: string): Promise<void> {
+    await expect(this.page.getByTestId('lineage-entity-item').getByText(name)).toHaveCount(0);
   }
 
   // ── Lineage tab / entity page ─────────────────────────────────────────────

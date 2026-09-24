@@ -145,6 +145,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     Supports batch mode (GraphQL) and event-driven mode (Kafka MCL) with incremental processing.
     Automatically fetches embedding configuration from server to ensure alignment.
+
+    Embedding generation is gated on the server's semanticSearchConfig, not on Search V3.
+    When both semantic search and V3 are enabled, GMS dual-writes embeddings onto
+    documentindex_v3; this source still only emits SemanticContent via MCP.
     """
 
     def __init__(self, ctx: PipelineContext, config: DataHubDocumentsSourceConfig):
@@ -1218,6 +1222,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         }
         """
         urn_iter = iter(urns)
+        # Whether an all-null batch means a serving problem or just orphans can
+        # only be judged across the whole run, so track both run-wide.
+        resolved_any = False
+        first_all_null_urn: Optional[str] = None
         while True:
             # islice pulls one window from the enumerator, so scrolling and
             # hydration interleave instead of enumerating everything up front.
@@ -1244,6 +1252,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 hydrated_any = False
                 for entity in self._hydrate_individually(query, batch):
                     hydrated_any = True
+                    resolved_any = True
                     yield entity
                 if not hydrated_any:
                     # Every URN in the batch failed the same way — a systemic
@@ -1290,17 +1299,22 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 for entity in entities
                 if entity and entity.get("urn")
             }
-            if not entities_by_urn:
-                # Right length, but every slot came back null. Unlike a length
-                # mismatch this is interpretable — every requested URN was
-                # unresolvable — and the rest of the catalog may be healthy, so
-                # fail the run without aborting it. A page of index drift must not
-                # take down a run that can still embed everything else.
-                self.report.failure(
+            if entities_by_urn:
+                resolved_any = True
+            else:
+                # Right length, but every slot came back null. On its own this is
+                # orphan drift, not a serving problem: enumeration is ordered by
+                # URN, so orphans sharing a prefix (e.g. a family of documents
+                # hard-deleted together) are contiguous and can fill whole
+                # batches. Warn and keep going; whether it was really a serving
+                # problem is decided once the run has seen every batch, below.
+                if first_all_null_urn is None:
+                    first_all_null_urn = batch[0]
+                self.report.warning(
                     title="Document hydration resolved nothing in a batch",
-                    message="Every URN in a hydration batch resolved to null, which "
-                    "is usually a serving problem rather than that many orphans; "
-                    "the batch was skipped and the run continues.",
+                    message="Every URN in a hydration batch resolved to null "
+                    "(a contiguous run of orphaned index entries); the batch was "
+                    "skipped and the run continues.",
                     context=batch[0],
                 )
             for urn in batch:
@@ -1309,6 +1323,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     self._skip_orphaned(urn)
                     continue
                 yield hydrated
+
+        if first_all_null_urn is not None and not resolved_any:
+            # Nothing resolved anywhere in the run. A healthy catalog with orphan
+            # drift still resolves its live documents, so this is a serving
+            # problem, not orphans, and the run must not finish green having
+            # embedded nothing.
+            self.report.failure(
+                title="Document hydration resolved nothing",
+                message="Every enumerated document URN resolved to null, which is "
+                "usually a serving problem rather than every document being "
+                "orphaned; nothing was embedded.",
+                context=first_all_null_urn,
+            )
 
     def _hydrate_individually(
         self, query: str, urns: list[str]

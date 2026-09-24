@@ -2,8 +2,9 @@
  * Semantic Model and Metric lineage topologies.
  *
  * Covers bounding-box membership, canonical Metric → SMD → physical chains,
- * derived metrics, standalone metrics, multi-input metrics, a BI boundary hop, and
- * column -> metric lineage highlighting.
+ * derived metrics, standalone metrics, multi-input metrics, a BI boundary hop,
+ * column -> metric lineage highlighting, and Metric-as-home downstream consumers
+ * (chart / dashboard via upstreamMetrics).
  *
  * Prerequisites: fixtures/data.json (featureName: 'metrics')
  */
@@ -15,6 +16,7 @@ import {
   CUSTOMERS_LOGICAL_URN,
   DOUBLE_REVENUE_URN,
   METRICS_FEATURE_FLAGS,
+  NAMES,
   ORDERS_CHART_URN,
   ORDERS_DASHBOARD_URN,
   ORDERS_LOGICAL_URN,
@@ -142,5 +144,35 @@ test.describe('Metrics lineage topologies', () => {
     await lineagePage.checkEdgeExists(ORDERS_LOGICAL_URN, REVENUE_PER_CUSTOMER_URN);
     await lineagePage.checkEdgeExists(CUSTOMERS_LOGICAL_URN, REVENUE_PER_CUSTOMER_URN);
     await lineagePage.checkEdgeExists(TOTAL_REVENUE_URN, REVENUE_PER_CUSTOMER_URN);
+  });
+
+  test('metric home shows chart and dashboard consumers downstream', async () => {
+    await loadLineageGraph('metric', TOTAL_REVENUE_URN);
+
+    await lineagePage.checkNodeExists(TOTAL_REVENUE_URN);
+    await lineagePage.checkNodeExists(ORDERS_CHART_URN);
+    await lineagePage.checkNodeExists(ORDERS_DASHBOARD_URN);
+    await lineagePage.checkEdgeExists(TOTAL_REVENUE_URN, ORDERS_CHART_URN);
+    await lineagePage.checkEdgeExists(TOTAL_REVENUE_URN, ORDERS_DASHBOARD_URN);
+
+    await lineagePage.openManageLineageMenu(TOTAL_REVENUE_URN);
+    await expect(lineagePage.editDownstreamLineageButton).toBeVisible();
+    await expect(lineagePage.editUpstreamLineageButton).toBeVisible();
+    await lineagePage.expectEditUpstreamLineageDisabled();
+    await lineagePage.expectEditDownstreamLineageEnabled();
+
+    await lineagePage.clickEditDownstreamLineage();
+    await lineagePage.expectCurrentLineageContains(NAMES.ORDERS_CHART);
+    await lineagePage.expectCurrentLineageContains(NAMES.ORDERS_DASHBOARD);
+    await lineagePage.expectCurrentLineageNotContains(NAMES.DOUBLE_REVENUE);
+  });
+
+  test('metric impact analysis lists chart and dashboard downstream', async () => {
+    await loadLineageGraph('metric', TOTAL_REVENUE_URN);
+    await lineagePage.clickImpactAnalysis();
+    await lineagePage.clickDownstreamOption();
+
+    await lineagePage.expectResultTextVisible(NAMES.ORDERS_CHART, TIMEOUTS.LONG);
+    await lineagePage.expectResultTextVisible(NAMES.ORDERS_DASHBOARD, TIMEOUTS.LONG);
   });
 });
