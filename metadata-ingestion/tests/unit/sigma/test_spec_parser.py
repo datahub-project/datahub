@@ -103,6 +103,7 @@ def test_the_published_join_example_yields_its_one_pair() -> None:
     assert not pair.is_outer
     assert index.unreadable_join_element_ids == []
     assert index.unreadable_union_element_ids == []
+    assert index.unrecognised_element_count == 0
 
 
 def test_the_published_union_example_keeps_its_warehouse_branch() -> None:
@@ -136,8 +137,15 @@ def test_the_published_union_example_keeps_its_warehouse_branch() -> None:
 
     assert [c.output_column for c in index.unions] == ["State", "Year"]
     assert _branches(index.unions[0]) == [(None, "State"), ("el-b", "State")]
+    warehouse = index.unions[0].branches[0]
+    assert (warehouse.connection_id, warehouse.path) == (
+        "conn-1",
+        ("DB", "SCHEMA", "TABLE"),
+    )
+    assert [b.source_index for b in index.unions[0].branches] == [0, 1]
     assert index.unreadable_union_element_ids == []
     assert index.unreadable_join_element_ids == []
+    assert index.unrecognised_element_count == 0
 
 
 # --- Join predicates ----------------------------------------------------------
@@ -158,8 +166,12 @@ def test_a_side_wrapped_in_a_function_is_still_a_key_equality() -> None:
     ("expr", "expected"),
     [
         ("If(IsNull([Key]), -1, [Key])", "Key"),
-        # Parameters count as constants.
+        # Key participation, not value equality.
+        ("[A] + 1", "A"),
+        # A parameter beside a column is a constant...
         ("[A] + [P_offset]", "A"),
+        # ...but a lone P_ ref would be joining on a constant, so it is a column.
+        ("[P_KEY]", "P_KEY"),
         ("[A] = [B]", None),
         ("42", None),
         ("[A] = [Other/B]", None),
@@ -184,16 +196,29 @@ def test_a_side_is_a_key_only_if_it_names_one_column(expr: str, expected: Any) -
         ("right-outer", True),
         ("full-outer", True),
         ("lookup", True),
-        # Absent means inner.
-        ("", False),
+        (" Left-Outer ", True),
     ],
 )
 def test_outer_joins_are_flagged(join_type: str, expected_outer: bool) -> None:
     index = _parse_join(
         _one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}], join_type=join_type)
     )
-    assert index.pairs[0].join_type == (join_type or "inner")
+    assert index.pairs[0].join_type == join_type.strip().lower()
     assert index.pairs[0].is_outer is expected_outer
+
+
+@pytest.mark.parametrize("join_type", [None, "", 3], ids=["absent", "empty", "int"])
+def test_a_missing_join_type_is_reported_not_read_as_inner(join_type: Any) -> None:
+    """A stored spec always carries joinType, so its absence is a renamed key,
+    and reading it as inner would put an outer join in the top tier."""
+    join = _one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}])
+    if join_type is None:
+        del join["joinType"]
+    else:
+        join["joinType"] = join_type
+    index = _parse_join(join)
+    assert index.pairs == []
+    assert index.unreadable_join_element_ids == ["el-x"]
 
 
 def test_an_unknown_join_type_is_reported_not_scored() -> None:
@@ -210,19 +235,26 @@ def test_an_unknown_join_type_is_reported_not_scored() -> None:
     ("op", "expect_pair", "expect_readable"),
     [
         ("=", True, True),
-        ("", True, True),
+        # Absent is equality: Sigma's published join example omits op.
+        ("<absent>", True, True),
+        (None, True, True),
+        (" = ", True, True),
         ("!=", False, True),
         ("<", False, True),
-        ("within", False, True),
+        ("WITHIN", False, True),
         # Unknown, e.g. a renamed "=": reported, not silently declined.
         ("eq", False, False),
+        ("", False, False),
+        (0, False, False),
+        (False, False, False),
+        (1, False, False),
     ],
 )
 def test_only_equality_claims_a_key_edge(
-    op: str, expect_pair: bool, expect_readable: bool
+    op: Any, expect_pair: bool, expect_readable: bool
 ) -> None:
-    predicate = {"left": _LEFT_EXPR, "right": _RIGHT_EXPR}
-    if op:
+    predicate: Dict[str, Any] = {"left": _LEFT_EXPR, "right": _RIGHT_EXPR}
+    if op != "<absent>":
         predicate["op"] = op
     index = _parse_join(_one_join([predicate]))
     assert bool(index.pairs) is expect_pair
@@ -258,6 +290,17 @@ def test_multiple_joins_and_multi_column_predicates() -> None:
     ]
 
 
+def test_a_self_join_on_one_column_is_not_an_edge() -> None:
+    same = _one_join(
+        [{"left": "[K]", "right": "[K]"}, {"left": "[K]", "right": "[J]"}],
+        left=_ELEMENT_SIDE_L,
+        right=_ELEMENT_SIDE_L,
+    )
+    index = _parse_join(same)
+    assert [(p.left.column, p.right.column) for p in index.pairs] == [("K", "J")]
+    assert index.unreadable_join_element_ids == []
+
+
 def test_a_cross_model_side_keeps_its_data_model_id() -> None:
     foreign = {"dataModelId": "dm-2", "elementId": "el-far", "kind": "table"}
     index = _parse_join(
@@ -273,12 +316,37 @@ def test_an_empty_joins_list_is_not_unreadable() -> None:
     assert index.unreadable_join_element_ids == []
 
 
-def test_a_join_element_with_no_id_is_skipped() -> None:
-    """It cannot be named in a report or consumed by id."""
+@pytest.mark.parametrize("element_id", ["", 5, True], ids=["empty", "int", "bool"])
+def test_an_element_with_no_string_id_is_counted(element_id: Any) -> None:
+    """It cannot be named in a report, but it must not vanish either."""
     source = _join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}]))
-    index = parse_data_model_spec(_spec(source, element_id=""))
+    index = parse_data_model_spec(_spec(source, element_id=element_id))
     assert index.pairs == []
-    assert index.unreadable_join_element_ids == []
+    assert index.unrecognised_element_count == 1
+
+
+def test_a_renamed_id_key_is_counted_on_every_element() -> None:
+    spec = _spec(_join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}])))
+    for element in spec["pages"][0]["elements"]:
+        element["ident"] = element.pop("id")
+    index = parse_data_model_spec(spec)
+    assert index.pairs == []
+    assert index.unrecognised_element_count == 3
+
+
+def test_a_renamed_kind_key_is_counted() -> None:
+    source = _join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}]))
+    source["type"] = source.pop("kind")
+    index = parse_data_model_spec(_spec(source))
+    assert index.pairs == []
+    assert index.unrecognised_element_count == 1
+
+
+def test_an_element_with_no_source_is_not_counted() -> None:
+    """A control or text element has no lineage to read."""
+    spec = _spec(_join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}])))
+    spec["pages"][0]["elements"].append({"id": "ctrl-1", "kind": "control"})
+    assert parse_data_model_spec(spec).unrecognised_element_count == 0
 
 
 def test_the_kind_is_read_case_insensitively() -> None:
@@ -375,7 +443,9 @@ def test_a_malformed_predicate_is_flagged_beside_a_good_one(good_first: bool) ->
         None,
         {},
         {"pages": None},
+        {"pages": 5},
         {"pages": ["junk"]},
+        {"pages": [{"elements": 7}]},
         {"pages": [{"elements": ["junk"]}]},
     ],
 )
@@ -417,6 +487,26 @@ def test_a_cross_model_union_branch_keeps_its_data_model_id() -> None:
     foreign = {"dataModelId": "dm-2", "elementId": "el-far", "kind": "table"}
     index = _parse_union(_union([_el("el-a"), foreign], ["[c-a]", "[c-far]"]))
     assert [b.data_model_id for b in index.unions[0].branches] == [None, "dm-2"]
+
+
+def test_two_warehouse_branches_stay_distinct() -> None:
+    first = {"connectionId": "c-1", "kind": "warehouse-table", "path": ["D", "S", "T1"]}
+    second = {
+        "connectionId": "c-1",
+        "kind": "warehouse-table",
+        "path": ["D", "S", "T2"],
+    }
+    index = _parse_union(_union([first, second], ["[Amount]", "[Amount]"]))
+    branches = index.unions[0].branches
+    assert len(set(branches)) == 2
+    assert [b.path[-1] for b in branches] == ["T1", "T2"]
+
+
+def test_a_branch_keeps_its_position_past_an_empty_slot() -> None:
+    index = _parse_union(
+        _union([_el("el-a"), _el("el-b"), _el("el-c")], ["[x]", "", "[z]"])
+    )
+    assert [b.source_index for b in index.unions[0].branches] == [0, 2]
 
 
 @pytest.mark.parametrize("empty", ["", None])
