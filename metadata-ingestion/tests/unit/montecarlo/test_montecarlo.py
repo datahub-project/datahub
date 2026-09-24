@@ -1529,6 +1529,45 @@ def test_parse_comparisons_drops_malformed_entry() -> None:
     assert parsed[0].operator == "EQ"
 
 
+def test_parse_comparisons_coerces_null_fields() -> None:
+    """Live TABLE monitors return fields: null (not []). Without coercion
+    Pydantic rejects every comparison and the schema metric is lost."""
+    parsed = _parse_comparisons(
+        [
+            {
+                "comparison_type": "THRESHOLD",
+                "operator": "AUTO",
+                "metric": "last_updated_on",
+                "custom_metric": None,
+                "field": None,
+                "fields": None,
+                "threshold": None,
+                "upper_threshold": None,
+                "lower_threshold": None,
+            },
+            {
+                "comparison_type": "THRESHOLD",
+                "operator": "AUTO",
+                "metric": "schema",
+                "field": None,
+                "fields": None,
+            },
+            {
+                "comparison_type": "THRESHOLD",
+                "operator": "AUTO",
+                "metric": "total_row_count",
+                "fields": None,
+            },
+        ]
+    )
+    assert [c.metric for c in parsed] == [
+        "last_updated_on",
+        "schema",
+        "total_row_count",
+    ]
+    assert all(c.fields == [] for c in parsed)
+
+
 def test_client_get_monitors_forwards_domain_ids() -> None:
     """domain_ids are forwarded to the API as a GraphQL variable."""
     captured: Dict[str, Any] = {}

@@ -127,6 +127,14 @@ class MonteCarloComparison(BaseModel):
     upper_threshold: Optional[float] = None
     lower_threshold: Optional[float] = None
 
+    @field_validator("fields", mode="before")
+    @classmethod
+    def _coerce_null_fields(cls, value: Any) -> List[str]:
+        # getMonitors returns fields: null on table-level comparisons
+        # (freshness / schema / volume). List[str] would reject that and
+        # _parse_comparisons would drop the whole comparison.
+        return value or []
+
 
 def _parse_comparisons(raw: Any) -> List[MonteCarloComparison]:
     """Normalize the raw ``comparisons`` list (snake_cased by pycarlo's Box) into
