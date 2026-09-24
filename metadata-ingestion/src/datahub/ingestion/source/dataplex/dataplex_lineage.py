@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from itertools import islice
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
 from google.api_core import exceptions as google_exceptions
 from tenacity import (
@@ -23,7 +23,11 @@ if TYPE_CHECKING:
     from google.cloud.datacatalog_lineage import LineageClient
     from google.cloud.datacatalog_lineage.types import Link
 
-from google.cloud.datacatalog_lineage import EntityReference, SearchLinksRequest
+from google.cloud.datacatalog_lineage import (
+    EntityReference,
+    MultipleEntityReference,
+    SearchLinksRequest,
+)
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -45,12 +49,16 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetLineageTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import TokenBucket
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +69,9 @@ WORKERS_BATCH_SIZE = 200
 
 # The default is 10, and the pager silently fetches every page. 100 is the max.
 SEARCH_LINKS_PAGE_SIZE = 100
+
+# API limit on entities per MultipleEntityReference.
+COLUMN_LINK_BATCH_SIZE = 20
 
 
 def build_lineage_parent(project_id: str, location: str) -> str:
@@ -138,6 +149,15 @@ class DataplexLineageReport(Report):
     lineage_edges_added_samples: LossyList[str] = field(default_factory=LossyList)
     num_lineage_entries_failed: int = 0
     lineage_entries_failed_samples: LossyList[str] = field(default_factory=LossyList)
+    # Column-level lineage (include_column_lineage).
+    num_column_lineage_api_calls: int = 0
+    num_fine_grained_lineages_created: int = 0
+    fine_grained_lineages_created_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    num_columns_without_lineage: int = 0
+    num_column_names_unmatched: int = 0
+    column_names_unmatched_samples: LossyList[str] = field(default_factory=LossyList)
     lineage_api: dict[str, tuple[int, float]] = field(default_factory=dict)
     scan_stats_by_project_location_pair: dict[tuple[str, str], LocationScanStats] = (
         field(default_factory=dict)
@@ -276,6 +296,72 @@ class DataplexLineageReport(Report):
             )
         logger.debug(f"Lineage entry failed: {entry_name} (stage={stage})")
 
+    def report_column_lineage_api_call(self) -> None:
+        with self._lock:
+            self.num_column_lineage_api_calls += 1
+
+    def report_fine_grained_lineage_created(
+        self, dataset_id: str, downstream_column: str, upstream_count: int
+    ) -> None:
+        with self._lock:
+            self.num_fine_grained_lineages_created += 1
+            self.fine_grained_lineages_created_samples.append(
+                f"{dataset_id}.{downstream_column}<-{upstream_count} upstream col(s)"
+            )
+        logger.debug(
+            "Fine-grained lineage created: %s.%s (%d upstream column(s))",
+            dataset_id,
+            downstream_column,
+            upstream_count,
+        )
+
+    def report_columns_without_lineage(self, count: int) -> None:
+        if count <= 0:
+            return
+        with self._lock:
+            self.num_columns_without_lineage += count
+
+    def report_column_name_unmatched(self, entry_name: str, column: str) -> None:
+        with self._lock:
+            self.num_column_names_unmatched += 1
+            self.column_names_unmatched_samples.append(
+                f"entry={entry_name}, column={column}"
+            )
+        logger.debug(
+            "Column name from lineage link not found in entry schema: %s (entry=%s)",
+            column,
+            entry_name,
+        )
+
+
+class _EntryLineageEdges:
+    """Per-entry accumulator keeping exactly one edge per upstream URN."""
+
+    def __init__(
+        self, report: DataplexLineageReport, downstream_dataset_id: str
+    ) -> None:
+        self._report = report
+        self._downstream_dataset_id = downstream_dataset_id
+        self.edges_by_urn: Dict[str, LineageEdge] = {}
+
+    def add(self, upstream_dataset_urn: str) -> None:
+        if upstream_dataset_urn in self.edges_by_urn:
+            return
+        self.edges_by_urn[upstream_dataset_urn] = LineageEdge(
+            upstream_datahub_urn=upstream_dataset_urn,
+            audit_stamp=datetime.now(timezone.utc),
+            lineage_type=DatasetLineageTypeClass.TRANSFORMED,
+        )
+        self._report.report_lineage_edge_added(
+            downstream_dataset_id=self._downstream_dataset_id,
+            upstream_dataset_urn=upstream_dataset_urn,
+        )
+        logger.debug(
+            "  Added lineage edge: %s <- %s",
+            self._downstream_dataset_id,
+            upstream_dataset_urn,
+        )
+
 
 class DataplexLineageExtractor:
     """
@@ -310,6 +396,8 @@ class DataplexLineageExtractor:
         # TODO: Use redundant_run_skip_handler to short-circuit lineage calls when stateful
         # lineage ingestion determines this run is redundant.
         self.redundant_run_skip_handler = redundant_run_skip_handler
+        # Dataset URN -> (exact, casefolded) simple name -> fieldPath.
+        self._schema_paths_by_urn: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
         # Shared by all lineage workers.
         self._rate_limiter: TokenBucket = calls_per_minute_bucket(
             config.lineage_max_calls_per_minute
@@ -319,7 +407,7 @@ class DataplexLineageExtractor:
         self,
         entry: EntryDataTuple,
         active_lineage_project_location_pairs: list[tuple[str, str]],
-    ) -> Optional[Dict[str, list]]:
+    ) -> Optional[Dict[str, Any]]:
         """
         Get lineage information for a specific Dataplex entry with automatic retries.
 
@@ -337,6 +425,8 @@ class DataplexLineageExtractor:
               from target-link search across scanned parents.
             - ``"downstream"``: always an empty list (kept for backward-compatible
               return shape).
+            - ``"column_mappings"``: downstream fieldPath -> ``(upstream_fqn,
+              column)`` pairs, when ``include_column_lineage`` is enabled.
             Returns ``None`` when lineage is disabled/unavailable or when lookup
             fails after retries/exception handling.
         """
@@ -345,7 +435,11 @@ class DataplexLineageExtractor:
 
         try:
             fully_qualified_name = entry.dataplex_entry_fqn
-            lineage_data: dict[str, list[str]] = {"upstream": [], "downstream": []}
+            lineage_data: Dict[str, Any] = {
+                "upstream": [],
+                "downstream": [],
+                "column_mappings": {},
+            }
             hit_parents: list[str] = []
             empty_parents: list[str] = []
             # Query only target links (upstream lineage) across configured project/location
@@ -415,6 +509,17 @@ class DataplexLineageExtractor:
                     f"{len(lineage_data['upstream'])} upstream, 0 downstream"
                 )
                 self.report.report_lineage_entry_scanned(entry.dataplex_entry_name)
+
+            # Column-level lineage: query only parents where table-level links
+            # were found, and only when the entry's columns are known.
+            if (
+                self.config.include_column_lineage
+                and entry.schema_field_paths
+                and hit_parents
+            ):
+                lineage_data["column_mappings"] = self._collect_column_mappings(
+                    entry, hit_parents
+                )
 
             return lineage_data
 
@@ -506,21 +611,173 @@ class DataplexLineageExtractor:
         retrying_func = retry_decorator(self._search_links_by_target_impl)
         return retrying_func(parent, fully_qualified_name)
 
+    def _search_column_links_impl(
+        self, parent: str, fully_qualified_name: str, columns: List[str]
+    ) -> list["Link"]:
+        """One column-scoped search_links call; network call only, runs inside the retry."""
+        if self.lineage_client is None:
+            raise RuntimeError("Lineage client is not initialized")
+        logger.debug(
+            "Searching column lineage for FQN %s columns=%s",
+            fully_qualified_name,
+            columns,
+        )
+        targets = MultipleEntityReference(
+            entities=[
+                EntityReference(
+                    fully_qualified_name=fully_qualified_name,
+                    field=column.split("."),
+                )
+                for column in columns
+            ]
+        )
+        request = SearchLinksRequest(
+            parent=parent, targets=targets, page_size=SEARCH_LINKS_PAGE_SIZE
+        )
+        results = list(self.lineage_client.search_links(request=request))
+        logger.debug(
+            "Found %d column lineage link(s) for %s",
+            len(results),
+            fully_qualified_name,
+        )
+        return results
+
+    def _search_column_links(
+        self, parent: str, fully_qualified_name: str, columns: List[str]
+    ) -> list["Link"]:
+        """Column-level links for ``columns``, one rate-limited call per batch of 20."""
+        retry_decorator = self._get_retry_decorator()
+        retrying_func = retry_decorator(self._search_column_links_impl)
+        links: list["Link"] = []
+        for start in range(0, len(columns), COLUMN_LINK_BATCH_SIZE):
+            batch = columns[start : start + COLUMN_LINK_BATCH_SIZE]
+            # Same throttle discipline as _search_links_by_target: charge the
+            # limiter once per logical batch, outside the retry loop.
+            self._rate_limiter.acquire()
+            self.report.report_column_lineage_api_call()
+            with PerfTimer() as timer:
+                links.extend(retrying_func(parent, fully_qualified_name, batch))
+            self.report.report_lineage_api_call(
+                "search_column_links", timer.elapsed_seconds()
+            )
+        return links
+
+    @staticmethod
+    def _link_field_path(entity_reference: Any) -> Optional[str]:
+        """Join an EntityReference's repeated field segments into a dotted path."""
+        if entity_reference is None or not entity_reference.field:
+            return None
+        return ".".join(entity_reference.field)
+
+    def register_schema_field_paths(self, entries: Iterable[EntryDataTuple]) -> None:
+        """Index each entry's fieldPaths by URN, to remap upstream column names."""
+        for entry in entries:
+            if not entry.datahub_dataset_urn or not entry.schema_field_paths:
+                continue
+            exact: dict[str, str] = {}
+            by_casefold: dict[str, str] = {}
+            for field_path in entry.schema_field_paths:
+                simple = get_simple_field_path_from_v2_field_path(field_path)
+                exact.setdefault(simple, field_path)
+                by_casefold.setdefault(simple.casefold(), field_path)
+            self._schema_paths_by_urn[entry.datahub_dataset_urn] = (exact, by_casefold)
+
+    def _remap_upstream_column(self, upstream_urn: str, upstream_column: str) -> str:
+        """The upstream's own fieldPath for an API column name, when it is in this run."""
+        paths = self._schema_paths_by_urn.get(upstream_urn)
+        if paths is None:
+            return upstream_column
+        exact, by_casefold = paths
+        matched = exact.get(upstream_column)
+        if matched is None:
+            matched = by_casefold.get(upstream_column.casefold())
+        return matched if matched is not None else upstream_column
+
+    def _collect_column_mappings(
+        self,
+        entry: EntryDataTuple,
+        hit_parents: List[str],
+    ) -> Dict[str, List[Tuple[str, str]]]:
+        """Downstream fieldPath -> ``(upstream_fqn, api_column)`` pairs.
+
+        Only parents that returned table-level links are queried.
+        """
+        # The API addresses columns by plain dotted names, not v2 fieldPaths.
+        simple_to_field_path: Dict[str, str] = {}
+        for field_path in entry.schema_field_paths:
+            simple_to_field_path.setdefault(
+                get_simple_field_path_from_v2_field_path(field_path), field_path
+            )
+        columns = list(simple_to_field_path)
+        # Exact match first: `id` and `ID` share one casefold key.
+        columns_exact = simple_to_field_path
+        columns_by_casefold: Dict[str, str] = {}
+        for simple_column, field_path in simple_to_field_path.items():
+            columns_by_casefold.setdefault(simple_column.casefold(), field_path)
+        column_mappings: Dict[str, List[Tuple[str, str]]] = {}
+        seen_pairs: Dict[str, set] = {}
+
+        for parent in hit_parents:
+            try:
+                links = self._search_column_links(
+                    parent, entry.dataplex_entry_fqn, columns
+                )
+            except Exception as parent_error:
+                self.source_report.warning(
+                    "Failed to query Dataplex column lineage for a project/location "
+                    "parent. Continuing with remaining parents.",
+                    context=(
+                        f"parent={parent}, "
+                        f"dataplex_entry_name={entry.dataplex_entry_name}, "
+                        f"datahub_dataset_name={entry.datahub_dataset_name}"
+                    ),
+                    exc=parent_error,
+                )
+                continue
+
+            for link in links:
+                downstream_column = self._link_field_path(link.target)
+                upstream_column = self._link_field_path(link.source)
+                if not downstream_column or not upstream_column:
+                    # Asset-level link echoed back; table lineage covers it.
+                    continue
+                if not (link.source and link.source.fully_qualified_name):
+                    continue
+                # Upstream columns are remapped later, by resolved URN.
+                matched_column: Optional[str] = columns_exact.get(downstream_column)
+                if matched_column is None:
+                    matched_column = columns_by_casefold.get(
+                        downstream_column.casefold()
+                    )
+                if matched_column is None:
+                    self.report.report_column_name_unmatched(
+                        entry_name=entry.dataplex_entry_name,
+                        column=downstream_column,
+                    )
+                    continue
+                pair = (link.source.fully_qualified_name, upstream_column)
+                pairs = column_mappings.setdefault(matched_column, [])
+                seen = seen_pairs.setdefault(matched_column, set())
+                if pair not in seen:
+                    seen.add(pair)
+                    pairs.append(pair)
+
+        self.report.report_columns_without_lineage(len(columns) - len(column_mappings))
+        return column_mappings
+
     def _extract_lineage_edges_for_entry(
-        self, entry: EntryDataTuple, lineage_data: Optional[dict[str, list[str]]]
-    ) -> set[LineageEdge]:
+        self, entry: EntryDataTuple, lineage_data: Optional[Dict[str, Any]]
+    ) -> Tuple[set[LineageEdge], Dict[str, List[Tuple[str, str]]]]:
         """Convert raw lookup payload into normalized DataHub lineage edges.
 
         Args:
             entry: Downstream Dataplex entry currently being processed.
-            lineage_data: Result payload from ``get_lineage_for_entry``. Expected
-                shape is ``{"upstream": list[str], "downstream": list[str]}``.
-                Only ``upstream`` values are currently used for edge creation;
-                ``None`` or empty upstreams produce no edges.
+            lineage_data: Result payload from ``get_lineage_for_entry``. ``None``
+                or empty upstreams produce no edges.
 
         Returns:
-            A deduplicated set of ``LineageEdge`` records normalized to DataHub
-            upstream dataset URNs.
+            The deduplicated edges, and column mappings normalized to
+            ``(upstream_urn, upstream_column)`` pairs.
         """
         self.report.report_lineage_entry_processed(entry.dataplex_entry_name)
         if not lineage_data:
@@ -530,7 +787,7 @@ class DataplexLineageExtractor:
                 entry_name=entry.dataplex_entry_name,
                 reason="lineage_lookup_failed_or_unavailable",
             )
-            return set()
+            return set(), {}
 
         upstream_count = len(lineage_data.get("upstream", []))
         self.report.report_lineage_upstream_links_found(
@@ -542,66 +799,124 @@ class DataplexLineageExtractor:
                 entry_name=entry.dataplex_entry_name,
                 reason="empty_upstream",
             )
-            return set()
+            return set(), {}
 
         if not is_lineage_supported(entry.dataplex_entry_type_short_name):
             self.report.report_lineage_entry_skipped_unsupported_type(
                 entry_name=entry.dataplex_entry_name,
                 entry_type=entry.dataplex_entry_type_short_name,
             )
-            return set()
+            return set(), {}
 
-        lineage_edges: set[LineageEdge] = set()
+        edges = _EntryLineageEdges(
+            report=self.report,
+            downstream_dataset_id=entry.datahub_dataset_name,
+        )
+        # Cache FQN -> URN so table-level and column-level lineage normalize
+        # each upstream FQN exactly once (and agree on the URN).
+        resolved_fqns: Dict[str, Optional[str]] = {}
+
         for upstream_fqn in lineage_data.get("upstream", []):
-            # Upstream FQN may be cross-platform (e.g. pubsub->bigquery), so
-            # normalize to DataHub URN using a mapping lookup driven only by FQN shape.
-            upstream_dataset_urn = dataset_urn_from_fqn_only(
-                fully_qualified_name=upstream_fqn,
-                env=self.config.env,
-            )
+            upstream_urn = self._resolve_upstream_fqn(upstream_fqn, resolved_fqns)
+            if upstream_urn is None:
+                self._report_unresolved_upstream(entry, upstream_fqn)
+                continue
+            edges.add(upstream_urn)
 
-            if upstream_dataset_urn:
-                edge = LineageEdge(
-                    upstream_datahub_urn=upstream_dataset_urn,
-                    audit_stamp=datetime.now(timezone.utc),
-                    lineage_type=DatasetLineageTypeClass.TRANSFORMED,
-                )
-                lineage_edges.add(edge)
-                self.report.report_lineage_edge_added(
-                    downstream_dataset_id=entry.datahub_dataset_name,
-                    upstream_dataset_urn=upstream_dataset_urn,
-                )
-                logger.debug(
-                    "  Added lineage edge: %s <- %s",
-                    entry.datahub_dataset_name,
-                    upstream_dataset_urn,
-                )
-            else:
-                self.report.report_lineage_upstream_fqn_skipped(
-                    entry_name=entry.dataplex_entry_name,
-                    upstream_fqn=upstream_fqn,
-                )
-                self.source_report.warning(
-                    "Unable to normalize upstream Dataplex lineage FQN. Skipping upstream edge.",
-                    title="Dataplex upstream lineage parse failed",
-                    context=(
-                        f"dataplex_entry_name={entry.dataplex_entry_name}, "
-                        f"datahub_dataset_name={entry.datahub_dataset_name}, "
-                        f"entry_type={entry.dataplex_entry_type_short_name}, "
-                        f"upstream_fqn={upstream_fqn}"
-                    ),
-                )
+        column_mappings = self._normalize_column_mappings(
+            entry=entry,
+            raw_column_mappings=lineage_data.get("column_mappings") or {},
+            edges=edges,
+            resolved_fqns=resolved_fqns,
+        )
+        return set(edges.edges_by_urn.values()), column_mappings
 
-        return lineage_edges
+    def _resolve_upstream_fqn(
+        self,
+        upstream_fqn: str,
+        resolved_fqns: Dict[str, Optional[str]],
+    ) -> Optional[str]:
+        """Normalize one upstream FQN to a dataset URN, memoized per entry."""
+        if upstream_fqn in resolved_fqns:
+            return resolved_fqns[upstream_fqn]
+        # Upstream FQN may be cross-platform (e.g. pubsub->bigquery), so
+        # normalize to DataHub URN using a mapping lookup driven only by FQN shape.
+        resolved = dataset_urn_from_fqn_only(
+            fully_qualified_name=upstream_fqn,
+            env=self.config.env,
+        )
+        resolved_fqns[upstream_fqn] = resolved
+        return resolved
+
+    def _report_unresolved_upstream(
+        self, entry: EntryDataTuple, upstream_fqn: str
+    ) -> None:
+        """Count and explain an upstream FQN that produced no edge."""
+        self.report.report_lineage_upstream_fqn_skipped(
+            entry_name=entry.dataplex_entry_name,
+            upstream_fqn=upstream_fqn,
+        )
+        self.source_report.warning(
+            "Unable to normalize upstream Dataplex lineage FQN. Skipping upstream edge.",
+            title="Dataplex upstream lineage parse failed",
+            context=(
+                f"dataplex_entry_name={entry.dataplex_entry_name}, "
+                f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                f"entry_type={entry.dataplex_entry_type_short_name}, "
+                f"upstream_fqn={upstream_fqn}"
+            ),
+        )
+
+    def _normalize_column_mappings(
+        self,
+        entry: EntryDataTuple,
+        raw_column_mappings: Dict[str, List[Tuple[str, str]]],
+        edges: "_EntryLineageEdges",
+        resolved_fqns: Dict[str, Optional[str]],
+    ) -> Dict[str, List[Tuple[str, str]]]:
+        """``(upstream_fqn, column)`` -> ``(upstream_urn, fieldPath)``.
+
+        A column-only upstream also becomes a table-level edge.
+        """
+        column_mappings: Dict[str, List[Tuple[str, str]]] = {}
+        for downstream_column, upstream_pairs in raw_column_mappings.items():
+            normalized_pairs: List[Tuple[str, str]] = []
+            # Ordered list + membership set: emission order stays deterministic
+            # while the duplicate check stays O(1).
+            seen_normalized = set()
+            for upstream_fqn, upstream_column in upstream_pairs:
+                upstream_urn = self._resolve_upstream_fqn(upstream_fqn, resolved_fqns)
+                if upstream_urn is None:
+                    self.report.report_lineage_upstream_fqn_skipped(
+                        entry_name=entry.dataplex_entry_name,
+                        upstream_fqn=upstream_fqn,
+                    )
+                    continue
+                edges.add(upstream_urn)
+                pair = (
+                    upstream_urn,
+                    self._remap_upstream_column(upstream_urn, upstream_column),
+                )
+                if pair not in seen_normalized:
+                    seen_normalized.add(pair)
+                    normalized_pairs.append(pair)
+            if normalized_pairs:
+                column_mappings[downstream_column] = normalized_pairs
+        return column_mappings
 
     def _to_upstream_lineage(
-        self, dataset_id: str, lineage_edges: set[LineageEdge]
+        self,
+        dataset_id: str,
+        dataset_urn: str,
+        lineage_edges: set[LineageEdge],
+        column_mappings: Optional[Dict[str, List[Tuple[str, str]]]] = None,
     ) -> Optional[UpstreamLineageClass]:
         """Build UpstreamLineageClass from extracted edges for one dataset.
 
         Deduplicates edges by ``(upstream_datahub_urn, lineage_type)`` before
         emitting to DataHub. If duplicate keys are present, keeps the earliest
         observed ``audit_stamp`` so emitted lineage remains deterministic.
+        Column mappings become ``fineGrainedLineages`` on the same aspect.
         """
         unique_upstreams: dict[tuple[str, str], LineageEdge] = {}
         for lineage_edge in lineage_edges:
@@ -628,7 +943,37 @@ class DataplexLineageExtractor:
             self.report.report_lineage_relationship_created(
                 f"{dataset_id}<-{lineage_edge.upstream_datahub_urn}"
             )
-        return UpstreamLineageClass(upstreams=upstream_list)
+
+        fine_grained_lineages: list[FineGrainedLineageClass] = []
+        for downstream_column, upstream_pairs in sorted(
+            (column_mappings or {}).items()
+        ):
+            if not upstream_pairs:
+                continue
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[
+                        builder.make_schema_field_urn(upstream_urn, upstream_column)
+                        for upstream_urn, upstream_column in upstream_pairs
+                    ],
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[
+                        builder.make_schema_field_urn(dataset_urn, downstream_column)
+                    ],
+                    confidenceScore=1.0,
+                )
+            )
+            self.report.report_fine_grained_lineage_created(
+                dataset_id=dataset_id,
+                downstream_column=downstream_column,
+                upstream_count=len(upstream_pairs),
+            )
+
+        return UpstreamLineageClass(
+            upstreams=upstream_list,
+            fineGrainedLineages=fine_grained_lineages or None,
+        )
 
     def _gen_lineage(
         self,
@@ -660,18 +1005,18 @@ class DataplexLineageExtractor:
             entry,
             active_lineage_project_location_pairs=active_lineage_project_location_pairs,
         )
-        lineage_edges = self._extract_lineage_edges_for_entry(entry, lineage_data)
+        lineage_edges, column_mappings = self._extract_lineage_edges_for_entry(
+            entry, lineage_data
+        )
         if not lineage_edges:
             return []
 
         dataset_id = entry.datahub_dataset_name
-        dataset_urn = builder.make_dataset_urn_with_platform_instance(
-            platform=entry.datahub_platform,
-            name=dataset_id,
-            platform_instance=None,
-            env=self.config.env,
+        # Reuse the mapped URN so schemaField URNs match schemaMetadata exactly.
+        dataset_urn = entry.datahub_dataset_urn
+        upstream_lineage = self._to_upstream_lineage(
+            dataset_id, dataset_urn, lineage_edges, column_mappings
         )
-        upstream_lineage = self._to_upstream_lineage(dataset_id, lineage_edges)
         return list(self._gen_lineage(dataset_id, dataset_urn, upstream_lineage))
 
     def get_lineage_workunits(
@@ -697,6 +1042,10 @@ class DataplexLineageExtractor:
         if not self.config.include_lineage:
             logger.info("Lineage extraction is disabled")
             return
+
+        # Every index must be complete before the first worker starts.
+        entry_data = list(entry_data)
+        self.register_schema_field_paths(entry_data)
 
         logger.info("Extracting lineage (parallel, max_workers=%d)", max_workers)
 

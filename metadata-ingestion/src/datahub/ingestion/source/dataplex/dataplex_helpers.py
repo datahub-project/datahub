@@ -3,7 +3,7 @@
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from google.cloud import dataplex_v1
 
@@ -37,6 +37,8 @@ class EntryDataTuple:
     datahub_platform: str
     datahub_dataset_name: str
     datahub_dataset_urn: str
+    # fieldPaths of the emitted schemaMetadata; a tuple keeps the dataclass hashable.
+    schema_field_paths: Tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

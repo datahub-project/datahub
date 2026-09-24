@@ -109,6 +109,10 @@ def _resolve_project_numbers(
     "Optionally enabled via configuration `include_lineage`",
 )
 @capability(
+    SourceCapability.LINEAGE_FINE,
+    "Optionally enabled via configuration `include_column_lineage`",
+)
+@capability(
     SourceCapability.DELETION_DETECTION,
     "Enabled by default via stateful ingestion",
 )

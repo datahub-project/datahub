@@ -43,6 +43,10 @@ source:
     # include_lineage: true   # Extract lineage (default: true)
     # include_schema: true    # Extract schema metadata (default: true)
 
+    # Optional: Column-level lineage. Requires include_lineage and
+    # include_schema; multiplies Data Lineage API read volume.
+    # include_column_lineage: true
+
     # Optional: Extraction method (default: api)
     # Use 'export' for central-catalog / federated setups where assets surface
     # in a catalog project via Dataplex catalog linking and list_entries returns

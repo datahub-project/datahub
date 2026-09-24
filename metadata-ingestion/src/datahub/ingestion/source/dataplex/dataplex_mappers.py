@@ -28,7 +28,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional, Pattern, Union
+from typing import Optional, Pattern, Tuple, Union
 
 from google.cloud import dataplex_v1
 from typing_extensions import TypeAlias, assert_never
@@ -487,6 +487,22 @@ def dataset_urn_from_fqn(
     )
 
 
+# Spanner graph pseudo-columns, which the Data Lineage API does not know.
+_GRAPH_FIELD_PATH_PREFIXES = ("[nodes].", "[edges].")
+
+
+def _lineage_field_paths(
+    schema_metadata: Optional[SchemaMetadataClass],
+) -> Tuple[str, ...]:
+    if schema_metadata is None:
+        return ()
+    return tuple(
+        schema_field.fieldPath
+        for schema_field in schema_metadata.fields
+        if not schema_field.fieldPath.startswith(_GRAPH_FIELD_PATH_PREFIXES)
+    )
+
+
 def _project_schema_key(
     fqn_regex: Pattern[str], platform: str, fully_qualified_name: str
 ) -> Optional[DataplexProjectId]:
@@ -674,6 +690,7 @@ def build_dataset(
             platform_instance=None,
             env=ctx.config.env,
         ),
+        schema_field_paths=_lineage_field_paths(schema_metadata),
     )
 
     return EntryMappingResult(

@@ -73,7 +73,6 @@ Only **BigQuery** lineage has been thoroughly tested with this connector. Lineag
 
 **Not Supported:**
 
-- **Column-level lineage**: The connector extracts only table-level lineage (column-level lineage is available in Dataplex Lineage API but not exposed through this connector)
 - **Custom sources**: Only Google Cloud systems with automatic lineage tracking are supported
 - **BigQuery Data Transfer Service**: Recurring loads are not automatically tracked
 
@@ -85,12 +84,47 @@ Only **BigQuery** lineage has been thoroughly tested with this connector. Lineag
 
 For more details, see [Google Cloud Knowledge Catalog (Dataplex) Lineage Documentation](https://docs.cloud.google.com/dataplex/docs/about-data-lineage).
 
+#### Column-level Lineage
+
+Set `include_column_lineage: true` to additionally extract column-to-column
+mappings. For each entry that has table-level lineage, the connector issues one
+extra `search_links` call per batch of 20 columns per parent that returned
+links, and attaches the result as `fineGrainedLineages` on the same
+`upstreamLineage` aspect.
+
+Column lineage requires both `include_lineage` and `include_schema`. If either
+is off, column lineage is disabled with a warning rather than failing the
+source.
+
+Because this multiplies Data Lineage API read volume, lower
+`max_workers_lineage` to slow the call rate down: the pool size is the binding
+constraint on sustained throughput, while `lineage_max_calls_per_minute` is a
+ceiling that only engages once the pool can outrun it.
+
+Nested columns are matched on their simplified dotted names — which is how the
+Data Lineage API addresses them — and emitted against the connector's own
+`[version=2.0]` fieldPaths, so both ends of a fine-grained edge resolve to
+fields that exist in `schemaMetadata`. A column the API names but the schema
+does not contain is counted under `num_column_names_unmatched` and skipped.
+
+```yaml
+source:
+  type: dataplex
+  config:
+    project_ids:
+      - "my-gcp-project"
+    include_lineage: true
+    include_schema: true
+    include_column_lineage: true
+```
+
 #### Configuration Options
 
 **Metadata Extraction:**
 
 - **`include_schema`** (default: `true`): Extract column metadata and types. Columns that carry structure — `REPEATED` mode, nested `fields`, or a hive-style complex type spelling such as `array<struct<...>>` — are expanded into nested `[version=2.0]` fieldPaths, the same representation the BigQuery connector emits, so the UI renders them as Array/Struct with expandable children.
 - **`include_lineage`** (default: `true`): Extract table-level lineage (automatically retries transient errors)
+- **`include_column_lineage`** (default: `false`): Extract column-to-column lineage; see [Column-level Lineage](#column-level-lineage)
 
 #### Parallel Processing
 

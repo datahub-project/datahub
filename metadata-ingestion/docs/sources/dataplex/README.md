@@ -2,7 +2,7 @@
 
 Google Cloud Knowledge Catalog (Dataplex) is a is a fully managed service that automates the discovery and inventory of your distributed data and AI assets. Learn more in the [official Google Cloud Knowledge Catalog (Dataplex) documentation](https://cloud.google.com/dataplex).
 
-The DataHub integration uses the Universal Catalog entries as the source of truth and maps them into DataHub datasets, containers and ML models with provider-native URNs (for example `bigquery`, `cloudsql`, `spanner`, `pubsub`, `bigtable`, and `vertexai`). It also captures table-level lineage, Business Glossary ingestion and stateful deletion detection.
+The DataHub integration uses the Universal Catalog entries as the source of truth and maps them into DataHub datasets, containers and ML models with provider-native URNs (for example `bigquery`, `cloudsql`, `spanner`, `pubsub`, `bigtable`, and `vertexai`). It also captures table-level and optional column-level lineage, Business Glossary ingestion and stateful deletion detection.
 
 ## Concept Mapping
 
