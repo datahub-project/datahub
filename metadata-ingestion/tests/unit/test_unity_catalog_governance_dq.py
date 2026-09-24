@@ -184,3 +184,52 @@ def test_error_status_maps_to_error():
         if isinstance(a, AssertionRunEventClass)
     )
     assert run.result.type == AssertionResultTypeClass.ERROR
+
+
+def test_result_snapshot_fields_land_in_native_results():
+    rules = [
+        {
+            "rule_id": "R1",
+            "catalog": "my_catalog",
+            "schema": "my_schema",
+            "table": "my_table",
+            "columns": "customer_id",
+            "rule_name": "cid not null",
+            "rule_type": "completeness",
+            "operator": "NOT_NULL",
+            "severity": "MEDIUM",
+            "active": True,
+            "rule_version": 1,
+            "rule_description": "cid populated",
+            "dataset_name": "src",
+            "source_format": "custom_engine",
+        }
+    ]
+    results = [
+        {
+            "run_id": "run-1",
+            "rule_id": "R1",
+            "status": "SUCCESS",
+            "warning": False,
+            "actual_value": 100.0,
+            "evaluated_row_count": 1000,
+            "failed_row_count": 0,
+            "executed_at_millis": 1000,
+            "operator_snapshot": "NOT_NULL",
+            "threshold_min_snapshot": 1,
+            "threshold_max_snapshot": 2,
+            "threshold_value_snapshot": 3,
+            "rule_version_snapshot": 1,
+        }
+    ]
+    run = next(
+        a
+        for a in (m.aspect for m in _mcps(rules, results))
+        if isinstance(a, AssertionRunEventClass)
+    )
+    native = run.result.nativeResults
+    assert native["operator_snapshot"] == "NOT_NULL"
+    assert native["threshold_min_snapshot"] == "1"
+    assert native["threshold_max_snapshot"] == "2"
+    assert native["threshold_value_snapshot"] == "3"
+    assert native["rule_version_snapshot"] == "1"

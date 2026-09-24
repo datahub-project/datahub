@@ -166,20 +166,12 @@ class GovernanceDQExtractor:
             env=self.env,
         )
 
-    def _read_table(self, table: str) -> List[Dict[str, Any]]:
-        # ponytail: reuses proxy._execute_sql_query, the same private helper the proxy's
-        # own small-result metadata queries (get_schema_tags etc.) already use for
-        # "SELECT * FROM <table>" reads. No public wrapper exists yet for an arbitrary
-        # fully-qualified table name; add one if a second caller needs it.
-        rows = self.proxy._execute_sql_query(f"SELECT * FROM {table}")
-        return [row.asDict() for row in rows]
-
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if not self.config.rules_table or not self.config.results_table:
             return
 
-        rules = self._read_table(self.config.rules_table)
-        results = self._read_table(self.config.results_table)
+        rules = self.proxy.get_rows_from_table(self.config.rules_table)
+        results = self.proxy.get_rows_from_table(self.config.results_table)
         for res in results:
             # The results table stores a `executed_at` timestamp (spec §7); the seam
             # works in epoch millis, so convert once here rather than in the pure core.

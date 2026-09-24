@@ -1866,3 +1866,23 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
 
         return result_dict
+
+    def get_rows_from_table(self, fully_qualified_table: str) -> List[Dict[str, Any]]:
+        """Read every row of an arbitrary fully-qualified `catalog.schema.table` as dicts.
+
+        Unlike get_schema_tags/get_catalog_tags/etc., the table name here is caller-supplied
+        (e.g. a customer-owned table from source config) rather than a fixed information_schema
+        view, so every identifier segment must be parsed and backtick-quoted individually to
+        stay safe against hyphens/reserved words. Not cached: callers use this for tables whose
+        contents change between ingestion runs (e.g. governance DQ rule/result tables).
+        """
+        parts = split_databricks_identifier(fully_qualified_table)
+        if parts is None or len(parts) != 3:
+            logger.warning(
+                f"Expected a 3-part `catalog.schema.table` identifier, got: {fully_qualified_table}"
+            )
+            return []
+
+        quoted_name = ".".join(f"`{part}`" for part in parts)
+        rows = self._execute_sql_query(f"SELECT * FROM {quoted_name}")
+        return [row.asDict() for row in rows]
