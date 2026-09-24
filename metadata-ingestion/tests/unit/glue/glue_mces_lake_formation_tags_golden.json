@@ -259,13 +259,43 @@
         "json": {
             "tags": [
                 {
-                    "tag": "urn:li:tag:Environment:Production"
+                    "tag": "urn:li:tag:Environment:Production",
+                    "context": "{\"origin\": \"lake-formation\", \"external\": \"true\"}",
+                    "attribution": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:__datahub_system",
+                        "source": "urn:li:dataPlatform:glue",
+                        "sourceDetail": {
+                            "origin": "lake-formation",
+                            "external": "true"
+                        }
+                    }
                 },
                 {
-                    "tag": "urn:li:tag:Environment:Test"
+                    "tag": "urn:li:tag:Environment:Test",
+                    "context": "{\"origin\": \"lake-formation\", \"external\": \"true\"}",
+                    "attribution": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:__datahub_system",
+                        "source": "urn:li:dataPlatform:glue",
+                        "sourceDetail": {
+                            "origin": "lake-formation",
+                            "external": "true"
+                        }
+                    }
                 },
                 {
-                    "tag": "urn:li:tag:Owner:DataTeam"
+                    "tag": "urn:li:tag:Owner:DataTeam",
+                    "context": "{\"origin\": \"lake-formation\", \"external\": \"true\"}",
+                    "attribution": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:__datahub_system",
+                        "source": "urn:li:dataPlatform:glue",
+                        "sourceDetail": {
+                            "origin": "lake-formation",
+                            "external": "true"
+                        }
+                    }
                 }
             ]
         }
@@ -375,13 +405,43 @@
         "json": {
             "tags": [
                 {
-                    "tag": "urn:li:tag:Environment:Production"
+                    "tag": "urn:li:tag:Environment:Production",
+                    "context": "{\"origin\": \"lake-formation\", \"external\": \"true\"}",
+                    "attribution": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:__datahub_system",
+                        "source": "urn:li:dataPlatform:glue",
+                        "sourceDetail": {
+                            "origin": "lake-formation",
+                            "external": "true"
+                        }
+                    }
                 },
                 {
-                    "tag": "urn:li:tag:Environment:Test"
+                    "tag": "urn:li:tag:Environment:Test",
+                    "context": "{\"origin\": \"lake-formation\", \"external\": \"true\"}",
+                    "attribution": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:__datahub_system",
+                        "source": "urn:li:dataPlatform:glue",
+                        "sourceDetail": {
+                            "origin": "lake-formation",
+                            "external": "true"
+                        }
+                    }
                 },
                 {
-                    "tag": "urn:li:tag:Owner:DataTeam"
+                    "tag": "urn:li:tag:Owner:DataTeam",
+                    "context": "{\"origin\": \"lake-formation\", \"external\": \"true\"}",
+                    "attribution": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:__datahub_system",
+                        "source": "urn:li:dataPlatform:glue",
+                        "sourceDetail": {
+                            "origin": "lake-formation",
+                            "external": "true"
+                        }
+                    }
                 }
             ]
         }
@@ -491,13 +551,43 @@
         "json": {
             "tags": [
                 {
-                    "tag": "urn:li:tag:Environment:Production"
+                    "tag": "urn:li:tag:Environment:Production",
+                    "context": "{\"origin\": \"lake-formation\", \"external\": \"true\"}",
+                    "attribution": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:__datahub_system",
+                        "source": "urn:li:dataPlatform:glue",
+                        "sourceDetail": {
+                            "origin": "lake-formation",
+                            "external": "true"
+                        }
+                    }
                 },
                 {
-                    "tag": "urn:li:tag:Environment:Test"
+                    "tag": "urn:li:tag:Environment:Test",
+                    "context": "{\"origin\": \"lake-formation\", \"external\": \"true\"}",
+                    "attribution": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:__datahub_system",
+                        "source": "urn:li:dataPlatform:glue",
+                        "sourceDetail": {
+                            "origin": "lake-formation",
+                            "external": "true"
+                        }
+                    }
                 },
                 {
-                    "tag": "urn:li:tag:Owner:DataTeam"
+                    "tag": "urn:li:tag:Owner:DataTeam",
+                    "context": "{\"origin\": \"lake-formation\", \"external\": \"true\"}",
+                    "attribution": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:__datahub_system",
+                        "source": "urn:li:dataPlatform:glue",
+                        "sourceDetail": {
+                            "origin": "lake-formation",
+                            "external": "true"
+                        }
+                    }
                 }
             ]
         }
