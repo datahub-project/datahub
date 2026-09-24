@@ -73,7 +73,7 @@ def parse_failed_modules(input_dir: Path) -> Optional[Set[str]]:
         input_dir: Directory containing junit.*.xml files
 
     Returns:
-        Set of relative test file paths (e.g., 'tests/structured_properties/test_structured_properties.py')
+        Set of relative test file paths (e.g., 'tests/e2e/structured_properties/test_structured_properties.py')
         None if no XML files found or none parsed
         Empty set if all tests passed
 

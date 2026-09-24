@@ -64,6 +64,14 @@ task pythonLintFix(type: Exec, dependsOn: installDev) {
         "mypy ."
 }
 
+// CPU tests — no quickstart. ./gradlew :smoke-test:stackFreePytest
+task stackFreePytest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:codegen']) {
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+            "python -m pytest tests/unit --junit-xml=test-results/junit.stack-free.xml"
+}
+
 /**
  * The following tasks assume an already running quickstart.
  * ./gradlew quickstart (or another variation `quickstartDebug`)

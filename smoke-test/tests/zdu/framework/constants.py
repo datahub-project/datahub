@@ -25,8 +25,7 @@ from __future__ import annotations
 import dataclasses
 import pathlib
 
-# framework/constants.py → repo_root four parents up:
-# constants.py → framework → zdu → tests → smoke-test → <repo_root>
+# tests/zdu/framework/constants.py → framework → zdu → tests → smoke-test → repo
 REPO_ROOT: pathlib.Path = pathlib.Path(__file__).parents[4]
 
 

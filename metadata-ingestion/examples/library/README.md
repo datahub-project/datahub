@@ -74,13 +74,13 @@ without needing a DataHub instance:
 
 ### 2. Integration — examples listed in the manifest
 
-`smoke-test/tests/library_examples/` executes examples as scripts against a running DataHub
+`smoke-test/tests/e2e/library_examples/` executes examples as scripts against a running DataHub
 instance, in dependency order, and requires each to exit 0. See that directory's `README.md`
 for how to add an example to `EXAMPLE_MANIFEST`.
 
 ```bash
 cd smoke-test && source venv/bin/activate
-pytest tests/library_examples/ -v
+pytest tests/e2e/library_examples/ -v
 ```
 
 Lint is the safety net for all examples; the manifest is the safety net for the ones that
