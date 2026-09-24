@@ -815,21 +815,32 @@ public class UsageEventIndexUtils {
       // No longer a plain index, so another run has migrated it meanwhile.
       return false;
     }
+    boolean recentCloneExists = false;
     for (String backupName :
         resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*")) {
-      if (backfillMeta(opContext, esComponents, backupName).path(BACKFILL_TASK_META).isMissingNode()
-          && isStaleClone(creationDate(opContext, esComponents, backupName), indexCreated)
-          && resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
+      long backupCreated = creationDate(opContext, esComponents, backupName);
+      if (!backfillMeta(opContext, esComponents, backupName)
+              .path(BACKFILL_TASK_META)
+              .isMissingNode()
+          || backupCreated <= indexCreated) {
+        continue;
+      }
+      if (System.currentTimeMillis() - backupCreated <= STALE_BACKUP_AGE.toMillis()) {
+        recentCloneExists = true;
+      } else if (resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
         log.info("Deleting {}, left by an earlier attempt to migrate {}", backupName, indexName);
         deleteIndex(opContext, esComponents, backupName);
       }
     }
+    if (recentCloneExists) {
+      // Another attempt may still be using that clone; a later run migrates once it is stale.
+      log.info(
+          "A migration of {} started less than {} ago may still be running; not starting another",
+          indexName,
+          STALE_BACKUP_AGE);
+      return false;
+    }
     return true;
-  }
-
-  private static boolean isStaleClone(long backupCreated, long indexCreated) {
-    return backupCreated > indexCreated
-        && System.currentTimeMillis() - backupCreated > STALE_BACKUP_AGE.toMillis();
   }
 
   private static long creationDate(
