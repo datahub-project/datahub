@@ -2,22 +2,24 @@ import React, { useMemo } from 'react';
 
 import { EntityTab } from '@app/entityV2/shared/types';
 import { getLazyIcon } from '@app/mfeframework/lazyIconRegistry';
-import { MFEConfig, getPlacement } from '@app/mfeframework/mfeConfigLoader';
+import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
 import MFEEntityTab from '@app/mfeframework/slots/MFEEntityTab';
+import { isSlotTabVisible } from '@app/mfeframework/slots/slotVisibility';
 import { useResolveSlot } from '@app/mfeframework/slots/useResolveSlot';
 
-export function mfeConfigToEntityTab(config: MFEConfig): EntityTab {
-    const placement = getPlacement(config);
+export function mfeConfigToEntityTab(config: MFEConfig, entityType: string): EntityTab {
     const iconName = config.navIcon;
     return {
         id: `mfe-${config.id}`,
-        name: placement.tabName ?? config.label,
+        name: config.label,
         // Addressed in the URL by the stable entry id, so rewording the caption never breaks a deep link.
         path: `mfe-${config.id}`,
         icon: iconName ? () => getLazyIcon(iconName) : undefined,
         component: () => <MFEEntityTab config={config} />,
         display: {
-            visible: () => true,
+            // Layer 1 (entityTypes) already passed in resolveSlot. Layer 2 runs here, in the host,
+            // before the tab is rendered — so a hidden tab never fetches the remote bundle.
+            visible: (entityData) => isSlotTabVisible(config, entityType, entityData),
             enabled: () => true,
         },
     };
@@ -28,5 +30,5 @@ export function mfeConfigToEntityTab(config: MFEConfig): EntityTab {
  */
 export function useMFEEntityTabs(entityType: string): EntityTab[] {
     const configs = useResolveSlot('entity.detail.tab', { entityType });
-    return useMemo(() => configs.map(mfeConfigToEntityTab), [configs]);
+    return useMemo(() => configs.map((config) => mfeConfigToEntityTab(config, entityType)), [configs, entityType]);
 }

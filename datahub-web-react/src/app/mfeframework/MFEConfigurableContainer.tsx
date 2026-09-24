@@ -12,7 +12,8 @@ import analytics, { EventType, MfeLoadOutcome } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ErrorComponent } from '@app/mfeframework/ErrorComponent';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
-import { NavPageContext, SLOT_CONTRACT_VERSION, SlotContext } from '@app/mfeframework/slots/slotTypes';
+import { buildSlotContext } from '@app/mfeframework/slots/slotContextBuilders';
+import { SlotContext } from '@app/mfeframework/slots/slotTypes';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 // Used when the MFE config yaml specifies no loadTimeoutMs.
@@ -279,10 +280,9 @@ export const MFEBaseConfigurablePage = ({
 }: MFEBaseConfigurablePageProps) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const principal = useSlotPrincipal();
-    const ctx = useMemo<NavPageContext>(
-        () => ({ slot: 'nav.page', version: SLOT_CONTRACT_VERSION, ...(principal ? { principal } : {}) }),
-        [principal],
-    );
+    // Built by the builder registered for this entry's contract version. Entries with no `placement`
+    // (every pre-slot config) resolve to nav.page on the default version, so legacy MFEs are unaffected.
+    const ctx = useMemo(() => buildSlotContext(config, { principal }), [config, principal]);
 
     // A page view is a nav.page concept; slot mounts only report their load outcome (from mountMFE).
     useEffect(() => {
@@ -293,6 +293,9 @@ export const MFEBaseConfigurablePage = ({
             mfePath: config.path ?? '',
         });
     }, [config]);
+
+    // Gate 2 — the entry declared a contract version this host has no builder for; don't mount it.
+    if (!ctx) return null;
 
     return (
         <MFEConfigurableContainer $isShowNavBarRedesign={isShowNavBarRedesign} data-testid="mfe-configurable-container">
