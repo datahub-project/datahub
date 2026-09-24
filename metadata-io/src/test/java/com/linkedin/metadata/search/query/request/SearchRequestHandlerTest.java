@@ -777,6 +777,50 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertTrue(valueCounts.contains("\"field\":\"platform\""), valueCounts);
   }
 
+  /** Callers that name the V2 .keyword subfield still filter on the V3 root field. */
+  @Test
+  public void testV3FilterDropsExplicitKeywordSuffix() {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform.keyword",
+                                    Condition.EQUAL,
+                                    "urn:li:dataPlatform:hive")))));
+
+    String v3Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                entityIndex)
+            .toString();
+    String v2Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+    assertFalse(v3Filter.contains(".keyword"), v3Filter);
+    assertTrue(v3Filter.contains("\"platform\""), v3Filter);
+    assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
+    // The caller's filter is left as given
+    assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
+  }
+
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testInvalidStructuredProperty() {
     AspectRetriever aspectRetriever = mock(AspectRetriever.class);

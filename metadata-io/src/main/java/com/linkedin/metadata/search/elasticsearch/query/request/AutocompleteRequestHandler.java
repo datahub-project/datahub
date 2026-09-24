@@ -148,11 +148,13 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
     BoolQueryBuilder baseQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
     // Initial query with input filters
+    final boolean readV3 =
+        EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex());
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
-            filter,
+            readV3 ? ESUtils.withoutKeywordSuffix(filter) : filter,
             false,
-            EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex()),
+            readV3,
             searchableFieldTypes,
             opContext,
             queryFilterRewriteChain);

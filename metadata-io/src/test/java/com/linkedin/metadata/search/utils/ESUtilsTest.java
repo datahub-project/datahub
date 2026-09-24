@@ -254,6 +254,39 @@ public class ESUtilsTest {
   }
 
   @Test
+  public void testWithoutKeywordSuffix() {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform.keyword",
+                                    Condition.EQUAL,
+                                    true,
+                                    "urn:li:dataPlatform:hive"),
+                                buildCriterion(
+                                    "structuredProperties.retention.keyword",
+                                    Condition.EQUAL,
+                                    "90")))))
+            .setCriteria(
+                new CriterionArray(
+                    buildCriterion("domains.keyword", Condition.EQUAL, "urn:li:domain:a")));
+
+    Filter result = ESUtils.withoutKeywordSuffix(filter);
+
+    CriterionArray and = result.getOr().get(0).getAnd();
+    assertEquals(
+        and.get(0), buildCriterion("platform", Condition.EQUAL, true, "urn:li:dataPlatform:hive"));
+    // Structured property names resolve through the property definition
+    assertEquals(and.get(1).getField(), "structuredProperties.retention.keyword");
+    assertEquals(result.getCriteria().get(0).getField(), "domains");
+    assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
+  }
+
+  @Test
   public void testGetQueryBuilderFromCriterionEqualsValues() {
 
     final Criterion singleValueCriterion = buildCriterion("myTestField", Condition.EQUAL, "value1");

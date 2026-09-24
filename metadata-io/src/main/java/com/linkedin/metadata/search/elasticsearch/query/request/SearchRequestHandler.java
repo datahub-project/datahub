@@ -245,11 +245,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nullable EntityIndexConfiguration entityIndexConfiguration) {
+    final boolean readV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
-            filter,
+            readV3 ? ESUtils.withoutKeywordSuffix(filter) : filter,
             false,
-            EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration),
+            readV3,
             searchableFieldTypes,
             opContext,
             queryFilterRewriteChain);

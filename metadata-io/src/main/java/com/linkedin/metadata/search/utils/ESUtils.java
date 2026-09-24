@@ -30,6 +30,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
@@ -871,6 +872,47 @@ public class ESUtils {
   }
 
   /**
+   * Returns a copy of the filter without an explicit {@code .keyword} suffix on its fields. Search
+   * V3 entity indices keep keyword fields at the root, and root aliases cannot expose a {@code
+   * .keyword} subfield. Structured property fields are kept as given: they resolve through the
+   * property definition.
+   */
+  @Nullable
+  public static Filter withoutKeywordSuffix(@Nullable Filter filter) {
+    if (filter == null) {
+      return null;
+    }
+    Filter result = new Filter();
+    if (filter.getOr() != null) {
+      result.setOr(
+          filter.getOr().stream()
+              .map(and -> new ConjunctiveCriterion().setAnd(withoutKeywordSuffix(and.getAnd())))
+              .collect(Collectors.toCollection(ConjunctiveCriterionArray::new)));
+    }
+    if (filter.getCriteria() != null) {
+      result.setCriteria(withoutKeywordSuffix(filter.getCriteria()));
+    }
+    return result;
+  }
+
+  private static CriterionArray withoutKeywordSuffix(@Nonnull CriterionArray criteria) {
+    return criteria.stream()
+        .map(
+            criterion ->
+                criterion.getField().endsWith(KEYWORD_SUFFIX)
+                        && !criterion
+                            .getField()
+                            .startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)
+                    ? buildCriterion(
+                        StringUtils.removeEnd(criterion.getField(), KEYWORD_SUFFIX),
+                        criterion.getCondition(),
+                        criterion.isNegated(),
+                        criterion.getValues())
+                    : criterion)
+        .collect(Collectors.toCollection(CriterionArray::new));
+  }
+
+  /**
    * Return resolved structured property field, normal field, or subfield which is of type `keyword`
    *
    * @param opContext operation context for tenant-aware aspect retrieval
@@ -1354,7 +1396,8 @@ public class ESUtils {
         filter,
         filterQuery,
         opContext.getSearchContext().getSearchFlags(),
-        hiddenLifecycleStageUrns);
+        hiddenLifecycleStageUrns,
+        EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration));
     EntitySearchIndexResolver.applyEntityTypeFilter(
         filterQuery, entityNames, entityIndexConfiguration);
     return filterQuery;
@@ -1369,13 +1412,15 @@ public class ESUtils {
    * <p>Lifecycle stage exclusion: driven by {@code hiddenLifecycleStageUrns} — the set of lifecycle
    * stage type URNs whose settings specify {@code hideInSearch=true}. Controlled by
    * SearchFlags.includeHiddenLifecycleStages. When the caller already filters on the {@code
-   * lifecycleStage} field, the default exclusion is bypassed.
+   * lifecycleStage} field, the default exclusion is bypassed. Search V3 entity indices keep that
+   * field at the root, without a {@code .keyword} subfield.
    */
   private static void filterSoftDeletedAndHiddenStages(
       @Nullable Filter filter,
       @Nonnull BoolQueryBuilder filterQuery,
       @Nonnull SearchFlags searchFlags,
-      @Nonnull Set<String> hiddenLifecycleStageUrns) {
+      @Nonnull Set<String> hiddenLifecycleStageUrns,
+      boolean readV3) {
     boolean removedInOrFilter = false;
     boolean lifecycleStageInOrFilter = false;
     if (filter != null) {
@@ -1400,8 +1445,9 @@ public class ESUtils {
     if (!Boolean.TRUE.equals(searchFlags.isIncludeHiddenLifecycleStages())
         && !lifecycleStageInOrFilter
         && !hiddenLifecycleStageUrns.isEmpty()) {
+      String lifecycleStageField = readV3 ? LIFECYCLE_STAGE : LIFECYCLE_STAGE + KEYWORD_SUFFIX;
       for (String stageUrn : hiddenLifecycleStageUrns) {
-        filterQuery.mustNot(QueryBuilders.termQuery(LIFECYCLE_STAGE + KEYWORD_SUFFIX, stageUrn));
+        filterQuery.mustNot(QueryBuilders.termQuery(lifecycleStageField, stageUrn));
       }
     }
   }

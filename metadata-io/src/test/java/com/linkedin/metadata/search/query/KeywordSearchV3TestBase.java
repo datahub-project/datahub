@@ -103,7 +103,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:postgres,sales.customers,PROD)");
   private static final Urn ORDERS_CHART = UrnUtils.getUrn("urn:li:chart:(looker,orders_by_region)");
   private static final List<String> ENTITY_TYPES = List.of(DATASET_ENTITY_NAME, CHART_ENTITY_NAME);
-  private static final String BROWSE_DELIMITER = "␟";
 
   private final List<String> createdIndices = new ArrayList<>();
   private OperationContext opContext;
@@ -251,6 +250,18 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 opContext,
                 DATASET_ENTITY_NAME,
                 QueryUtils.newFilter("platform", HIVE.toString()),
+                null,
+                0,
+                10)
+            .getEntities(),
+        ORDERS);
+    // Callers that name the V2 .keyword subfield read the root field
+    assertUrns(
+        searchService
+            .filter(
+                opContext,
+                DATASET_ENTITY_NAME,
+                QueryUtils.newFilter("platform.keyword", HIVE.toString()),
                 null,
                 0,
                 10)
