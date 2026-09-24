@@ -3264,38 +3264,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Optional[str]:
         """The container an uningested node should join, or None if nothing is known.
 
-        Prefers a sibling in the same schema. Failing that - a schema the
-        warehouse connector ingested nothing from - falls back to the database
-        container of any known schema in the same database, so the entity lands
-        one level up rather than at the platform instance root.
+        Only an exact (database, schema) match counts. Falling back to the
+        database container of a neighbouring schema was tried and removed: it
+        writes a container one level shallower than the key it is learned under,
+        so a later run reads it back as this schema's container and a genuinely
+        ingested table can lose to it. The entity also looks settled from then on
+        - its path is container-based - so it never moves into the real schema
+        folder once one appears.
+
+        Leaving those entities at the instance root keeps them improvable: a
+        single-entry path is never mistaken for a warehouse-owned one, so they
+        are placed as soon as the warehouse ingests anything from their schema.
 
         Never invents a container: if the warehouse connector has ingested
-        nothing from this database, there is no folder to join and the entity
-        stays where it is.
+        nothing from this schema, there is no folder to join.
         """
-        own_schema = sibling_containers.get((node.database, node.schema))
-        if own_schema is not None:
-            return own_schema
-
-        for (database, _schema), container_urn in sibling_containers.items():
-            if database != node.database:
-                continue
-            parent = self._parent_container_urn(container_urn)
-            if parent is not None:
-                return parent
-        return None
-
-    def _parent_container_urn(self, container_urn: str) -> Optional[str]:
-        """The parent of a container, memoized for the run."""
-        if container_urn in self._container_parent_cache:
-            return self._container_parent_cache[container_urn]
-        graph = self.ctx.graph
-        if graph is None:
-            return None
-        container = graph.get_aspect(container_urn, ContainerClass)
-        parent = container.container if container is not None else None
-        self._container_parent_cache[container_urn] = parent
-        return parent
+        return sibling_containers.get((node.database, node.schema))
 
     def _create_target_platform_instance_workunits(
         self,

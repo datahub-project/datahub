@@ -592,9 +592,12 @@ def test_inherited_stub_still_gets_a_display_name() -> None:
     assert ops == [{"op": "add", "path": "/name", "value": "stub_table"}]
 
 
-def test_stub_falls_back_to_database_container_when_schema_is_unknown() -> None:
-    # Nothing was ingested from this stub's schema, but the database's folder is
-    # known - so it lands one level up instead of at the instance root.
+def test_stub_stays_at_root_when_only_a_sibling_schema_was_ingested() -> None:
+    # A neighbouring schema in the same database is not evidence about this
+    # schema. Borrowing its database container would place the entity one level
+    # up, but writing a container shallower than the key it is learned under
+    # corrupts the next run's mapping and freezes the entity there, so it stays
+    # at the root where it remains improvable.
     ingested = create_dbt_node(name="ingested_table", schema="other_schema")
     stub = create_dbt_node(name="stub_table", schema="dbt_only_schema")
     source = create_dbt_source(
@@ -607,16 +610,31 @@ def test_stub_falls_back_to_database_container_when_schema_is_unknown() -> None:
     )
     grouped = aspects_by_urn(source, [ingested, stub])
 
-    container = get_aspect(grouped[urn_for(stub)], ContainerClass)
-    assert container is not None
-    assert container.container == DB_CONTAINER_URN
-
+    assert get_aspect(grouped[urn_for(stub)], ContainerClass) is None
     browse = get_aspect(grouped[urn_for(stub)], BrowsePathsV2Class)
     assert browse is not None
-    assert browse.path == [
-        BrowsePathEntryClass(id=INSTANCE_URN, urn=INSTANCE_URN),
-        BrowsePathEntryClass(id=DB_CONTAINER_URN, urn=DB_CONTAINER_URN),
-    ]
+    assert browse.path == [BrowsePathEntryClass(id=INSTANCE_URN, urn=INSTANCE_URN)]
+
+
+def test_root_stub_is_placed_once_its_schema_is_ingested() -> None:
+    # The self-correcting property the database fallback would have destroyed: a
+    # single-entry path is never mistaken for a warehouse-owned one, so the
+    # entity is picked up on the run after the warehouse reaches its schema.
+    ingested = create_dbt_node(name="ingested_table")
+    stub = create_dbt_node(name="stub_table")
+    source = create_dbt_source(
+        graph=make_graph(
+            browse_path=BrowsePathsV2Class(
+                path=[BrowsePathEntryClass(id=INSTANCE_URN, urn=INSTANCE_URN)]
+            ),
+            containers={urn_for(ingested): SCHEMA_CONTAINER_URN},
+        )
+    )
+    grouped = aspects_by_urn(source, [ingested, stub])
+
+    container = get_aspect(grouped[urn_for(stub)], ContainerClass)
+    assert container is not None
+    assert container.container == SCHEMA_CONTAINER_URN
 
 
 def test_stub_in_an_uningested_database_stays_at_instance_root() -> None:
