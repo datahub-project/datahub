@@ -700,8 +700,10 @@ public class AggregationQueryBuilderTest {
             .stream()
             .map(aggB -> ((TermsAggregationBuilder) aggB).field())
             .collect(Collectors.toSet());
+    // V3 documents store their entity type, so the type facet does not read _index
     Assert.assertEquals(
-        facets, ImmutableSet.of("test1", "hasTest1", "structuredProperties.hello", DEFAULT_FILTER));
+        facets,
+        ImmutableSet.of("test1", "hasTest1", "structuredProperties.hello", INDEX_VIRTUAL_FIELD));
   }
 
   @Test

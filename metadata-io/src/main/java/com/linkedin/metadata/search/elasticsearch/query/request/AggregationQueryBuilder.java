@@ -173,7 +173,7 @@ public class AggregationQueryBuilder {
                     ? AggregationBuilders.missing(inputFacet)
                         .field(
                             getAggregationField(
-                                opContext, ES_INDEX_FIELD, opContext.getAspectRetriever()))
+                                opContext, entityTypeField(), opContext.getAspectRetriever()))
                     : AggregationBuilders.missing(inputFacet)
                         .field(
                             getAggregationField(
@@ -191,7 +191,7 @@ public class AggregationQueryBuilder {
                 ? AggregationBuilders.terms(inputFacet)
                     .field(
                         getAggregationField(
-                            opContext, ES_INDEX_FIELD, opContext.getAspectRetriever()))
+                            opContext, entityTypeField(), opContext.getAspectRetriever()))
                     .size(maxTermBuckets)
                     .minDocCount(0)
                 : AggregationBuilders.terms(inputFacet)
@@ -205,6 +205,11 @@ public class AggregationQueryBuilder {
     }
     // Logic to build nested facets
     return lastAggBuilder;
+  }
+
+  /** V3 documents store their entity type; V2 derives it from the index name. */
+  private String entityTypeField() {
+    return v3KeywordReadEnabled ? INDEX_VIRTUAL_FIELD : ES_INDEX_FIELD;
   }
 
   private String getAggregationField(
