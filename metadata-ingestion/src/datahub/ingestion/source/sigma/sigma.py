@@ -1963,6 +1963,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         workbooks to reconcile rather than at an element id nobody can search
         for. It is space-free so the sample parses as key=value, and an
         accepted tie moves it: the label must name whoever wrote what is there.
+
+        The drain names its aggregator instead. A customSQL chart's columns
+        reference its own SQL output, so both copies' element aspects resolve
+        nothing, tie, and record no sample -- a drain-vs-drain refusal is then
+        the only entry there is.
         """
         best = self._best_input_fields_resolved.get(entity_urn)
         if best is not None and resolved < best[0]:
@@ -1991,6 +1996,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self,
         entity_urn: str,
         aspect: UpstreamLineage,
+        claimed_by: str,
     ) -> Optional[MetadataChangeProposalWrapper]:
         """Convert an UpstreamLineage aspect for a workbook chart into InputFields.
 
@@ -2027,7 +2033,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     and fb.schemaField.fieldPath not in covered_paths
                 ):
                     input_fields.append(fb)
-        mcp = self._chart_input_fields_mcp(entity_urn, input_fields, "customsql-drain")
+        mcp = self._chart_input_fields_mcp(entity_urn, input_fields, claimed_by)
         # Counted after the guard: a refused aspect is not emitted.
         if mcp is not None:
             self.reporter.workbook_customsql_upstream_emitted += 1
@@ -2076,7 +2082,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def _rewrite_fgl_downstreams(
-        self, mcp: MetadataChangeProposalWrapper
+        self, mcp: MetadataChangeProposalWrapper, claimed_by: str = "customsql-drain"
     ) -> Optional[MetadataChangeProposalWrapper]:
         """Rewrite FGL downstream schemaField URNs to use Sigma column names.
 
@@ -2100,7 +2106,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Workbook chart URNs: convert UpstreamLineage to InputFields, since
         # DataHub's chart entity does not accept the upstreamLineage aspect.
         if entity_urn in self._workbook_customsql_registered_urns:
-            return self._build_workbook_chart_input_fields_mcp(entity_urn, aspect)
+            return self._build_workbook_chart_input_fields_mcp(
+                entity_urn, aspect, claimed_by
+            )
 
         # Only count MCPs for element URNs we registered — the aggregator
         # should only emit for those, but guard in case of future changes.
@@ -2216,7 +2224,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         ):
             try:
                 for mcp in aggregator.gen_metadata():
-                    rewritten = self._rewrite_fgl_downstreams(mcp)
+                    rewritten = self._rewrite_fgl_downstreams(
+                        mcp, f"customsql-drain:{'/'.join(str(k) for k in cache_key)}"
+                    )
                     if rewritten is not None:
                         yield rewritten.as_workunit()
                 agg_report = aggregator.report
