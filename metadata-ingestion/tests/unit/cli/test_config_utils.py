@@ -75,6 +75,9 @@ class TestConfigUtils:
             mock_secho.assert_called_once()
             assert config is None
 
+        with patch("builtins.open", side_effect=FileNotFoundError):
+            assert get_raw_client_config() is None
+
     def test_get_config_from_env(self):
         """Test retrieving config from environment variables."""
         # Test with complete URL
