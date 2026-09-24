@@ -358,58 +358,6 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
     }
   }
 
-  /** Fabric OneLake mapping properties bind and reach the converter config. */
-  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigBoundProperties.class})
-  @TestPropertySource(
-      properties = {
-        "datahub.openlineage.fabric-onelake-enabled=true",
-        "datahub.openlineage.fabric-onelake-convert-urns-to-lowercase=true",
-        "datahub.openlineage.fabric-onelake-platform-instance=tenant_a",
-        "datahub.openlineage.fabric-onelake-item-ids="
-            + "Sales/bronze.Lakehouse=0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0/"
-            + "11112222-3333-4444-5555-666677778888,"
-            + "Sales/broken.Lakehouse=not-a-guid",
-        "datahub.openlineage.fabric-notebook-flow-names=true"
-      })
-  public static class BoundFabricOneLakeTest extends AbstractTestNGSpringContextTests {
-
-    @Autowired private RunEventMapper.MappingConfig mappingConfig;
-
-    @Test
-    public void testFabricOneLakePropertiesBind() {
-      DatahubOpenlineageConfig config = mappingConfig.getDatahubConfig();
-      assertEquals(config.isFabricOneLakeEnabled(), true);
-      assertEquals(config.isFabricOneLakeConvertUrnsToLowercase(), true);
-      assertEquals(config.getFabricOneLakePlatformInstance(), "tenant_a");
-      assertEquals(
-          config.getFabricOneLakeItemIds().get("Sales/bronze.Lakehouse"),
-          "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0/11112222-3333-4444-5555-666677778888");
-      // Malformed entries are dropped when the property is parsed.
-      assertEquals(config.getFabricOneLakeItemIds().size(), 1);
-      assertEquals(config.isFabricNotebookFlowNames(), true);
-    }
-  }
-
-  /**
-   * Fabric OneLake mapping is opt-in: with no fabric-onelake properties set it stays off, so
-   * existing deployments keep their abs / hive URNs for OneLake tables.
-   */
-  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigBoundProperties.class})
-  public static class BoundFabricOneLakeDefaultsTest extends AbstractTestNGSpringContextTests {
-
-    @Autowired private RunEventMapper.MappingConfig mappingConfig;
-
-    @Test
-    public void testFabricOneLakeOffByDefault() {
-      DatahubOpenlineageConfig config = mappingConfig.getDatahubConfig();
-      assertEquals(config.isFabricOneLakeEnabled(), false);
-      assertEquals(config.isFabricOneLakeConvertUrnsToLowercase(), false);
-      assertNull(config.getFabricOneLakePlatformInstance());
-      assertEquals(config.getFabricOneLakeItemIds().size(), 0);
-      assertEquals(config.isFabricNotebookFlowNames(), false);
-    }
-  }
-
   @Configuration
   @EnableConfigurationProperties(DatahubOpenlineageProperties.class)
   static class TestConfigBoundProperties {}

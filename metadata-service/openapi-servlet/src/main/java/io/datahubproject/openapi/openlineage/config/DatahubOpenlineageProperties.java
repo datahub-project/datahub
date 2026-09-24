@@ -28,24 +28,6 @@ public class DatahubOpenlineageProperties {
   // Dataset path configuration
   private String filePartitionRegexpPattern;
 
-  // Microsoft Fabric OneLake: map OneLake table paths to fabric-onelake connector URNs. Opt-in,
-  // because enabling it re-keys OneLake table lineage away from the abs / hive URNs used before.
-  // Field names use "Onelake" (not "OneLake") so the relaxed-binding property names are
-  // fabric-onelake-* (DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_*), matching the platform name; the
-  // converter config uses fabricOneLake*.
-  private boolean fabricOnelakeEnabled = false;
-  // Mirrors the fabric-onelake source's convert_urns_to_lowercase (schema, table and column names).
-  private boolean fabricOnelakeConvertUrnsToLowercase = false;
-  // Mirrors the fabric-onelake source's platform_instance.
-  private String fabricOnelakePlatformInstance;
-  // Comma-separated <workspaceName>/<itemName>.<ItemType>=<workspaceGUID>/<itemGUID> entries for
-  // friendly-name OneLake paths, which carry no GUIDs.
-  private String fabricOnelakeItemIds;
-  // Microsoft Fabric notebooks: one DataFlow per notebook item instead of per Spark session
-  // (datahub.openlineage.fabric-notebook-flow-names /
-  // DATAHUB_OPENLINEAGE_FABRIC_NOTEBOOK_FLOW_NAMES).
-  private boolean fabricNotebookFlowNames = false;
-
   // Metadata ingestion configuration
   private boolean materializeDataset = true;
   private boolean includeSchemaMetadata = true;

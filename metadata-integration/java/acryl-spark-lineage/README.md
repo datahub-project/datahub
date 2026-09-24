@@ -272,7 +272,9 @@ You can also skip the DataHub jar. Fabric bundles the upstream OpenLineage Spark
 but disabled. Turn it on with `spark.openlineage.disabled=false`, and forward the events it writes to
 DataHub's [OpenLineage endpoint](https://docs.datahub.com/docs/lineage/openlineage#microsoft-fabric-onelake).
 Fabric pins that listener's transport to a file, so the forwarding step is needed. On that route,
-configure the OneLake mapping with the `DATAHUB_OPENLINEAGE_FABRIC_*` GMS settings.
+turn on the OneLake mapping with the endpoint's
+[request options](https://docs.datahub.com/docs/lineage/openlineage#request-options)
+(`fabricOneLake=true`, …).
 
 ## Configuration Options
 
