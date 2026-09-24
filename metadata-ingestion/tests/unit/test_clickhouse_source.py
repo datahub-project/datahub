@@ -824,6 +824,35 @@ def test_usage_aggregates_users_and_buckets(monkeypatch):
     }
 
 
+def test_usage_collapses_repeated_selects(monkeypatch):
+    # Selects skip the parser, but each add() still costs the aggregator two
+    # FileBackedDict round-trips and a usage event per table - so the count of
+    # records added is the thing to assert. The usage totals below look the same
+    # whether or not the collapse happens.
+    source = _query_log_source()
+    rows = (
+        [_select_row(query_id=f"s{i}") for i in range(10)]
+        + [_select_row(query_id="bob1", user="bob")]
+        + [
+            _select_row(
+                query_id="dbb",
+                database="db_b",
+                tables=("db_b.raw_events",),
+                columns=("db_b.raw_events.col_a",),
+            )
+        ]
+    )
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    assert source.report.query_log_usage_reads == 12
+    # One per (query, database, user, bucket): alice/my_db, bob/my_db, alice/db_b.
+    assert source.report.query_log_usage_records == 3
+    assert len(usage) == 1
+    assert usage[0].totalSqlQueries == 11
+
+
 def test_usage_row_without_hash_is_skipped_and_reported(monkeypatch):
     source = _query_log_source()
     row = _select_row()

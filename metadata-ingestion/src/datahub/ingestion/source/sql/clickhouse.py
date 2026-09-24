@@ -226,6 +226,16 @@ class _QueryRun:
     count: int
 
 
+@dataclass
+class _UsageRun:
+    """One Select as run by one user in one bucket, and how often."""
+
+    # The single execution we hand to the aggregator, standing in for the rest.
+    preparsed: PreparsedQuery
+    # How many executions it stands for, reported as the usage count.
+    count: int
+
+
 class ClickHouseConfig(
     TwoTierSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
 ):
@@ -604,6 +614,7 @@ class ClickHouseSourceReport(SQLSourceReport):
     # the query-log path runs a second one of its own.
     query_log_aggregator: Optional[SqlAggregatorReport] = None
     query_log_usage_reads: int = 0
+    query_log_usage_records: int = 0
     query_log_lineage_rows: int = 0
     query_log_queries_parsed: int = 0
 
@@ -893,6 +904,11 @@ ORDER BY event_time ASC
         # reported. Keeping the query on the outside also lets the emit loop below
         # finish one query before moving on, so the parser's cache stays warm.
         by_query: Dict[_QueryKey, Dict[_UsageKey, _QueryRun]] = {}
+        # Selects skip the parser but not the aggregator, and every add() there
+        # costs two FileBackedDict round-trips plus one usage event per table
+        # read. Those are per-execution costs the same collapse removes, so the
+        # usage path groups on the same keys before adding.
+        usage_runs: Dict[Tuple[_QueryKey, _UsageKey], _UsageRun] = {}
         num_lineage = 0
         num_usage = 0
         for row in result:
@@ -903,8 +919,17 @@ ORDER BY event_time ASC
             if row_dict.get("query_kind") == _SELECT_QUERY_KIND:
                 preparsed = self._usage_row_to_preparsed(row_dict)
                 if preparsed:
-                    num_usage += preparsed.query_count
-                    self._query_log_aggregator.add(preparsed)
+                    num_usage += 1
+                    usage_run_key = self._usage_log_keys(preparsed, row_dict)
+                    usage_run = usage_runs.get(usage_run_key)
+                    if usage_run is None:
+                        usage_runs[usage_run_key] = _UsageRun(
+                            preparsed=preparsed, count=1
+                        )
+                    else:
+                        usage_run.count += 1
+                        # Keep the latest execution so lastExecutedAt stays accurate.
+                        usage_run.preparsed.timestamp = preparsed.timestamp
                 continue
 
             observed_query = self._parse_query_log_row(row_dict)
@@ -924,6 +949,15 @@ ORDER BY event_time ASC
                 query_run.count += 1
                 # Keep the latest execution so lastExecutedAt stays accurate.
                 query_run.observed.timestamp = observed_query.timestamp
+
+        # Oldest first, so the query's actor and timestamp end up those of its
+        # newest execution, as a row-by-row loop would have left them.
+        for usage_run in sorted(
+            usage_runs.values(),
+            key=lambda run: run.preparsed.timestamp or _MIN_TIMESTAMP,
+        ):
+            usage_run.preparsed.query_count = usage_run.count
+            self._query_log_aggregator.add(usage_run.preparsed)
 
         for query_runs_by_usage in by_query.values():
             # One query still splits across users and buckets. Give every split the
@@ -946,10 +980,12 @@ ORDER BY event_time ASC
         # len(by_query), not the number of add() calls: the splits of one query
         # share a SQL text, so only the first of them reaches the parser.
         self.report.query_log_usage_reads += num_usage
+        self.report.query_log_usage_records += len(usage_runs)
         self.report.query_log_lineage_rows += num_lineage
         self.report.query_log_queries_parsed += len(by_query)
         logger.info(
-            f"Query log processing complete: {num_usage} usage reads, "
+            f"Query log processing complete: {num_usage} usage reads -> "
+            f"{len(usage_runs)} recorded, "
             f"{num_lineage} lineage rows -> {len(by_query)} parsed"
         )
 
@@ -966,6 +1002,27 @@ ORDER BY event_time ASC
             bucket=(
                 get_time_bucket(observed.timestamp, self.config.bucket_duration)
                 if observed.timestamp
+                else None
+            ),
+        )
+        return query_key, usage_key
+
+    def _usage_log_keys(
+        self, preparsed: PreparsedQuery, row: Dict[str, Any]
+    ) -> Tuple[_QueryKey, _UsageKey]:
+        """Which Select this row is, and which usage numbers its count belongs to."""
+        query_key = _QueryKey(
+            query_hash=preparsed.query_id,
+            # Not derivable from the PreparsedQuery: its query_id is the hash of
+            # the statement text alone, so the database that resolved its tables
+            # has to come off the row.
+            database=str(row.get("current_database") or ""),
+        )
+        usage_key = _UsageKey(
+            user=str(preparsed.user or ""),
+            bucket=(
+                get_time_bucket(preparsed.timestamp, self.config.bucket_duration)
+                if preparsed.timestamp
                 else None
             ),
         )
