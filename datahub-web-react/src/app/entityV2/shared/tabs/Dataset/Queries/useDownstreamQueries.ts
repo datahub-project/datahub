@@ -13,7 +13,8 @@ import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { useSearchAcrossLineageForQueriesQuery } from '@graphql/query.generated';
 import { Entity, EntityType, LineageDirection, QueryEntity } from '@types';
 
-export default function useDownstreamQueries(filterText: string) {
+/** @param canViewQueries Skips the query rather than waiting on a result the actor can't see. */
+export default function useDownstreamQueries(filterText: string, canViewQueries: boolean) {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const startTimeMillis = useGetDefaultLineageStartTimeMillis();
 
@@ -46,7 +47,7 @@ export default function useDownstreamQueries(filterText: string) {
                 },
             },
         },
-        skip: !baseEntity?.dataset?.urn,
+        skip: !baseEntity?.dataset?.urn || !canViewQueries,
         fetchPolicy: 'cache-first',
     });
 
