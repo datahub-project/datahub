@@ -93,6 +93,12 @@ assert clickhouse_driver
 # "Insert", CREATE TABLE ... AS SELECT is "Create", only a bare read is "Select".
 _SELECT_QUERY_KIND = "Select"
 
+# Separator for the query_log arrays, joined server-side. A newline cannot appear
+# in a ClickHouse identifier unless it is backtick-quoted, and those entries are
+# dropped anyway because they match no table we built a URN for.
+_ARRAY_SEP = "\n"
+_ARRAY_SEP_SQL = "\\n"
+
 # Pseudo-tables ClickHouse reports in system.query_log.tables that are not user
 # data. Shared by the fetch's WHERE clause and the usage fan-out so the two
 # cannot drift apart.
@@ -131,6 +137,10 @@ register_custom_type(custom_types.ip.IPv4, NumberTypeClass)
 register_custom_type(custom_types.ip.IPv6, StringTypeClass)
 register_custom_type(custom_types.common.Map, MapTypeClass)
 register_custom_type(custom_types.common.Tuple, UnionTypeClass)
+
+
+def _split_joined(value: Optional[str]) -> List[str]:
+    return [part for part in (value or "").split(_ARRAY_SEP) if part]
 
 
 def _is_valid_username(value: str) -> bool:
@@ -769,9 +779,13 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             query_kinds.append(f"'{_SELECT_QUERY_KIND}'")
         query_kinds_clause = ", ".join(query_kinds)
 
-        # Only the usage path reads these arrays, so do not ship them otherwise.
+        # Only the usage path reads these, so do not ship them otherwise. Joined
+        # server-side because the HTTP driver hands arrays back as their printed
+        # form ("['db.t']") rather than a list, and under a different alias
+        # because a projection named `tables` shadows the real column in WHERE.
         usage_columns = (
-            ",\n    tables,\n    columns"
+            f",\n    arrayStringConcat(tables, '{_ARRAY_SEP_SQL}')  AS tables_joined"
+            f",\n    arrayStringConcat(columns, '{_ARRAY_SEP_SQL}') AS columns_joined"
             if self.config.include_usage_statistics
             else ""
         )
@@ -939,7 +953,7 @@ ORDER BY event_time ASC
             # name this two-tier source uses.
             urn_by_dataset_name = {
                 dataset_name: self._dataset_urn(dataset_name)
-                for dataset_name in row.get("tables") or []
+                for dataset_name in _split_joined(row.get("tables_joined"))
                 if not dataset_name.startswith(_NON_USER_TABLE_PREFIXES)
             }
             if not urn_by_dataset_name:
@@ -950,7 +964,7 @@ ORDER BY event_time ASC
             # And columns as db.table.column, so everything up to the last dot is
             # the dataset name above.
             column_usage: Dict[str, Set[str]] = defaultdict(set)
-            for qualified_column in row.get("columns") or []:
+            for qualified_column in _split_joined(row.get("columns_joined")):
                 dataset_name, _, column = qualified_column.rpartition(".")
                 urn = urn_by_dataset_name.get(dataset_name)
                 if urn:

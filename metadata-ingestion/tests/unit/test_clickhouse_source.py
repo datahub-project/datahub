@@ -568,7 +568,6 @@ def _select_row(
     day: int = 14,
     tables: Tuple[str, ...] = ("my_db.raw_events",),
     columns: Tuple[str, ...] = ("my_db.raw_events.col_a",),
-    occurrences: int = 1,
 ) -> _FakeRow:
     return _FakeRow(
         {
@@ -579,9 +578,10 @@ def _select_row(
             "event_time": datetime(2020, 4, day, 6, 0, 0, tzinfo=timezone.utc),
             "current_database": database,
             "normalized_query_hash": hash_value,
-            "tables": list(tables),
-            "columns": list(columns),
-            "occurrences": occurrences,
+            # Joined, as the fetch asks ClickHouse to return them - the HTTP
+            # driver does not hand arrays back as lists.
+            "tables_joined": "\n".join(tables),
+            "columns_joined": "\n".join(columns),
         }
     )
 
@@ -767,4 +767,5 @@ def test_query_log_query_fetches_selects_only_for_usage():
     )
     sql = with_usage._build_query_log_query()
     assert "'Select'" in sql
-    assert "columns" in sql
+    # Joined server-side: the HTTP driver returns arrays as their printed form.
+    assert "arrayStringConcat(columns" in sql
