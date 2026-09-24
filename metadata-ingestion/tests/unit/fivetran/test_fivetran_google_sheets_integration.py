@@ -22,6 +22,7 @@ from datahub.ingestion.source.fivetran.response_models import (
     FivetranConnectionConfig,
     FivetranConnectionDetails,
 )
+from datahub.sdk.dataset import Dataset
 
 
 @pytest.fixture
@@ -131,7 +132,7 @@ class TestFivetranGoogleSheetsIntegration:
         gsheets_datasets = [
             wu
             for wu in workunits
-            if hasattr(wu, "platform")
+            if isinstance(wu, Dataset)
             and str(wu.platform)
             == f"urn:li:dataPlatform:{Constant.GOOGLE_SHEETS_CONNECTOR_TYPE}"
         ]
