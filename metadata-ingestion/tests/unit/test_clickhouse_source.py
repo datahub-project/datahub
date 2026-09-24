@@ -741,6 +741,34 @@ def test_operation_reports_the_newest_execution(monkeypatch):
     )
 
 
+def test_report_subclass_stays_wired_to_subsystems():
+    # The base class wires classification_handler and sql_aggregator to the
+    # report it builds in __init__. Swapping in a subclass afterwards sends
+    # their stats to a discarded object unless they are re-pointed.
+    source = ClickHouseSource(
+        ClickHouseConfig.model_validate({"host_port": "localhost:8123"}),
+        PipelineContext(run_id="test"),
+    )
+
+    assert source.report.sql_aggregator is source.aggregator.report
+    assert source.classification_handler.report is source.report
+
+
+def test_query_log_aggregator_report_is_attached():
+    # The base report's sql_aggregator holds the view-lineage aggregator. The
+    # query-log path runs a second one, whose parse failures and observed-query
+    # counts otherwise surface nowhere.
+    source = ClickHouseSource(
+        ClickHouseConfig.model_validate(
+            {"host_port": "localhost:8123", "include_query_log_lineage": True}
+        ),
+        PipelineContext(run_id="test"),
+    )
+
+    assert source._query_log_aggregator is not None
+    assert source.report.query_log_aggregator is source._query_log_aggregator.report
+
+
 def test_query_log_respects_database_pattern(monkeypatch):
     # The query log names every database on the instance, not just the ones this
     # recipe ingests. Without the filter, excluded databases become datasets.

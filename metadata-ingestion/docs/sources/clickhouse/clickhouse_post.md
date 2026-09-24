@@ -11,13 +11,17 @@ Enable query-log based metadata extraction to augment definition-based lineage:
 
 This complements view/materialized-view lineage and improves operational usage visibility.
 
-Usage is read from the `tables` and `columns` that ClickHouse itself resolved for each query,
-rather than from parsing the SQL. Two consequences:
+Usage from `SELECT` queries is read from the `tables` and `columns` that ClickHouse itself
+resolved, rather than from parsing the SQL. Two consequences:
 
-- Column counts cover every column the query touched, including ones used only in `WHERE`,
+- Column counts cover every column the `SELECT` touched, including ones used only in `WHERE`,
   `JOIN` or `GROUP BY`, and the expansion of `SELECT *`.
 - A read through a view is counted against the view **and** its underlying tables, because
   ClickHouse reports both.
+
+Usage attributed to `INSERT`/`CREATE` queries still comes from SQL parsing, so it covers only
+columns that contribute to the written output — a column read solely in an `INSERT ... SELECT`'s
+`WHERE` clause is not counted.
 
 ### Limitations
 

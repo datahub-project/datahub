@@ -84,6 +84,7 @@ from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     PreparsedQuery,
+    SqlAggregatorReport,
     SqlParsingAggregator,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
@@ -599,6 +600,9 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 @dataclass
 class ClickHouseSourceReport(SQLSourceReport):
+    # The base SQLSourceReport.sql_aggregator holds the view-lineage aggregator;
+    # the query-log path runs a second one of its own.
+    query_log_aggregator: Optional[SqlAggregatorReport] = None
     query_log_usage_reads: int = 0
     query_log_lineage_rows: int = 0
     query_log_queries_parsed: int = 0
@@ -647,6 +651,11 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
     def __init__(self, config: ClickHouseConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "clickhouse")
         self.report: ClickHouseSourceReport = ClickHouseSourceReport()
+        # The base class wired both of these to the report it created in
+        # super().__init__(), so re-point them at ours or their stats land on a
+        # discarded object.
+        self.classification_handler.report = self.report
+        self.report.sql_aggregator = self.aggregator.report
         self._lineage_map: Optional[Dict[str, LineageItem]] = None
         self._all_tables_set: Optional[Set[str]] = None
         self._query_log_aggregator: Optional[SqlParsingAggregator] = None
@@ -768,6 +777,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             is_allowed_table=self.config.is_allowed_table,
             format_queries=False,
         )
+        self.report.query_log_aggregator = self._query_log_aggregator.report
 
     def _get_query_log_time_window(self) -> Tuple[datetime, datetime]:
         """Get the time window for query log extraction."""
@@ -1013,7 +1023,8 @@ ORDER BY event_time ASC
         except Exception as e:
             self.report.warning(
                 "Failed to read usage from query log row",
-                context=f"query_id={row.get('query_id', 'unknown')}: {e}",
+                context=f"query_id={row.get('query_id', 'unknown')}",
+                exc=e,
             )
             return None
 
@@ -1046,7 +1057,8 @@ ORDER BY event_time ASC
         except Exception as e:
             self.report.warning(
                 "Failed to parse query log row",
-                context=f"query_id={row.get('query_id', 'unknown')}: {e}",
+                context=f"query_id={row.get('query_id', 'unknown')}",
+                exc=e,
             )
             return None
 
