@@ -501,7 +501,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     : new Time.Builder()
                         .time(searchRequest.scroll().keepAlive().getStringRep())
                         .build())
-            .size(Math.max(0, searchSourceBuilder.size()))
+            // An unset size (-1) means the engine default, as on OpenSearch; sending 0 would
+            // return no hits to callers that never set one.
+            .size(searchSourceBuilder.size() < 0 ? null : searchSourceBuilder.size())
             .highlight(highlight)
             .trackTotalHits(
                 searchSourceBuilder.trackTotalHitsUpTo() == null
