@@ -155,6 +155,30 @@ class UnityCatalogSQLAlchemyProfilerConfig(UnityCatalogProfilerConfig, Profiling
         return values
 
 
+class GovernanceDQConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="Publish in-house DQ governance tables as assertions.",
+    )
+    rules_table: Optional[str] = Field(
+        default=None,
+        description="Fully-qualified `catalog.schema.table` rule-definition table. Required when `enabled` is true.",
+    )
+    results_table: Optional[str] = Field(
+        default=None,
+        description="Fully-qualified `catalog.schema.table` rule-result table. Required when `enabled` is true.",
+    )
+
+    @model_validator(mode="after")
+    def _tables_required_when_enabled(self) -> "GovernanceDQConfig":
+        if self.enabled and not (self.rules_table and self.results_table):
+            raise ValueError(
+                "governance_dq.rules_table and governance_dq.results_table are "
+                "both required when governance_dq.enabled is true."
+            )
+        return self
+
+
 class FederationConnectionDetail(ConfigModel):
     platform: Optional[str] = pydantic.Field(
         default=None,
@@ -557,6 +581,11 @@ class UnityCatalogSourceConfig(
     workspace_name: Optional[str] = pydantic.Field(
         default=None,
         description="Name of the workspace. Default to deployment name present in workspace_url",
+    )
+
+    governance_dq: GovernanceDQConfig = Field(
+        default_factory=GovernanceDQConfig,
+        description="Publish rows from in-house DQ governance tables as DataHub assertions.",
     )
 
     def __init__(self, **data):
