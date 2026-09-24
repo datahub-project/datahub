@@ -937,10 +937,12 @@ ORDER BY event_time ASC
         query = self._build_query_log_query()
         logger.info("Fetching query log from ClickHouse")
 
+        lineage_queries: _DeduplicatedQueries[ObservedQuery] = _DeduplicatedQueries()
+        usage_queries: _DeduplicatedQueries[PreparsedQuery] = _DeduplicatedQueries()
+        num_lineage = 0
+        num_usage = 0
         try:
-            with engine.connect() as conn:
-                result = conn.execute(text(query))
-                rows = list(result)
+            connection = engine.connect()
         except Exception as e:
             self.report.failure(
                 message="Failed to fetch query log",
@@ -949,47 +951,69 @@ ORDER BY event_time ASC
             )
             return
 
-        lineage_queries: _DeduplicatedQueries[ObservedQuery] = _DeduplicatedQueries()
-        usage_queries: _DeduplicatedQueries[PreparsedQuery] = _DeduplicatedQueries()
-        num_lineage = 0
-        num_usage = 0
-        for row in rows:
-            row_dict = dict(row._mapping)
+        with connection as conn:
+            try:
+                result = conn.execute(text(query))
+            except Exception as e:
+                self.report.failure(
+                    message="Failed to fetch query log",
+                    context="query_log_extraction",
+                    exc=e,
+                )
+                return
 
-            # A Select can only produce usage, and ClickHouse already resolved the
-            # tables and columns it read - so it never needs the parser.
-            if row_dict.get("query_kind") == _SELECT_QUERY_KIND:
-                preparsed = self._usage_row_to_preparsed(row_dict)
-                if preparsed:
-                    num_usage += 1
-                    usage_queries.add(
-                        self._group_keys(
-                            query_hash=preparsed.query_id,
-                            # Not on the PreparsedQuery: its query_id is the hash
-                            # of the statement text alone, so the database that
-                            # resolved its tables has to come off the row.
-                            database=row_dict.get("current_database"),
-                            user=preparsed.user,
-                            timestamp=preparsed.timestamp,
-                        ),
-                        preparsed,
+            # Rows are streamed, not materialized, so the fetch is still in flight
+            # here: a timeout or dropped connection can surface on cursor advance.
+            rows = iter(result)
+            while True:
+                try:
+                    row = next(rows)
+                except StopIteration:
+                    break
+                except Exception as e:
+                    self.report.failure(
+                        message="Failed to fetch query log",
+                        context="query_log_extraction",
+                        exc=e,
                     )
-                continue
+                    return
 
-            observed = self._parse_query_log_row(row_dict)
-            if not observed:
-                continue
+                row_dict = dict(row._mapping)
 
-            num_lineage += 1
-            lineage_queries.add(
-                self._group_keys(
-                    query_hash=observed.query_hash,
-                    database=observed.default_schema,
-                    user=observed.user,
-                    timestamp=observed.timestamp,
-                ),
-                observed,
-            )
+                # A Select can only produce usage, and ClickHouse already resolved
+                # the tables and columns it read, so it never needs the parser.
+                if row_dict.get("query_kind") == _SELECT_QUERY_KIND:
+                    preparsed = self._usage_row_to_preparsed(row_dict)
+                    if preparsed:
+                        num_usage += 1
+                        usage_queries.add(
+                            self._group_keys(
+                                query_hash=preparsed.query_id,
+                                # Not on the PreparsedQuery: its query_id is the hash
+                                # of the statement text alone, so the database that
+                                # resolved its tables has to come off the row.
+                                database=row_dict.get("current_database"),
+                                user=preparsed.user,
+                                timestamp=preparsed.timestamp,
+                            ),
+                            preparsed,
+                        )
+                    continue
+
+                observed = self._parse_query_log_row(row_dict)
+                if not observed:
+                    continue
+
+                num_lineage += 1
+                lineage_queries.add(
+                    self._group_keys(
+                        query_hash=observed.query_hash,
+                        database=observed.default_schema,
+                        user=observed.user,
+                        timestamp=observed.timestamp,
+                    ),
+                    observed,
+                )
 
         for usage_group in usage_queries.grouped_by_query():
             for usage_record in usage_group:
