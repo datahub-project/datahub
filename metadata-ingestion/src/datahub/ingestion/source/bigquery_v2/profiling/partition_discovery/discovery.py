@@ -630,14 +630,17 @@ class PartitionDiscovery:
             if (
                 moment is not None
                 and col_type.upper() == "DATETIME"
-                and moment.tzinfo is not None
+                and moment.utcoffset()
             ):
                 # BigQuery DATETIME is timezone-naive; only TIMESTAMP is UTC-normalized in
-                # create_partition_datetime_filter, so an offset-bearing DATETIME literal
-                # would have its offset silently dropped and floor the wrong wall clock
-                # (possibly the wrong partition). Reject it here (as create_safe_filter's
-                # _format_date_value does) regardless of whether it came from a datetime
-                # object or a parsed string, so every caller agrees on the rule.
+                # create_partition_datetime_filter, so a *non-zero* offset would be
+                # silently dropped and floor the wrong wall clock (possibly the wrong
+                # partition). Reject that (as create_safe_filter's _format_date_value
+                # does), for a datetime object or a parsed string alike. A UTC (+00:00) or
+                # naive moment is left intact — dropping a zero offset is a no-op, so the
+                # internal UTC-aware fallback_date / strategic candidate dates still widen
+                # instead of degrading to a full scan. utcoffset() is None for naive and
+                # timedelta(0) for UTC (both falsy); only a real offset is truthy.
                 moment = None
             if moment is not None:
                 return FilterBuilder.create_partition_datetime_filter(
