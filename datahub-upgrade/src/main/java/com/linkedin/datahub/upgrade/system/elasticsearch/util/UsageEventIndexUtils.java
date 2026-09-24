@@ -1,14 +1,20 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.client.GetAliasesResponse;
+import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -27,6 +33,17 @@ import org.opensearch.common.xcontent.XContentType;
  */
 @Slf4j
 public class UsageEventIndexUtils {
+
+  // Outside the PREFIXdatahub_usage_event* template patterns, so no template applies to backups.
+  private static final String LEGACY_BACKUP_INFIX = "legacy_datahub_usage_event_";
+  private static final Duration BACKFILL_POLL_INTERVAL = Duration.ofSeconds(2);
+  private static final Duration BACKFILL_TIMEOUT = Duration.ofMinutes(30);
+  // Data streams reject events without @timestamp. Older events may only carry timestamp; events
+  // with neither cannot be placed in any time range, so they are dropped.
+  private static final String BACKFILL_SCRIPT =
+      "if (ctx._source['@timestamp'] == null) {"
+          + " if (ctx._source['timestamp'] == null) { ctx.op = 'noop' }"
+          + " else { ctx._source['@timestamp'] = ctx._source['timestamp'] } }";
 
   /**
    * Creates an Index Lifecycle Management (ILM) policy for Elasticsearch usage events.
@@ -716,6 +733,228 @@ public class UsageEventIndexUtils {
         throw e;
       }
     }
+  }
+
+  /**
+   * Moves a usage event index that was auto-created before its index template existed onto the
+   * layout the template defines: a data stream on Elasticsearch, a rollover alias over numbered
+   * indices on OpenSearch.
+   *
+   * <p>A usage event written while the template is missing creates a concrete index with the data
+   * stream or alias name and dynamic mappings: {@code type} becomes {@code text}, so sorting and
+   * term filters on it fail, and the managed layout can never be created next to it.
+   *
+   * <p>The index is write-blocked, cloned to a {@code <prefix>legacy_datahub_usage_event_<millis>}
+   * backup, and replaced by the managed layout, then its events are reindexed back in. Usage events
+   * written during the few seconds the block is in place are rejected. A backup is deleted once
+   * every event in it is accounted for, and kept otherwise; backups left by an earlier run are
+   * backfilled again, so an interrupted migration completes on the next run.
+   *
+   * @param prefix the index prefix (e.g., "prod_")
+   * @param useOpenSearch whether to build the OpenSearch layout instead of a data stream
+   */
+  public static void migrateLegacyUsageEventIndex(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String prefix,
+      boolean useOpenSearch)
+      throws IOException, InterruptedException {
+    String indexName = prefix + "datahub_usage_event";
+    if (resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
+      String backupName = prefix + LEGACY_BACKUP_INFIX + System.currentTimeMillis();
+      log.warn(
+          "Usage event index {} was created without its index template; moving it to {} and"
+              + " recreating it from the template",
+          indexName,
+          backupName);
+      setWriteBlock(opContext, esComponents, indexName, true);
+      try {
+        IndexUtils.performPostRequest(
+            opContext, esComponents, "/" + indexName + "/_clone/" + backupName, "{}");
+        if (useOpenSearch) {
+          replaceWithRolloverAlias(opContext, esComponents, indexName);
+        } else {
+          deleteIndex(opContext, esComponents, indexName);
+          createDataStream(opContext, esComponents, indexName);
+        }
+      } catch (IOException e) {
+        try {
+          if (resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
+            setWriteBlock(opContext, esComponents, indexName, false);
+          }
+        } catch (IOException unblockFailure) {
+          e.addSuppressed(unblockFailure);
+        }
+        throw e;
+      }
+    }
+    for (String backupName :
+        resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*")) {
+      backfillFromBackup(opContext, esComponents, backupName, indexName);
+    }
+  }
+
+  private static void replaceWithRolloverAlias(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String aliasName)
+      throws IOException {
+    String firstIndex = aliasName + "-000001";
+    if (!resolveIndices(opContext, esComponents, firstIndex).contains(firstIndex)) {
+      IndexUtils.performPutRequest(opContext, esComponents, "/" + firstIndex, "{}");
+    }
+    // One cluster state update, so no usage event write can recreate a bare index in between.
+    IndexUtils.performPostRequest(
+        opContext,
+        esComponents,
+        "/_aliases",
+        String.format(
+            "{\"actions\":[{\"add\":{\"index\":\"%s\",\"alias\":\"%s\",\"is_write_index\":true}},"
+                + "{\"remove_index\":{\"index\":\"%s\"}}]}",
+            firstIndex, aliasName, aliasName));
+  }
+
+  private static void backfillFromBackup(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String backupName,
+      String indexName)
+      throws IOException, InterruptedException {
+    long expected =
+        readJson(
+                opContext,
+                IndexUtils.performGetRequest(opContext, esComponents, "/" + backupName + "/_count"))
+            .path("count")
+            .asLong();
+    String reindex =
+        String.format(
+            "{\"conflicts\":\"proceed\",\"source\":{\"index\":\"%s\"},"
+                + "\"dest\":{\"index\":\"%s\",\"op_type\":\"create\"},"
+                + "\"script\":{\"lang\":\"painless\",\"source\":\"%s\"}}",
+            backupName, indexName, BACKFILL_SCRIPT);
+    String taskId =
+        readJson(
+                opContext,
+                IndexUtils.performPostRequest(
+                    opContext, esComponents, "/_reindex?wait_for_completion=false", reindex))
+            .path("task")
+            .asText();
+    JsonNode task = waitForTask(opContext, esComponents, taskId);
+    if (task == null) {
+      log.error(
+          "Backfill of usage events from {} into {} (task {}) did not finish within {}; keeping"
+              + " {} so the next run completes it",
+          backupName,
+          indexName,
+          taskId,
+          BACKFILL_TIMEOUT,
+          backupName);
+      return;
+    }
+    JsonNode result = task.path("response");
+    long total = result.path("total").asLong();
+    long created = result.path("created").asLong();
+    long present = result.path("version_conflicts").asLong();
+    long dropped = result.path("noops").asLong();
+    JsonNode failures = result.path("failures");
+    if (task.has("error")
+        || !failures.isEmpty()
+        || total != expected
+        || created + present + dropped != total) {
+      log.error(
+          "Backfill of usage events from {} into {} is incomplete: {} of {} copied, first error:"
+              + " {}. Keeping {} so the next run retries it",
+          backupName,
+          indexName,
+          created + present,
+          expected,
+          task.has("error") ? task.path("error") : failures.path(0),
+          backupName);
+      return;
+    }
+    deleteIndex(opContext, esComponents, backupName);
+    log.info(
+        "Backfilled {} usage events from {} into {} ({} already present, {} without a timestamp"
+            + " dropped) and deleted {}",
+        created,
+        backupName,
+        indexName,
+        present,
+        dropped,
+        backupName);
+  }
+
+  @Nullable
+  private static JsonNode waitForTask(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String taskId)
+      throws IOException, InterruptedException {
+    long deadline = System.currentTimeMillis() + BACKFILL_TIMEOUT.toMillis();
+    while (true) {
+      JsonNode task =
+          readJson(
+              opContext,
+              esComponents
+                  .getSearchClient()
+                  .performLowLevelRequest(opContext, new Request("GET", "/_tasks/" + taskId)));
+      if (task.path("completed").asBoolean()) {
+        return task;
+      }
+      if (System.currentTimeMillis() >= deadline) {
+        return null;
+      }
+      Thread.sleep(BACKFILL_POLL_INTERVAL.toMillis());
+    }
+  }
+
+  /** Concrete indices matching the expression; aliases and data streams are not included. */
+  private static List<String> resolveIndices(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String expression)
+      throws IOException {
+    Request request = new Request("GET", "/_resolve/index/" + expression);
+    // Elasticsearch answers a missing name with 404, OpenSearch with an empty result.
+    request.addParameter("ignore", "404");
+    RawResponse response =
+        esComponents.getSearchClient().performLowLevelRequest(opContext, request);
+    List<String> names = new ArrayList<>();
+    if (response.getStatusLine().getStatusCode() != 404) {
+      readJson(opContext, response)
+          .path("indices")
+          .forEach(index -> names.add(index.path("name").asText()));
+    }
+    return names;
+  }
+
+  private static void setWriteBlock(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String indexName,
+      boolean blocked)
+      throws IOException {
+    IndexUtils.performPutRequest(
+        opContext,
+        esComponents,
+        "/" + indexName + "/_settings",
+        String.format("{\"%s\":%s}", IndexUtils.INDEX_BLOCKS_WRITE_SETTING, blocked));
+  }
+
+  private static void deleteIndex(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String indexName)
+      throws IOException {
+    log.info("DELETE => /{}", indexName);
+    esComponents
+        .getSearchClient()
+        .performLowLevelRequest(opContext, new Request("DELETE", "/" + indexName));
+  }
+
+  private static JsonNode readJson(OperationContext opContext, RawResponse response)
+      throws IOException {
+    return opContext.getObjectMapper().readTree(response.getEntity().getContent());
   }
 
   /**

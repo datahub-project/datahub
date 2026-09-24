@@ -19,6 +19,9 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class CreateUsageEventIndicesStep implements UpgradeStep {
+  private static final String SKIP_LEGACY_INDEX_MIGRATION_ENV =
+      "SKIP_LEGACY_USAGE_EVENT_INDEX_MIGRATION";
+
   private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents;
   private final ConfigurationProvider configurationProvider;
   @Nullable private final SearchClusterRegistry searchClusterRegistry;
@@ -129,6 +132,7 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
         numShards,
         numReplicas,
         prefix);
+    migrateLegacyIndex(cluster, operationContext, prefix, false);
     UsageEventIndexUtils.createDataStream(operationContext, cluster, prefixedDataStream);
   }
 
@@ -153,6 +157,7 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
       log.info("Creating index template: {}", prefixedTemplate);
       UsageEventIndexUtils.createOpenSearchIndexTemplate(
           operationContext, cluster, prefixedTemplate, numShards, numReplicas, prefix);
+      migrateLegacyIndex(cluster, operationContext, prefix, true);
       log.info("Creating initial index: {} with alias: {}", prefixedIndex, prefixedAlias);
       UsageEventIndexUtils.createOpenSearchUsageEventIndex(
           operationContext, cluster, prefixedIndex, prefixedAlias);
@@ -160,6 +165,33 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
       log.warn(
           "ISM policy creation failed or is not supported. Skipping template and index creation to avoid configuration issues.");
       log.info("Usage event tracking will not be available without proper policy configuration.");
+    }
+  }
+
+  private static void migrateLegacyIndex(
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents cluster,
+      OperationContext operationContext,
+      String prefix,
+      boolean useOpenSearch) {
+    if (EnvironmentUtils.getBoolean(SKIP_LEGACY_INDEX_MIGRATION_ENV, false)) {
+      log.info(
+          "Environment variable {} is set to true. Skipping legacy usage event index migration.",
+          SKIP_LEGACY_INDEX_MIGRATION_ENV);
+      return;
+    }
+    try {
+      UsageEventIndexUtils.migrateLegacyUsageEventIndex(
+          operationContext, cluster, prefix, useOpenSearch);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.error("Interrupted while migrating the legacy usage event index for '{}'", prefix, e);
+    } catch (Exception e) {
+      // Usage events only back analytics, so leave the index as it is and continue the setup.
+      log.error(
+          "Failed to migrate the legacy usage event index for '{}'; audit event search and"
+              + " event type analytics stay broken for it until a later run migrates it",
+          prefix,
+          e);
     }
   }
 }

@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Function;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -125,6 +127,8 @@ public class CreateUsageEventIndicesStepTest {
               }
             });
 
+    Mockito.when(rawResponse.getEntity())
+        .thenReturn(new StringEntity("{}", ContentType.APPLICATION_JSON));
     Mockito.when(
             searchClient.performLowLevelRequest(
                 Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
@@ -682,5 +686,43 @@ public class CreateUsageEventIndicesStepTest {
     Assert.assertEquals(
         convention.getIndexName(upgradeContext.opContext(), "datahub_usage_event"),
         usageIndex.getFinalPrefix() + "datahub_usage_event");
+  }
+
+  @Test
+  public void testExecutable_SkipsLegacyIndexMigrationWhenEnvVarSet() throws Exception {
+    System.setProperty("SKIP_LEGACY_USAGE_EVENT_INDEX_MIGRATION", "true");
+    try {
+      Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+
+      UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+      Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+      Mockito.verify(searchClient, Mockito.never())
+          .performLowLevelRequest(
+              Mockito.any(OperationFingerprint.class),
+              Mockito.argThat(request -> request.getEndpoint().startsWith("/_resolve/index/")));
+    } finally {
+      System.clearProperty("SKIP_LEGACY_USAGE_EVENT_INDEX_MIGRATION");
+    }
+  }
+
+  @Test
+  public void testExecutable_LegacyIndexMigrationFailureDoesNotFailTheStep() throws Exception {
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class),
+                Mockito.argThat(request -> request.getEndpoint().startsWith("/_resolve/index/"))))
+        .thenThrow(new IOException("resolve failed"));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    // The rest of the setup still ran.
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
+            Mockito.argThat(
+                request -> request.getEndpoint().equals("/_data_stream/test_datahub_usage_event")));
   }
 }
