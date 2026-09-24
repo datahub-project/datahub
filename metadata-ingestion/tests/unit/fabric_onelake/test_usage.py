@@ -416,6 +416,38 @@ def test_handle_row_keeps_dml_ddl_and_select(statement_type: str, command: str) 
     assert not report.num_usage_queries_skipped
 
 
+@pytest.mark.parametrize(
+    "statement_type, command",
+    [
+        (
+            "OTHER",
+            "IF OBJECT_ID('dbo.t') IS NOT NULL DROP TABLE dbo.t; "
+            "CREATE TABLE dbo.t AS SELECT id FROM dbo.s",
+        ),
+        ("OTHER", "SET NOCOUNT ON; INSERT INTO dbo.t SELECT id FROM dbo.s"),
+        ("SET", "SET NOCOUNT ON; UPDATE dbo.t SET id = 1"),
+        ("OTHER", "BEGIN TRAN; DELETE FROM dbo.t; COMMIT"),
+        ("OTHER", "IF @full = 1 SELECT id INTO dbo.t_copy FROM dbo.t"),
+    ],
+)
+def test_handle_row_parses_procedural_rows_that_carry_dml(
+    statement_type: str, command: str
+) -> None:
+    """A row led by a procedural keyword but containing DML / CTAS is parsed
+    (the parser extracts lineage from some of these, e.g. the
+    `IF ... DROP TABLE; CREATE TABLE AS SELECT` pattern) rather than skipped."""
+    extractor, aggregator, report = make_extractor()
+    extractor._handle_row(
+        make_row(command=command, statement_type=statement_type),
+        WORKSPACE_ID,
+        ITEM_ID,
+        ITEM_DISPLAY_NAME,
+    )
+
+    aggregator.add_observed_query.assert_called_once()
+    assert "procedural_statement" not in report.num_usage_queries_skipped
+
+
 def _run_extract_with_login(
     config: FabricUsageConfig, login: object
 ) -> tuple[MagicMock, MagicMock, FabricOneLakeSourceReport]:

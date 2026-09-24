@@ -78,14 +78,29 @@ _PROCEDURAL_KEYWORDS = frozenset(
 _LEADING_KEYWORD = re.compile(
     r"^(?:\s|--[^\n]*(?:\n|$)|/\*.*?\*/)*([A-Za-z_]+)", re.DOTALL
 )
+# Statements that can carry table lineage. A row that starts with a procedural
+# keyword but contains one of these (e.g.
+# `IF OBJECT_ID('dbo.t') IS NOT NULL DROP TABLE dbo.t; CREATE TABLE dbo.t AS
+# SELECT ...`, or `SET NOCOUNT ON; INSERT INTO ...`) is still handed to the SQL
+# parser: the parser extracts lineage from some of these, and when it cannot,
+# the row is counted as a parse failure instead of being hidden as procedural.
+_LINEAGE_BEARING = re.compile(
+    r"\b(?:INSERT|UPDATE|DELETE|MERGE|CREATE\s+TABLE|SELECT\b[^;]*?\bINTO)\b",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _is_procedural_statement(command: str, statement_type: Optional[str]) -> bool:
-    """Whether a queryinsights row is a control-of-flow / session statement."""
+    """Whether a queryinsights row is a control-of-flow / session statement
+    with no statement that could carry table lineage."""
     if statement_type and statement_type.strip().upper() in _PROCEDURAL_KEYWORDS:
-        return True
-    match = _LEADING_KEYWORD.match(command)
-    return match is not None and match.group(1).upper() in _PROCEDURAL_KEYWORDS
+        is_procedural = True
+    else:
+        match = _LEADING_KEYWORD.match(command)
+        is_procedural = (
+            match is not None and match.group(1).upper() in _PROCEDURAL_KEYWORDS
+        )
+    return is_procedural and not _LINEAGE_BEARING.search(command)
 
 
 class FabricUsageExtractor:
