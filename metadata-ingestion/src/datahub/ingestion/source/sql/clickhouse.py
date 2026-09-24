@@ -255,15 +255,16 @@ class _DeduplicatedQueries(Generic[_Query]):
             records[usage_key] = _CountedQuery(query=query)
         else:
             counted.execution_count += 1
-            # Keep the latest execution so lastExecutedAt stays accurate.
+            # The newest execution is the one QueryProperties.lastModified and
+            # Operation.lastUpdatedTimestamp should report.
             counted.query.timestamp = query.timestamp
 
     def grouped_by_query(self) -> Iterable[List[_CountedQuery[_Query]]]:
-        """Each query's records together, oldest execution first.
+        """Each query's records together, ordered by their latest execution.
 
-        Together keeps the parser's cache warm; oldest-first is what the
-        aggregator expects, and records are built in first-execution order
-        while the timestamp each carries is its last.
+        Together keeps the parser's cache warm. The order matters because the
+        aggregator takes the last add() as authoritative, and records are built
+        in order of their first execution, not their last.
         """
         for records in self._by_query.values():
             yield sorted(

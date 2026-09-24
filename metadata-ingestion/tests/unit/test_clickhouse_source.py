@@ -618,9 +618,8 @@ def test_usage_credits_every_table_clickhouse_resolved(monkeypatch):
 
 
 def test_usage_counts_columns_the_parser_would_miss(monkeypatch):
-    # The whole point of using ClickHouse's own column list: a filter-only column
-    # never appears in a parsed SELECT's column lineage, so it used to go
-    # uncounted. Same for the expansion of a star.
+    # ClickHouse's column list covers a filter-only column and the expansion of
+    # a star; a parsed SELECT's column lineage covers neither.
     source = _query_log_source()
     rows = [
         _select_row(
