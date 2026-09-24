@@ -408,6 +408,7 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     num_target_platform_aspect_prefetch_batches: int = 0
     num_target_browse_paths_written: int = 0
     num_target_display_names_set: int = 0
+    num_target_containers_inherited: int = 0
 
     def record_node_failure(
         self,
@@ -3054,6 +3055,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             prefetched_target_platform_aspects = self._prefetch_target_platform_aspects(
                 candidate_urns
             )
+        sibling_containers: Dict[Tuple[Optional[str], Optional[str]], str] = {}
+        if prefetched_target_platform_aspects:
+            sibling_containers = self._learn_sibling_containers(
+                dbt_nodes, prefetched_target_platform_aspects
+            )
 
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
             try:
@@ -3113,7 +3119,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 # these aspects are needed whenever the target URN is referenced,
                 # not only when this source emits the sibling patch itself.
                 yield from self._create_target_platform_instance_workunits(
-                    node, node_datahub_urn, prefetched_target_platform_aspects
+                    node,
+                    node_datahub_urn,
+                    prefetched_target_platform_aspects,
+                    sibling_containers,
                 )
 
                 # This code block is run when we are generating entities of platform type.
@@ -3208,11 +3217,92 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         return result
 
+    def _learn_sibling_containers(
+        self,
+        dbt_nodes: List[DBTNode],
+        prefetched_aspects: Dict[str, _TargetPlatformAspects],
+    ) -> Dict[Tuple[Optional[str], Optional[str]], str]:
+        """Map each manifest (database, schema) to the container the warehouse uses for it.
+
+        Learned by observation rather than derivation. A node the warehouse
+        connector has ingested carries the real container urn, and every other
+        manifest node with the same database and schema belongs in that same
+        container. Reconstructing the container key instead would mean
+        reproducing another platform's key layout and identifier casing, and a
+        near-miss there is what put dbt-only entities in a second Browse folder
+        in the first place (datahub-project/datahub#18539).
+
+        Grouping on the raw manifest values is safe because they are internally
+        consistent: both the ingested node and its uningested neighbours come
+        from the same manifest, so their spelling matches even where it differs
+        from the warehouse's own.
+        """
+        learned: Dict[Tuple[Optional[str], Optional[str]], str] = {}
+        for node in dbt_nodes:
+            if not node.exists_in_target_platform:
+                continue
+            if not self.config.entities_enabled.can_emit_node_type(node.node_type):
+                continue
+            aspects = prefetched_aspects.get(
+                node.get_urn(
+                    self.config.target_platform,
+                    self.config.env,
+                    self.config.target_platform_instance,
+                )
+            )
+            if aspects is None or aspects.container is None:
+                continue
+            learned.setdefault(
+                (node.database, node.schema), aspects.container.container
+            )
+        return learned
+
+    def _inherited_container_urn(
+        self,
+        node: DBTNode,
+        sibling_containers: Dict[Tuple[Optional[str], Optional[str]], str],
+    ) -> Optional[str]:
+        """The container an uningested node should join, or None if nothing is known.
+
+        Prefers a sibling in the same schema. Failing that - a schema the
+        warehouse connector ingested nothing from - falls back to the database
+        container of any known schema in the same database, so the entity lands
+        one level up rather than at the platform instance root.
+
+        Never invents a container: if the warehouse connector has ingested
+        nothing from this database, there is no folder to join and the entity
+        stays where it is.
+        """
+        own_schema = sibling_containers.get((node.database, node.schema))
+        if own_schema is not None:
+            return own_schema
+
+        for (database, _schema), container_urn in sibling_containers.items():
+            if database != node.database:
+                continue
+            parent = self._parent_container_urn(container_urn)
+            if parent is not None:
+                return parent
+        return None
+
+    def _parent_container_urn(self, container_urn: str) -> Optional[str]:
+        """The parent of a container, memoized for the run."""
+        if container_urn in self._container_parent_cache:
+            return self._container_parent_cache[container_urn]
+        graph = self.ctx.graph
+        if graph is None:
+            return None
+        container = graph.get_aspect(container_urn, ContainerClass)
+        parent = container.container if container is not None else None
+        self._container_parent_cache[container_urn] = parent
+        return parent
+
     def _create_target_platform_instance_workunits(
         self,
         node: DBTNode,
         node_datahub_urn: str,
         prefetched_aspects: Optional[Dict[str, _TargetPlatformAspects]],
+        sibling_containers: Dict[Tuple[Optional[str], Optional[str]], str],
     ) -> Iterable[MetadataWorkUnit]:
         """Emit dataPlatformInstance (and, when safe, browsePathsV2) for a target entity.
 
@@ -3260,11 +3350,33 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # and no need to walk the container chain to find that out.
             return
 
+        own_container = entity_aspects.container
+        inherited_container_urn: Optional[str] = None
+        if own_container is None:
+            # The warehouse connector never ingested this table, so it has no
+            # container of its own. If it ingested a neighbour from the same
+            # schema, that neighbour's container is this table's folder too.
+            inherited_container_urn = self._inherited_container_urn(
+                node, sibling_containers
+            )
+            if inherited_container_urn is not None:
+                own_container = ContainerClass(container=inherited_container_urn)
+
         container_entries = self._resolve_container_browse_path_entries(
-            node_datahub_urn, entity_aspects.container
+            node_datahub_urn, own_container
         )
         if container_entries is None:
             return
+
+        if inherited_container_urn is not None:
+            # Browse path alone would only place it in the folder's tree; the
+            # Container aspect is what actually makes it a member, so it shows
+            # in the container's contents and in container-scoped filters.
+            self.report.num_target_containers_inherited += 1
+            yield MetadataChangeProposalWrapper(
+                entityUrn=node_datahub_urn,
+                aspect=ContainerClass(container=inherited_container_urn),
+            ).as_workunit(is_primary_source=False)
 
         path = [
             BrowsePathEntryClass(id=instance_urn, urn=instance_urn)
@@ -3276,11 +3388,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 aspect=BrowsePathsV2Class(path=path),
             ).as_workunit(is_primary_source=False)
 
-        if not container_entries and self.config.emit_target_platform_display_name:
-            # No container means the warehouse connector has not ingested this
-            # entity, so nothing has written datasetProperties for it either and
-            # the UI falls back to the urn's name - the full dotted path rather
-            # than the table name.
+        if (
+            entity_aspects.container is None
+            and self.config.emit_target_platform_display_name
+        ):
+            # No container of its own means the warehouse connector has not
+            # ingested this entity, so nothing has written datasetProperties for
+            # it either and the UI falls back to the urn's name - the full dotted
+            # path rather than the table name. An inherited container places the
+            # entity in a folder but still leaves it unnamed, so this is keyed on
+            # the entity's own container, not on the resolved path.
             yield from self._create_target_display_name_workunits(
                 node,
                 node_datahub_urn,

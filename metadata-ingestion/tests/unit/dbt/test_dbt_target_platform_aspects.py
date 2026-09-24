@@ -112,10 +112,14 @@ def create_dbt_source(
     return DBTCoreSource(DBTCoreConfig(**config), ctx)
 
 
-def create_dbt_node(name: str = "my_table") -> DBTNode:
+def create_dbt_node(
+    name: str = "my_table",
+    database: str = "warehouse_db",
+    schema: str = "warehouse_schema",
+) -> DBTNode:
     return DBTNode(
-        database="warehouse_db",
-        schema="warehouse_schema",
+        database=database,
+        schema=schema,
         name=name,
         alias=None,
         comment="",
@@ -142,6 +146,22 @@ def target_platform_workunit_aspects(source: DBTCoreSource, node: DBTNode) -> Li
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         and wu.metadata.aspect is not None
     ]
+
+
+def aspects_by_urn(source: DBTCoreSource, nodes: List[DBTNode]) -> Dict[str, List]:
+    """Emitted aspects grouped by entity urn, for runs spanning several nodes."""
+    grouped: Dict[str, List] = {}
+    for wu in source.create_target_platform_mces(nodes):
+        mcp = wu.metadata
+        if not isinstance(mcp, MetadataChangeProposalWrapper) or mcp.aspect is None:
+            continue
+        assert mcp.entityUrn is not None
+        grouped.setdefault(mcp.entityUrn, []).append(mcp.aspect)
+    return grouped
+
+
+def urn_for(node: DBTNode) -> str:
+    return node.get_urn("postgres", "PROD", TARGET_INSTANCE)
 
 
 def dataset_properties_patch_ops(source: DBTCoreSource, node: DBTNode) -> List[Dict]:
@@ -519,3 +539,98 @@ def test_no_warning_when_display_name_left_at_default_without_target_platform_in
     with warnings.catch_warnings():
         warnings.simplefilter("error", ConfigurationWarning)
         create_dbt_source(config_overrides={"target_platform_instance": None})
+
+
+def test_stub_inherits_container_from_ingested_sibling() -> None:
+    # The warehouse ingested one table in this schema and not the other. The
+    # ingested one proves where the schema's folder is, so its neighbour joins it
+    # rather than being stranded at the instance root.
+    ingested = create_dbt_node(name="ingested_table")
+    stub = create_dbt_node(name="stub_table")
+    source = create_dbt_source(
+        graph=make_graph(
+            containers={
+                urn_for(ingested): SCHEMA_CONTAINER_URN,
+                SCHEMA_CONTAINER_URN: DB_CONTAINER_URN,
+            }
+        )
+    )
+    grouped = aspects_by_urn(source, [ingested, stub])
+
+    container = get_aspect(grouped[urn_for(stub)], ContainerClass)
+    assert container is not None
+    assert container.container == SCHEMA_CONTAINER_URN
+
+    browse = get_aspect(grouped[urn_for(stub)], BrowsePathsV2Class)
+    assert browse is not None
+    assert browse.path == [
+        BrowsePathEntryClass(id=INSTANCE_URN, urn=INSTANCE_URN),
+        BrowsePathEntryClass(id=DB_CONTAINER_URN, urn=DB_CONTAINER_URN),
+        BrowsePathEntryClass(id=SCHEMA_CONTAINER_URN, urn=SCHEMA_CONTAINER_URN),
+    ]
+    assert source.report.num_target_containers_inherited == 1
+
+
+def test_inherited_stub_still_gets_a_display_name() -> None:
+    # Joining a folder does not name the entity - it still has no
+    # datasetProperties of its own.
+    ingested = create_dbt_node(name="ingested_table")
+    stub = create_dbt_node(name="stub_table")
+    source = create_dbt_source(
+        config_overrides=DISPLAY_NAME_ENABLED,
+        graph=make_graph(containers={urn_for(ingested): SCHEMA_CONTAINER_URN}),
+    )
+    ops: List[Dict] = []
+    for wu in source.create_target_platform_mces([ingested, stub]):
+        mcp = wu.metadata
+        if not isinstance(mcp, MetadataChangeProposalClass):
+            continue
+        if mcp.entityUrn == urn_for(stub) and mcp.aspectName == "datasetProperties":
+            assert mcp.aspect is not None
+            ops.extend(json.loads(mcp.aspect.value))
+
+    assert ops == [{"op": "add", "path": "/name", "value": "stub_table"}]
+
+
+def test_stub_falls_back_to_database_container_when_schema_is_unknown() -> None:
+    # Nothing was ingested from this stub's schema, but the database's folder is
+    # known - so it lands one level up instead of at the instance root.
+    ingested = create_dbt_node(name="ingested_table", schema="other_schema")
+    stub = create_dbt_node(name="stub_table", schema="dbt_only_schema")
+    source = create_dbt_source(
+        graph=make_graph(
+            containers={
+                urn_for(ingested): SCHEMA_CONTAINER_URN,
+                SCHEMA_CONTAINER_URN: DB_CONTAINER_URN,
+            }
+        )
+    )
+    grouped = aspects_by_urn(source, [ingested, stub])
+
+    container = get_aspect(grouped[urn_for(stub)], ContainerClass)
+    assert container is not None
+    assert container.container == DB_CONTAINER_URN
+
+    browse = get_aspect(grouped[urn_for(stub)], BrowsePathsV2Class)
+    assert browse is not None
+    assert browse.path == [
+        BrowsePathEntryClass(id=INSTANCE_URN, urn=INSTANCE_URN),
+        BrowsePathEntryClass(id=DB_CONTAINER_URN, urn=DB_CONTAINER_URN),
+    ]
+
+
+def test_stub_in_an_uningested_database_stays_at_instance_root() -> None:
+    # Nothing in this database was ingested, so there is no folder to join and
+    # none is invented.
+    ingested = create_dbt_node(name="ingested_table", database="known_db")
+    stub = create_dbt_node(name="stub_table", database="dbt_only_db")
+    source = create_dbt_source(
+        graph=make_graph(containers={urn_for(ingested): SCHEMA_CONTAINER_URN})
+    )
+    grouped = aspects_by_urn(source, [ingested, stub])
+
+    assert get_aspect(grouped[urn_for(stub)], ContainerClass) is None
+    browse = get_aspect(grouped[urn_for(stub)], BrowsePathsV2Class)
+    assert browse is not None
+    assert browse.path == [BrowsePathEntryClass(id=INSTANCE_URN, urn=INSTANCE_URN)]
+    assert source.report.num_target_containers_inherited == 0
