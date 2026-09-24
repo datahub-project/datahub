@@ -1,6 +1,7 @@
 package io.datahubproject.openlineage;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -20,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -126,7 +128,7 @@ public class FabricOneLakeRuntimeEventsTest {
   }
 
   private static Set<String> set(String... values) {
-    return new java.util.HashSet<>(Arrays.asList(values));
+    return new HashSet<>(Arrays.asList(values));
   }
 
   /** Suffix of the job name after the flow name, e.g. {@code execute_merge_into_command...}. */
@@ -135,17 +137,7 @@ public class FabricOneLakeRuntimeEventsTest {
     return name.equals(FLOW_NAME) ? "" : name.substring(FLOW_NAME.length() + 1);
   }
 
-  private static final class Expected {
-    final String jobSuffix;
-    final Set<String> inputs;
-    final Set<String> outputs;
-
-    Expected(String jobSuffix, Set<String> inputs, Set<String> outputs) {
-      this.jobSuffix = jobSuffix;
-      this.inputs = inputs;
-      this.outputs = outputs;
-    }
-  }
+  private record Expected(String jobSuffix, Set<String> inputs, Set<String> outputs) {}
 
   private static List<Expected> expected(
       String bronzeCustomers, String bronzeOrders, String silverCustomers, String totals) {
@@ -179,16 +171,17 @@ public class FabricOneLakeRuntimeEventsTest {
     for (int i = 0; i < events.size(); i++) {
       OpenLineage.RunEvent event = events.get(i);
       DatahubJob job = OpenLineageToDataHub.convertRunEventToJob(event, config);
-      assertEquals(jobSuffix(event), expected.get(i).jobSuffix, "event " + i);
-      assertEquals(urns(job.getInSet()), expected.get(i).inputs, "inputs of event " + i);
-      assertEquals(urns(job.getOutSet()), expected.get(i).outputs, "outputs of event " + i);
+      assertEquals(jobSuffix(event), expected.get(i).jobSuffix(), "event " + i);
+      assertEquals(urns(job.getInSet()), expected.get(i).inputs(), "inputs of event " + i);
+      assertEquals(urns(job.getOutSet()), expected.get(i).outputs(), "outputs of event " + i);
 
       // The fabric-onelake source owns these entities' schema; the event's (read) schema must not
       // replace it. The dataset key/status aspects are still materialized.
       for (MetadataChangeProposal mcp : job.toMcps(config)) {
         if (Objects.requireNonNull(mcp.getEntityUrn()).toString().contains("fabric-onelake")) {
-          assertTrue(
-              !"schemaMetadata".equals(mcp.getAspectName()),
+          assertNotEquals(
+              mcp.getAspectName(),
+              "schemaMetadata",
               "event " + i + " emitted schemaMetadata for " + mcp.getEntityUrn());
         }
       }
@@ -242,6 +235,44 @@ public class FabricOneLakeRuntimeEventsTest {
   }
 
   @Test
+  public void testMergeColumnLineageFollowsConnectorLowercasing() throws Exception {
+    // The Fabric OneLake source's convert_urns_to_lowercase lowercases column names (field paths)
+    // too, so column-level lineage must use lowercased fields to attach to the ingested schema.
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
+            .captureColumnLevelLineage(true)
+            .fabricOneLakeEnabled(true)
+            .fabricOneLakeConvertUrnsToLowercase(true)
+            .build();
+    DatahubJob job = OpenLineageToDataHub.convertRunEventToJob(events.get(6), config);
+    DatahubDataset output = job.getOutSet().iterator().next();
+    assertEquals(output.getUrn().toString(), SILVER_CUSTOMERS);
+
+    Map<String, List<String>> fgl = new TreeMap<>();
+    for (FineGrainedLineage entry :
+        Objects.requireNonNull(output.getLineage().getFineGrainedLineages())) {
+      fgl.put(
+          Objects.requireNonNull(entry.getDownstreams()).get(0).toString(),
+          Objects.requireNonNull(entry.getUpstreams()).stream()
+              .map(Urn::toString)
+              .collect(Collectors.toList()));
+    }
+    Map<String, List<String>> expected = new TreeMap<>();
+    expected.put(
+        field(SILVER_CUSTOMERS, "customerid"),
+        List.of(field(BRONZE_CUSTOMERS, "customerid"), field(SILVER_CUSTOMERS, "customerid")));
+    expected.put(
+        field(SILVER_CUSTOMERS, "customername"), List.of(field(BRONZE_CUSTOMERS, "customername")));
+    expected.put(field(SILVER_CUSTOMERS, "region"), List.of(field(BRONZE_CUSTOMERS, "region")));
+    expected.put(
+        field(SILVER_CUSTOMERS, "signupdate"), List.of(field(BRONZE_CUSTOMERS, "signupdate")));
+    assertEquals(fgl, expected);
+  }
+
+  @Test
   public void testCreateTableAsSelectCarriesNoColumnLineage() throws Exception {
     // openlineage-spark 1.26.0 on Fabric emits no columnLineage facet for the
     // atomic_replace_table_as_select events (saveAsTable overwrite and CREATE OR REPLACE TABLE AS
@@ -286,8 +317,8 @@ public class FabricOneLakeRuntimeEventsTest {
     boolean schemaEmitted = false;
     for (int i = 0; i < events.size(); i++) {
       DatahubJob job = OpenLineageToDataHub.convertRunEventToJob(events.get(i), config);
-      assertEquals(urns(job.getInSet()), expected.get(i).inputs, "inputs of event " + i);
-      assertEquals(urns(job.getOutSet()), expected.get(i).outputs, "outputs of event " + i);
+      assertEquals(urns(job.getInSet()), expected.get(i).inputs(), "inputs of event " + i);
+      assertEquals(urns(job.getOutSet()), expected.get(i).outputs(), "outputs of event " + i);
       schemaEmitted |=
           job.toMcps(config).stream().anyMatch(mcp -> "schemaMetadata".equals(mcp.getAspectName()));
     }

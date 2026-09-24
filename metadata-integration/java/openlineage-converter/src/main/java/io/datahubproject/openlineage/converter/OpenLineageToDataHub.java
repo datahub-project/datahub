@@ -75,6 +75,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -219,6 +220,22 @@ public class OpenLineageToDataHub {
    */
   private static boolean isSchemaFromEventAllowed(DatasetUrn urn) {
     return !isFabricOneLakeUrn(urn);
+  }
+
+  /**
+   * The schema field path to use for {@code field} of {@code datasetUrn} in column-level lineage.
+   * The Fabric OneLake source's {@code convert_urns_to_lowercase} lowercases column names (field
+   * paths) as well as schema and table, so fine-grained lineage on fabric-onelake URNs follows it;
+   * otherwise the schemaField URNs would not match the ingested fields.
+   */
+  private static String fieldPath(
+      DatasetUrn datasetUrn, String field, DatahubOpenlineageConfig mappingConfig) {
+    if (field != null
+        && mappingConfig.isFabricOneLakeConvertUrnsToLowercase()
+        && isFabricOneLakeUrn(datasetUrn)) {
+      return field.toLowerCase(Locale.ROOT);
+    }
+    return field;
   }
 
   private static Optional<DatasetUrn> getDatasetUrnFromOlDataset(
@@ -603,7 +620,13 @@ public class OpenLineageToDataHub {
       datasetUrn.ifPresent(
           urn ->
               downstreamsFields.add(
-                  UrnUtils.getUrn("urn:li:schemaField:" + "(" + urn + "," + field.getKey() + ")")));
+                  UrnUtils.getUrn(
+                      "urn:li:schemaField:"
+                          + "("
+                          + urn
+                          + ","
+                          + fieldPath(urn, field.getKey(), mappingConfig)
+                          + ")")));
 
       LinkedHashSet<String> transformationTexts = new LinkedHashSet<>();
       OpenLineage.StaticDatasetBuilder staticDatasetBuilder =
@@ -645,7 +668,7 @@ public class OpenLineageToDataHub {
                               + "("
                               + urn.get()
                               + ","
-                              + inputField.getField()
+                              + fieldPath(urn.get(), inputField.getField(), mappingConfig)
                               + ")");
                   upstreamFields.add(datasetFieldUrn);
                   if (upstreams.stream()

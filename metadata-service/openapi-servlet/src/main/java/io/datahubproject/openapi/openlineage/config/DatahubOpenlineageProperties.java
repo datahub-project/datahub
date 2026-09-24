@@ -34,7 +34,7 @@ public class DatahubOpenlineageProperties {
   // fabric-onelake-* (DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_*), matching the platform name; the
   // converter config uses fabricOneLake*.
   private boolean fabricOnelakeEnabled = false;
-  // Mirrors the fabric-onelake source's convert_urns_to_lowercase (schema + table).
+  // Mirrors the fabric-onelake source's convert_urns_to_lowercase (schema, table and column names).
   private boolean fabricOnelakeConvertUrnsToLowercase = false;
   // Mirrors the fabric-onelake source's platform_instance.
   private String fabricOnelakePlatformInstance;

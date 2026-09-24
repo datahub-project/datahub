@@ -57,7 +57,8 @@ public class DatahubOpenlineageConfig {
   // re-keys lineage for OneLake tables away from the abs / catalog-symlink (hive) URNs emitted
   // before, so it must not change existing users' URNs by default.
   @Builder.Default private final boolean fabricOneLakeEnabled = false;
-  // Mirrors the fabric-onelake source's convert_urns_to_lowercase: lowercases schema and table.
+  // Mirrors the fabric-onelake source's convert_urns_to_lowercase: lowercases schema and table,
+  // and column names in column-level lineage (the source lowercases field paths too).
   // Workspace/item GUIDs are always lowercased (the Fabric REST API returns them lowercase).
   @Builder.Default private final boolean fabricOneLakeConvertUrnsToLowercase = false;
   // Mirrors the fabric-onelake source's platform_instance. Deliberately does not fall back to
