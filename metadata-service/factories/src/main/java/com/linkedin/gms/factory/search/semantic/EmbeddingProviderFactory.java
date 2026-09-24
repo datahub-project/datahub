@@ -444,37 +444,6 @@ public class EmbeddingProviderFactory {
    * <p>Credentials are resolved once via Application Default Credentials, scoped to the Cloud
    * Platform API, and then reused across calls. {@link GoogleCredentials#refreshIfExpired()} is
    * used on each invocation so that tokens are only refreshed when stale — not on every embed call.
-   * private EmbeddingProvider createAiGatewayProvider(EmbeddingProviderConfiguration config) {
-   * EmbeddingProviderConfiguration.AiGatewayConfig aiGatewayConfig = config.getAiGateway();
-   *
-   * <p>if (aiGatewayConfig == null || aiGatewayConfig.getBaseUrl() == null ||
-   * aiGatewayConfig.getBaseUrl().isBlank()) { throw new IllegalStateException(
-   * "embeddingProvider.aiGateway.baseUrl is required when using the ai-gateway embedding
-   * provider"); } if (aiGatewayConfig.getPlatform() == null ||
-   * aiGatewayConfig.getPlatform().isBlank()) { throw new IllegalStateException(
-   * "embeddingProvider.aiGateway.platform is required when using the ai-gateway embedding
-   * provider"); } if (aiGatewayConfig.getModel() == null || aiGatewayConfig.getModel().isBlank()) {
-   * throw new IllegalStateException( "embeddingProvider.aiGateway.model is required when using the
-   * ai-gateway embedding provider"); } if (aiGatewayConfig.getTokenUrl() == null ||
-   * aiGatewayConfig.getTokenUrl().isBlank()) { throw new IllegalStateException(
-   * "embeddingProvider.aiGateway.tokenUrl is required when using the ai-gateway embedding
-   * provider"); } if (aiGatewayConfig.getClientId() == null ||
-   * aiGatewayConfig.getClientId().isBlank()) { throw new IllegalStateException(
-   * "embeddingProvider.aiGateway.clientId is required when using the ai-gateway embedding
-   * provider"); } if (aiGatewayConfig.getClientSecret() == null ||
-   * aiGatewayConfig.getClientSecret().isBlank()) { throw new IllegalStateException( "AI Gateway
-   * client secret is required when using the ai-gateway embedding provider. " + "Set the
-   * AI_GATEWAY_CLIENT_SECRET environment variable or configure
-   * embeddingProvider.aiGateway.clientSecret in application.yaml"); }
-   *
-   * <p>log.info( "Configuring AI Gateway embedding provider: baseUrl={}, platform={}, model={},
-   * dimensions={}", aiGatewayConfig.getBaseUrl(), aiGatewayConfig.getPlatform(),
-   * aiGatewayConfig.getModel(), aiGatewayConfig.getDimensions());
-   *
-   * <p>return new AiGatewayEmbeddingProvider( aiGatewayConfig.getBaseUrl(),
-   * aiGatewayConfig.getPlatform(), aiGatewayConfig.getModel(), aiGatewayConfig.getTokenUrl(),
-   * aiGatewayConfig.getClientId(), aiGatewayConfig.getClientSecret(),
-   * aiGatewayConfig.getDimensions()); }
    *
    * <p>The eager {@code refreshIfExpired()} call at construction time validates the credentials at
    * startup rather than on the first search request, surfacing misconfiguration early.
@@ -507,5 +476,53 @@ public class EmbeddingProviderFactory {
         throw new RuntimeException("Failed to obtain GCP access token", e);
       }
     };
+  }
+
+  private EmbeddingProvider createAiGatewayProvider(EmbeddingProviderConfiguration config) {
+    EmbeddingProviderConfiguration.AiGatewayConfig aiGatewayConfig = config.getAiGateway();
+
+    if (aiGatewayConfig == null
+        || aiGatewayConfig.getBaseUrl() == null
+        || aiGatewayConfig.getBaseUrl().isBlank()) {
+      throw new IllegalStateException(
+          "embeddingProvider.aiGateway.baseUrl is required when using the ai-gateway embedding provider");
+    }
+    if (aiGatewayConfig.getPlatform() == null || aiGatewayConfig.getPlatform().isBlank()) {
+      throw new IllegalStateException(
+          "embeddingProvider.aiGateway.platform is required when using the ai-gateway embedding provider");
+    }
+    if (aiGatewayConfig.getModel() == null || aiGatewayConfig.getModel().isBlank()) {
+      throw new IllegalStateException(
+          "embeddingProvider.aiGateway.model is required when using the ai-gateway embedding provider");
+    }
+    if (aiGatewayConfig.getTokenUrl() == null || aiGatewayConfig.getTokenUrl().isBlank()) {
+      throw new IllegalStateException(
+          "embeddingProvider.aiGateway.tokenUrl is required when using the ai-gateway embedding provider");
+    }
+    if (aiGatewayConfig.getClientId() == null || aiGatewayConfig.getClientId().isBlank()) {
+      throw new IllegalStateException(
+          "embeddingProvider.aiGateway.clientId is required when using the ai-gateway embedding provider");
+    }
+    if (aiGatewayConfig.getClientSecret() == null || aiGatewayConfig.getClientSecret().isBlank()) {
+      throw new IllegalStateException(
+          "AI Gateway client secret is required when using the ai-gateway embedding provider. "
+              + "Set the AI_GATEWAY_CLIENT_SECRET environment variable or configure embeddingProvider.aiGateway.clientSecret in application.yaml");
+    }
+
+    log.info(
+        "Configuring AI Gateway embedding provider: baseUrl={}, platform={}, model={}, dimensions={}",
+        aiGatewayConfig.getBaseUrl(),
+        aiGatewayConfig.getPlatform(),
+        aiGatewayConfig.getModel(),
+        aiGatewayConfig.getDimensions());
+
+    return new AiGatewayEmbeddingProvider(
+        aiGatewayConfig.getBaseUrl(),
+        aiGatewayConfig.getPlatform(),
+        aiGatewayConfig.getModel(),
+        aiGatewayConfig.getTokenUrl(),
+        aiGatewayConfig.getClientId(),
+        aiGatewayConfig.getClientSecret(),
+        aiGatewayConfig.getDimensions());
   }
 }
