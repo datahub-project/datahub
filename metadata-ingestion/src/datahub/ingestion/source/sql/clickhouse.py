@@ -310,6 +310,14 @@ class ClickHouseConfig(
                 return True
         return False
 
+    def is_allowed_table(self, name: str) -> bool:
+        """Whether a db.table named in the query log is in this recipe's scope."""
+        if "." in name:
+            database = name.split(".", 1)[0]
+            if not self.database_pattern.allowed(database):
+                return False
+        return self.table_pattern.allowed(name) or self.view_pattern.allowed(name)
+
     def get_sql_alchemy_url(
         self,
         uri_opts: Optional[Dict[str, Any]] = None,
@@ -746,6 +754,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             ),
             generate_operations=self.config.include_query_log_operations,
             is_temp_table=self.config.is_temp_table,
+            is_allowed_table=self.config.is_allowed_table,
             format_queries=False,
         )
 

@@ -704,6 +704,39 @@ def test_usage_skips_clickhouse_temporary_tables(monkeypatch):
     assert urns == {_RAW_EVENTS}
 
 
+def test_query_log_respects_database_pattern(monkeypatch):
+    # The query log names every database on the instance, not just the ones this
+    # recipe ingests. Without the filter, excluded databases become datasets.
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "include_usage_statistics": True,
+            "database_pattern": {"allow": ["my_db"]},
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-16T00:00:00Z",
+        }
+    )
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+    rows = [
+        _select_row(
+            tables=("my_db.raw_events", "other_db.secret"),
+            columns=("my_db.raw_events.col_a", "other_db.secret.col_s"),
+        ),
+        _insert_row(query_id="i1", database="other_db"),
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    urns = {
+        wu.metadata.entityUrn
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    }
+
+    assert not [u for u in urns if u and "other_db" in u]
+    assert _RAW_EVENTS in urns
+
+
 def test_usage_aggregates_users_and_buckets(monkeypatch):
     source = _query_log_source()
     rows = (
