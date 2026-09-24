@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
 
@@ -84,13 +84,16 @@ class JoinPredicate:
     A side may transform its column (``[A] + 1``, ``Left([A], 3)``), so this is
     key participation, not value equality; ``expression`` keeps each formula.
     Under an outer join the key holds only on matched rows, so consumers score
-    those edges lower. Warehouse-table sides are not pairs.
+    those edges lower. Pairs are element-to-element: a warehouse-table side is
+    read (it is not drift) but not paired, and whether the consumer wants key
+    edges to warehouse tables is its call. Identical predicates in different
+    joins are not deduplicated.
     """
 
     join_element_id: str
     left: SpecColumnRef
     right: SpecColumnRef
-    join_type: str = _INNER_JOIN_TYPE
+    join_type: str
 
     @property
     def is_outer(self) -> bool:
@@ -161,18 +164,17 @@ def _iter_spec_elements(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def _str_or_none(value: Any) -> Optional[str]:
-    return value if isinstance(value, str) and value else None
+    return value if isinstance(value, str) and value.strip() else None
 
 
-def _column_from_expression(
-    expression: str, *, lone_parameter_is_column: bool
-) -> Optional[str]:
-    """The one column a formula references, or None.
+def _column_names(expression: str, *, is_join_side: bool) -> Optional[Set[str]]:
+    """The distinct columns a formula references, or None for a multi-segment
+    ref, which names a relationship or another element rather than a column.
 
     Join sides and union branch columns are formulas, not identifiers:
-    ``[Col A]`` or ``Coalesce([Col A], -2)``. One distinct column is a key even
-    inside a function, and repeating it (``If(IsNull([K]), -1, [K])``) is still
-    one. Two columns, a multi-segment ref, or none is refused.
+    ``[Col A]`` or ``Coalesce([Col A], -2)``. Names are compared exactly, so
+    ``[Key]`` and ``[KEY]`` are two columns; Sigma's case rule is unverified,
+    and two is the reading that claims less.
 
     A ``P_`` ref is a parameter. On a join side a lone ``[P_KEY]`` would mean
     joining on a constant, so there it is read as a column that happens to
@@ -183,10 +185,14 @@ def _column_from_expression(
     if any(ref.column is not None for ref in refs):
         return None
     columns = [ref for ref in refs if not ref.is_parameter]
-    if not columns and lone_parameter_is_column:
+    if not columns and is_join_side:
         columns = refs
-    names = {ref.source for ref in columns}
-    return names.pop() if len(names) == 1 else None
+    return {ref.source for ref in columns}
+
+
+def _one_column(names: Optional[Set[str]]) -> Optional[str]:
+    """A key is one distinct column, even inside a function or repeated."""
+    return next(iter(names)) if names is not None and len(names) == 1 else None
 
 
 def _owner(descriptor: Any) -> Optional[_Owner]:
@@ -220,14 +226,12 @@ def _owner(descriptor: Any) -> Optional[_Owner]:
 
 
 def _column_ref(
-    owner: _Owner, formula: str, *, source_index: Optional[int] = None
-) -> Optional[SpecColumnRef]:
-    # Only join sides lack a source_index.
-    column = _column_from_expression(
-        formula, lone_parameter_is_column=source_index is None
-    )
-    if column is None:
-        return None
+    owner: _Owner,
+    formula: str,
+    column: str,
+    *,
+    source_index: Optional[int] = None,
+) -> SpecColumnRef:
     return SpecColumnRef(
         element_id=owner.element_id,
         column=column,
@@ -285,9 +289,14 @@ def _read_join(join: Any, *, join_element_id: str) -> _JoinRead:
             continue
         if op not in _EQUALITY_OPS:
             continue
-        left = _column_ref(left_owner, entry[_LEFT])
-        right = _column_ref(right_owner, entry[_RIGHT])
-        if left is None or right is None or not left.element_id or not right.element_id:
+        # A literal or composite side is a well-formed predicate, not a key.
+        left_column = _one_column(_column_names(entry[_LEFT], is_join_side=True))
+        right_column = _one_column(_column_names(entry[_RIGHT], is_join_side=True))
+        if left_column is None or right_column is None:
+            continue
+        left = _column_ref(left_owner, entry[_LEFT], left_column)
+        right = _column_ref(right_owner, entry[_RIGHT], right_column)
+        if not left.element_id or not right.element_id:
             continue
         # A self-join on one column is not an edge.
         if (left.element_id, left.data_model_id, left.column) == (
@@ -347,14 +356,20 @@ def _read_union(source: Dict[str, Any], *, union_element_id: str) -> _UnionRead:
             if not isinstance(formula, str):
                 readable = False
                 continue
+            names = _column_names(formula, is_join_side=False)
+            # A branch is a data flow, not a key: several columns or a
+            # relationship ref is a shape this parser cannot map, so it is
+            # reported. No column at all is a branch contributing a constant.
+            if names is None or len(names) > 1:
+                readable = False
+                continue
             owner = owners[position]
-            ref = (
-                _column_ref(owner, formula, source_index=position)
-                if owner is not None
-                else None
-            )
-            if ref is not None:
-                branches.append(ref)
+            if owner is not None and names:
+                branches.append(
+                    _column_ref(
+                        owner, formula, next(iter(names)), source_index=position
+                    )
+                )
         if branches:
             columns.append(
                 UnionOutputColumn(
@@ -391,10 +406,10 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
             continue
         element_id = _str_or_none(element.get(_ID))
         raw_kind = source.get(_KIND)
-        if element_id is None or not isinstance(raw_kind, str) or not raw_kind:
+        kind = raw_kind.strip().lower() if isinstance(raw_kind, str) else ""
+        if element_id is None or not kind:
             index.unrecognised_element_count += 1
             continue
-        kind = raw_kind.strip().lower()
         if kind == _UNION_KIND:
             union = _read_union(source, union_element_id=element_id)
             index.unions.extend(union.columns)

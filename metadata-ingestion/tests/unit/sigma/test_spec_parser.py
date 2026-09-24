@@ -175,6 +175,8 @@ def test_a_side_wrapped_in_a_function_is_still_a_key_equality() -> None:
         ("[A] = [B]", None),
         ("42", None),
         ("[A] = [Other/B]", None),
+        # Compared exactly: Sigma's case rule is unverified, and two claims less.
+        ("If(IsNull([Key]), -1, [KEY])", None),
         ("Coalesce([A], [Rel/B])", None),
         # A lone multi-segment ref names a relationship or element, not a column.
         ("[Rel/B]", None),
@@ -357,7 +359,9 @@ def test_an_empty_joins_list_is_not_unreadable() -> None:
     assert index.unreadable_join_element_ids == []
 
 
-@pytest.mark.parametrize("element_id", ["", 5, True], ids=["empty", "int", "bool"])
+@pytest.mark.parametrize(
+    "element_id", ["", "  ", 5, True], ids=["empty", "blank", "int", "bool"]
+)
 def test_an_element_with_no_string_id_is_counted(element_id: Any) -> None:
     """It cannot be named in a report, but it must not vanish either."""
     source = _join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}]))
@@ -373,6 +377,17 @@ def test_a_renamed_id_key_is_counted_on_every_element() -> None:
     index = parse_data_model_spec(spec)
     assert index.pairs == []
     assert index.unrecognised_element_count == 3
+
+
+@pytest.mark.parametrize(
+    "kind", ["", "  ", None, 3], ids=["empty", "blank", "null", "int"]
+)
+def test_a_source_with_no_usable_kind_is_counted(kind: Any) -> None:
+    source = _join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}]))
+    source["kind"] = kind
+    index = parse_data_model_spec(_spec(source))
+    assert index.pairs == []
+    assert index.unrecognised_element_count == 1
 
 
 def test_a_renamed_kind_key_is_counted() -> None:
@@ -539,6 +554,19 @@ def test_a_cross_model_union_branch_keeps_its_data_model_id() -> None:
     assert [b.data_model_id for b in index.unions[0].branches] == [None, "dm-2"]
 
 
+def test_a_multi_column_branch_is_reported_and_the_rest_still_read() -> None:
+    index = _parse_union(_union([_el("el-a"), _el("el-b")], ["[A] + [B]", "[C]"]))
+    assert _branches(index.unions[0]) == [("el-b", "C")]
+    assert index.unreadable_union_element_ids == ["el-union"]
+
+
+def test_a_constant_branch_is_not_drift() -> None:
+    """A branch can contribute a literal; it names no column to map."""
+    index = _parse_union(_union([_el("el-a"), _el("el-b")], ['"n/a"', "[C]"]))
+    assert _branches(index.unions[0]) == [("el-b", "C")]
+    assert index.unreadable_union_element_ids == []
+
+
 def test_a_lone_parameter_in_a_union_branch_stays_a_parameter() -> None:
     """A branch can contribute a parameter's value; only a join key cannot."""
     index = _parse_union(_union([_el("el-a"), _el("el-b")], ["[P_Region]", "[r]"]))
@@ -597,6 +625,13 @@ def test_a_column_past_the_sources_is_reported_not_reassigned() -> None:
         _union([{"element": "el-a", "kind": "table"}], ["[c-a]"]),
         # A slot that is not a formula.
         _union([_el("el-a")], [{"column": "c-a"}]),
+        _union([_el("el-a")], [0]),
+        _union([_el("el-a")], [False]),
+        _union([_el("el-a")], [[]]),
+        # A branch is a data flow: several columns, or a relationship ref, is a
+        # shape this parser cannot map.
+        _union([_el("el-a")], ['Concat([First], " ", [Last])']),
+        _union([_el("el-a")], ["[Rel/Col]"]),
         {"kind": "union", "sources": [_el("el-a")], "matches": ["junk"]},
         {
             "kind": "union",
@@ -619,6 +654,11 @@ def test_a_column_past_the_sources_is_reported_not_reassigned() -> None:
         "renamed-matches",
         "unknown-branch",
         "non-string-slot",
+        "zero-slot",
+        "false-slot",
+        "list-slot",
+        "two-column-slot",
+        "relationship-slot",
         "non-dict-match",
         "empty-output-name",
         "non-string-output-name",
